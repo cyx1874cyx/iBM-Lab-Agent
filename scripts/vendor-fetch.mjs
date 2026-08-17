@@ -37,6 +37,11 @@ export async function fetchBuffer(url, retries = 4) {
 	for (let i = 0; i < retries; i++) {
 		try {
 			const response = await fetch(url, { redirect: "follow" });
+			if (response.status === 429) {
+				const retryAfter = Number(response.headers.get("retry-after") ?? 2);
+				await new Promise((r) => setTimeout(r, retryAfter * 1000));
+				throw new Error(`GET ${url} -> 429 (rate limited)`);
+			}
 			if (!response.ok) throw new Error(`GET ${url} -> ${response.status}`);
 			const buffer = Buffer.from(await response.arrayBuffer());
 			if (buffer.length === 0) throw new Error(`empty body: ${url}`);
@@ -49,12 +54,18 @@ export async function fetchBuffer(url, retries = 4) {
 	throw lastError;
 }
 
-/** Download a full tree; returns { downloaded, bytes, expected, files }. */
+/**
+ * Download a full tree; returns
+ * { downloaded, bytes, expected, files, skipped: [{ name, error }] }.
+ * Files the CDN cannot serve are recorded in `skipped`, never fatal here —
+ * callers decide (pin-vendor treats any skip as fatal; golden-diff warns).
+ */
 export async function fetchTree(userRepo, sha, destDir, concurrency = 16) {
 	const tree = await fetchJson(TREE_URL(userRepo, sha));
 	const files = tree.files.filter((f) => f.type !== "directory");
 	let downloaded = 0;
 	let bytes = 0;
+	const skipped = [];
 
 	await rm(destDir, { recursive: true, force: true });
 	await mkdir(destDir, { recursive: true });
@@ -64,17 +75,21 @@ export async function fetchTree(userRepo, sha, destDir, concurrency = 16) {
 		while (queue.length > 0) {
 			const file = queue.shift();
 			const target = join(destDir, file.name);
-			await mkdir(dirname(target), { recursive: true });
-			const buffer = await fetchBuffer(FILE_URL(userRepo, sha, file.name));
-			await writeFile(target, buffer);
-			downloaded++;
-			bytes += buffer.length;
+			try {
+				await mkdir(dirname(target), { recursive: true });
+				const buffer = await fetchBuffer(FILE_URL(userRepo, sha, file.name));
+				await writeFile(target, buffer);
+				downloaded++;
+				bytes += buffer.length;
+			} catch (error) {
+				skipped.push({ name: file.name, error: error.message });
+			}
 		}
 	}
 	await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
 
 	const expected = files.reduce((sum, f) => sum + f.size, 0);
-	return { downloaded, bytes, expected, files };
+	return { downloaded, bytes, expected, files, skipped };
 }
 
 async function main() {
@@ -89,6 +104,10 @@ async function main() {
 	console.log(`fetching tree ${userRepo}@${sha.slice(0, 12)} (jsdelivr)`);
 	const result = await fetchTree(userRepo, sha, dest, concurrency);
 	console.log(`downloaded ${result.downloaded}/${result.files.length} files, ${(result.bytes / 1048576).toFixed(1)} MB (tree expects ${(result.expected / 1048576).toFixed(1)} MB)`);
+	if (result.skipped.length > 0) {
+		console.error(`WARNING: ${result.skipped.length} file(s) unavailable from the CDN (first: ${result.skipped[0].name} — ${result.skipped[0].error})`);
+		process.exit(1);
+	}
 	if (result.downloaded !== result.files.length || result.bytes !== result.expected) {
 		console.error("WARNING: download does not match the jsdelivr tree exactly");
 		process.exit(1);

@@ -164,7 +164,7 @@ async function main() {
 		} catch (error) {
 			console.warn(`python venv bootstrap failed: ${error.message}`);
 			if (flags.has("--strict")) throw error;
-			console.warn("continuing (use --strict to fail the install); run later with: node scripts/install.mjs --skip-vendor");
+			console.warn("continuing (use --strict to fail the install); retry later with: node scripts/install.mjs --skip-python 已建部分 + 手动 pip install -r <lock>");
 		}
 	}
 

@@ -59,6 +59,13 @@ export async function preflight({ venvDir, lockFile, platform = process.platform
 	return { venvDir, python, lockFile, lockExists, venvExists, lockHash, ok: issues.length === 0, issues };
 }
 
+/** Parse 'Python 3.11.9' → [3, 11]. */
+export function parsePythonVersion(text) {
+	const match = /Python\s+(\d+)\.(\d+)/.exec(text);
+	if (!match) return undefined;
+	return [Number(match[1]), Number(match[2])];
+}
+
 /**
  * Create the venv and install the pinned lock. Idempotent-ish: a venv whose
  * lock hash differs is reinstalled (pip install -r is incremental).
@@ -68,11 +75,39 @@ export async function bootstrap({ venvDir, lockFile, platform = process.platform
 	if (!state.lockExists) throw new Error(`cannot bootstrap python env: ${state.issues[0]}`);
 
 	const py = systemPythonCommand(platform);
+	const sysVersion = await pythonVersionFrom(py, platform);
+	const parsed = sysVersion ? parsePythonVersion(sysVersion) : undefined;
+	if (parsed && (parsed[0] > 3 || (parsed[0] === 3 && parsed[1] >= 13))) {
+		console.warn(`WARNING: system python ${sysVersion} >= 3.13; the pinned lock targets Python 3.11 ` +
+			"(nature-skills CI environment). Some wheels may not exist for this version — expect possible build failures.");
+	}
+
 	if (!state.venvExists) {
 		await runCommand([...py, "-m", "venv", venvDir], {});
 	}
 	await runCommand([venvPythonPath(venvDir, platform), "-m", "pip", "install", "--disable-pip-version-check", "-r", lockFile], {});
 	return await preflight({ venvDir, lockFile, platform });
+}
+
+/** Run a python command and return its version line ('' when unavailable). */
+async function pythonVersionFrom(args, platform) {
+	try {
+		const child = spawn(args[0], [...args.slice(1), "--version"], {
+			stdio: ["ignore", "pipe", "pipe"],
+			shell: platform === "win32"
+		});
+		let stdout = "";
+		let stderr = "";
+		child.stdout.on("data", (chunk) => (stdout += chunk));
+		child.stderr.on("data", (chunk) => (stderr += chunk));
+		await new Promise((resolve, reject) => {
+			child.on("error", reject);
+			child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error("python --version failed"))));
+		});
+		return (stdout || stderr).trim();
+	} catch {
+		return "";
+	}
 }
 
 /** Report the venv's python version (null when the venv does not exist). */

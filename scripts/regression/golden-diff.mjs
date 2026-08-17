@@ -50,7 +50,10 @@ async function materialize(sha) {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-golden-"));
 	try {
 		const tree = join(dir, "tree");
-		await fetchTree(USER_REPO, sha, tree, 16);
+		const result = await fetchTree(USER_REPO, sha, tree, 16);
+		if (result.skipped.length > 0) {
+			console.warn(`  ! ${sha.slice(0, 12)}: ${result.skipped.length} file(s) unavailable from the CDN (first: ${result.skipped[0].name}); diff proceeds on the available tree`);
+		}
 		return { dir, tree, sha };
 	} catch (error) {
 		await rm(dir, { recursive: true, force: true });

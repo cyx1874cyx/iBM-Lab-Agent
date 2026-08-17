@@ -77,7 +77,13 @@ async function main() {
 		console.log(`vendor tree already at ${resolved.slice(0, 12)}; skipping fetch`);
 	} else {
 		console.log(`materializing ${resolved.slice(0, 12)} (jsdelivr)`);
-		await fetchTree(USER_REPO, resolved, vendor, 16);
+		const result = await fetchTree(USER_REPO, resolved, vendor, 16);
+		if (result.skipped.length > 0) {
+			throw new Error(`pinning requires a COMPLETE tree; ${result.skipped.length} file(s) unavailable from the CDN (first: ${result.skipped[0].name})`);
+		}
+		if (result.downloaded !== result.files.length || result.bytes !== result.expected) {
+			throw new Error(`tree download mismatch (${result.downloaded}/${result.files.length} files, ${result.bytes}/${result.expected} bytes)`);
+		}
 	}
 
 	const skillsRoot = join(vendor, "skills");

@@ -10,7 +10,7 @@
 ## 快速开始
 
 ```bash
-# 0) 依赖：node >= 20、python3（或 Windows 上的 py -3）
+# 0) 依赖：node >= 20、python3（或 Windows 上的 py -3）；部署到 profile 需要 pnpm
 # 1) 建立指向当前 Harness 安装的开发链接（测试/脚本用）
 node scripts/dev-link.mjs
 
@@ -18,12 +18,12 @@ node scripts/dev-link.mjs
 node scripts/pin-vendor.mjs --latest          # 或用 --sha <40-hex>
 
 # 3) 安装到部署目录（物化 vendor 树、preset、registry、venv）
-node scripts/install.mjs
+node scripts/install.mjs                      # --skip-python 跳过 venv
 
 # 4) 回归
 node scripts/regression/run.mjs
 
-# 5) 挂进 web profile 并重启（一次性的部署步骤，需重启 GUI）
+# 5) 挂进 web profile 并重启（一次性的部署步骤，需 pnpm，且会重启 GUI）
 dsh plugin --profile web add <本仓库绝对路径>
 dsh web
 ```
@@ -31,6 +31,18 @@ dsh web
 之后新会话选择 **课题组科研（聚前药/高分子）** preset，nature skills
 （`nature-academic-search`、`nature-reader`、`nature-paper-card`、
 `nature-paper2ppt`、`nature-shared`）即出现在 skill 目录中。
+
+## 阶段一验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| nature-skills 固定 commit | `c171989db699bd601d4373912b3fb8db96ecc95b`，690 文件 / 40.4MB 完整树 |
+| 单元测试 | 21/21 通过 |
+| 集成测试（真实 boot：registry CRUD、skill 发现、preset 组合） | 4/4 通过 |
+| 回归套件 | 4/4 通过，已记录回归日期（vendor.lock.json `regression.lastPassedAt`） |
+| profile 组合 | `dsh --profile web --patch cordis.patch.yml --dump-config` 三行均正确插入 |
+| 安装演练（临时 DSH_HOME） | vendor 物化/幂等、preset 安装、19 条 NatureSkillVersion 登记成功 |
+| golden-diff 脚手架 | `--old <sha> --new <sha>` 下载两棵树并输出结构化差异报告 |
 
 ## 阶段一交付内容
 
