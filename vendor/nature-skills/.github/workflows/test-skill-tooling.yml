@@ -1,0 +1,127 @@
+name: Test skill tooling
+
+on:
+  pull_request:
+    paths:
+      - 'skills/nature-academic-search/mcp-server/**'
+      - 'skills/nature-downloader/**'
+      - 'skills/nature-paper-card/**'
+      - 'skills/nature-paper-to-patent/**'
+      - 'skills/nature-response/**'
+      - 'skills/nature-reviewer/**'
+      - 'skills/nature-shared/**'
+      - 'scripts/update-codex-skills.sh'
+      - 'scripts/autoupdate-skills.sh'
+      - 'scripts/tests/test-autoupdate-state-isolation.sh'
+      - 'scripts/tests/test-update-codex-skills-safety.sh'
+      - '.github/requirements-ci.txt'
+      - '.github/workflows/test-skill-tooling.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'skills/nature-academic-search/mcp-server/**'
+      - 'skills/nature-downloader/**'
+      - 'skills/nature-paper-card/**'
+      - 'skills/nature-paper-to-patent/**'
+      - 'skills/nature-response/**'
+      - 'skills/nature-reviewer/**'
+      - 'skills/nature-shared/**'
+      - 'scripts/update-codex-skills.sh'
+      - 'scripts/autoupdate-skills.sh'
+      - 'scripts/tests/test-autoupdate-state-isolation.sh'
+      - 'scripts/tests/test-update-codex-skills-safety.sh'
+      - '.github/requirements-ci.txt'
+      - '.github/workflows/test-skill-tooling.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            .github/requirements-ci.txt
+            skills/nature-academic-search/mcp-server/requirements.txt
+            skills/nature-downloader/requirements.txt
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install \
+            -c .github/requirements-ci.txt \
+            pytest \
+            -r skills/nature-academic-search/mcp-server/requirements.txt \
+            -r skills/nature-downloader/requirements.txt
+
+      - name: Test nature-academic-search
+        working-directory: skills/nature-academic-search/mcp-server
+        run: python -m pytest -q tests
+
+      - name: Test nature-downloader Python tooling
+        working-directory: skills/nature-downloader
+        run: python -m pytest -q tests/python
+
+      - name: Test nature-paper-card
+        working-directory: skills/nature-paper-card
+        run: python -m pytest -q tests
+
+      - name: Test nature-paper-to-patent
+        working-directory: skills/nature-paper-to-patent
+        run: python -m pytest -q tests
+
+      - name: Test nature-response package consistency
+        working-directory: skills/nature-response
+        run: python -m pytest -q tests
+
+      - name: Test nature-reviewer instruction contracts
+        working-directory: skills/nature-reviewer
+        run: python -m pytest -q tests
+
+      - name: Test nature-shared consistency tooling
+        working-directory: skills/nature-shared
+        run: python -m pytest -q tests
+
+  javascript-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Test nature-downloader JavaScript tooling
+        working-directory: skills/nature-downloader
+        run: bun test tests/unit
+
+  skill-sync-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test skill install, verification, and drift detection
+        env:
+          TEST_DEST: ${{ runner.temp }}/nature-skills-sync-test
+        run: |
+          bash -n scripts/autoupdate-skills.sh
+          bash -n scripts/update-codex-skills.sh
+          bash scripts/tests/test-autoupdate-state-isolation.sh
+          bash scripts/tests/test-update-codex-skills-safety.sh
+          bash scripts/update-codex-skills.sh --dest "$TEST_DEST"
+          bash scripts/update-codex-skills.sh --dest "$TEST_DEST" --check
+          touch "$TEST_DEST/nature-writing/unexpected-drift-file"
+          if bash scripts/update-codex-skills.sh --dest "$TEST_DEST" --check; then
+            echo "Expected verification to detect destination drift."
+            exit 1
+          fi

@@ -1,0 +1,10 @@
+# dsh-lab-agent working tree ignores
+node_modules/
+*.tgz
+*.tar.gz
+.tmp/
+golden-diff-report.json
+.dsh/
+lab-agent/
+__pycache__/
+.venv/

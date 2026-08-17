@@ -1,0 +1,59 @@
+# dsh-lab-agent bundle patch: the lab research agent over the dsh web surface.
+#
+# Applied after dsh-web-app's patch layer (and after dsh-base). Rows here
+# override base rows by id and register NEW rows via `insert`. The profile's
+# own cordis.patch.yml and any --patch overlays still come after this layer.
+#
+# Scope decisions (see dsh-web-app/cordis.patch.yml comments):
+#   * The `skills` REGISTRY stays host-plane and is layered per scope. A host
+#     row here registers into the GLOBAL layer, so every agent (including the
+#     shipped `standard` preset's `tool-skill` loader) sees the merged catalog.
+#   * Services are host-plane because the api gateway and cold transcript reads
+#     resolve them process-wide; nothing here mounts a model-facing tool yet
+#     (task interfaces arrive in Phase 2+ and mount behind the lab preset).
+
+# ── Nature Skills discovery (global skill layer) ─────────────────────────────
+#
+# A dedicated filesystem provider instance that sees ONLY the pinned
+# nature-skills tree: `includeDefaultRoots: false` drops the project/user
+# roots so this provider is isolated to its own custom root and cannot be
+# confused with the per-preset discovery provider.
+#
+# The root is the deployment data dir `$DSH_HOME/lab-agent/vendor/nature-skills`
+# (materialized by scripts/install.mjs from the repo's pinned vendor tree).
+# `dshHomePath` is the loader expression helper resolving `$DSH_HOME`.
+- insert:
+    - id: lab-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-nature
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+
+    # ── Nature Skill version registry (NatureSkillVersion) ────────────────────
+    #
+    # Host service `ctx.labVersions`: durable registry of pinned Nature Skills
+    # (repo commit, manifest version, license, python lock hash, regression
+    # date). Persists through the storage-domain layer (JSON backend). Reads
+    # are available to every agent; writes go through explicit registration /
+    # bootstrap calls (install script, upgrade tool) so a model never mutates
+    # the lock silently.
+    - id: lab-version-registry
+      name: 'dsh-lab-agent/version-registry'
+      inject: [storageDomain]
+      config:
+        vendorDir: !!js dshHomePath('lab-agent/vendor/nature-skills')
+        lockFile: !!js dshHomePath('lab-agent/vendor.lock.json')
+
+    # ── Python environment service ────────────────────────────────────────────
+    #
+    # Host service `ctx.labPython`: preflight + bootstrap of the pinned Python
+    # venv used by nature skills' scripts. No auto-install at boot — only
+    # explicit preflight/bootstrap calls (install script, regression runner,
+    # later task interfaces).
+    - id: lab-python-env
+      name: 'dsh-lab-agent/python-env'
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        lockFile: !!js dshHomePath('lab-agent/requirements.lock')

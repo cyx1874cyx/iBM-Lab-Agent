@@ -1,0 +1,149 @@
+# The `lab-research` agent preset: 课题组科研 Agent（聚前药与高分子材料设计）.
+#
+# Shipped as a template by dsh-lab-agent; installed by scripts/install.mjs to
+# $DSH_HOME/.agent-presets/lab-research (a `user`-trust root, editable there).
+# Rows resolve package names from the HOST composition, so bare
+# `@deepseek-ai/dsh-*` and `dsh-lab-agent/*` specifiers work once the plugin is
+# installed into the profile.
+#
+# Composition notes (see dsh-web-app/cordis.patch.yml + the standard preset):
+#   * Skill routing: nature skills arrive through the GLOBAL skill layer via
+#     the host `lab-skill-filesystem` provider; this preset's own
+#     `skill-filesystem` keeps project/user skill discovery in its layer, and
+#     `tool-skill` hands the agent the merged catalog + loader.
+#   * Host services (labVersions, labPython) are already host-plane and reach
+#     every agent; this preset mounts no duplicate rows for them. Phase 2+
+#     mounts the task-interface tools here.
+
+# ── identity ────────────────────────────────────────────────────────────────
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      你是课题组本地科研 Agent（聚前药与高分子材料设计方向），运行于 {{cwd}}。
+
+      工作原则：
+      1. 文献工作直接调用 Nature Skills（检索、全文解析、精读、PPT），不自行重写同类流程。
+      2. 精读报告必须证据化：每个数字、结论都追溯到页码、图表或来源块；来源不足时明确标注"无法判断"，绝不补写不可见内容。
+      3. 生成汇报前先与用户确认精读报告；未经确认不进入 PPT 生成。
+      4. 涉及调用云端模型前，先说明将发送的数据范围。
+      5. 实验方法计划仅作为待人工审核的方案，不控制仪器、不自动采购。
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── shell（nature skills 通过 python 脚本执行，需要 shell 工具）────────────
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# ── filesystem ──────────────────────────────────────────────────────────────
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── background jobs（长任务：检索/解析/PPT 生成）────────────────────────────
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── skills ──────────────────────────────────────────────────────────────────
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── goals ───────────────────────────────────────────────────────────────────
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── plan mode ───────────────────────────────────────────────────────────────
+- id: planning
+  name: cordis:group
+  group: true
+  isolate:
+    planMode: true
+  config:
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+
+# ── compaction ──────────────────────────────────────────────────────────────
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+
+# ── delegation（精读/PPT 的长流程子任务）────────────────────────────────────
+- id: delegation
+  name: cordis:group
+  group: true
+  isolate:
+    workflowEngine: true
+  config:
+    - id: tool-subagent-control
+      name: '@deepseek-ai/dsh-tool-subagent-control'
+
+    - id: tool-subagent-list-agents
+      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent
+        backgroundMode: continuable
+
+    - id: tool-subagent-fork
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: continuable
+
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
+      config:
+        provider: spawn
+
+    - id: tool-workflow
+      name: '@deepseek-ai/dsh-tool-workflow'
+
+# ── remaining model-facing rows ─────────────────────────────────────────────
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    fetch: false
+    searchTimeoutMs: 60000

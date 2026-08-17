@@ -1,0 +1,322 @@
+{
+  "schema": "dsh-lab-agent/vendor-lock/v1",
+  "repo": "https://github.com/Yuan1z0825/nature-skills.git",
+  "pinnedCommit": "c171989db699bd601d4373912b3fb8db96ecc95b",
+  "pinnedAt": "2026-08-17T14:47:13.459Z",
+  "license": "Apache-2.0",
+  "skills": [
+    {
+      "name": "nature-academic-search",
+      "manifestVersion": "2.0.0",
+      "dir": "skills/nature-academic-search",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "config",
+        "install.sh",
+        "manifest.yaml",
+        "mcp-server",
+        "references",
+        "scripts",
+        "static"
+      ]
+    },
+    {
+      "name": "nature-citation",
+      "manifestVersion": "2.1.0",
+      "dir": "skills/nature-citation",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "evals",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-data",
+      "manifestVersion": "2.2.0",
+      "dir": "skills/nature-data",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "static"
+      ]
+    },
+    {
+      "name": "nature-downloader",
+      "manifestVersion": "2.1.0",
+      "dir": "skills/nature-downloader",
+      "requiredFiles": [
+        ".gitattributes",
+        ".gitignore",
+        "LICENSE",
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "assets",
+        "data",
+        "docs",
+        "examples",
+        "manifest.yaml",
+        "references",
+        "requirements.txt",
+        "scripts",
+        "src",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-experiment-log",
+      "manifestVersion": "1.0.2",
+      "dir": "skills/nature-experiment-log",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "templates"
+      ]
+    },
+    {
+      "name": "nature-figure",
+      "manifestVersion": "2.5.0",
+      "dir": "skills/nature-figure",
+      "requiredFiles": [
+        ".gitignore",
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "assets",
+        "evals",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-literature-pipeline",
+      "manifestVersion": "1.0.1",
+      "dir": "skills/nature-literature-pipeline",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "templates"
+      ]
+    },
+    {
+      "name": "nature-paper-card",
+      "manifestVersion": "1.2.0",
+      "dir": "skills/nature-paper-card",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "evals",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-paper-to-patent",
+      "manifestVersion": "1.0.0",
+      "dir": "skills/nature-paper-to-patent",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "evals",
+        "manifest.yaml",
+        "references",
+        "requirements.txt",
+        "scripts",
+        "static",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-paper2ppt",
+      "manifestVersion": "2.0.0",
+      "dir": "skills/nature-paper2ppt",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static"
+      ]
+    },
+    {
+      "name": "nature-polishing",
+      "manifestVersion": "6.4.0",
+      "dir": "skills/nature-polishing",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "static"
+      ]
+    },
+    {
+      "name": "nature-proposal-writer",
+      "manifestVersion": "1.1.1",
+      "dir": "skills/nature-proposal-writer",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "templates"
+      ]
+    },
+    {
+      "name": "nature-reader",
+      "manifestVersion": "2.1.0",
+      "dir": "skills/nature-reader",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "evals",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static"
+      ]
+    },
+    {
+      "name": "nature-ref-verifier",
+      "manifestVersion": "1.0.1",
+      "dir": "skills/nature-ref-verifier",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references"
+      ]
+    },
+    {
+      "name": "nature-response",
+      "manifestVersion": "1.7.0",
+      "dir": "skills/nature-response",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "examples",
+        "manifest.yaml",
+        "references",
+        "scripts",
+        "static",
+        "templates",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-reviewer",
+      "manifestVersion": "1.4.0",
+      "dir": "skills/nature-reviewer",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-shared",
+      "manifestVersion": "1.4.0",
+      "dir": "skills/nature-shared",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "core",
+        "journal-formats",
+        "manifest.yaml",
+        "scripts",
+        "tests"
+      ]
+    },
+    {
+      "name": "nature-statistics",
+      "manifestVersion": "1.3.0",
+      "dir": "skills/nature-statistics",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references"
+      ]
+    },
+    {
+      "name": "nature-writing",
+      "manifestVersion": "1.3.0",
+      "dir": "skills/nature-writing",
+      "requiredFiles": [
+        "README.md",
+        "README_EN.md",
+        "SKILL.md",
+        "agents",
+        "manifest.yaml",
+        "references",
+        "static",
+        "templates"
+      ]
+    }
+  ],
+  "pythonDeps": {
+    "file": "requirements.lock",
+    "sha256": "1322912d272accc488e9b075b4fe9eb9fbbed0a3b95726f99cb6c92d4dc449f9"
+  },
+  "regression": {
+    "lastPassedAt": "2026-08-17T14:47:35.211Z",
+    "lastRunAt": "2026-08-17T14:47:35.211Z",
+    "caseCount": 4
+  }
+}

@@ -1,0 +1,10 @@
+[project]
+name = "dsh-lab-agent-python"
+version = "0.1.0"
+description = "Python 环境（nature skills 脚本运行所需依赖），由 dsh-lab-agent 固定与管理"
+requires-python = ">=3.10,<3.13"
+
+# 说明：
+# - 依赖的权威来源是 nature-skills 各 skill 的 requirements.txt（scripts 运行依赖）。
+# - requirements.lock 为全量精确 pin，安装用：pip install -r requirements.lock。
+# - 系统 Python >= 3.13 时多数 langchain 系依赖尚未完整支持，bootstrap 会告警。
