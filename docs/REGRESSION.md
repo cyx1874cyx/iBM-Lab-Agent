@@ -32,6 +32,16 @@ export default {
 | `harness-pin` | Harness 固定版本与实际安装一致（上游漂移检测的 npm 侧） |
 | `python-lock` | requirements.lock 可解析、哈希与 vendor.lock.json 一致 |
 
+## 阶段二用例
+
+| 用例 | 覆盖计划 §八 的条目 |
+|---|---|
+| `goal-profile` | 默认聚前药目标完整；01–16 契约保留；同一目标两配置 → 重点不同契约相同（转换层）；版本快照不可变；删除后历史可读 |
+| `ppt-template` | 三种课题组模板导入识别比例/主题/布局/占位符；11 版式角色均可填充；无效映射生成前拒绝；nature-default 可用 |
+
+> 端到端"同一论文 × 两个目标配置"的真实 paper-card 输出对比在阶段三
+> （`paper-card-evidence` golden 用例）接入。
+
 ## 后续阶段用例（已预留接口）
 
 - `paper-card-evidence`：同一篇金标准论文在两个 commit 下的 01–16 节结构、来源

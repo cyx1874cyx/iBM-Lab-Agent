@@ -57,3 +57,25 @@
       config:
         venvDir: !!js dshHomePath('lab-agent/.venv')
         lockFile: !!js dshHomePath('lab-agent/requirements.lock')
+
+    # ── Reading goal profiles (ReadingGoalProfile) ────────────────────────────
+    #
+    # Host service `ctx.labGoals`: 可保存/复制/修改/版本化的精读目标。版本行
+    # 不可变（id@version），任务引用版本快照；删除只归档，历史与快照始终
+    # 可读。内置聚前药默认目标幂等种子。Phase 3 的任务接口在这里取配置并
+    # 转换为 nature-paper-card 重点审查要求。
+    - id: lab-goal-profiles
+      name: 'dsh-lab-agent/goal-profiles'
+      inject: [storageDomain]
+
+    # ── PPT template profiles (PptTemplateProfile) ────────────────────────────
+    #
+    # Host service `ctx.labTemplates`: PPTX 导入（解析母版/布局/占位符/字体/
+    # 主题色/页面比例）→ 自动版式角色映射建议 → 预览 → 用户确认 → 验证发布。
+    # 映射无效时 validate() 明确失败，不静默替换为默认模板。源文件与解析结果
+    # 存 $DSH_HOME/lab-agent/templates/<id>/v<version>/。
+    - id: lab-ppt-templates
+      name: 'dsh-lab-agent/ppt-templates'
+      inject: [storageDomain]
+      config:
+        templatesDir: !!js dshHomePath('lab-agent/templates')

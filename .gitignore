@@ -8,3 +8,4 @@ golden-diff-report.json
 lab-agent/
 __pycache__/
 .venv/
+.npm-cache/

@@ -44,6 +44,18 @@ dsh web
 | 安装演练（临时 DSH_HOME） | vendor 物化/幂等、preset 安装、19 条 NatureSkillVersion 登记成功 |
 | golden-diff 脚手架 | `--old <sha> --new <sha>` 下载两棵树并输出结构化差异报告 |
 
+## 阶段二验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（含 pptx 解析/目标 schema/模板映射） | 35/35 通过（合计 41/41） |
+| 集成测试（目标 CRUD/快照/删除语义、三模板导入/确认/无效拒绝） | 5/5 通过（合计 6/6） |
+| 回归套件 | 6/6 通过（新增 `goal-profile`、`ppt-template` 用例） |
+| PPTX 解析 | 三模板（16:9/4:3、三套主题色/字体、3–5 布局）比例/主题/布局/占位符识别正确 |
+| 版式角色 | 11 角色建议映射全覆盖且指向存在的布局；无效映射 `confirmMapping` 拒绝、模板保持 draft |
+| 快照语义 | update 后旧版本与任务快照不变；删除后 `resolve(id@version)` 仍可读；id 不复用 |
+| profile 组合 | `--dump-config` 含 5 个 lab 服务行（新增 lab-goal-profiles / lab-ppt-templates） |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -55,6 +67,18 @@ dsh web
 - **Python 环境**：固定 venv + `requirements.lock`（sha256 锁定），显式引导。
 - **回归框架**：`catalog / registry / harness-pin / python-lock` 用例 +
   跨 commit `golden-diff` 脚手架。
+
+## 阶段二交付内容
+
+- **精读目标系统**（`ctx.labGoals` / `ReadingGoalProfile`）：可创建/保存/复制/
+  修改/版本化；内置 `default-prodrug-polymer` 聚前药默认配置（§三 七组内容）；
+  `toPaperCardRequirements` 转换为 nature-paper-card 重点审查要求，01–16 节
+  契约永远保留；任务引用版本快照，删除后历史仍可读。
+- **PPT 模板系统**（`ctx.labTemplates` / `PptTemplateProfile`）：PPTX 导入
+  （`src/pptx-parse.js` 解析页面比例/主题色/字体/母版/布局/占位符）→ 11 个
+  版式角色自动映射建议 → 预览/填充示例 → 用户确认 → 验证发布；无效映射在
+  生成前明确拒绝，不静默替换为 `nature-default` 默认模板。
+- 依赖：`jszip` / `fast-xml-parser`（纯 JS，跨平台，无需 Python）。
 
 ## 部署环境与安全约定
 
@@ -73,8 +97,8 @@ dsh web
 
 ## 阶段进度
 
-- [x] 阶段一 基础集成（本版本）
-- [ ] 阶段二 精读目标与 PPT 模板系统
+- [x] 阶段一 基础集成
+- [x] 阶段二 精读目标与 PPT 模板系统
 - [ ] 阶段三 文献→PPT MVP
 - [ ] 阶段四 化学性质与实验计划
 - [ ] 阶段五 NMR 产品化

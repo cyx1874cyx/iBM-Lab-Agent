@@ -19,6 +19,14 @@
       "types": "./lib/types/python-env.d.ts",
       "default": "./lib/python-env.js"
     },
+    "./goal-profiles": {
+      "types": "./lib/types/goal-profiles.d.ts",
+      "default": "./lib/goal-profiles.js"
+    },
+    "./ppt-templates": {
+      "types": "./lib/types/ppt-templates.d.ts",
+      "default": "./lib/ppt-templates.js"
+    },
     "./invariant": {
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"
@@ -51,9 +59,14 @@
     "test:all": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
     "regression": "node scripts/regression/run.mjs",
     "regression:record": "node scripts/regression/run.mjs --record-pass",
-    "install": "node scripts/install.mjs",
+    "deploy": "node scripts/install.mjs",
     "pin:vendor": "node scripts/pin-vendor.mjs",
     "dev:link": "node scripts/dev-link.mjs"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5",
+    "jszip": "^3.10.1",
+    "zod": "^4.0.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

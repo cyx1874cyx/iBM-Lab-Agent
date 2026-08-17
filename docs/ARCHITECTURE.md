@@ -26,8 +26,16 @@ cordis.patch.yml（bundle 层，host 平面）
 ├── lab-version-registry   dsh-lab-agent/version-registry
 │     inject: [storageDomain]
 │     → ctx.labVersions：NatureSkillVersion 持久化登记
-└── lab-python-env         dsh-lab-agent/python-env
-      → ctx.labPython：固定 venv 的预检/引导
+├── lab-python-env         dsh-lab-agent/python-env
+│     → ctx.labPython：固定 venv 的预检/引导
+├── lab-goal-profiles      dsh-lab-agent/goal-profiles
+│     inject: [storageDomain]
+│     → ctx.labGoals：ReadingGoalProfile（可保存/复制/修改/版本化的精读目标）
+├── lab-ppt-templates      dsh-lab-agent/ppt-templates
+│     inject: [storageDomain]
+│     config.templatesDir: $DSH_HOME/lab-agent/templates
+│     → ctx.labTemplates：PptTemplateProfile（PPTX 导入/映射/预览/验证/发布）
+└── （阶段三将新增任务接口行，挂到 lab-research 预设）
 
 presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
 └── agent.cordis.yml + preset.yml
@@ -55,13 +63,25 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
 - `NatureSkillVersion` 记录在 `lab_agent` storage domain（`nature_skill_versions`
   表，JSON backend，`$DSH_HOME/storages`），key = `skillName@commitSha`：
   升级不覆盖旧行，历史报告总能解析到引用当时的版本。
+- `ReadingGoalProfile`（`lab_goal_profiles` domain）与 `PptTemplateProfile`
+  （`lab_ppt_template_profiles` domain）：**版本行不可变**，key = `id@version`，
+  version 单调递增。
+  - update = 基于最新版本发布新版本；delete = 发布 `archived` 尾部版本
+    （从可用列表移除，历史与任务快照永远可读，id 不复用）；
+  - 任务用 `snapshotForTask(id, version)` 保存配置快照 —— 后续修改目标/模板
+    不会改变旧报告（计划 §三 规则 5/6）。
+  - 内置种子：`default-prodrug-polymer`（课题组聚前药默认精读目标）、
+    `nature-default`（Nature 默认 PPT 模板），幂等注册。
+- PPTX 源文件与解析结果存 `$DSH_HOME/lab-agent/templates/<id>/v<version>/`
+  （`source.pptx` + `parse.json` + `mapping-suggestions.json`），domain 行记录
+  文件路径与 sha256（ArtifactProvenance 前身）。
 - 锁文件：
   - `vendor.lock.json`：nature-skills commit、每 skill 的 manifest 版本、
     license、python 锁哈希、回归日期。
   - `harness.lock.json`：Harness CLI/包版本（固定 commit 的 npm 等价物）。
 - 部署数据目录（`$DSH_HOME/lab-agent/`）：
   `vendor/nature-skills`（物化树）、`vendor.lock.json`、`requirements.lock`、
-  `.venv`。`scripts/install.mjs` 幂等物化；`scripts/pin-vendor.mjs` 手动升级。
+  `.venv`、`templates/`。`scripts/install.mjs` 幂等物化；`scripts/pin-vendor.mjs` 手动升级。
 
 ## 4. 执行边界
 
@@ -74,12 +94,26 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
 ## 5. 目录
 
 ```
-lib/                  Cordis 服务（version-registry, python-env, index）
-src/                  纯 Node 模块（paths, lockfile, skill-catalog, python-env, harness-root）
+lib/                  Cordis 服务（version-registry, python-env, goal-profiles, ppt-templates, index）
+src/                  纯 Node 模块（paths, lockfile, skill-catalog, python-env, harness-root,
+                      goal-profile, ppt-template, pptx-parse）
 presets/lab-research/ 课题组 agent preset 模板
 vendor/nature-skills/ 固定 commit 的第三方完整目录（含 vendor.lock.json）
 python/               pyproject.toml + requirements.lock
-scripts/              install / pin-vendor / dev-link / regression(run, golden-diff)
-tests/unit|integration|regression/cases
+scripts/              install / pin-vendor / dev-link / vendor-fetch / regression(run, golden-diff)
+tests/unit|integration|regression/cases|fixtures(pptx-builder)
 docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
 ```
+
+## 6. 阶段二：目标与模板系统（§三/§四）
+
+- **ReadingGoalProfile**：`src/goal-profile.js` 定义字段与转换；`toPaperCardRequirements`
+  输出 paper-card 重点审查要求，**固定 01–16 节契约永远保留**（`PAPER_CARD_SECTION_CONTRACT`）；
+  用户目标只决定各节深度与强调。需要完全不同的报告结构时，以标准 Paper Card 为证据
+  底稿生成派生报告（`derivedReportStructure`），不改动上游 Skill 契约（规则 4）。
+- **PptTemplateProfile**：`src/pptx-parse.js` 读取页面比例/主题色/字体/母版/布局/占位符；
+  `src/ppt-template.js` 的 `suggestRoleMapping` 按占位符特征对 11 个统一版式角色打分建议；
+  `confirmMapping` 验证后才发布为 `ready`；`validate()` 在生成前明确拒绝无效映射，
+  不静默替换为默认模板（计划 §四）。用户可主动选择 `nature-default`。
+- 模板只控制视觉主题/可用布局/课题组规定页面；内容证据由 nature-paper2ppt 保持
+  （阶段三接入）。
