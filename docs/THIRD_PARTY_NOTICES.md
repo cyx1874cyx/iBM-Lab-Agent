@@ -39,6 +39,8 @@
 | `rdkit`（venv 可选） | SMILES 级 MW/logP/TPSA/HBD/HBA 计算 | BSD-3-Clause；未安装时本插件明确降级为分子式级计算 |
 | PubChem REST API（NIH） | 化合物数据库实测值查询（`db-measured`） | 美国 NIH 开放数据；使用需遵守 PubChem 使用条款，发送的仅为化合物名称/结构查询 |
 | OpenAlex（nature-academic-search） | 文献检索（无 key） | CC0 元数据；礼貌池使用（`--mailto`） |
+| USPTO PatentsView | 专利开放检索（无 key） | 美国专利商标局开放数据；端点正迁移至 USPTO Open Data Portal，适配器按端点封装 |
+| CAS Common Chemistry / SciFinder | CAS 查询入口（仅准备 URL） | **未获书面授权前不访问**；本插件不自动操作、不把 CAS 内容输入模型 |
 
 所有外部查询均只在显式调用时发起，发送前由调用方/agent 说明数据范围（计划默认条件）。
 

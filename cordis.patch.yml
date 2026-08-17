@@ -117,3 +117,13 @@
     - id: lab-nmr
       name: 'dsh-lab-agent/nmr'
       inject: [storageDomain]
+
+    # ── Synthesis routes & CAS boundary (SynthesisTarget / SynthesisRoute) ───
+    #
+    # Host service `ctx.labSynthesis`：开放数据首版路线分析（OpenAlex 文献 /
+    # PatentsView 专利 / PubChem 化合物）；CAS/SciFinder 在获得书面授权前仅
+    # 准备查询与登录入口，不自动操作、不把 CAS 内容输入模型（授权后启用
+    # 独立 CAS Provider + OAuth2 PKCE）。
+    - id: lab-synthesis
+      name: 'dsh-lab-agent/synthesis'
+      inject: [storageDomain]

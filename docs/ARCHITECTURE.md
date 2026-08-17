@@ -46,6 +46,9 @@ cordis.patch.yml（bundle 层，host 平面）
 ├── lab-nmr                dsh-lab-agent/nmr
 │     inject: [storageDomain]
 │     → ctx.labNmr：NMR 工作流编排与聚合物积分计算（§五）
+├── lab-synthesis          dsh-lab-agent/synthesis
+│     inject: [storageDomain]
+│     → ctx.labSynthesis：开放数据路线分析 + CAS 安全边界（§七）
 └── （Mnova 实际交互：presets/mcp/mnova-mcp.patch.yml 可选的 MCP client overlay，
      mcp__mnova__* 工具由 agent 调用）
 
@@ -189,3 +192,23 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   时启用，依赖本机 Mnova）；`scripts/install-nmr-skill.mjs` 安装其
   nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`（记录来源，不自动更新）。
   agent 通过 `mcp__mnova__*` 工具与 Mnova 交互，本服务只编排与计算。
+
+## 10. 阶段六：合成路线与 CAS（§七，开放数据首版）
+
+- **数据模型**（`lab_synthesis` domain）：`synthesis_targets`（目标分子，
+  可关联化学实体）、`synthesis_routes`（多步路线：反应/反应物/产物/试剂/
+  条件/文献与专利引用；证据列表分类型 literature/patent/compound/
+  reaction-db）。状态机 `draft→under-review→approved|rejected`（人工审核，
+  不自动执行合成）。
+- **开放数据执行器**（`src/synthesis/open-sources.js`，可插拔适配器）：
+  PubChem（化合物，复用阶段四）、PatentsView/USPTO（专利，无 key）、
+  OpenAlex 文献（经 nature-academic-search / skill-executor）；网络路径在
+  自动化测试中 stub。**注意**：api.patentsview.org 正迁移至 USPTO Open Data
+  Portal（当前 301），适配器按端点封装、可替换默认实现而不改服务契约。
+- **CAS 安全边界**（`src/cas/boundary.js`）：`CAS_POLICY = { autoAccess:
+  false, llmIngest: false, requiresWrittenAuthorization: true }`——未获书面
+  授权前**不自动操作或读取 SciFinder 页面、不把 CAS 内容输入模型**；
+  `prepareCasQuery` 只构建 Common Chemistry/SciFinder 查询 URL（executed:
+  false），`casLoginEntry` 只返回登录入口；`CasProvider` 为占位接口，所有
+  操作经 `assertCasAuthorized` 拒绝；获得明确 API+LLM 授权后再启用 OAuth2
+  PKCE 与独立 CAS Provider（本阶段不启用）。

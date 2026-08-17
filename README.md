@@ -92,6 +92,17 @@ dsh web
 | mnova-mcp | 配置模板 + skill 安装脚本（GitHub raw 退避重试）；本环境无 Mnova，实际 MCP 连接为部署步骤 |
 | profile 组合 | `--dump-config` 含 8 个 lab 服务行（新增 lab-nmr） |
 
+## 阶段六验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（合成模型/状态机、开放数据适配器、CAS 边界） | 12/12（合计 98/98） |
+| 集成测试（路线全流程 + 证据收集 stub + CAS 未授权门禁） | 2/2（合计 15/15） |
+| 回归套件 | 10/10（新增 `synthesis` 用例） |
+| 开放数据 | PubChem/PatentsView/OpenAlex 三类证据聚合；专利源适配器可插拔（api.patentsview.org 迁移至 USPTO ODP，按端点封装） |
+| CAS 边界 | 未授权时只返回 prepared query（`executed:false`）/登录入口；`CasProvider` 全部操作被 `CasAuthorizationError` 拒绝 |
+| profile 组合 | `--dump-config` 含 9 个 lab 服务行（新增 lab-synthesis） |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -155,12 +166,27 @@ dsh web
   nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`；agent 通过 `mcp__mnova__*`
   工具与 Mnova 交互（需本机 Mnova 环境，部署时启用）。
 
+## 阶段六交付内容（开放数据首版）
+
+- **合成路线分析**（`ctx.labSynthesis`）：SynthesisTarget / SynthesisRoute
+  （多步：反应/反应物/产物/试剂/条件/文献与专利引用）；人工审核状态机
+  （`draft→under-review→approved|rejected`，不自动执行合成）。
+- **开放数据执行器**：PubChem 化合物（复用阶段四）、USPTO PatentsView 专利
+  （无 key 适配器，可插拔端点）、OpenAlex 文献（nature-academic-search）。
+- **CAS 安全边界**（`src/cas/boundary.js`）：未获书面授权前**不自动操作或
+  读取 SciFinder、不把 CAS 内容输入模型**——只准备结构/查询 URL 与登录入口
+  （`executed:false`）；`CasProvider` 占位接口全部经授权门禁拒绝；获得明确
+  API+LLM 授权后再启用 OAuth2 PKCE 与独立 CAS Provider。
+
 ## 部署环境与安全约定
 
 - 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
 - 可调用云模型，但发送前显示数据范围。
 - 调用云端模型、写入 registry、升级锁定版本均为显式动作；启动不做任何安装。
-- CAS/SciFinder：未获额外书面授权前不自动操作、不把 CAS 内容送入模型（见计划 §七）。
+- **CAS/SciFinder**：未获得额外书面授权（含 API 与 LLM 使用授权）前，不自动
+  操作或读取 SciFinder 页面、不把 CAS 内容输入模型；CAS 插件仅准备结构/查询
+  并打开登录入口（见 `src/cas/boundary.js` 与 `docs/ARCHITECTURE.md` §10）。
+  授权确认后，启用独立 CAS Provider + OAuth2 PKCE，单独排期。
 
 ## 文档
 
@@ -177,4 +203,4 @@ dsh web
 - [x] 阶段三 文献→PPT MVP（编排/执行层/审计门禁/provenance）
 - [x] 阶段四 化学性质与实验计划
 - [x] 阶段五 NMR 产品化（工作流/积分计算/mnova-mcp 集成）
-- [ ] 阶段六 合成路线与 CAS（授权后启动）
+- [x] 阶段六 合成路线（开放数据首版）+ CAS 边界（CAS 正式集成待授权后单独排期）
