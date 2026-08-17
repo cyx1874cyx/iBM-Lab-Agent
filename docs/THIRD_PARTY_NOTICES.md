@@ -22,6 +22,16 @@
   Loader/Cordis 组合机制叠加 patch 层。
 - 许可证：MIT（见各 `@deepseek-ai/*` 包内 LICENSE）。
 
+## 运行时 npm 依赖（本插件直接声明）
+
+| 包 | 用途 | 许可证 |
+|---|---|---|
+| `jszip` | PPTX（zip）解压，模板导入解析 | MIT |
+| `fast-xml-parser` | OOXML/关系 XML 解析 | MIT |
+| `zod` | 版本行/配置 schema 校验 | MIT |
+
+精确版本见 `package-lock.json`；升级前跑完整回归套件（`scripts/regression/run.mjs`）。
+
 ## 分发边界
 
 本仓库 `files` 字段包含 `vendor/`，确保安装时完整携带第三方目录与声明；
