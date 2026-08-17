@@ -32,6 +32,17 @@
 
 精确版本见 `package-lock.json`；升级前跑完整回归套件（`scripts/regression/run.mjs`）。
 
+## 可选 Python 依赖（venv）与外部开放数据
+
+| 依赖/服务 | 用途 | 许可证/条款 |
+|---|---|---|
+| `rdkit`（venv 可选） | SMILES 级 MW/logP/TPSA/HBD/HBA 计算 | BSD-3-Clause；未安装时本插件明确降级为分子式级计算 |
+| PubChem REST API（NIH） | 化合物数据库实测值查询（`db-measured`） | 美国 NIH 开放数据；使用需遵守 PubChem 使用条款，发送的仅为化合物名称/结构查询 |
+| OpenAlex（nature-academic-search） | 文献检索（无 key） | CC0 元数据；礼貌池使用（`--mailto`） |
+
+所有外部查询均只在显式调用时发起，发送前由调用方/agent 说明数据范围（计划默认条件）。
+
+
 ## 分发边界
 
 本仓库 `files` 字段包含 `vendor/`，确保安装时完整携带第三方目录与声明；

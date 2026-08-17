@@ -44,7 +44,7 @@ function renderYaml(rows) {
 		lines.push(`  name: '${row.name}'`);
 		if (row.inject) lines.push(`  inject: [${row.inject.map((s) => `'${s}'`).join(", ")}]`);
 		if (row.disabled !== undefined) lines.push(`  disabled: ${row.disabled}`);
-		if (row.config) {
+		if (row.config && Object.keys(row.config).length > 0) {
 			lines.push("  config:");
 			for (const [key, value] of Object.entries(row.config)) {
 				lines.push(`    ${key}: ${renderScalar(value, 6)}`);

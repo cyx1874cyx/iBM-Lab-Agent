@@ -45,6 +45,12 @@ export default {
 |---|---|
 | `task-flow` | 全流程（项目/检索/准备/精读/审计门禁/PPT/QA 门禁/provenance），检索网络路径以 stub 代替，其余调用真实 nature-skills 脚本 |
 
+## 阶段四用例
+
+| 用例 | 覆盖计划 §八 的条目 |
+|---|---|
+| `chemistry` | 分子式→MW（阿霉素校验）、Đ/DP/载药量/取代度、来源三类区分、实验计划完整性门禁与人工审核-only 状态机（无 executing/自动采购） |
+
 > 端到端"同一论文 × 两个目标配置"的真实 paper-card 输出对比（`paper-card-evidence`
 > golden 用例）需要 venv（PyMuPDF）与 LLM 调用，作为 `task-flow` 的扩展在领域验证阶段
 > （§八：20–30 检索题 / 10 篇金标准论文 / 5 套模板 / NMR 数据）接入。

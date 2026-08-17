@@ -39,7 +39,11 @@ cordis.patch.yml（bundle 层，host 平面）
 │     inject: [storageDomain, labGoals, labTemplates, labVersions]
 │     config.skillsRoot: $DSH_HOME/lab-agent/vendor/nature-skills/skills
 │     → ctx.labTasks：文献→PPT 任务编排（§六 接口 + 状态机 + 审计门禁）
-└── （阶段四+将新增化学性质/实验计划/NMR 服务行）
+├── lab-chemistry          dsh-lab-agent/chemistry
+│     inject: [storageDomain]
+│     config.venvDir: $DSH_HOME/lab-agent/.venv
+│     → ctx.labChemistry：化学实体/带来源性质/计算/实验计划（§四）
+└── （阶段五将新增 NMR 服务行）
 
 presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
 └── agent.cordis.yml + preset.yml
@@ -144,3 +148,22 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   `validateReadingReport` `createPresentation` `validatePresentation` + 完成/查询。
 - **门禁**：报告审计 errors>0 → `createPresentation` 明确拒绝；PPTX QA 高严重度
   未清零 → `validatePresentation` 失败，修复后重审。
+
+## 8. 阶段四：化学性质与实验计划（§四）
+
+- **实体**（`lab_chemistry` domain，`chemical_entities` 表）：small-molecule /
+  monomer / repeat-unit / polymer / prodrug-polymer（聚合策略/骨架、连接方式/
+  连接臂/释放机制/连接位点字段）。
+- **带来源性质**（`chemical_properties` 表）：`sourceKind` 严格区分
+  db-measured（数据库实测，如 PubChem）/ computed（计算，如 RDKit/公式）/
+  model-predicted（模型预测）；`queryProperty` 返回全部来源记录。
+- **计算分层**：分子式→分子量、Đ/DP/载药量/取代度/理论 Mn 等**纯 JS 离线**
+  （`src/chemistry/elements.js`、`polymer-calc.js`）；RDKit（venv 可选，
+  `scripts/rdkit/calc.py`）提供 SMILES 级 MW/logP/TPSA/HBD/HBA，不可用时
+  明确降级（`rdkitProperties` 返回 `available:false`），绝不静默给数值；
+  PubChem REST 开放数据查询（`src/chemistry/rdkit-pubchem.js`，网络）。
+- **实验方法计划**（`experiment_plans` 表）：目标/规模/试剂/仪器/文献证据/
+  计量表/步骤/监测/后处理/纯化/表征/安全/备选方案；创建前完整性校验（缺
+  安全/表征拒绝）；状态机 `draft→under-review→approved|rejected` ——
+  **没有 executing 状态**：仅生成待研究人员审核的计划，不控制仪器、不自动
+  采购（计划 §四）。

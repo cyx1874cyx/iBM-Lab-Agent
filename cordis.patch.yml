@@ -93,3 +93,16 @@
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
+
+    # ── Chemistry & experiment plans (ChemicalEntity / ChemicalProperty /
+    #    ExperimentPlan) ─────────────────────────────────────────────────────
+    #
+    # Host service `ctx.labChemistry`: 小分子/单体/重复单元/聚合物/聚前药实体 +
+    # 带来源性质（db-measured/computed/model-predicted）；分子式级计算纯 JS，
+    # RDKit（venv 可选）SMILES 级性质，PubChem 开放数据查询；实验方法计划
+    # 仅到人工审核（无 executing 状态，不控制仪器、不自动采购）。
+    - id: lab-chemistry
+      name: 'dsh-lab-agent/chemistry'
+      inject: [storageDomain]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')

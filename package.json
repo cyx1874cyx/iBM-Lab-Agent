@@ -31,6 +31,10 @@
       "types": "./lib/types/tasks.d.ts",
       "default": "./lib/tasks.js"
     },
+    "./chemistry": {
+      "types": "./lib/types/chemistry.d.ts",
+      "default": "./lib/chemistry.js"
+    },
     "./invariant": {
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"

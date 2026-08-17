@@ -67,6 +67,19 @@ dsh web
 | provenance | 每 run 一条（search/source-bundle/reading-report/presentation），输入哈希 + skill 版本齐全 |
 | profile 组合 | `--dump-config` 含 6 个 lab 服务行（新增 lab-tasks） |
 
+## 阶段四验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（元素/分子式/MW、聚合物指标、模型/状态机、PubChem/RDKit 降级） | 21/21（合计 72/72） |
+| 集成测试（实体/来源性质/计算/计划门禁/人工审核-only 状态机） | 2/2（合计 11/11） |
+| 回归套件 | 8/8（新增 `chemistry` 用例） |
+| 分子式计算 | C27H29NO11（阿霉素）MW ≈ 543.52 g/mol；括号重复单元 (C6H8O2)10 正确展开 |
+| 来源区分 | db-measured（PubChem CID）/ computed（RDKit/公式）/ model-predicted 查询可同时返回 |
+| 实验计划 | 缺安全/表征创建拒绝；`executing` 状态被状态机拒绝（仅人工审核） |
+| RDKit 降级 | venv 无 rdkit 时 `rdkitProperties` 返回 `available:false` + 原因，不静默给数值 |
+| profile 组合 | `--dump-config` 含 7 个 lab 服务行（新增 lab-chemistry） |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -105,6 +118,20 @@ dsh web
   PaperSourceBundle / ReadingReport / PresentationRun / ArtifactProvenance
   （输入哈希 + skill 版本 + 模型 + 时间，每条产物可追溯）。
 
+## 阶段四交付内容
+
+- **化学实体**（`ctx.labChemistry`）：小分子 / 单体 / 重复单元 / 聚合物 /
+  聚前药对象（聚合策略/骨架、连接方式/连接臂/释放机制字段）。
+- **带来源性质**：`db-measured`（PubChem 等数据库实测）/ `computed`（计算）/
+  `model-predicted`（模型预测）严格区分；`queryProperty` 返回全部来源。
+- **计算层**：分子式→分子量、Đ/DP/载药量/取代度等**纯 JS 离线可测**；RDKit
+  （venv 可选）SMILES 级 MW/logP/TPSA/HBD/HBA，不可用时明确降级；PubChem
+  开放数据查询（网络）。
+- **实验方法计划**：目标/规模/试剂/仪器/文献证据/计量表/步骤/监测/后处理/
+  纯化/表征/安全/备选方案；完整性与安全校验（缺安全/表征拒绝）；状态机仅到
+  人工审核（`draft→under-review→approved|rejected`，无 executing）——
+  **不控制仪器、不自动采购**。
+
 ## 部署环境与安全约定
 
 - 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
@@ -125,6 +152,6 @@ dsh web
 - [x] 阶段一 基础集成
 - [x] 阶段二 精读目标与 PPT 模板系统
 - [x] 阶段三 文献→PPT MVP（编排/执行层/审计门禁/provenance）
-- [ ] 阶段四 化学性质与实验计划
+- [x] 阶段四 化学性质与实验计划
 - [ ] 阶段五 NMR 产品化
 - [ ] 阶段六 合成路线与 CAS（授权后启动）
