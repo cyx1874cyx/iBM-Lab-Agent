@@ -9,3 +9,4 @@ lab-agent/
 __pycache__/
 .venv/
 .npm-cache/
+.tmp-*.json

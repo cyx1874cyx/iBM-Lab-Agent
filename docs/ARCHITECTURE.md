@@ -43,7 +43,11 @@ cordis.patch.yml（bundle 层，host 平面）
 │     inject: [storageDomain]
 │     config.venvDir: $DSH_HOME/lab-agent/.venv
 │     → ctx.labChemistry：化学实体/带来源性质/计算/实验计划（§四）
-└── （阶段五将新增 NMR 服务行）
+├── lab-nmr                dsh-lab-agent/nmr
+│     inject: [storageDomain]
+│     → ctx.labNmr：NMR 工作流编排与聚合物积分计算（§五）
+└── （Mnova 实际交互：presets/mcp/mnova-mcp.patch.yml 可选的 MCP client overlay，
+     mcp__mnova__* 工具由 agent 调用）
 
 presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
 └── agent.cordis.yml + preset.yml
@@ -167,3 +171,21 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   安全/表征拒绝）；状态机 `draft→under-review→approved|rejected` ——
   **没有 executing 状态**：仅生成待研究人员审核的计划，不控制仪器、不自动
   采购（计划 §四）。
+
+## 9. 阶段五：NMR 产品化（§五/§四）
+
+- **工作流**（`lab_nmr` domain，`nmr_datasets` 表）：NmrDataset 状态机
+  `prepared → under-review → approved-written → visually-verified`
+  （"准备—人工审核—写回—视觉质检"，§五）；打回 `reopenReview` 回 prepared
+  重新积分，已审核积分计划作为历史保留。
+- **不可变保护**：原始 FID/结构路径登记后不可变（IMMUTABLE_FIELDS）；已审核
+  积分计划冻结（approved 后不可覆盖/修改），符合"原始FID、结构和已审核计划
+  不得覆盖"。
+- **积分计算**（`src/nmr/integration-calc.js`，纯公式）：共聚组成（I/n 归一
+  化摩尔分数）、聚合转化率、端基 DP、取代度、由取代度推算载药量——只接受
+  **已审核积分**（approve 前 `calculate` 拒绝），全部标记 computed + 公式来源。
+- **mnova-mcp 集成**：Harness MCP Client 配置模板
+  `presets/mcp/mnova-mcp.patch.yml`（stdio，`uv run run_server.py`，用户部署
+  时启用，依赖本机 Mnova）；`scripts/install-nmr-skill.mjs` 安装其
+  nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`（记录来源，不自动更新）。
+  agent 通过 `mcp__mnova__*` 工具与 Mnova 交互，本服务只编排与计算。

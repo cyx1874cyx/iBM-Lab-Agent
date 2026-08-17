@@ -106,3 +106,14 @@
       inject: [storageDomain]
       config:
         venvDir: !!js dshHomePath('lab-agent/.venv')
+
+    # ── NMR workflow (NmrDataset) ────────────────────────────────────────────
+    #
+    # Host service `ctx.labNmr`：准备—人工审核—写回—视觉质检状态机；原始 FID/
+    # 结构与已审核积分计划不可覆盖；聚合物积分计算（组成/转化率/端基DP/取代度/
+    # 载药量）只接受已审核积分。Mnova 实际交互经 Harness MCP Client
+    # （mcp__mnova__* 工具，配置模板见 presets/mcp/mnova-mcp.patch.yml，用户
+    # 部署时启用），本服务只编排与计算。
+    - id: lab-nmr
+      name: 'dsh-lab-agent/nmr'
+      inject: [storageDomain]

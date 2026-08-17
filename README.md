@@ -80,6 +80,18 @@ dsh web
 | RDKit 降级 | venv 无 rdkit 时 `rdkitProperties` 返回 `available:false` + 原因，不静默给数值 |
 | profile 组合 | `--dump-config` 含 7 个 lab 服务行（新增 lab-chemistry） |
 
+## 阶段五验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（积分公式 + 状态机/不可变模型） | 10/10（合计 84/84） |
+| 集成测试（工作流全流程 + 冻结/打回保留历史 + 计算门禁） | 2/2（合计 13/13） |
+| 回归套件 | 9/9（新增 `nmr` 用例） |
+| 积分计算 | 组成 2/3、转化率 0.9、端基 DP 50、取代度 2.5%、载药量推算均通过校验 |
+| 不可变保护 | approve 后再次 approve / 改草稿均拒绝；打回保留 approvedIntegrals 历史 |
+| mnova-mcp | 配置模板 + skill 安装脚本（GitHub raw 退避重试）；本环境无 Mnova，实际 MCP 连接为部署步骤 |
+| profile 组合 | `--dump-config` 含 8 个 lab 服务行（新增 lab-nmr） |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -132,6 +144,17 @@ dsh web
   人工审核（`draft→under-review→approved|rejected`，无 executing）——
   **不控制仪器、不自动采购**。
 
+## 阶段五交付内容
+
+- **NMR 工作流**（`ctx.labNmr`）：NmrDataset 状态机"准备—人工审核—写回—
+  视觉质检"；原始 FID/结构与**已审核积分计划不可覆盖**（冻结/打回保留历史）。
+- **聚合物积分计算**（纯公式离线可测）：共聚组成、转化率、端基 DP、取代度、
+  由取代度推算载药量——只接受已审核积分，全部标记 computed + 公式来源。
+- **mnova-mcp 集成**：Harness MCP Client 配置模板 `presets/mcp/mnova-mcp.patch.yml`
+  （stdio，`uv run run_server.py`）+ `scripts/install-nmr-skill.mjs` 安装
+  nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`；agent 通过 `mcp__mnova__*`
+  工具与 Mnova 交互（需本机 Mnova 环境，部署时启用）。
+
 ## 部署环境与安全约定
 
 - 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
@@ -153,5 +176,5 @@ dsh web
 - [x] 阶段二 精读目标与 PPT 模板系统
 - [x] 阶段三 文献→PPT MVP（编排/执行层/审计门禁/provenance）
 - [x] 阶段四 化学性质与实验计划
-- [ ] 阶段五 NMR 产品化
+- [x] 阶段五 NMR 产品化（工作流/积分计算/mnova-mcp 集成）
 - [ ] 阶段六 合成路线与 CAS（授权后启动）

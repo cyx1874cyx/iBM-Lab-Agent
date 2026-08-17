@@ -1,0 +1,37 @@
+# dsh-lab-agent: Mnova MCP 集成配置模板（用户部署时启用）
+#
+# 计划 §五：通过 Harness MCP Client 集成 mnova-mcp。此文件是可选 overlay——
+# 需要本机安装 Mnova 软件与 mnova-mcp 运行环境（uv），并在 harness 会话里
+# 让 agent 使用 mcp__mnova__* 工具（含 nmr-analyze-simulate skill 的流程）。
+#
+# 启用方式（二选一）：
+#   1) 追加到 profile 的 cordis.patch.yml（连同 dsh-lab-agent bundle）：
+#        dsh web --patch ./presets/mcp/mnova-mcp.patch.yml
+#   2) 或合并进 $DSH_HOME/profiles/web/cordis.patch.yml 后重启 dsh web。
+#
+# 前置：
+#   - git clone https://github.com/cyx1874cyx/mnova-mcp <本地路径>
+#   - cd <本地路径> && uv sync        （仓库自带 uv.lock，Python 依赖锁定）
+#   - node scripts/install-nmr-skill.mjs   （把 nmr-analyze-simulate skill 装到
+#                                          $DSH_HOME/skills/，供 agent 加载）
+#
+# 说明：MCP server 通过 stdio 与 Harness 通信；模型看到
+#   mcp__mnova__<tool> 工具。本插件（ctx.labNmr）只做工作流状态编排与
+#   聚合物积分计算，不直接与 Mnova 交互。
+
+- id: mcp-mnova
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: mnova
+    transport: stdio
+    command: uv
+    args:
+      - run
+      - --directory
+      - !!js (process.env.MNOVA_MCP_DIR ?? '<请填入 mnova-mcp 克隆路径>')
+      - run_server.py
+    env:
+      # Mnova 自动化接口按需配置（见 mnova-mcp README）
+      MNOVA_MCP_DIR: !!js (process.env.MNOVA_MCP_DIR ?? '')
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false

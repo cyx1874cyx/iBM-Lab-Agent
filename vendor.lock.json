@@ -315,8 +315,8 @@
     "sha256": "1322912d272accc488e9b075b4fe9eb9fbbed0a3b95726f99cb6c92d4dc449f9"
   },
   "regression": {
-    "lastPassedAt": "2026-08-17T15:38:10.507Z",
-    "lastRunAt": "2026-08-17T15:38:10.507Z",
-    "caseCount": 7
+    "lastPassedAt": "2026-08-17T16:11:10.384Z",
+    "lastRunAt": "2026-08-17T16:11:10.384Z",
+    "caseCount": 9
   }
 }
