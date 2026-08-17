@@ -39,8 +39,15 @@ export default {
 | `goal-profile` | 默认聚前药目标完整；01–16 契约保留；同一目标两配置 → 重点不同契约相同（转换层）；版本快照不可变；删除后历史可读 |
 | `ppt-template` | 三种课题组模板导入识别比例/主题/布局/占位符；11 版式角色均可填充；无效映射生成前拒绝；nature-default 可用 |
 
-> 端到端"同一论文 × 两个目标配置"的真实 paper-card 输出对比在阶段三
-> （`paper-card-evidence` golden 用例）接入。
+## 阶段三用例
+
+| 用例 | 覆盖计划 §八 的条目 |
+|---|---|
+| `task-flow` | 全流程（项目/检索/准备/精读/审计门禁/PPT/QA 门禁/provenance），检索网络路径以 stub 代替，其余调用真实 nature-skills 脚本 |
+
+> 端到端"同一论文 × 两个目标配置"的真实 paper-card 输出对比（`paper-card-evidence`
+> golden 用例）需要 venv（PyMuPDF）与 LLM 调用，作为 `task-flow` 的扩展在领域验证阶段
+> （§八：20–30 检索题 / 10 篇金标准论文 / 5 套模板 / NMR 数据）接入。
 
 ## 后续阶段用例（已预留接口）
 

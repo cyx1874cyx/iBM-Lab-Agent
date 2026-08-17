@@ -27,6 +27,10 @@
       "types": "./lib/types/ppt-templates.d.ts",
       "default": "./lib/ppt-templates.js"
     },
+    "./tasks": {
+      "types": "./lib/types/tasks.d.ts",
+      "default": "./lib/tasks.js"
+    },
     "./invariant": {
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"

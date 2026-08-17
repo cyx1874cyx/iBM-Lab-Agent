@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "source_type": "source_map",
+  "metadata": {
+    "title": "Prodrug-conjugated polymer nanoparticles for controlled doxorubicin delivery"
+  },
+  "evidence_inventory": {
+    "figures": [],
+    "tables": [],
+    "equations": []
+  },
+  "locator_summary": {
+    "verified": 3,
+    "missing_page_locator_blocks": 0,
+    "invalid_page_locator_blocks": 0
+  }
+}

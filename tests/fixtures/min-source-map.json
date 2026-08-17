@@ -1,0 +1,25 @@
+{
+  "source_blocks": [
+    {
+      "id": "abs-01",
+      "type": "abstract",
+      "text": "We report a prodrug-conjugated polymer platform for controlled drug delivery. The polymer backbone is synthesized by reversible addition-fragmentation chain-transfer polymerization of a methacrylate monomer bearing a hydrolytically cleavable doxorubicin conjugate. The resulting amphiphilic block copolymer self-assembles into nanoparticles with a hydrodynamic diameter of approximately 120 nanometers and a low critical micelle concentration.",
+      "page": 1
+    },
+    {
+      "id": "sec-02",
+      "type": "body",
+      "text": "The drug loading content was determined by ultraviolet-visible spectroscopy to be 18.5 percent, with an encapsulation efficiency of 72 percent. Release kinetics in phosphate-buffered saline at pH 7.4 showed a cumulative release of 65 percent over 72 hours, consistent with ester-bond hydrolysis of the linker.",
+      "page": 4
+    },
+    {
+      "id": "sec-03",
+      "type": "body",
+      "text": "In vitro cytotoxicity assays against HeLa cells demonstrated that the polymer-drug conjugate exhibited comparable activity to the free drug after 48 hours of incubation, while the blank polymer remained non-toxic at the tested concentrations.",
+      "page": 6
+    }
+  ],
+  "metadata": {
+    "title": "Prodrug-conjugated polymer nanoparticles for controlled doxorubicin delivery"
+  }
+}

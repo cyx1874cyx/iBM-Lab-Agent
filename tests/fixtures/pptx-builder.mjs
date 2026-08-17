@@ -59,33 +59,34 @@ export function themeXml({ name, accent, font }) {
 </a:theme>`;
 }
 
-function presentationXml(size) {
+function presentationXml(size, slideCount) {
 	const sldSz = size.type ? `<p:sldSz cx="${size.cx}" cy="${size.cy}" type="${size.type}"/>` : `<p:sldSz cx="${size.cx}" cy="${size.cy}"/>`;
+	const sldIdLst = slideCount > 0
+		? `<p:sldIdLst>${Array.from({ length: slideCount }, (_, i) => `<p:sldId id="256${i}" r:id="rIdS${i + 1}"/>`).join("")}</p:sldIdLst>`
+		: "";
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:presentation xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}">
   <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
+  ${sldIdLst}
   ${sldSz}
   <p:notesSz cx="6858000" cy="9144000"/>
 </p:presentation>`;
 }
 
-const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+const CONTENT_TYPES_SLIDES = (slideCount) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout3.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout4.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout5.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+  ${Array.from({ length: slideCount }, (_, i) => `<Override PartName="/ppt/slideLayouts/slideLayout${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`).join("\n  ")}
+  ${Array.from({ length: slideCount }, (_, i) => `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("\n  ")}
 </Types>`;
 
 /**
  * 生成一个最小但结构完整的 pptx。
- * @param options {{ name, size?: {cx, cy, type?}, accent?: string, font?: string, layouts?: Array<{name, placeholders}> }}
+ * @param options {{ name, size?, accent?, font?, layouts?, slides?: number }}
  * @returns { name, buffer: Buffer }
  */
 export async function buildPptx(options) {
@@ -93,18 +94,21 @@ export async function buildPptx(options) {
 	const accent = options.accent ?? "#1F4E79";
 	const font = options.font ?? "Microsoft YaHei";
 	const layouts = options.layouts ?? defaultLayouts();
+	const slideCount = options.slides ?? 0;
 	const zip = new JSZip();
 
-	zip.file("[Content_Types].xml", CONTENT_TYPES);
+	zip.file("[Content_Types].xml", CONTENT_TYPES_SLIDES(slideCount));
 	zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
 </Relationships>`);
-	zip.file("ppt/presentation.xml", presentationXml(size));
+	zip.file("ppt/presentation.xml", presentationXml(size, slideCount));
+	const presRels = [
+		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>`,
+		...Array.from({ length: slideCount }, (_, i) => `<Relationship Id="rIdS${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i + 1}.xml"/>`)
+	].join("");
 	zip.file("ppt/presentation.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.p}">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
-</Relationships>`);
+<Relationships xmlns="${NS.p}">${presRels}</Relationships>`);
 	zip.file("ppt/theme/theme1.xml", themeXml({ name: options.name, accent, font }));
 	zip.file("ppt/slideMasters/slideMaster1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sldMaster xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}"><p:cSld><p:spTree/></p:cSld></p:sldMaster>`);
@@ -121,6 +125,20 @@ export async function buildPptx(options) {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>`);
 	});
+	for (let i = 1; i <= slideCount; i++) {
+		zip.file(`ppt/slides/slide${i}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}">
+  <p:cSld><p:spTree>
+    <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+    <p:grpSpPr/>
+  </p:spTree></p:cSld>
+  <p:clrMapOvr><a:overrideClrMapping/></p:clrMapOvr>
+</p:sld>`);
+		zip.file(`ppt/slides/_rels/slide${i}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS.p}">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout${Math.min(i, layouts.length)}.xml"/>
+</Relationships>`);
+	}
 
 	const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 	return { name: options.name, buffer };

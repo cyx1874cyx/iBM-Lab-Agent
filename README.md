@@ -56,6 +56,17 @@ dsh web
 | 快照语义 | update 后旧版本与任务快照不变；删除后 `resolve(id@version)` 仍可读；id 不复用 |
 | profile 组合 | `--dump-config` 含 5 个 lab 服务行（新增 lab-goal-profiles / lab-ppt-templates） |
 
+## 阶段三验证记录（2026-08-17）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（executor 定位/python 解析 + 真实脚本审计） | 14/14（合计 49/49） |
+| 集成测试（全流程状态机 + 门禁阻止） | 3/3（合计 9/9） |
+| 回归套件 | 7/7（新增 `task-flow` 用例，真实 audit_paper_card.py / audit_pptx_quality.py） |
+| 真实脚本门禁 | pass fixture exit 0 / 缺节 fixture exit 1（errors=1）；干净 pptx QA 0 发现 |
+| provenance | 每 run 一条（search/source-bundle/reading-report/presentation），输入哈希 + skill 版本齐全 |
+| profile 组合 | `--dump-config` 含 6 个 lab 服务行（新增 lab-tasks） |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -80,6 +91,20 @@ dsh web
   生成前明确拒绝，不静默替换为 `nature-default` 默认模板。
 - 依赖：`jszip` / `fast-xml-parser`（纯 JS，跨平台，无需 Python）。
 
+## 阶段三交付内容
+
+- **任务编排**（`ctx.labTasks`，§六 接口）：`searchLiterature` / `preparePaper` /
+  `createReadingReport` / `validateReadingReport` / `createPresentation` /
+  `validatePresentation` + 完成/查询接口；`LabProject` 保存目标/模板版本快照。
+- **执行层**（`src/skill-executor.js`）：直接调用 nature-skills 的 stdlib 脚本
+  （OpenAlex 检索、引用导出、源包准备、精读审计、PPTX 质量审计）——系统
+  python3 即可运行，无需 venv。
+- **审计门禁**（§五 步骤 6/10）：`audit_paper_card.py` errors>0 阻止进入 PPT 阶段；
+  `audit_pptx_quality.py` 高严重度未清零标记失败（修复后重审）。
+- **持久化**（`lab_tasks` domain）：LabProject / LiteratureSearchRun /
+  PaperSourceBundle / ReadingReport / PresentationRun / ArtifactProvenance
+  （输入哈希 + skill 版本 + 模型 + 时间，每条产物可追溯）。
+
 ## 部署环境与安全约定
 
 - 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
@@ -99,7 +124,7 @@ dsh web
 
 - [x] 阶段一 基础集成
 - [x] 阶段二 精读目标与 PPT 模板系统
-- [ ] 阶段三 文献→PPT MVP
+- [x] 阶段三 文献→PPT MVP（编排/执行层/审计门禁/provenance）
 - [ ] 阶段四 化学性质与实验计划
 - [ ] 阶段五 NMR 产品化
 - [ ] 阶段六 合成路线与 CAS（授权后启动）
