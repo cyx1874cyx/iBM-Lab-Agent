@@ -141,16 +141,6 @@
       name: 'dsh-lab-agent/synthesis'
       inject: [storageDomain]
 
-    # ── Lab remote bridge（浏览器 UI 用）────────────────────────────────────
-    #
-    # Host service `ctx.lab`（Typert Remote，namespace "lab"）：把 9 个 lab 服务
-    # 的方法经 api-gateway 暴露为 ctx.remote.lab.*，供 Web client 插件
-    # （dsh-lab-agent 的 ./client bundle）调用渲染"实验室"管理界面。
-    # 方法只收单个 request 参数（与 host source-mode 参数名推断一致）。
-    - id: lab-remote
-      name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython]
-
     # ── Markitdown 文档转换（labConvert）──────────────────────────────────────
     #
     # Host service `ctx.labConvert`：microsooft/markitdown（可选 Python 依赖）
@@ -162,6 +152,14 @@
       config:
         venvDir: !!js dshHomePath('lab-agent/.venv')
         convertedDir: !!js dshHomePath('lab-agent/converted')
+
+    # ── Lab remote bridge（项目工作台用）──────────────────────────────────
+    #
+    # Host service `ctx.lab` 把项目核心记忆、三类项目成果及底层能力经
+    # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
+    - id: lab-remote
+      name: 'dsh-lab-agent/remote'
+      inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
 
     # 文档转换模型工具（host 层，所有 agent 可见；toolOrder 排最前）
     - id: lab-convert-tool

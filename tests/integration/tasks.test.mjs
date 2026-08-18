@@ -73,6 +73,18 @@ test("full flow: search → prepare → report → audit gate → presentation �
 			templateVersion: "1"
 		});
 		assert.equal(project.goalProfile.id, "default-prodrug-polymer");
+		await assert.rejects(() => tasks.createProject({ id: "proj-1", name: "重复项目" }), /already exists/);
+		assert.equal(project.memoryVersion, "1");
+		assert.match(tasks.getProjectMemory("proj-1").markdown, /聚前药组会/);
+		const memoryV2 = await tasks.updateProjectMemory({
+			projectId: "proj-1",
+			markdown: "# 聚前药组会\n\n## 当前进展\n- 已明确候选单体",
+			changeNote: "补充候选单体"
+		});
+		assert.equal(memoryV2.version, "2");
+		assert.equal(tasks.getProject("proj-1").memoryVersion, "2");
+		assert.deepEqual(tasks.listProjectMemoryVersions("proj-1").map((row) => row.version), ["2", "1"]);
+		assert.match(tasks.getProjectMemory("proj-1", "1").markdown, /请在此描述研究问题/);
 
 		// 步骤 2：检索
 		const search = await tasks.searchLiterature({ projectId: "proj-1", query: "prodrug polymer delivery", limit: 5 });

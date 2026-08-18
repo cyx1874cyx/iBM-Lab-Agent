@@ -28,6 +28,7 @@ export function canTransitRoute(from, to) {
 /** 合成目标分子（可关联化学实体）。 */
 export const synthesisTargetSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
+	projectId: z.string().regex(PROFILE_ID_RE).optional(),
 	name: z.string().min(1),
 	smiles: z.string().optional(),
 	formula: z.string().optional(),
@@ -52,6 +53,7 @@ export const routeStepSchema = z.object({
 /** 一条合成路线（目标 → 多步）。 */
 export const synthesisRouteSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
+	projectId: z.string().regex(PROFILE_ID_RE).optional(),
 	targetId: z.string().regex(PROFILE_ID_RE),
 	name: z.string().min(1),
 	steps: z.array(routeStepSchema).default([]),
