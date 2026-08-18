@@ -38,7 +38,9 @@ cordis.patch.yml（bundle 层，host 平面）
 ├── lab-tasks              dsh-lab-agent/tasks
 │     inject: [storageDomain, labGoals, labTemplates, labVersions]
 │     config.skillsRoot: $DSH_HOME/lab-agent/vendor/nature-skills/skills
-│     → ctx.labTasks：文献→PPT 任务编排（§六 接口 + 状态机 + 审计门禁）
+│     config.projectsRoot: $DSH_HOME/lab-agent/projects（每个课题一个独立工作区目录）
+│     → ctx.labTasks：文献→PPT 任务编排（§六 接口 + 状态机 + 审计门禁）+
+│       课题（LabProject）CRUD/工作区/核心记忆版本化（项目驱动的科研工作台）
 ├── lab-chemistry          dsh-lab-agent/chemistry
 │     inject: [storageDomain]
 │     config.venvDir: $DSH_HOME/lab-agent/.venv
@@ -49,13 +51,26 @@ cordis.patch.yml（bundle 层，host 平面）
 ├── lab-synthesis          dsh-lab-agent/synthesis
 │     inject: [storageDomain]
 │     → ctx.labSynthesis：开放数据路线分析 + CAS 安全边界（§七）
+├── lab-convert            dsh-lab-agent/convert
+│     inject: [storageDomain]
+│     config.venvDir: $DSH_HOME/lab-agent/.venv
+│     config.convertedDir: $DSH_HOME/lab-agent/converted
+│     → ctx.labConvert：markitdown 文档转 Markdown（PDF/Office/图片→MD + 转换登记）
+├── lab-remote             dsh-lab-agent/remote
+│     inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry,
+│              labNmr, labSynthesis, labPython, labConvert]
+│     → ctx.lab（TypertRemoteService + @Remote 标记）：把 9 个 lab 服务的能力
+│       经 api-gateway 暴露给 Web client（ctx.remote.lab.*，source-mode discovery）
 └── （Mnova 实际交互：presets/mcp/mnova-mcp.patch.yml 可选的 MCP client overlay，
      mcp__mnova__* 工具由 agent 调用）
 
 presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
 └── agent.cordis.yml + preset.yml
       → 课题组科研 persona + shell/fs/jobs/skills/goal/planning/compaction/
-        delegation/ask-user/todo/web 工具组合；任务接口工具可在此挂载
+        delegation/ask-user/todo/web 工具组合；lab 工具（lab_convert_document、
+        lab_project_memory_read/update）**只挂在 preset 工具层**——standard 等
+        其他预设看不到 lab 工具，且不在全局 system-prompt.toolOrder 中引用
+        （未注册工具名会让 Harness 拒绝启动）
 ```
 
 ### 为什么 nature skills 走 global layer 而不是 preset 层
@@ -72,6 +87,34 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
 
 - `labVersions`/`labPython` 被安装脚本、回归运行器、未来任务接口共同使用；
   api gateway 与冷读 transcript 都在 host 解析服务。preset 里重复挂载会撞名。
+
+### 项目驱动的科研工作台（课题空间 / 核心记忆 / lab 工具作用域）
+
+- **课题（LabProject）**：`ctx.labTasks.createProject` 建课题时自动做四件事：
+  1. 在 `$DSH_HOME/lab-agent/projects/<id>` 建独立工作区目录；
+  2. 用 `workspaces.manager.create/rename` 把它注册为 Harness workspace；
+  3. 在该 workspace 里 `sessions.create` 新会话并 `agentPresets.select` 科研预设；
+  4. 把课题核心记忆写入 `project_memory_versions` 数据行并预填进输入框。
+- **工作区级绑定**（`lib/tasks.js`）：课题标识绑定到 workspace 级——
+  `projects_bind_workspace/bind_session/binding/by_session/by_workspace/by_cwd`
+  让空间内**所有**对话（含手动新建）都能按会话绑定或 cwd 识别课题；绑定关系
+  持久化在 `lab_tasks` domain 的 `project_bindings` 表，会话冷读也能解析。
+- **核心记忆模型工具**（`lib/memory-tool.js`）：`lab_project_memory_read` /
+  `lab_project_memory_update` 两个模型工具自动按当前会话反查课题（`bySession`），
+  读写版本化核心记忆数据行（只增不改、changeNote + 哈希）——agent 归档/总结
+  走正道，而不是发明 `PROJECT_MEMORY.md` 之类的孤立文件（系统不会加载）。
+- **lab 工具作用域**：`lab_convert_document`、`lab_project_memory_*` 只挂在
+  lab-research 预设工具层（`presets/lab-research/agent.cordis.yml`），standard
+  等其他预设不暴露 lab 工具；且**不在全局 `system-prompt.toolOrder` 中引用**
+  ——未注册的工具名会让 Harness 拒绝启动（此前"标准模式链接不上模型"的根因）。
+- **浏览器 client**（`client/index.js`）：经 `ctx.remote.lab.*`（Typert Gateway
+  source-mode discovery）调用 host 能力；渲染「我的科研课题」侧边栏入口、
+  课题首页/空间页、三板块（文献资料/研究设计/表征分析）产物看板、核心记忆
+  编辑器与版本历史、会话头部课题徽章与输入框记忆提示条。
+- **预设固定约束**：Harness 的 agent 预设只在空白新会话生效、运行后锁定
+  （`agent-preset-locked`）；进入科研模式的正道是课题空间「开始科研 Agent
+  对话」新开会话，不能中途切换。client 的 `selectResearchPreset` 检查
+  `result.ok`，切换失败不再被静默吞掉。
 
 ## 3. 数据与持久化
 
@@ -96,7 +139,11 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
   - `harness.lock.json`：Harness CLI/包版本（固定 commit 的 npm 等价物）。
 - 部署数据目录（`$DSH_HOME/lab-agent/`）：
   `vendor/nature-skills`（物化树）、`vendor.lock.json`、`requirements.lock`、
-  `.venv`、`templates/`。`scripts/install.mjs` 幂等物化；`scripts/pin-vendor.mjs` 手动升级。
+  `.venv`、`templates/`、`converted/`（markitdown 转换产物）、`projects/`
+  （课题工作区目录）。`scripts/install.mjs` 幂等物化；`scripts/pin-vendor.mjs` 手动升级。
+- 课题相关 domain（`lab_tasks`）：`lab_projects`（课题行 + 目标/模板版本快照）、
+  `project_memory_versions`（核心记忆版本行，只增不改）、`project_bindings`
+  （会话/工作区/cwd → 课题绑定），以及文献/PPT 产物表与 ArtifactProvenance。
 
 ## 4. 执行边界
 

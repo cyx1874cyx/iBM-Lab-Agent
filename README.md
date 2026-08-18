@@ -132,6 +132,30 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
 | CAS 边界 | 未授权时只返回 prepared query（`executed:false`）/登录入口；`CasProvider` 全部操作被 `CasAuthorizationError` 拒绝 |
 | profile 组合 | `--dump-config` 含 9 个 lab 服务行（新增 lab-synthesis） |
 
+## 阶段七验证记录（2026-08-18：项目驱动科研工作台 + 文档转换）
+
+| 项 | 结果 |
+|---|---|
+| 单元测试（含 client 描述符/harness-surface、markitdown 探测降级） | 89/89（合计 98+89 维护基线，`npm test` 全绿） |
+| 集成测试（课题 CRUD/工作区/核心记忆/绑定、remote gateway、文档转换） | 21/21（`npm run test:all` 110/110） |
+| 回归套件 | 11/11（新增 `convert` 用例，真实 audit 脚本门禁仍通过） |
+| Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：侧边栏「我的科研课题」、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
+| 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆预填 |
+| 工作区级绑定 | 空间内所有对话（含手动新建）按会话绑定/cwd 识别课题，共享同一份核心记忆 |
+| 核心记忆工具 | `lab_project_memory_read/_update` 模型工具自动按会话定位课题，版本化写入（changeNote + 哈希），面板可见 |
+| 工具作用域 | lab 工具只挂 lab-research 预设工具层，standard 等预设不可见；不在全局 toolOrder 引用未注册工具（修复"标准模式链接不上模型"） |
+| 文档转换 | markitdown（microsoft/markitdown）PDF/Office/图片 → Markdown + 转换登记；不可用时清晰降级（`--check` 权威探测，不用 pip list/which 误判） |
+| profile 组合 | `--dump-config` 含 11 个 lab 服务行（新增 lab-convert / lab-remote） |
+
+## 阶段八验证记录（2026-08-18：模式修复与作用域收口）
+
+| 项 | 结果 |
+|---|---|
+| 科研模式失效根因 | ① `agentPresets.select` 的 wire 返回 `{ result }` 不 throw，原代码只 catch throw 未查 `result.ok`，预设切换失败被静默吞掉；② lab 工具注册在 host 平面，standard 会话误调用触发 stream failed |
+| 修复 | client `selectResearchPreset` 检查 `result.ok`（含 `agent-preset-locked`）；lab 工具移入 lab-research 预设工具层；persona 新增第 8 条说明预设一轮后固定 |
+| 作用域收口 | 移除全局 `system-prompt.toolOrder` 对 `lab_convert_document` 的引用（未注册工具名会让 Harness 拒绝启动）；convert/memory 工具行集中在 preset |
+| 回归 | 110 单元+集成 / 11 回归全绿；部署 preset 与仓库一致 |
+
 ## 阶段一交付内容
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
@@ -207,6 +231,27 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
   （`executed:false`）；`CasProvider` 占位接口全部经授权门禁拒绝；获得明确
   API+LLM 授权后再启用 OAuth2 PKCE 与独立 CAS Provider。
 
+## 阶段七交付内容（项目驱动科研工作台）
+
+- **课题（LabProject）**（`lib/tasks.js` / `src/task-models.js`）：创建课题时
+  自动建独立工作区目录（`$DSH_HOME/lab-agent/projects/<id>`）→ 注册 Harness
+  workspace（按课题名重命名）→ 新会话 + lab-research 预设 + 核心记忆预填。
+- **工作区级绑定**：`projects_bind_workspace/bind_session/binding/by_session/
+  by_workspace/by_cwd` 让空间内所有对话按会话绑定或 cwd 识别课题；绑定关系
+  持久化于 `lab_tasks` domain `project_bindings` 表。
+- **核心记忆模型工具**（`lib/memory-tool.js`）：`lab_project_memory_read` /
+  `lab_project_memory_update` 自动按会话定位课题，版本化写入（changeNote +
+  哈希）；persona 第 6 条强制引导走正道，禁止发明孤立记忆文件。
+- **Web 管理界面**（`client/index.js` + `lib/remote.js`）：lab Remote bridge
+  经 Typert Gateway（source-mode discovery）暴露 9 个 lab 服务；浏览器 client
+  渲染「我的科研课题」侧边栏、课题首页/空间、三板块产物看板、核心记忆编辑器
+  与版本历史、会话课题徽章 + 输入框记忆提示条。全部叠加在 Harness 之上，
+  不修改 Harness 核心。
+- **文档转换**（`lib/convert.js` / `lib/convert-tool.js` / `src/markitdown.js`）：
+  markitdown（microsoft/markitdown）把 PDF/Office/图片转 Markdown 存
+  `lab-agent/converted/` 并登记；`lab_convert_document` 工具 + `--check`
+  权威探测 + 不可用时明确降级。
+
 ## 部署环境与安全约定
 
 - 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
@@ -233,3 +278,5 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
 - [x] 阶段四 化学性质与实验计划
 - [x] 阶段五 NMR 产品化（工作流/积分计算/mnova-mcp 集成）
 - [x] 阶段六 合成路线（开放数据首版）+ CAS 边界（CAS 正式集成待授权后单独排期）
+- [x] 阶段七 项目驱动科研工作台（课题空间/核心记忆/文档转换/Web 面板）
+- [x] 阶段八 模式修复与工具作用域收口（预设选择失败修复 + lab 工具移入 preset）
