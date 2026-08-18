@@ -95,6 +95,7 @@ window.__ModuleLoader__.load({
 			direct("synth_targets", ["request"]), direct("synth_target_create", ["request"]), direct("synth_routes", ["request"]),
 			direct("synth_route_create", ["request"]), direct("synth_route_step", ["request"]), direct("synth_route_status", ["request"]),
 			direct("synth_evidence", ["request"]), direct("cas_policy"), direct("cas_prepare_query", ["request"]), direct("cas_login_entry"),
+			direct("convert_upload", ["request"]), direct("convert_available"), direct("convert_runs"),
 			direct("python_preflight")
 		];
 
