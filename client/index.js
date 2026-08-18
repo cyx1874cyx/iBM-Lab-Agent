@@ -449,6 +449,46 @@ window.__ModuleLoader__.load({
 			});
 		}
 
+		function ConvertTab({ call }) {
+			const [file, setFile] = useState(null);
+			const [text, setText] = useState("");
+			const [error, setError] = useState("");
+			const [available, setAvailable] = useState(null);
+			const [busy, setBusy] = useState(false);
+			useEffect(() => {
+				call("convert_available").then((r) => setAvailable(r.available)).catch(() => setAvailable(null));
+			}, []);
+			const onConvert = async () => {
+				if (!file) { setError("请先选择文件"); return; }
+				setBusy(true); setError("");
+				try {
+					const base64 = await new Promise((resolve, reject) => {
+						const reader = new FileReader();
+						reader.onload = () => resolve(String(reader.result).split(",")[1]);
+						reader.onerror = reject;
+						reader.readAsDataURL(file);
+					});
+					const r = await call("convert_upload", { request: { name: file.name, base64 } });
+					setText(r.result.text);
+				} catch (e) { setError(e.message); } finally { setBusy(false); }
+			};
+			return h("div", null,
+				h("div", { className: "dshla-section" },
+					h("h2", null, "文档转 Markdown（markitdown）"),
+					h("div", { className: "dshla-form" },
+						h("input", { type: "file", accept: ".docx,.pptx,.xlsx,.pdf,.md,.txt,.html,.jpg,.png", onChange: (e) => { setFile(e.target.files[0] || null); setText(""); } }),
+						h("button", { className: "dshla-btn", "data-primary": "true", onClick: onConvert, disabled: busy }, busy ? "转换中…" : "转换"),
+						available === false ? h("span", { className: "dshla-meta" }, "（markitdown 未安装：python -m pip install markitdown）") : null
+					),
+					error ? h("div", { className: "dshla-err" }, error) : null
+				),
+				text ? h("div", { className: "dshla-section" },
+					h("h2", null, "Markdown 输出"),
+					h("pre", { className: "dshla-json", style: { maxHeight: "50vh" } }, text)
+				) : null
+			);
+		}
+
 		function PythonTab({ call }) {
 			const [state, setState] = useState(null);
 			const [error, setError] = useState("");
@@ -474,6 +514,7 @@ window.__ModuleLoader__.load({
 			["plans", "实验计划", PlansTab],
 			["nmr", "NMR", NmrTab],
 			["synthesis", "合成路线", SynthesisTab],
+			["convert", "文档转MD", ConvertTab],
 			["python", "Python", PythonTab]
 		];
 

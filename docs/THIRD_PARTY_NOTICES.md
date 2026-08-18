@@ -37,6 +37,7 @@
 | 依赖/服务 | 用途 | 许可证/条款 |
 |---|---|---|
 | `rdkit`（venv 可选） | SMILES 级 MW/logP/TPSA/HBD/HBA 计算 | BSD-3-Clause；未安装时本插件明确降级为分子式级计算 |
+| `markitdown`（Python 可选，微软） | Office/PDF/图片等 → Markdown 文档转换 | MIT；未安装时 `ctx.labConvert` 明确降级并给出安装指引 |
 | PubChem REST API（NIH） | 化合物数据库实测值查询（`db-measured`） | 美国 NIH 开放数据；使用需遵守 PubChem 使用条款，发送的仅为化合物名称/结构查询 |
 | OpenAlex（nature-academic-search） | 文献检索（无 key） | CC0 元数据；礼貌池使用（`--mailto`） |
 | USPTO PatentsView | 专利开放检索（无 key） | 美国专利商标局开放数据；端点正迁移至 USPTO Open Data Portal，适配器按端点封装 |

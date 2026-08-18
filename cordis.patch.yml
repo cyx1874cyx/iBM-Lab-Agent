@@ -138,6 +138,18 @@
       name: 'dsh-lab-agent/remote'
       inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython]
 
+    # ── Markitdown 文档转换（labConvert）──────────────────────────────────────
+    #
+    # Host service `ctx.labConvert`：microsooft/markitdown（可选 Python 依赖）
+    # 把 Office/PDF/图片等转换为 Markdown，保存到 lab-agent/converted/ 并登记
+    # 转换记录；markitdown 不可用时清晰降级并提供安装指引。
+    - id: lab-convert
+      name: 'dsh-lab-agent/convert'
+      inject: [storageDomain]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        convertedDir: !!js dshHomePath('lab-agent/converted')
+
     # ── Lab web client（浏览器管理界面）────────────────────────────────────
     #
     # 裸包名 entry（dsh-lab-agent 主入口，提供 ctx.labAgent）：client-modules
