@@ -549,7 +549,10 @@ window.__ModuleLoader__.load({
 		// ── plugin body ─────────────────────────────────────────────────────
 		function applyUi(ctx) {
 			const call = async (method, args) => {
-				const result = args === undefined ? await ctx.remote.lab[method]() : await ctx.remote.lab[method](args);
+				// 兼容两种调用形式：裸参数 {name, base64} 或历史包装 {request: {...}}
+				const payload = args !== undefined && args !== null && typeof args === "object" && !Array.isArray(args)
+					&& Object.keys(args).length === 1 && "request" in args ? args.request : args;
+				const result = payload === undefined ? await ctx.remote.lab[method]() : await ctx.remote.lab[method](payload);
 				if (!result.ok) throw new Error(result.error?.message ?? result.error?.code ?? "remote call failed");
 				return result.value;
 			};
