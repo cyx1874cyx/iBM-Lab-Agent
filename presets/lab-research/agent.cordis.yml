@@ -40,6 +40,14 @@
          - 即使加载了 nature-reader，其 PDF 文本提取步骤也必须由 markitdown
            完成，不得照抄 SKILL.md 中自写解析脚本的步骤；
          - markitdown 不可用时，先明确告知用户并征得同意，再临时降级。
+         探测 markitdown 可用性请用（不要用 pip list / which / pip show 判断，
+         --user 安装且缺 pip 元数据时查不到会误判不可用）：
+           python3 scripts/markitdown/convert.py --check
+         或 python3 -c "import markitdown"
+         决定使用 nature-reader 时：必须先完成 markitdown 转换（优先调用
+         lab_convert_document 工具，其次 convert.py），把生成的 .md 路径作为
+         nature-reader 的输入；在转换完成前不得执行 nature-reader 中的
+         PDF 提取步骤。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
@@ -158,11 +166,6 @@
 
     - id: tool-workflow
       name: '@deepseek-ai/dsh-tool-workflow'
-
-# ── 文档转换工具（markitdown）：读 PDF/Office 默认走本工具 ─────────────
-- id: convert-document
-  name: 'dsh-lab-agent/convert-tool'
-  inject: [tools, labConvert]
 
 # ── remaining model-facing rows ─────────────────────────────────────────────
 - id: tool-ask-user
