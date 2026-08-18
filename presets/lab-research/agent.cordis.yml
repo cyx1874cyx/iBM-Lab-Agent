@@ -28,6 +28,11 @@
       3. 生成汇报前先与用户确认精读报告；未经确认不进入 PPT 生成。
       4. 涉及调用云端模型前，先说明将发送的数据范围。
       5. 实验方法计划仅作为待人工审核的方案，不控制仪器、不自动采购。
+      6. 阅读 PDF / Office（docx/pptx/xlsx）文档时，默认使用 markitdown 转换：
+        运行 scripts/markitdown/convert.py <输入文件> <输出.md>（或经 labConvert 服务/
+        实验室面板「文档转MD」），读转换后的 Markdown 作为输入；不要自行编写
+        PDF/Office 解析脚本。markitdown 不可用时才可临时降级（用系统工具）并明确说明。
+        转换出的 Markdown 可直接作为 nature-reader / nature-paper-card 的输入源。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
