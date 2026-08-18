@@ -52,8 +52,11 @@ test("lab-research preset is discoverable and composes", async () => {
 			assert.match(text, /tool-skill/);
 			assert.match(text, /skill-filesystem/);
 			assert.match(text, /@deepseek-ai\/dsh-skill-filesystem/);
-			assert.match(text, /id: convert-document/);
+			// 课题工具（文档转换 + 核心记忆）挂在 preset 工具层，仅科研会话可见
+			assert.match(text, /lab-convert-tool/);
+			assert.match(text, /lab-memory-tool/);
 			assert.match(text, /dsh-lab-agent\/convert-tool/);
+			assert.match(text, /dsh-lab-agent\/memory-tool/);
 		} finally {
 			await handle.dispose();
 		}

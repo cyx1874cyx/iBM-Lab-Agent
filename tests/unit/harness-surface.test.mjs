@@ -58,6 +58,12 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /课题背景/);
 	// 需要 connection（wire api）来选择预设
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
+	// 预设切换必须检查 result.ok（wire 层不 throw，否则失败被静默吞掉，
+	// 会话停留在默认 standard 模式——此前"进入科研 Agent 模式"失效的根因）
+	assert.match(source, /const selectResearchPreset = async/);
+	assert.match(source, /response\?\.result \?\? response/);
+	assert.match(source, /agent-preset-locked/);
+	assert.match(source, /presetApplied !== "ok"\) toast/);
 });
 
 test("web client bundle exposes valid strict Remote descriptors", async () => {

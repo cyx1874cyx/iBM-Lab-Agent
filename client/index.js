@@ -195,7 +195,35 @@ window.__ModuleLoader__.load({
 			};
 			let root = null;
 			const close = () => { if (!root) return; const node = root; root = null; ReactDOM.unmountComponentAtNode(node); node.remove(); };
+			const toast = (message) => {
+				const node = document.createElement("div");
+				node.className = "ib-toast";
+				node.textContent = message;
+				document.body.appendChild(node);
+				setTimeout(() => node.remove(), 4500);
+			};
 			const promptFor = (project, memory) => [`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`, "以下是该项目当前版本的核心记忆。请以它作为本次对话背景，并把后续产物归档到这个项目；如发现信息冲突，先向我确认。", "", `<!-- project-memory:${project.id}@${memory?.version || project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`, "", "请先简短确认你已理解课题背景，然后等待我的具体任务。"].join("\n");
+			/**
+			 * 为空白新会话选择科研 Agent 预设。wire 层返回 { result: { ok, error } }，
+			 * **不会 throw**——必须检查 result.ok，否则预设切换失败会被静默吞掉
+			 * （会话停留在默认 standard 模式，正是此前"进入科研 Agent 模式"失效的
+			 * 直接原因）。返回 "ok" 或失败说明。
+			 */
+			const selectResearchPreset = async (sessionId, presetId) => {
+				if (!presetId) return "跳过：未配置科研预设";
+				try {
+					const response = await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId });
+					const result = response?.result ?? response;
+					if (!result.ok) {
+						const code = result.error?.code ?? "unknown";
+						const detail = result.error?.message ?? "agentPresets.select 未返回 ok";
+						return code === "agent-preset-locked" ? `预设切换被拒绝（会话已开始，预设已固定：${detail}）` : `预设选择失败（${code}）：${detail}`;
+					}
+					return "ok";
+				} catch (reason) {
+					return `预设选择调用失败：${reason?.message ?? reason}`;
+				}
+			};
 			/**
 			 * 课题 launch：绑定是**工作区级**的——一个课题一个专属 workspace，
 			 * 空间内所有对话共享课题标识与核心记忆。流程：复用或创建专属
@@ -209,6 +237,7 @@ window.__ModuleLoader__.load({
 				let sessionId;
 				let workspaceId;
 				let openedNew = false;
+				let presetApplied = "ok";
 				const bound = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
 				if (bound?.workspaceId) {
 					// 已有课题工作区：复用最近一次启动的会话（空间内所有对话共享记忆）
@@ -218,10 +247,7 @@ window.__ModuleLoader__.load({
 					if (sessionId === undefined) {
 						sessionId = await ctx.sessions.create({ workspaceId });
 						openedNew = true;
-						if (presetId) {
-							try { await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId }); }
-							catch (reason) { console.warn("dsh-lab-agent: agent preset select failed", reason); }
-						}
+						presetApplied = await selectResearchPreset(sessionId, presetId);
 						await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
 					}
 				} else if (project.workspacePath) {
@@ -233,10 +259,7 @@ window.__ModuleLoader__.load({
 					try { await ctx.workspaces.manager.rename(workspaceId, project.name); } catch (reason) { console.warn("dsh-lab-agent: workspace rename failed", reason); }
 					sessionId = await ctx.sessions.create({ workspaceId });
 					openedNew = true;
-					if (presetId) {
-						try { await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId }); }
-						catch (reason) { console.warn("dsh-lab-agent: agent preset select failed", reason); }
-					}
+					presetApplied = await selectResearchPreset(sessionId, presetId);
 					await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
 				} else {
 					// 升级前已存在的项目：没有专属工作区，沿用当前会话。
@@ -255,7 +278,8 @@ window.__ModuleLoader__.load({
 				const prompt = promptFor(project, opts.memory);
 				ctx.conversation.input.for(actx).setDraft(prompt);
 				close();
-				return { sessionId, workspaceId, openedNew };
+				if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);
+				return { sessionId, workspaceId, openedNew, presetApplied };
 			};
 			const open = (initial) => { if (root) return; root = document.createElement("div"); document.body.appendChild(root); ReactDOM.render(h(Panel, { call, onClose: close, onStartChat: launchProject, initial: initial ?? null }), root); };
 			const openWorkspace = (project) => open(project);

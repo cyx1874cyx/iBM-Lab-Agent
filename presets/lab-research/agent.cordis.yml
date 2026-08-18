@@ -59,6 +59,12 @@
          nature-academic-search 等 skill 且输入含 PDF/Office 时，必须先调用该
          工具（或 convert.py）完成转换，把生成的 .md 路径作为 skill 的输入；
          转换完成前不得执行任何 nature skill 中的 PDF 提取步骤。
+      8. 模式切换（重要）：Harness 的 Agent 预设（模式）只在空白新会话上
+         生效，会话一旦开始运行就固定，**无法中途切换**。你当前已经是
+         课题组科研 Agent 模式；如果用户要求"进入科研 Agent 模式"或切换到
+         其他模式：说明当前会话模式已固定，正确做法是回到「我的科研课题」
+         课题空间，点「开始科研 Agent 对话」开启一个新对话（会自动带科研
+         预设与课题核心记忆），或新建一个课题。不要假装完成切换。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
@@ -86,6 +92,19 @@
 # ── background jobs（长任务：检索/解析/PPT 生成）────────────────────────────
 - id: tool-jobs
   name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── 课题工具（仅本 preset 会话可见；standard 等预设不暴露 lab 工具）─────────
+# 文档转换（markitdown 耦合点）与课题核心记忆读写。工具注册进 host tools
+# registry，但行挂在 preset 组成里，作用域限定在 lab-research 会话。
+# 注意：不在全局 system-prompt.toolOrder 中引用——普通 Agent 没有这个工具时，
+# Harness 会把未注册的工具名视为配置错误并拒绝启动。
+- id: lab-convert-tool
+  name: 'dsh-lab-agent/convert-tool'
+  inject: [tools, labConvert]
+
+- id: lab-memory-tool
+  name: 'dsh-lab-agent/memory-tool'
+  inject: [tools, labTasks]
 
 # ── skills ──────────────────────────────────────────────────────────────────
 - id: skill-filesystem
