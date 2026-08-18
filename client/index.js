@@ -24,6 +24,8 @@ window.__ModuleLoader__.load({
 			".ib-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.ib-tab{border:1px solid var(--ib-line);background:rgba(255,255,255,.02);color:#9db8ae;border-radius:13px;padding:13px;text-align:left;cursor:pointer}.ib-tab[data-active=true]{border-color:rgba(81,212,163,.4);background:linear-gradient(125deg,rgba(81,212,163,.13),rgba(115,220,230,.04));color:white}.ib-tab strong{display:block;font-size:12px;margin-bottom:4px}.ib-tab span{font-size:9.5px;color:#718f85}",
 			".ib-board{border:1px solid var(--ib-line);background:rgba(10,26,22,.7);border-radius:16px;padding:17px}.ib-board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.ib-board-head h2{font-size:14px;margin:0}.ib-board-head p{font-size:9.5px;color:#6f8d83;margin:3px 0 0}.ib-artifacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ib-artifact{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-height:112px}.ib-artifact-top{display:flex;justify-content:space-between;align-items:center}.ib-artifact h3{font-size:11.5px;margin:0}.ib-count{font-size:19px;font-weight:720;color:var(--ib-green)}.ib-rows{display:grid;gap:6px;margin-top:10px}.ib-row{display:flex;justify-content:space-between;gap:9px;font-size:9.5px;color:#8ba69c}.ib-row b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c8ddd5;font-weight:520}.ib-row span{flex:none;color:#78978c}.ib-artifact-empty{margin-top:15px;color:#627f75;font-size:9.5px;line-height:1.55}.ib-toast{position:fixed;right:24px;bottom:24px;border:1px solid rgba(81,212,163,.27);background:#102a22;border-radius:12px;padding:11px 14px;font-size:10.5px;box-shadow:0 12px 35px rgba(0,0,0,.3)}",
 			".ib-sidebar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.ib-sidebar:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.ib-sidebar-logo{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
+			".ib-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(129,205,178,.22);background:rgba(81,212,163,.09);color:#bde6d6;border-radius:999px;padding:5px 11px;font-size:10px;cursor:pointer;line-height:1.4}.ib-badge:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.15)}.ib-badge-mark{color:var(--ib-green);font-size:9px;font-weight:800}.ib-badge b{color:#e6f7f0;font-weight:650}.ib-badge small{color:#7fa396}",
+			".ib-hint{display:flex;align-items:center;gap:8px;color:#86a79b;font-size:10px;padding:4px 2px;line-height:1.5}.ib-hint b{color:#cfe5dc;font-weight:620}.ib-hint button{margin-left:auto;border:1px solid rgba(129,205,178,.2);background:rgba(255,255,255,.03);color:#a9c8bd;border-radius:8px;padding:3px 9px;font-size:9.5px;cursor:pointer}.ib-hint button:hover{border-color:rgba(81,212,163,.4);color:#e0f2ea}",
 			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
@@ -38,7 +40,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_bind_session", "projects_binding", "projects_by_session", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -48,6 +50,43 @@ window.__ModuleLoader__.load({
 
 		function Artifact({ title, rows = [], empty }) {
 			return h("section", { className: "ib-artifact" }, h("div", { className: "ib-artifact-top" }, h("h3", null, title), h("span", { className: "ib-count" }, rows.length)), rows.length ? h("div", { className: "ib-rows" }, rows.slice(0, 4).map((row, index) => h("div", { className: "ib-row", key: row.id || index }, h("b", { title: titleOf(row) }, titleOf(row)), h("span", null, statusOf(row))))) : h("div", { className: "ib-artifact-empty" }, empty));
+		}
+
+		/** 会话 → 课题绑定查询（对话界面徽章/提示条共用）。 */
+		function useBoundProject(sessionId, call) {
+			const [bound, setBound] = useState(null);
+			useEffect(() => {
+				if (!sessionId) { setBound(null); return undefined; }
+				let alive = true;
+				call("projects_by_session", { request: { sessionId } })
+					.then((result) => { if (alive) setBound(result.bound || null); })
+					.catch(() => { if (alive) setBound(null); });
+				return () => { alive = false; };
+			}, [sessionId, call]);
+			return bound;
+		}
+
+		/** 会话头部课题徽章：显示当前课题与记忆版本，点击回到课题空间。 */
+		function ProjectBadge({ sessionId, call, openWorkspace }) {
+			const bound = useBoundProject(sessionId, call);
+			if (!bound?.project) return null;
+			return h("button", { className: "ib-badge", title: "打开课题空间", onClick: () => openWorkspace(bound.project) },
+				h("span", { className: "ib-badge-mark" }, "◆"),
+				h("b", null, bound.project.name),
+				h("small", null, `记忆 v${bound.project.memoryVersion || "1"}`)
+			);
+		}
+
+		/** 输入框上方的课题记忆提示条。 */
+		function MemoryHint({ sessionId, call, openWorkspace }) {
+			const bound = useBoundProject(sessionId, call);
+			if (!bound?.project) return null;
+			return h("div", { className: "ib-hint" },
+				h("span", null, "课题背景"),
+				h("b", null, bound.project.name),
+				h("span", null, `核心记忆 v${bound.project.memoryVersion || "1"} 已作为对话背景`),
+				h("button", { onClick: () => openWorkspace(bound.project) }, "课题空间")
+			);
 		}
 
 		function CreateProject({ call, defaults, onCancel, onCreated }) {
@@ -62,15 +101,16 @@ window.__ModuleLoader__.load({
 					if (!form.name.trim()) throw new Error("请填写项目名称");
 					if (!defaults.goal || !defaults.template) throw new Error("系统默认配置尚未就绪");
 					const result = await call("projects_create", { request: { fields: { ...form, name: form.name.trim(), memoryChangeNote: "创建课题核心记忆", goalProfileId: defaults.goal.id, goalProfileVersion: defaults.goal.version, templateId: defaults.template.id, templateVersion: defaults.template.version } } });
-					onCreated(result.project);
+					onCreated(result.project, result.presetId);
 				} catch (reason) { setError(reason.message); } finally { setBusy(false); }
 			};
 			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 		}
 
-		function Home({ call, onOpen }) {
+		function Home({ call, onOpen, onLaunch }) {
 			const [state, setState] = useState({ loading: true, projects: [], defaults: {}, error: "" });
 			const [creating, setCreating] = useState(false);
+			const [launching, setLaunching] = useState(null);
 			const load = useCallback(async () => {
 				try {
 					const [projects, goals, templates] = await Promise.all([call("projects_list"), call("goals_list"), call("templates_list")]);
@@ -78,7 +118,12 @@ window.__ModuleLoader__.load({
 				} catch (reason) { setState({ loading: false, projects: [], defaults: {}, error: reason.message }); }
 			}, []);
 			useEffect(() => { void load(); }, [load]);
-			return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。这里不需要先选择工具，先进入你正在做的项目。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题")), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: onOpen }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
+			const launch = async (project, presetId) => {
+				setLaunching(project.id);
+				try { await onLaunch(project, { presetId }); }
+				catch (reason) { setState((previous) => ({ ...previous, error: reason.message })); setLaunching(null); }
+			};
+			return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。创建课题后会自动打开专属工作区并开始科研 Agent 对话。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题")), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: (project, presetId) => void launch(project, presetId) }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, disabled: launching === project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, launching === project.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
 		}
 
 		function Project({ call, project, onBack, onStartChat }) {
@@ -87,6 +132,7 @@ window.__ModuleLoader__.load({
 			const [draft, setDraft] = useState("");
 			const [note, setNote] = useState("");
 			const [saving, setSaving] = useState(false);
+			const [launching, setLaunching] = useState(false);
 			const [toast, setToast] = useState("");
 			const load = useCallback(async () => {
 				try { const data = await call("projects_workspace", { request: { projectId: project.id } }); setState({ loading: false, data, error: "" }); setDraft(data.memory?.markdown || ""); }
@@ -101,8 +147,9 @@ window.__ModuleLoader__.load({
 			};
 			const startChat = async () => {
 				if (!state.data) return;
-				try { await onStartChat(state.data.project, state.data.memory); }
-				catch (reason) { setToast(reason.message); }
+				setLaunching(true);
+				try { await onStartChat(state.data.project, { memory: state.data.memory }); }
+				catch (reason) { setToast(reason.message); setLaunching(false); }
 			};
 			if (state.loading) return h("div", { className: "ib-empty" }, "正在打开课题空间…");
 			if (!state.data) return h("div", { className: "ib-empty" }, state.error, h("div", { style: { marginTop: 12 } }, h("button", { className: "ib-btn", onClick: onBack }, "返回")));
@@ -112,7 +159,7 @@ window.__ModuleLoader__.load({
 			const characterization = data.characterization || {};
 			const meta = { literature: ["文献资料", "检索汇总、精读报告和文献 PPT"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
-				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn ib-agent", "data-primary": true, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), "开始科研 Agent 对话")),
+				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
 				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
 				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "文献检索汇总", rows: literature.searches, empty: "对话中的文献检索结果会整理到这里。" }), h(Artifact, { title: "文献原文整理", rows: literature.bundles, empty: "尚未登记论文原文。" }), h(Artifact, { title: "文献精读报告", rows: literature.reports, empty: "尚未生成精读报告。" }), h(Artifact, { title: "文献 PPT 汇报", rows: literature.presentations, empty: "尚未生成文献汇报 PPT。" })) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
@@ -120,9 +167,9 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		function Panel({ call, onClose, onStartChat }) {
-			const [project, setProject] = useState(null);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat }) : h(Home, { call, onOpen: setProject }))), document.body);
+		function Panel({ call, onClose, onStartChat, initial }) {
+			const [project, setProject] = useState(initial ?? null);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat }))), document.body);
 		}
 
 		function Entry({ onOpen, wide }) { return h("button", { className: "ib-sidebar", onClick: onOpen, title: "打开课题工作台" }, h("span", { className: "ib-sidebar-logo" }, "iB"), wide ? h("span", null, "我的科研课题") : null); }
@@ -136,29 +183,67 @@ window.__ModuleLoader__.load({
 			};
 			let root = null;
 			const close = () => { if (!root) return; const node = root; root = null; ReactDOM.unmountComponentAtNode(node); node.remove(); };
-			const startChat = async (project, memory) => {
-				let sessionId = ctx.sessions.list.getSnapshot().current;
-				if (sessionId === undefined) {
-					const workspaces = ctx.workspaces.list.getSnapshot();
-					const workspaceId = workspaces.recentWorkspaceId || workspaces.items[0]?.workspaceId;
-					if (workspaceId === undefined) throw new Error("请先在 Harness 中选择一个工作目录");
-					sessionId = await ctx.workspaces.connectWorkspace(workspaceId);
-					ctx.sessions.open(sessionId);
+			const promptFor = (project, memory) => [`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`, "以下是该项目当前版本的核心记忆。请以它作为本次对话背景，并把后续产物归档到这个项目；如发现信息冲突，先向我确认。", "", `<!-- project-memory:${project.id}@${memory?.version || project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`, "", "请先简短确认你已理解课题背景，然后等待我的具体任务。"].join("\n");
+			/**
+			 * 课题 launch：复用或创建专属工作区 → 空白新会话 → 选择科研 Agent
+			 * 预设（agentPresets.select，仅对空白会话有效）→ 记录绑定 → 打开
+			 * 会话 → 把当前版本核心记忆预填进输入框。旧项目（无工作区路径）
+			 * 回退到当前会话，仅预填记忆。
+			 */
+			const launchProject = async (project, opts = {}) => {
+				const presetId = opts.presetId;
+				let sessionId;
+				let workspaceId;
+				let openedNew = false;
+				const bound = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
+				if (bound?.sessionId) {
+					sessionId = bound.sessionId;
+					workspaceId = bound.workspaceId;
+				} else if (project.workspacePath) {
+					if (bound?.workspaceId) {
+						workspaceId = bound.workspaceId;
+					} else {
+						const ws = await ctx.workspaces.manager.create({ path: project.workspacePath });
+						if (!ws.ok) throw new Error(ws.error?.message || "创建课题工作区失败");
+						workspaceId = ws.value.workspace.workspaceId;
+					}
+					sessionId = await ctx.sessions.create({ workspaceId });
+					openedNew = true;
+					if (presetId) {
+						try { await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId }); }
+						catch (reason) { console.warn("dsh-lab-agent: agent preset select failed", reason); }
+					}
+					await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
+				} else {
+					// 升级前已存在的项目：没有专属工作区，沿用当前会话。
+					sessionId = ctx.sessions.list.getSnapshot().current;
+					if (sessionId === undefined) {
+						const workspaces = ctx.workspaces.list.getSnapshot();
+						const workspaceId0 = workspaces.recentWorkspaceId || workspaces.items[0]?.workspaceId;
+						if (workspaceId0 === undefined) throw new Error("请先在 Harness 中选择一个工作目录");
+						sessionId = await ctx.workspaces.connectWorkspace(workspaceId0);
+						ctx.sessions.open(sessionId);
+					}
 				}
+				ctx.sessions.open(sessionId);
 				const actx = ctx.sessions.scope(sessionId);
 				if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
-				const prompt = [`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`, "以下是该项目当前版本的核心记忆。请以它作为本次对话背景，并把后续产物归档到这个项目；如发现信息冲突，先向我确认。", "", `<!-- project-memory:${project.id}@${memory?.version || project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`, "", "请先简短确认你已理解课题背景，然后等待我的具体任务。"].join("\n");
+				const prompt = promptFor(project, opts.memory);
 				ctx.conversation.input.for(actx).setDraft(prompt);
 				close();
+				return { sessionId, workspaceId, openedNew };
 			};
-			const open = () => { if (root) return; root = document.createElement("div"); document.body.appendChild(root); ReactDOM.render(h(Panel, { call, onClose: close, onStartChat: startChat }), root); };
-			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "lab-panel", order: 5 }, (props) => h(Entry, { wide: props.wide, onOpen: open })), "dsh-lab-agent: project entry");
+			const open = (initial) => { if (root) return; root = document.createElement("div"); document.body.appendChild(root); ReactDOM.render(h(Panel, { call, onClose: close, onStartChat: launchProject, initial: initial ?? null }), root); };
+			const openWorkspace = (project) => open(project);
+			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "lab-panel", order: 5 }, (props) => h(Entry, { wide: props.wide, onOpen: () => open() })), "dsh-lab-agent: project entry");
+			ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace })), "dsh-lab-agent: project badge");
+			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({ name: "conversation.input.dock", id: "lab-memory-hint", order: 10 }, (props) => h(MemoryHint, { ...props, call, openWorkspace })), "dsh-lab-agent: memory hint");
 			ctx.on("dispose", close);
 		}
 
 		async function apply(ctx) {
 			await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors });
-			ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation"], applyUi);
+			ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"], applyUi);
 		}
 		exports.apply = apply;
 		exports.inject = ["remote"];

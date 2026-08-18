@@ -28,7 +28,7 @@ async function bootRemote() {
 			{ id: "api-gateway", name: "@deepseek-ai/dsh-api-gateway" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"] },
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
 			{ id: "lab-chemistry", name: "dsh-lab-agent/chemistry", inject: ["storageDomain"] },
 			{ id: "lab-nmr", name: "dsh-lab-agent/nmr", inject: ["storageDomain"] },
 			{ id: "lab-synthesis", name: "dsh-lab-agent/synthesis", inject: ["storageDomain"] },
@@ -80,6 +80,22 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 			templateVersion: "1"
 		} } });
 		assert.equal(project.project.memoryVersion, "1");
+		// 课题专属工作区路径 + 科研 Agent 预设 id（launch 流程数据源）
+		assert.equal(project.presetId, "lab-research");
+		assert.ok(project.project.workspacePath, "workspace path returned");
+		assert.match(project.project.workspacePath, /remote-project$/);
+
+		// 会话绑定三件套：bind → binding → by_session
+		const bound = await invoke(ctx, "projects_bind_session", { request: { projectId: "remote-project", sessionId: "session-r", workspaceId: "ws-r" } });
+		assert.equal(bound.binding.workspaceId, "ws-r");
+		const binding = await invoke(ctx, "projects_binding", { request: { projectId: "remote-project" } });
+		assert.equal(binding.binding.sessionId, "session-r");
+		const bySession = await invoke(ctx, "projects_by_session", { request: { sessionId: "session-r" } });
+		assert.equal(bySession.bound.project.id, "remote-project");
+		assert.equal(bySession.bound.workspaceId, "ws-r");
+		const missing = await invoke(ctx, "projects_by_session", { request: { sessionId: "session-none" } });
+		assert.equal(missing.bound, null);
+
 		const memory = await invoke(ctx, "projects_memory_update", { request: { fields: {
 			projectId: "remote-project",
 			markdown: "# 远程课题\n\n## 核心假设\nB",

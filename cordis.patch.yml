@@ -93,6 +93,8 @@
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
+        # 每个课题一个独立工作区目录（workspace.create 采纳该目录）。
+        projectsRoot: !!js dshHomePath('lab-agent/projects')
 
     # ── Chemistry & experiment plans (ChemicalEntity / ChemicalProperty /
     #    ExperimentPlan) ─────────────────────────────────────────────────────

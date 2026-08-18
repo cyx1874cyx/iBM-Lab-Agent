@@ -36,7 +36,7 @@ export default {
 			extraRows: [
 				{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 				{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
-				{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot } }
+				{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
 			]
 		});
 		try {
@@ -59,6 +59,7 @@ export default {
 				templateVersion: "1"
 			});
 			if (project.goalProfile.version !== "1") problems.push("project goal snapshot wrong");
+			if (!project.workspacePath?.endsWith("reg-proj")) problems.push("project workspace path missing");
 
 			const search = await tasks.searchLiterature({ projectId: "reg-proj", query: "prodrug polymer" });
 			if (search.status !== "succeeded") problems.push("search failed");

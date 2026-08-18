@@ -37,7 +37,25 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.match(source, /ctx\.conversation\.input\.for\(actx\)\.setDraft\(prompt\)/);
 });
 
+test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
+	const source = await readFile(clientPath, "utf8");
+	// 自动 launch：专属工作区 + 空白新会话 + 科研 Agent 预设
+	assert.match(source, /workspaces\.manager\.create\(\{ path: project\.workspacePath \}\)/);
+	assert.match(source, /sessions\.create\(\{ workspaceId \}\)/);
+	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
+	assert.match(source, /projects_bind_session/);
+	assert.match(source, /projects_binding/);
+	assert.match(source, /projects_by_session/);
+	// 对话界面定制：会话头部课题徽章 + 输入框上方记忆提示条
+	assert.match(source, /conversation\.session\.header\.utilities/);
+	assert.match(source, /conversation\.input\.dock/);
+	assert.match(source, /课题背景/);
+	// 需要 connection（wire api）来选择预设
+	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
+});
+
 test("web client bundle exposes valid strict Remote descriptors", async () => {
+
 	let registration;
 	const source = await readFile(clientPath, "utf8");
 	vm.runInNewContext(source, {
@@ -80,7 +98,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	});
 
-	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation"]);
+	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
 	for (const descriptor of contribution.descriptors) {
@@ -96,3 +114,4 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	}
 });
+

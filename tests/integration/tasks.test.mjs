@@ -33,7 +33,7 @@ async function bootTasks() {
 		extraRows: [
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot } }
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
 		]
 	});
 	// 真实 vendor 树 → registry 有 NatureSkillVersion，provenance 才能记录 skill 版本
@@ -76,6 +76,21 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		await assert.rejects(() => tasks.createProject({ id: "proj-1", name: "重复项目" }), /already exists/);
 		assert.equal(project.memoryVersion, "1");
 		assert.match(tasks.getProjectMemory("proj-1").markdown, /聚前药组会/);
+
+		// 课题专属工作区目录：创建项目时自动 mkdir，可被 workspace.create 采纳
+		assert.ok(project.workspacePath, "project carries a workspace path");
+		assert.match(project.workspacePath, /proj-1$/);
+		await assert.doesNotReject(() => mkdir(project.workspacePath, { recursive: true }), "workspace dir usable");
+
+		// 会话绑定：bind → 反查（对话界面徽章数据源）
+		const binding = await tasks.bindProjectSession({ projectId: "proj-1", sessionId: "session-proj-1", workspaceId: "ws-proj-1" });
+		assert.equal(binding.projectId, "proj-1");
+		assert.equal(tasks.getProjectSession("proj-1").workspaceId, "ws-proj-1");
+		const bySession = tasks.getProjectBySession("session-proj-1");
+		assert.equal(bySession.project.id, "proj-1");
+		assert.equal(bySession.workspaceId, "ws-proj-1");
+		assert.equal(tasks.getProjectBySession("session-unknown"), undefined);
+
 		const memoryV2 = await tasks.updateProjectMemory({
 			projectId: "proj-1",
 			markdown: "# 聚前药组会\n\n## 当前进展\n- 已明确候选单体",

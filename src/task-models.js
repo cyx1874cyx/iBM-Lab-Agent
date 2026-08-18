@@ -45,6 +45,8 @@ export const labProjectSchema = z.object({
 	goalProfile: profileRefSchema,
 	template: profileRefSchema,
 	memoryVersion: z.string().regex(/^\d+$/).default("1"),
+	/** 项目专属工作区目录（workspace.create 采纳的绝对路径）；旧数据可缺省。 */
+	workspacePath: z.string().min(1).optional(),
 	status: z.enum(["active", "archived"]).default("active"),
 	createdAt: z.string(),
 	updatedAt: z.string()
@@ -63,6 +65,21 @@ export const projectMemoryVersionSchema = z.object({
 
 export function projectMemoryKey(projectId, version) {
 	return `${projectId}@${version}`;
+}
+
+/**
+ * 项目 ↔ Harness 会话绑定：课题创建后自动开一个独立 workspace + 新会话，
+ * 对话界面的课题徽章据此反查当前会话属于哪个课题。
+ */
+export const projectSessionSchema = z.object({
+	projectId: z.string().regex(PROFILE_ID_RE),
+	sessionId: z.string().min(1),
+	workspaceId: z.string().min(1),
+	createdAt: z.string()
+});
+
+export function projectSessionKey(projectId) {
+	return projectId;
 }
 
 export const searchResultSchema = z.object({
@@ -181,6 +198,7 @@ export const artifactProvenanceSchema = z.object({
 export const labTasksDomainSpecTables = {
 	lab_projects: "lab_projects",
 	project_memory_versions: "project_memory_versions",
+	project_sessions: "project_sessions",
 	literature_search_runs: "literature_search_runs",
 	paper_source_bundles: "paper_source_bundles",
 	reading_reports: "reading_reports",
