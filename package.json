@@ -43,6 +43,13 @@
       "types": "./lib/types/synthesis.d.ts",
       "default": "./lib/synthesis.js"
     },
+    "./remote": {
+      "types": "./lib/types/remote.d.ts",
+      "default": "./lib/remote.js"
+    },
+    "./client": {
+      "default": "./client/index.js"
+    },
     "./invariant": {
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"
@@ -52,6 +59,7 @@
   },
   "files": [
     "lib",
+    "client",
     "cordis.patch.yml",
     "presets",
     "python",
@@ -67,6 +75,15 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
     }
   },
   "scripts": {

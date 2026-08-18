@@ -127,3 +127,22 @@
     - id: lab-synthesis
       name: 'dsh-lab-agent/synthesis'
       inject: [storageDomain]
+
+    # ── Lab remote bridge（浏览器 UI 用）────────────────────────────────────
+    #
+    # Host service `ctx.lab`（Typert Remote，namespace "lab"）：把 9 个 lab 服务
+    # 的方法经 api-gateway 暴露为 ctx.remote.lab.*，供 Web client 插件
+    # （dsh-lab-agent 的 ./client bundle）调用渲染"实验室"管理界面。
+    # 方法只收单个 request 参数（与 host source-mode 参数名推断一致）。
+    - id: lab-remote
+      name: 'dsh-lab-agent/remote'
+      inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython]
+
+    # ── Lab web client（浏览器管理界面）────────────────────────────────────
+    #
+    # 裸包名 entry（dsh-lab-agent 主入口，提供 ctx.labAgent）：client-modules
+    # 按 entry name 解析 dsh.client 声明与 exports["./client"] bundle，
+    # 子路径行名无法被识别为 client 包，故单独挂一行。浏览器侧由 kernel 加载
+    # client/index.js：注册"实验室"侧边栏入口与全屏管理面板。
+    - id: lab-client
+      name: 'dsh-lab-agent'

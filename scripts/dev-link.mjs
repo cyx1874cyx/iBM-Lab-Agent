@@ -30,18 +30,18 @@ function findHarnessNodeModules() {
 	return undefined;
 }
 
-const targets = [
-	...Object.keys(harnessLock.packages).filter((name) => name.startsWith("@deepseek-ai/")),
-	"zod",
-	"js-yaml",
-	"dsh-lab-agent" // self-link so `dsh-lab-agent/version-registry` resolves in tests
-];
-
 const harnessRoot = findHarnessNodeModules();
 if (!harnessRoot) {
 	console.error("dev-link: cannot locate the harness node_modules (set DSH_HARNESS_NODE_MODULES or put dsh on PATH)");
 	process.exit(1);
 }
+
+const targets = [
+	...(await readdir(join(harnessRoot, "@deepseek-ai"))).map((name) => `@deepseek-ai/${name}`),
+	"zod",
+	"js-yaml",
+	"dsh-lab-agent" // self-link so `dsh-lab-agent/*` resolves in tests
+];
 
 await mkdir(join(repoRoot, "node_modules", "@deepseek-ai"), { recursive: true });
 
