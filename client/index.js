@@ -3,8 +3,8 @@
  *
  * - $mount "lab" Remote（调用 host 侧 ctx.lab 聚合服务，ctx.remote.lab.*）；
  * - 侧边栏 sidebar.footer.action 注册"实验室"入口；
- * - 点击打开全屏管理面板（React portal，React 18 legacy render），9 个 tab：
- *   版本登记 / 精读目标 / PPT模板 / 文献任务 / 化学性质 / 实验计划 / NMR / 合成路线 / Python 环境。
+ * - 点击打开 iBM Research Workspace（React portal，React 18 legacy render）；
+ * - 项目化总览 + 文献/实验/数据/成果/系统分组导航，保留全部既有管理能力。
  */
 
 window.__ModuleLoader__.load({
@@ -19,37 +19,39 @@ window.__ModuleLoader__.load({
 
 		// ── styles ──────────────────────────────────────────────────────────
 		const css = [
-			".dshla-overlay{position:fixed;inset:0;z-index:1000;background:var(--dsw-alias-bg-base,#0f1115);display:flex;flex-direction:column;color:var(--dsw-alias-label-primary,#e6e6e6)}",
-			".dshla-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--dsw-alias-border-l2,#2a2d33);flex:none}",
-			".dshla-bar h1{font-size:15px;font-weight:600;margin:0;flex:1}",
-			".dshla-close{cursor:pointer;border:1px solid var(--dsw-alias-border-l2,#2a2d33);background:var(--dsw-alias-bg-layer-1,#16181d);color:inherit;border-radius:8px;padding:5px 12px;font-size:13px}",
-			".dshla-body{display:flex;flex:1;min-height:0}",
-			".dshla-tabs{width:170px;flex:none;border-right:1px solid var(--dsw-alias-border-l2,#2a2d33);overflow:auto;padding:8px 0}",
-			".dshla-tab{display:block;width:100%;text-align:left;border:0;background:none;color:var(--dsw-alias-label-secondary,#a0a4ab);cursor:pointer;padding:8px 14px;font-size:13px}",
-			".dshla-tab:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}",
-			".dshla-tab[data-active=true]{color:var(--dsw-alias-label-primary,#e6e6e6);background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07));font-weight:600}",
-			".dshla-content{flex:1;min-width:0;overflow:auto;padding:16px 20px}",
-			".dshla-section{margin-bottom:18px}",
-			".dshla-section h2{font-size:14px;font-weight:600;margin:0 0 8px}",
-			".dshla-table{width:100%;border-collapse:collapse;font-size:12.5px}",
-			".dshla-table th,.dshla-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2,#26292f);vertical-align:top}",
-			".dshla-table th{color:var(--dsw-alias-label-tertiary,#7c8189);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}",
-			".dshla-table tr:hover td{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.03))}",
-			".dshla-form{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}",
-			".dshla-form input,.dshla-form select,.dshla-form textarea{border:1px solid var(--dsw-alias-border-l2,#2a2d33);background:var(--dsw-alias-bg-layer-1,#16181d);color:inherit;border-radius:7px;padding:6px 9px;font-size:12.5px;font-family:inherit}",
-			".dshla-form input{width:150px}.dshla-form input[data-wide]{width:280px}",
-			".dshla-btn{cursor:pointer;border:1px solid var(--dsw-alias-border-l2,#2a2d33);background:var(--dsw-alias-bg-layer-1,#16181d);color:var(--dsw-alias-label-primary,#e6e6e6);border-radius:7px;padding:5px 11px;font-size:12.5px}",
-			".dshla-btn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.06))}",
-			".dshla-btn[data-primary]{background:var(--dsw-alias-state-business-primary,#3b82f6);border-color:transparent}",
-			".dshla-err{color:var(--dsw-alias-state-error-primary,#ef4444);font-size:12px;margin:6px 0;white-space:pre-wrap}",
-			".dshla-meta{color:var(--dsw-alias-label-tertiary,#7c8189);font-size:11.5px}",
-			".dshla-status{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px}",
-			".dshla-status[data-s=ok]{background:rgba(34,197,94,.15);color:#22c55e}",
-			".dshla-status[data-s=warn]{background:rgba(245,158,11,.15);color:#f59e0b}",
-			".dshla-status[data-s=err]{background:rgba(239,68,68,.15);color:#ef4444}",
-			".dshla-sidebar-entry{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}",
-			".dshla-sidebar-entry:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}",
-			".dshla-json{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:11px;color:var(--dsw-alias-label-secondary,#a0a4ab);white-space:pre-wrap;max-height:160px;overflow:auto}"
+			":root{--dshla-bg:#07110f;--dshla-panel:#0d1a17;--dshla-panel-2:#11231f;--dshla-line:rgba(151,202,185,.14);--dshla-text:#eef8f4;--dshla-muted:#8ca79e;--dshla-green:#55d6a4;--dshla-cyan:#63d8e8;--dshla-amber:#f2c66d}",
+			".dshla-overlay{position:fixed;inset:0;z-index:1000;background:radial-gradient(circle at 72% -12%,rgba(49,164,136,.18),transparent 34%),var(--dshla-bg);display:grid;grid-template-columns:244px minmax(0,1fr);color:var(--dshla-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}",
+			".dshla-rail{min-height:0;border-right:1px solid var(--dshla-line);background:linear-gradient(180deg,rgba(13,31,27,.96),rgba(7,17,15,.98));display:flex;flex-direction:column;padding:22px 14px 14px}",
+			".dshla-brand{display:flex;align-items:center;gap:11px;padding:0 8px 22px}",
+			".dshla-mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,var(--dshla-green),#228f73);color:#052019;font-weight:900;box-shadow:0 10px 30px rgba(85,214,164,.2)}",
+			".dshla-brand-name{font-size:14px;font-weight:750;letter-spacing:.01em}.dshla-brand-sub{color:var(--dshla-muted);font-size:10px;margin-top:2px;letter-spacing:.08em;text-transform:uppercase}",
+			".dshla-nav{overflow:auto;padding-right:2px}.dshla-nav-group{margin:2px 0 17px}.dshla-nav-label{padding:0 10px 6px;color:#617d74;font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}",
+			".dshla-tab{display:flex;width:100%;align-items:center;gap:10px;text-align:left;border:0;background:none;color:#9bb4ac;cursor:pointer;padding:9px 10px;font-size:12.5px;border-radius:9px;margin:1px 0;transition:background .16s,color .16s,transform .16s}",
+			".dshla-tab:hover{background:rgba(112,207,176,.07);color:#d8ebe4;transform:translateX(1px)}",
+			".dshla-tab[data-active=true]{color:#f4fffb;background:linear-gradient(90deg,rgba(85,214,164,.17),rgba(85,214,164,.06));box-shadow:inset 2px 0 var(--dshla-green)}",
+			".dshla-nav-icon{width:21px;height:21px;border-radius:7px;background:rgba(255,255,255,.045);display:grid;place-items:center;font-size:10px;color:#87b6a7}.dshla-tab[data-active=true] .dshla-nav-icon{background:rgba(85,214,164,.16);color:var(--dshla-green)}",
+			".dshla-rail-footer{margin-top:auto;border:1px solid var(--dshla-line);background:rgba(255,255,255,.025);border-radius:12px;padding:11px}.dshla-rail-status{display:flex;align-items:center;gap:7px;font-size:11px}.dshla-dot{width:7px;height:7px;border-radius:50%;background:var(--dshla-green);box-shadow:0 0 12px rgba(85,214,164,.7)}.dshla-rail-note{color:#718d84;font-size:9.5px;line-height:1.5;margin-top:6px}",
+			".dshla-shell{min-width:0;min-height:0;display:flex;flex-direction:column}.dshla-topbar{height:66px;flex:none;border-bottom:1px solid var(--dshla-line);display:flex;align-items:center;gap:14px;padding:0 25px;background:rgba(7,17,15,.72);backdrop-filter:blur(18px)}",
+			".dshla-breadcrumb{min-width:0;flex:1}.dshla-breadcrumb-over{font-size:9.5px;color:#67837a;letter-spacing:.12em;text-transform:uppercase}.dshla-breadcrumb-title{font-size:14px;font-weight:650;margin-top:2px}",
+			".dshla-trust{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--dshla-line);border-radius:999px;color:#91afa5;font-size:10.5px;background:rgba(255,255,255,.025)}.dshla-trust strong{color:#d7eee6;font-weight:600}",
+			".dshla-close{cursor:pointer;border:1px solid var(--dshla-line);background:rgba(255,255,255,.035);color:#bdd2cb;border-radius:9px;padding:7px 11px;font-size:11px}.dshla-close:hover{border-color:rgba(85,214,164,.35);color:white}",
+			".dshla-content{flex:1;min-width:0;min-height:0;overflow:auto;padding:25px 28px 40px}.dshla-content-inner{max-width:1340px;margin:0 auto}",
+			".dshla-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 20px}.dshla-page-kicker{color:var(--dshla-green);font-size:9.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}.dshla-page-head h1{font-size:24px;letter-spacing:-.025em;margin:5px 0 4px}.dshla-page-head p{color:var(--dshla-muted);font-size:12px;margin:0;max-width:660px;line-height:1.6}",
+			".dshla-hero{position:relative;overflow:hidden;border:1px solid var(--dshla-line);border-radius:18px;background:linear-gradient(125deg,rgba(21,52,44,.94),rgba(12,29,25,.86));padding:25px 27px;margin-bottom:16px}.dshla-hero:after{content:'';position:absolute;width:240px;height:240px;border-radius:50%;right:-60px;top:-120px;background:radial-gradient(circle,rgba(99,216,232,.18),transparent 68%)}",
+			".dshla-hero-eyebrow{font-size:9.5px;color:var(--dshla-cyan);font-weight:750;letter-spacing:.14em;text-transform:uppercase}.dshla-hero h2{font-size:24px;max-width:620px;line-height:1.2;letter-spacing:-.03em;margin:9px 0 8px}.dshla-hero p{position:relative;z-index:1;color:#99b9ae;font-size:12px;line-height:1.65;max-width:690px;margin:0}.dshla-hero-actions{display:flex;gap:8px;margin-top:18px}",
+			".dshla-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:0 0 16px}.dshla-metric{border:1px solid var(--dshla-line);background:rgba(13,28,24,.76);border-radius:14px;padding:15px 16px}.dshla-metric-label{font-size:10px;color:#718f85}.dshla-metric-value{font-size:25px;font-weight:720;letter-spacing:-.03em;margin:5px 0 2px}.dshla-metric-detail{font-size:9.5px;color:#5f7e74}.dshla-metric-detail[data-tone=warn]{color:var(--dshla-amber)}",
+			".dshla-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:14px}.dshla-card{border:1px solid var(--dshla-line);background:rgba(11,25,22,.78);border-radius:15px;padding:17px}.dshla-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.dshla-card-title{font-size:12.5px;font-weight:650}.dshla-card-note{font-size:9.5px;color:#638078}",
+			".dshla-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.dshla-flow-step{position:relative;border:1px solid rgba(151,202,185,.1);border-radius:12px;background:rgba(255,255,255,.02);padding:12px;min-height:92px}.dshla-flow-num{color:var(--dshla-green);font-size:9px;font-weight:800}.dshla-flow-name{font-size:11.5px;font-weight:620;margin:8px 0 4px}.dshla-flow-desc{font-size:9.5px;color:#6f8b82;line-height:1.45}",
+			".dshla-quick{display:grid;gap:7px}.dshla-quick button{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid rgba(151,202,185,.1);border-radius:10px;background:rgba(255,255,255,.02);color:#b7cec6;padding:10px 11px;cursor:pointer;font-size:10.5px}.dshla-quick button:hover{border-color:rgba(85,214,164,.3);background:rgba(85,214,164,.06)}",
+			".dshla-section{margin-bottom:18px}.dshla-section h2{font-size:13px;font-weight:650;margin:0 0 9px}.dshla-table-wrap{border:1px solid var(--dshla-line);border-radius:13px;overflow:auto;background:rgba(11,25,22,.6)}",
+			".dshla-table{width:100%;border-collapse:collapse;font-size:11.5px}.dshla-table th,.dshla-table td{text-align:left;padding:9px 10px;border-bottom:1px solid rgba(151,202,185,.09);vertical-align:top}.dshla-table tr:last-child td{border-bottom:0}.dshla-table th{color:#69857c;font-weight:650;font-size:9px;text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.018)}.dshla-table tr:hover td{background:rgba(85,214,164,.025)}",
+			".dshla-form{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}.dshla-form input,.dshla-form select,.dshla-form textarea{border:1px solid var(--dshla-line);background:#0c1b17;color:inherit;border-radius:9px;padding:7px 10px;font-size:11.5px;font-family:inherit;outline:none}.dshla-form input:focus,.dshla-form textarea:focus{border-color:rgba(85,214,164,.45)}.dshla-form input{width:150px}.dshla-form input[data-wide]{width:280px}",
+			".dshla-btn{cursor:pointer;border:1px solid var(--dshla-line);background:rgba(255,255,255,.035);color:#d1e5de;border-radius:9px;padding:7px 11px;font-size:11.5px}.dshla-btn:hover{background:rgba(85,214,164,.08);border-color:rgba(85,214,164,.28)}.dshla-btn[data-primary]{background:linear-gradient(135deg,#3abf91,#267f69);border-color:transparent;color:#f4fffb;box-shadow:0 8px 22px rgba(42,164,126,.16)}",
+			".dshla-err{color:#ff8585;font-size:11px;margin:7px 0;white-space:pre-wrap}.dshla-meta{color:#6f8b82;font-size:10.5px}.dshla-status{display:inline-block;border-radius:999px;padding:2px 8px;font-size:9.5px}.dshla-status[data-s=ok]{background:rgba(85,214,164,.12);color:#6ee3b6}.dshla-status[data-s=warn]{background:rgba(242,198,109,.12);color:#f2c66d}.dshla-status[data-s=err]{background:rgba(255,104,104,.12);color:#ff8585}",
+			".dshla-sidebar-entry{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.dshla-sidebar-entry:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.dshla-sidebar-glyph{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
+			".dshla-json{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:10.5px;color:#91aaa2;white-space:pre-wrap;max-height:240px;overflow:auto}.dshla-empty{padding:22px;text-align:center;color:#648078;font-size:10.5px}",
+			"@media(max-width:980px){.dshla-overlay{grid-template-columns:190px minmax(0,1fr)}.dshla-metrics{grid-template-columns:repeat(2,1fr)}.dshla-grid{grid-template-columns:1fr}.dshla-flow{grid-template-columns:repeat(2,1fr)}.dshla-trust{display:none}}",
+			"@media(max-width:680px){.dshla-overlay{grid-template-columns:66px minmax(0,1fr)}.dshla-brand-copy,.dshla-nav-label,.dshla-tab-label,.dshla-rail-footer{display:none}.dshla-brand{padding-left:0;padding-right:0;justify-content:center}.dshla-tab{justify-content:center;padding:9px}.dshla-content{padding:18px 14px}.dshla-topbar{padding:0 14px}.dshla-metrics{grid-template-columns:1fr 1fr}.dshla-flow{grid-template-columns:1fr}.dshla-page-head h1,.dshla-hero h2{font-size:20px}}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const tag = document.createElement("style");
@@ -109,10 +111,12 @@ window.__ModuleLoader__.load({
 		const tag = (status) => h("span", { className: "dshla-status", "data-s": status.ok ? "ok" : status.ok === false ? "err" : "warn" }, status.ok ? "OK" : status.ok === false ? "ERR" : "—");
 
 		function Table({ columns, rows, empty = "暂无数据" }) {
-			if (!rows || rows.length === 0) return h("p", { className: "dshla-meta" }, empty);
-			return h("table", { className: "dshla-table" },
-				h("thead", null, h("tr", null, columns.map((c) => h("th", { key: c.key }, c.label)))),
-				h("tbody", null, rows.map((row, i) => h("tr", { key: i }, columns.map((c) => h("td", { key: c.key }, c.render ? c.render(row) : fmt(row[c.key]))))))
+			if (!rows || rows.length === 0) return h("div", { className: "dshla-empty" }, empty);
+			return h("div", { className: "dshla-table-wrap" },
+				h("table", { className: "dshla-table" },
+					h("thead", null, h("tr", null, columns.map((c) => h("th", { key: c.key }, c.label)))),
+					h("tbody", null, rows.map((row, i) => h("tr", { key: row.id ?? i }, columns.map((c) => h("td", { key: c.key }, c.render ? c.render(row) : fmt(row[c.key]))))))
+				)
 			);
 		}
 
@@ -505,35 +509,186 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		// ── 主面板 ─────────────────────────────────────────────────────────
-		const TABS = [
-			["versions", "版本登记", VersionsTab],
-			["goals", "精读目标", GoalsTab],
-			["templates", "PPT模板", TemplatesTab],
-			["tasks", "文献任务", TasksTab],
-			["chemistry", "化学性质", ChemistryTab],
-			["plans", "实验计划", PlansTab],
-			["nmr", "NMR", NmrTab],
-			["synthesis", "合成路线", SynthesisTab],
-			["convert", "文档转MD", ConvertTab],
-			["python", "Python", PythonTab]
+		// ── 品牌化科研工作台 ────────────────────────────────────────────────
+		const badge = (label, tone = "warn") => h("span", { className: "dshla-status", "data-s": tone }, label);
+		const settledValue = (result, fallback) => result?.status === "fulfilled" ? result.value : fallback;
+
+		function OverviewTab({ call, onNavigate }) {
+			const [state, setState] = useState({ loading: true, error: "", data: {} });
+			const load = useCallback(async () => {
+				setState((previous) => ({ ...previous, loading: true, error: "" }));
+				const results = await Promise.allSettled([
+					call("projects_list"),
+					call("chem_entities", { request: {} }),
+					call("chem_plans", { request: {} }),
+					call("nmr_list"),
+					call("synth_routes", { request: {} }),
+					call("versions_list"),
+					call("convert_available")
+				]);
+				const failed = results.filter((result) => result.status === "rejected");
+				setState({
+					loading: false,
+					error: failed.length === results.length ? "工作台数据暂时不可用，请检查实验室服务。" : "",
+					data: {
+						projects: settledValue(results[0], { projects: [] }).projects ?? [],
+						entities: settledValue(results[1], { entities: [] }).entities ?? [],
+						plans: settledValue(results[2], { plans: [] }).plans ?? [],
+						nmr: settledValue(results[3], { datasets: [] }).datasets ?? [],
+						routes: settledValue(results[4], { routes: [] }).routes ?? [],
+						versions: settledValue(results[5], { rows: [] }).rows ?? [],
+						convertAvailable: settledValue(results[6], { available: false }).available === true
+					}
+				});
+			}, []);
+			useEffect(() => { void load(); }, [load]);
+
+			const data = state.data;
+			const projects = data.projects ?? [];
+			const activeProjects = projects.filter((item) => item.status === "active");
+			const reviewCount = (data.plans ?? []).filter((item) => item.status === "under-review").length
+				+ (data.nmr ?? []).filter((item) => item.status === "under-review").length
+				+ (data.routes ?? []).filter((item) => item.status === "under-review").length;
+			const researchAssets = (data.entities ?? []).length + (data.nmr ?? []).length;
+			const recentProjects = [...projects].sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))).slice(0, 5);
+			const metrics = [
+				["活跃项目", state.loading ? "…" : activeProjects.length, `${projects.length} 个项目已登记`, ""],
+				["研究数据资产", state.loading ? "…" : researchAssets, `${(data.entities ?? []).length} 个化学实体 · ${(data.nmr ?? []).length} 组 NMR`, ""],
+				["待人工审核", state.loading ? "…" : reviewCount, reviewCount > 0 ? "需要研究人员确认" : "当前没有待办", reviewCount > 0 ? "warn" : ""],
+				["能力版本", state.loading ? "…" : (data.versions ?? []).length, data.convertAvailable ? "文档转换可用" : "核心 Skill 已固定", ""]
+			];
+
+			return h("div", null,
+				h("div", { className: "dshla-hero" },
+					h("div", { className: "dshla-hero-eyebrow" }, "iBM Research Copilot"),
+					h("h2", null, activeProjects[0]?.name ? `继续推进：${activeProjects[0].name}` : "把科研过程变成可追溯的工作流"),
+					h("p", null, "从文献证据到实验方案、表征数据与组会汇报，每一步保留来源、版本和人工审核状态。Agent 负责整理和执行，关键科研判断始终由研究人员确认。"),
+					h("div", { className: "dshla-hero-actions" },
+						h("button", { className: "dshla-btn", "data-primary": "true", onClick: () => onNavigate("tasks") }, "进入文献项目"),
+						h("button", { className: "dshla-btn", onClick: () => onNavigate("goals") }, "配置精读目标")
+					)
+				),
+				state.error ? h("div", { className: "dshla-err" }, state.error) : null,
+				h("div", { className: "dshla-metrics" }, metrics.map(([label, value, detail, tone]) =>
+					h("div", { className: "dshla-metric", key: label },
+						h("div", { className: "dshla-metric-label" }, label),
+						h("div", { className: "dshla-metric-value" }, value),
+						h("div", { className: "dshla-metric-detail", "data-tone": tone || undefined }, detail)
+					)
+				)),
+				h("div", { className: "dshla-grid" },
+					h("div", { className: "dshla-card" },
+						h("div", { className: "dshla-card-head" },
+							h("div", { className: "dshla-card-title" }, "科研交付流程"),
+							h("div", { className: "dshla-card-note" }, "证据与审核贯穿全流程")
+						),
+						h("div", { className: "dshla-flow" }, [
+							["01", "检索与筛选", "多源文献检索、去重与来源登记"],
+							["02", "精读与审计", "结构化 Paper Card 与原文定位"],
+							["03", "实验与表征", "方案、性质、NMR 和人工门禁"],
+							["04", "汇报与归档", "模板化 PPT、质量检查与溯源"]
+						].map(([num, name, desc]) => h("div", { className: "dshla-flow-step", key: num },
+							h("div", { className: "dshla-flow-num" }, num),
+							h("div", { className: "dshla-flow-name" }, name),
+							h("div", { className: "dshla-flow-desc" }, desc)
+						)))
+					),
+					h("div", { className: "dshla-card" },
+						h("div", { className: "dshla-card-head" }, h("div", { className: "dshla-card-title" }, "快速入口")),
+						h("div", { className: "dshla-quick" }, [
+							["文档转 Markdown", "convert"], ["化学性质计算", "chemistry"], ["NMR 工作流", "nmr"], ["实验方案审核", "plans"]
+						].map(([label, target]) => h("button", { key: target, onClick: () => onNavigate(target) }, h("span", null, label), h("span", null, "→"))))
+					)
+				),
+				h("div", { className: "dshla-card", style: { marginTop: "14px" } },
+					h("div", { className: "dshla-card-head" },
+						h("div", { className: "dshla-card-title" }, "最近项目"),
+						h("button", { className: "dshla-btn", onClick: () => void load() }, state.loading ? "同步中…" : "同步数据")
+					),
+					h(Table, {
+						rows: recentProjects,
+						empty: "尚未创建项目。先配置精读目标和 PPT 模板，再建立第一个研究项目。",
+						columns: [
+							{ key: "name", label: "项目" },
+							{ key: "goal", label: "精读目标", render: (row) => `${row.goalProfile?.id ?? "—"}@${row.goalProfile?.version ?? "—"}` },
+							{ key: "template", label: "汇报模板", render: (row) => row.template?.id ?? "—" },
+							{ key: "updatedAt", label: "最近更新", render: (row) => row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "—" },
+							{ key: "status", label: "状态", render: (row) => badge(row.status === "active" ? "进行中" : "已归档", row.status === "active" ? "ok" : "warn") }
+						]
+					})
+				)
+			);
+		}
+
+		const NAV_GROUPS = [
+			{ label: "Research", items: [
+				{ id: "overview", label: "工作台总览", icon: "OV", component: OverviewTab, description: "项目状态、待审核任务和研究资产概览" },
+				{ id: "tasks", label: "文献项目", icon: "LI", component: TasksTab, description: "管理从检索、精读到汇报的研究项目" },
+				{ id: "goals", label: "精读目标", icon: "GO", component: GoalsTab, description: "配置不同课题所关注的问题与证据要求" }
+			] },
+			{ label: "Experiment & Data", items: [
+				{ id: "chemistry", label: "化学性质", icon: "CH", component: ChemistryTab, description: "化学实体、来源化性质和聚合物指标计算" },
+				{ id: "plans", label: "实验计划", icon: "EX", component: PlansTab, description: "生成并人工审核实验方案、安全项和表征要求" },
+				{ id: "nmr", label: "NMR 分析", icon: "NM", component: NmrTab, description: "积分方案、人工确认和聚合物指标计算" },
+				{ id: "synthesis", label: "合成路线", icon: "SY", component: SynthesisTab, description: "开放证据支持的合成路线与审核状态" }
+			] },
+			{ label: "Outputs", items: [
+				{ id: "templates", label: "汇报模板", icon: "PT", component: TemplatesTab, description: "课题组 PPT 模板、版式角色和质量校验" },
+				{ id: "convert", label: "文档处理", icon: "MD", component: ConvertTab, description: "将论文和 Office 文件转换为可分析的 Markdown" }
+			] },
+			{ label: "System", items: [
+				{ id: "versions", label: "能力版本", icon: "VS", component: VersionsTab, description: "固定并核验 Nature Skills 版本与回归状态" },
+				{ id: "python", label: "运行环境", icon: "PY", component: PythonTab, description: "检查本地 Python 与科研工具运行环境" }
+			] }
 		];
+		const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 
 		function LabPanel({ call, onClose }) {
-			const [tab, setTab] = useState("versions");
-			const active = TABS.find(([id]) => id === tab);
-			const TabComponent = active ? active[2] : VersionsTab;
+			const [tab, setTab] = useState("overview");
+			const active = NAV_ITEMS.find((item) => item.id === tab) ?? NAV_ITEMS[0];
+			const TabComponent = active.component;
 			return ReactDOM.createPortal(
-				h("div", { className: "dshla-overlay" },
-					h("div", { className: "dshla-bar" },
-						h("h1", null, "实验室 · dsh-lab-agent"),
-						h("button", { className: "dshla-close", onClick: onClose }, "关闭")
-					),
-					h("div", { className: "dshla-body" },
-						h("div", { className: "dshla-tabs" },
-							TABS.map(([id, label]) => h("button", { key: id, className: "dshla-tab", "data-active": tab === id ? "true" : undefined, onClick: () => setTab(id) }, label))
+				h("div", { className: "dshla-overlay", role: "dialog", "aria-label": "iBM Research Workspace" },
+					h("aside", { className: "dshla-rail" },
+						h("div", { className: "dshla-brand" },
+							h("div", { className: "dshla-mark" }, "iB"),
+							h("div", { className: "dshla-brand-copy" },
+								h("div", { className: "dshla-brand-name" }, "iBM Lab Agent"),
+								h("div", { className: "dshla-brand-sub" }, "Research Workspace")
+							)
 						),
-						h("div", { className: "dshla-content" }, h(TabComponent, { call }))
+						h("nav", { className: "dshla-nav", "aria-label": "科研工作台导航" }, NAV_GROUPS.map((group) =>
+							h("div", { className: "dshla-nav-group", key: group.label },
+								h("div", { className: "dshla-nav-label" }, group.label),
+								group.items.map((item) => h("button", {
+									key: item.id,
+									className: "dshla-tab",
+									"data-active": tab === item.id ? "true" : undefined,
+									onClick: () => setTab(item.id),
+									title: item.label
+								}, h("span", { className: "dshla-nav-icon" }, item.icon), h("span", { className: "dshla-tab-label" }, item.label)))
+							)
+						)),
+						h("div", { className: "dshla-rail-footer" },
+							h("div", { className: "dshla-rail-status" }, h("span", { className: "dshla-dot" }), h("span", null, "本地服务已连接")),
+							h("div", { className: "dshla-rail-note" }, "原始文件默认保存在本机；关键科研结果需人工审核。")
+						)
+					),
+					h("main", { className: "dshla-shell" },
+						h("header", { className: "dshla-topbar" },
+							h("div", { className: "dshla-breadcrumb" }, h("div", { className: "dshla-breadcrumb-over" }, "iBM / Workspace"), h("div", { className: "dshla-breadcrumb-title" }, active.label)),
+							h("div", { className: "dshla-trust" }, h("span", { className: "dshla-dot" }), h("span", null, "数据边界"), h("strong", null, "本地优先")),
+							h("div", { className: "dshla-trust" }, h("span", null, "✓"), h("strong", null, "人工审核门禁")),
+							h("button", { className: "dshla-close", onClick: onClose, "aria-label": "关闭科研工作台" }, "返回 Harness")
+						),
+						h("div", { className: "dshla-content" }, h("div", { className: "dshla-content-inner" },
+							tab === "overview" ? null : h("div", { className: "dshla-page-head" }, h("div", null,
+								h("div", { className: "dshla-page-kicker" }, "Research Module"),
+								h("h1", null, active.label),
+								h("p", null, active.description)
+							)),
+							h(TabComponent, { call, onNavigate: setTab })
+						))
 					)
 				),
 				document.body
@@ -541,8 +696,9 @@ window.__ModuleLoader__.load({
 		}
 
 		function LabEntry({ onOpen, wide }) {
-			return h("button", { className: "dshla-sidebar-entry", onClick: onOpen, title: "实验室管理面板" },
-				h("span", null, wide ? "实验室" : "🧪")
+			return h("button", { className: "dshla-sidebar-entry", onClick: onOpen, title: "打开 iBM Research Workspace" },
+				h("span", { className: "dshla-sidebar-glyph" }, "iB"),
+				wide ? h("span", null, "iBM 科研工作台") : null
 			);
 		}
 
