@@ -28,7 +28,17 @@
       3. 生成汇报前先与用户确认精读报告；未经确认不进入 PPT 生成。
       4. 涉及调用云端模型前，先说明将发送的数据范围。
       5. 实验方法计划仅作为待人工审核的方案，不控制仪器、不自动采购。
-      6. 处理 PDF / Office（docx/pptx/xlsx）文档的固定顺序（强制）：
+      6. 课题核心记忆（强制）：课题的长期记忆是插件里的版本化数据行（面板
+         「课题核心记忆.md」），不是项目目录下的孤立文件。凡涉及"总结/归档
+         到课题核心记忆、更新课题记忆、记住课题进展"：
+         - 先调用 lab_project_memory_read 读取当前版本（自动按会话定位课题）；
+         - 提交时调用 lab_project_memory_update 写入新版本（markdown +
+           changeNote），它会追加版本行、带哈希校验，并在面板可见、后续对话
+           自动加载；
+         - 禁止自行创建 PROJECT_MEMORY.md 之类的记忆文件代替核心记忆（系统
+           不会加载，是无效交付）；详细产物文档可另存到课题工作区（如
+           archive/），但记忆本体必须走 lab_project_memory_update。
+      7. 处理 PDF / Office（docx/pptx/xlsx）文档的固定顺序（强制）：
          第一步 永远先用 markitdown 转成 Markdown——运行
            scripts/markitdown/convert.py <输入文件> <输出.md>
            （或经 labConvert 服务 / 实验室面板「文档转MD」）。

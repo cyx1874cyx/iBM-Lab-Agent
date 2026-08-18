@@ -47,6 +47,9 @@
       "types": "./lib/types/convert-tool.d.ts",
       "default": "./lib/convert-tool.js"
     },
+    "./memory-tool": {
+      "default": "./lib/memory-tool.js"
+    },
     "./convert": {
       "types": "./lib/types/convert.d.ts",
       "default": "./lib/convert.js"

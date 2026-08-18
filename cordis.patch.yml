@@ -150,6 +150,13 @@
       name: 'dsh-lab-agent/remote'
       inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
 
+    # 课题核心记忆模型工具（host 层；lab-research persona 引导使用）：
+    # lab_project_memory_read / lab_project_memory_update，agent 直接读写
+    # 课题核心记忆数据行（只增不改），归档/总结任务走正道，不发明孤立文件。
+    - id: lab-memory-tool
+      name: 'dsh-lab-agent/memory-tool'
+      inject: [tools, labTasks]
+
     # ── Lab web client（浏览器管理界面）────────────────────────────────────
     #
     # 裸包名 entry（dsh-lab-agent 主入口，提供 ctx.labAgent）：client-modules

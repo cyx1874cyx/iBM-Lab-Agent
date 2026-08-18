@@ -47,6 +47,12 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
 （点击回到课题空间），输入框上方显示课题记忆提示条。
 整个界面通过 client 插件叠加在 Harness 上，不修改 Harness 核心。
 
+科研 Agent 对话里还可直接调用 **`lab_project_memory_read` / `lab_project_memory_update`**
+模型工具读写课题核心记忆（自动按会话定位课题）：总结/进展归档请用
+`lab_project_memory_update` 提交新版本（版本化数据行、带 changeNote 与哈希，
+面板可见、后续对话自动加载）——**不要**自行创建 `PROJECT_MEMORY.md` 之类的
+孤立记忆文件，系统不会加载，属于无效交付。
+
 ## 阶段一验证记录（2026-08-17）
 
 | 项 | 结果 |
