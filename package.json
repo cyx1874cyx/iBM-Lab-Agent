@@ -43,6 +43,10 @@
       "types": "./lib/types/synthesis.d.ts",
       "default": "./lib/synthesis.js"
     },
+    "./convert-tool": {
+      "types": "./lib/types/convert-tool.d.ts",
+      "default": "./lib/convert-tool.js"
+    },
     "./convert": {
       "types": "./lib/types/convert.d.ts",
       "default": "./lib/convert.js"
