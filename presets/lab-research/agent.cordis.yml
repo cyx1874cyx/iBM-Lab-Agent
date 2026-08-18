@@ -44,10 +44,11 @@
          --user 安装且缺 pip 元数据时查不到会误判不可用）：
            python3 scripts/markitdown/convert.py --check
          或 python3 -c "import markitdown"
-         决定使用 nature-reader 时：必须先完成 markitdown 转换（优先调用
-         lab_convert_document 工具，其次 convert.py），把生成的 .md 路径作为
-         nature-reader 的输入；在转换完成前不得执行 nature-reader 中的
-         PDF 提取步骤。
+         nature skills 的 PDF/Office 预处理统一由 lab_convert_document 工具
+         完成（工具列表第一位）：决定使用 nature-reader / nature-paper-card /
+         nature-academic-search 等 skill 且输入含 PDF/Office 时，必须先调用该
+         工具（或 convert.py）完成转换，把生成的 .md 路径作为 skill 的输入；
+         转换完成前不得执行任何 nature skill 中的 PDF 提取步骤。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'

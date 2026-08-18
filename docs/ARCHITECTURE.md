@@ -193,6 +193,22 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`（记录来源，不自动更新）。
   agent 通过 `mcp__mnova__*` 工具与 Mnova 交互，本服务只编排与计算。
 
+## 10.5. nature skills 的 PDF/Office 预处理耦合（markitdown）
+
+nature skills 是 agentic 流程，其 SKILL.md 指导模型自写 pdfplumber/pypdf 等脚本
+解析 PDF。为统一 PDF/Office 入口，dsh-lab-agent 以**工具层耦合**（不改动上游
+SKILL.md）实现：
+
+- `lab_convert_document` 工具（host 注册，`toolOrder` 置顶）被声明为 nature
+  skills 的 PDF/Office 预处理耦合点：nature-reader / nature-paper-card /
+  nature-academic-search 处理 PDF/Office 输入时**必须先调用它**转 Markdown，
+  生成的 `.md` 作为 skill 输入源。
+- 权威探测命令：`python3 scripts/markitdown/convert.py --check`（或
+  `python3 -c "import markitdown"`）——禁止用 pip list / which / pip show 判断
+  （--user 安装且缺 dist-info 时查不到，会误判不可用）。
+- 降级路径：markitdown 不可用时明确告知用户并征得同意，才允许临时用系统工具；
+  转换完成前不得执行 nature skill 内的 PDF 提取步骤。
+
 ## 10. 阶段六：合成路线与 CAS（§七，开放数据首版）
 
 - **数据模型**（`lab_synthesis` domain）：`synthesis_targets`（目标分子，
