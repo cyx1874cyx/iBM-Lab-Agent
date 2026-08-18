@@ -17,6 +17,17 @@ test("bundle patch keeps one bare client carrier and the version registry", () =
 	assert.equal(registry?.name, "dsh-lab-agent/version-registry");
 });
 
+test("web client exposes the branded research workspace shell", async () => {
+	const source = await readFile(clientPath, "utf8");
+	assert.match(source, /iBM Research Workspace/);
+	assert.match(source, /工作台总览/);
+	assert.match(source, /科研交付流程/);
+	assert.match(source, /本地优先/);
+	assert.match(source, /人工审核门禁/);
+	assert.match(source, /const NAV_GROUPS =/);
+	assert.match(source, /useState\("overview"\)/);
+});
+
 test("web client bundle exposes valid strict Remote descriptors", async () => {
 	let registration;
 	const source = await readFile(clientPath, "utf8");

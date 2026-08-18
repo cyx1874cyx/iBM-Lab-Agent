@@ -32,6 +32,11 @@ dsh web
 （`nature-academic-search`、`nature-reader`、`nature-paper-card`、
 `nature-paper2ppt`、`nature-shared`）即出现在 skill 目录中。
 
+Web 侧边栏同时会出现 **iBM 科研工作台** 入口。工作台默认展示活跃项目、
+研究数据资产、待人工审核任务和能力版本，并按“研究—实验与数据—成果—系统”
+组织文献项目、化学性质、实验计划、NMR、合成路线、PPT 模板与文档处理功能。
+工作台通过 client 插件叠加在 Harness 上，不修改 Harness 核心。
+
 ## 阶段一验证记录（2026-08-17）
 
 | 项 | 结果 |
