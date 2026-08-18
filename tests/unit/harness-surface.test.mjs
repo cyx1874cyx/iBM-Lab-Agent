@@ -7,6 +7,7 @@ import { composeEntries, loadOverlayPatches } from "@deepseek-ai/dsh-app-boot";
 
 const patchPath = fileURLToPath(new URL("../../cordis.patch.yml", import.meta.url));
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
+const presetPath = fileURLToPath(new URL("../../presets/lab-research/agent.cordis.yml", import.meta.url));
 
 test("bundle patch keeps one bare client carrier and the version registry", () => {
 	const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
@@ -15,6 +16,13 @@ test("bundle patch keeps one bare client carrier and the version registry", () =
 
 	const registry = rows.find((row) => row.id === "lab-version-registry");
 	assert.equal(registry?.name, "dsh-lab-agent/version-registry");
+});
+
+test("document conversion tool is scoped to the research preset", async () => {
+	const [patch, preset] = await Promise.all([readFile(patchPath, "utf8"), readFile(presetPath, "utf8")]);
+	assert.doesNotMatch(patch, /toolOrder:\s*[\s\S]*lab_convert_document/);
+	assert.doesNotMatch(patch, /id:\s*lab-convert-tool/);
+	assert.match(preset, /id:\s*convert-document[\s\S]*dsh-lab-agent\/convert-tool/);
 });
 
 test("web client exposes the project-first research workspace shell", async () => {

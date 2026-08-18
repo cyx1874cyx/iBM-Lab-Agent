@@ -12,19 +12,6 @@
 #     resolve them process-wide; nothing here mounts a model-facing tool yet
 #     (task interfaces arrive in Phase 2+ and mount behind the lab preset).
 
-# ── 文档转换工具优先级（toolOrder）────────────────────────────────────────
-#
-# 把 lab_convert_document 排到工具列表最前（<unlisted-tools> 为其余工具占位），
-# 提高"读 PDF/Office 默认用 markitdown"的行为优先级。工具注册在 host 层，
-# 所有 agent 可见（toolOrder 引用未注册工具会抛错，故不能挂在 preset 层）。
-- id: system-prompt
-  config:
-    persona: >-
-      You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.
-    toolOrder:
-      - lab_convert_document
-      - <unlisted-tools>
-
 # ── Nature Skills discovery (global skill layer) ─────────────────────────────
 #
 # A dedicated filesystem provider instance that sees ONLY the pinned
@@ -160,11 +147,6 @@
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
       inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
-
-    # 文档转换模型工具（host 层，所有 agent 可见；toolOrder 排最前）
-    - id: lab-convert-tool
-      name: 'dsh-lab-agent/convert-tool'
-      inject: [tools, labConvert]
 
     # ── Lab web client（浏览器管理界面）────────────────────────────────────
     #

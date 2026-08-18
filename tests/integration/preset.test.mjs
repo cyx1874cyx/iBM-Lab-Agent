@@ -52,6 +52,8 @@ test("lab-research preset is discoverable and composes", async () => {
 			assert.match(text, /tool-skill/);
 			assert.match(text, /skill-filesystem/);
 			assert.match(text, /@deepseek-ai\/dsh-skill-filesystem/);
+			assert.match(text, /id: convert-document/);
+			assert.match(text, /dsh-lab-agent\/convert-tool/);
 		} finally {
 			await handle.dispose();
 		}
