@@ -34,14 +34,14 @@ export default {
 			// 成功路径（mock 执行器）
 			convert.convert = async (path, opts) => ({ available: true, text: "# md 结果", code: 0 });
 			const docx = await buildDocx();
-			const result = await convert.convertUpload({ name: "a.docx", base64: docx.toString("base64") });
+			const result = await convert.convertUpload({ name: "a.docx", base64: docx.buffer.toString("base64") });
 			if (result.run.status !== "succeeded") problems.push("convert success path broken");
 			if (result.run.inputsSha256.length !== 64) problems.push("inputs hash missing");
 
 			// 降级路径（未安装）
 			convert.convert = async () => ({ available: false, error: "markitdown not installed; run: python -m pip install markitdown" });
 			const p = join(dir, "b.docx");
-			await writeFile(p, docx);
+			await writeFile(p, docx.buffer);
 			let degraded = false;
 			try {
 				await convert.convertToMarkdown({ path: p });

@@ -26,5 +26,6 @@ export async function buildDocx({ title = "Prodrug Polymer Test", paragraphs = [
 	].join("");
 	zip.file("word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="${NS_W}"><w:body>${body}<w:sectPr/></w:body></w:document>`);
-	return await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+	const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+	return { name: "fixture.docx", buffer };
 }

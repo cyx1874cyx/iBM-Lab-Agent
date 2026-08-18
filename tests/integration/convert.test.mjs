@@ -35,7 +35,7 @@ test("labConvert: upload docx -> markdown saved with provenance record (mocked c
 		convert.convert = async (path, opts) => ({ available: true, text: "# 转换结果\n来自 mock", code: 0 });
 
 		const docx = await buildDocx({ title: "Prodrug Polymer" });
-		const base64 = docx.toString("base64");
+		const base64 = docx.buffer.toString("base64");
 		const result = await convert.convertUpload({ name: "paper.docx", base64 });
 
 		assert.equal(result.run.status, "succeeded");
@@ -76,7 +76,7 @@ test("labConvert: unavailable converter produces a clear failure", async () => {
 
 		const docx = await buildDocx();
 		const p = join(dir, "paper.docx");
-		await writeFile(p, docx);
+		await writeFile(p, docx.buffer);
 		await assert.rejects(() => convert.convertToMarkdown({ path: p }), /markitdown 不可用/);
 		const runs = convert.listRuns();
 		assert.equal(runs[0].status, "failed");
