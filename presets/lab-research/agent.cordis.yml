@@ -84,6 +84,14 @@
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'
 
+# ── 文档转换（仅在科研 Agent 的工具作用域注册）────────────────────────────
+#
+# 不在全局 system-prompt.toolOrder 中引用：普通 Agent 没有这个工具时，
+# Harness 会把未注册的工具名视为配置错误并拒绝启动。
+- id: convert-document
+  name: 'dsh-lab-agent/convert-tool'
+  inject: [tools, labConvert]
+
 # ── goals ───────────────────────────────────────────────────────────────────
 - id: tool-goal
   name: '@deepseek-ai/dsh-tool-goal'
