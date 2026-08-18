@@ -69,6 +69,29 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		const versions = await invoke(ctx, "versions_list");
 		assert.ok(versions.rows.length >= 1);
 
+		// 项目核心记忆 + 项目空间聚合
+		const project = await invoke(ctx, "projects_create", { request: { fields: {
+			id: "remote-project",
+			name: "远程课题",
+			coreMarkdown: "# 远程课题\n\n## 核心假设\nA",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		} } });
+		assert.equal(project.project.memoryVersion, "1");
+		const memory = await invoke(ctx, "projects_memory_update", { request: { fields: {
+			projectId: "remote-project",
+			markdown: "# 远程课题\n\n## 核心假设\nB",
+			changeNote: "修订假设"
+		} } });
+		assert.equal(memory.memory.version, "2");
+		const workspace = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
+		assert.equal(workspace.memory.version, "2");
+		assert.deepEqual(Object.keys(workspace.literature).sort(), ["bundles", "presentations", "reports", "searches"]);
+		assert.deepEqual(Object.keys(workspace.planning).sort(), ["plans", "routes", "targets"]);
+		assert.deepEqual(Object.keys(workspace.characterization), ["nmr"]);
+
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);
 

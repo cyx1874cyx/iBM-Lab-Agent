@@ -1,756 +1,165 @@
-/**
- * dsh-lab-agent: Web client plugin（手写 CJS bundle，兼容 kernel 模块加载器）。
- *
- * - $mount "lab" Remote（调用 host 侧 ctx.lab 聚合服务，ctx.remote.lab.*）；
- * - 侧边栏 sidebar.footer.action 注册"实验室"入口；
- * - 点击打开 iBM Research Workspace（React portal，React 18 legacy render）；
- * - 项目化总览 + 文献/实验/数据/成果/系统分组导航，保留全部既有管理能力。
- */
-
+/** iBM Lab Agent — project-first Harness client. */
 window.__ModuleLoader__.load({
 	id: "dsh-lab-agent",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let react = require("react");
-		let ReactDOM = require("react-dom");
-		let { useState, useEffect, useCallback, Fragment } = react;
+		const React = require("react");
+		const ReactDOM = require("react-dom");
+		const { useState, useEffect, useCallback } = React;
+		const h = React.createElement;
 
-		// ── styles ──────────────────────────────────────────────────────────
 		const css = [
-			":root{--dshla-bg:#07110f;--dshla-panel:#0d1a17;--dshla-panel-2:#11231f;--dshla-line:rgba(151,202,185,.14);--dshla-text:#eef8f4;--dshla-muted:#8ca79e;--dshla-green:#55d6a4;--dshla-cyan:#63d8e8;--dshla-amber:#f2c66d}",
-			".dshla-overlay{position:fixed;inset:0;z-index:1000;background:radial-gradient(circle at 72% -12%,rgba(49,164,136,.18),transparent 34%),var(--dshla-bg);display:grid;grid-template-columns:244px minmax(0,1fr);color:var(--dshla-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}",
-			".dshla-rail{min-height:0;border-right:1px solid var(--dshla-line);background:linear-gradient(180deg,rgba(13,31,27,.96),rgba(7,17,15,.98));display:flex;flex-direction:column;padding:22px 14px 14px}",
-			".dshla-brand{display:flex;align-items:center;gap:11px;padding:0 8px 22px}",
-			".dshla-mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,var(--dshla-green),#228f73);color:#052019;font-weight:900;box-shadow:0 10px 30px rgba(85,214,164,.2)}",
-			".dshla-brand-name{font-size:14px;font-weight:750;letter-spacing:.01em}.dshla-brand-sub{color:var(--dshla-muted);font-size:10px;margin-top:2px;letter-spacing:.08em;text-transform:uppercase}",
-			".dshla-nav{overflow:auto;padding-right:2px}.dshla-nav-group{margin:2px 0 17px}.dshla-nav-label{padding:0 10px 6px;color:#617d74;font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}",
-			".dshla-tab{display:flex;width:100%;align-items:center;gap:10px;text-align:left;border:0;background:none;color:#9bb4ac;cursor:pointer;padding:9px 10px;font-size:12.5px;border-radius:9px;margin:1px 0;transition:background .16s,color .16s,transform .16s}",
-			".dshla-tab:hover{background:rgba(112,207,176,.07);color:#d8ebe4;transform:translateX(1px)}",
-			".dshla-tab[data-active=true]{color:#f4fffb;background:linear-gradient(90deg,rgba(85,214,164,.17),rgba(85,214,164,.06));box-shadow:inset 2px 0 var(--dshla-green)}",
-			".dshla-nav-icon{width:21px;height:21px;border-radius:7px;background:rgba(255,255,255,.045);display:grid;place-items:center;font-size:10px;color:#87b6a7}.dshla-tab[data-active=true] .dshla-nav-icon{background:rgba(85,214,164,.16);color:var(--dshla-green)}",
-			".dshla-rail-footer{margin-top:auto;border:1px solid var(--dshla-line);background:rgba(255,255,255,.025);border-radius:12px;padding:11px}.dshla-rail-status{display:flex;align-items:center;gap:7px;font-size:11px}.dshla-dot{width:7px;height:7px;border-radius:50%;background:var(--dshla-green);box-shadow:0 0 12px rgba(85,214,164,.7)}.dshla-rail-note{color:#718d84;font-size:9.5px;line-height:1.5;margin-top:6px}",
-			".dshla-shell{min-width:0;min-height:0;display:flex;flex-direction:column}.dshla-topbar{height:66px;flex:none;border-bottom:1px solid var(--dshla-line);display:flex;align-items:center;gap:14px;padding:0 25px;background:rgba(7,17,15,.72);backdrop-filter:blur(18px)}",
-			".dshla-breadcrumb{min-width:0;flex:1}.dshla-breadcrumb-over{font-size:9.5px;color:#67837a;letter-spacing:.12em;text-transform:uppercase}.dshla-breadcrumb-title{font-size:14px;font-weight:650;margin-top:2px}",
-			".dshla-trust{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--dshla-line);border-radius:999px;color:#91afa5;font-size:10.5px;background:rgba(255,255,255,.025)}.dshla-trust strong{color:#d7eee6;font-weight:600}",
-			".dshla-close{cursor:pointer;border:1px solid var(--dshla-line);background:rgba(255,255,255,.035);color:#bdd2cb;border-radius:9px;padding:7px 11px;font-size:11px}.dshla-close:hover{border-color:rgba(85,214,164,.35);color:white}",
-			".dshla-content{flex:1;min-width:0;min-height:0;overflow:auto;padding:25px 28px 40px}.dshla-content-inner{max-width:1340px;margin:0 auto}",
-			".dshla-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 20px}.dshla-page-kicker{color:var(--dshla-green);font-size:9.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}.dshla-page-head h1{font-size:24px;letter-spacing:-.025em;margin:5px 0 4px}.dshla-page-head p{color:var(--dshla-muted);font-size:12px;margin:0;max-width:660px;line-height:1.6}",
-			".dshla-hero{position:relative;overflow:hidden;border:1px solid var(--dshla-line);border-radius:18px;background:linear-gradient(125deg,rgba(21,52,44,.94),rgba(12,29,25,.86));padding:25px 27px;margin-bottom:16px}.dshla-hero:after{content:'';position:absolute;width:240px;height:240px;border-radius:50%;right:-60px;top:-120px;background:radial-gradient(circle,rgba(99,216,232,.18),transparent 68%)}",
-			".dshla-hero-eyebrow{font-size:9.5px;color:var(--dshla-cyan);font-weight:750;letter-spacing:.14em;text-transform:uppercase}.dshla-hero h2{font-size:24px;max-width:620px;line-height:1.2;letter-spacing:-.03em;margin:9px 0 8px}.dshla-hero p{position:relative;z-index:1;color:#99b9ae;font-size:12px;line-height:1.65;max-width:690px;margin:0}.dshla-hero-actions{display:flex;gap:8px;margin-top:18px}",
-			".dshla-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:0 0 16px}.dshla-metric{border:1px solid var(--dshla-line);background:rgba(13,28,24,.76);border-radius:14px;padding:15px 16px}.dshla-metric-label{font-size:10px;color:#718f85}.dshla-metric-value{font-size:25px;font-weight:720;letter-spacing:-.03em;margin:5px 0 2px}.dshla-metric-detail{font-size:9.5px;color:#5f7e74}.dshla-metric-detail[data-tone=warn]{color:var(--dshla-amber)}",
-			".dshla-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:14px}.dshla-card{border:1px solid var(--dshla-line);background:rgba(11,25,22,.78);border-radius:15px;padding:17px}.dshla-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.dshla-card-title{font-size:12.5px;font-weight:650}.dshla-card-note{font-size:9.5px;color:#638078}",
-			".dshla-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.dshla-flow-step{position:relative;border:1px solid rgba(151,202,185,.1);border-radius:12px;background:rgba(255,255,255,.02);padding:12px;min-height:92px}.dshla-flow-num{color:var(--dshla-green);font-size:9px;font-weight:800}.dshla-flow-name{font-size:11.5px;font-weight:620;margin:8px 0 4px}.dshla-flow-desc{font-size:9.5px;color:#6f8b82;line-height:1.45}",
-			".dshla-quick{display:grid;gap:7px}.dshla-quick button{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid rgba(151,202,185,.1);border-radius:10px;background:rgba(255,255,255,.02);color:#b7cec6;padding:10px 11px;cursor:pointer;font-size:10.5px}.dshla-quick button:hover{border-color:rgba(85,214,164,.3);background:rgba(85,214,164,.06)}",
-			".dshla-section{margin-bottom:18px}.dshla-section h2{font-size:13px;font-weight:650;margin:0 0 9px}.dshla-table-wrap{border:1px solid var(--dshla-line);border-radius:13px;overflow:auto;background:rgba(11,25,22,.6)}",
-			".dshla-table{width:100%;border-collapse:collapse;font-size:11.5px}.dshla-table th,.dshla-table td{text-align:left;padding:9px 10px;border-bottom:1px solid rgba(151,202,185,.09);vertical-align:top}.dshla-table tr:last-child td{border-bottom:0}.dshla-table th{color:#69857c;font-weight:650;font-size:9px;text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.018)}.dshla-table tr:hover td{background:rgba(85,214,164,.025)}",
-			".dshla-form{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}.dshla-form input,.dshla-form select,.dshla-form textarea{border:1px solid var(--dshla-line);background:#0c1b17;color:inherit;border-radius:9px;padding:7px 10px;font-size:11.5px;font-family:inherit;outline:none}.dshla-form input:focus,.dshla-form textarea:focus{border-color:rgba(85,214,164,.45)}.dshla-form input{width:150px}.dshla-form input[data-wide]{width:280px}",
-			".dshla-btn{cursor:pointer;border:1px solid var(--dshla-line);background:rgba(255,255,255,.035);color:#d1e5de;border-radius:9px;padding:7px 11px;font-size:11.5px}.dshla-btn:hover{background:rgba(85,214,164,.08);border-color:rgba(85,214,164,.28)}.dshla-btn[data-primary]{background:linear-gradient(135deg,#3abf91,#267f69);border-color:transparent;color:#f4fffb;box-shadow:0 8px 22px rgba(42,164,126,.16)}",
-			".dshla-err{color:#ff8585;font-size:11px;margin:7px 0;white-space:pre-wrap}.dshla-meta{color:#6f8b82;font-size:10.5px}.dshla-status{display:inline-block;border-radius:999px;padding:2px 8px;font-size:9.5px}.dshla-status[data-s=ok]{background:rgba(85,214,164,.12);color:#6ee3b6}.dshla-status[data-s=warn]{background:rgba(242,198,109,.12);color:#f2c66d}.dshla-status[data-s=err]{background:rgba(255,104,104,.12);color:#ff8585}",
-			".dshla-sidebar-entry{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.dshla-sidebar-entry:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.dshla-sidebar-glyph{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
-			".dshla-json{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:10.5px;color:#91aaa2;white-space:pre-wrap;max-height:240px;overflow:auto}.dshla-empty{padding:22px;text-align:center;color:#648078;font-size:10.5px}",
-			"@media(max-width:980px){.dshla-overlay{grid-template-columns:190px minmax(0,1fr)}.dshla-metrics{grid-template-columns:repeat(2,1fr)}.dshla-grid{grid-template-columns:1fr}.dshla-flow{grid-template-columns:repeat(2,1fr)}.dshla-trust{display:none}}",
-			"@media(max-width:680px){.dshla-overlay{grid-template-columns:66px minmax(0,1fr)}.dshla-brand-copy,.dshla-nav-label,.dshla-tab-label,.dshla-rail-footer{display:none}.dshla-brand{padding-left:0;padding-right:0;justify-content:center}.dshla-tab{justify-content:center;padding:9px}.dshla-content{padding:18px 14px}.dshla-topbar{padding:0 14px}.dshla-metrics{grid-template-columns:1fr 1fr}.dshla-flow{grid-template-columns:1fr}.dshla-page-head h1,.dshla-hero h2{font-size:20px}}"
+			":root{--ib-bg:#06110f;--ib-panel:#0c1d19;--ib-panel2:#102720;--ib-line:rgba(129,205,178,.16);--ib-text:#eff9f5;--ib-muted:#88a69b;--ib-green:#51d4a3;--ib-cyan:#73dce6;--ib-red:#ff8989}",
+			".ib-overlay{position:fixed;inset:0;z-index:1000;overflow:auto;background:radial-gradient(circle at 80% -10%,rgba(64,182,145,.18),transparent 32%),var(--ib-bg);color:var(--ib-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif}",
+			".ib-top{height:68px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:0 28px;border-bottom:1px solid var(--ib-line);background:rgba(6,17,15,.9);backdrop-filter:blur(18px)}",
+			".ib-brand{display:flex;align-items:center;gap:11px;min-width:230px}.ib-logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,var(--ib-green),#238e72);color:#062018;font-weight:900;box-shadow:0 9px 28px rgba(81,212,163,.18)}.ib-brand strong{font-size:14px}.ib-brand small{display:block;margin-top:2px;color:#78978c;font-size:9px;letter-spacing:.12em;text-transform:uppercase}.ib-crumb{flex:1;color:#8ea99f;font-size:11px}.ib-crumb b{color:#e8f7f1}",
+			".ib-main{max-width:1260px;margin:0 auto;padding:36px 28px 70px}.ib-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px}.ib-kicker{color:var(--ib-green);font-size:9.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.ib-head h1{font-size:30px;line-height:1.16;letter-spacing:-.035em;margin:8px 0}.ib-head p{max-width:690px;color:var(--ib-muted);font-size:12.5px;line-height:1.7;margin:0}",
+			".ib-btn{border:1px solid var(--ib-line);background:rgba(255,255,255,.035);color:#d5e9e1;border-radius:10px;padding:9px 13px;cursor:pointer;font-size:11.5px}.ib-btn:hover{border-color:rgba(81,212,163,.36);background:rgba(81,212,163,.07)}.ib-btn[data-primary]{border-color:transparent;background:linear-gradient(135deg,#41c797,#27866d);color:white;box-shadow:0 10px 25px rgba(36,151,113,.19)}.ib-btn:disabled{opacity:.45;cursor:not-allowed}.ib-actions{display:flex;gap:8px;flex-wrap:wrap}",
+			".ib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.ib-project{position:relative;min-height:190px;border:1px solid var(--ib-line);background:linear-gradient(145deg,rgba(15,38,32,.94),rgba(9,25,21,.88));border-radius:17px;padding:19px;cursor:pointer;text-align:left;color:inherit;transition:.18s}.ib-project:hover{transform:translateY(-2px);border-color:rgba(81,212,163,.38)}.ib-project-icon{width:38px;height:38px;border-radius:12px;background:rgba(81,212,163,.12);color:var(--ib-green);display:grid;place-items:center;font-weight:800}.ib-project h2{font-size:16px;margin:24px 0 6px}.ib-project p{font-size:10.5px;color:#76948a;line-height:1.55;margin:0}.ib-project-foot{position:absolute;left:19px;right:19px;bottom:17px;display:flex;justify-content:space-between;color:#648279;font-size:9.5px}",
+			".ib-card{border:1px solid var(--ib-line);background:rgba(11,29,24,.83);border-radius:16px;padding:17px}.ib-form{margin-bottom:18px}.ib-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.ib-field{display:grid;gap:6px}.ib-field[data-wide]{grid-column:1/-1}.ib-field label{font-size:10px;color:#78958b}.ib-field input,.ib-field textarea{width:100%;box-sizing:border-box;border:1px solid var(--ib-line);background:#071611;color:var(--ib-text);border-radius:10px;padding:10px 11px;font:11.5px inherit;outline:none}.ib-field textarea{min-height:180px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.55}.ib-field input:focus,.ib-field textarea:focus{border-color:rgba(81,212,163,.48)}.ib-form-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.ib-error{color:var(--ib-red);font-size:10.5px;margin:10px 0;white-space:pre-wrap}.ib-empty{border:1px dashed rgba(129,205,178,.23);border-radius:17px;padding:50px 24px;text-align:center;color:#739087}",
+			".ib-project-head{display:flex;align-items:center;gap:13px;margin-bottom:20px}.ib-project-copy{flex:1;min-width:0}.ib-project-copy h1{font-size:24px;margin:0 0 4px;letter-spacing:-.025em}.ib-project-copy p{font-size:10.5px;color:#78978c;margin:0}.ib-agent{display:flex;align-items:center;gap:8px}.ib-spark{width:23px;height:23px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.15)}",
+			".ib-memory{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:14px;margin-bottom:17px}.ib-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.ib-card-title{font-size:12.5px;font-weight:680}.ib-chip{border-radius:999px;background:rgba(81,212,163,.1);color:#6ee3b5;padding:3px 8px;font-size:9px}.ib-memory textarea{width:100%;min-height:230px;box-sizing:border-box;resize:vertical;border:1px solid rgba(129,205,178,.12);background:#071611;color:#cfe3db;border-radius:11px;padding:13px;font:10.5px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;outline:none}.ib-save{display:flex;gap:8px;margin-top:9px}.ib-save input{flex:1;min-width:0;border:1px solid var(--ib-line);background:#071611;color:inherit;border-radius:9px;padding:8px 10px;font-size:10.5px;outline:none}.ib-help{color:#78958b;font-size:10.5px;line-height:1.65}.ib-help strong{display:block;color:#d6e9e2;font-size:11.5px;margin-bottom:7px}.ib-history{margin-top:12px;display:grid;gap:7px}.ib-version{border-top:1px solid rgba(129,205,178,.1);padding-top:8px;display:flex;justify-content:space-between;gap:8px;font-size:9.5px;color:#78958b}.ib-version b{color:#bed5cc}",
+			".ib-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.ib-tab{border:1px solid var(--ib-line);background:rgba(255,255,255,.02);color:#9db8ae;border-radius:13px;padding:13px;text-align:left;cursor:pointer}.ib-tab[data-active=true]{border-color:rgba(81,212,163,.4);background:linear-gradient(125deg,rgba(81,212,163,.13),rgba(115,220,230,.04));color:white}.ib-tab strong{display:block;font-size:12px;margin-bottom:4px}.ib-tab span{font-size:9.5px;color:#718f85}",
+			".ib-board{border:1px solid var(--ib-line);background:rgba(10,26,22,.7);border-radius:16px;padding:17px}.ib-board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.ib-board-head h2{font-size:14px;margin:0}.ib-board-head p{font-size:9.5px;color:#6f8d83;margin:3px 0 0}.ib-artifacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ib-artifact{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-height:112px}.ib-artifact-top{display:flex;justify-content:space-between;align-items:center}.ib-artifact h3{font-size:11.5px;margin:0}.ib-count{font-size:19px;font-weight:720;color:var(--ib-green)}.ib-rows{display:grid;gap:6px;margin-top:10px}.ib-row{display:flex;justify-content:space-between;gap:9px;font-size:9.5px;color:#8ba69c}.ib-row b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c8ddd5;font-weight:520}.ib-row span{flex:none;color:#78978c}.ib-artifact-empty{margin-top:15px;color:#627f75;font-size:9.5px;line-height:1.55}.ib-toast{position:fixed;right:24px;bottom:24px;border:1px solid rgba(81,212,163,.27);background:#102a22;border-radius:12px;padding:11px 14px;font-size:10.5px;box-shadow:0 12px 35px rgba(0,0,0,.3)}",
+			".ib-sidebar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.ib-sidebar:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.ib-sidebar-logo{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
+			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "dsh-lab-agent";
-			tag.dataset.pluginCss = "dsh-lab-agent";
-			tag.textContent = css;
-			document.head.appendChild(tag);
+			const style = document.createElement("style");
+			style.dataset.pluginCss = "dsh-lab-agent";
+			style.textContent = css;
+			document.head.appendChild(style);
 		}
 
-		// ── Remote contribution（namespace "lab"）───────────────────────────
-		const passthroughSchema = { parse: (value) => value };
-		const strict = (typeSymbol) => ({ mode: "strict", typeSymbol, schema: passthroughSchema });
-		const direct = (method, params = []) => ({
-			id: `dsh-lab-agent#lab/${method}`,
-			service: "lab",
-			namespace: "lab",
-			method,
-			invocation: { kind: "direct" },
-			parameters: params.map((wire) => ({
-				name: wire,
-				wire,
-				source: "json",
-				codec: strict(`dsh-lab-agent#lab/${method}:${wire}`)
-			})),
-			result: strict(`dsh-lab-agent#lab/${method}:result`)
-		});
+		const pass = { parse: (value) => value };
+		const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, schema: pass });
+		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
-			direct("versions_list"), direct("versions_resolve", ["request"]),
-			direct("goals_list"), direct("goals_resolve", ["request"]), direct("goals_create", ["request"]),
-			direct("goals_update", ["request"]), direct("goals_copy", ["request"]), direct("goals_delete", ["request"]),
-			direct("goals_requirements", ["request"]),
-			direct("templates_list"), direct("templates_resolve", ["request"]), direct("templates_preview", ["request"]),
-			direct("templates_validate", ["request"]),
-			direct("projects_list"), direct("projects_create", ["request"]), direct("projects_get", ["request"]),
-			direct("tasks_searches", ["request"]), direct("tasks_provenance", ["request"]),
-			direct("chem_entities", ["request"]), direct("chem_entity_create", ["request"]), direct("chem_properties", ["request"]),
-			direct("chem_formula", ["request"]), direct("chem_metrics", ["request"]),
-			direct("chem_plans", ["request"]), direct("chem_plan_create", ["request"]), direct("chem_plan_validate", ["request"]),
-			direct("chem_plan_status", ["request"]),
-			direct("nmr_list"), direct("nmr_get", ["request"]), direct("nmr_create", ["request"]), direct("nmr_integrals", ["request"]),
-			direct("nmr_approve", ["request"]), direct("nmr_written_back", ["request"]), direct("nmr_verify", ["request"]),
-			direct("nmr_reopen", ["request"]), direct("nmr_calculate", ["request"]),
-			direct("synth_targets", ["request"]), direct("synth_target_create", ["request"]), direct("synth_routes", ["request"]),
-			direct("synth_route_create", ["request"]), direct("synth_route_step", ["request"]), direct("synth_route_status", ["request"]),
-			direct("synth_evidence", ["request"]), direct("cas_policy"), direct("cas_prepare_query", ["request"]), direct("cas_login_entry"),
-			direct("convert_upload", ["request"]), direct("convert_available"), direct("convert_runs"),
-			direct("python_preflight")
+			...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			direct("projects_list")
 		];
 
-		// ── helpers ─────────────────────────────────────────────────────────
-		const h = react.createElement;
-		const fmt = (value) => {
-			if (value === undefined || value === null) return "—";
-			if (typeof value === "string") return value;
-			return JSON.stringify(value);
-		};
-		const tag = (status) => h("span", { className: "dshla-status", "data-s": status.ok ? "ok" : status.ok === false ? "err" : "warn" }, status.ok ? "OK" : status.ok === false ? "ERR" : "—");
+		const when = (value) => value ? new Date(value).toLocaleString() : "—";
+		const titleOf = (row) => row.title || row.name || row.query || row.id;
+		const statusOf = (row) => ({ succeeded: "已完成", pending: "待处理", running: "进行中", failed: "失败", draft: "草稿", "under-review": "待审核", approved: "已批准", prepared: "待分析", "approved-written": "已审核", "visually-verified": "已确认" })[row.status] || row.status || "已登记";
 
-		function Table({ columns, rows, empty = "暂无数据" }) {
-			if (!rows || rows.length === 0) return h("div", { className: "dshla-empty" }, empty);
-			return h("div", { className: "dshla-table-wrap" },
-				h("table", { className: "dshla-table" },
-					h("thead", null, h("tr", null, columns.map((c) => h("th", { key: c.key }, c.label)))),
-					h("tbody", null, rows.map((row, i) => h("tr", { key: row.id ?? i }, columns.map((c) => h("td", { key: c.key }, c.render ? c.render(row) : fmt(row[c.key]))))))
-				)
-			);
+		function Artifact({ title, rows = [], empty }) {
+			return h("section", { className: "ib-artifact" }, h("div", { className: "ib-artifact-top" }, h("h3", null, title), h("span", { className: "ib-count" }, rows.length)), rows.length ? h("div", { className: "ib-rows" }, rows.slice(0, 4).map((row, index) => h("div", { className: "ib-row", key: row.id || index }, h("b", { title: titleOf(row) }, titleOf(row)), h("span", null, statusOf(row))))) : h("div", { className: "ib-artifact-empty" }, empty));
 		}
 
-		function Field({ label, value, onChange, wide, placeholder }) {
-			return h("input", { placeholder: placeholder ?? label, "data-wide": wide ? "true" : undefined, value, onChange: (e) => onChange(e.target.value) });
-		}
-
-		/** 通用"列表 + 表单 + 操作"面板壳。form/actions 签名：(run, setError)。 */
-		function CrudPanel({ title, columns, load, form, actions, empty }) {
-			const [rows, setRows] = useState([]);
-			const [error, setError] = useState("");
+		function CreateProject({ call, defaults, onCancel, onCreated }) {
+			const [form, setForm] = useState({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
 			const [busy, setBusy] = useState(false);
-			const run = useCallback(async () => {
-				setBusy(true);
-				setError("");
-				try {
-					setRows(await load());
-				} catch (e) {
-					setError(e.message);
-				} finally {
-					setBusy(false);
-				}
-			}, []);
-			useEffect(() => { void run(); }, [run]);
-			return h("div", null,
-				h("div", { className: "dshla-section" },
-					h("div", { className: "dshla-form" },
-						form ? form(run, setError) : null,
-						h("button", { className: "dshla-btn", onClick: () => void run() }, busy ? "加载中…" : "刷新"),
-						actions ? actions(run, setError) : null
-					),
-					error ? h("div", { className: "dshla-err" }, error) : null
-				),
-				h("div", { className: "dshla-section" },
-					h("h2", null, `${title}（${rows.length}）`),
-					h(Table, { columns, rows, empty })
-				)
-			);
-		}
-
-		// ── 各 tab ──────────────────────────────────────────────────────────
-		function VersionsTab({ call }) {
-			return h(CrudPanel, {
-				title: "Nature Skill 版本登记",
-				load: async () => (await call("versions_list")).rows,
-				columns: [
-					{ key: "record.skillName", label: "Skill", render: (r) => r.record.skillName },
-					{ key: "record.commitSha", label: "Commit", render: (r) => r.record.commitSha.slice(0, 10) },
-					{ key: "record.manifestVersion", label: "Manifest" },
-					{ key: "record.license", label: "License" },
-					{ key: "record.regressionPassedAt", label: "回归通过", render: (r) => r.record.regressionPassedAt ? new Date(r.record.regressionPassedAt).toLocaleDateString() : "—" }
-				]
-			});
-		}
-
-		function GoalsTab({ call }) {
-			const [id, setId] = useState("");
-			const [name, setName] = useState("");
-			return h(CrudPanel, {
-				title: "精读目标（ReadingGoalProfile）",
-				load: async () => (await call("goals_list")).goals,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "version", label: "版本" },
-					{ key: "name", label: "名称" },
-					{ key: "topics", label: "课题", render: (r) => (r.topics ?? []).join(", ") },
-					{ key: "updatedAt", label: "更新", render: (r) => new Date(r.updatedAt).toLocaleString() }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "id", value: id, onChange: setId }),
-					h(Field, { label: "名称", value: name, onChange: setName, wide: true }),
-					h("button", { className: "dshla-btn", "data-primary": "true", onClick: async () => {
-						try {
-							if (!id) throw new Error("id 必填");
-							await call("goals_create", { request: { id, fields: { name: name || id, researchQuestions: [] } } });
-							setId(""); setName(""); setError("");
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "创建")
-				),
-				actions: (run, setError) => h(Fragment, null,
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("目标 id：");
-						if (!target) return;
-						const version = prompt("版本（留空=最新）：") || undefined;
-						try {
-							const r = await call("goals_resolve", { request: { id: target, version } });
-							alert(r.goal ? JSON.stringify(r.goal, null, 2) : "未找到");
-						} catch (e) { setError(e.message); }
-					} }, "查看详情"),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("目标 id：");
-						if (!target) return;
-						try {
-							const r = await call("goals_delete", { request: { id: target } });
-							alert("已删除（历史版本保留）");
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "删除")
-				)
-			});
-		}
-
-		function TemplatesTab({ call }) {
-			const [id, setId] = useState("");
-			return h(CrudPanel, {
-				title: "PPT 模板（PptTemplateProfile）",
-				load: async () => (await call("templates_list")).templates,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "version", label: "版本" },
-					{ key: "name", label: "名称" },
-					{ key: "status", label: "状态", render: (r) => tag({ ok: r.status === "ready" }) },
-					{ key: "pageSize", label: "比例", render: (r) => r.pageSize?.ratio }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "模板 id", value: id, onChange: setId }),
-					h("span", { className: "dshla-meta" }, "（导入 PPTX 需上传文件，见 host 服务 labTemplates.importPptx）")
-				),
-				actions: (run, setError) => h("button", { className: "dshla-btn", onClick: async () => {
-					const target = prompt("模板 id：");
-					if (!target) return;
-					try {
-						const v = await call("templates_validate", { request: { id: target } });
-						alert(v.validation.ok ? "校验通过" : `不通过：${v.validation.problems.join("; ")}`);
-					} catch (e) { setError(e.message); }
-				} }, "校验")
-			});
-		}
-
-		function TasksTab({ call }) {
-			const [projectId, setProjectId] = useState("");
-			return h(CrudPanel, {
-				title: "文献→PPT 项目（LabProject）",
-				load: async () => (await call("projects_list")).projects,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "name", label: "名称" },
-					{ key: "goalProfile", label: "目标", render: (r) => `${r.goalProfile?.id}@${r.goalProfile?.version}` },
-					{ key: "template", label: "模板", render: (r) => `${r.template?.id}@${r.template?.version}` },
-					{ key: "status", label: "状态" }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "project id", value: projectId, onChange: setProjectId }),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try {
-							if (!projectId) throw new Error("project id 必填");
-							const runs = await call("tasks_searches", { request: { projectId } });
-							const prov = await call("tasks_provenance", { request: { projectId } });
-							alert(`检索记录 ${runs.runs.length} 条\n${runs.runs.map((r) => `  ${r.id} ${r.status} ${r.query}`).join("\n")}\n产物溯源 ${prov.provenance.length} 条`);
-						} catch (e) { setError(e.message); }
-					} }, "查看检索/溯源")
-				)
-			});
-		}
-
-		function ChemistryTab({ call }) {
-			const [formula, setFormula] = useState("");
-			const [metricInput, setMetricInput] = useState("");
-			return h(CrudPanel, {
-				title: "化学实体（ChemicalEntity）",
-				load: async () => (await call("chem_entities", { request: {} })).entities,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "kind", label: "类型" },
-					{ key: "name", label: "名称" },
-					{ key: "formula", label: "分子式" },
-					{ key: "linkageType", label: "连接方式", render: (r) => r.linkageType ?? "—" }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "分子式", value: formula, onChange: setFormula }),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try {
-							if (!formula) throw new Error("分子式必填");
-							const r = await call("chem_formula", { request: { formula } });
-							alert(`MW = ${r.result.molecularWeight.toFixed(3)} g/mol（${r.result.sourceKind}）`);
-						} catch (e) { setError(e.message); }
-					} }, "算 MW"),
-					h(Field, { label: "Mn/Mw/DP(JSON)", value: metricInput, onChange: setMetricInput, wide: true }),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try {
-							const input = JSON.parse(metricInput);
-							const r = await call("chem_metrics", { request: { input } });
-							alert(Object.entries(r.metrics).map(([k, v]) => `${k} = ${v.value} ${v.unit}`).join("\n") || "无可用输入");
-						} catch (e) { setError(e.message); }
-					} }, "算指标")
-				)
-			});
-		}
-
-		function PlansTab({ call }) {
-			const [id, setId] = useState("");
-			const [title, setTitle] = useState("");
-			return h(CrudPanel, {
-				title: "实验计划（ExperimentPlan）",
-				load: async () => (await call("chem_plans", { request: {} })).plans,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "title", label: "标题" },
-					{ key: "objective", label: "目标" },
-					{ key: "status", label: "状态", render: (r) => tag({ ok: r.status === "approved" }) },
-					{ key: "safety", label: "安全项", render: (r) => (r.safety ?? []).length }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "id", value: id, onChange: setId }),
-					h(Field, { label: "标题", value: title, onChange: setTitle, wide: true }),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try {
-							if (!id) throw new Error("id 必填");
-							const plan = {
-								id, title: title || id, objective: "合成示例", scale: "1 g",
-								reagents: [{ name: "试剂A", amount: "1 g" }],
-								steps: [{ step: "s1", description: "示例步骤" }],
-								measurementTable: [{ metric: "转化率", method: "NMR" }],
-								safety: ["示例安全项"], characterization: ["NMR"]
-							};
-							await call("chem_plan_create", { request: { fields: plan } });
-							setId(""); setTitle(""); setError("");
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "创建示例")
-				),
-				actions: (run, setError) => h("button", { className: "dshla-btn", onClick: async () => {
-					const target = prompt("计划 id：");
-					if (!target) return;
-					const status = prompt("流转到（under-review/approved/rejected）：");
-					if (!status) return;
-					try {
-						const r = await call("chem_plan_status", { request: { id: target, status } });
-						alert(`状态 → ${r.plan.status}`);
-						await run();
-					} catch (e) { setError(e.message); }
-				} }, "流转状态")
-			});
-		}
-
-		function NmrTab({ call }) {
-			const [id, setId] = useState("");
-			const [name, setName] = useState("");
-			return h(CrudPanel, {
-				title: "NMR 数据集（NmrDataset）",
-				load: async () => (await call("nmr_list")).datasets,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "name", label: "名称" },
-					{ key: "nucleus", label: "核" },
-					{ key: "status", label: "状态", render: (r) => tag({ ok: r.status === "visually-verified" }) },
-					{ key: "approvedIntegrals", label: "已审核积分", render: (r) => (r.approvedIntegrals ?? []).length },
-					{ key: "results", label: "计算项", render: (r) => Object.keys(r.results ?? {}).join(", ") || "—" }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "id", value: id, onChange: setId }),
-					h(Field, { label: "名称", value: name, onChange: setName, wide: true }),
-					h("button", { className: "dshla-btn", "data-primary": "true", onClick: async () => {
-						try {
-							if (!id) throw new Error("id 必填");
-							await call("nmr_create", { request: { fields: { id, name: name || id, fidPath: "(待登记)" } } });
-							setId(""); setName(""); setError("");
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "登记数据集")
-				),
-				actions: (run, setError) => h(Fragment, null,
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("数据集 id：");
-						if (!target) return;
-						try {
-							await call("nmr_integrals", { request: { id: target, integrals: [
-								{ peak: "3.6", integral: 2, protons: 1, assignment: "O-CH2" },
-								{ peak: "1.2", integral: 1, protons: 3, assignment: "end-group" }
-							] } });
-							alert("积分计划已提交（under-review）");
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "提交示例积分"),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("数据集 id：");
-						if (!target) return;
-						const action = prompt("操作（approve/written/verify/reopen）：");
-						if (!target || !action) return;
-						try {
-							const method = { approve: "nmr_approve", written: "nmr_written_back", verify: "nmr_verify", reopen: "nmr_reopen" }[action];
-							if (!method) throw new Error("未知操作");
-							const r = await call(method, { request: { id: target } });
-							alert(`状态 → ${r.dataset.status}`);
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "工作流操作")
-				)
-			});
-		}
-
-		function SynthesisTab({ call }) {
-			const [routeId, setRouteId] = useState("");
-			return h(CrudPanel, {
-				title: "合成路线（SynthesisRoute）",
-				load: async () => (await call("synth_routes", { request: {} })).routes,
-				columns: [
-					{ key: "id", label: "ID" },
-					{ key: "name", label: "名称" },
-					{ key: "targetId", label: "目标" },
-					{ key: "steps", label: "步骤", render: (r) => (r.steps ?? []).length },
-					{ key: "status", label: "状态", render: (r) => tag({ ok: r.status === "approved" }) }
-				],
-				form: (run, setError) => h(Fragment, null,
-					h(Field, { label: "route id", value: routeId, onChange: setRouteId }),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try {
-							const policy = await call("cas_policy");
-							alert(`CAS 政策：autoAccess=${policy.policy.policy.autoAccess}, llmIngest=${policy.policy.policy.llmIngest}, 已授权=${policy.policy.authorizationGranted}`);
-						} catch (e) { setError(e.message); }
-					} }, "CAS 政策")
-				),
-				actions: (run, setError) => h(Fragment, null,
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("route id：");
-						if (!target) return;
-						const status = prompt("流转到（under-review/approved/rejected）：");
-						if (!status) return;
-						try {
-							const r = await call("synth_route_status", { request: { id: target, status } });
-							alert(`状态 → ${r.route.status}`);
-							await run();
-						} catch (e) { setError(e.message); }
-					} }, "流转状态"),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						const target = prompt("route id：");
-						if (!target) return;
-						try {
-							const r = await call("synth_evidence", { request: { id: target, query: target, want: ["compound"] } });
-							alert(`开放数据证据 ${r.evidence.length} 条（最近：${r.evidence.slice(-1)[0]?.reference ?? "—"}）`);
-						} catch (e) { setError(e.message); }
-					} }, "收集证据")
-				)
-			});
-		}
-
-		function ConvertTab({ call }) {
-			const [file, setFile] = useState(null);
-			const [text, setText] = useState("");
 			const [error, setError] = useState("");
-			const [available, setAvailable] = useState(null);
-			const [busy, setBusy] = useState(false);
-			useEffect(() => {
-				call("convert_available").then((r) => setAvailable(r.available)).catch(() => setAvailable(null));
-			}, []);
-			const onConvert = async () => {
-				if (!file) { setError("请先选择文件"); return; }
+			const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+			const create = async () => {
 				setBusy(true); setError("");
 				try {
-					const base64 = await new Promise((resolve, reject) => {
-						const reader = new FileReader();
-						reader.onload = () => resolve(String(reader.result).split(",")[1]);
-						reader.onerror = reject;
-						reader.readAsDataURL(file);
-					});
-					const r = await call("convert_upload", { request: { name: file.name, base64 } });
-					setText(r.result.text);
-				} catch (e) { setError(e.message); } finally { setBusy(false); }
+					if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("项目编号请使用小写字母、数字和连字符，例如 polymer-prodrug-01");
+					if (!form.name.trim()) throw new Error("请填写项目名称");
+					if (!defaults.goal || !defaults.template) throw new Error("系统默认配置尚未就绪");
+					const result = await call("projects_create", { request: { fields: { ...form, name: form.name.trim(), memoryChangeNote: "创建课题核心记忆", goalProfileId: defaults.goal.id, goalProfileVersion: defaults.goal.version, templateId: defaults.template.id, templateVersion: defaults.template.version } } });
+					onCreated(result.project);
+				} catch (reason) { setError(reason.message); } finally { setBusy(false); }
 			};
-			return h("div", null,
-				h("div", { className: "dshla-section" },
-					h("h2", null, "文档转 Markdown（markitdown）"),
-					h("div", { className: "dshla-form" },
-						h("input", { type: "file", accept: ".docx,.pptx,.xlsx,.pdf,.md,.txt,.html,.jpg,.png", onChange: (e) => { setFile(e.target.files[0] || null); setText(""); } }),
-						h("button", { className: "dshla-btn", "data-primary": "true", onClick: onConvert, disabled: busy }, busy ? "转换中…" : "转换"),
-						available === false ? h("span", { className: "dshla-meta" }, "（markitdown 未安装：python -m pip install markitdown）") : null
-					),
-					error ? h("div", { className: "dshla-err" }, error) : null
-				),
-				text ? h("div", { className: "dshla-section" },
-					h("h2", null, "Markdown 输出"),
-					h("pre", { className: "dshla-json", style: { maxHeight: "50vh" } }, text)
-				) : null
-			);
+			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 		}
 
-		function PythonTab({ call }) {
-			const [state, setState] = useState(null);
-			const [error, setError] = useState("");
-			return h("div", null,
-				h("div", { className: "dshla-section" },
-					h("h2", null, "Python 环境（labPython）"),
-					h("button", { className: "dshla-btn", onClick: async () => {
-						try { setState(await call("python_preflight")); setError(""); } catch (e) { setError(e.message); }
-					} }, "预检"),
-					state ? h("pre", { className: "dshla-json" }, JSON.stringify(state.preflight, null, 2)) : null,
-					error ? h("div", { className: "dshla-err" }, error) : null
-				)
-			);
-		}
-
-		// ── 品牌化科研工作台 ────────────────────────────────────────────────
-		const badge = (label, tone = "warn") => h("span", { className: "dshla-status", "data-s": tone }, label);
-		const settledValue = (result, fallback) => result?.status === "fulfilled" ? result.value : fallback;
-
-		function OverviewTab({ call, onNavigate }) {
-			const [state, setState] = useState({ loading: true, error: "", data: {} });
+		function Home({ call, onOpen }) {
+			const [state, setState] = useState({ loading: true, projects: [], defaults: {}, error: "" });
+			const [creating, setCreating] = useState(false);
 			const load = useCallback(async () => {
-				setState((previous) => ({ ...previous, loading: true, error: "" }));
-				const results = await Promise.allSettled([
-					call("projects_list"),
-					call("chem_entities", { request: {} }),
-					call("chem_plans", { request: {} }),
-					call("nmr_list"),
-					call("synth_routes", { request: {} }),
-					call("versions_list"),
-					call("convert_available")
-				]);
-				const failed = results.filter((result) => result.status === "rejected");
-				setState({
-					loading: false,
-					error: failed.length === results.length ? "工作台数据暂时不可用，请检查实验室服务。" : "",
-					data: {
-						projects: settledValue(results[0], { projects: [] }).projects ?? [],
-						entities: settledValue(results[1], { entities: [] }).entities ?? [],
-						plans: settledValue(results[2], { plans: [] }).plans ?? [],
-						nmr: settledValue(results[3], { datasets: [] }).datasets ?? [],
-						routes: settledValue(results[4], { routes: [] }).routes ?? [],
-						versions: settledValue(results[5], { rows: [] }).rows ?? [],
-						convertAvailable: settledValue(results[6], { available: false }).available === true
-					}
-				});
+				try {
+					const [projects, goals, templates] = await Promise.all([call("projects_list"), call("goals_list"), call("templates_list")]);
+					setState({ loading: false, projects: projects.projects || [], defaults: { goal: goals.goals.find((x) => x.id === "default-prodrug-polymer") || goals.goals[0], template: templates.templates.find((x) => x.id === "nature-default") || templates.templates[0] }, error: "" });
+				} catch (reason) { setState({ loading: false, projects: [], defaults: {}, error: reason.message }); }
 			}, []);
 			useEffect(() => { void load(); }, [load]);
+			return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。这里不需要先选择工具，先进入你正在做的项目。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题")), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: onOpen }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
+		}
 
+		function Project({ call, project, onBack, onStartChat }) {
+			const [state, setState] = useState({ loading: true, data: null, error: "" });
+			const [tab, setTab] = useState("literature");
+			const [draft, setDraft] = useState("");
+			const [note, setNote] = useState("");
+			const [saving, setSaving] = useState(false);
+			const [toast, setToast] = useState("");
+			const load = useCallback(async () => {
+				try { const data = await call("projects_workspace", { request: { projectId: project.id } }); setState({ loading: false, data, error: "" }); setDraft(data.memory?.markdown || ""); }
+				catch (reason) { setState({ loading: false, data: null, error: reason.message }); }
+			}, [project.id]);
+			useEffect(() => { void load(); }, [load]);
+			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3500); return () => clearTimeout(timer); }, [toast]);
+			const save = async () => {
+				setSaving(true);
+				try { const result = await call("projects_memory_update", { request: { fields: { projectId: project.id, markdown: draft, changeNote: note } } }); setToast(`核心记忆已提交为 v${result.memory.version}`); setNote(""); await load(); }
+				catch (reason) { setToast(reason.message); } finally { setSaving(false); }
+			};
+			const startChat = async () => {
+				if (!state.data) return;
+				try { await onStartChat(state.data.project, state.data.memory); }
+				catch (reason) { setToast(reason.message); }
+			};
+			if (state.loading) return h("div", { className: "ib-empty" }, "正在打开课题空间…");
+			if (!state.data) return h("div", { className: "ib-empty" }, state.error, h("div", { style: { marginTop: 12 } }, h("button", { className: "ib-btn", onClick: onBack }, "返回")));
 			const data = state.data;
-			const projects = data.projects ?? [];
-			const activeProjects = projects.filter((item) => item.status === "active");
-			const reviewCount = (data.plans ?? []).filter((item) => item.status === "under-review").length
-				+ (data.nmr ?? []).filter((item) => item.status === "under-review").length
-				+ (data.routes ?? []).filter((item) => item.status === "under-review").length;
-			const researchAssets = (data.entities ?? []).length + (data.nmr ?? []).length;
-			const recentProjects = [...projects].sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))).slice(0, 5);
-			const metrics = [
-				["活跃项目", state.loading ? "…" : activeProjects.length, `${projects.length} 个项目已登记`, ""],
-				["研究数据资产", state.loading ? "…" : researchAssets, `${(data.entities ?? []).length} 个化学实体 · ${(data.nmr ?? []).length} 组 NMR`, ""],
-				["待人工审核", state.loading ? "…" : reviewCount, reviewCount > 0 ? "需要研究人员确认" : "当前没有待办", reviewCount > 0 ? "warn" : ""],
-				["能力版本", state.loading ? "…" : (data.versions ?? []).length, data.convertAvailable ? "文档转换可用" : "核心 Skill 已固定", ""]
-			];
-
+			const literature = data.literature || {};
+			const planning = data.planning || {};
+			const characterization = data.characterization || {};
+			const meta = { literature: ["文献资料", "检索汇总、精读报告和文献 PPT"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
-				h("div", { className: "dshla-hero" },
-					h("div", { className: "dshla-hero-eyebrow" }, "iBM Research Copilot"),
-					h("h2", null, activeProjects[0]?.name ? `继续推进：${activeProjects[0].name}` : "把科研过程变成可追溯的工作流"),
-					h("p", null, "从文献证据到实验方案、表征数据与组会汇报，每一步保留来源、版本和人工审核状态。Agent 负责整理和执行，关键科研判断始终由研究人员确认。"),
-					h("div", { className: "dshla-hero-actions" },
-						h("button", { className: "dshla-btn", "data-primary": "true", onClick: () => onNavigate("tasks") }, "进入文献项目"),
-						h("button", { className: "dshla-btn", onClick: () => onNavigate("goals") }, "配置精读目标")
-					)
-				),
-				state.error ? h("div", { className: "dshla-err" }, state.error) : null,
-				h("div", { className: "dshla-metrics" }, metrics.map(([label, value, detail, tone]) =>
-					h("div", { className: "dshla-metric", key: label },
-						h("div", { className: "dshla-metric-label" }, label),
-						h("div", { className: "dshla-metric-value" }, value),
-						h("div", { className: "dshla-metric-detail", "data-tone": tone || undefined }, detail)
-					)
-				)),
-				h("div", { className: "dshla-grid" },
-					h("div", { className: "dshla-card" },
-						h("div", { className: "dshla-card-head" },
-							h("div", { className: "dshla-card-title" }, "科研交付流程"),
-							h("div", { className: "dshla-card-note" }, "证据与审核贯穿全流程")
-						),
-						h("div", { className: "dshla-flow" }, [
-							["01", "检索与筛选", "多源文献检索、去重与来源登记"],
-							["02", "精读与审计", "结构化 Paper Card 与原文定位"],
-							["03", "实验与表征", "方案、性质、NMR 和人工门禁"],
-							["04", "汇报与归档", "模板化 PPT、质量检查与溯源"]
-						].map(([num, name, desc]) => h("div", { className: "dshla-flow-step", key: num },
-							h("div", { className: "dshla-flow-num" }, num),
-							h("div", { className: "dshla-flow-name" }, name),
-							h("div", { className: "dshla-flow-desc" }, desc)
-						)))
-					),
-					h("div", { className: "dshla-card" },
-						h("div", { className: "dshla-card-head" }, h("div", { className: "dshla-card-title" }, "快速入口")),
-						h("div", { className: "dshla-quick" }, [
-							["文档转 Markdown", "convert"], ["化学性质计算", "chemistry"], ["NMR 工作流", "nmr"], ["实验方案审核", "plans"]
-						].map(([label, target]) => h("button", { key: target, onClick: () => onNavigate(target) }, h("span", null, label), h("span", null, "→"))))
-					)
-				),
-				h("div", { className: "dshla-card", style: { marginTop: "14px" } },
-					h("div", { className: "dshla-card-head" },
-						h("div", { className: "dshla-card-title" }, "最近项目"),
-						h("button", { className: "dshla-btn", onClick: () => void load() }, state.loading ? "同步中…" : "同步数据")
-					),
-					h(Table, {
-						rows: recentProjects,
-						empty: "尚未创建项目。先配置精读目标和 PPT 模板，再建立第一个研究项目。",
-						columns: [
-							{ key: "name", label: "项目" },
-							{ key: "goal", label: "精读目标", render: (row) => `${row.goalProfile?.id ?? "—"}@${row.goalProfile?.version ?? "—"}` },
-							{ key: "template", label: "汇报模板", render: (row) => row.template?.id ?? "—" },
-							{ key: "updatedAt", label: "最近更新", render: (row) => row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "—" },
-							{ key: "status", label: "状态", render: (row) => badge(row.status === "active" ? "进行中" : "已归档", row.status === "active" ? "ok" : "warn") }
-						]
-					})
-				)
+				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn ib-agent", "data-primary": true, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), "开始科研 Agent 对话")),
+				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
+				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "文献检索汇总", rows: literature.searches, empty: "对话中的文献检索结果会整理到这里。" }), h(Artifact, { title: "文献原文整理", rows: literature.bundles, empty: "尚未登记论文原文。" }), h(Artifact, { title: "文献精读报告", rows: literature.reports, empty: "尚未生成精读报告。" }), h(Artifact, { title: "文献 PPT 汇报", rows: literature.presentations, empty: "尚未生成文献汇报 PPT。" })) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
+				toast ? h("div", { className: "ib-toast" }, toast) : null
 			);
 		}
 
-		const NAV_GROUPS = [
-			{ label: "Research", items: [
-				{ id: "overview", label: "工作台总览", icon: "OV", component: OverviewTab, description: "项目状态、待审核任务和研究资产概览" },
-				{ id: "tasks", label: "文献项目", icon: "LI", component: TasksTab, description: "管理从检索、精读到汇报的研究项目" },
-				{ id: "goals", label: "精读目标", icon: "GO", component: GoalsTab, description: "配置不同课题所关注的问题与证据要求" }
-			] },
-			{ label: "Experiment & Data", items: [
-				{ id: "chemistry", label: "化学性质", icon: "CH", component: ChemistryTab, description: "化学实体、来源化性质和聚合物指标计算" },
-				{ id: "plans", label: "实验计划", icon: "EX", component: PlansTab, description: "生成并人工审核实验方案、安全项和表征要求" },
-				{ id: "nmr", label: "NMR 分析", icon: "NM", component: NmrTab, description: "积分方案、人工确认和聚合物指标计算" },
-				{ id: "synthesis", label: "合成路线", icon: "SY", component: SynthesisTab, description: "开放证据支持的合成路线与审核状态" }
-			] },
-			{ label: "Outputs", items: [
-				{ id: "templates", label: "汇报模板", icon: "PT", component: TemplatesTab, description: "课题组 PPT 模板、版式角色和质量校验" },
-				{ id: "convert", label: "文档处理", icon: "MD", component: ConvertTab, description: "将论文和 Office 文件转换为可分析的 Markdown" }
-			] },
-			{ label: "System", items: [
-				{ id: "versions", label: "能力版本", icon: "VS", component: VersionsTab, description: "固定并核验 Nature Skills 版本与回归状态" },
-				{ id: "python", label: "运行环境", icon: "PY", component: PythonTab, description: "检查本地 Python 与科研工具运行环境" }
-			] }
-		];
-		const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
-
-		function LabPanel({ call, onClose }) {
-			const [tab, setTab] = useState("overview");
-			const active = NAV_ITEMS.find((item) => item.id === tab) ?? NAV_ITEMS[0];
-			const TabComponent = active.component;
-			return ReactDOM.createPortal(
-				h("div", { className: "dshla-overlay", role: "dialog", "aria-label": "iBM Research Workspace" },
-					h("aside", { className: "dshla-rail" },
-						h("div", { className: "dshla-brand" },
-							h("div", { className: "dshla-mark" }, "iB"),
-							h("div", { className: "dshla-brand-copy" },
-								h("div", { className: "dshla-brand-name" }, "iBM Lab Agent"),
-								h("div", { className: "dshla-brand-sub" }, "Research Workspace")
-							)
-						),
-						h("nav", { className: "dshla-nav", "aria-label": "科研工作台导航" }, NAV_GROUPS.map((group) =>
-							h("div", { className: "dshla-nav-group", key: group.label },
-								h("div", { className: "dshla-nav-label" }, group.label),
-								group.items.map((item) => h("button", {
-									key: item.id,
-									className: "dshla-tab",
-									"data-active": tab === item.id ? "true" : undefined,
-									onClick: () => setTab(item.id),
-									title: item.label
-								}, h("span", { className: "dshla-nav-icon" }, item.icon), h("span", { className: "dshla-tab-label" }, item.label)))
-							)
-						)),
-						h("div", { className: "dshla-rail-footer" },
-							h("div", { className: "dshla-rail-status" }, h("span", { className: "dshla-dot" }), h("span", null, "本地服务已连接")),
-							h("div", { className: "dshla-rail-note" }, "原始文件默认保存在本机；关键科研结果需人工审核。")
-						)
-					),
-					h("main", { className: "dshla-shell" },
-						h("header", { className: "dshla-topbar" },
-							h("div", { className: "dshla-breadcrumb" }, h("div", { className: "dshla-breadcrumb-over" }, "iBM / Workspace"), h("div", { className: "dshla-breadcrumb-title" }, active.label)),
-							h("div", { className: "dshla-trust" }, h("span", { className: "dshla-dot" }), h("span", null, "数据边界"), h("strong", null, "本地优先")),
-							h("div", { className: "dshla-trust" }, h("span", null, "✓"), h("strong", null, "人工审核门禁")),
-							h("button", { className: "dshla-close", onClick: onClose, "aria-label": "关闭科研工作台" }, "返回 Harness")
-						),
-						h("div", { className: "dshla-content" }, h("div", { className: "dshla-content-inner" },
-							tab === "overview" ? null : h("div", { className: "dshla-page-head" }, h("div", null,
-								h("div", { className: "dshla-page-kicker" }, "Research Module"),
-								h("h1", null, active.label),
-								h("p", null, active.description)
-							)),
-							h(TabComponent, { call, onNavigate: setTab })
-						))
-					)
-				),
-				document.body
-			);
+		function Panel({ call, onClose, onStartChat }) {
+			const [project, setProject] = useState(null);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat }) : h(Home, { call, onOpen: setProject }))), document.body);
 		}
 
-		function LabEntry({ onOpen, wide }) {
-			return h("button", { className: "dshla-sidebar-entry", onClick: onOpen, title: "打开 iBM Research Workspace" },
-				h("span", { className: "dshla-sidebar-glyph" }, "iB"),
-				wide ? h("span", null, "iBM 科研工作台") : null
-			);
-		}
+		function Entry({ onOpen, wide }) { return h("button", { className: "ib-sidebar", onClick: onOpen, title: "打开课题工作台" }, h("span", { className: "ib-sidebar-logo" }, "iB"), wide ? h("span", null, "我的科研课题") : null); }
 
-		// ── plugin body ─────────────────────────────────────────────────────
 		function applyUi(ctx) {
 			const call = async (method, args) => {
-				// 兼容两种调用形式：裸参数 {name, base64} 或历史包装 {request: {...}}
-				const payload = args !== undefined && args !== null && typeof args === "object" && !Array.isArray(args)
-					&& Object.keys(args).length === 1 && "request" in args ? args.request : args;
+				const payload = args && typeof args === "object" && Object.keys(args).length === 1 && "request" in args ? args.request : args;
 				const result = payload === undefined ? await ctx.remote.lab[method]() : await ctx.remote.lab[method](payload);
-				if (!result.ok) throw new Error(result.error?.message ?? result.error?.code ?? "remote call failed");
+				if (!result.ok) throw new Error(result.error?.message || result.error?.code || "remote call failed");
 				return result.value;
 			};
-
-			// 面板挂载状态（模块级）
-			let panelRoot = null;
-			const openPanel = () => {
-				if (panelRoot !== null) return;
-				const root = document.createElement("div");
-				document.body.appendChild(root);
-				panelRoot = root;
-				ReactDOM.render(h(LabPanel, {
-					call,
-					onClose: () => {
-						ReactDOM.unmountComponentAtNode(root);
-						root.remove();
-						panelRoot = null;
-					}
-				}), root);
-			};
-
-			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
-				name: "sidebar.footer.action",
-				id: "lab-panel",
-				order: 5
-			}, (props) => h(LabEntry, { wide: props.wide, onOpen: openPanel })), "dsh-lab-agent: sidebar entry");
-
-			ctx.on("dispose", () => {
-				if (panelRoot !== null) {
-					ReactDOM.unmountComponentAtNode(panelRoot);
-					panelRoot.remove();
-					panelRoot = null;
+			let root = null;
+			const close = () => { if (!root) return; const node = root; root = null; ReactDOM.unmountComponentAtNode(node); node.remove(); };
+			const startChat = async (project, memory) => {
+				let sessionId = ctx.sessions.list.getSnapshot().current;
+				if (sessionId === undefined) {
+					const workspaces = ctx.workspaces.list.getSnapshot();
+					const workspaceId = workspaces.recentWorkspaceId || workspaces.items[0]?.workspaceId;
+					if (workspaceId === undefined) throw new Error("请先在 Harness 中选择一个工作目录");
+					sessionId = await ctx.workspaces.connectWorkspace(workspaceId);
+					ctx.sessions.open(sessionId);
 				}
-			});
+				const actx = ctx.sessions.scope(sessionId);
+				if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
+				const prompt = [`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`, "以下是该项目当前版本的核心记忆。请以它作为本次对话背景，并把后续产物归档到这个项目；如发现信息冲突，先向我确认。", "", `<!-- project-memory:${project.id}@${memory?.version || project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`, "", "请先简短确认你已理解课题背景，然后等待我的具体任务。"].join("\n");
+				ctx.conversation.input.for(actx).setDraft(prompt);
+				close();
+			};
+			const open = () => { if (root) return; root = document.createElement("div"); document.body.appendChild(root); ReactDOM.render(h(Panel, { call, onClose: close, onStartChat: startChat }), root); };
+			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "lab-panel", order: 5 }, (props) => h(Entry, { wide: props.wide, onOpen: open })), "dsh-lab-agent: project entry");
+			ctx.on("dispose", close);
 		}
 
 		async function apply(ctx) {
-			// 先挂载动态 namespace，再在声明了 remote.lab 的子 Fiber 中启动 UI。
 			await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors });
-			ctx.inject(["remote", "remote.lab", "slots"], applyUi);
+			ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation"], applyUi);
 		}
-
 		exports.apply = apply;
 		exports.inject = ["remote"];
 		return module.exports;

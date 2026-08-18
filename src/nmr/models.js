@@ -40,6 +40,8 @@ export const integralSchema = z.object({
 
 export const nmrDatasetSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
+	/** 所属课题；旧数据可不关联。 */
+	projectId: z.string().regex(PROFILE_ID_RE).optional(),
 	name: z.string().min(1),
 	/** 原始 FID/谱图路径（登记后不可变）。 */
 	fidPath: z.string().min(1),

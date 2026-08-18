@@ -44,10 +44,26 @@ export const labProjectSchema = z.object({
 	name: z.string().min(1),
 	goalProfile: profileRefSchema,
 	template: profileRefSchema,
+	memoryVersion: z.string().regex(/^\d+$/).default("1"),
 	status: z.enum(["active", "archived"]).default("active"),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });
+
+/** 项目核心记忆：Markdown 采用只增不改的版本行，便于随课题进展追溯。 */
+export const projectMemoryVersionSchema = z.object({
+	id: z.string().min(1),
+	projectId: z.string().regex(PROFILE_ID_RE),
+	version: z.string().regex(/^\d+$/),
+	markdown: z.string().min(1),
+	changeNote: z.string().default("更新课题核心记忆"),
+	contentSha256: z.string().regex(/^[0-9a-f]{64}$/),
+	createdAt: z.string()
+});
+
+export function projectMemoryKey(projectId, version) {
+	return `${projectId}@${version}`;
+}
 
 export const searchResultSchema = z.object({
 	title: z.string().min(1),
@@ -164,6 +180,7 @@ export const artifactProvenanceSchema = z.object({
 
 export const labTasksDomainSpecTables = {
 	lab_projects: "lab_projects",
+	project_memory_versions: "project_memory_versions",
 	literature_search_runs: "literature_search_runs",
 	paper_source_bundles: "paper_source_bundles",
 	reading_reports: "reading_reports",
