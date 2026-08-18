@@ -85,16 +85,27 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.ok(project.project.workspacePath, "workspace path returned");
 		assert.match(project.project.workspacePath, /remote-project$/);
 
-		// 会话绑定三件套：bind → binding → by_session
-		const bound = await invoke(ctx, "projects_bind_session", { request: { projectId: "remote-project", sessionId: "session-r", workspaceId: "ws-r" } });
-		assert.equal(bound.binding.workspaceId, "ws-r");
+		// 工作区级绑定：bind_workspace → bind_session（多会话）→ 反查三件套
+		const wsBound = await invoke(ctx, "projects_bind_workspace", { request: { projectId: "remote-project", workspaceId: "ws-r" } });
+		assert.equal(wsBound.binding.workspaceId, "ws-r");
+		await invoke(ctx, "projects_bind_session", { request: { projectId: "remote-project", sessionId: "session-r", workspaceId: "ws-r" } });
+		await invoke(ctx, "projects_bind_session", { request: { projectId: "remote-project", sessionId: "session-r2", workspaceId: "ws-r" } });
 		const binding = await invoke(ctx, "projects_binding", { request: { projectId: "remote-project" } });
-		assert.equal(binding.binding.sessionId, "session-r");
-		const bySession = await invoke(ctx, "projects_by_session", { request: { sessionId: "session-r" } });
+		assert.equal(binding.binding.workspaceId, "ws-r");
+		assert.deepEqual(binding.binding.sessionIds, ["session-r", "session-r2"]);
+		const bySession = await invoke(ctx, "projects_by_session", { request: { sessionId: "session-r2" } });
 		assert.equal(bySession.bound.project.id, "remote-project");
 		assert.equal(bySession.bound.workspaceId, "ws-r");
 		const missing = await invoke(ctx, "projects_by_session", { request: { sessionId: "session-none" } });
 		assert.equal(missing.bound, null);
+		// 工作区 → 课题（空间内所有对话共享课题标识）
+		const byWs = await invoke(ctx, "projects_by_workspace", { request: { workspaceId: "ws-r" } });
+		assert.equal(byWs.bound.project.id, "remote-project");
+		assert.deepEqual(byWs.bound.sessionIds, ["session-r", "session-r2"]);
+		// cwd → 课题（不依赖绑定：手动新建对话也能识别课题）
+		const byCwd = await invoke(ctx, "projects_by_cwd", { request: { path: project.project.workspacePath } });
+		assert.equal(byCwd.bound.project.id, "remote-project");
+		assert.equal(byCwd.bound.workspaceId, "ws-r");
 
 		const memory = await invoke(ctx, "projects_memory_update", { request: { fields: {
 			projectId: "remote-project",

@@ -41,11 +41,17 @@ test("web client auto-launches per-project workspace + research session and cust
 	const source = await readFile(clientPath, "utf8");
 	// 自动 launch：专属工作区 + 空白新会话 + 科研 Agent 预设
 	assert.match(source, /workspaces\.manager\.create\(\{ path: project\.workspacePath \}\)/);
+	assert.match(source, /workspaces\.manager\.rename\(workspaceId, project\.name\)/);
 	assert.match(source, /sessions\.create\(\{ workspaceId \}\)/);
 	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
+	assert.match(source, /projects_bind_workspace/);
 	assert.match(source, /projects_bind_session/);
 	assert.match(source, /projects_binding/);
 	assert.match(source, /projects_by_session/);
+	// 工作区级标识：同一课题空间内所有对话都能按 workspace / cwd 识别课题
+	assert.match(source, /projects_by_workspace/);
+	assert.match(source, /projects_by_cwd/);
+	assert.match(source, /useSessions\(\(s\) => s\.byId\[sessionId\]\?\.cwd\)/);
 	// 对话界面定制：会话头部课题徽章 + 输入框上方记忆提示条
 	assert.match(source, /conversation\.session\.header\.utilities/);
 	assert.match(source, /conversation\.input\.dock/);

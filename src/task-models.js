@@ -68,15 +68,18 @@ export function projectMemoryKey(projectId, version) {
 }
 
 /**
- * 项目 ↔ Harness 会话绑定：课题创建后自动开一个独立 workspace + 新会话，
- * 对话界面的课题徽章据此反查当前会话属于哪个课题。
+ * 课题 ↔ Harness 工作区/会话绑定。绑定是**工作区级**的：一个课题一个独立
+ * workspace，工作区内的所有会话共享课题标识与核心记忆。`sessionIds` 记录
+ * 从课题侧启动过的会话（用于 launch 复用），手动新建的会话通过 cwd 路径
+ * 反查（projects_by_cwd）同样归属课题。`.passthrough()` 保留升级前的旧行
+ * 字段（旧 `sessionId`），供 init 一次性迁移。
  */
 export const projectSessionSchema = z.object({
 	projectId: z.string().regex(PROFILE_ID_RE),
-	sessionId: z.string().min(1),
 	workspaceId: z.string().min(1),
+	sessionIds: z.array(z.string()).default([]),
 	createdAt: z.string()
-});
+}).passthrough();
 
 export function projectSessionKey(projectId) {
 	return projectId;

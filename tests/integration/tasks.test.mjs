@@ -82,14 +82,27 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		assert.match(project.workspacePath, /proj-1$/);
 		await assert.doesNotReject(() => mkdir(project.workspacePath, { recursive: true }), "workspace dir usable");
 
-		// 会话绑定：bind → 反查（对话界面徽章数据源）
-		const binding = await tasks.bindProjectSession({ projectId: "proj-1", sessionId: "session-proj-1", workspaceId: "ws-proj-1" });
-		assert.equal(binding.projectId, "proj-1");
-		assert.equal(tasks.getProjectSession("proj-1").workspaceId, "ws-proj-1");
-		const bySession = tasks.getProjectBySession("session-proj-1");
-		assert.equal(bySession.project.id, "proj-1");
-		assert.equal(bySession.workspaceId, "ws-proj-1");
+		// 工作区级绑定：一个课题一个 workspace，空间内所有会话共享课题
+		const wsBinding = await tasks.bindProjectWorkspace({ projectId: "proj-1", workspaceId: "ws-proj-1" });
+		assert.equal(wsBinding.workspaceId, "ws-proj-1");
+		await tasks.bindProjectSession({ projectId: "proj-1", sessionId: "session-a", workspaceId: "ws-proj-1" });
+		await tasks.bindProjectSession({ projectId: "proj-1", sessionId: "session-b", workspaceId: "ws-proj-1" });
+		// 会话追加幂等
+		await tasks.bindProjectSession({ projectId: "proj-1", sessionId: "session-a", workspaceId: "ws-proj-1" });
+		assert.deepEqual(tasks.getProjectSession("proj-1").sessionIds, ["session-a", "session-b"]);
+		// 会话 → 课题反查（每个绑定过的会话都能识别课题）
+		assert.equal(tasks.getProjectBySession("session-b").project.id, "proj-1");
 		assert.equal(tasks.getProjectBySession("session-unknown"), undefined);
+		// 工作区 → 课题反查（空间内所有会话共享课题标识）
+		const byWs = tasks.getProjectByWorkspace("ws-proj-1");
+		assert.equal(byWs.project.id, "proj-1");
+		assert.deepEqual(byWs.sessionIds, ["session-a", "session-b"]);
+		// cwd 路径 → 课题反查（不依赖绑定：手动新建的对话也能识别课题）
+		const byCwd = tasks.getProjectByCwd(project.workspacePath);
+		assert.equal(byCwd.project.id, "proj-1");
+		assert.equal(byCwd.workspaceId, "ws-proj-1");
+		assert.equal(tasks.getProjectByCwd("/nonexistent/path"), undefined);
+		assert.equal(tasks.getProjectByCwd(""), undefined);
 
 		const memoryV2 = await tasks.updateProjectMemory({
 			projectId: "proj-1",
