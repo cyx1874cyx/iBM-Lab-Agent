@@ -20,6 +20,9 @@ node scripts/pin-vendor.mjs --latest          # 或用 --sha <40-hex>
 # 3) 安装到部署目录（物化 vendor 树、preset、registry、venv）
 node scripts/install.mjs                      # --skip-python 跳过 venv
 
+# 3.5) （可选，文档转换）安装 markitdown[all]：PDF/Office/图片 → Markdown
+node scripts/install-markitdown.mjs           # 网络慢可加 --index-url <镜像>
+
 # 4) 回归
 node scripts/regression/run.mjs
 
