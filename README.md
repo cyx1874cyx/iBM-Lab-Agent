@@ -43,29 +43,30 @@ Web 侧边栏同时会出现 **我的科研课题** 入口。首页只负责选�
 由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
 （`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
 并按课题名重命名）、开一个新对话、自动选择 **课题组科研（聚前药/高分子）**
-agent preset，并把当前版本核心记忆预填进输入框（发送前仍由用户确认）。
+agent preset，并把当前版本核心记忆**落盘为课题工作区根目录的 `项目记忆.md`**，
+开场提示 agent 读取该文件（不把整份记忆塞进输入框）。
 绑定是**工作区级**的：一个课题一个专属 workspace，空间内所有对话共享课题
-标识与核心记忆——再次进入课题会复用最近启动的会话；在该空间里手动新建的
-对话同样显示课题徽章、共享同一份核心记忆（按 cwd 自动识别课题）。进入课题
-后可按三个板块查询对话产物：**文献资料**（检索汇总、精读报告、文献 PPT）、
-**研究设计**（工作规划、实验方案、合成路线）和**表征分析**（NMR/结构结果
-及人工审核状态）。对话界面也做了定制：每个对话的会话头部都显示当前课题徽章
-（点击回到课题空间），输入框上方显示课题记忆提示条。
+标识与核心记忆——在该空间里手动新建的对话同样显示课题徽章、共享同一份核心
+记忆（按 cwd 自动识别课题）。进入课题后可按三个板块查询对话产物：**文献资料**
+（检索汇总、精读报告、文献 PPT）、**研究设计**（工作规划、实验方案、合成
+路线）和**表征分析**（NMR/结构结果及人工审核状态）。对话界面也做了定制：
+每个对话的会话头部都显示当前课题徽章（点击回到课题空间），输入框上方显示
+课题记忆提示条。
 整个界面通过 client 插件叠加在 Harness 上，不修改 Harness 核心。
 
 科研 Agent 对话里还可直接调用 **`lab_project_memory_read` / `lab_project_memory_update`**
 模型工具读写课题核心记忆（自动按会话定位课题）：总结/进展归档请用
 `lab_project_memory_update` 提交新版本（版本化数据行、带 changeNote 与哈希，
-面板可见、后续对话自动加载）——**不要**自行创建 `PROJECT_MEMORY.md` 之类的
-孤立记忆文件，系统不会加载，属于无效交付。这两个工具连同
-`lab_convert_document` **只挂在 lab-research 预设工具层**，standard 等其他
-模式看不到 lab 工具，避免误调用。
+面板可见、后续对话自动加载）——每次提交都会**同步重写课题工作区的
+`项目记忆.md`**，agent 在对话里读取的就是这份文件（不是孤立文件）。
+这两个工具连同 `lab_convert_document` **只挂在 lab-research 预设工具层**，
+standard 等其他模式看不到 lab 工具，避免误调用。
 
 **关于"模式切换"**：Harness 的 Agent 预设（模式）只在**空白新会话**上生效，
 会话一旦开始运行就固定、无法中途更换（官方约束 `agent-preset-locked`）。
 正确进入科研 Agent 模式的方式是课题空间的「开始科研 Agent 对话」（新开
-空白会话 → 自动选择课题组科研预设 → 预填核心记忆），不要在已开始的会话里
-要求"切换模式"。
+空白会话 → 自动选择课题组科研预设 → 开场提示读取 `项目记忆.md`），不要在
+已开始的会话里要求"切换模式"。
 
 ## 阶段一验证记录（2026-08-17）
 
@@ -146,7 +147,7 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
 | 集成测试（课题 CRUD/工作区/核心记忆/绑定、remote gateway、文档转换） | 21/21（`npm run test:all` 110/110） |
 | 回归套件 | 11/11（新增 `convert` 用例，真实 audit 脚本门禁仍通过） |
 | Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：侧边栏「我的科研课题」、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
-| 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆预填 |
+| 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取 |
 | 工作区级绑定 | 空间内所有对话（含手动新建）按会话绑定/cwd 识别课题，共享同一份核心记忆 |
 | 核心记忆工具 | `lab_project_memory_read/_update` 模型工具自动按会话定位课题，版本化写入（changeNote + 哈希），面板可见 |
 | 工具作用域 | lab 工具只挂 lab-research 预设工具层，standard 等预设不可见；不在全局 toolOrder 引用未注册工具（修复"标准模式链接不上模型"） |
@@ -241,7 +242,7 @@ agent preset，并把当前版本核心记忆预填进输入框（发送前仍�
 
 - **课题（LabProject）**（`lib/tasks.js` / `src/task-models.js`）：创建课题时
   自动建独立工作区目录（`$DSH_HOME/lab-agent/projects/<id>`）→ 注册 Harness
-  workspace（按课题名重命名）→ 新会话 + lab-research 预设 + 核心记忆预填。
+  workspace（按课题名重命名）→ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取。
 - **工作区级绑定**：`projects_bind_workspace/bind_session/binding/by_session/
   by_workspace/by_cwd` 让空间内所有对话按会话绑定或 cwd 识别课题；绑定关系
   持久化于 `lab_tasks` domain `project_bindings` 表。

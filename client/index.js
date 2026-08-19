@@ -276,22 +276,46 @@ window.__ModuleLoader__.load({
 				document.body.appendChild(node);
 				setTimeout(() => node.remove(), 4500);
 			};
-			const promptFor = (project, memory) => [`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`, "以下是该项目当前版本的核心记忆。请以它作为本次对话背景，并把后续产物归档到这个项目；如发现信息冲突，先向我确认。", "", `<!-- project-memory:${project.id}@${memory?.version || project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`, "", "请先简短确认你已理解课题背景，然后等待我的具体任务。"].join("\n");
+			/**
+			 * 会话开场提示。课题核心记忆已落盘到课题工作区 `项目记忆.md`
+			 * （host 侧每次提交版本时同步重写）——开场只引导 agent 读取该文件，
+			 * 不把整份记忆预填进输入框（避免输入框冗长、且记忆以文件为准）。
+			 * 旧项目尚无文件时回退到面板返回的 memory 内容。
+			 */
+			const promptFor = (project, memory) => {
+				const fileRef = `课题工作区里的「项目记忆.md」`;
+				const lines = [
+					`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`,
+					`请先读取 ${fileRef}（课题工作区根目录，当前版本 v${memory?.version || project.memoryVersion || "?"}）了解课题背景，`
+					+ "再开始工作；后续产物归档到这个项目。如发现信息冲突，先向我确认。",
+					"",
+					"开场请简短说明你已读取记忆、理解的课题背景，然后等待我的具体任务。"
+				];
+				if (!memory?.markdown && !project.workspacePath) {
+					lines.splice(1, 0, "", `<!-- project-memory:${project.id}@${project.memoryVersion} -->`, memory?.markdown || `# ${project.name}`);
+				}
+				return lines.join("\n");
+			};
 			/**
 			 * 为空白新会话选择科研 Agent 预设。wire 层返回 { result: { ok, error } }，
-			 * **不会 throw**——必须检查 result.ok，否则预设切换失败会被静默吞掉
-			 * （会话停留在默认 standard 模式，正是此前"进入科研 Agent 模式"失效的
-			 * 直接原因）。返回 "ok" 或失败说明。
+			 * **不会 throw**——必须检查 result.ok，否则预设切换失败会被静默吞掉。
+			 * agent-preset-locked = 复用了已开始会话（预设已固定）：若该会话本就在
+			 * 科研模式则无需处理，返回 "ok（沿用已有会话）"；否则返回失败说明。
+			 * 返回 "ok" 或失败说明。
 			 */
 			const selectResearchPreset = async (sessionId, presetId) => {
-				if (!presetId) return "跳过：未配置科研预设";
+				if (!presetId) return "ok（未配置科研预设，沿用会话默认）";
 				try {
 					const response = await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId });
 					const result = response?.result ?? response;
 					if (!result.ok) {
 						const code = result.error?.code ?? "unknown";
 						const detail = result.error?.message ?? "agentPresets.select 未返回 ok";
-						return code === "agent-preset-locked" ? `预设切换被拒绝（会话已开始，预设已固定：${detail}）` : `预设选择失败（${code}）：${detail}`;
+						if (code === "agent-preset-locked") {
+							// 复用了已开始会话：预设已固定，无法中途切换（DSH 约束）。
+							return `ok（复用已开始的会话，预设已固定，无法切换到 ${presetId}）`;
+						}
+						return `预设选择失败（${code}）：${detail}`;
 					}
 					return "ok";
 				} catch (reason) {
@@ -313,6 +337,9 @@ window.__ModuleLoader__.load({
 				let workspaceId;
 				let openedNew = false;
 				let presetApplied = "ok";
+				// 确保课题有专属目录 + 核心记忆文件「项目记忆.md」（幂等，旧项目补建）
+				const ensured = await call("projects_ensure_workspace", { request: { projectId: project.id } });
+				project = { ...project, workspacePath: ensured.path };
 				const bound = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
 				const wsSnapshot = ctx.workspaces.list.getSnapshot();
 				const hasWorkspace = (id) => (wsSnapshot.items ?? []).some((item) => item.workspaceId === id);
@@ -320,12 +347,7 @@ window.__ModuleLoader__.load({
 					// 已有课题工作区（仍存活）：在空间里开启新对话
 					workspaceId = bound.workspaceId;
 				} else {
-					// 无工作区绑定，或绑定的工作区已被删除：补建/复用课题工作区
-					if (!project.workspacePath) {
-						// 升级前创建的旧项目：没有专属目录，沿用既有绑定或建默认目录
-						const fallback = await call("projects_ensure_workspace", { request: { projectId: project.id } });
-						project = { ...project, workspacePath: fallback.path };
-					}
+					// 无工作区绑定，或绑定的工作区已被删除：注册课题工作区
 					const ws = await ctx.workspaces.create({ path: project.workspacePath });
 					if (!ws.ok) throw new Error(ws.error?.message || "创建课题工作区失败");
 					workspaceId = ws.value.workspace.workspaceId;

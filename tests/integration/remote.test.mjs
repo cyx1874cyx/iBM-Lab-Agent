@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -126,6 +126,13 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		await invoke(ctx, "projects_ensure_workspace", { request: { projectId: "remote-project" } });
 		const workspace2 = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
 		assert.ok(workspace2.project.workspacePath, "project keeps workspacePath after ensure");
+
+		// 核心记忆落盘：课题工作区里应有「项目记忆.md」，内容 = 当前版本记忆
+		const memoryFile = join(workspace2.project.workspacePath, "项目记忆.md");
+		const fileContent = await readFile(memoryFile, "utf8");
+		assert.match(fileContent, /课题核心记忆/);
+		assert.match(fileContent, /修订假设/, "file carries latest memory markdown");
+		assert.match(fileContent, /v2/, "file header carries current version");
 
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);
