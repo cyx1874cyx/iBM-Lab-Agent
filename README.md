@@ -37,7 +37,10 @@ dsh web
 
 Web 侧边栏同时会出现 **我的科研课题** 入口。首页只负责选择或新建课题；
 每个课题包含一份可提交新版本的核心课题 Markdown，并以它作为科研 Agent
-对话的项目记忆。**创建课题时插件会自动**：为课题建独立工作区目录
+对话的项目记忆。安装插件后，Harness 左上角品牌区也会替换为
+**iBM Agent / based on DSH**（实验室烧瓶 Logo，配色与课题面板一致），
+原有 DeepSeek Harness wordmark 与鲸鱼图标被隐藏（不修改 Harness 核心，
+由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
 （`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
 并按课题名重命名）、开一个新对话、自动选择 **课题组科研（聚前药/高分子）**
 agent preset，并把当前版本核心记忆预填进输入框（发送前仍由用户确认）。

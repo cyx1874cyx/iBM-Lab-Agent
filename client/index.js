@@ -26,7 +26,10 @@ window.__ModuleLoader__.load({
 			".ib-sidebar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.ib-sidebar:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.ib-sidebar-logo{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
 			".ib-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(129,205,178,.22);background:rgba(81,212,163,.09);color:#bde6d6;border-radius:999px;padding:5px 11px;font-size:10px;cursor:pointer;line-height:1.4}.ib-badge:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.15)}.ib-badge-mark{color:var(--ib-green);font-size:9px;font-weight:800}.ib-badge b{color:#e6f7f0;font-weight:650}.ib-badge small{color:#7fa396}",
 			".ib-hint{display:flex;align-items:center;gap:8px;color:#86a79b;font-size:10px;padding:4px 2px;line-height:1.5}.ib-hint b{color:#cfe5dc;font-weight:620}.ib-hint button{margin-left:auto;border:1px solid rgba(129,205,178,.2);background:rgba(255,255,255,.03);color:#a9c8bd;border-radius:8px;padding:3px 9px;font-size:9.5px;cursor:pointer}.ib-hint button:hover{border-color:rgba(81,212,163,.4);color:#e0f2ea}",
-			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}"
+			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}",
+			// ── 品牌覆盖：左上角 iBM Agent（烧瓶 + based on DSH，配色与课题面板一致）──
+			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-flask{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 6px 18px rgba(81,212,163,.2)}.ib-brand-flask svg{width:18px;height:18px}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a69b);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
+			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
@@ -186,6 +189,77 @@ window.__ModuleLoader__.load({
 
 		function Entry({ onOpen, wide }) { return h("button", { className: "ib-sidebar", onClick: onOpen, title: "打开课题工作台" }, h("span", { className: "ib-sidebar-logo" }, "iB"), wide ? h("span", null, "我的科研课题") : null); }
 
+		/** 实验室烧瓶 SVG（配色与课题面板一致：绿色渐变主体 + 青色气泡）。 */
+		function FlaskSvg({ width = 18, height = 18 }) {
+			return h("svg", { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
+				h("path", { d: "M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3", stroke: "#fff", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }),
+				h("path", { d: "M7 16h10l-2.4-3.4h-5.2L7 16Z", fill: "#eafff6", opacity: 0.9 }),
+				h("circle", { cx: 12, cy: 13.2, r: 0.55, fill: "#73dce6" }),
+				h("circle", { cx: 13.6, cy: 15, r: 0.4, fill: "#73dce6" })
+			);
+		}
+
+		/**
+		 * 品牌覆盖：sidebar 顶部原「DeepSeek HARNESS」wordmark 与鲸鱼 logo 由
+		 * dsh-client-ui-sidebar 硬编码渲染，无 slot/配置可替换——这里用 CSS
+		 * 隐藏原品牌，再注入自定义「烧瓶 + iBM Agent / based on DSH」元素。
+		 * CSS modules 本地类名后缀（_logoRow/_brand/_railFish）在 sidebar 包内
+		 * 稳定，升级后需复核。保留原按钮的"新建会话"点击行为。
+		 */
+		function applyBranding() {
+			if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+			const FLASK_HTML = '<svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16h10l-2.4-3.4h-5.2L7 16Z" fill="#eafff6" opacity="0.9"/><circle cx="12" cy="13.2" r="0.55" fill="#73dce6"/><circle cx="13.6" cy="15" r="0.4" fill="#73dce6"/></svg>';
+			const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
+			let observer = null;
+			const hideNative = () => {
+				const styleId = "dsh-lab-agent-brand";
+				if (document.querySelector(`style[data-plugin-css="${styleId}"]`) !== null) return;
+				const style = document.createElement("style");
+				style.dataset.pluginCss = styleId;
+				style.textContent = "[class*='_brand'] svg,[class*='_railFish']{display:none!important}";
+				document.head.appendChild(style);
+			};
+			const inject = () => {
+				hideNative();
+				const row = document.querySelector("[class*='_logoRow']");
+				if (!row) return false;
+				let touched = false;
+				// 宽栏：品牌按钮（_brand）内替换为 烧瓶 + iBM Agent
+				const brand = row.querySelector("[class*='_brand']");
+				if (brand && !brand.querySelector(".ib-brand-shell")) {
+					const shell = document.createElement("span");
+					shell.className = "ib-brand-shell";
+					shell.setAttribute("data-dsh-lab-brand", "1");
+					shell.innerHTML = `<span class="ib-brand-flask">${FLASK_HTML}</span><span class="ib-brand-text"><b>iBM Agent</b><small>based on DSH</small></span>`;
+					brand.appendChild(shell);
+					touched = true;
+				}
+				// 折叠栏：toggle 按钮内的鲸鱼（_railFish 兄弟）替换为 小烧瓶
+				const toggle = row.querySelector("[class*='_toggle']");
+				if (toggle && !toggle.querySelector(".ib-rail-flask")) {
+					const flask = document.createElement("span");
+					flask.className = "ib-rail-flask";
+					flask.setAttribute("data-dsh-lab-brand", "1");
+					flask.innerHTML = FLASK_RAIL_HTML;
+					toggle.appendChild(flask);
+					touched = true;
+				}
+				return touched;
+			};
+			// sidebar 由 React 渲染：注入一次成功后仍保持观察（折叠/展开会重渲染，
+			// React 可能清掉注入元素），幂等补注；dispose 时统一断开。
+			inject();
+			let scheduled = false;
+			const schedule = () => {
+				if (scheduled) return;
+				scheduled = true;
+				requestAnimationFrame(() => { scheduled = false; inject(); });
+			};
+			observer = new MutationObserver(schedule);
+			observer.observe(document.body, { childList: true, subtree: true });
+			return () => { if (observer) observer.disconnect(); };
+		}
+
 		function applyUi(ctx) {
 			const call = async (method, args) => {
 				const payload = args && typeof args === "object" && Object.keys(args).length === 1 && "request" in args ? args.request : args;
@@ -291,6 +365,7 @@ window.__ModuleLoader__.load({
 
 		async function apply(ctx) {
 			await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors });
+			applyBranding();
 			ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"], applyUi);
 		}
 		exports.apply = apply;

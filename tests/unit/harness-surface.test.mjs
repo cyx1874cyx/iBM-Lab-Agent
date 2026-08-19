@@ -58,6 +58,13 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /课题背景/);
 	// 需要 connection（wire api）来选择预设
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
+	// 品牌覆盖：左上角 iBM Agent（烧瓶 + based on DSH，隐藏原生 wordmark/鲸鱼）
+	assert.match(source, /function applyBranding/);
+	assert.match(source, /iBM Agent/);
+	assert.match(source, /based on DSH/);
+	assert.match(source, /ib-brand-flask/);
+	assert.match(source, /ib-rail-flask/);
+	assert.match(source, /\[class\*='_brand'\] svg/);
 	// 预设切换必须检查 result.ok（wire 层不 throw，否则失败被静默吞掉，
 	// 会话停留在默认 standard 模式——此前"进入科研 Agent 模式"失效的根因）
 	assert.match(source, /const selectResearchPreset = async/);
