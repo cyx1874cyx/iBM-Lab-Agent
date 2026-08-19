@@ -11,6 +11,8 @@
 
 ```bash
 # 0) 依赖：node >= 20、python3（或 Windows 上的 py -3）；部署到 profile 需要 pnpm
+#    Ubuntu/Debian 若 venv 创建失败（ensurepip 不可用）：先装 python3-venv
+#    sudo apt install python3-venv
 # 1) 建立指向当前 Harness 安装的开发链接（测试/脚本用）
 node scripts/dev-link.mjs
 
