@@ -8,13 +8,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
 
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
+const fixtures = fileURLToPath(new URL("../fixtures", import.meta.url));
 
 async function bootRemote() {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-remote-"));
@@ -28,7 +29,7 @@ async function bootRemote() {
 			{ id: "api-gateway", name: "@deepseek-ai/dsh-api-gateway" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot: vendorRoot + "/skills", projectsRoot: join(dir, "projects") } },
 			{ id: "lab-chemistry", name: "dsh-lab-agent/chemistry", inject: ["storageDomain"] },
 			{ id: "lab-nmr", name: "dsh-lab-agent/nmr", inject: ["storageDomain"] },
 			{ id: "lab-synthesis", name: "dsh-lab-agent/synthesis", inject: ["storageDomain"] },
@@ -38,7 +39,13 @@ async function bootRemote() {
 		]
 	});
 	await handle.ctx.labVersions.bootstrapFromVendor();
-	return { handle, dir };
+	// 输入副本：preparePaper/audit 输出写到输入所在目录，避免污染仓库 fixtures
+	const fxDir = join(dir, "fx");
+	await mkdir(fxDir, { recursive: true });
+	for (const f of ["min-source-map.json", "paper-card-pass.md"]) {
+		await copyFile(join(fixtures, f), join(fxDir, f));
+	}
+	return { handle, dir, fxDir };
 }
 
 async function invoke(ctx, method, args = {}) {
@@ -46,9 +53,14 @@ async function invoke(ctx, method, args = {}) {
 }
 
 test("lab remote: gateway dispatches marked methods with request-argument contract", async () => {
-	const { handle, dir } = await bootRemote();
+	const { handle, dir, fxDir } = await bootRemote();
 	try {
 		const ctx = handle.ctx;
+		// stub 网络检索：OpenAlex 依赖外网，不在自动化测试中跑
+		const tasks = ctx.labTasks;
+		tasks.executor.search = async () => [
+			{ title: "Prodrug-conjugated polymers for drug delivery", doi: "10.1000/fake.1", authors: ["A. Chemist"], year: 2024, cited_by_count: 12 }
+		];
 
 		// goals_list（无参）
 		const listed = await invoke(ctx, "goals_list");
@@ -133,6 +145,30 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.match(fileContent, /课题核心记忆/);
 		assert.match(fileContent, /修订假设/, "file carries latest memory markdown");
 		assert.match(fileContent, /v2/, "file header carries current version");
+
+		// 文献写入端点：检索 → 原文 → 精读 → PPT（Agent 登记链路）
+		const search = await invoke(ctx, "tasks_search_create", { request: { fields: { projectId: "remote-project", query: "prodrug polymer", limit: 2 } } });
+		assert.equal(search.run.projectId, "remote-project");
+		assert.ok(["succeeded", "running", "failed"].includes(search.run.status));
+		// 检索后 provenance 已登记
+		const prov = await invoke(ctx, "tasks_provenance", { request: { projectId: "remote-project" } });
+		assert.ok(prov.provenance.some((p) => p.kind === "search"), "search provenance recorded");
+
+		// 原文整理（preparePaper 走真实脚本，需要输入文件；用 fixture source-map 直接登记 bundle 行）
+		const bundle = await invoke(ctx, "tasks_bundle_create", { request: { fields: { projectId: "remote-project", sourceMapPath: join(fxDir, "min-source-map.json"), title: "测试原文" } } });
+		assert.equal(bundle.bundle.projectId, "remote-project");
+
+		// 精读报告：创建（草稿）→ 完成（登记 paper-card 路径）
+		const report = await invoke(ctx, "tasks_report_create", { request: { fields: { projectId: "remote-project", bundleId: bundle.bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" } } });
+		assert.equal(report.report.status, "pending");
+		const completed = await invoke(ctx, "tasks_report_complete", { request: { fields: { reportId: report.report.id, paperCardPath: join(fxDir, "paper-card-pass.md") } } });
+		assert.equal(completed.report.status, "running");
+
+		// 面板聚合应能看到检索与 bundle 记录
+		const wsAfter = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
+		assert.ok(wsAfter.literature.searches.length >= 1, "literature searches visible in panel");
+		assert.ok(wsAfter.literature.bundles.length >= 1, "literature bundles visible in panel");
+		assert.ok(wsAfter.literature.reports.length >= 1, "literature reports visible in panel");
 
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);

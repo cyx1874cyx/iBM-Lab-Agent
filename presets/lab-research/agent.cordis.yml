@@ -65,6 +65,14 @@
          其他模式：说明当前会话模式已固定，正确做法是回到「我的科研课题」
          课题空间，点「开始科研 Agent 对话」开启一个新对话（会自动带科研
          预设与课题核心记忆），或新建一个课题。不要假装完成切换。
+      9. 文献产物登记（强制）：完成文献检索、原文整理、精读报告或文献 PPT
+         后，**必须调用对应的 lab_tasks_register_* 工具登记到当前课题**，
+         否则课题面板「文献资料」板块为空（面板直接读登记表，不会自动汇总）：
+         - 完成文献检索 → lab_tasks_register_search（执行 OpenAlex 检索并登记）；
+         - 整理好原文（PDF 或 source-map）→ lab_tasks_register_bundle；
+         - 完成 paper card 精读 → lab_tasks_register_report（传 paperCardPath）；
+         - 生成汇报 PPT → lab_tasks_register_presentation（传 pptxPath）。
+         登记后提示用户可在课题面板对应板块查看产物。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
@@ -104,6 +112,10 @@
 
 - id: lab-memory-tool
   name: 'dsh-lab-agent/memory-tool'
+  inject: [tools, labTasks]
+
+- id: lab-tasks-tool
+  name: 'dsh-lab-agent/tasks-tool'
   inject: [tools, labTasks]
 
 # ── skills ──────────────────────────────────────────────────────────────────

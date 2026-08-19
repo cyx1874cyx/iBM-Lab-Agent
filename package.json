@@ -61,6 +61,9 @@
     "./llm-diag": {
       "default": "./lib/llm-diag.js"
     },
+    "./tasks-tool": {
+      "default": "./lib/tasks-tool.js"
+    },
     "./client": {
       "default": "./client/index.js"
     },
