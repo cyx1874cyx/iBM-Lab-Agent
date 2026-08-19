@@ -285,7 +285,7 @@ window.__ModuleLoader__.load({
 			const promptFor = (project, memory) => {
 				const fileRef = `课题工作区里的「项目记忆.md」`;
 				const lines = [
-					`进入科研 Agent 模式，当前课题为「${project.name}」（项目编号：${project.id}）。`,
+					`当前课题为「${project.name}」（项目编号：${project.id}）。`,
 					`请先读取 ${fileRef}（课题工作区根目录，当前版本 v${memory?.version || project.memoryVersion || "?"}）了解课题背景，`
 					+ "再开始工作；后续产物归档到这个项目。如发现信息冲突，先向我确认。",
 					"",
