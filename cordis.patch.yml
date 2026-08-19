@@ -150,6 +150,12 @@
       name: 'dsh-lab-agent/remote'
       inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
 
+    # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
+    # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。
+    - id: lab-llm-diag
+      name: 'dsh-lab-agent/llm-diag'
+      inject: [llm]
+
     # 课题工具（lab_convert_document / lab_project_memory_*）已移入 lab-research
     # preset 工具层（presets/lab-research/agent.cordis.yml），仅科研 Agent 会话
     # 可见；standard 等其他预设不暴露 lab 工具，避免误调用。
