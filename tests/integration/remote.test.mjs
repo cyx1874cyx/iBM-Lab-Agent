@@ -115,9 +115,17 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.equal(memory.memory.version, "2");
 		const workspace = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
 		assert.equal(workspace.memory.version, "2");
+		assert.equal(workspace.presetId, "lab-research", "workspace returns research preset for launch");
 		assert.deepEqual(Object.keys(workspace.literature).sort(), ["bundles", "presentations", "reports", "searches"]);
 		assert.deepEqual(Object.keys(workspace.planning).sort(), ["plans", "routes", "targets"]);
 		assert.deepEqual(Object.keys(workspace.characterization), ["nmr"]);
+
+		// ensure_workspace：已有路径幂等返回；旧项目（无 workspacePath）补建默认目录
+		const ensured = await invoke(ctx, "projects_ensure_workspace", { request: { projectId: "remote-project" } });
+		assert.ok(ensured.path.endsWith("remote-project"));
+		await invoke(ctx, "projects_ensure_workspace", { request: { projectId: "remote-project" } });
+		const workspace2 = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
+		assert.ok(workspace2.project.workspacePath, "project keeps workspacePath after ensure");
 
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);

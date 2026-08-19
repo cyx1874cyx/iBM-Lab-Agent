@@ -43,7 +43,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -163,7 +163,7 @@ window.__ModuleLoader__.load({
 			const startChat = async () => {
 				if (!state.data) return;
 				setLaunching(true);
-				try { await onStartChat(state.data.project, { memory: state.data.memory }); }
+				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId }); }
 				catch (reason) { setToast(reason.message); setLaunching(false); }
 			};
 			if (state.loading) return h("div", { className: "ib-empty" }, "正在打开课题空间…");
@@ -301,10 +301,11 @@ window.__ModuleLoader__.load({
 			/**
 			 * 课题 launch：绑定是**工作区级**的——一个课题一个专属 workspace，
 			 * 空间内所有对话共享课题标识与核心记忆。流程：复用或创建专属
-			 * 工作区 → 复用最近绑定会话或开空白新会话 → 选择科研 Agent 预设
-			 * （agentPresets.select，仅对空白会话有效）→ 记录会话绑定 → 打开
-			 * 会话 → 把当前版本核心记忆预填进输入框。旧项目（无工作区路径）
-			 * 回退到当前会话，仅预填记忆。
+			 * 工作区 → 在课题工作区里开启**新会话**（connectWorkspace 复用空白
+			 * 会话或新建）→ 选择科研 Agent 预设（agentPresets.select，仅对
+			 * 空白会话有效）→ 记录会话绑定 → 打开会话 → 把当前版本核心记忆
+			 * 预填进输入框。旧项目（无 workspacePath）补建工作区，不沿用当前
+			 * 会话。
 			 */
 			const launchProject = async (project, opts = {}) => {
 				const presetId = opts.presetId;
@@ -313,39 +314,29 @@ window.__ModuleLoader__.load({
 				let openedNew = false;
 				let presetApplied = "ok";
 				const bound = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
-				if (bound?.workspaceId) {
-					// 已有课题工作区：复用最近一次启动的会话（空间内所有对话共享记忆）
+				const wsSnapshot = ctx.workspaces.list.getSnapshot();
+				const hasWorkspace = (id) => (wsSnapshot.items ?? []).some((item) => item.workspaceId === id);
+				if (bound?.workspaceId && hasWorkspace(bound.workspaceId)) {
+					// 已有课题工作区（仍存活）：在空间里开启新对话
 					workspaceId = bound.workspaceId;
-					const boundSessions = bound.sessionIds ?? [];
-					sessionId = boundSessions.length > 0 ? boundSessions[boundSessions.length - 1] : undefined;
-					if (sessionId === undefined) {
-						sessionId = await ctx.sessions.create({ workspaceId });
-						openedNew = true;
-						presetApplied = await selectResearchPreset(sessionId, presetId);
-						await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
+				} else {
+					// 无工作区绑定，或绑定的工作区已被删除：补建/复用课题工作区
+					if (!project.workspacePath) {
+						// 升级前创建的旧项目：没有专属目录，沿用既有绑定或建默认目录
+						const fallback = await call("projects_ensure_workspace", { request: { projectId: project.id } });
+						project = { ...project, workspacePath: fallback.path };
 					}
-				} else if (project.workspacePath) {
-					// 首次启动：建工作区（并按课题名重命名）→ 空白新会话 → 预设 → 绑定
-					const ws = await ctx.workspaces.manager.create({ path: project.workspacePath });
+					const ws = await ctx.workspaces.create({ path: project.workspacePath });
 					if (!ws.ok) throw new Error(ws.error?.message || "创建课题工作区失败");
 					workspaceId = ws.value.workspace.workspaceId;
+					try { await ctx.workspaces.rename(workspaceId, project.name); } catch (reason) { console.warn("dsh-lab-agent: workspace rename failed", reason); }
 					await call("projects_bind_workspace", { request: { projectId: project.id, workspaceId } });
-					try { await ctx.workspaces.manager.rename(workspaceId, project.name); } catch (reason) { console.warn("dsh-lab-agent: workspace rename failed", reason); }
-					sessionId = await ctx.sessions.create({ workspaceId });
-					openedNew = true;
-					presetApplied = await selectResearchPreset(sessionId, presetId);
-					await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
-				} else {
-					// 升级前已存在的项目：没有专属工作区，沿用当前会话。
-					sessionId = ctx.sessions.list.getSnapshot().current;
-					if (sessionId === undefined) {
-						const workspaces = ctx.workspaces.list.getSnapshot();
-						const workspaceId0 = workspaces.recentWorkspaceId || workspaces.items[0]?.workspaceId;
-						if (workspaceId0 === undefined) throw new Error("请先在 Harness 中选择一个工作目录");
-						sessionId = await ctx.workspaces.connectWorkspace(workspaceId0);
-						ctx.sessions.open(sessionId);
-					}
 				}
+				// 在课题工作区开启新对话：connectWorkspace 复用该空间空白会话或新建
+				sessionId = await ctx.workspaces.connectWorkspace(workspaceId);
+				openedNew = true;
+				presetApplied = await selectResearchPreset(sessionId, presetId);
+				await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
 				ctx.sessions.open(sessionId);
 				const actx = ctx.sessions.scope(sessionId);
 				if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");

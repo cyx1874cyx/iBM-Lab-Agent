@@ -39,11 +39,12 @@ test("web client exposes the project-first research workspace shell", async () =
 
 test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
 	const source = await readFile(clientPath, "utf8");
-	// 自动 launch：专属工作区 + 空白新会话 + 科研 Agent 预设
-	assert.match(source, /workspaces\.manager\.create\(\{ path: project\.workspacePath \}\)/);
-	assert.match(source, /workspaces\.manager\.rename\(workspaceId, project\.name\)/);
-	assert.match(source, /sessions\.create\(\{ workspaceId \}\)/);
+	// 自动 launch：专属工作区 + 新对话 + 科研 Agent 预设
+	assert.match(source, /ctx\.workspaces\.create\(\{ path: project\.workspacePath \}\)/);
+	assert.match(source, /ctx\.workspaces\.rename\(workspaceId, project\.name\)/);
+	assert.match(source, /ctx\.workspaces\.connectWorkspace\(workspaceId\)/);
 	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
+	assert.match(source, /projects_ensure_workspace/);
 	assert.match(source, /projects_bind_workspace/);
 	assert.match(source, /projects_bind_session/);
 	assert.match(source, /projects_binding/);
