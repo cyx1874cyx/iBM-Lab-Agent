@@ -22,7 +22,9 @@ test("document conversion tool is scoped to the research preset", async () => {
 	const [patch, preset] = await Promise.all([readFile(patchPath, "utf8"), readFile(presetPath, "utf8")]);
 	assert.doesNotMatch(patch, /toolOrder:\s*[\s\S]*lab_convert_document/);
 	assert.doesNotMatch(patch, /id:\s*lab-convert-tool/);
-	assert.match(preset, /id:\s*convert-document[\s\S]*dsh-lab-agent\/convert-tool/);
+	// preset 里恰好一个 convert 工具行（lab-convert-tool），不重复注册
+	assert.match(preset, /id:\s*lab-convert-tool[\s\S]*dsh-lab-agent\/convert-tool/);
+	assert.doesNotMatch(preset, /id:\s*convert-document/);
 });
 
 test("web client exposes the project-first research workspace shell", async () => {
