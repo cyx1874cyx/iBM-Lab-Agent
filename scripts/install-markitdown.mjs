@@ -2,12 +2,13 @@
 /**
  * dsh-lab-agent: 安装 markitdown（文档转 Markdown 的可选依赖）。
  *
- * 在 labPython venv（$DSH_HOME/lab-agent/.venv）安装 markitdown；
- * venv 不存在时创建。Windows 本地建议先用 Python 安装器创建 venv 或直接
- * 用系统 python -m pip install markitdown。
+ * 目标：让 lab_convert_document / labConvert 可用。按顺序尝试：
+ *   1. labPython venv（$DSH_HOME/lab-agent/.venv）里已可用的 pip → 装进去；
+ *   2. venv 残缺/无 pip → 回退用户级安装
+ *      `python3 -m pip install --user --break-system-packages markitdown[all]`
+ *      （本机 markitdown/pptx 就在 ~/.local，PEP 668 下唯一无需 root 的姿势）。
  *
- * 默认安装全部格式依赖（markitdown[all]：docx/pptx/xlsx/pdf/outlook/ipynb/
- * xml/audio/video/ocr）。网络慢时可用镜像：--index-url <镜像>。
+ * 默认安装全部格式依赖（markitdown[all]）。网络慢时可用镜像：--index-url <镜像>。
  *
  * Usage:
  *   node scripts/install-markitdown.mjs [--dsh-home <path>] [--python <cmd>]
@@ -17,12 +18,10 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveDshHome, venvDir } from "../src/paths.js";
 import { venvPythonPath } from "../src/python-env.js";
-
-const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 function parseArgs(argv) {
 	const flags = { dshHome: undefined, python: undefined, indexUrl: undefined };
@@ -34,7 +33,6 @@ function parseArgs(argv) {
 	return flags;
 }
 
-/** pip 额外参数：镜像 URL（如果有）。 */
 function pipExtra(flags) {
 	return flags.indexUrl ? ["-i", flags.indexUrl] : [];
 }
@@ -51,6 +49,15 @@ function run(args) {
 	});
 }
 
+/** 探测 python 是否能用 pip（有 pip 模块且可执行）。 */
+function hasPip(python) {
+	return new Promise((resolve2) => {
+		const child = spawn(python, ["-m", "pip", "--version"], { stdio: ["ignore", "pipe", "pipe"] });
+		child.on("error", () => resolve2(false));
+		child.on("exit", (code) => resolve2(code === 0));
+	});
+}
+
 async function main() {
 	const flags = parseArgs(process.argv.slice(2));
 	const { dshHome, python } = flags;
@@ -64,14 +71,35 @@ async function main() {
 		return;
 	}
 
+	const sysPython = process.platform === "win32" ? "py" : "python3";
 	const venvPy = venvPythonPath(venv);
-	if (!existsSync(venvPy)) {
-		console.log(`creating venv -> ${venv}`);
-		await mkdir(venv, { recursive: true });
-		await run([process.platform === "win32" ? "py" : "python3", "-m", "venv", venv]);
+
+	// 1) venv 存在且有 pip → 装进 venv
+	if (existsSync(venvPy) && (await hasPip(venvPy))) {
+		console.log(`installing markitdown[all] -> ${venvPy} (venv)`);
+		await run([venvPy, "-m", "pip", "install", ...pipExtra(flags), "markitdown[all]"]);
+		console.log("done.");
+		return;
 	}
-	console.log(`installing markitdown[all] -> ${venvPy}`);
-	await run([venvPy, "-m", "pip", "install", ...pipExtra(flags), "markitdown[all]"]);
+
+	// 2) venv 缺失或残缺 → 用户级安装（PEP 668 用 --break-system-packages）
+	if (!existsSync(venvPy)) {
+		console.log(`venv ${venv} 不存在，创建中…`);
+		await mkdir(venv, { recursive: true });
+		try {
+			await run([sysPython, "-m", "venv", venv]);
+			await run([venvPy, "-m", "pip", "install", ...pipExtra(flags), "markitdown[all]"]);
+			console.log("done. (venv)");
+			return;
+		} catch {
+			console.log("venv 创建/安装失败（常见：缺 python3-venv/ensurepip），回退用户级安装…");
+		}
+	} else {
+		console.log(`venv ${venv} 存在但无 pip（残缺），回退用户级安装…`);
+	}
+
+	console.log(`installing markitdown[all] -> ${sysPython} (--user --break-system-packages)`);
+	await run([sysPython, "-m", "pip", "install", "--user", "--break-system-packages", ...pipExtra(flags), "markitdown[all]"]);
 	console.log("done. 可在实验室面板「文档转MD」上传 Office/PDF/图片文件转 Markdown。");
 }
 

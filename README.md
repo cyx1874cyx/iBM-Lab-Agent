@@ -23,6 +23,13 @@ node scripts/install.mjs                      # --skip-python 跳过 venv
 # 3.5) （可选，文档转换）安装 markitdown[all]：PDF/Office/图片 → Markdown
 node scripts/install-markitdown.mjs           # 网络慢可加 --index-url <镜像>
 
+# 3.6) （可选，文献 PPT 配图）安装 PyMuPDF：PDF 页面渲染/裁剪
+#      自动处理 PEP 668（--user --break-system-packages，装到 ~/.local）
+node scripts/install-pymupdf.mjs
+
+# 3.7) 环境自检：一次性输出 Python/pip 策略/关键包/渲染器/venv 状态
+node scripts/lab-doctor.mjs                   # --json 输出机器可读结果
+
 # 4) 回归
 node scripts/regression/run.mjs
 
