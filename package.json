@@ -23,6 +23,10 @@
       "types": "./lib/types/goal-profiles.d.ts",
       "default": "./lib/goal-profiles.js"
     },
+    "./note-templates": {
+      "types": "./lib/types/note-templates.d.ts",
+      "default": "./lib/note-templates.js"
+    },
     "./ppt-templates": {
       "types": "./lib/types/ppt-templates.d.ts",
       "default": "./lib/ppt-templates.js"
@@ -63,6 +67,9 @@
     },
     "./tasks-tool": {
       "default": "./lib/tasks-tool.js"
+    },
+    "./templates-tool": {
+      "default": "./lib/templates-tool.js"
     },
     "./client": {
       "default": "./client/index.js"

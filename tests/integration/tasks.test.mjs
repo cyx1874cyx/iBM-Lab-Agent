@@ -32,8 +32,9 @@ async function bootTasks() {
 		includePython: false,
 		extraRows: [
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
+			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
 		]
 	});
 	// 真实 vendor 树 → registry 有 NatureSkillVersion，provenance 才能记录 skill 版本
@@ -139,6 +140,15 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		assert.equal(report.status, "pending");
 		assert.equal(report.paperCardRequirements.paperCardContract.sections, PAPER_CARD_SECTION_CONTRACT);
 		assert.equal(report.goalSnapshot.id, "default-prodrug-polymer");
+		// 默认按内置 note-default 阅读笔记模板快照（报告保存引用，后续模板修改不影响旧报告）
+		assert.equal(report.noteTemplateSnapshot?.id, "note-default");
+		assert.equal(report.noteTemplateSnapshot?.version, "1");
+		assert.ok(report.noteRequirements?.sections?.length > 0, "reading report carries note template requirements");
+		// 显式指定自定义阅读笔记模板时同样快照
+		const customNote = await handle.ctx.labNoteTemplates.create("proj-note-custom", { name: "自定义笔记模板", sections: [{ key: "takeaways", title: "要点", required: true, hint: "" }] });
+		const reportCustom = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1", noteTemplateId: "proj-note-custom", noteTemplateVersion: "1" });
+		assert.equal(reportCustom.noteTemplateSnapshot?.id, "proj-note-custom");
+		assert.equal(reportCustom.noteRequirements.sections[0].key, "takeaways");
 
 		// 步骤 7：agent 完成精读（fixture 通过版）
 		const completed = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
@@ -220,6 +230,108 @@ test("audit gate blocks presentation when the reading report fails validation", 
 			() => tasks.createPresentation({ projectId: "proj-2", reportId: report.id, templateId: "nature-default", templateVersion: "1" }),
 			/has not passed audit/
 		);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("panel helpers: search RIS, overview, report download, ppt download, sessionId", async () => {
+	const { handle, dir, fxDir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		stubNetwork(tasks.executor);
+
+		await tasks.createProject({
+			id: "proj-panel",
+			name: "面板数据",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+
+		// 检索带 sessionId：面板点击记录可跳回会话
+		const search = await tasks.searchLiterature({
+			projectId: "proj-panel",
+			query: "prodrug polymer",
+			limit: 2,
+			sessionId: "session-x"
+		});
+		assert.equal(search.status, "succeeded");
+		assert.equal(search.sessionId, "session-x");
+
+		// 检索 run 的离线 RIS：包含该次检索登记到的文献（标题/作者/年份/DOI/source）
+		const ris = tasks.searchRunRis(search.id);
+		assert.equal(ris.format, "ris");
+		assert.equal(ris.count, 2);
+		assert.match(ris.text, /TY  - JOUR/);
+		assert.match(ris.text, /Prodrug-conjugated polymers for drug delivery/);
+		assert.match(ris.text, /A\. Chemist/);
+		assert.match(ris.text, /10\.1000\/fake\.1/);
+		assert.match(ris.text, /2024/);
+
+		// 精读报告：bundle + paper-card（通过版 fixture，含短引用字段登记）
+		const bundle = await tasks.preparePaper({ projectId: "proj-panel", sourceMapPath: join(fxDir, "min-source-map.json"), title: "Prodrug polymers（原文）" });
+		const created = await tasks.createReadingReport({
+			projectId: "proj-panel",
+			bundleId: bundle.id,
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			shortCitation: "Zhu et al., 2024",
+			titleZh: "聚前药高分子给药平台",
+			summary: "这是一段约两百字的预设概览正文，用于面板「文献概览」卡片直接展示，不依赖 paper card 推导。"
+		});
+		const report = await tasks.completeReadingReport({
+			reportId: created.id,
+			paperCardPath: join(fxDir, "paper-card-pass.md")
+		});
+		assert.equal(report.shortCitation, "Zhu et al., 2024");
+		assert.equal(report.titleZh, "聚前药高分子给药平台");
+
+		// 概览：优先用登记时的 summary（不读网络/不解析文件）
+		const overview = await tasks.readingReportOverview(report.id);
+		assert.equal(overview.shortCitation, "Zhu et al., 2024");
+		assert.equal(overview.titleZh, "聚前药高分子给药平台");
+		assert.match(overview.summary, /预设概览正文/);
+
+		// 未登记 summary 时：从 paper-card 推导 200 字概览
+		const noSummary = await tasks.createReadingReport({ projectId: "proj-panel", bundleId: bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		await tasks.completeReadingReport({ reportId: noSummary.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
+		const derived = await tasks.readingReportOverview(noSummary.id);
+		assert.ok(derived.summary.length <= 204, "derived summary roughly 200 chars");
+		assert.ok(derived.summary.length > 0);
+		assert.match(derived.summary, /polymer platform/i, "derived from paper-card body");
+
+		// 精读报告下载：返回 paper-card Markdown
+		const download = await tasks.readingReportDownload(report.id);
+		assert.equal(download.fileName, `${report.id}.md`);
+		assert.match(download.mime, /text\/markdown/);
+		assert.match(download.text, /1 Overview|^#/m, "markdown content returned");
+
+		// PPT 下载：为该 report 生成含 pptx 的 run → base64 返回
+		await tasks.validateReadingReport({ reportId: report.id });
+		const pres = await tasks.createPresentation({ projectId: "proj-panel", reportId: report.id, templateId: "nature-default", templateVersion: "1" });
+		const { buffer } = await buildPptx({ name: "p", slides: 1 });
+		const pptxPath = join(dir, "deck-panel.pptx");
+		await writeFile(pptxPath, buffer);
+		const done = await tasks.completePresentation({ runId: pres.id, pptxPath });
+		const ppt = await tasks.presentationDownload(report.id);
+		assert.equal(ppt.fileName, `${pres.id}.pptx`);
+		assert.match(ppt.mime, /presentationml\.presentation/);
+		assert.ok(ppt.base64.length > 0);
+		// 解析回二进制与源一致
+		const bytes = Buffer.from(ppt.base64, "base64");
+		assert.deepEqual(bytes, buffer, "pptx bytes round-trip");
+
+		// 无 PPT 的 report：错误信息明确
+		await assert.rejects(() => tasks.presentationDownload(noSummary.id), /no downloadable PPTX/);
+		// 无结果检索：RIS 导出也明确报错
+		const originalSearch = tasks.executor.search;
+		tasks.executor.search = async () => [];
+		const emptySearch = await tasks.searchLiterature({ projectId: "proj-panel", query: "empty probe", limit: 1 });
+		tasks.executor.search = originalSearch;
+		await assert.rejects(async () => tasks.searchRunRis(emptySearch.id), /no results/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

@@ -73,6 +73,19 @@
          - 完成 paper card 精读 → lab_tasks_register_report（传 paperCardPath）；
          - 生成汇报 PPT → lab_tasks_register_presentation（传 pptxPath）。
          登记后提示用户可在课题面板对应板块查看产物。
+      10. 按模板生成（重要）：主面板有「模板管理」，可配置阅读笔记模板与 PPT
+         模板；生成产物前先查模板、按模板生成，不要自造固定版式/章节：
+         - lab_note_templates_list / lab_note_templates_get：列出/取「阅读笔记
+           模板」的章节骨架、风格、证据与输出要求；生成阅读笔记/精读笔记时
+           按所选模板的章节骨架组织，遵守其风格与证据要求；
+         - lab_ppt_templates_list / lab_ppt_templates_get：列出/取「PPT 模板」
+           （受众/必选页/可选页/最大页数/讲稿备注要求）；生成汇报 PPT 前调用，
+           按模板的结构要求组织内容，并满足最大页数与讲稿备注要求；
+         - 登记精读报告时用 lab_tasks_register_report 的 noteTemplateId /
+           noteTemplateVersion 指明所依据的阅读笔记模板；登记 PPT 时用
+           lab_tasks_register_presentation 的 templateId / templateVersion
+           指明所用模板（版本快照保存到任务，后续模板修改不影响旧产物）。
+         若面板从无可用模板，提示用户到「我的科研课题 → 模板管理」创建。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
@@ -117,6 +130,10 @@
 - id: lab-tasks-tool
   name: 'dsh-lab-agent/tasks-tool'
   inject: [tools, labTasks]
+
+- id: lab-templates-tool
+  name: 'dsh-lab-agent/templates-tool'
+  inject: [tools, labNoteTemplates, labTemplates]
 
 # ── skills ──────────────────────────────────────────────────────────────────
 - id: skill-filesystem

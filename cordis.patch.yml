@@ -68,6 +68,16 @@
       name: 'dsh-lab-agent/goal-profiles'
       inject: [storageDomain]
 
+    # ── Reading-note templates (NoteTemplate) ─────────────────────────────────
+    #
+    # Host service `ctx.labNoteTemplates`: 可保存/复制/修改/版本化的「阅读笔记
+    # 模板」。版本行不可变（id@version），删除只归档，历史版本与任务快照始终可读。
+    # 主面板「模板管理」用它管理阅读笔记模板，Agent 生成阅读笔记时按模板生成
+    # （toNoteRequirements → 章节/风格/证据/输出要求）。
+    - id: lab-note-templates
+      name: 'dsh-lab-agent/note-templates'
+      inject: [storageDomain]
+
     # ── PPT template profiles (PptTemplateProfile) ────────────────────────────
     #
     # Host service `ctx.labTemplates`: PPTX 导入（解析母版/布局/占位符/字体/
@@ -148,7 +158,7 @@
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
+      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。

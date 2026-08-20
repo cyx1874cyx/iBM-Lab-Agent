@@ -23,8 +23,9 @@ async function bootMemoryTool() {
 			{ id: "system-prompt", name: "@deepseek-ai/dsh-system-prompt" },
 			{ id: "tools", name: "@deepseek-ai/dsh-tools" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
+			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
 			{ id: "lab-memory-tool", name: "dsh-lab-agent/memory-tool", inject: ["tools", "labTasks"] }
 		]
 	});

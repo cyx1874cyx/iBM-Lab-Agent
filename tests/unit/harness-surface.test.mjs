@@ -29,6 +29,7 @@ test("document conversion tool is scoped to the research preset", async () => {
 
 test("web client exposes the project-first research workspace shell", async () => {
 	const source = await readFile(clientPath, "utf8");
+	assert.doesNotMatch(source, /\bbusyTemp\b/, "client must render from the declared busy state");
 	assert.match(source, /选择一个课题继续/);
 	assert.match(source, /课题核心记忆\.md/);
 	assert.match(source, /提交新版本/);
@@ -136,4 +137,3 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	}
 });
-

@@ -174,7 +174,15 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 | 作用域收口 | 移除全局 `system-prompt.toolOrder` 对 `lab_convert_document` 的引用（未注册工具名会让 Harness 拒绝启动）；convert/memory 工具行集中在 preset |
 | 回归 | 110 单元+集成 / 11 回归全绿；部署 preset 与仓库一致 |
 
-## 阶段一交付内容
+## 阶段九验证记录（2026-08-20：主面板模板管理：阅读笔记 + PPT 模板）
+
+| 项 | 结果 |
+|---|---|
+| 主面板「模板管理」 | Home 首页新增「模板管理」入口，两标签页（阅读笔记模板 / PPT 模板）；返回原课题首页导航 |
+| 阅读笔记模板 | labNoteTemplates 服务（创建/编辑/复制/删除/生成要求，版本不可变 id@version，快照永远可读）；模板章节骨架/受众/语言/篇幅/风格规则/证据与来源/输出要求 |
+| 生成时按模板 | 精读报告登记时把所选阅读笔记模板**快照**写入 ReadingReport（`noteTemplateSnapshot` + `noteRequirements`），后续模板修改不影响旧报告；缺省用内置 `note-default`，Agent 生成阅读笔记按模板章节骨架组织 |
+| PPT 模板 | labTemplates：上传 .pptx → 解析页面比例/主题/布局/占位符 → 自动角色映射建议 → 逐角色确认 → 验证后发布；元数据编辑（名称/受众/用途/备注/最大篇幅）/ 预览 / 验证/ 归档 |
+| Agent 参考模板工具 | `lab_note_templates_list/get`、`lab_ppt_templates_list/get` 四个只读工具挂 lab-research 预设；persona 第 10 条「按模板生成」引导（先查询再生成、登记时指定模板版本）|
 
 - **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
   （`ctx.labVersions` 版本登记、`ctx.labPython` Python 环境）+ 部署脚本。

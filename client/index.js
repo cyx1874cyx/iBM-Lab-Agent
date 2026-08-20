@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		const React = require("react");
 		const ReactDOM = require("react-dom");
-		const { useState, useEffect, useCallback } = React;
+		const { useState, useEffect, useCallback, useRef } = React;
 		const h = React.createElement;
 
 		const css = [
@@ -23,7 +23,19 @@ window.__ModuleLoader__.load({
 			".ib-memory{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:14px;margin-bottom:17px}.ib-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.ib-card-title{font-size:12.5px;font-weight:680}.ib-chip{border-radius:999px;background:rgba(81,212,163,.1);color:#6ee3b5;padding:3px 8px;font-size:9px}.ib-memory textarea{width:100%;min-height:230px;box-sizing:border-box;resize:vertical;border:1px solid rgba(129,205,178,.12);background:#071611;color:#cfe3db;border-radius:11px;padding:13px;font:10.5px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;outline:none}.ib-save{display:flex;gap:8px;margin-top:9px}.ib-save input{flex:1;min-width:0;border:1px solid var(--ib-line);background:#071611;color:inherit;border-radius:9px;padding:8px 10px;font-size:10.5px;outline:none}.ib-help{color:#78958b;font-size:10.5px;line-height:1.65}.ib-help strong{display:block;color:#d6e9e2;font-size:11.5px;margin-bottom:7px}.ib-history{margin-top:12px;display:grid;gap:7px}.ib-version{border-top:1px solid rgba(129,205,178,.1);padding-top:8px;display:flex;justify-content:space-between;gap:8px;font-size:9.5px;color:#78958b}.ib-version b{color:#bed5cc}",
 			".ib-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.ib-tab{border:1px solid var(--ib-line);background:rgba(255,255,255,.02);color:#9db8ae;border-radius:13px;padding:13px;text-align:left;cursor:pointer}.ib-tab[data-active=true]{border-color:rgba(81,212,163,.4);background:linear-gradient(125deg,rgba(81,212,163,.13),rgba(115,220,230,.04));color:white}.ib-tab strong{display:block;font-size:12px;margin-bottom:4px}.ib-tab span{font-size:9.5px;color:#718f85}",
 			".ib-board{border:1px solid var(--ib-line);background:rgba(10,26,22,.7);border-radius:16px;padding:17px}.ib-board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.ib-board-head h2{font-size:14px;margin:0}.ib-board-head p{font-size:9.5px;color:#6f8d83;margin:3px 0 0}.ib-artifacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ib-artifact{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-height:112px}.ib-artifact-top{display:flex;justify-content:space-between;align-items:center}.ib-artifact h3{font-size:11.5px;margin:0}.ib-count{font-size:19px;font-weight:720;color:var(--ib-green)}.ib-rows{display:grid;gap:6px;margin-top:10px}.ib-row{display:flex;justify-content:space-between;gap:9px;font-size:9.5px;color:#8ba69c}.ib-row b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c8ddd5;font-weight:520}.ib-row span{flex:none;color:#78978c}.ib-artifact-empty{margin-top:15px;color:#627f75;font-size:9.5px;line-height:1.55}.ib-toast{position:fixed;right:24px;bottom:24px;border:1px solid rgba(81,212,163,.27);background:#102a22;border-radius:12px;padding:11px 14px;font-size:10.5px;box-shadow:0 12px 35px rgba(0,0,0,.3)}",
-			".ib-sidebar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.ib-sidebar:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.ib-sidebar-logo{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:900}",
+
+			// ── 文献管理两栏：左检索记录，右精读档案 ─────────────────────────────
+			".ib-lit{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}",
+			".ib-lit-col{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-width:0}.ib-lit-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}.ib-lit-head h3{font-size:13px;font-weight:700;margin:0;color:#e4f5ee}.ib-lit-head small{color:#7fa396;font-size:9px}.ib-lit-note{color:#6f8d83;font-size:9.5px;margin:2px 0 10px;line-height:1.5}",
+			".ib-lit-list{display:grid;gap:7px}.ib-lit-row{display:flex;align-items:center;gap:9px;border:1px solid rgba(129,205,178,.12);background:rgba(7,22,17,.5);border-radius:11px;padding:9px 10px}.ib-lit-row[data-clickable]{cursor:pointer}.ib-lit-row[data-clickable]:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.08)}.ib-lit-main{flex:1;min-width:0;display:grid;gap:2px}.ib-lit-main b{font-size:11px;color:#d8ebe3;font-weight:560;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-main small{display:block;font-size:9px;color:#7fa396;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-acts{flex:none;display:flex;align-items:center;gap:6px}.ib-lit-btn{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(115,220,230,.1);color:#c3ecf1;font-size:10px;padding:7px 10px;cursor:pointer;font-weight:560;line-height:1}.ib-lit-btn:hover{border-color:rgba(115,220,230,.5);background:rgba(115,220,230,.2)}.ib-lit-btn:disabled{opacity:.4;pointer-events:none}.ib-lit-fmt{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(7,22,17,.5);color:#bfe8ee;font-size:10px;padding:6px 8px;cursor:pointer;outline:none}.ib-lit-fmt:hover{border-color:rgba(115,220,230,.5)}.ib-lit-fmt:focus{border-color:rgba(81,212,163,.5)}.ib-lit-fmt option{background:#0b2320;color:#e6f5ef}",
+			".ib-lit-empty{border:1px dashed rgba(129,205,178,.35);border-radius:12px;padding:22px 14px;text-align:center;color:#75a089;font-size:10px;line-height:1.6}.ib-lit-overview{margin-top:8px;border:1px solid rgba(94,208,173,.24);border-radius:10px;background:rgba(94,208,173,.06);padding:10px 12px;font-size:10.2px;line-height:1.75;color:#bde0d2;white-space:pre-wrap}.ib-lit-overview b{display:block;color:#e9f9f2;font-size:10.5px;margin-bottom:4px}",
+			"@media(max-width:880px){.ib-lit{grid-template-columns:1fr}}",
+			// ── 模板管理：阅读笔记模板 / PPT 模板 ─────────────────────────────
+			".ib-tm-tabs{display:flex;gap:9px;margin-bottom:12px}.ib-tm-tab{border:1px solid var(--ib-line);background:rgba(255,255,255,.02);color:#9db8ae;border-radius:13px;padding:12px 16px;cursor:pointer;font-size:11.5px}.ib-tm-tab[data-active=true]{border-color:rgba(81,212,163,.4);background:linear-gradient(125deg,rgba(81,212,163,.13),rgba(115,220,230,.04));color:white}.ib-tm-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ib-card-detail{grid-column:1/-1}.ib-table{border:1px solid rgba(129,205,178,.12);border-radius:11px;overflow:hidden}.ib-table-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid rgba(129,205,178,.08)}.ib-table-row:first-child{border-top:0}.ib-table-head{display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(81,212,163,.05);font-size:9.5px;color:#9db8ad;font-weight:700}.ib-table-head .ib-tm-id,.ib-table-row .ib-tm-id{width:150px;flex:none}.ib-table-head .ib-tm-name,.ib-table-row .ib-tm-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-table-head .ib-tm-status,.ib-table-row .ib-tm-status{width:70px;flex:none}.ib-table-head .ib-tm-actions,.ib-table-row .ib-tm-actions{width:280px;flex:none;display:flex;gap:6px;justify-content:flex-end}",
+			".ib-tm-btn{font-size:9.5px}",
+			".ib-sections{display:grid;gap:6px;margin-top:8px}.ib-section-row{display:grid;grid-template-columns:1fr 2fr 70px 28px;gap:6px;align-items:center}.ib-section-row input[type=checkbox]{accent-color:var(--ib-green)}.ib-section-row input[type=text]{border:1px solid #ccc;border-radius:7px;padding:6px 8px;background:#0b2320;color:var(--ib-text);font-size:10.5px;width:100%;box-sizing:border-box}.ib-section-row .ib-mini{width:100%}",
+			".vertical-stack{display:flex;flex-direction:column;gap:4px}.ib-req{display:grid;gap:4px}.ib-req label{font-size:9.5px;color:#78958b}.ib-req input,.ib-req textarea{width:100%;box-sizing:border-box;border:1px solid var(--ib-line);background:#071611;color:var(--ib-text);border-radius:7px;padding:7px 9px;font:10.5px inherit;outline:none}.ib-req textarea{min-height:60px;resize:vertical}",
+			".ib-sidebar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--dsw-alias-label-primary,#e6e6e6);cursor:pointer;padding:7px 10px;font-size:13px;border-radius:8px}.ib-sidebar:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.05))}.ib-sidebar-logo{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(145deg,#55d6a4,#26876d);color:#052019;font-size:9px;font-weight:bold}",
 			".ib-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(129,205,178,.22);background:rgba(81,212,163,.09);color:#bde6d6;border-radius:999px;padding:5px 11px;font-size:10px;cursor:pointer;line-height:1.4}.ib-badge:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.15)}.ib-badge-mark{color:var(--ib-green);font-size:9px;font-weight:800}.ib-badge b{color:#e6f7f0;font-weight:650}.ib-badge small{color:#7fa396}",
 			".ib-hint{display:flex;align-items:center;gap:8px;color:#86a79b;font-size:10px;padding:4px 2px;line-height:1.5}.ib-hint b{color:#cfe5dc;font-weight:620}.ib-hint button{margin-left:auto;border:1px solid rgba(129,205,178,.2);background:rgba(255,255,255,.03);color:#a9c8bd;border-radius:8px;padding:3px 9px;font-size:9.5px;cursor:pointer}.ib-hint button:hover{border-color:rgba(81,212,163,.4);color:#e0f2ea}",
 			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}",
@@ -42,14 +54,44 @@ window.__ModuleLoader__.load({
 		const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, schema: pass });
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
-			...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "projects_create", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_presentation_create", "tasks_presentation_complete", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_presentation_create", "tasks_presentation_complete", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
 		const when = (value) => value ? new Date(value).toLocaleString() : "—";
 		const titleOf = (row) => row.title || row.name || row.query || row.id;
 		const statusOf = (row) => ({ succeeded: "已完成", pending: "待处理", running: "进行中", failed: "失败", draft: "草稿", "under-review": "待审核", approved: "已批准", prepared: "待分析", "approved-written": "已审核", "visually-verified": "已确认" })[row.status] || row.status || "已登记";
+
+		/** 深拷贝阅读笔记模板 → 表单可编辑形态（数组隔离，避免污染原始数据）。 */
+		function cloneForm(source) {
+			if (!source) return {};
+			const { id = "", name = "", audience = "课题组组会", language = "zh", length = "", topics = [], tags = [], sections = [], styleRules = [], evidenceRequirements = [], outputRequirements = [], remark = "", version } = source;
+			return { id, name, audience, language, length, topics: [...topics], tags: [...tags], sections: sections.map((s) => ({ ...s })), styleRules: [...styleRules], evidenceRequirements: [...evidenceRequirements], outputRequirements: [...outputRequirements], remark, version };
+		}
+
+		/** 浏览器下载助手：text / base64 二进制 两类 blob 触发下载任务。 */
+		function downloadBlob(fileName, mime, blob) {
+			const url = URL.createObjectURL(blob);
+			const anchor = document.createElement("a");
+			anchor.href = url;
+			anchor.download = fileName;
+			document.body.appendChild(anchor);
+			anchor.click();
+			anchor.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 4000);
+		}
+		const downloadText = (fileName, mime, text) => {
+			const type = mime || "text/plain;charset=utf-8";
+			downloadBlob(fileName, type, new Blob([text], { type }));
+		};
+		const downloadBase64 = (fileName, mime, base64) => {
+			const type = mime || "application/octet-stream";
+			const binary = atob(base64);
+			const bytes = new Uint8Array(binary.length);
+			for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+			downloadBlob(fileName, type, new Blob([bytes], { type }));
+		};
 
 		function Artifact({ title, rows = [], empty }) {
 			return h("section", { className: "ib-artifact" }, h("div", { className: "ib-artifact-top" }, h("h3", null, title), h("span", { className: "ib-count" }, rows.length)), rows.length ? h("div", { className: "ib-rows" }, rows.slice(0, 4).map((row, index) => h("div", { className: "ib-row", key: row.id || index }, h("b", { title: titleOf(row) }, titleOf(row)), h("span", null, statusOf(row))))) : h("div", { className: "ib-artifact-empty" }, empty));
@@ -122,7 +164,7 @@ window.__ModuleLoader__.load({
 			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 		}
 
-		function Home({ call, onOpen, onLaunch }) {
+		function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
 			const [state, setState] = useState({ loading: true, projects: [], defaults: {}, error: "" });
 			const [creating, setCreating] = useState(false);
 			const [launching, setLaunching] = useState(null);
@@ -138,10 +180,95 @@ window.__ModuleLoader__.load({
 				try { await onLaunch(project, { presetId }); }
 				catch (reason) { setState((previous) => ({ ...previous, error: reason.message })); setLaunching(null); }
 			};
-			return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。创建课题后会自动打开专属工作区并开始科研 Agent 对话。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题")), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: (project, presetId) => void launch(project, presetId) }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, disabled: launching === project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, launching === project.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
+			return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。创建课题后会自动打开专属工作区并开始科研 Agent 对话。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", onClick: onOpenTemplates }, "模板管理"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题"))), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: (project, presetId) => void launch(project, presetId) }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, disabled: launching === project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, launching === project.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
 		}
 
-		function Project({ call, project, onBack, onStartChat }) {
+		/** bundle id → title 索引（精读条目缺省标题回退）。 */
+		function bundleIndex(bundles = []) {
+			const index = {};
+			for (const bundle of bundles) index[bundle.id] = bundle.title;
+			return index;
+		}
+
+		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
+		function LitPanel({ searches, reports, bundles, call, notify, onOpenSearch }) {
+			const titleByBundle = bundleIndex(bundles);
+			const [busy, setBusy] = useState({});
+			const [reportFmt, setReportFmt] = useState({}); // 每条报告各自记忆格式：{ [reportId]: "md" | "docx" }
+			const [overview, setOverview] = useState({});
+			const markBusy = (key, value) => setBusy((old) => ({ ...old, [key]: value }));
+			const run = async (key, work) => {
+				if (busy[key]) return;
+				markBusy(key, true);
+				try { await work(); }
+				catch (reason) { notify(reason.message || "操作失败"); }
+				finally { markBusy(key, false); }
+			};
+			const risFor = (search) => run(`ris:${search.id}`, async () => {
+				const result = await call("tasks_search_ris", { request: { runId: search.id } });
+				downloadText(result.ris.fileName, "application/x-research-info-systems;charset=utf-8", result.ris.text);
+				notify(`已开始下载 ${result.ris.fileName}（${result.ris.count} 条文献）`);
+			});
+			const openOverview = (report) => run(`ov:${report.id}`, async () => {
+				if (!(report.id in overview)) {
+					const result = await call("tasks_overview", { request: { reportId: report.id } });
+					setOverview((old) => ({ ...old, [report.id]: result.overview.summary }));
+				} else {
+					setOverview((old) => { const n = { ...old }; delete n[report.id]; return n; });
+				}
+			});
+			const fmtOf = (reportId, fallback = "md") => reportFmt[reportId] || fallback;
+			const downloadReport = (report) => run(`rep:${report.id}`, async () => {
+				const result = await call("tasks_report_download", { request: { reportId: report.id, format: fmtOf(report.id) } });
+				if (result.file.base64) {
+					downloadBase64(result.file.fileName, result.file.mime, result.file.base64);
+				} else {
+					downloadText(result.file.fileName, result.file.mime, result.file.text);
+				}
+				notify(`报告已开始下载：${result.file.fileName}`);
+			});
+			const downloadPpt = (report) => run(`ppt:${report.id}`, async () => {
+				const result = await call("tasks_ppt_download", { request: { reportId: report.id } });
+				downloadBase64(result.file.fileName, result.file.mime, result.file.base64);
+				notify(`PPT 已开始下载：${result.file.fileName}`);
+			});
+			const shortOf = (report) => report.shortCitation || titleByBundle[report.bundleId] || `精读报告 ${report.id.slice(0, 12)}`;
+			const zhOf = (report) => report.titleZh || shortOf(report);
+			return h("div", { className: "ib-lit" },
+				// ── 左：文献检索 ──
+				h("section", { className: "ib-lit-col" },
+					h("div", { className: "ib-lit-head" }, h("h3", null, "文献检索"), h("small", null, `${searches.length} 条记录`)),
+					h("div", { className: "ib-lit-note" }, "保存本项目执行过的检索记录；点击记录跳转到检索对话，右侧 .ris 下载该次检索的题录。"),
+					searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) =>
+						h("div", { className: "ib-lit-row", key: search.id, "data-clickable": search.sessionId ? "true" : undefined, onClick: search.sessionId ? () => onOpenSearch(search.sessionId) : undefined, title: search.sessionId ? "跳转到检索对话" : "该检索未记录会话" },
+							h("div", { className: "ib-lit-main" }, h("b", null, search.query || search.id), h("small", null, `${(search.results || []).length} 条 · ${statusOf(search)} · ${when(search.createdAt)}`)),
+							h("div", { className: "ib-lit-acts" }, h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void risFor(search); } }, busy[`ris:${search.id}`] ? "…" : ".ris"))
+						)
+					)) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会整理到这里，点击记录可跳回对应对话。")
+				),
+				// ── 右：文献精读 ──
+				h("section", { className: "ib-lit-col" },
+					h("div", { className: "ib-lit-head" }, h("h3", null, "文献精读"), h("small", null, `${reports.length} 篇`)),
+					h("div", { className: "ib-lit-note" }, "精读档案：短引用为标题，悬浮显示中文标题；右侧可查看概览、下载报告与汇报 PPT。"),
+					reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) =>
+						h("div", { key: report.id, onClick: report.id in overview ? () => setOverview((old) => { const n = { ...old }; delete n[report.id]; return n; }) : undefined },
+							h("div", { className: "ib-lit-row" },
+								h("div", { className: "ib-lit-main" }, h("b", { title: zhOf(report) }, shortOf(report)), h("small", null, `${titleByBundle[report.bundleId] || "未登记原文"} · ${statusOf(report)}${report.audit?.ok ? " · 审计通过" : ""} · ${when(report.createdAt)}`)),
+								h("div", { className: "ib-lit-acts" },
+									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
+									h("button", { className: "ib-lit-btn ok", disabled: busy[`rep:${report.id}`] || !report.paperCardPath, onClick: () => void downloadReport(report), title: report.paperCardPath ? `下载精读报告（${fmtOf(report.id) === "docx" ? "Word" : "Markdown"}）` : "暂无可下载报告" }, "报告"),
+									h("select", { className: "ib-lit-fmt", value: fmtOf(report.id), onChange: (event) => setReportFmt((old) => ({ ...old, [report.id]: event.target.value })), title: "该条报告的下载格式", "aria-label": "该条报告的下载格式" }, h("option", { value: "md" }, ".md"), h("option", { value: "docx" }, ".docx")),
+									h("button", { className: "ib-lit-btn ok", disabled: busy[`ppt:${report.id}`], onClick: () => void downloadPpt(report), title: "下载文献汇报 PPT" }, "PPT")
+								)
+							),
+							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
+						)
+					)) : h("div", { className: "ib-lit-empty" }, "尚未归档精读论文。完成精读后通过 lab_tasks_register_report 登记，即可在此查看概览并下载报告/PPT。")
+				)
+			);
+		}
+
+		function Project({ call, project, onBack, onStartChat, onOpenSearch }) {
 			const [state, setState] = useState({ loading: true, data: null, error: "" });
 			const [tab, setTab] = useState("literature");
 			const [draft, setDraft] = useState("");
@@ -172,19 +299,321 @@ window.__ModuleLoader__.load({
 			const literature = data.literature || {};
 			const planning = data.planning || {};
 			const characterization = data.characterization || {};
-			const meta = { literature: ["文献资料", "检索汇总、精读报告和文献 PPT"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
+			const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
 				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
 				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "文献检索汇总", rows: literature.searches, empty: "对话中的文献检索结果会整理到这里。" }), h(Artifact, { title: "文献原文整理", rows: literature.bundles, empty: "尚未登记论文原文。" }), h(Artifact, { title: "文献精读报告", rows: literature.reports, empty: "尚未生成精读报告。" }), h(Artifact, { title: "文献 PPT 汇报", rows: literature.presentations, empty: "尚未生成文献汇报 PPT。" })) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], call, notify: setToast, onOpenSearch }) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
 				toast ? h("div", { className: "ib-toast" }, toast) : null
 			);
 		}
 
-		function Panel({ call, onClose, onStartChat, initial }) {
-			const [project, setProject] = useState(initial ?? null);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat }))), document.body);
+		/** 错误边界：overlay 内任何渲染期异常不卸载整棵根，而是显示错误提示并允许关闭/重试。 */
+		class OverlayBoundary extends (React.Component ?? class {}) {
+			constructor(props) {
+				super(props);
+				this.state = { error: null };
+			}
+			static getDerivedStateFromError(error) {
+				return { error: error && error.message ? error.message : String(error) };
+			}
+			componentDidCatch(error, info) {
+				console.error("[dsh-lab-agent] overlay render error:", error, info);
+			}
+			render() {
+				if (this.state.error) {
+					return h("div", { className: "ib-overlay" }, h("section", { className: "ib-card", style: { maxWidth: 620, margin: "16vh auto", padding: 24 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "面板渲染出错"), h("span", { className: "ib-chip" }, "可重试或返回")), h("pre", { style: { whiteSpace: "pre-wrap", color: "#ffb4b4", background: "#0d2822", borderRadius: 10, padding: 12, fontSize: 10.5 } }, this.state.error), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: () => this.props.onClose() }, "关闭"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => this.setState({ error: null }) }, "重试"))));
+				}
+				return this.props.children;
+			}
+		}
+
+		function Panel({ call, onClose, onStartChat, onOpenSearch, initial }) {			const [project, setProject] = useState(initial ?? null);
+			const [templates, setTemplates] = useState(false);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+		}
+
+		/** 模板管理主视图：阅读笔记模板（Agent 生成阅读笔记时参考）+ PPT 模板（组会汇报用）。 */
+		function Templates({ call, onBack }) {
+			const [tab, setTab] = useState("notes");
+			const [notes, setNotes] = useState({ loading: true, list: [], error: "" });
+			const [ppt, setPpt] = useState({ loading: true, list: [], error: "" });
+			const loadNotes = useCallback(async () => {
+				setNotes((s) => ({ ...s, loading: true, error: "" }));
+				try { const result = await call("note_templates_list"); setNotes({ loading: false, list: result.templates || [], error: "" }); }
+				catch (reason) { setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
+			}, [call]);
+			const loadPpt = useCallback(async () => {
+				setPpt((s) => ({ ...s, loading: true, error: "" }));
+				try { const result = await call("templates_list"); setPpt({ loading: false, list: result.templates || [], error: "" }); }
+				catch (reason) { setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
+			}, [call]);
+			useEffect(() => { void loadNotes(); void loadPpt(); }, [loadNotes, loadPpt]);
+			return h("div", null,
+				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」与「PPT 模板」。科研 Agent 生成阅读笔记与汇报 PPT 时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
+				h("div", { className: "ib-tm-tabs" }, h("button", { className: "ib-tm-tab", "data-active": tab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"), h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : undefined, onClick: () => setTab("ppt") }, "PPT 模板")),
+				tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
+			);
+		}
+
+		/** 阅读笔记模板管理：列表 + 新建/编辑/复制/删除 + 查看要求。 */
+		function NoteTemplates({ call, state, reload }) {
+			const [mode, setMode] = useState("list"); // list | form
+			const [editing, setEditing] = useState(null); // template row (null = 新建)
+			const [busy, setBusy] = useState({});
+			const [toast, setToast] = useState("");
+			const [requirements, setRequirements] = useState(null);
+			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3500); return () => clearTimeout(timer); }, [toast]);
+			const run = async (key, work) => {
+				if (busy[key]) return;
+				setBusy((old) => ({ ...old, [key]: true }));
+				try { await work(); }
+				catch (reason) { setToast(reason.message || "操作失败"); }
+				finally { setBusy((old) => { const n = { ...old }; delete n[key]; return n; }); }
+			};
+			const remove = (row) => run(`del:${row.id}`, async () => {
+				if (!window.confirm(`删除阅读笔记模板「${row.name}」？任务快照不受影响，历史版本仍可读。`)) return;
+				await call("note_templates_delete", { request: { id: row.id } });
+				setToast(`已删除模板「${row.name}」`); await reload(); setMode("list");
+			});
+			const showRequirements = (row) => run(`req:${row.id}`, async () => {
+				if (requirements?.id === row.id) { setRequirements(null); return; }
+				const result = await call("note_templates_requirements", { request: { id: row.id, version: row.version } });
+				setRequirements({ id: row.id, name: row.name, data: result.requirements });
+			});
+			const openForm = (row, copy = false) => run("open", async () => {
+				if (!row) { setEditing(null); setMode("form"); return; }
+				const result = await call("note_templates_resolve", { request: { id: row.id, version: row.version } });
+				setEditing(copy ? { ...result.template, _copy: true } : result.template);
+				setMode("form");
+			});
+			if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, onCancel: () => { setMode("list"); setEditing(null); }, onSaved: () => { setMode("list"); setEditing(null); void reload(); } });
+			const cards = state.list.map((row) => h("div", { className: "ib-tm-card", key: row.id },
+				h("div", { className: "ib-tm-title" }, h("b", null, row.name), h("span", null, `v${row.version} · ${when(row.updatedAt)}`)),
+				h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row.id)),
+				h("div", { className: "ib-tm-meta" }, (row.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
+				h("div", { className: "ib-tm-acts" }, h("button", { className: "ib-lit-btn", onClick: () => openForm(row) }, "编辑"), h("button", { className: "ib-lit-btn", onClick: () => openForm(row, true) }, "复制"), h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row) }, busy[`req:${row.id}`] ? "…" : (requirements?.id === row.id ? "收起要求" : "生成要求")), h("button", { className: "ib-lit-btn", onClick: () => remove(row) }, busy[`del:${row.id}`] ? "…" : "删除"))
+			));
+			const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : (state.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。"));
+			const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」生成要求`), h("span", { className: "ib-chip" }, "Agent 将严格按此生成")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "#cfe3db", background: "#071611", border: "1px solid rgba(129,205,178,.12)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
+			return h("div", null,
+				h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
+				state.error ? h("div", { className: "ib-error" }, state.error) : null,
+				listBody,
+				reqPanel,
+				toast ? h("div", { className: "ib-toast" }, toast) : null
+			);
+		}
+
+		/** 阅读笔记模板表单：新建（无 id）/ 编辑 / 复制（保留原 id 但可改名，复制时允许改 id）。 */
+		function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
+			const blank = { id: "", name: "", audience: "课题组组会", language: "zh", length: "单篇 600-1000 字，突出与课题相关的关键内容", topics: [], tags: [], sections: [{ key: "citation", title: "文献信息", required: true, hint: "标题、作者、期刊、年份、DOI 的规范短引用" }, { key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" }], styleRules: [], evidenceRequirements: [], outputRequirements: [], remark: "" };
+			const [form, setForm] = useState(() => initial ? cloneForm(initial) : cloneForm(blank));
+			const [busy, setBusyTemp] = useState(false);
+			const [error, setErrorTemp] = useState("");
+			const isCreate = !initial;
+			const isCopy = !!initial && initial._copy;
+			const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+			const arrayField = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
+			const listField = (key) => (event) => {
+				const value = event.target.value;
+				setForm((old) => ({ ...old, [key]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
+			};
+			const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
+			const addSection = () => setForm((old) => ({ ...old, sections: [...(old.sections || []), { key: "", title: "", required: true, hint: "" }] }));
+			const removeSection = (index) => setForm((old) => ({ ...old, sections: (old.sections || []).filter((_, i) => i !== index) }));
+			/** 「从 .md 导入」：整篇 Markdown 作为生成要求写入 outputRequirements，名称回退用文件名。 */
+			const fileRef = useRef(null);
+			const importFromMd = (event) => {
+				const file = event.target.files?.[0];
+				if (!file) return;
+				const reader = new FileReader();
+				reader.onload = () => {
+					const text = String(reader.result || "");
+					const nameFromFile = (file.name || "").replace(/\.md$/i, "").replace(/[-_]+/g, " ").trim();
+					setForm((old) => ({ ...old, name: old.name?.trim() ? old.name : nameFromFile, outputRequirements: text.split(/\r?\n/).map((s) => s.trimEnd()), remark: old.remark || `从文件导入：${file.name || ""}` }));
+				};
+				reader.onerror = () => setErrorTemp("读取 Markdown 文件失败");
+				reader.readAsText(file);
+				event.target.value = "";
+			};
+			const save = async () => {
+				setBusyTemp(true); setErrorTemp("");
+				try {
+					if (!form.name.trim()) throw new Error("请填写模板名称");
+					if (isCreate && !/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-note-v2");
+					const fields = { ...form, id: undefined };
+					let payload;
+					if (isCreate) payload = { id: form.id.trim(), fields };
+					else if (isCopy) payload = { id: initial.id, newId: form.id.trim() || (form.name + "-copy"), name: form.name };
+					else payload = { id: form.id, fields };
+					const method = isCopy ? "note_templates_copy" : (isCreate ? "note_templates_create" : "note_templates_update");
+					const result = await call(method, { request: isCopy ? payload : { id: payload.id, fields } });
+					onSaved(result.template.name || form.name);
+				} catch (reason) { setErrorTemp(reason.message); } finally { setBusyTemp(false); }
+			};
+			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : (isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`)), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : (isCreate ? "新模板" : `当前 v${form.version}`))),
+				h("div", { className: "ib-req" },
+					h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "#78958b", fontSize: 9.5 } }, "把一份 Markdown 整篇作为该模板的「生成要求」填入；不改变章节结构（按 needs 保留默认章节）。")),
+					h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+						!isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
+						h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "聚前药精读笔记模板", onChange: field("name") })),
+						h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })),
+						h("div", { className: "ib-req" }, h("label", null, "语言"), h("select", { value: form.language, onChange: field("language") }, ["zh", "en", "zh-en"].map((l) => h("option", { value: l, key: l }, l)))),
+						h("div", { className: "ib-req", style: { gridColumn: "1/-1" } }, h("label", null, "篇幅说明"), h("input", { value: form.length, onChange: field("length") })),
+						h("div", { className: "ib-req" }, h("label", null, "适用课题（逗号分隔）"), h("input", { value: (form.topics || []).join(", "), onChange: listField("topics") })),
+						h("div", { className: "ib-req" }, h("label", null, "标签（逗号分隔）"), h("input", { value: (form.tags || []).join(", "), onChange: listField("tags") }))
+					),
+					h("label", null, "章节结构（Agent 生成时按此章节组织笔记）"),
+					h("div", { className: "ib-sections" }, (form.sections || []).map((s, index) => h("div", { className: "ib-section-row", key: index }, h("input", { type: "text", value: s.key, placeholder: "key", className: "ib-mini", onChange: (e) => setSection(index, { key: e.target.value }) }), h("input", { type: "text", value: s.title, placeholder: "章节标题", className: "ib-mini", onChange: (e) => setSection(index, { title: e.target.value }) }), h("input", { type: "text", value: s.hint, placeholder: "写作要点", className: "ib-mini", onChange: (e) => setSection(index, { hint: e.target.value }) }), h("input", { type: "checkbox", checked: !!s.required, title: "必填", onChange: (e) => setSection(index, { required: e.target.checked }) }), h("button", { className: "ib-mini ib-lit-btn", onClick: () => removeSection(index) }, "×"))), h("button", { className: "ib-mini ib-lit-btn", onClick: addSection }, "+ 加一节")),
+					h("div", { className: "vertical-stack", style: { marginTop: 8, display: "grid", gap: 8, gridTemplateColumns: "repeat(2,1fr)" } },
+						h("div", { className: "ib-req" }, h("label", null, "风格规则（每行一条）"), h("textarea", { value: (form.styleRules || []).join("\n"), onChange: arrayField("styleRules") })),
+						h("div", { className: "ib-req" }, h("label", null, "证据与来源要求（每行一条）"), h("textarea", { value: (form.evidenceRequirements || []).join("\n"), onChange: arrayField("evidenceRequirements") })),
+						h("div", { className: "ib-req" }, h("label", null, "附加输出要求（每行一条）"), h("textarea", { value: (form.outputRequirements || []).join("\n"), onChange: arrayField("outputRequirements") }))
+					),
+					error ? h("div", { className: "ib-error" }, error) : null,
+					h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : (isCopy ? "保存副本" : "保存")))
+				)
+			);
+		}
+
+		/** PPT 模板管理：列表 + 预览 / 验证 / 编辑元数据 + 导入（上传 .pptx → 确认映射 → 验证发布）。 */
+		function PptTemplates({ call, state, reload }) {
+			const [mode, setMode] = useState("list"); // list | import
+			const [selected, setSelected] = useState(null); // preview data
+			const [meta, setMeta] = useState(null); // edit-meta form
+			const [busy, setBusy] = useState({});
+			const [toast, setToast] = useState("");
+			const [validation, setValidation] = useState(null);
+			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3500); return () => clearTimeout(timer); }, [toast]);
+			const run = async (key, work) => {
+				if (busy[key]) return;
+				setBusy((old) => ({ ...old, [key]: true }));
+				try { await work(); }
+				catch (reason) { setToast(reason.message || "操作失败"); }
+				finally { setBusy((old) => { const n = { ...old }; delete n[key]; return n; }); }
+			};
+			const archive = (row) => run(`arc:${row.id}`, async () => {
+				if (!window.confirm(`归档 PPT 模板「${row.name}」？历史版本仍可读，任务快照不受影响。`)) return;
+				await call("templates_archive", { request: { id: row.id } });
+				setToast(`已归档「${row.name}」`); await reload(); setSelected(null); setValidation(null);
+			});
+			const preview = (row) => run(`pv:${row.id}`, async () => {
+				if (selected?.id === row.id) { setSelected(null); return; }
+				const result = await call("templates_preview", { request: { id: row.id, version: row.version } });
+				setSelected({ id: row.id, version: row.version, data: result.preview });
+			});
+			const doValidate = (row) => run(`vf:${row.id}`, async () => {
+				const result = await call("templates_validate", { request: { id: row.id, version: row.version } });
+				setValidation({ id: row.id, v: result.validation });
+				setToast(result.validation.ok ? `模板「${row.name}」验证通过，可生成` : `模板「${row.name}」验证失败`);
+			});
+			const openMeta = (row) => run("meta", async () => {
+				const result = await call("templates_resolve", { request: { id: row.id, version: row.version } });
+				setMeta({ ...result.template });
+			});
+			const saveMeta = (fields) => run("save-meta", async () => {
+				const result = await call("templates_update_meta", { request: { id: fields.id, fields: { name: fields.name, purpose: fields.purpose, audience: fields.audience, notesRequirement: fields.notesRequirement, maxPages: fields.maxPages ? Number(fields.maxPages) : undefined } } });
+				setToast(`已更新「${result.template.name}」v${result.template.version}`); setMeta(null); await reload();
+			});
+			if (mode === "import") return h(PptTemplateImport, { call, onCancel: () => setMode("list"), onDone: (id) => { setToast(`已导入模板 ${id}，请确认映射后发布`); setMode("list"); void reload(); } });
+			const statusLabel = (st) => ({ draft: "草稿", ready: "可用", archived: "已归档" }[st] || st);
+			return h("div", null,
+				h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "nature-paper2ppt 按模板的版式角色映射生成汇报 PPT；导入后为草稿，确认映射后发布为可用。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
+				state.error ? h("div", { className: "ib-error" }, state.error) : null,
+				state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h("div", { className: "ib-table" },
+					h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+					state.list.map((row) => h("div", { className: "ib-table-row", key: row.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row.id), h("span", { className: "ib-tm-name" }, h("b", null, row.name), h("small", { style: { display: "block", color: "#7fa396", fontSize: 9 } }, `v${row.version} · ${row.pageSize?.ratio || "?"} · ${when(row.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row.status === "ready" ? "accent" : undefined }, statusLabel(row.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row) }, busy[`pv:${row.id}`] ? "…" : (selected?.id === row.id ? "收起" : "预览")), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row) }, busy[`vf:${row.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row) }, busy[`arc:${row.id}`] ? "…" : "归档")))))
+					: h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
+				validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(255,137,137,.4)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `验证结果`), h("span", { className: "ib-chip" }, validation.v.ok ? "通过" : "未通过")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#ffb4b4", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射有效，可正常生成。")) : null,
+				selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "#7fa396" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
+				meta ? h(MetaEditor, { call, initial: meta, onCancel: () => setMeta(null), onSaved: saveMeta }) : null,
+				toast ? h("div", { className: "ib-toast" }, toast) : null
+			);
+		}
+
+		/** 导入 .pptx → 解析 → 确认版式角色映射 → 发布。 */
+		function PptTemplateImport({ call, onCancel, onDone }) {
+			const [form, setForm] = useState({ id: "", name: "", audience: "课题组组会", purpose: "", file: null });
+			const [busy, setBusy] = useState(false);
+			const [error, setError] = useState("");
+			const [staged, setStaged] = useState(null); // { profile, parsed, suggestions }
+			const [mapping, setMapping] = useState(null); // role → layoutId
+			const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+			const readFile = (event) => {
+				const file = event.target.files?.[0];
+				if (!file) return;
+				setForm((old) => ({ ...old, file }));
+			};
+			const toBase64 = (file) => new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onload = () => { const text = String(reader.result || ""); resolve(text.includes(",") ? text.split(",")[1] : text); };
+				reader.onerror = () => reject(new Error("读取文件失败"));
+				reader.readAsDataURL(file);
+			});
+			const doImport = async () => {
+				setBusy(true); setError("");
+				try {
+					if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-ppt-v3");
+					if (!form.name.trim()) throw new Error("请填写模板名称");
+					if (!form.file) throw new Error("请选择 .pptx 文件");
+					const base64 = await toBase64(form.file);
+					const result = await call("templates_import", { request: { id: form.id.trim(), name: form.name.trim(), base64, meta: { audience: form.audience, purpose: form.purpose } } });
+					const profile = result.profile;
+					const suggestions = result.suggestions || {};
+					setStaged({ profile, parsed: result.parsed, suggestions });
+					setMapping(Object.fromEntries(Object.entries(suggestions).map(([role, m]) => [role, m.layoutId])));
+					setBusy(false);
+				} catch (reason) { setError(reason.message); setBusy(false); }
+			};
+			const confirm = async () => {
+				setBusy(true); setError("");
+				try {
+					const result = await call("templates_confirm", { request: { id: staged.profile.id, version: staged.profile.version, mapping: Object.fromEntries(Object.entries(mapping).map(([role, layoutId]) => [role, { layoutId }])) } });
+					if (!result.ok) throw new Error(`模板映射无效：${(result.problems || []).join("；")}`);
+					onDone(result.profile?.id || staged.profile.id);
+				} catch (reason) { setError(reason.message); } finally { setBusy(false); }
+			};
+			if (!staged) {
+				// 上传步骤
+				return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "导入 PPT 模板"), h("span", { className: "ib-chip" }, "先解析，再映射")),
+					h("div", { className: "ib-req" }, h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, placeholder: "lab-ppt-v3", onChange: field("id") })), h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "课题组组会模板", onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, placeholder: "组会汇报 / 论文答辩", onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, ".pptx 文件"), h("input", { type: "file", accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation", onChange: readFile }))),
+					error ? h("div", { className: "ib-error" }, error) : null,
+					h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || (!form.file || !form.id || !form.name), onClick: () => void doImport() }, busy ? "解析中…" : "解析并生成映射")));
+			}
+			// 已解析：确认每个版式角色 → 布局 → 发布
+			const roles = staged.profile.layoutRoleMapping ? Object.keys(staged.profile.layoutRoleMapping) : [];
+			const roleRows = roles.map((role) => h("div", { className: "ib-table-row", key: role },
+				h("span", { className: "ib-tm-key", style: { flex: 1 } }, role),
+				h("select", { style: { flex: 1, marginRight: 8 }, value: mapping[role] || "", onChange: (e) => setMapping((old) => ({ ...old, [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
+				h("span", { className: "ib-sub", style: { flex: 1 } }, (staged.suggestions && staged.suggestions[role] && staged.suggestions[role].reason) || "")
+			));
+			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `确认「${staged.profile.name}」角色映射`), h("span", { className: "ib-chip" }, `${staged.parsed?.layoutCount || "?"} 个布局`)),
+				h("div", { className: "ib-lit-note" }, "自动映射已按布局占位符特征生成，可逐角色调整；映射无效会明确拒绝并保持草稿状态，不会静默替换为默认模板。"),
+				h("div", { className: "ib-table" }, [h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 1 } }, "说明")), ...roleRows]),
+				error ? h("div", { className: "ib-error" }, error) : null,
+				h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void confirm() }, busy ? "发布中…" : "确认映射并发布到可用")));
+		}
+
+		/** PPT 模板元数据编辑（名称/受众/用途/备注要求/最大页数）。 */
+		function MetaEditor({ call, initial, onCancel, onSaved }) {
+			const [form, setFormTemp] = useState({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
+			const [busy, setBusyTemp] = useState(false);
+			const [error, setErrorTemp] = useState("");
+			const field = (key) => (event) => setFormTemp((old) => ({ ...old, [key]: event.target.value }));
+			const save = async () => {
+				setBusyTemp(true); setErrorTemp("");
+				try {
+					if (!form.name.trim()) throw new Error("请填写模板名称");
+					await onSaved({ id: initial.id, ...form });
+				} catch (reason) { setErrorTemp(reason.message); } finally { setBusyTemp(false); }
+			};
+			return h("section", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `编辑「${initial.id}」元数据`), h("span", { className: "ib-chip" }, `当前 v${initial.version}`)),
+				h("div", { className: "ib-req", style: { display: "grid", gap: 8 } }, h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, "备注/讲稿要求"), h("input", { value: form.notesRequirement, onChange: field("notesRequirement") })), h("div", { className: "ib-req" }, h("label", null, "最大页数"), h("input", { type: "number", value: form.maxPages, onChange: field("maxPages") }))),
+				error ? h("div", { className: "ib-error" }, error) : null,
+				h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
+			);
 		}
 
 		function Entry({ onOpen, wide }) { return h("button", { className: "ib-sidebar", onClick: onOpen, title: "打开课题工作台" }, h("span", { className: "ib-sidebar-logo" }, "iB"), wide ? h("span", null, "我的科研课题") : null); }
@@ -368,7 +797,18 @@ window.__ModuleLoader__.load({
 				if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);
 				return { sessionId, workspaceId, openedNew, presetApplied };
 			};
-			const open = (initial) => { if (root) return; root = document.createElement("div"); document.body.appendChild(root); ReactDOM.render(h(Panel, { call, onClose: close, onStartChat: launchProject, initial: initial ?? null }), root); };
+			const open = (initial) => {
+				if (root) return;
+				root = document.createElement("div");
+				document.body.appendChild(root);
+				try {
+					ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.sessions.open(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
+				} catch (reason) {
+					console.error("[dsh-lab-agent] overlay mount failed:", reason);
+					close(); // 重置 root，避免侧边栏点击被残留节点短路
+					toast(`面板加载失败：${reason?.message ?? reason}`);
+				}
+			};
 			const openWorkspace = (project) => open(project);
 			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "lab-panel", order: 5 }, (props) => h(Entry, { wide: props.wide, onOpen: () => open() })), "dsh-lab-agent: project entry");
 			ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace })), "dsh-lab-agent: project badge");

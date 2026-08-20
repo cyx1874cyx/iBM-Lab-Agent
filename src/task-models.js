@@ -108,6 +108,8 @@ export const literatureSearchRunSchema = z.object({
 	status: z.enum(RUN_STATUSES).default("pending"),
 	progress: z.string().default(""),
 	error: z.string().optional(),
+	/** 执行该检索的 Harness 会话 id——面板点击记录可跳转到检索发生的对话。 */
+	sessionId: z.string().optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });
@@ -137,6 +139,9 @@ export const readingReportSchema = z.object({
 	bundleId: z.string().regex(PROFILE_ID_RE),
 	goalSnapshot: z.unknown(),
 	paperCardRequirements: z.unknown(),
+	/** 阅读笔记模板快照（版本行深拷贝）+ 使用的模板标识。 */
+	noteTemplateSnapshot: z.unknown().optional(),
+	noteRequirements: z.unknown().optional(),
 	paperCardPath: z.string().optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
 	auditReportPath: z.string().optional(),
@@ -150,6 +155,12 @@ export const readingReportSchema = z.object({
 		.default({}),
 	status: z.enum(RUN_STATUSES).default("pending"),
 	error: z.string().optional(),
+	/** 精读条目标题：当前短引用（如 First Author et al., 2024）。 */
+	shortCitation: z.string().optional(),
+	/** 鼠标悬浮显示的题名（中文标题等）。 */
+	titleZh: z.string().optional(),
+	/** 200字概览卡片正文；缺省时从 paper card 推导。 */
+	summary: z.string().optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });

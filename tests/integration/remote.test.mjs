@@ -28,14 +28,15 @@ async function bootRemote() {
 			{ id: "typert", name: "@deepseek-ai/dsh-typert-registry" },
 			{ id: "api-gateway", name: "@deepseek-ai/dsh-api-gateway" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
+			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot: vendorRoot + "/skills", projectsRoot: join(dir, "projects") } },
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot: vendorRoot + "/skills", projectsRoot: join(dir, "projects") } },
 			{ id: "lab-chemistry", name: "dsh-lab-agent/chemistry", inject: ["storageDomain"] },
 			{ id: "lab-nmr", name: "dsh-lab-agent/nmr", inject: ["storageDomain"] },
 			{ id: "lab-synthesis", name: "dsh-lab-agent/synthesis", inject: ["storageDomain"] },
 			{ id: "lab-convert", name: "dsh-lab-agent/convert", inject: ["storageDomain"] },
 			{ id: "lab-python-env", name: "dsh-lab-agent/python-env", inject: [] },
-			{ id: "lab-remote", name: "dsh-lab-agent/remote", inject: ["labVersions", "labGoals", "labTemplates", "labTasks", "labChemistry", "labNmr", "labSynthesis", "labPython", "labConvert"] }
+			{ id: "lab-remote", name: "dsh-lab-agent/remote", inject: ["labVersions", "labGoals", "labNoteTemplates", "labTasks", "labTemplates", "labChemistry", "labNmr", "labSynthesis", "labPython", "labConvert"] }
 		]
 	});
 	await handle.ctx.labVersions.bootstrapFromVendor();
@@ -169,6 +170,19 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.ok(wsAfter.literature.searches.length >= 1, "literature searches visible in panel");
 		assert.ok(wsAfter.literature.bundles.length >= 1, "literature bundles visible in panel");
 		assert.ok(wsAfter.literature.reports.length >= 1, "literature reports visible in panel");
+
+		// 报告下载：默认 .md（文本）；format=docx 返回同源 Word（base64）
+		const mdFile = await invoke(ctx, "tasks_report_download", { request: { reportId: report.report.id, format: "md" } });
+		assert.equal(mdFile.file.format, "md");
+		assert.equal(mdFile.file.mime, "text/markdown;charset=utf-8");
+		assert.ok(mdFile.file.text.length > 0, "md download returns text");
+		const docxFile = await invoke(ctx, "tasks_report_download", { request: { reportId: report.report.id, format: "docx" } });
+		assert.equal(docxFile.file.format, "docx");
+		assert.match(docxFile.file.fileName, /\.docx$/);
+		assert.match(docxFile.file.mime, /wordprocessingml/);
+		const docxBytes = Buffer.from(docxFile.file.base64, "base64");
+		assert.deepEqual(docxBytes.subarray(0, 2).toString("latin1"), "PK", "docx 是 zip");
+		assert.ok(docxBytes.length > 1000, "docx 有内容");
 
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);
