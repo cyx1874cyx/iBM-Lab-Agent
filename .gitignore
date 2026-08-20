@@ -11,3 +11,10 @@ __pycache__/
 .npm-cache/
 .tmp-*.json
 .pnpm-global/
+
+# 凭据类文件一律不跟踪（防真实 key 入库）
+**/.env
+**/*.env
+**/.credentials*
+*.pem
+*key*.pem
