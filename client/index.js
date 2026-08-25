@@ -54,7 +54,8 @@ window.__ModuleLoader__.load({
 			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}",
 			// ── 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG ──
 			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#2eb38e;box-shadow:0 6px 18px rgba(81,212,163,.22)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a69b);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
-			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}"
+			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}",
+			".ib-hero-avatar{display:block;object-fit:cover;border-radius:10px;box-shadow:0 7px 20px rgba(46,163,123,.18)}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
@@ -937,9 +938,26 @@ window.__ModuleLoader__.load({
 			};
 			const inject = () => {
 				hideNative();
-				const row = document.querySelector("[class*='_logoRow']");
-				if (!row) return false;
 				let touched = false;
+				const heroHeadline = document.querySelector("[class*='_headlineText']");
+				if (heroHeadline && heroHeadline.textContent !== "专注源头创新") {
+					heroHeadline.textContent = "专注源头创新";
+					touched = true;
+				}
+				const heroMarkHost = heroHeadline?.parentElement?.querySelector("[class*='_fishHitbox']");
+				if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
+					const avatar = document.createElement("img");
+					avatar.src = BRAND_ICON;
+					avatar.alt = "";
+					avatar.setAttribute("aria-hidden", "true");
+					avatar.width = 34;
+					avatar.height = 34;
+					avatar.className = `${heroMarkHost.firstElementChild?.getAttribute("class") ?? ""} ib-hero-avatar`.trim();
+					heroMarkHost.replaceChildren(avatar);
+					touched = true;
+				}
+				const row = document.querySelector("[class*='_logoRow']");
+				if (!row) return touched;
 				// 宽栏：人像 Logo + iBM Agent，并把整个品牌按钮设为科研课题入口。
 				const brand = row.querySelector("[class*='_brand']");
 				if (brand && brand.dataset.dshLabResearchEntry !== "1") {

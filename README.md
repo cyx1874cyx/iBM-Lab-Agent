@@ -51,6 +51,7 @@ Web 侧边栏左上角的 **iBM Agent / based on DSH** 品牌区就是科研课�
 包含一份可提交新版本的核心课题 Markdown，并以它作为科研 Agent 对话的项目
 记忆。安装插件后，Harness 展开侧栏的左上角品牌区会显示人像 Logo，
 折叠侧栏与会话课题徽章继续使用实验室烧瓶 SVG，
+首页主视觉也使用人像 Logo，并将品牌标语统一为“专注源头创新”，
 原有 DeepSeek Harness wordmark 与鲸鱼图标被隐藏（不修改 Harness 核心，
 由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
 （`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
