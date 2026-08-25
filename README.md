@@ -46,10 +46,11 @@ dsh web
 （`nature-academic-search`、`nature-reader`、`nature-paper-card`、
 `nature-paper2ppt`、`nature-shared`）即出现在 skill 目录中。
 
-Web 侧边栏同时会出现 **我的科研课题** 入口。首页只负责选择或新建课题；
-每个课题包含一份可提交新版本的核心课题 Markdown，并以它作为科研 Agent
-对话的项目记忆。安装插件后，Harness 左上角品牌区也会替换为
-**iBM Agent / based on DSH**（实验室烧瓶 Logo，配色与课题面板一致），
+Web 侧边栏左上角的 **iBM Agent / based on DSH** 品牌区就是科研课题入口，
+底部不再重复显示“我的科研课题”按钮。首页只负责选择或新建课题；每个课题
+包含一份可提交新版本的核心课题 Markdown，并以它作为科研 Agent 对话的项目
+记忆。安装插件后，Harness 展开侧栏的左上角品牌区会显示人像 Logo，
+折叠侧栏与会话课题徽章继续使用实验室烧瓶 SVG，
 原有 DeepSeek Harness wordmark 与鲸鱼图标被隐藏（不修改 Harness 核心，
 由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
 （`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
@@ -159,7 +160,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 | 单元测试（含 client 描述符/harness-surface、markitdown 探测降级） | 89/89（合计 98+89 维护基线，`npm test` 全绿） |
 | 集成测试（课题 CRUD/工作区/核心记忆/绑定、remote gateway、文档转换） | 21/21（`npm run test:all` 110/110） |
 | 回归套件 | 11/11（新增 `convert` 用例，真实 audit 脚本门禁仍通过） |
-| Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：侧边栏「我的科研课题」、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
+| Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：左上角 iBM Agent 品牌课题入口、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
 | 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取 |
 | 工作区级绑定 | 空间内所有对话（含手动新建）按会话绑定/cwd 识别课题，共享同一份核心记忆 |
 | 核心记忆工具 | `lab_project_memory_read/_update` 模型工具自动按会话定位课题，版本化写入（changeNote + 哈希），面板可见 |
@@ -273,7 +274,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
   哈希）；persona 第 6 条强制引导走正道，禁止发明孤立记忆文件。
 - **Web 管理界面**（`client/index.js` + `lib/remote.js`）：lab Remote bridge
   经 Typert Gateway（source-mode discovery）暴露 9 个 lab 服务；浏览器 client
-  渲染「我的科研课题」侧边栏、课题首页/空间、三板块产物看板、核心记忆编辑器
+  渲染左上角 iBM Agent 品牌课题入口、课题首页/空间、三板块产物看板、核心记忆编辑器
   与版本历史、会话课题徽章 + 输入框记忆提示条。全部叠加在 Harness 之上，
   不修改 Harness 核心。
 - **文档转换**（`lib/convert.js` / `lib/convert-tool.js` / `src/markitdown.js`）：
