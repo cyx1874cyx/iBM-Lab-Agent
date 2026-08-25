@@ -123,6 +123,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /ib-brand-avatar/);
 	assert.match(source, /heroMarkHost\.replaceChildren\(avatar\)/);
 	assert.match(source, /class\*='_fishHitbox'/);
+	assert.match(source, /\.ib-hero-avatar\{[^}]*width:2em!important;height:2em!important/);
 	assert.match(source, /专注源头创新/);
 	assert.match(source, /function FlaskSvg/);
 	assert.match(source, /const FLASK_RAIL_HTML/);
