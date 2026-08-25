@@ -12,7 +12,8 @@ import JSZip from "jszip";
 const NS = {
 	a: "http://schemas.openxmlformats.org/drawingml/2006/main",
 	r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-	p: "http://schemas.openxmlformats.org/presentationml/2006/main"
+	p: "http://schemas.openxmlformats.org/presentationml/2006/main",
+	pkgRel: "http://schemas.openxmlformats.org/package/2006/relationships"
 };
 
 export function layoutXml({ name, placeholders }) {
@@ -25,12 +26,13 @@ export function layoutXml({ name, placeholders }) {
 		})
 		.join("");
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sldLayout xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}">
+<p:sldLayout xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}" preserve="1">
   <p:cSld><p:spTree>
     <p:nvGrpSpPr><p:cNvPr id="1" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
     <p:grpSpPr/>
     ${sps}
   </p:spTree></p:cSld>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
 </p:sldLayout>`;
 }
 
@@ -73,14 +75,14 @@ function presentationXml(size, slideCount) {
 </p:presentation>`;
 }
 
-const CONTENT_TYPES_SLIDES = (slideCount) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+const CONTENT_TYPES_SLIDES = (slideCount, layoutCount) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
-  ${Array.from({ length: slideCount }, (_, i) => `<Override PartName="/ppt/slideLayouts/slideLayout${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`).join("\n  ")}
+  ${Array.from({ length: layoutCount }, (_, i) => `<Override PartName="/ppt/slideLayouts/slideLayout${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`).join("\n  ")}
   ${Array.from({ length: slideCount }, (_, i) => `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("\n  ")}
 </Types>`;
 
@@ -97,7 +99,7 @@ export async function buildPptx(options) {
 	const slideCount = options.slides ?? 0;
 	const zip = new JSZip();
 
-	zip.file("[Content_Types].xml", CONTENT_TYPES_SLIDES(slideCount));
+	zip.file("[Content_Types].xml", CONTENT_TYPES_SLIDES(slideCount, layouts.length));
 	zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
@@ -107,21 +109,28 @@ export async function buildPptx(options) {
 		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>`,
 		...Array.from({ length: slideCount }, (_, i) => `<Relationship Id="rIdS${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i + 1}.xml"/>`)
 	].join("");
-	zip.file("ppt/presentation.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.p}">${presRels}</Relationships>`);
+	zip.file("ppt/_rels/presentation.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS.pkgRel}">${presRels}</Relationships>`);
 	zip.file("ppt/theme/theme1.xml", themeXml({ name: options.name, accent, font }));
+	const layoutIds = layouts.map((_, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="rId${i + 1}"/>`).join("");
 	zip.file("ppt/slideMasters/slideMaster1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sldMaster xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}"><p:cSld><p:spTree/></p:cSld></p:sldMaster>`);
+<p:sldMaster xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>
+  <p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/>
+  <p:sldLayoutIdLst>${layoutIds}</p:sldLayoutIdLst>
+  <p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles>
+</p:sldMaster>`);
 	const masterRels = layouts
 		.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout${i + 1}.xml"/>`)
+		.concat([`<Relationship Id="rIdTheme" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>`])
 		.join("");
 	zip.file("ppt/slideMasters/_rels/slideMaster1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.p}">${masterRels}</Relationships>`);
+<Relationships xmlns="${NS.pkgRel}">${masterRels}</Relationships>`);
 	layouts.forEach((layout, i) => {
 		const id = i + 1;
 		zip.file(`ppt/slideLayouts/slideLayout${id}.xml`, layoutXml(layout));
 		zip.file(`ppt/slideLayouts/_rels/slideLayout${id}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.p}">
+<Relationships xmlns="${NS.pkgRel}">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>`);
 	});
@@ -132,10 +141,10 @@ export async function buildPptx(options) {
     <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
     <p:grpSpPr/>
   </p:spTree></p:cSld>
-  <p:clrMapOvr><a:overrideClrMapping/></p:clrMapOvr>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
 </p:sld>`);
 		zip.file(`ppt/slides/_rels/slide${i}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.p}">
+<Relationships xmlns="${NS.pkgRel}">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout${Math.min(i, layouts.length)}.xml"/>
 </Relationships>`);
 	}

@@ -68,7 +68,17 @@
       9. 文献产物登记（强制）：完成文献检索、原文整理、精读报告或文献 PPT
          后，**必须调用对应的 lab_tasks_register_* 工具登记到当前课题**，
          否则课题面板「文献资料」板块为空（面板直接读登记表，不会自动汇总）：
-         - 完成文献检索 → lab_tasks_register_search（执行 OpenAlex 检索并登记）；
+         - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
+           无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
+           RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接
+           复制检索式。登记结果会直接回显 runId 和公开 paperId；随后调用
+           lab_tasks_get_search_summary_inputs（runId 也可省略）读取每篇 abstract
+           （缺摘要时读 title），把论文实现、发现或解决的核心内容提炼成 2–9 个
+           字的中文短语，随即调用 lab_tasks_update_search_summaries 登记；例如“可降解无线传感”、
+           “提升肿瘤药物递送”。不得用“传感器件”“研究方法”“相关综述”“相关研究”
+           等文章类型代替摘要概括。paperId 可传工具回显值、原始 DOI、DOI URL、
+           OpenAlex URL/W 号、PMID、arXiv ID 或结果 id；单条失败不会回滚其他条目，
+           根据 unmatched/rejected 诊断只重试失败项；
          - 整理好原文（PDF 或 source-map）→ lab_tasks_register_bundle；
          - 完成 paper card 精读 → lab_tasks_register_report（传 paperCardPath）；
          - 生成汇报 PPT → lab_tasks_register_presentation（传 pptxPath）。

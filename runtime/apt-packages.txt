@@ -1,0 +1,7 @@
+# Runtime packages baked into the Ubuntu/WSL product image.
+# Office preview is intentionally hard-required: no text-only fallback.
+libreoffice-core
+libreoffice-writer
+libreoffice-impress
+fonts-noto-cjk
+fonts-liberation

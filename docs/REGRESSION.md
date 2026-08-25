@@ -43,7 +43,7 @@ export default {
 
 | 用例 | 覆盖计划 §八 的条目 |
 |---|---|
-| `task-flow` | 全流程（项目/检索/准备/精读/审计门禁/PPT/QA 门禁/provenance），检索网络路径以 stub 代替，其余调用真实 nature-skills 脚本 |
+| `task-flow` | 全流程（项目/检索/准备/DOCX 暂存/自查提醒/人工审核/PPTX 暂存/人工审核/provenance），检索网络路径以 stub 代替，其余调用真实 nature-skills 脚本 |
 
 ## 阶段四用例
 

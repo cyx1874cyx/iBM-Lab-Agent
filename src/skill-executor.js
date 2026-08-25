@@ -17,6 +17,19 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { searchAcademicLiterature } from "./literature/search-engine.js";
+
+const PYTHON_HTTP_FETCH = [
+	"import base64, json, sys, urllib.error, urllib.request",
+	"url, accept = sys.argv[1], sys.argv[2]",
+	"req = urllib.request.Request(url, headers={'Accept': accept, 'User-Agent': 'dsh-lab-agent/0.1 academic-search'})",
+	"try:",
+	"    res = urllib.request.urlopen(req, timeout=20)",
+	"except urllib.error.HTTPError as error:",
+	"    res = error",
+	"body = res.read()",
+	"print(json.dumps({'status': getattr(res, 'status', res.getcode()), 'url': res.geturl(), 'body': base64.b64encode(body).decode('ascii')}))"
+].join("\n");
 
 /** nature-skills 脚本相对 skills 根目录的路径。 */
 export const SKILL_SCRIPTS = {
@@ -38,6 +51,43 @@ export class SkillExecutor {
 		this.skillsRoot = config.skillsRoot;
 		this.venvPython = config.venvPython;
 		this.platform = config.platform ?? process.platform;
+		this.fetchImpl = config.fetchImpl ?? ((url, options) => this.academicFetch(url, options));
+	}
+
+	/**
+	 * NCBI 在部分 WSL 网络中只经系统代理可达，而 Node fetch 默认不读取代理
+	 * 环境变量。PubMed 请求使用 stdlib urllib 后备；其余公共 API 保持原生 fetch。
+	 */
+	async academicFetch(url, options = {}) {
+		if (!/(?:\.ncbi\.nlm\.nih\.gov|\.nih\.gov)\//i.test(String(url))) return await globalThis.fetch(url, options);
+		const python = this.pythonCommand();
+		const accept = options.headers?.Accept ?? options.headers?.accept ?? "application/json";
+		return await new Promise((resolve, reject) => {
+			const child = spawn(python, ["-c", PYTHON_HTTP_FETCH, String(url), accept], {
+				env: { ...process.env },
+				stdio: ["ignore", "pipe", "pipe"],
+				shell: this.platform === "win32"
+			});
+			const stdout = [], stderr = [];
+			child.stdout.on("data", (chunk) => stdout.push(chunk));
+			child.stderr.on("data", (chunk) => stderr.push(chunk));
+			child.on("error", reject);
+			child.on("exit", (code) => {
+				if (code !== 0) return reject(new Error(`python HTTP fallback failed (${code}): ${Buffer.concat(stderr).toString("utf8").slice(0, 300)}`));
+				try {
+					const payload = JSON.parse(Buffer.concat(stdout).toString("utf8"));
+					const body = Buffer.from(payload.body, "base64").toString("utf8");
+					resolve({
+						ok: payload.status >= 200 && payload.status < 300,
+						status: payload.status,
+						url: payload.url,
+						async json() { return JSON.parse(body); },
+						async text() { return body; }
+					});
+				} catch (error) { reject(error); }
+			});
+			options.signal?.addEventListener("abort", () => child.kill("SIGKILL"), { once: true });
+		});
 	}
 
 	/** 实际 python 命令：venv python 优先，否则系统 python。 */
@@ -90,29 +140,20 @@ export class SkillExecutor {
 		});
 	}
 
-	/** OpenAlex 搜索（nature-academic-search）。 */
-	async search(query, { limit = 10, sort = "relevance_score", yearFrom, author, mailto } = {}) {
-		const args = [];
-		if (author) {
-			args.push("--author", author);
-			if (query) args.push(query);
-		} else {
-			args.push(query);
-		}
-		if (limit) args.push("--limit", String(limit));
-		if (sort) args.push("--sort", sort);
-		if (yearFrom) args.push("--year-from", String(yearFrom));
-		if (mailto) args.push("--mailto", mailto);
-		const result = await this.run("search", args);
-		if (result.code !== 0) {
-			throw new Error(`search failed (${result.code}): ${(result.stderr || result.stdout).slice(0, 400)}`);
-		}
-		try {
-			const parsed = JSON.parse(result.stdout);
-			return Array.isArray(parsed) ? parsed : parsed.results ?? [];
-		} catch {
-			throw new Error(`search output not JSON: ${result.stdout.slice(0, 200)}`);
-		}
+	/**
+	 * 多源公开文献检索。各来源独立失败、统一字段后 DOI/题名去重；OpenAlex
+	 * 仍作为综合发现和 OA 状态补全源，而不是唯一检索源。
+	 */
+	async search(query, { sources, limit = 10, sort = "relevance_score", yearFrom, mailto, oaOnly = true } = {}) {
+		return await searchAcademicLiterature(query, {
+			sources,
+			limit,
+			sort,
+			yearFrom,
+			mailto,
+			oaOnly,
+			fetchImpl: this.fetchImpl
+		});
 	}
 
 	/** 引用导出（format-converter.py）。 */

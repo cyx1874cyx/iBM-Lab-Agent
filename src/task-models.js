@@ -5,25 +5,35 @@
  *   LabProject / LiteratureSearchRun / PaperSourceBundle / ReadingReport /
  *   PresentationRun / ArtifactProvenance。
  *
- * 状态机：pending → running → succeeded | failed | cancelled。
- * 门禁：ReadingReport 审计失败阻止进入 PPT 阶段；PresentationRun 的 QA 失败
- * 标记 failed（高严重度问题必须修复后重审）。
+ * 状态机：pending → running → under-review → succeeded | failed | cancelled。
+ * 生成完成后必须进入人工审阅；自动审计/QA 只提供机器检查结果，不代替人工通过。
  */
 
 import { z } from "zod";
 import { PROFILE_ID_RE } from "./goal-profile.js";
 
-export const RUN_STATUSES = ["pending", "running", "succeeded", "failed", "cancelled"];
+export const RUN_STATUSES = ["pending", "running", "under-review", "succeeded", "failed", "cancelled"];
 export const RUN_STATUS = Object.fromEntries(RUN_STATUSES.map((s) => [s, s]));
 
 export const LOCATOR_MODES = ["page-grounded", "structure-grounded", "source-limited"];
 
+/** 人工审阅记录：机器审计结果保存在 audit/qa，本字段只记录研究人员决策。 */
+export const humanReviewSchema = z.object({
+	status: z.enum(["pending", "approved", "rejected"]).default("pending"),
+	note: z.string().optional(),
+	reviewedAt: z.string().optional(),
+	/** 审核时看到的实际 Office 文件哈希；下载时再次比对，禁止审核后悄悄换件。 */
+	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	reviewer: z.string().default("human-ui")
+}).default({});
+
 /** 合法状态迁移表。 */
 export const TRANSITIONS = {
-	pending: ["running", "cancelled", "failed"],
-	running: ["succeeded", "failed", "cancelled"],
-	succeeded: ["failed"], // 审计重审可回退
-	failed: ["running", "cancelled"], // 修复后重跑
+	pending: ["running", "under-review", "cancelled", "failed"],
+	running: ["under-review", "succeeded", "failed", "cancelled"],
+	"under-review": ["succeeded", "failed", "running", "cancelled"],
+	succeeded: ["under-review", "failed"], // 人工复审/机器重审可回退
+	failed: ["running", "under-review", "cancelled"], // 修复后重跑/重新送审
 	cancelled: ["running"] // 取消后重试
 };
 
@@ -86,24 +96,49 @@ export function projectSessionKey(projectId) {
 }
 
 export const searchResultSchema = z.object({
+	id: z.string().optional(),
 	title: z.string().min(1),
 	doi: z.string().optional(),
+	pmid: z.string().optional(),
+	arxivId: z.string().optional(),
 	authors: z.array(z.string()).default([]),
 	year: z.number().int().optional(),
+	publicationDate: z.string().optional(),
+	journal: z.string().optional(),
+	volume: z.string().optional(),
+	issue: z.string().optional(),
+	pages: z.string().optional(),
+	abstract: z.string().optional(),
 	citations: z.number().int().nonnegative().optional(),
-	source: z.string().default("openalex")
+	type: z.string().optional(),
+	source: z.string().default("openalex"),
+	sources: z.array(z.string()).default([]),
+	isOa: z.boolean().optional(),
+	oaStatus: z.string().optional(),
+	pdfUrl: z.string().url().optional(),
+	landingUrl: z.string().url().optional(),
+	license: z.string().optional(),
+	version: z.string().optional(),
+	pdfStatus: z.enum(["candidate", "verified", "unavailable", "broken"]).default("unavailable"),
+	shortDescriptionZh: z.string().max(9).default("摘要待提炼"),
+	score: z.number().optional()
 });
 
 /** LiteratureSearchRun（§六）：查询、数据源、结果、排序、导出与失败信息。 */
 export const literatureSearchRunSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
+	title: z.string().default(""),
 	query: z.string().min(1),
-	sources: z.array(z.string()).default(["openalex", "crossref", "arxiv"]),
+	queries: z.array(z.string()).default([]),
+	sources: z.array(z.string()).default(["openalex", "crossref", "pubmed", "arxiv"]),
+	oaOnly: z.boolean().default(true),
 	limit: z.number().int().positive().default(10),
 	sort: z.string().default("relevance_score"),
 	yearFrom: z.number().int().optional(),
 	results: z.array(searchResultSchema).default([]),
+	sourceFailures: z.array(z.object({ source: z.string(), message: z.string() })).default([]),
+	identifier: z.object({ kind: z.enum(["query", "doi", "pmid", "arxiv"]), value: z.string() }).optional(),
 	exports: z.array(z.object({ format: z.string(), path: z.string() })).default([]),
 	status: z.enum(RUN_STATUSES).default("pending"),
 	progress: z.string().default(""),
@@ -143,6 +178,9 @@ export const readingReportSchema = z.object({
 	noteTemplateSnapshot: z.unknown().optional(),
 	noteRequirements: z.unknown().optional(),
 	paperCardPath: z.string().optional(),
+	/** 暂存并供预览/下载的实际 Word 文件，不再在下载时临时重建。 */
+	docxPath: z.string().optional(),
+	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
 	auditReportPath: z.string().optional(),
 	audit: z
@@ -153,9 +191,10 @@ export const readingReportSchema = z.object({
 			summary: z.string().default("")
 		})
 		.default({}),
+	review: humanReviewSchema,
 	status: z.enum(RUN_STATUSES).default("pending"),
 	error: z.string().optional(),
-	/** 精读条目标题：当前短引用（如 First Author et al., 2024）。 */
+	/** 精读条目标题：期刊短引用（如 Nature 630, 84–90 (2024).）。 */
 	shortCitation: z.string().optional(),
 	/** 鼠标悬浮显示的题名（中文标题等）。 */
 	titleZh: z.string().optional(),
@@ -171,8 +210,10 @@ export const presentationRunSchema = z.object({
 	projectId: z.string().regex(PROFILE_ID_RE),
 	reportId: z.string().regex(PROFILE_ID_RE),
 	templateSnapshot: z.unknown(),
+	auditSkipped: z.boolean().default(false),
 	outlinePath: z.string().optional(),
 	pptxPath: z.string().optional(),
+	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	speechNotesPath: z.string().optional(),
 	figureSourcesPath: z.string().optional(),
 	qa: z
@@ -181,9 +222,11 @@ export const presentationRunSchema = z.object({
 			high: z.number().int().nonnegative().default(0),
 			medium: z.number().int().nonnegative().default(0),
 			low: z.number().int().nonnegative().default(0),
-			reportPath: z.string().optional()
+			reportPath: z.string().optional(),
+			jsonPath: z.string().optional()
 		})
 		.default({}),
+	review: humanReviewSchema,
 	status: z.enum(RUN_STATUSES).default("pending"),
 	error: z.string().optional(),
 	createdAt: z.string(),

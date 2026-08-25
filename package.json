@@ -35,6 +35,15 @@
       "types": "./lib/types/tasks.d.ts",
       "default": "./lib/tasks.js"
     },
+    "./literature-sources": {
+      "default": "./lib/literature-sources.js"
+    },
+    "./artifact-download": {
+      "default": "./lib/artifact-download.js"
+    },
+    "./office-preview": {
+      "default": "./lib/office-preview.js"
+    },
     "./chemistry": {
       "types": "./lib/types/chemistry.d.ts",
       "default": "./lib/chemistry.js"
@@ -89,6 +98,7 @@
     "python",
     "scripts",
     "src",
+    "runtime",
     "vendor",
     "tests",
     "docs",

@@ -31,6 +31,7 @@ async function bootRemote() {
 			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
 			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot: vendorRoot + "/skills", projectsRoot: join(dir, "projects") } },
+			{ id: "lab-literature-sources", name: "dsh-lab-agent/literature-sources", inject: ["storageDomain"], config: { sessionsDir: join(dir, "literature-sessions"), downloadsDir: join(dir, "literature-downloads") } },
 			{ id: "lab-chemistry", name: "dsh-lab-agent/chemistry", inject: ["storageDomain"] },
 			{ id: "lab-nmr", name: "dsh-lab-agent/nmr", inject: ["storageDomain"] },
 			{ id: "lab-synthesis", name: "dsh-lab-agent/synthesis", inject: ["storageDomain"] },
@@ -163,7 +164,14 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		const report = await invoke(ctx, "tasks_report_create", { request: { fields: { projectId: "remote-project", bundleId: bundle.bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" } } });
 		assert.equal(report.report.status, "pending");
 		const completed = await invoke(ctx, "tasks_report_complete", { request: { fields: { reportId: report.report.id, paperCardPath: join(fxDir, "paper-card-pass.md") } } });
-		assert.equal(completed.report.status, "running");
+		assert.equal(completed.report.status, "under-review");
+		assert.equal(completed.report.audit.ok, true, "remote complete 自动执行机器评审");
+		const reviewDetails = await invoke(ctx, "tasks_review_details", { request: { reportId: report.report.id } });
+		assert.equal(reviewDetails.review.ok, true);
+		assert.ok(reviewDetails.review.findings.length > 0);
+		const reviewed = await invoke(ctx, "tasks_report_review", { request: { fields: { reportId: report.report.id, decision: "approved", note: "人工核对通过" } } });
+		assert.equal(reviewed.report.status, "succeeded");
+		assert.equal(reviewed.report.review.status, "approved");
 
 		// 面板聚合应能看到检索与 bundle 记录
 		const wsAfter = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });

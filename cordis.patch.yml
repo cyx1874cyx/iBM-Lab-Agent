@@ -81,8 +81,8 @@
     # ── PPT template profiles (PptTemplateProfile) ────────────────────────────
     #
     # Host service `ctx.labTemplates`: PPTX 导入（解析母版/布局/占位符/字体/
-    # 主题色/页面比例）→ 自动版式角色映射建议 → 预览 → 用户确认 → 验证发布。
-    # 映射无效时 validate() 明确失败，不静默替换为默认模板。源文件与解析结果
+    # 主题色/页面比例）→ 自动版式角色映射建议 → 预览 → 用户确认。模板只作
+    # 格式参考，validate() 的问题是提示而不是文献产物生成/审核门禁。源文件与解析结果
     # 存 $DSH_HOME/lab-agent/templates/<id>/v<version>/。
     - id: lab-ppt-templates
       name: 'dsh-lab-agent/ppt-templates'
@@ -96,15 +96,41 @@
     # Host service `ctx.labTasks`: 计划 §五 流程 + §六 任务接口。机械化步骤直接
     # 调用 nature-skills 的 stdlib 脚本（OpenAlex 搜索、引用导出、源包准备、
     # paper-card 审计、PPTX 质量审计）；LLM 步骤由 agent 执行 skill 后通过
-    # complete* 登记。审计门禁：报告审计失败阻止进入 PPT 阶段。
+    # complete* 登记。DOCX/PPTX 自动暂存，自查仅提示；人工审核通过后开放下载。
     - id: lab-tasks
       name: 'dsh-lab-agent/tasks'
-      inject: [storageDomain, labGoals, labTemplates, labVersions]
+      inject: [storageDomain, labGoals, labNoteTemplates, labTemplates, labVersions]
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
         # 每个课题一个独立工作区目录（workspace.create 采纳该目录）。
         projectsRoot: !!js dshHomePath('lab-agent/projects')
+
+    # ── 文献数据库状态 + 中科大授权浏览器会话 ─────────────────────────────
+    # 公开 API 做轻量探测；机构库经用户本人完成 USTC 身份认证和协议确认。
+    # 浏览器保存 Cookie，插件只登记入口与会话状态，不读取凭据/令牌。
+    - id: lab-literature-sources
+      name: 'dsh-lab-agent/literature-sources'
+      inject: [storageDomain, webServer]
+      config:
+        sessionsDir: !!js dshHomePath('lab-agent/literature-sessions')
+        downloadsDir: !!js dshHomePath('lab-agent/literature-downloads')
+        institutionPortalUrl: 'https://lib.ustc.edu.cn/'
+        clientManagedBrowser: true
+        browserExecutable: '/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
+        browserProfileArgument: 'C:\Users\28497\.ibm-lab-agent\literature-sessions\institutional'
+        windowsCdpBridge: true
+
+    # ── Office 产物二进制下载 ─────────────────────────────────────────────
+    # DOCX/PPTX 走同源 HTTP 二进制流并附带长度/SHA-256，避免大型 base64 经
+    # Remote JSON 边界截断后在 Windows 被识别为损坏文件。
+    - id: lab-artifact-download
+      name: 'dsh-lab-agent/artifact-download'
+      inject: [labTasks, webServer]
+      config:
+        # 实际 Office 文件由打包环境内的 LibreOffice 渲染为 PDF；无文本降级预览。
+        sofficePath: 'soffice'
+        previewDir: !!js dshHomePath('lab-agent/previews')
 
     # ── Chemistry & experiment plans (ChemicalEntity / ChemicalProperty /
     #    ExperimentPlan) ─────────────────────────────────────────────────────
@@ -158,7 +184,7 @@
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labChemistry, labNmr, labSynthesis, labPython, labConvert]
+      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。

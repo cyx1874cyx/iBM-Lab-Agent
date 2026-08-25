@@ -52,8 +52,8 @@ async function bootTasks() {
 /** stub 掉需要外网的 executor 方法。 */
 function stubNetwork(executor) {
 	executor.search = async (query, opts) => [
-		{ title: "Prodrug-conjugated polymers for drug delivery", doi: "10.1000/fake.1", authors: ["A. Chemist"], year: 2024, cited_by_count: 12 },
-		{ title: "RAFT polymerization of methacrylate prodrugs", doi: "10.1000/fake.2", authors: ["B. Polymer"], year: 2023, cited_by_count: 5 }
+		{ title: "Prodrug-conjugated polymers for drug delivery", doi: "10.1000/fake.1", authors: ["A. Chemist"], year: 2024, cited_by_count: 12, journal: "Biomaterials", abstract: "An OA prodrug polymer study.", isOa: true, oaStatus: "gold", pdfUrl: "https://example.org/fake.1.pdf", sources: ["openalex", "crossref"] },
+		{ title: "RAFT polymerization of methacrylate prodrugs", doi: "10.1000/fake.2", authors: ["B. Polymer"], year: 2023, cited_by_count: 5, journal: "Macromolecules", isOa: true, sources: ["openalex"] }
 	];
 	executor.exportCitations = async () => ({ format: "ris", stdout: "TY  - JOUR\nTI  - Fake\nER  -" });
 }
@@ -119,6 +119,11 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const search = await tasks.searchLiterature({ projectId: "proj-1", query: "prodrug polymer delivery", limit: 5 });
 		assert.equal(search.status, "succeeded");
 		assert.equal(search.results.length, 2);
+		assert.equal(search.oaOnly, true);
+		assert.equal(search.results[0].journal, "Biomaterials");
+		assert.equal(search.results[0].abstract, "An OA prodrug polymer study.");
+		assert.equal(search.results[0].isOa, true);
+		assert.deepEqual(search.results[0].sources, ["openalex", "crossref"]);
 		const exportRes = await tasks.exportSearchCitations(search.id, { format: "ris" });
 		assert.match(exportRes.text, /TY  - JOUR/);
 
@@ -152,13 +157,16 @@ test("full flow: search → prepare → report → audit gate → presentation �
 
 		// 步骤 7：agent 完成精读（fixture 通过版）
 		const completed = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
-		assert.equal(completed.status, "running");
-
-		// 步骤 6：审计门禁（真实 audit_paper_card.py）
-		const audited = await tasks.validateReadingReport({ reportId: report.id });
-		assert.equal(audited.status, "succeeded");
-		assert.equal(audited.audit.ok, true);
-		assert.equal(audited.audit.errors, 0);
+		assert.equal(completed.status, "under-review");
+		assert.equal(completed.review.status, "pending");
+		assert.equal(completed.audit.ok, true, "登记完成后自动机器评审");
+		assert.equal(completed.audit.errors, 0);
+		const reportReview = await tasks.machineReviewDetails({ reportId: report.id });
+		assert.equal(reportReview.ok, true);
+		assert.ok(reportReview.findings.length > 0, "machine review details are explainable");
+		const humanApproved = await tasks.reviewReadingReport({ reportId: report.id, decision: "approved", note: "证据链已核对" });
+		assert.equal(humanApproved.status, "succeeded");
+		assert.equal(humanApproved.review.status, "approved");
 
 		// 步骤 8：PPT 生成（仅审计通过可进入）
 		const pres = await tasks.createPresentation({
@@ -175,11 +183,15 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const pptxPath = join(dir, "deck.pptx");
 		await writeFile(pptxPath, buffer);
 		const done = await tasks.completePresentation({ runId: pres.id, pptxPath, outlinePath: join(dir, "outline.json"), speechNotesPath: join(dir, "notes.md") });
-		assert.equal(done.status, "running");
-		const qa = await tasks.validatePresentation({ runId: pres.id });
-		assert.equal(qa.status, "succeeded");
-		assert.equal(qa.qa.ok, true);
-		assert.deepEqual(qa.qa.high, 0);
+		assert.equal(done.status, "under-review");
+		assert.equal(done.qa.ok, true, "PPT 登记完成后自动机器 QA");
+		assert.deepEqual(done.qa.high, 0);
+		const pptReview = await tasks.machineReviewDetails({ runId: pres.id });
+		assert.equal(pptReview.ok, true);
+		assert.ok(Array.isArray(pptReview.findings));
+		const pptApproved = await tasks.reviewPresentation({ runId: pres.id, decision: "approved" });
+		assert.equal(pptApproved.status, "succeeded");
+		assert.equal(pptApproved.review.status, "approved");
 
 		// provenance：每个产物都记录了输入哈希与 skill 版本
 		const provenance = tasks.listProvenance("proj-1");
@@ -195,7 +207,7 @@ test("full flow: search → prepare → report → audit gate → presentation �
 	}
 });
 
-test("audit gate blocks presentation when the reading report fails validation", async () => {
+test("self-check findings do not block staging, human review, or PPT generation", async () => {
 	const { handle, dir, fxDir } = await bootTasks();
 	try {
 		const tasks = handle.ctx.labTasks;
@@ -216,20 +228,16 @@ test("audit gate blocks presentation when the reading report fails validation", 
 			goalProfileId: "default-prodrug-polymer",
 			goalProfileVersion: "1"
 		});
-		await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-fail.md") });
+		// 登记后实际 DOCX 先暂存；即使自查发现问题也保持可人工预览/审核。
+		const staged = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-fail.md") });
+		assert.equal(staged.status, "under-review");
+		assert.equal(staged.audit.ok, false);
+		assert.ok(staged.audit.errors > 0);
+		assert.ok(staged.docxPath);
 
-		// 审计失败 → 抛错 + report failed
-		await assert.rejects(() => tasks.validateReadingReport({ reportId: report.id }), /audit failed/);
-		const failed = tasks.getReadingReport(report.id);
-		assert.equal(failed.status, "failed");
-		assert.equal(failed.audit.ok, false);
-		assert.ok(failed.audit.errors > 0);
-
-		// 门禁：未通过审计 → createPresentation 明确拒绝
-		await assert.rejects(
-			() => tasks.createPresentation({ projectId: "proj-2", reportId: report.id, templateId: "nature-default", templateVersion: "1" }),
-			/has not passed audit/
-		);
+		// PPT 可在报告待审时继续生成；自查结果不是流程门禁。
+		const run = await tasks.createPresentation({ projectId: "proj-2", reportId: report.id, templateId: "nature-default", templateVersion: "1" });
+		assert.equal(run.status, "pending");
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
@@ -278,7 +286,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 			bundleId: bundle.id,
 			goalProfileId: "default-prodrug-polymer",
 			goalProfileVersion: "1",
-			shortCitation: "Zhu et al., 2024",
+			shortCitation: "Tang et al., Nature 630, 84-90 (2024)",
 			titleZh: "聚前药高分子给药平台",
 			summary: "这是一段约两百字的预设概览正文，用于面板「文献概览」卡片直接展示，不依赖 paper card 推导。"
 		});
@@ -286,12 +294,16 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 			reportId: created.id,
 			paperCardPath: join(fxDir, "paper-card-pass.md")
 		});
-		assert.equal(report.shortCitation, "Zhu et al., 2024");
+		assert.equal(report.shortCitation, "Nature 630, 84–90 (2024).");
 		assert.equal(report.titleZh, "聚前药高分子给药平台");
+		// 升级迁移：旧版已有产物却卡在 running 的记录自动转为待人工审阅。
+		await tasks.table("reports").put(report.id, { ...report, status: "running", progress: "paper card written" });
+		await tasks.migrateLegacyReviewGates();
+		assert.equal(tasks.getReadingReport(report.id).status, "under-review");
 
 		// 概览：优先用登记时的 summary（不读网络/不解析文件）
 		const overview = await tasks.readingReportOverview(report.id);
-		assert.equal(overview.shortCitation, "Zhu et al., 2024");
+		assert.equal(overview.shortCitation, "Nature 630, 84–90 (2024).");
 		assert.equal(overview.titleZh, "聚前药高分子给药平台");
 		assert.match(overview.summary, /预设概览正文/);
 
@@ -303,19 +315,27 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		assert.ok(derived.summary.length > 0);
 		assert.match(derived.summary, /polymer platform/i, "derived from paper-card body");
 
-		// 精读报告下载：返回 paper-card Markdown
+		// 审核前只能预览，不能下载原文件。
+		await assert.rejects(() => tasks.readingReportDownload(report.id), /awaiting human review/);
+		const approvedReport = await tasks.reviewReadingReport({ reportId: report.id, decision: "approved" });
+		assert.equal(approvedReport.review.artifactSha256, approvedReport.artifactSha256);
+
+		// 审核后精读报告下载：返回 paper-card Markdown
 		const download = await tasks.readingReportDownload(report.id);
 		assert.equal(download.fileName, `${report.id}.md`);
 		assert.match(download.mime, /text\/markdown/);
 		assert.match(download.text, /1 Overview|^#/m, "markdown content returned");
 
 		// PPT 下载：为该 report 生成含 pptx 的 run → base64 返回
-		await tasks.validateReadingReport({ reportId: report.id });
 		const pres = await tasks.createPresentation({ projectId: "proj-panel", reportId: report.id, templateId: "nature-default", templateVersion: "1" });
 		const { buffer } = await buildPptx({ name: "p", slides: 1 });
 		const pptxPath = join(dir, "deck-panel.pptx");
 		await writeFile(pptxPath, buffer);
 		const done = await tasks.completePresentation({ runId: pres.id, pptxPath });
+		assert.equal(done.status, "under-review");
+		await assert.rejects(() => tasks.presentationDownload(report.id), /awaiting human review/);
+		const approvedPpt = await tasks.reviewPresentation({ runId: pres.id, decision: "approved" });
+		assert.equal(approvedPpt.review.artifactSha256, approvedPpt.artifactSha256);
 		const ppt = await tasks.presentationDownload(report.id);
 		assert.equal(ppt.fileName, `${pres.id}.pptx`);
 		assert.match(ppt.mime, /presentationml\.presentation/);
@@ -332,6 +352,99 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		const emptySearch = await tasks.searchLiterature({ projectId: "proj-panel", query: "empty probe", limit: 1 });
 		tasks.executor.search = originalSearch;
 		await assert.rejects(async () => tasks.searchRunRis(emptySearch.id), /no results/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("createPresentation accepts a staged report before human review and records advisory skipAudit", async () => {
+	const { handle, dir, fxDir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		stubNetwork(tasks.executor);
+
+		await tasks.createProject({
+			id: "proj-skip",
+			name: "跳过审计登记链",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		const bundle = await tasks.preparePaper({ projectId: "proj-skip", sourceMapPath: join(fxDir, "min-source-map.json") });
+		const report = await tasks.createReadingReport({
+			projectId: "proj-skip",
+			bundleId: bundle.id,
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1"
+		});
+		await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
+
+		// 报告暂存后即可继续制作 PPT；报告和 PPT 分别在预览页人工审核。
+		const run = await tasks.createPresentation({
+			projectId: "proj-skip",
+			reportId: report.id,
+			templateId: "nature-default",
+			templateVersion: "1",
+			skipAudit: true
+		});
+		assert.equal(run.status, "pending");
+		assert.equal(run.auditSkipped, true);
+		assert.equal(tasks.getReadingReport(report.id).status, "under-review");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("one session aggregates multiple literature queries into one entry and one RIS", async () => {
+	const { handle, dir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-session-search",
+			name: "会话检索聚合",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		tasks.executor.search = async (query) => query.includes("sensor") ? [
+			{ id: "https://openalex.org/W123456789", title: "Injectable ultrasonic sensor", doi: "10.1000/sensor", authors: ["A Author"], year: 2024, journal: "Nature", volume: "630", pages: "84-90", isOa: true, sources: ["openalex"] }
+		] : [
+			{ title: "Polymer delivery review", doi: "10.1000/review", authors: ["B Author"], year: 2023, journal: "Biomaterials", volume: "301", pages: "1-12", abstract: "A systematic review", isOa: true, sources: ["crossref"] }
+		];
+		const first = await tasks.searchLiterature({ projectId: "proj-session-search", sessionId: "session-literature-1", title: "植入式传感器研究", query: "injectable sensor" });
+		const second = await tasks.searchLiterature({ projectId: "proj-session-search", sessionId: "session-literature-1", title: "植入式传感与递送材料研究", query: "polymer delivery" });
+		assert.equal(second.id, first.id);
+		assert.equal(tasks.listSearchRuns("proj-session-search").length, 1);
+		assert.equal(second.results.length, 2);
+		assert.deepEqual(second.queries, ["injectable sensor", "polymer delivery"]);
+		assert.equal(second.title, "植入式传感与递送材料研究");
+		assert.ok(second.results.every((paper) => paper.shortDescriptionZh === "摘要待提炼"));
+		const summarized = await tasks.updateSearchSummaries({ runId: first.id, summaries: [
+			{ paperId: "https://openalex.org/W123456789", summaryZh: "可注射超声监测" },
+			{ paperId: "https://doi.org/10.1000/review", summary: "归纳聚合物递送" },
+			{ paperId: "10.1000/invalid", summaryZh: "传感器件" }
+		] });
+		assert.equal(summarized.updated, 2);
+		assert.equal(summarized.rejected.length, 1);
+		assert.deepEqual(summarized.unmatched, []);
+		assert.deepEqual(new Set(summarized.run.results.map((paper) => paper.shortDescriptionZh)), new Set(["可注射超声监测", "归纳聚合物递送"]));
+		const aliasRetry = await tasks.updateSearchSummaries({ runId: first.id, summaries: [
+			{ paperId: "openalex:W123456789", summaryZh: "实现无线超声监测" },
+			{ paperId: "missing-paper-id", summaryZh: "验证死亡风险关联" }
+		] });
+		assert.equal(aliasRetry.updated, 1);
+		assert.deepEqual(aliasRetry.unmatched, ["missing-paper-id"]);
+		assert.deepEqual(new Set(aliasRetry.availablePaperIds), new Set(["10.1000/sensor", "10.1000/review"]));
+		const ris = tasks.searchRunRis(first.id);
+		assert.equal(ris.count, 2);
+		assert.equal((ris.text.match(/^TY  - /gm) || []).length, 2);
+		assert.match(ris.text, /VL  - 630/);
+		assert.match(ris.text, /SP  - 84/);
+		assert.match(ris.text, /EP  - 90/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

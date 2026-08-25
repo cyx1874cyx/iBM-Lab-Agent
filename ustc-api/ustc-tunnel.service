@@ -1,0 +1,40 @@
+# ============================================================
+# 校外电脑侧：USTC LLM API SSH 隧道常驻服务（systemd）
+#
+# vlab.ustc.edu.cn 登录需要交互输入学号+密码（keyboard-interactive），
+# systemd 里无法输入，因此由 ustc-tunnel.sh（expect 自动应答）代为登录，
+# 再建立本地 4000 -> 虚拟机 4000 的隧道。
+#
+# 前置：
+#   1. 安装 expect:  sudo apt install -y expect
+#   2. 创建凭据:      ~/.vlab-credentials（第一行学号，第二行密码，chmod 600）
+#   3. 本文件放到:    /etc/systemd/system/ustc-tunnel.service
+#
+# 安装：
+#   sudo cp ustc-tunnel.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ustc-tunnel
+#   systemctl status ustc-tunnel
+#
+# 说明：
+#   * -L 127.0.0.1:4000:localhost:4000 只在本机回环口监听，局域网不暴露。
+#   * UpdateHostKeys=no 必需：vlab 网关未实现新版 OpenSSH 的
+#     hostkeys@openssh.com 机制，不加会报 "server gave bad signature" 错误。
+#   * 断线后 expect 退出，由 Restart=always 拉起；RestartSec=2 让掉线后
+#     尽快恢复（掉线窗口越短，HSKP 报 "卡" 越少）。
+# ============================================================
+[Unit]
+Description=USTC LLM API SSH tunnel (127.0.0.1:4000 -> campus VM:4000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 必须是配置了 ~/.vlab-credentials 和 SSH 密钥的那个本地用户
+User=kevindeng
+ExecStart=/home/kevindeng/myAgent/ustc-api/ustc-tunnel.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

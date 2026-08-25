@@ -35,9 +35,24 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.match(source, /提交新版本/);
 	assert.match(source, /开始科研 Agent 对话/);
 	assert.match(source, /文献资料/);
+	assert.match(source, /每个会话汇总为一个检索条目和一个 RIS/);
+	assert.match(source, /shortDescriptionZh/);
+	assert.match(source, /ib-search-results/);
+	assert.match(source, /收起数据库状态/);
+	assert.match(source, /aria-expanded/);
 	assert.match(source, /研究设计/);
 	assert.match(source, /表征分析/);
 	assert.match(source, /ctx\.conversation\.input\.for\(actx\)\.setDraft\(prompt\)/);
+});
+
+test("literature summary tools expose public identifiers and diagnostics", async () => {
+	const source = await readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8");
+	assert.match(source, /lab_tasks_get_search_summary_inputs/);
+	assert.match(source, /runId:/);
+	assert.match(source, /待提炼论文（paperId 可直接使用）/);
+	assert.match(source, /OpenAlex URL\/W 号/);
+	assert.match(source, /unmatched/);
+	assert.match(source, /有效项会立即保存/);
 });
 
 test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
@@ -56,10 +71,44 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /projects_by_workspace/);
 	assert.match(source, /projects_by_cwd/);
 	assert.match(source, /useSessions\(\(s\) => s\.byId\[sessionId\]\?\.cwd\)/);
-	// 对话界面定制：会话头部课题徽章 + 输入框上方记忆提示条
+	// 对话界面定制：会话头部保留紧凑课题徽章，不再重复显示输入框横幅
 	assert.match(source, /conversation\.session\.header\.utilities/);
-	assert.match(source, /conversation\.input\.dock/);
+	assert.doesNotMatch(source, /conversation\.input\.dock/);
 	assert.match(source, /课题背景/);
+	// 深度科研对话皮肤仍只在绑定课题的会话启用
+	assert.match(source, /ib-research-chat/);
+	assert.doesNotMatch(source, /ib-context-flow/);
+	// Harness 的输入框由 backdrop 绘制可见文字；textarea 必须保持透明，
+	// 否则定制色会让原生文字和 backdrop 同时出现，形成重影。
+	assert.match(source, /textarea\{color:transparent;font-size:inherit;caret-color:var\(--ib-chat-ink\)\}/);
+	assert.doesNotMatch(source, /className: "ib-context"/);
+	assert.match(source, /人工审阅/);
+	assert.match(source, /const parseJournalCitation/);
+	assert.match(source, /shortNode\(report\)/);
+	assert.match(source, /tasks_review_details/);
+	assert.match(source, /自查提醒/);
+	// 产物工作流：条目只保留概览/报告/PPT；右侧真实 Office 分页预览统一承载
+	// 自查、二次确认、人审与下载，报告和 PPT 不能出现功能差异。
+	assert.match(source, /ib-preview-drawer/);
+	assert.match(source, /preview=1&kind=/);
+	assert.match(source, /实际 DOCX 经 LibreOffice 渲染的分页预览/);
+	assert.match(source, /实际 PPTX 经 LibreOffice 渲染的分页预览/);
+	assert.match(source, /打开报告预览、审核与下载/);
+	assert.match(source, /打开 PPT 预览、审核与下载/);
+	assert.match(source, /disabled: !presentation\?\.pptxPath/);
+	assert.doesNotMatch(source, /"预览报告"/);
+	assert.doesNotMatch(source, /"预览PPT"/);
+	assert.match(source, /审核通过前请确认自查提醒/);
+	assert.match(source, /二次确认并通过/);
+	assert.match(source, /approval\.stage === "approved"/);
+	assert.match(source, /审核通过/);
+	assert.match(source, /disabled: !previewApproved/);
+	assert.match(source, /preview\.kind === "ppt" \? "下载PPT" : "下载DOCX"/);
+	assert.match(source, /SELF_CHECK_UNAVAILABLE/);
+	assert.match(source, /检索/);
+	assert.match(source, /原文/);
+	assert.match(source, /精读/);
+	assert.match(source, /PPT/);
 	// 需要 connection（wire api）来选择预设
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
 	// 品牌覆盖：左上角 iBM Agent（烧瓶 + based on DSH，隐藏原生 wordmark/鲸鱼）

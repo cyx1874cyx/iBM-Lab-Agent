@@ -22,6 +22,8 @@ import { cp, mkdir, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
 	resolveDshHome,
 	layoutSummary,
@@ -34,6 +36,18 @@ import { readVendorLock, writeVendorLock } from "../src/lockfile.js";
 import { bootLite } from "../tests/helpers/boot-lite.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const execFileAsync = promisify(execFile);
+
+/** Office 真实分页预览是产品硬依赖；安装时缺失即失败，不启用近似预览。 */
+async function assertOfficePreviewRuntime() {
+	const renderer = process.env.LAB_OFFICE_RENDERER || "soffice";
+	try {
+		const { stdout } = await execFileAsync(renderer, ["--headless", "--version"], { timeout: 15000, windowsHide: true });
+		console.log(`Office preview renderer ready: ${(stdout || renderer).trim()}`);
+	} catch (error) {
+		throw new Error(`Office preview runtime is required but unavailable (${renderer}). Package the dependencies listed in runtime/apt-packages.txt before installing. ${error.message}`);
+	}
+}
 
 function parseArgs(argv) {
 	const flags = new Set();
@@ -141,6 +155,7 @@ async function bootstrapPython() {
 
 async function main() {
 	console.log(`dsh-lab-agent install -> DSH_HOME=${dsh}`);
+	await assertOfficePreviewRuntime();
 	const lock = await readVendorLock(join(repoRoot, "vendor.lock.json"));
 	await verifyRepoVendor(lock);
 

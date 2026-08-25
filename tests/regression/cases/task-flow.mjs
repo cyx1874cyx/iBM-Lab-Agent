@@ -1,9 +1,9 @@
 /**
- * Regression case: literature→PPT task flow (§五) with real audit gates.
+ * Regression case: literature→PPT staged-artifact flow with advisory self-checks.
  *
  * 覆盖 §八 领域验证的一部分 + §五 流程：项目创建（目标/模板快照）→ 论文准备
  * （真实 prepare_paper.py）→ 精读报告（fixture）→ 真实 audit_paper_card.py
- * 门禁 → PPT 生成 → 真实 audit_pptx_quality.py 门禁 → ArtifactProvenance。
+ * 人工审核 → PPT 生成 → 真实 audit_pptx_quality.py 提醒 → ArtifactProvenance。
  * 检索的网络路径以 stub 代替（OpenAlex 依赖外网）。
  */
 
@@ -21,7 +21,7 @@ const fixtures = join(repoRoot, "tests", "fixtures");
 
 export default {
 	name: "task-flow",
-	description: "search→prepare→report→audit gate→presentation→qa gate + provenance",
+	description: "search→prepare→staged report→human review→staged PPT→human review + provenance",
 	tags: ["tasks"],
 	required: [],
 	async run() {
@@ -35,8 +35,9 @@ export default {
 			includePython: false,
 			extraRows: [
 				{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
+				{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 				{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
-				{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
+				{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
 			]
 		});
 		try {
@@ -75,17 +76,19 @@ export default {
 			});
 			if (report.paperCardRequirements.paperCardContract.sections !== PAPER_CARD_SECTION_CONTRACT) problems.push("01-16 contract lost");
 
-			await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
-			const audited = await tasks.validateReadingReport({ reportId: report.id });
+			const audited = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
 			if (!audited.audit.ok) problems.push(`audit failed: ${audited.audit.summary}`);
+			const reviewedReport = await tasks.reviewReadingReport({ reportId: report.id, decision: "approved" });
+			if (reviewedReport.status !== "succeeded") problems.push("human report review did not complete");
 
 			const pres = await tasks.createPresentation({ projectId: "reg-proj", reportId: report.id, templateId: "nature-default", templateVersion: "1" });
 			const { buffer } = await buildPptx({ name: "reg", slides: 2 });
 			const pptxPath = join(dir, "reg.pptx");
 			await writeFile(pptxPath, buffer);
-			await tasks.completePresentation({ runId: pres.id, pptxPath });
-			const qa = await tasks.validatePresentation({ runId: pres.id });
+			const qa = await tasks.completePresentation({ runId: pres.id, pptxPath });
 			if (!qa.qa.ok || qa.qa.high > 0) problems.push(`qa failed: high=${qa.qa.high}`);
+			const reviewedPpt = await tasks.reviewPresentation({ runId: pres.id, decision: "approved" });
+			if (reviewedPpt.status !== "succeeded") problems.push("human PPT review did not complete");
 
 			const provenance = tasks.listProvenance("reg-proj");
 			const kinds = new Set(provenance.map((p) => p.kind));
@@ -95,7 +98,7 @@ export default {
 			}
 			if (!provenance.every((p) => p.inputsSha256.length === 64)) problems.push("provenance hash missing");
 
-			return { pass: problems.length === 0, details: problems.length === 0 ? "full flow ok with real audit gates" : problems.join("; ") };
+			return { pass: problems.length === 0, details: problems.length === 0 ? "staged Office artifacts + advisory checks + human review flow ok" : problems.join("; ") };
 		} finally {
 			await handle.dispose();
 			await rm(dir, { recursive: true, force: true });

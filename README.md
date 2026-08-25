@@ -13,6 +13,8 @@
 # 0) 依赖：node >= 20、python3（或 Windows 上的 py -3）；部署到 profile 需要 pnpm
 #    Ubuntu/Debian 若 venv 创建失败（ensurepip 不可用）：先装 python3-venv
 #    sudo apt install python3-venv
+#    构建产品镜像时必须安装 Office 分页预览运行时（不提供文本预览降级）
+sudo runtime/install-ubuntu.sh
 # 1) 建立指向当前 Harness 安装的开发链接（测试/脚本用）
 node scripts/dev-link.mjs
 
@@ -202,8 +204,8 @@ standard 等其他模式看不到 lab 工具，避免误调用。
   契约永远保留；任务引用版本快照，删除后历史仍可读。
 - **PPT 模板系统**（`ctx.labTemplates` / `PptTemplateProfile`）：PPTX 导入
   （`src/pptx-parse.js` 解析页面比例/主题色/字体/母版/布局/占位符）→ 11 个
-  版式角色自动映射建议 → 预览/填充示例 → 用户确认 → 验证发布；无效映射在
-  生成前明确拒绝，不静默替换为 `nature-default` 默认模板。
+  版式角色自动映射建议 → 预览/填充示例 → 用户确认；模板与映射只作格式参考，
+  兼容性检查显示提醒但不作为文献产物生成/审核门禁。
 - 依赖：`jszip` / `fast-xml-parser`（纯 JS，跨平台，无需 Python）。
 
 ## 阶段三交付内容
@@ -214,8 +216,9 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 - **执行层**（`src/skill-executor.js`）：直接调用 nature-skills 的 stdlib 脚本
   （OpenAlex 检索、引用导出、源包准备、精读审计、PPTX 质量审计）——系统
   python3 即可运行，无需 venv。
-- **审计门禁**（§五 步骤 6/10）：`audit_paper_card.py` errors>0 阻止进入 PPT 阶段；
-  `audit_pptx_quality.py` 高严重度未清零标记失败（修复后重审）。
+- **暂存—预览—人工审核—下载**：实际 DOCX/PPTX 自动进入课题文献条目，
+  LibreOffice 将原文件渲染为右侧 PDF 分页预览；自动自查只作提醒。人工审核
+  记录绑定源文件 SHA-256，只有审核通过且哈希未变化时才开放原文件下载。
 - **持久化**（`lab_tasks` domain）：LabProject / LiteratureSearchRun /
   PaperSourceBundle / ReadingReport / PresentationRun / ArtifactProvenance
   （输入哈希 + skill 版本 + 模型 + 时间，每条产物可追溯）。

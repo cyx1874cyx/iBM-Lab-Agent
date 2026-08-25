@@ -189,19 +189,22 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   | OpenAlex 检索 | `nature-academic-search/scripts/academic_search.py` |
   | 引用导出 ris/bib/enw | `.../format-converter.py` |
   | 源包准备 | `nature-paper-card/scripts/prepare_paper.py`（source_map JSON 或 PDF†） |
-  | 精读审计（门禁） | `.../audit_paper_card.py`（exit 0/1，errors 阻止流转） |
-  | PPTX 质量审计（门禁） | `nature-paper2ppt/scripts/audit_pptx_quality.py`（--fail-on high） |
+  | 精读自查（提示） | `.../audit_paper_card.py`（结果展示给人工，不阻断） |
+  | PPTX 质量自查（提示） | `nature-paper2ppt/scripts/audit_pptx_quality.py`（高风险项仍可人工审核） |
 
   † PDF 输入需 venv 安装 PyMuPDF；source_map JSON（nature-reader 产物）仅 stdlib。
-- **LLM 步骤**（精读报告、PPT 内容）：agent 在会话中执行对应 skill，产物通过
-  `completeReadingReport` / `completePresentation` 登记，再走审计门禁。
+- **LLM 步骤**（精读报告、PPT 内容）：agent 在会话中执行对应 skill；产物通过
+  `completeReadingReport` / `completePresentation` 登记后，实际 DOCX/PPTX 立即
+  暂存到课题文献条目。机器自查同步给出提醒，但不决定能否人工审核。
 - **持久化**（`lab_tasks` domain，6 表）：LabProject（目标/模板版本快照）、
   LiteratureSearchRun、PaperSourceBundle、ReadingReport、PresentationRun、
   ArtifactProvenance（输入哈希 / skill 版本 / 模型 / 时间）。
 - **接口**（§六）：`searchLiterature` `preparePaper` `createReadingReport`
   `validateReadingReport` `createPresentation` `validatePresentation` + 完成/查询。
-- **门禁**：报告审计 errors>0 → `createPresentation` 明确拒绝；PPTX QA 高严重度
-  未清零 → `validatePresentation` 失败，修复后重审。
+- **人工审核与下载门禁**：条目右侧抽屉通过打包环境中的 LibreOffice 把实际
+  DOCX/PPTX 渲染成 PDF 分页预览（无文本/近似降级）。审核记录绑定源文件
+  SHA-256；只有当前哈希已人工通过时，条目才开放原 DOCX/PPTX 下载。报告待审
+  时仍可继续制作 PPT，两份产物分别审核。
 
 ## 8. 阶段四：化学性质与实验计划（§四）
 
