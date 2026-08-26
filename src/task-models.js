@@ -154,8 +154,14 @@ export const paperSourceBundleSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
 	title: z.string().default(""),
+	/** 论文 DOI（规范化形式）：把 PDF/SI 原文与检索条目关联，面板条目按钮据此点亮。 */
+	doi: z.string().optional(),
+	journal: z.string().optional(),
 	pdfPath: z.string().min(1),
 	pdfSha256: z.string().min(1),
+	/** SI（Supplementary Information）原文文件路径与哈希；登记 bundle 时可一并提交。 */
+	siPath: z.string().optional(),
+	siSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	paperMdPath: z.string().optional(),
 	sourceMapPath: z.string().optional(),
 	translationNotesPath: z.string().optional(),
