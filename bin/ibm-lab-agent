@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+umask 077
+
+script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+repo_root="$(cd "$(dirname "$script_path")/.." && pwd)"
+default_data_root="${XDG_DATA_HOME:-$HOME/.local/share}/ibm-lab-agent"
+installed_data_root="$(cd "$repo_root/../.." 2>/dev/null && pwd || true)"
+if [[ -x "$installed_data_root/runtime/node/bin/node" ]]; then
+	default_data_root="$installed_data_root"
+fi
+data_root="${IBM_LAB_AGENT_DATA_DIR:-$default_data_root}"
+runtime_root="${IBM_LAB_AGENT_RUNTIME_DIR:-$data_root/runtime}"
+state_root="${IBM_LAB_AGENT_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/ibm-lab-agent}"
+default_dsh_home="$HOME/.dsh"
+if [[ -r "$runtime_root/dsh-home" ]]; then
+	IFS= read -r configured_dsh_home < "$runtime_root/dsh-home" || true
+	[[ -n "${configured_dsh_home:-}" ]] && default_dsh_home="$configured_dsh_home"
+fi
+dsh_home="${DSH_HOME:-$default_dsh_home}"
+port="${IBM_LAB_AGENT_PORT:-3080}"
+workspace="${IBM_LAB_AGENT_WORKSPACE:-$HOME}"
+
+export DSH_HOME="$dsh_home"
+export UV_PYTHON_INSTALL_DIR="$runtime_root/python"
+export UV_PYTHON_BIN_DIR="$runtime_root/python-bin"
+export PATH="$runtime_root/node/bin:$runtime_root/launcher/node_modules/.bin:$runtime_root/python-bin:$PATH"
+
+node_bin="$runtime_root/node/bin/node"
+dsh_bin="$runtime_root/launcher/node_modules/.bin/dsh"
+python_bin="$dsh_home/lab-agent/.venv/bin/python"
+pid_file="$state_root/dsh-web.pid"
+log_file="$state_root/dsh-web.log"
+
+die() {
+	echo "错误：$*" >&2
+	exit 1
+}
+
+require_runtime() {
+	[[ -x "$node_bin" ]] || die "Node 运行时不存在；请重新执行一行安装命令。"
+	[[ -x "$dsh_bin" ]] || die "DSH 运行时不存在；请重新执行一行安装命令。"
+}
+
+running_pid() {
+	[[ -f "$pid_file" ]] || return 1
+	local pid
+	pid="$(tr -dc '0-9' < "$pid_file")"
+	[[ -n "$pid" ]] || return 1
+	kill -0 "$pid" 2>/dev/null || return 1
+	printf '%s\n' "$pid"
+}
+
+wait_until_ready() {
+	local pid="$1"
+	for _ in $(seq 1 60); do
+		if ! kill -0 "$pid" 2>/dev/null; then
+			echo "DSH 启动失败，最近日志：" >&2
+			tail -n 80 "$log_file" >&2 || true
+			return 1
+		fi
+		if curl --silent --fail --max-time 2 "http://127.0.0.1:$port/" >/dev/null 2>&1; then
+			return 0
+		fi
+		sleep 1
+	done
+	echo "DSH 进程仍在运行，但 60 秒内未通过 HTTP 就绪检查。日志：$log_file" >&2
+	return 1
+}
+
+start_server() {
+	require_runtime
+	mkdir -p "$state_root" "$workspace"
+	local existing
+	if existing="$(running_pid)"; then
+		echo "iBM Agent 已在运行（PID $existing）：http://127.0.0.1:$port"
+		return 0
+	fi
+	: > "$log_file"
+	(
+		cd "$workspace"
+		nohup "$dsh_bin" web --no-open --port "$port" "$@" >>"$log_file" 2>&1 < /dev/null &
+		echo "$!" > "$pid_file"
+	)
+	local pid
+	pid="$(tr -dc '0-9' < "$pid_file")"
+	wait_until_ready "$pid"
+	echo "iBM Agent 已启动（PID $pid）：http://127.0.0.1:$port"
+	echo "日志：$log_file"
+}
+
+stop_server() {
+	local pid
+	if ! pid="$(running_pid)"; then
+		rm -f "$pid_file"
+		echo "iBM Agent 当前未运行。"
+		return 0
+	fi
+	kill -TERM "$pid"
+	for _ in $(seq 1 20); do
+		kill -0 "$pid" 2>/dev/null || {
+			rm -f "$pid_file"
+			echo "iBM Agent 已停止。"
+			return 0
+		}
+		sleep 1
+	done
+	die "进程 $pid 未在 20 秒内退出；请查看 $log_file"
+}
+
+show_status() {
+	local pid
+	if pid="$(running_pid)"; then
+		if curl --silent --fail --max-time 2 "http://127.0.0.1:$port/" >/dev/null 2>&1; then
+			echo "运行中（PID $pid，HTTP 正常）：http://127.0.0.1:$port"
+		else
+			echo "启动中或异常（PID $pid，HTTP 未就绪）。日志：$log_file"
+			exit 1
+		fi
+	else
+		echo "未运行。"
+		exit 1
+	fi
+}
+
+run_doctor() {
+	require_runtime
+	echo "iBM Lab Agent  $(node -p "require('$repo_root/package.json').version")"
+	echo "DSH            $($dsh_bin --version)"
+	echo "Node.js        $($node_bin --version)"
+	if [[ -x "$python_bin" ]]; then
+		echo "Python         $($python_bin --version)"
+		"$node_bin" "$repo_root/scripts/lab-doctor.mjs" --python "$python_bin"
+	else
+		die "科研 Python 环境不存在：$python_bin"
+	fi
+}
+
+command_name="${1:-start}"
+if [[ $# -gt 0 ]]; then shift; fi
+
+case "$command_name" in
+	start) start_server "$@" ;;
+	foreground)
+		require_runtime
+		mkdir -p "$workspace"
+		cd "$workspace"
+		exec "$dsh_bin" web --no-open --port "$port" "$@"
+		;;
+	stop) stop_server ;;
+	restart) stop_server; start_server "$@" ;;
+	status) show_status ;;
+	logs)
+		mkdir -p "$state_root"
+		touch "$log_file"
+		tail -n 120 "$@" "$log_file"
+		;;
+	doctor) run_doctor ;;
+	dsh)
+		require_runtime
+		exec "$dsh_bin" "$@"
+		;;
+	version|--version|-v)
+		require_runtime
+		printf 'iBM Lab Agent %s\n' "$(node -p "require('$repo_root/package.json').version")"
+		"$dsh_bin" --version
+		;;
+	*)
+		cat >&2 <<'USAGE'
+用法：ibm-lab-agent <命令>
+
+  start        后台启动 Web 界面（默认命令）
+  foreground   前台启动，适合 systemd/Docker
+  stop         停止后台服务
+  restart      重启后台服务
+  status       查看进程和 HTTP 状态
+  logs [-f]    查看日志
+  doctor       检查 DSH、Node、Python 与科研依赖
+  dsh ...      直接调用发行版内固定的 dsh
+  version      显示版本
+USAGE
+		exit 2
+		;;
+esac

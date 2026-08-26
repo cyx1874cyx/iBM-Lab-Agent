@@ -17,9 +17,14 @@ export function findHarnessNodeModules(env = process.env) {
 	}
 	const bin = spawnSync("which", ["dsh"], { encoding: "utf8", env });
 	if (bin.status === 0 && bin.stdout.trim()) {
+		// pnpm writes an executable wrapper (not a symlink) at
+		// <node_modules>/.bin/dsh. Resolve its adjacent package tree first.
+		const binPath = bin.stdout.trim();
+		const adjacent = resolve(dirname(binPath), "..");
+		if (existsSync(join(adjacent, "@deepseek-ai", "dsh"))) return adjacent;
 		// npx:   .../node_modules/.bin/dsh → .../node_modules
 		// global: ~/.local/bin/dsh → ~/.local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js
-		const realBin = realpathSync(bin.stdout.trim());
+		const realBin = realpathSync(binPath);
 		const dshPackage = resolve(dirname(realBin), "..");
 		const candidate = resolve(dshPackage, "..", "..");
 		if (existsSync(join(candidate, "@deepseek-ai", "dsh"))) return candidate;

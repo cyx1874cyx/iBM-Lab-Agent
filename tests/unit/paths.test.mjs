@@ -19,11 +19,11 @@ test("resolveDshHome honors DSH_HOME and falls back to ~/.dsh", () => {
 
 test("layout paths hang off the lab-agent root", () => {
 	const dsh = "/x";
-	assert.equal(natureSkillsDir(dsh), "/x/lab-agent/vendor/nature-skills");
-	assert.equal(natureSkillsRoot(dsh), "/x/lab-agent/vendor/nature-skills/skills");
-	assert.equal(vendorLockPath(dsh), "/x/lab-agent/vendor.lock.json");
-	assert.equal(requirementsLockPath(dsh), "/x/lab-agent/requirements.lock");
-	assert.equal(venvDir(dsh), "/x/lab-agent/.venv");
+	assert.equal(natureSkillsDir(dsh), join(dsh, "lab-agent", "vendor", "nature-skills"));
+	assert.equal(natureSkillsRoot(dsh), join(dsh, "lab-agent", "vendor", "nature-skills", "skills"));
+	assert.equal(vendorLockPath(dsh), join(dsh, "lab-agent", "vendor.lock.json"));
+	assert.equal(requirementsLockPath(dsh), join(dsh, "lab-agent", "requirements.lock"));
+	assert.equal(venvDir(dsh), join(dsh, "lab-agent", ".venv"));
 });
 
 test("venvPython resolves the platform interpreter inside the venv", () => {

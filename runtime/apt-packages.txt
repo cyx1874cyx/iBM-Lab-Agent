@@ -1,7 +1,14 @@
-# Runtime packages baked into the Ubuntu/WSL product image.
+# Ubuntu/Debian runtime packages installed by install.sh.
 # Office preview is intentionally hard-required: no text-only fallback.
+ca-certificates
+curl
+git
+xz-utils
 libreoffice-core
 libreoffice-writer
 libreoffice-impress
+poppler-utils
+ghostscript
+fontconfig
 fonts-noto-cjk
 fonts-liberation

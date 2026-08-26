@@ -18,6 +18,13 @@ test("bundle patch keeps one bare client carrier and the version registry", () =
 	assert.equal(registry?.name, "dsh-lab-agent/version-registry");
 });
 
+test("bundle patch is portable and contains no developer-machine browser paths", async () => {
+	const patch = await readFile(patchPath, "utf8");
+	assert.doesNotMatch(patch, /\/mnt\/c\/Program Files/);
+	assert.doesNotMatch(patch, /C:\\Users\\/);
+	assert.doesNotMatch(patch, /windowsCdpBridge:\s*true/);
+});
+
 test("document conversion tool is scoped to the research preset", async () => {
 	const [patch, preset] = await Promise.all([readFile(patchPath, "utf8"), readFile(presetPath, "utf8")]);
 	assert.doesNotMatch(patch, /toolOrder:\s*[\s\S]*lab_convert_document/);

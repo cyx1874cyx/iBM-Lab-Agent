@@ -1,0 +1,7 @@
+# Linux product extras installed into $DSH_HOME/lab-agent/.venv after the
+# base nature-skills requirements.lock. Top-level versions are pinned; pip's
+# installation report is retained under $DSH_HOME/lab-agent for auditing.
+markitdown[all]==0.1.7
+PyMuPDF==1.28.2
+python-pptx==1.0.2
+rdkit==2026.3.5

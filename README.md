@@ -7,38 +7,54 @@
 
 首期面向：**聚前药与高分子材料设计**。
 
-## 快速开始
+## Linux 一行安装并启动
+
+支持 Ubuntu/Debian 的 x86_64 与 arm64。下面一条命令会安装原生渲染依赖，
+在用户目录内建立隔离的 Node.js、DSH、pnpm 与 Python 3.12 环境，安装本插件，
+完成配置自检，并在 `127.0.0.1:3080` 启动 Web 界面：
 
 ```bash
-# 0) 依赖：node >= 20、python3（或 Windows 上的 py -3）；部署到 profile 需要 pnpm
-#    Ubuntu/Debian 若 venv 创建失败（ensurepip 不可用）：先装 python3-venv
-#    sudo apt install python3-venv
-#    构建产品镜像时必须安装 Office 分页预览运行时（不提供文本预览降级）
-sudo runtime/install-ubuntu.sh
-# 1) 建立指向当前 Harness 安装的开发链接（测试/脚本用）
+curl -fsSL https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/install.sh | bash -s -- --start
+```
+
+安装系统包时会正常请求 `sudo`；Node、DSH、pnpm、Python 及 Python 包都装在
+`~/.local/share/ibm-lab-agent/` 与 `~/.dsh/`，不会修改系统 Python。安装后常用命令：
+
+```bash
+ibm-lab-agent status       # 服务与 HTTP 状态
+ibm-lab-agent logs -f      # 跟踪启动日志
+ibm-lab-agent doctor       # 完整环境自检
+ibm-lab-agent restart      # 重启
+ibm-lab-agent stop         # 停止
+ibm-lab-agent dsh --help   # 直接调用发行版内固定的 DSH
+```
+
+默认锁定 Node.js 24.16.0、DSH 0.1.1-rc.2、pnpm 10.34.5、Python 3.12.11，
+同时安装 MarkItDown、PyMuPDF、python-pptx 与 RDKit。完整版本与校验值见
+[`runtime/versions.env`](runtime/versions.env)，系统包清单见
+[`runtime/apt-packages.txt`](runtime/apt-packages.txt)。模型密钥不属于发行包；
+首次打开页面后请在 DSH 设置中填写自己的模型服务配置。
+
+安装器是幂等的；再次执行会装入一个新版本目录，验证成功后再切换 `current`
+软链接。常用可选参数：`--ref <tag>`、`--dsh-home <path>`、
+`--skip-system-deps`、`--no-python-extras`、`--no-dsh-patch`、
+`--keep-default-preset`。查看全部参数：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/install.sh | bash -s -- --help
+```
+
+## 源码开发与手动部署
+
+```bash
+# 依赖：Node.js >= 20、Python 3.10–3.12、pnpm、LibreOffice
+sudo bash runtime/install-ubuntu.sh
+npm ci --omit=peer --legacy-peer-deps
 node scripts/dev-link.mjs
-
-# 2) 固定 nature-skills commit 并生成 vendor.lock.json（需网络，仅升级时重复）
-node scripts/pin-vendor.mjs --latest          # 或用 --sha <40-hex>
-
-# 3) 安装到部署目录（物化 vendor 树、preset、registry、venv）
-node scripts/install.mjs                      # --skip-python 跳过 venv
-
-# 3.5) （可选，文档转换）安装 markitdown[all]：PDF/Office/图片 → Markdown
-node scripts/install-markitdown.mjs           # 网络慢可加 --index-url <镜像>
-
-# 3.6) （可选，文献 PPT 配图）安装 PyMuPDF：PDF 页面渲染/裁剪
-#      自动处理 PEP 668（--user --break-system-packages，装到 ~/.local）
-node scripts/install-pymupdf.mjs
-
-# 3.7) 环境自检：一次性输出 Python/pip 策略/关键包/渲染器/venv 状态
-node scripts/lab-doctor.mjs                   # --json 输出机器可读结果
-
-# 4) 回归
-node scripts/regression/run.mjs
-
-# 5) 挂进 web profile 并重启（一次性的部署步骤，需 pnpm，且会重启 GUI）
-dsh plugin --profile web add <本仓库绝对路径>
+node scripts/install.mjs --strict
+node scripts/lab-doctor.mjs
+npm run test:all
+dsh plugin --profile web add "$PWD"
 dsh web
 ```
 

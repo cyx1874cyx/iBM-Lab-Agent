@@ -11,7 +11,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
@@ -82,11 +82,33 @@ export async function bootstrap({ venvDir, lockFile, platform = process.platform
 			"(nature-skills CI environment). Some wheels may not exist for this version — expect possible build failures.");
 	}
 
-	if (!state.venvExists) {
+	const recreate = !state.venvExists || !(await pythonIsUsable(state.python, platform));
+	if (recreate) {
+		if (existsSync(venvDir)) {
+			await rm(venvDir, { recursive: true, force: true });
+			console.warn(`removed incomplete python venv: ${venvDir}`);
+		}
 		await runCommand([...py, "-m", "venv", venvDir], {});
 	}
 	await runCommand([venvPythonPath(venvDir, platform), "-m", "pip", "install", "--disable-pip-version-check", "-r", lockFile], {});
 	return await preflight({ venvDir, lockFile, platform });
+}
+
+/** A version-only probe can succeed even when a venv has a broken stdlib path. */
+async function pythonIsUsable(python, platform) {
+	try {
+		const child = spawn(python, ["-I", "-c", "import encodings, sys; assert sys.prefix"], {
+			stdio: "ignore",
+			shell: platform === "win32"
+		});
+		await new Promise((resolve, reject) => {
+			child.on("error", reject);
+			child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error("python stdlib probe failed"))));
+		});
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** Run a python command and return its version line ('' when unavailable). */

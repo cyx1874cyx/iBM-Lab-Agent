@@ -11,10 +11,15 @@ __pycache__/
 .npm-cache/
 .tmp-*.json
 .pnpm-global/
+dist/
+.dsh-filess/
+session-*.jsonl
+*.ibm-lab-agent.bak
 
 # 凭据类文件一律不跟踪（防真实 key 入库）
 **/.env
 **/*.env
+!runtime/versions.env
 **/.credentials*
 *.pem
 *key*.pem

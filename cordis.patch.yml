@@ -117,9 +117,6 @@
         downloadsDir: !!js dshHomePath('lab-agent/literature-downloads')
         institutionPortalUrl: 'https://lib.ustc.edu.cn/'
         clientManagedBrowser: true
-        browserExecutable: '/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
-        browserProfileArgument: 'C:\Users\28497\.ibm-lab-agent\literature-sessions\institutional'
-        windowsCdpBridge: true
 
     # ── Office 产物二进制下载 ─────────────────────────────────────────────
     # DOCX/PPTX 走同源 HTTP 二进制流并附带长度/SHA-256，避免大型 base64 经
