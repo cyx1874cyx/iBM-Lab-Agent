@@ -98,6 +98,10 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.equal(project.presetId, "lab-research");
 		assert.ok(project.project.workspacePath, "workspace path returned");
 		assert.match(project.project.workspacePath, /remote-project$/);
+		// 存储域返回值可能带有非 plain-object 原型；列表端点必须先清洗后过 JSON 边界。
+		const projects = await invoke(ctx, "projects_list");
+		assert.equal(projects.projects.length, 1);
+		assert.equal(projects.projects[0].id, "remote-project");
 
 		// 工作区级绑定：bind_workspace → bind_session（多会话）→ 反查三件套
 		const wsBound = await invoke(ctx, "projects_bind_workspace", { request: { projectId: "remote-project", workspaceId: "ws-r" } });

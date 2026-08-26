@@ -75,6 +75,8 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
 	assert.match(source, /projects_ensure_workspace/);
 	assert.match(source, /projects_bind_workspace/);
+	assert.match(source, /workspaceId = ws\.workspaceId/);
+	assert.doesNotMatch(source, /if \(!ws\.ok\)/);
 	assert.match(source, /projects_bind_session/);
 	assert.match(source, /projects_binding/);
 	assert.match(source, /projects_by_session/);

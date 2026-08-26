@@ -1096,9 +1096,10 @@ window.__ModuleLoader__.load({
 					workspaceId = bound.workspaceId;
 				} else {
 					// 无工作区绑定，或绑定的工作区已被删除：注册课题工作区
+					// WorkspaceRuntime.create 成功时直接返回 Workspace view，失败时抛出
+					// WorkspaceCreateError；它不是 wire 层的 { ok, value } 结果。
 					const ws = await ctx.workspaces.create({ path: project.workspacePath });
-					if (!ws.ok) throw new Error(ws.error?.message || "创建课题工作区失败");
-					workspaceId = ws.value.workspace.workspaceId;
+					workspaceId = ws.workspaceId;
 					try { await ctx.workspaces.rename(workspaceId, project.name); } catch (reason) { console.warn("dsh-lab-agent: workspace rename failed", reason); }
 					await call("projects_bind_workspace", { request: { projectId: project.id, workspaceId } });
 				}
