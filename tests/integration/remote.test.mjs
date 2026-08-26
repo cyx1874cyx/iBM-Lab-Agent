@@ -8,6 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -196,11 +197,52 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.deepEqual(docxBytes.subarray(0, 2).toString("latin1"), "PK", "docx 是 zip");
 		assert.ok(docxBytes.length > 1000, "docx 有内容");
 
+		// 彻底删除：物理移除课题目录，并级联清理任务域数据。
+		const deletedProject = await invoke(ctx, "projects_delete", { request: { projectId: "remote-project" } });
+		assert.equal(deletedProject.projectId, "remote-project");
+		assert.equal(deletedProject.deleted.projects, 1);
+		assert.equal(existsSync(project.project.workspacePath), false);
+		assert.equal((await invoke(ctx, "projects_list")).projects.length, 0);
+		assert.equal((await invoke(ctx, "projects_get", { request: { id: "remote-project" } })).project, null);
+		for (const tableName of ["projects", "memories", "sessions", "searches", "bundles", "reports", "presentations", "provenance"]) {
+			assert.equal(ctx.labTasks.table(tableName).size, 0, `${tableName} cascaded`);
+		}
+
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);
 
 		// 参数不匹配 → 报错
 		await assert.rejects(() => invoke(ctx, "goals_resolve", { req: {} }), /args fields do not match/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("project deletion refuses a workspace outside the managed projects root", async () => {
+	const { handle, dir } = await bootRemote();
+	try {
+		const ctx = handle.ctx;
+		await invoke(ctx, "projects_create", { request: { fields: {
+			id: "unsafe-project",
+			name: "越界目录测试",
+			coreMarkdown: "# 越界目录测试",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		} } });
+		const outside = join(dir, "must-survive");
+		await mkdir(outside, { recursive: true });
+		const row = ctx.labTasks.getProject("unsafe-project");
+		await ctx.labTasks.table("projects").put("unsafe-project", { ...row, workspacePath: outside });
+
+		await assert.rejects(
+			() => invoke(ctx, "projects_delete", { request: { projectId: "unsafe-project" } }),
+			/refusing to delete project workspace outside/
+		);
+		assert.equal(existsSync(outside), true);
+		assert.ok(ctx.labTasks.getProject("unsafe-project"));
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

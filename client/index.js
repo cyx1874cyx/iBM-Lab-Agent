@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
 			".ib-top{height:68px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:0 28px;border-bottom:1px solid var(--ib-line);background:rgba(6,17,15,.9);backdrop-filter:blur(18px)}",
 			".ib-brand{display:flex;align-items:center;gap:11px;min-width:230px}.ib-logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,var(--ib-green),#238e72);color:#062018;font-weight:900;box-shadow:0 9px 28px rgba(81,212,163,.18)}.ib-brand strong{font-size:14px}.ib-brand small{display:block;margin-top:2px;color:#78978c;font-size:9px;letter-spacing:.12em;text-transform:uppercase}.ib-crumb{flex:1;color:#8ea99f;font-size:11px}.ib-crumb b{color:#e8f7f1}",
 			".ib-main{max-width:1260px;margin:0 auto;padding:36px 28px 70px}.ib-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px}.ib-kicker{color:var(--ib-green);font-size:9.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.ib-head h1{font-size:30px;line-height:1.16;letter-spacing:-.035em;margin:8px 0}.ib-head p{max-width:690px;color:var(--ib-muted);font-size:12.5px;line-height:1.7;margin:0}",
-			".ib-btn{border:1px solid var(--ib-line);background:rgba(255,255,255,.035);color:#d5e9e1;border-radius:10px;padding:9px 13px;cursor:pointer;font-size:11.5px}.ib-btn:hover{border-color:rgba(81,212,163,.36);background:rgba(81,212,163,.07)}.ib-btn[data-primary]{border-color:transparent;background:linear-gradient(135deg,#41c797,#27866d);color:white;box-shadow:0 10px 25px rgba(36,151,113,.19)}.ib-btn:disabled{opacity:.45;cursor:not-allowed}.ib-actions{display:flex;gap:8px;flex-wrap:wrap}",
+			".ib-btn{border:1px solid var(--ib-line);background:rgba(255,255,255,.035);color:#d5e9e1;border-radius:10px;padding:9px 13px;cursor:pointer;font-size:11.5px}.ib-btn:hover{border-color:rgba(81,212,163,.36);background:rgba(81,212,163,.07)}.ib-btn[data-primary]{border-color:transparent;background:linear-gradient(135deg,#41c797,#27866d);color:white;box-shadow:0 10px 25px rgba(36,151,113,.19)}.ib-btn[data-danger]{border-color:rgba(255,120,120,.32);background:rgba(180,55,55,.08);color:#ffb5b5}.ib-btn[data-danger]:hover{border-color:rgba(255,120,120,.58);background:rgba(180,55,55,.17)}.ib-btn:disabled{opacity:.45;cursor:not-allowed}.ib-actions{display:flex;gap:8px;flex-wrap:wrap}",
 			".ib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.ib-project{position:relative;min-height:190px;border:1px solid var(--ib-line);background:linear-gradient(145deg,rgba(15,38,32,.94),rgba(9,25,21,.88));border-radius:17px;padding:19px;cursor:pointer;text-align:left;color:inherit;transition:.18s}.ib-project:hover{transform:translateY(-2px);border-color:rgba(81,212,163,.38)}.ib-project-icon{width:38px;height:38px;border-radius:12px;background:rgba(81,212,163,.12);color:var(--ib-green);display:grid;place-items:center;font-weight:800}.ib-project h2{font-size:16px;margin:24px 0 6px}.ib-project p{font-size:10.5px;color:#76948a;line-height:1.55;margin:0}.ib-project-foot{position:absolute;left:19px;right:19px;bottom:17px;display:flex;justify-content:space-between;color:#648279;font-size:9.5px}",
 			".ib-card{border:1px solid var(--ib-line);background:rgba(11,29,24,.83);border-radius:16px;padding:17px}.ib-form{margin-bottom:18px}.ib-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.ib-field{display:grid;gap:6px}.ib-field[data-wide]{grid-column:1/-1}.ib-field label{font-size:10px;color:#78958b}.ib-field input,.ib-field textarea{width:100%;box-sizing:border-box;border:1px solid var(--ib-line);background:#071611;color:var(--ib-text);border-radius:10px;padding:10px 11px;font:11.5px inherit;outline:none}.ib-field textarea{min-height:180px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.55}.ib-field input:focus,.ib-field textarea:focus{border-color:rgba(81,212,163,.48)}.ib-form-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.ib-error{color:var(--ib-red);font-size:10.5px;margin:10px 0;white-space:pre-wrap}.ib-empty{border:1px dashed rgba(129,205,178,.23);border-radius:17px;padding:50px 24px;text-align:center;color:#739087}",
 			".ib-project-head{display:flex;align-items:center;gap:13px;margin-bottom:20px}.ib-project-copy{flex:1;min-width:0}.ib-project-copy h1{font-size:24px;margin:0 0 4px;letter-spacing:-.025em}.ib-project-copy p{font-size:10.5px;color:#78978c;margin:0}.ib-agent{display:flex;align-items:center;gap:8px}.ib-spark{width:23px;height:23px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.15)}",
@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -545,13 +545,14 @@ window.__ModuleLoader__.load({
 			), previewNode);
 		}
 
-		function Project({ call, project, onBack, onStartChat, onOpenSearch }) {
+		function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch }) {
 			const [state, setState] = useState({ loading: true, data: null, error: "" });
 			const [tab, setTab] = useState("literature");
 			const [draft, setDraft] = useState("");
 			const [note, setNote] = useState("");
 			const [saving, setSaving] = useState(false);
 			const [launching, setLaunching] = useState(false);
+			const [deleting, setDeleting] = useState(false);
 			const [toast, setToast] = useState("");
 			const load = useCallback(async () => {
 				try { const data = await call("projects_workspace", { request: { projectId: project.id } }); setState({ loading: false, data, error: "" }); setDraft(data.memory?.markdown || ""); }
@@ -570,6 +571,19 @@ window.__ModuleLoader__.load({
 				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId }); }
 				catch (reason) { setToast(reason.message); setLaunching(false); }
 			};
+			const remove = async () => {
+				if (!state.data) return;
+				const accepted = window.confirm(`确定彻底删除课题「${state.data.project.name}」吗？\n\n将删除课题记录、关联任务、Harness 工作区注册和工作区目录中的全部文件。此操作不可恢复。`);
+				if (!accepted) return;
+				setDeleting(true);
+				try {
+					await onDelete(state.data.project);
+					onBack();
+				} catch (reason) {
+					setToast(`删除失败：${reason?.message ?? reason}`);
+					setDeleting(false);
+				}
+			};
 			if (state.loading) return h("div", { className: "ib-empty" }, "正在打开课题空间…");
 			if (!state.data) return h("div", { className: "ib-empty" }, state.error, h("div", { style: { marginTop: 12 } }, h("button", { className: "ib-btn", onClick: onBack }, "返回")));
 			const data = state.data;
@@ -578,7 +592,7 @@ window.__ModuleLoader__.load({
 			const characterization = data.characterization || {};
 			const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
-				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
+				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
 				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
 				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(FullTextDownloader, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onChanged: load })) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
@@ -606,9 +620,9 @@ window.__ModuleLoader__.load({
 			}
 		}
 
-		function Panel({ call, onClose, onStartChat, onOpenSearch, initial }) {			const [project, setProject] = useState(initial ?? null);
+		function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, initial }) {			const [project, setProject] = useState(initial ?? null);
 			const [templates, setTemplates] = useState(false);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 		}
 
 		/** 模板管理主视图：阅读笔记模板（Agent 生成阅读笔记时参考）+ PPT 模板（组会汇报用）。 */
@@ -1117,12 +1131,21 @@ window.__ModuleLoader__.load({
 				if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);
 				return { sessionId, workspaceId, openedNew, presetApplied };
 			};
+			const deleteProject = async (project) => {
+				// 先从 Harness 工作区注册表移除；Host 端随后校验并物理删除专属目录。
+				const binding = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
+				if (binding?.workspaceId) {
+					const registered = (ctx.workspaces.list.getSnapshot().items ?? []).some((item) => item.workspaceId === binding.workspaceId);
+					if (registered) await ctx.workspaces.delete(binding.workspaceId);
+				}
+				return await call("projects_delete", { request: { projectId: project.id } });
+			};
 			const open = (initial) => {
 				if (root) return;
 				root = document.createElement("div");
 				document.body.appendChild(root);
 				try {
-					ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.sessions.open(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
+					ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.sessions.open(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
 				} catch (reason) {
 					console.error("[dsh-lab-agent] overlay mount failed:", reason);
 					close(); // 重置 root，避免侧边栏点击被残留节点短路

@@ -77,6 +77,10 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /projects_bind_workspace/);
 	assert.match(source, /workspaceId = ws\.workspaceId/);
 	assert.doesNotMatch(source, /if \(!ws\.ok\)/);
+	assert.match(source, /projects_delete/);
+	assert.match(source, /ctx\.workspaces\.delete\(binding\.workspaceId\)/);
+	assert.match(source, /确定彻底删除课题/);
+	assert.match(source, /此操作不可恢复/);
 	assert.match(source, /projects_bind_session/);
 	assert.match(source, /projects_binding/);
 	assert.match(source, /projects_by_session/);
