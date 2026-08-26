@@ -187,7 +187,7 @@ async function main() {
 	console.log("  1. restart the web profile so the bundle rows activate:");
 	console.log("     dsh plugin --profile web add <path-to-this-repo>   # once");
 	console.log("     dsh web");
-	console.log("  2. pick the 课题组科研 preset for new sessions; nature skills appear in the skill catalog.");
+	console.log("  2. pick the iBM科研Agent preset for new sessions; nature skills appear in the skill catalog.");
 	console.log("  3. verify: node scripts/regression/run.mjs");
 }
 

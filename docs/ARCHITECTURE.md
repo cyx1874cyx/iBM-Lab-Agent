@@ -66,7 +66,7 @@ cordis.patch.yml（bundle 层，host 平面）
 
 presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
 └── agent.cordis.yml + preset.yml
-      → 课题组科研 persona + shell/fs/jobs/skills/goal/planning/compaction/
+      → iBM 科研 Agent persona + shell/fs/jobs/skills/goal/planning/compaction/
         delegation/ask-user/todo/web 工具组合；lab 工具（lab_convert_document、
         lab_project_memory_read/update）**只挂在 preset 工具层**——standard 等
         其他预设看不到 lab 工具，且不在全局 system-prompt.toolOrder 中引用

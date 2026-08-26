@@ -58,7 +58,7 @@ dsh plugin --profile web add "$PWD"
 dsh web
 ```
 
-之后新会话选择 **课题组科研（聚前药/高分子）** preset，nature skills
+之后新会话选择 **iBM科研Agent** preset，nature skills
 （`nature-academic-search`、`nature-reader`、`nature-paper-card`、
 `nature-paper2ppt`、`nature-shared`）即出现在 skill 目录中。
 
@@ -71,7 +71,7 @@ Web 侧边栏左上角的 **iBM Agent / based on DSH** 品牌区就是科研课�
 原有 DeepSeek Harness wordmark 与鲸鱼图标被隐藏（不修改 Harness 核心，
 由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
 （`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
-并按课题名重命名）、开一个新对话、自动选择 **课题组科研（聚前药/高分子）**
+并按课题名重命名）、开一个新对话、自动选择 **iBM科研Agent**
 agent preset，并把当前版本核心记忆**落盘为课题工作区根目录的 `项目记忆.md`**，
 开场提示 agent 读取该文件（不把整份记忆塞进输入框）。
 绑定是**工作区级**的：一个课题一个专属 workspace，空间内所有对话共享课题

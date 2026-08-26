@@ -1,4 +1,4 @@
-# The `lab-research` agent preset: 课题组科研 Agent（聚前药与高分子材料设计）.
+# The `lab-research` agent preset: iBM 科研 Agent.
 #
 # Shipped as a template by dsh-lab-agent; installed by scripts/install.mjs to
 # $DSH_HOME/.agent-presets/lab-research (a `user`-trust root, editable there).
