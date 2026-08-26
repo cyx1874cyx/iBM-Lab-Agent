@@ -9,6 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, rm, writeFile, readFile, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -132,8 +133,33 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const bundle = await tasks.preparePaper({ projectId: "proj-1", sourceMapPath, title: "Prodrug polymers" });
 		assert.equal(bundle.status, "succeeded");
 		assert.ok(bundle.sourceMapPath, "source bundle written");
+		assert.equal(bundle.pdfPath, undefined, "source-map-only bundles do not claim to contain a PDF");
+		assert.equal(bundle.pdfSha256, undefined);
+		await assert.rejects(() => tasks.bundleFile(bundle.id, "pdf"), /has no pdf file/);
 		const bundleJson = JSON.parse(await readFile(bundle.sourceMapPath, "utf8"));
 		assert.equal(bundleJson.source_type, "source_map");
+
+		// When both inputs are available, source-map preparation and PDF download
+		// keep separate hashes so client-side integrity verification uses PDF bytes.
+		const pdfPath = join(fxDir, "paper.pdf");
+		const siPath = join(fxDir, "supporting.txt");
+		const pdfBytes = Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF");
+		const siBytes = Buffer.from("supplementary information");
+		await writeFile(pdfPath, pdfBytes);
+		await writeFile(siPath, siBytes);
+		const bundleWithFiles = await tasks.preparePaper({
+			projectId: "proj-1",
+			sourceMapPath,
+			pdfPath,
+			siPath,
+			doi: "https://doi.org/10.1000/fake.1"
+		});
+		assert.equal(bundleWithFiles.pdfSha256, createHash("sha256").update(pdfBytes).digest("hex"));
+		assert.equal(bundleWithFiles.siSha256, createHash("sha256").update(siBytes).digest("hex"));
+		const pdfFile = await tasks.bundleFile(bundleWithFiles.id, "pdf");
+		const siFile = await tasks.bundleFile(bundleWithFiles.id, "si");
+		assert.deepEqual(pdfFile.buffer, pdfBytes);
+		assert.deepEqual(siFile.buffer, siBytes);
 
 		// 步骤 5：精读报告（目标快照 + paper-card 审查要求）
 		const report = await tasks.createReadingReport({

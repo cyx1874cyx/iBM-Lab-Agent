@@ -30,6 +30,25 @@ test("artifact endpoint streams verified binary bytes with integrity headers", a
 	assert.deepEqual(res.body, expected);
 });
 
+test("PDF and SI artifact endpoints validate bundleId without requiring reportId", async () => {
+	for (const kind of ["pdf", "si"]) {
+		const expected = Buffer.from(kind === "pdf" ? "%PDF-1.7\n%%EOF" : "supplementary-data");
+		const tasks = {
+			async bundleFile(id, requestedKind) {
+				assert.equal(id, "bundle-1");
+				assert.equal(requestedKind, kind);
+				return { fileName: kind === "pdf" ? "paper.pdf" : "supporting.zip", mime: kind === "pdf" ? "application/pdf" : "application/zip", buffer: expected, byteLength: expected.length, sha256: "e".repeat(64) };
+			}
+		};
+		const handler = createArtifactDownloadHandler(tasks);
+		const res = responseCapture();
+		await handler({ method: "GET", url: `/api/lab-artifacts?kind=${kind}&bundleId=bundle-1`, headers: { host: "localhost", origin: "http://localhost", "sec-fetch-site": "same-origin" } }, res);
+		assert.equal(res.status, 200);
+		assert.equal(res.headers["content-length"], String(expected.length));
+		assert.deepEqual(res.body, expected);
+	}
+});
+
 test("preview endpoint renders the actual unapproved Office bytes as inline PDF", async () => {
 	const source = Buffer.from("PK\x03\x04staged-pptx", "latin1");
 	const pdf = Buffer.from("%PDF-1.7\npreview");
@@ -84,4 +103,8 @@ test("artifact endpoint rejects cross-site and invalid ids", async () => {
 	const invalid = responseCapture();
 	await handler({ method: "GET", url: "/api/lab-artifacts?kind=ppt&reportId=../../etc", headers: { host: "localhost" } }, invalid);
 	assert.equal(invalid.status, 400);
+	const invalidBundle = responseCapture();
+	await handler({ method: "GET", url: "/api/lab-artifacts?kind=pdf&bundleId=../../etc", headers: { host: "localhost" } }, invalidBundle);
+	assert.equal(invalidBundle.status, 400);
+	assert.match(invalidBundle.body.toString("utf8"), /invalid bundleId/);
 });

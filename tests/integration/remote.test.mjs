@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -162,8 +162,19 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.ok(prov.provenance.some((p) => p.kind === "search"), "search provenance recorded");
 
 		// 原文整理（preparePaper 走真实脚本，需要输入文件；用 fixture source-map 直接登记 bundle 行）
-		const bundle = await invoke(ctx, "tasks_bundle_create", { request: { fields: { projectId: "remote-project", sourceMapPath: join(fxDir, "min-source-map.json"), title: "测试原文" } } });
+		const bundle = await invoke(ctx, "tasks_bundle_create", { request: { fields: { projectId: "remote-project", sourceMapPath: join(fxDir, "min-source-map.json"), doi: "10.1000/fake.1", title: "测试原文" } } });
 		assert.equal(bundle.bundle.projectId, "remote-project");
+		const wsSourceMapOnly = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
+		assert.equal(wsSourceMapOnly.literature.searches[0].results[0].localPdfUrl, undefined, "source-map-only bundle keeps the PDF button unavailable");
+
+		const pdfPath = join(fxDir, "remote-paper.pdf");
+		const siPath = join(fxDir, "remote-supporting.txt");
+		await writeFile(pdfPath, Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF"));
+		await writeFile(siPath, "supporting information");
+		const fileBundle = await invoke(ctx, "tasks_bundle_create", { request: { fields: { projectId: "remote-project", sourceMapPath: join(fxDir, "min-source-map.json"), pdfPath, siPath, doi: "10.1000/fake.1", title: "测试原文与附件" } } });
+		const wsWithFiles = await invoke(ctx, "projects_workspace", { request: { projectId: "remote-project" } });
+		assert.equal(wsWithFiles.literature.searches[0].results[0].localPdfUrl, `/api/lab-artifacts?kind=pdf&bundleId=${fileBundle.bundle.id}`);
+		assert.equal(wsWithFiles.literature.searches[0].results[0].localSiUrl, `/api/lab-artifacts?kind=si&bundleId=${fileBundle.bundle.id}`);
 
 		// 精读报告：创建（草稿）→ 完成（登记 paper-card 路径）
 		const report = await invoke(ctx, "tasks_report_create", { request: { fields: { projectId: "remote-project", bundleId: bundle.bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" } } });
