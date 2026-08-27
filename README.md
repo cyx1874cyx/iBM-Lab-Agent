@@ -29,6 +29,12 @@ ibm-lab-agent stop         # 停止
 ibm-lab-agent dsh --help   # 直接调用发行版内固定的 DSH
 ```
 
+从 Windows 电脑更新服务器时，可在仓库根目录运行
+`powershell -ExecutionPolicy Bypass -File scripts/update-server.ps1`，再按提示输入
+SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git 分支或标签、重新启动
+并检查状态；登录密码只由系统 SSH 读取，不会写入脚本或仓库。完整参数见
+[`docs/LINUX_RELEASE.md`](docs/LINUX_RELEASE.md)。
+
 默认锁定 Node.js 24.16.0、DSH 0.1.1-rc.2、pnpm 10.34.5、Python 3.12.11，
 同时安装 MarkItDown、PyMuPDF、python-pptx 与 RDKit。完整版本与校验值见
 [`runtime/versions.env`](runtime/versions.env)，系统包清单见

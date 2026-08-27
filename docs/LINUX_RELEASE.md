@@ -50,6 +50,17 @@ SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent
 ## 升级、回滚与停止
 
 - 升级：重新运行一行安装命令，或用 `--ref vX.Y.Z` 固定标签。
+- 从 Windows 通过 SSH 交互式升级：在仓库根目录运行
+  `powershell -ExecutionPolicy Bypass -File scripts/update-server.ps1`，按提示输入
+  服务器地址、SSH 用户名和登录密码。脚本不会保存密码；它会停止旧服务、调用
+  Linux 安装器、启动新版本并检查状态。可用 `-Port 端口`、`-Ref 分支或标签`
+  和 `-SkipSystemDeps` 覆盖默认值。例如：
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts/update-server.ps1 `
+    -Server 192.0.2.10 -UserName labadmin -Ref main
+  ```
+
 - 回滚：停止服务，把 `current` 软链接指回 `releases/` 内的旧版本，再对旧路径
   执行 `ibm-lab-agent dsh plugin --profile web add <旧版本绝对路径>`。
 - 停止：`ibm-lab-agent stop`。

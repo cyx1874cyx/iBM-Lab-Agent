@@ -8,6 +8,7 @@ import { composeEntries, loadOverlayPatches } from "@deepseek-ai/dsh-app-boot";
 const patchPath = fileURLToPath(new URL("../../cordis.patch.yml", import.meta.url));
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
 const presetPath = fileURLToPath(new URL("../../presets/lab-research/agent.cordis.yml", import.meta.url));
+const serverUpdatePath = fileURLToPath(new URL("../../scripts/update-server.ps1", import.meta.url));
 
 test("bundle patch keeps one bare client carrier and the version registry", () => {
 	const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
@@ -23,6 +24,19 @@ test("bundle patch is portable and contains no developer-machine browser paths",
 	assert.doesNotMatch(patch, /\/mnt\/c\/Program Files/);
 	assert.doesNotMatch(patch, /C:\\Users\\/);
 	assert.doesNotMatch(patch, /windowsCdpBridge:\s*true/);
+});
+
+test("SSH server updater uses interactive password auth and preserves rollback metadata", async () => {
+	const source = await readFile(serverUpdatePath, "utf8");
+	assert.match(source, /Get-Command ssh\.exe/);
+	assert.match(source, /PreferredAuthentications=keyboard-interactive,password/);
+	assert.match(source, /PubkeyAuthentication=no/);
+	assert.match(source, /Read-Host "SSH 用户名"/);
+	assert.match(source, /old_launcher/);
+	assert.match(source, /old_release/);
+	assert.match(source, /更新失败，正在尝试恢复并启动旧版本/);
+	assert.match(source, /--ref \"\$ref\"/);
+	assert.doesNotMatch(source, /ConvertTo-SecureString|sshpass|plink(?:\.exe)?\s+-pw|password\s*=/i);
 });
 
 test("document conversion tool is scoped to the research preset", async () => {
