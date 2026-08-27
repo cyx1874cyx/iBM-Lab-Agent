@@ -52,8 +52,17 @@ test("dedicated WeChat fetch accepts textual article pages and blocks cross-site
 		const page = await LabTasksService.prototype.fetchWechatArticle.call({}, { sourceUrl: "https://mp.weixin.qq.com/s/valid-token" });
 		assert.equal(request.url, "https://mp.weixin.qq.com/s/valid-token");
 		assert.equal(request.options.redirect, "manual");
-		assert.match(request.options.headers["user-agent"], /Mozilla/);
+		assert.match(request.options.headers["user-agent"], /Android.*Mobile.*MicroMessenger/);
 		assert.match(page.content, /10\.1000\/safe\.1/);
+
+		globalThis.fetch = async () => new Response("", {
+			status: 302,
+			headers: { location: "https://mp.weixin.qq.com/mp/wappoc_appmsgcaptcha?poc_token=test" }
+		});
+		await assert.rejects(
+			() => LabTasksService.prototype.fetchWechatArticle.call({}, { sourceUrl: "https://mp.weixin.qq.com/s/challenged" }),
+			/human verification/
+		);
 
 		globalThis.fetch = async () => new Response("", { status: 302, headers: { location: "https://example.com/private" } });
 		await assert.rejects(() => LabTasksService.prototype.fetchWechatArticle.call({}, { sourceUrl: "https://mp.weixin.qq.com/s/redirect" }), /mp\.weixin\.qq\.com/);
