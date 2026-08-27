@@ -134,17 +134,25 @@ echo "服务器更新完成。"
 $remoteScript = $remoteScript.Replace("__REF__", $Ref).Replace("__SKIP_SYSTEM_LINE__", $skipSystemLine)
 $payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoteScript))
 $target = "$UserName@$Server"
-$remoteInput = "printf '%s' '$payload' | base64 -d | bash`nexit `$?`n"
+$remoteInput = "printf '%s' '$payload' | base64 -d | bash; remote_exit=`$?; exit `"`$remote_exit`"`n"
 
 Write-Host "将通过 SSH 更新 $target`:$Port 到 $Ref。" -ForegroundColor Cyan
 Write-Host "SSH 会直接提示输入登录密码；本脚本不会读取或保存密码。" -ForegroundColor Yellow
 Write-Host "认证方式与手动运行 ssh $target 相同；登录成功后脚本会在交互式 shell 中执行更新。" -ForegroundColor Yellow
 
-$remoteInput | & $ssh.Source `
-	-tt `
-	-p $Port `
-	$target
+$previousOutputEncoding = $OutputEncoding
+try {
+	# Windows PowerShell 5.1 的 UTF8 输出默认带 BOM；远端 shell 会把 BOM 当作命令名的一部分。
+	$OutputEncoding = New-Object Text.UTF8Encoding($false)
+	$remoteInput | & $ssh.Source `
+		-tt `
+		-p $Port `
+		$target
+	$sshExitCode = $LASTEXITCODE
+} finally {
+	$OutputEncoding = $previousOutputEncoding
+}
 
-if ($LASTEXITCODE -ne 0) {
-	throw "服务器更新失败，SSH 退出码：$LASTEXITCODE"
+if ($sshExitCode -ne 0) {
+	throw "服务器更新失败，SSH 退出码：$sshExitCode"
 }

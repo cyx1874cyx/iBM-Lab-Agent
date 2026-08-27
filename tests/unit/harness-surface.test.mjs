@@ -35,6 +35,9 @@ test("SSH server updater uses interactive password auth and preserves rollback m
 	assert.match(source, /Get-Command ssh\.exe/);
 	assert.match(source, /\$remoteInput \| & \$ssh\.Source/);
 	assert.match(source, /交互式 shell 中执行更新/);
+	assert.match(source, /New-Object Text\.UTF8Encoding\(\$false\)/);
+	assert.match(source, /remote_exit=`\$\?/);
+	assert.match(source, /\$sshExitCode = \$LASTEXITCODE/);
 	assert.doesNotMatch(source, /PreferredAuthentications|PubkeyAuthentication/);
 	assert.match(source, /Read-Host "SSH 用户名"/);
 	assert.match(source, /old_launcher/);
