@@ -129,7 +129,7 @@ node_link="$runtime_root/node"
 if [[ ! -x "$node_target/bin/node" || "$($node_target/bin/node --version 2>/dev/null || true)" != "v$NODE_VERSION" ]]; then
 	node_archive="$tmp_root/node.tar.xz"
 	curl --fail --location --http1.1 -C - --retry 3 --retry-all-errors --progress-bar \
-		"https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o "$node_archive"
+		"https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o "$node_archive"
 	echo "$node_sha256  $node_archive" | sha256sum --check --status || {
 		echo "Node.js 下载校验失败" >&2
 		exit 1
@@ -149,7 +149,7 @@ pnpm_root="$runtime_root/pnpm-$PNPM_VERSION"
 pnpm_archive="$tmp_root/pnpm.tgz"
 if [[ ! -f "$pnpm_root/package/bin/pnpm.cjs" ]]; then
 	curl --fail --location --http1.1 -C - --retry 3 --retry-all-errors --progress-bar \
-		"https://registry.npmjs.org/pnpm/-/pnpm-${PNPM_VERSION}.tgz" -o "$pnpm_archive"
+		"https://registry.npmmirror.com/pnpm/-/pnpm-${PNPM_VERSION}.tgz" -o "$pnpm_archive"
 	echo "$PNPM_SHA256  $pnpm_archive" | sha256sum --check --status || {
 		echo "pnpm 下载校验失败" >&2
 		exit 1
