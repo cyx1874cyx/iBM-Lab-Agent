@@ -108,6 +108,18 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /conversation\.session\.header\.utilities/);
 	assert.doesNotMatch(source, /conversation\.input\.dock/);
 	assert.match(source, /课题背景/);
+	// 科研文件上传：输入区新增普通文件按钮，并在捕获阶段接管非图片拖拽；
+	// 原生四种图片 MIME 不被拦截，上传后把课题内路径追加到当前草稿。
+	assert.match(source, /conversation\.input\.left/);
+	assert.match(source, /lab-project-file-upload/);
+	assert.match(source, /project_file_upload/);
+	assert.match(source, /document\.addEventListener\("drop", onDrop, true\)/);
+	assert.match(source, /image\/png/);
+	assert.match(source, /image\/jpeg/);
+	assert.match(source, /image\/webp/);
+	assert.match(source, /image\/gif/);
+	assert.match(source, /inputActions\.setDraft/);
+	assert.match(source, /单个不超过 25 MB/);
 	// 深度科研对话皮肤仍只在绑定课题的会话启用
 	assert.match(source, /ib-research-chat/);
 	assert.doesNotMatch(source, /ib-context-flow/);

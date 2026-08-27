@@ -153,6 +153,24 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.match(fileContent, /修订假设/, "file carries latest memory markdown");
 		assert.match(fileContent, /v2/, "file header carries current version");
 
+		// 科研会话普通文件上传：host 根据 projectId 固定保存到课题目录，
+		// 并把 PDF/Office 转换稿也放在同一课题下。
+		ctx.labConvert.convert = async () => ({ available: true, text: "# uploaded paper", code: 0 });
+		const uploaded = await invoke(ctx, "project_file_upload", { request: {
+			projectId: "remote-project",
+			name: "../论文.docx",
+			base64: Buffer.from("office fixture").toString("base64")
+		} });
+		assert.ok(uploaded.file.sourcePath.startsWith(join(project.project.workspacePath, "uploads")));
+		assert.ok(uploaded.file.mdPath.startsWith(join(project.project.workspacePath, "converted")));
+		assert.match(uploaded.file.sourcePath, /论文\.docx$/);
+		assert.equal(uploaded.file.conversion.status, "succeeded");
+		assert.equal((await readFile(uploaded.file.sourcePath)).toString(), "office fixture");
+		await assert.rejects(
+			() => invoke(ctx, "project_file_upload", { request: { projectId: "missing", name: "paper.pdf", base64: "" } }),
+			/project 'missing' not found/
+		);
+
 		// 文献写入端点：检索 → 原文 → 精读 → PPT（Agent 登记链路）
 		const search = await invoke(ctx, "tasks_search_create", { request: { fields: { projectId: "remote-project", query: "prodrug polymer", limit: 2 } } });
 		assert.equal(search.run.projectId, "remote-project");

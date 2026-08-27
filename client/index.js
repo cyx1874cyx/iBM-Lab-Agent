@@ -46,6 +46,7 @@ window.__ModuleLoader__.load({
 			".ib-hint{display:flex;align-items:center;gap:8px;color:#86a79b;font-size:10px;padding:4px 2px;line-height:1.5}.ib-hint b{color:#cfe5dc;font-weight:620}.ib-hint button{margin-left:auto;border:1px solid rgba(129,205,178,.2);background:rgba(255,255,255,.03);color:#a9c8bd;border-radius:8px;padding:3px 9px;font-size:9.5px;cursor:pointer}.ib-hint button:hover{border-color:rgba(81,212,163,.4);color:#e0f2ea}",
 			// ── Harness 科研对话：课题上下文、消息流、工具卡与输入区 ──────────
 			".ib-research-badge{min-width:0;display:flex;align-items:center;gap:9px;border:1px solid rgba(51,176,132,.2);background:linear-gradient(135deg,rgba(70,198,153,.12),rgba(115,220,230,.055));color:var(--dsw-alias-label-primary,#193a31);border-radius:12px;padding:6px 10px 6px 7px;cursor:pointer;text-align:left;box-shadow:0 6px 22px rgba(21,103,78,.06)}.ib-research-badge:hover{border-color:rgba(51,176,132,.42);background:linear-gradient(135deg,rgba(70,198,153,.18),rgba(115,220,230,.08))}.ib-research-badge .ib-badge-icon{width:26px;height:26px;flex:none;border-radius:8px;display:grid;place-items:center;background:linear-gradient(145deg,#51d4a3,#278b70);box-shadow:0 5px 14px rgba(46,163,123,.2)}.ib-research-badge .ib-badge-copy{min-width:0;display:grid;gap:1px}.ib-research-badge small{font-size:8px;line-height:1.1;letter-spacing:.1em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary,#78978c)}.ib-research-badge b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:1.25;color:var(--dsw-alias-label-primary,#15382e)}.ib-research-badge .ib-badge-version{flex:none;border-radius:999px;padding:2px 6px;background:rgba(61,188,143,.1);color:#329374;font-size:8.5px;font-weight:700}",
+			".ib-file-upload{display:inline-flex;align-items:center}.ib-file-upload>input{display:none}.ib-file-upload-btn{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:1px solid rgba(49,151,116,.2);border-radius:9px;background:rgba(61,178,137,.07);color:var(--dsw-alias-label-secondary,#58746a);font:inherit;font-size:11px;cursor:pointer}.ib-file-upload-btn:hover{border-color:rgba(49,151,116,.42);background:rgba(61,178,137,.13);color:var(--dsw-alias-label-primary,#18352d)}.ib-file-upload-btn:disabled{opacity:.5;cursor:wait}.ib-file-upload-btn svg{width:14px;height:14px;display:block}.ib-file-drop{position:fixed;z-index:1500;inset:18px;display:grid;place-items:center;border:2px dashed rgba(57,180,137,.7);border-radius:22px;background:rgba(239,250,246,.94);color:#276f58;font-size:15px;font-weight:700;letter-spacing:.02em;box-shadow:0 20px 70px rgba(20,92,69,.18);pointer-events:none}.ib-file-drop span{border:1px solid rgba(57,180,137,.22);border-radius:14px;background:white;padding:18px 24px;box-shadow:0 10px 35px rgba(20,92,69,.1)}@media(prefers-color-scheme:dark){.ib-file-upload-btn{color:#a7c4ba}.ib-file-upload-btn:hover{color:#e5f5ef}.ib-file-drop{background:rgba(7,25,19,.94);color:#9ce4c7}.ib-file-drop span{background:#102a22}}",
 			"body.ib-research-chat{--ib-chat-ink:var(--dsw-alias-label-primary,#18352d);--ib-chat-muted:var(--dsw-alias-label-secondary,#647d74);--ib-chat-line:rgba(50,142,111,.13)}body.ib-research-chat [class*='_centerCol']{background:radial-gradient(circle at 78% 6%,rgba(81,212,163,.09),transparent 27%),linear-gradient(180deg,rgba(244,251,248,.72),rgba(255,255,255,.96) 210px);color:var(--ib-chat-ink)}body.ib-research-chat [class*='_centerCol'] header{height:84px;box-sizing:border-box;border-bottom:1px solid var(--ib-chat-line);background:rgba(250,253,252,.88);backdrop-filter:blur(18px) saturate(1.15);box-shadow:0 8px 28px rgba(40,111,88,.035)}body.ib-research-chat [class*='_scrollBody']{background-image:linear-gradient(rgba(56,139,111,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(56,139,111,.018) 1px,transparent 1px);background-size:28px 28px}body.ib-research-chat [class*='_scrollBody']:before{content:'RESEARCH LOG';position:fixed;right:24px;top:102px;z-index:0;color:rgba(45,126,99,.12);font-size:8px;font-weight:800;letter-spacing:.22em;pointer-events:none}body.ib-research-chat [class*='_scrollBody'] [class*='_column']{max-width:820px!important}body.ib-research-chat [class*='_flowItem']{margin-block:8px}body.ib-research-chat [class*='_flowItem']:has([class*='_markdown']){position:relative;border-left:2px solid rgba(61,178,137,.17);padding-left:18px}body.ib-research-chat [class*='_flowItem']:has([class*='_userRow']){border-left:0;padding-left:0;margin-block:14px}body.ib-research-chat [class*='_userStack']{border:1px solid rgba(44,153,116,.17);background:linear-gradient(135deg,rgba(71,190,148,.11),rgba(118,216,225,.055));border-radius:16px 16px 5px 16px;padding:10px 13px;box-shadow:0 7px 22px rgba(42,123,96,.045)}body.ib-research-chat [class*='_flowItem'] button{border-radius:10px}body.ib-research-chat [class*='_flowItem'] [class*='_card']{border-color:rgba(55,145,115,.13);background:rgba(250,253,252,.78);box-shadow:0 4px 16px rgba(39,103,82,.035)}body.ib-research-chat [class*='_markdown']{color:var(--ib-chat-ink);font-size:14px;line-height:1.82}body.ib-research-chat [class*='_markdown'] h1,body.ib-research-chat [class*='_markdown'] h2,body.ib-research-chat [class*='_markdown'] h3{color:#163c31;letter-spacing:-.015em}body.ib-research-chat [class*='_markdown'] h2{margin-top:1.6em;padding-bottom:.35em;border-bottom:1px solid rgba(49,145,113,.12)}body.ib-research-chat [class*='_markdown'] code{border:1px solid rgba(51,142,112,.1);background:rgba(48,133,105,.065);color:#226e55;border-radius:6px}body.ib-research-chat [class*='_markdown'] blockquote{border-left:3px solid #51c99a;background:rgba(81,201,154,.055);border-radius:0 10px 10px 0;padding:8px 13px}body.ib-research-chat [class*='_tableScroll']{border:1px solid rgba(49,145,113,.14);border-radius:12px;box-shadow:0 6px 18px rgba(35,103,80,.035)}body.ib-research-chat [class*='_composerSeat']{background:linear-gradient(180deg,rgba(251,253,252,0),rgba(249,252,251,.92) 30%)}body.ib-research-chat [class*='_composerStack']{gap:8px}body.ib-research-chat [class*='_composerStack'] [class*='_card']{border-color:rgba(42,157,118,.19);background:rgba(255,255,255,.94);border-radius:18px;box-shadow:0 14px 38px rgba(28,109,81,.09),0 0 0 1px rgba(255,255,255,.5) inset}body.ib-research-chat [class*='_composerStack'] textarea{color:var(--ib-chat-ink);font-size:13px}body.ib-research-chat [class*='_composerStack'] textarea::placeholder{color:#9badA7}",
 			// Harness 用独立 backdrop 绘制输入文字；原生 textarea 只负责光标与输入，保持文字透明可避免双层重影。
 			"body.ib-research-chat [class*='_composerStack'] textarea{color:transparent;font-size:inherit;caret-color:var(--ib-chat-ink)}",
@@ -69,7 +70,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload", "project_file_upload"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -270,6 +271,127 @@ window.__ModuleLoader__.load({
 				h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
 				h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
 				h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
+			);
+		}
+
+		const NATIVE_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+		const MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
+		const MAX_RESEARCH_UPLOAD_FILES = 5;
+
+		function isNativeImageFile(file) {
+			return NATIVE_IMAGE_MIMES.has(String(file?.type ?? "").toLowerCase());
+		}
+
+		function fileToBase64(file) {
+			return new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onerror = () => reject(new Error(`无法读取文件：${file.name}`));
+				reader.onload = () => {
+					const value = String(reader.result ?? "");
+					const comma = value.indexOf(",");
+					if (comma < 0) reject(new Error(`无法编码文件：${file.name}`));
+					else resolve(value.slice(comma + 1));
+				};
+				reader.readAsDataURL(file);
+			});
+		}
+
+		/** 科研会话的普通文件入口；图片继续交给 Harness 原生附件管线。 */
+		function ResearchFileUpload({ sessionId, input, inputActions, call, useSessions, toast }) {
+			const bound = useBoundProject(sessionId, call, useSessions);
+			const [busy, setBusy] = useState(false);
+			const [dragging, setDragging] = useState(false);
+			const picker = useRef(null);
+			const latestInput = useRef(input);
+			latestInput.current = input;
+
+			const uploadFiles = useCallback(async (fileList) => {
+				if (!bound?.project?.id || busy) return;
+				const picked = Array.from(fileList ?? []);
+				const files = picked.filter((file) => !isNativeImageFile(file));
+				const imageCount = picked.length - files.length;
+				if (imageCount) toast(files.length ? "文档正在上传；混合拖入的图片请单独拖入，以保留图片预览。" : "图片请使用输入框原生的图片按钮或单独拖入。");
+				if (!files.length) return;
+				if (files.length > MAX_RESEARCH_UPLOAD_FILES) {
+					toast(`一次最多上传 ${MAX_RESEARCH_UPLOAD_FILES} 个科研文件。`);
+					return;
+				}
+				const oversized = files.find((file) => file.size > MAX_RESEARCH_UPLOAD_BYTES);
+				if (oversized) {
+					toast(`“${oversized.name}”超过 25 MB，请压缩或分批处理。`);
+					return;
+				}
+				setBusy(true);
+				const uploaded = [];
+				const failed = [];
+				try {
+					for (const file of files) {
+						try {
+							const base64 = await fileToBase64(file);
+							const result = await call("project_file_upload", { request: { projectId: bound.project.id, name: file.name, base64 } });
+							uploaded.push(result.file);
+						} catch (reason) {
+							failed.push(`${file.name}：${reason?.message ?? reason}`);
+						}
+					}
+					if (uploaded.length) {
+						const references = uploaded.map((file) => [
+							`已上传科研文件「${file.fileName}」`,
+							`原文件路径：${file.sourcePath}`,
+							file.mdPath ? `可读 Markdown：${file.mdPath}` : null
+						].filter(Boolean).join("\n")).join("\n\n");
+						const draft = String(latestInput.current?.draft ?? "").trimEnd();
+						inputActions.setDraft(`${draft}${draft ? "\n\n" : ""}${references}`);
+						const conversionWarnings = uploaded.filter((file) => file.conversion?.status === "failed").length;
+						toast(conversionWarnings
+							? `已上传 ${uploaded.length} 个文件；其中 ${conversionWarnings} 个未能自动转换，原文件仍可使用。`
+							: `已上传 ${uploaded.length} 个科研文件，并加入当前输入。`);
+					}
+					if (failed.length) toast(`有 ${failed.length} 个文件上传失败：${failed[0]}`);
+				} finally {
+					setBusy(false);
+				}
+			}, [bound?.project?.id, busy, call, inputActions, toast]);
+
+			const uploadRef = useRef(uploadFiles);
+			uploadRef.current = uploadFiles;
+			useEffect(() => {
+				if (!bound?.project?.id || typeof document === "undefined") return undefined;
+				const hasNonImage = (transfer) => {
+					const items = Array.from(transfer?.items ?? []).filter((item) => item.kind === "file");
+					if (items.length) return items.some((item) => !NATIVE_IMAGE_MIMES.has(String(item.type ?? "").toLowerCase()));
+					return Array.from(transfer?.files ?? []).some((file) => !isNativeImageFile(file));
+				};
+				const intercept = (event) => {
+					if (!hasNonImage(event.dataTransfer)) return false;
+					event.preventDefault();
+					event.stopPropagation();
+					return true;
+				};
+				const onDrag = (event) => { if (intercept(event)) setDragging(true); };
+				const onDrop = (event) => {
+					if (!intercept(event)) return;
+					setDragging(false);
+					void uploadRef.current(Array.from(event.dataTransfer?.files ?? []));
+				};
+				const onLeave = (event) => { if (event.relatedTarget == null) setDragging(false); };
+				document.addEventListener("dragenter", onDrag, true);
+				document.addEventListener("dragover", onDrag, true);
+				document.addEventListener("drop", onDrop, true);
+				document.addEventListener("dragleave", onLeave, true);
+				return () => {
+					document.removeEventListener("dragenter", onDrag, true);
+					document.removeEventListener("dragover", onDrag, true);
+					document.removeEventListener("drop", onDrop, true);
+					document.removeEventListener("dragleave", onLeave, true);
+				};
+			}, [bound?.project?.id]);
+
+			if (!bound?.project) return null;
+			return h("span", { className: "ib-file-upload" },
+				h("input", { ref: picker, type: "file", multiple: true, onChange: (event) => { void uploadFiles(event.target.files); event.target.value = ""; } }),
+				h("button", { type: "button", className: "ib-file-upload-btn", disabled: busy, title: "上传 PDF、Office、文本、数据或其他科研文件（单个不超过 25 MB）", "aria-label": "上传科研文件", onClick: () => picker.current?.click() }, busy ? "上传中…" : "上传文件"),
+				dragging ? h("div", { className: "ib-file-drop" }, h("span", null, "松开后上传到当前课题")) : null
 			);
 		}
 
@@ -1208,6 +1330,7 @@ window.__ModuleLoader__.load({
 			const openWorkspace = (project) => open(project);
 			const disposeBranding = applyBranding(() => open());
 			ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace })), "dsh-lab-agent: project badge");
+			ctx.slots.inject("conversation.input.left", () => ctx.slots.register({ name: "conversation.input.left", id: "lab-project-file-upload", order: 40 }, (props) => h(ResearchFileUpload, { ...props, call, toast })), "dsh-lab-agent: research file upload");
 			ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 		}
 

@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootLite } from "../helpers/boot-lite.mjs";
@@ -47,6 +47,50 @@ test("labConvert: upload docx -> markdown saved with provenance record (mocked c
 		const runs = convert.listRuns();
 		assert.equal(runs.length, 1);
 		assert.equal(runs[0].status, "succeeded");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("labConvert: project upload stays inside project folders and survives conversion failure", async () => {
+	const { handle, dir } = await bootConvert();
+	try {
+		const convert = handle.ctx.labConvert;
+		const projectRoot = join(dir, "project");
+		const uploadDir = join(projectRoot, "uploads");
+		const outputDir = join(projectRoot, "converted");
+		const payload = Buffer.from("paper bytes");
+
+		convert.convert = async () => ({ available: false, error: "markitdown missing" });
+		const result = await convert.ingestUpload({
+			name: "../实验 paper.docx",
+			base64: payload.toString("base64"),
+			uploadDir,
+			outputDir
+		});
+
+		assert.ok(result.sourcePath.startsWith(uploadDir));
+		assert.match(result.sourcePath, /实验 paper\.docx$/);
+		assert.deepEqual(await readFile(result.sourcePath), payload);
+		assert.equal(result.conversion.status, "failed");
+		assert.equal(result.mdPath, undefined);
+		assert.match(result.conversion.error, /markitdown/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("labConvert: rejects malformed and oversized browser upload payloads", async () => {
+	const { handle, dir } = await bootConvert();
+	try {
+		const convert = handle.ctx.labConvert;
+		await assert.rejects(() => convert.saveUpload({ name: "bad.pdf", base64: "%%%", uploadDir: join(dir, "uploads") }), /base64/);
+		await assert.rejects(
+			() => convert.saveUpload({ name: "huge.pdf", base64: "A".repeat(35 * 1024 * 1024), uploadDir: join(dir, "uploads") }),
+			/25 MB/
+		);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
