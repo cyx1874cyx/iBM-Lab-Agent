@@ -33,8 +33,9 @@ test("SSH server updater uses interactive password auth and preserves rollback m
 	assert.match(source, /\$UserName = "ubuntu"/);
 	assert.match(source, /\$Ref = "main"/);
 	assert.match(source, /Get-Command ssh\.exe/);
-	assert.match(source, /PreferredAuthentications=keyboard-interactive,password/);
-	assert.match(source, /PubkeyAuthentication=no/);
+	assert.match(source, /\$remoteInput \| & \$ssh\.Source/);
+	assert.match(source, /交互式 shell 中执行更新/);
+	assert.doesNotMatch(source, /PreferredAuthentications|PubkeyAuthentication/);
 	assert.match(source, /Read-Host "SSH 用户名"/);
 	assert.match(source, /old_launcher/);
 	assert.match(source, /old_release/);
@@ -49,6 +50,7 @@ test("local server updater launches the PowerShell updater without handling pass
 	assert.match(source, /fix\/template-list-boundary\/scripts\/update-server\.ps1/);
 	assert.match(source, /%TEMP%\\ibm-lab-agent-update-server/);
 	assert.match(source, /Invoke-WebRequest/);
+	assert.match(source, /\?cache=%RANDOM%/);
 	assert.match(source, /New-Object Text\.UTF8Encoding\(\$true\)/);
 	assert.match(source, /-ExecutionPolicy Bypass/);
 	assert.match(source, /-File "%UPDATE_SCRIPT%"/);

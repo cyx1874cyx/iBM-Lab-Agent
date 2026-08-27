@@ -134,18 +134,16 @@ echo "服务器更新完成。"
 $remoteScript = $remoteScript.Replace("__REF__", $Ref).Replace("__SKIP_SYSTEM_LINE__", $skipSystemLine)
 $payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoteScript))
 $target = "$UserName@$Server"
-$remoteCommand = "printf '%s' '$payload' | base64 -d | bash"
+$remoteInput = "printf '%s' '$payload' | base64 -d | bash`nexit `$?`n"
 
 Write-Host "将通过 SSH 更新 $target`:$Port 到 $Ref。" -ForegroundColor Cyan
 Write-Host "SSH 会直接提示输入登录密码；本脚本不会读取或保存密码。" -ForegroundColor Yellow
+Write-Host "认证方式与手动运行 ssh $target 相同；登录成功后脚本会在交互式 shell 中执行更新。" -ForegroundColor Yellow
 
-& $ssh.Source `
+$remoteInput | & $ssh.Source `
 	-tt `
 	-p $Port `
-	-o "PreferredAuthentications=keyboard-interactive,password" `
-	-o "PubkeyAuthentication=no" `
-	$target `
-	$remoteCommand
+	$target
 
 if ($LASTEXITCODE -ne 0) {
 	throw "服务器更新失败，SSH 退出码：$LASTEXITCODE"

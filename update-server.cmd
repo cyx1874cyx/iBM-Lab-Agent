@@ -3,8 +3,8 @@ setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul
 
 set "UPDATE_SCRIPT=%TEMP%\ibm-lab-agent-update-server-%RANDOM%-%RANDOM%.ps1"
-set "UPDATER_MAIN_URL=https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/scripts/update-server.ps1"
-set "UPDATER_FIX_URL=https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/fix/template-list-boundary/scripts/update-server.ps1"
+set "UPDATER_MAIN_URL=https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/scripts/update-server.ps1?cache=%RANDOM%"
+set "UPDATER_FIX_URL=https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/fix/template-list-boundary/scripts/update-server.ps1?cache=%RANDOM%"
 
 echo ========================================
 echo       iBM Lab Agent server updater
