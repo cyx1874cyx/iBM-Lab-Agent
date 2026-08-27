@@ -9,7 +9,7 @@ param(
 	[ValidateRange(1, 65535)]
 	[int]$Port = 22,
 
-	[string]$Ref = "main",
+	[string]$Ref,
 
 	[switch]$SkipSystemDeps
 )
@@ -21,6 +21,12 @@ if ([string]::IsNullOrWhiteSpace($Server)) {
 }
 if ([string]::IsNullOrWhiteSpace($UserName)) {
 	$UserName = Read-Host "SSH 用户名"
+}
+if ([string]::IsNullOrWhiteSpace($Ref)) {
+	$Ref = Read-Host "Git 分支、标签或提交 [main]"
+	if ([string]::IsNullOrWhiteSpace($Ref)) {
+		$Ref = "main"
+	}
 }
 
 if ($Server -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*$') {

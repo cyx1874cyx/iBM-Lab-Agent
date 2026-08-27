@@ -9,6 +9,7 @@ const patchPath = fileURLToPath(new URL("../../cordis.patch.yml", import.meta.ur
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
 const presetPath = fileURLToPath(new URL("../../presets/lab-research/agent.cordis.yml", import.meta.url));
 const serverUpdatePath = fileURLToPath(new URL("../../scripts/update-server.ps1", import.meta.url));
+const localServerUpdatePath = fileURLToPath(new URL("../../update-server.cmd", import.meta.url));
 
 test("bundle patch keeps one bare client carrier and the version registry", () => {
 	const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
@@ -37,6 +38,15 @@ test("SSH server updater uses interactive password auth and preserves rollback m
 	assert.match(source, /更新失败，正在尝试恢复并启动旧版本/);
 	assert.match(source, /--ref \"\$ref\"/);
 	assert.doesNotMatch(source, /ConvertTo-SecureString|sshpass|plink(?:\.exe)?\s+-pw|password\s*=/i);
+});
+
+test("local server updater launches the PowerShell updater without handling passwords", async () => {
+	const source = await readFile(localServerUpdatePath, "utf8");
+	assert.match(source, /scripts\\update-server\.ps1/);
+	assert.match(source, /-ExecutionPolicy Bypass/);
+	assert.match(source, /-File "%UPDATE_SCRIPT%"/);
+	assert.match(source, /pause/);
+	assert.doesNotMatch(source, /password|sshpass|plink(?:\.exe)?\s+-pw/i);
 });
 
 test("document conversion tool is scoped to the research preset", async () => {

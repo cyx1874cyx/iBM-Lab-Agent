@@ -61,6 +61,9 @@ SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent
     -Server 192.0.2.10 -UserName labadmin -Ref main
   ```
 
+  需要本地双击运行时，使用仓库根目录的 `update-server.cmd`。它会询问目标
+  分支或标签并调用上述 PowerShell 脚本，执行完成后保留窗口供检查结果。
+
 - 回滚：停止服务，把 `current` 软链接指回 `releases/` 内的旧版本，再对旧路径
   执行 `ibm-lab-agent dsh plugin --profile web add <旧版本绝对路径>`。
 - 停止：`ibm-lab-agent stop`。

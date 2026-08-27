@@ -35,6 +35,10 @@ SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git
 并检查状态；登录密码只由系统 SSH 读取，不会写入脚本或仓库。完整参数见
 [`docs/LINUX_RELEASE.md`](docs/LINUX_RELEASE.md)。
 
+不熟悉 PowerShell 命令时，也可以直接双击仓库根目录的
+[`update-server.cmd`](update-server.cmd)，输入目标分支（直接回车使用 `main`），
+然后按窗口提示完成服务器地址、用户名和密码输入。
+
 默认锁定 Node.js 24.16.0、DSH 0.1.1-rc.2、pnpm 10.34.5、Python 3.12.11，
 同时安装 MarkItDown、PyMuPDF、python-pptx 与 RDKit。完整版本与校验值见
 [`runtime/versions.env`](runtime/versions.env)，系统包清单见
