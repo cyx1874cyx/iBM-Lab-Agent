@@ -14,12 +14,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
+import { buildPptx, defaultLayouts } from "../fixtures/pptx-builder.mjs";
 
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
 const fixtures = fileURLToPath(new URL("../fixtures", import.meta.url));
 
 async function bootRemote() {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-remote-"));
+	const templatesDir = join(dir, "templates");
+	await mkdir(templatesDir, { recursive: true });
 	const handle = await bootLite({
 		storageRoot: join(dir, "storages"),
 		vendorDir: vendorRoot,
@@ -30,7 +33,7 @@ async function bootRemote() {
 			{ id: "api-gateway", name: "@deepseek-ai/dsh-api-gateway" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
-			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
+			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
 			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot: vendorRoot + "/skills", projectsRoot: join(dir, "projects") } },
 			{ id: "lab-literature-sources", name: "dsh-lab-agent/literature-sources", inject: ["storageDomain"], config: { sessionsDir: join(dir, "literature-sessions"), downloadsDir: join(dir, "literature-downloads") } },
 			{ id: "lab-chemistry", name: "dsh-lab-agent/chemistry", inject: ["storageDomain"] },
@@ -83,6 +86,27 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		// versions_list
 		const versions = await invoke(ctx, "versions_list");
 		assert.ok(versions.rows.length >= 1);
+
+		// PPTX 可省略 sldSz.type。导入后 Zod 会保留 pageSize.type=undefined；
+		// templates_list 必须清除该字段，否则 Typert 会拒绝整个业务返回值。
+		const untypedPptx = await buildPptx({
+			name: "remote-boundary-template",
+			size: { cx: 12192000, cy: 6858000 },
+			accent: "#1F4E79",
+			font: "Microsoft YaHei",
+			layouts: defaultLayouts()
+		});
+		const untypedPptxPath = join(dir, "remote-boundary-template.pptx");
+		await writeFile(untypedPptxPath, untypedPptx.buffer);
+		await ctx.labTemplates.importPptx("remote-boundary-template", {
+			pptxPath: untypedPptxPath,
+			meta: { name: "边界校验模板" }
+		});
+		const templates = await invoke(ctx, "templates_list");
+		const boundaryTemplate = templates.templates.find((template) => template.id === "remote-boundary-template");
+		assert.ok(boundaryTemplate);
+		assert.equal(boundaryTemplate.pageSize.ratio, "16:9");
+		assert.equal(Object.hasOwn(boundaryTemplate.pageSize, "type"), false);
 
 		// 项目核心记忆 + 项目空间聚合
 		const project = await invoke(ctx, "projects_create", { request: { fields: {
