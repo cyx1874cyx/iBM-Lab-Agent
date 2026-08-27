@@ -141,8 +141,12 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /检索/);
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);
-	assert.match(source, /微信公众号元数据/);
 	assert.match(source, /待上传 PDF/);
+	assert.match(source, /尚未获取 PDF · 点击前往论文出版社页面/);
+	assert.match(source, /尚未获取 SI · 点击前往论文出版社页面/);
+	assert.match(source, /bundlePdfUrl \? downloadBundleFile/);
+	assert.match(source, /bundleSiUrl \? downloadBundleFile/);
+	assert.doesNotMatch(source, /}, "公众号"\) : null/);
 	assert.match(source, /bundleRecordIndex/);
 	assert.match(source, /PPT/);
 	// 需要 connection（wire api）来选择预设

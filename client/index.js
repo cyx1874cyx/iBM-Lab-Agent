@@ -546,8 +546,14 @@ window.__ModuleLoader__.load({
 						const presentation = presentationByReport[report.id];
 						const bundle = bundleById[report.bundleId] || {};
 						const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
+						const publisherUrl = bundle.doi
+							? `https://doi.org/${encodeURIComponent(bundle.doi)}`
+							: (bundle.sourceType === "wechat" ? undefined : bundle.sourceUrl);
+						const bundlePdfUrl = bundle.pdfPath ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
+						const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
+						const openPublisher = (event) => { event.stopPropagation(); if (publisherUrl) window.open(publisherUrl, "_blank", "noopener,noreferrer"); };
+						const downloadBundleFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 						const metadata = [
-							bundle.sourceType === "wechat" ? "微信公众号元数据" : null,
 							(bundle.authors || []).length ? bundle.authors.join(", ") : null,
 							bundle.journal,
 							bundle.year,
@@ -560,7 +566,8 @@ window.__ModuleLoader__.load({
 							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
 								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
 								h("div", { className: "ib-lit-acts" },
-									bundle.sourceUrl ? h("button", { className: "ib-lit-btn ok", onClick: (event) => { event.stopPropagation(); window.open(bundle.sourceUrl, "_blank", "noopener,noreferrer"); } }, "公众号") : null,
+									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "下载 PDF 原文" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面" : "尚未获取 PDF · 未登记 DOI/原文页面"), onClick: (event) => bundlePdfUrl ? downloadBundleFile(event, bundlePdfUrl) : openPublisher(event), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面" : "尚未获取 SI · 未登记 DOI/原文页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : openPublisher(event), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
 									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "打开报告预览、审核与下载" : "DOCX 尚未暂存" }, "报告"),
 									h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "打开 PPT 预览、审核与下载" : "尚未生成或暂存 PPT" }, "PPT")
