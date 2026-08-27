@@ -63,7 +63,8 @@ SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent
 
   需要本地双击运行时，使用仓库根目录的 `update-server.cmd`。本地入口固定连接
   `ubuntu@vlab.ustc.edu.cn` 并安装 `main` 的最新版本；用户只需输入 SSH 密码
-  （以及需要时的 `sudo` 密码）。执行完成后窗口会保留以供检查结果。
+  （以及需要时的 `sudo` 密码）。该 `.cmd` 可以脱离仓库单独复制到桌面运行：
+  它会临时下载 PowerShell 更新逻辑，完成后删除临时文件并保留窗口供检查结果。
 
 - 回滚：停止服务，把 `current` 软链接指回 `releases/` 内的旧版本，再对旧路径
   执行 `ibm-lab-agent dsh plugin --profile web add <旧版本绝对路径>`。

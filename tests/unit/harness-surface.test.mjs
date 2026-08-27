@@ -45,10 +45,15 @@ test("SSH server updater uses interactive password auth and preserves rollback m
 
 test("local server updater launches the PowerShell updater without handling passwords", async () => {
 	const source = await readFile(localServerUpdatePath, "utf8");
-	assert.match(source, /scripts\\update-server\.ps1/);
+	assert.match(source, /raw\.githubusercontent\.com\/cyx1874cyx\/iBM-Lab-Agent\/main\/scripts\/update-server\.ps1/);
+	assert.match(source, /fix\/template-list-boundary\/scripts\/update-server\.ps1/);
+	assert.match(source, /%TEMP%\\ibm-lab-agent-update-server/);
+	assert.match(source, /Invoke-WebRequest/);
 	assert.match(source, /-ExecutionPolicy Bypass/);
 	assert.match(source, /-File "%UPDATE_SCRIPT%"/);
+	assert.match(source, /del \/f \/q "%UPDATE_SCRIPT%"/);
 	assert.match(source, /pause/);
+	assert.doesNotMatch(source, /%~dp0/);
 	assert.doesNotMatch(source, /password|sshpass|plink(?:\.exe)?\s+-pw/i);
 });
 
