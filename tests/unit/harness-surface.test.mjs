@@ -176,7 +176,10 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /function FlaskSvg/);
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
+	assert.match(source, /\.ib-rail-flask\{position:absolute;z-index:2/);
 	assert.match(source, /\[class\*='_brand'\] svg/);
+	assert.match(source, /\[class\*='_railMark'\]/);
+	assert.match(source, /\[class\*='_railFish'\]/);
 	// 预设切换必须检查 result.ok（wire 层不 throw，否则失败被静默吞掉，
 	// 会话停留在默认 standard 模式——此前"进入科研 Agent 模式"失效的根因）
 	assert.match(source, /const selectResearchPreset = async/);

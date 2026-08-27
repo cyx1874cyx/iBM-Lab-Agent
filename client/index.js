@@ -55,7 +55,7 @@ window.__ModuleLoader__.load({
 			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}",
 			// ── 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG ──
 			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#2eb38e;box-shadow:0 6px 18px rgba(81,212,163,.22)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a69b);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
-			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}",
+			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;z-index:2;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}",
 			".ib-hero-avatar{display:block;width:2em!important;height:2em!important;max-width:none;flex:none;object-fit:cover;border-radius:10px;box-shadow:0 8px 22px rgba(46,163,123,.2)}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
@@ -1096,8 +1096,9 @@ window.__ModuleLoader__.load({
 		 * 品牌覆盖：sidebar 顶部原「DeepSeek HARNESS」wordmark 与鲸鱼 logo 由
 		 * dsh-client-ui-sidebar 渲染——这里用 CSS 隐藏原品牌，再注入自定义
 		 * 「人像 Logo + iBM Agent / based on DSH」元素，并把整个品牌区设为课题入口。
-		 * CSS modules 本地类名后缀（_logoRow/_brand/_railFish）在 sidebar 包内
-		 * 稳定，升级后需复核。折叠时仅烧瓶区域打开课题，面板按钮仍可展开侧栏。
+		 * CSS modules 本地类名后缀（_logoRow/_brand，以及新旧折叠标记
+		 * _railMark/_railFish）来自 sidebar 包。折叠时仅烧瓶区域打开课题，
+		 * 面板按钮仍可展开侧栏。
 		 */
 		function applyBranding(onOpen) {
 			if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
@@ -1119,11 +1120,15 @@ window.__ModuleLoader__.load({
 			let observer = null;
 			const hideNative = () => {
 				const styleId = "dsh-lab-agent-brand";
-				if (document.querySelector(`style[data-plugin-css="${styleId}"]`) !== null) return;
-				const style = document.createElement("style");
-				style.dataset.pluginCss = styleId;
-				style.textContent = "[class*='_brand'] svg,[class*='_railFish']{display:none!important}";
-				document.head.appendChild(style);
+				let style = document.querySelector(`style[data-plugin-css="${styleId}"]`);
+				if (style === null) {
+					style = document.createElement("style");
+					style.dataset.pluginCss = styleId;
+					document.head.appendChild(style);
+				}
+				// 新版 sidebar 使用 railMark，旧版使用 railFish；二者都必须隐藏。
+				// 宽栏同时隐藏原生品牌子树，只保留后注入的 ib-brand-shell。
+				style.textContent = "[class*='_brand']>:not(.ib-brand-shell),[class*='_brand'] svg,[class*='_railMark'],[class*='_railFish']{display:none!important}";
 			};
 			const inject = () => {
 				hideNative();
