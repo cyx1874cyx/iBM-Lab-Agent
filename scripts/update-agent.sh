@@ -3,7 +3,7 @@
 # 用法: bash update-agent.sh [--ref <branch/tag>] [--skip-system-deps]
 set -Eeuo pipefail
 
-REPO="cyx1874cyx/iBM-Lab-Agent"
+REPO="qbdeng2025/iBM-Lab-Agent"
 REF="main"
 INSTALLER_REF="main"
 SKIP_SYSTEM_DEPS=0
@@ -83,7 +83,7 @@ if [[ $SKIP_SYSTEM_DEPS -eq 0 && ${EUID:-$(id -u)} -ne 0 ]]; then
   sudo -v
 fi
 
-installer_url="https://raw.githubusercontent.com/${REPO}/${INSTALLER_REF}/install.sh?cache=$RANDOM"
+installer_url="https://git.ustc.edu.cn/${REPO}/-/raw/${INSTALLER_REF}/install.sh?cache=$RANDOM"
 echo "==> 下载安装器 ${REPO}@${INSTALLER_REF} ..."
 curl -fL --progress-bar --retry 3 --retry-all-errors "$installer_url" -o "$tmp_dir/install.sh"
 chmod 700 "$tmp_dir/install.sh"

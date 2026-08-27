@@ -3,8 +3,12 @@ set -Eeuo pipefail
 
 umask 077
 
-repo_slug="${IBM_LAB_AGENT_REPO:-cyx1874cyx/iBM-Lab-Agent}"
+repo_slug="${IBM_LAB_AGENT_REPO:-qbdeng2025/iBM-Lab-Agent}"
 source_ref="${IBM_LAB_AGENT_REF:-main}"
+# 源码包下载前缀:默认 USTC GitLab 校内(服务器下载走校内网)。
+# 如需切回 GitHub 镜像,设置:
+#   IBM_LAB_AGENT_ARCHIVE_PREFIX=https://codeload.github.com/cyx1874cyx/iBM-Lab-Agent/tar.gz
+archive_prefix="${IBM_LAB_AGENT_ARCHIVE_PREFIX:-https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/archive}"
 data_root="${IBM_LAB_AGENT_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ibm-lab-agent}"
 dsh_home="${DSH_HOME:-$HOME/.dsh}"
 start_after=0
@@ -77,7 +81,7 @@ if [[ -n "$source_dir" ]]; then
 else
 	archive="$tmp_root/source.tar.gz"
 	curl --fail --location -C - --retry 3 --retry-all-errors --progress-bar \
-		"https://codeload.github.com/${repo_slug}/tar.gz/${source_ref}" -o "$archive"
+		"${archive_prefix}/${source_ref}/iBM-Lab-Agent-${source_ref}.tar.gz" -o "$archive"
 	mkdir -p "$tmp_root/unpack"
 	tar -xzf "$archive" -C "$tmp_root/unpack"
 	mapfile -t roots < <(find "$tmp_root/unpack" -mindepth 1 -maxdepth 1 -type d)
