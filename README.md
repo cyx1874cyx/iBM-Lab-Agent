@@ -237,6 +237,11 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 - **暂存—预览—人工审核—下载**：实际 DOCX/PPTX 自动进入课题文献条目，
   LibreOffice 将原文件渲染为右侧 PDF 分页预览；自动自查只作提醒。人工审核
   记录绑定源文件 SHA-256，只有审核通过且哈希未变化时才开放原文件下载。
+- **微信公众号文献入口**：在科研 Agent 对话中粘贴
+  `https://mp.weixin.qq.com/s...`，Agent 读取并提取页面明确展示的论文元数据，
+  通过 `lab_tasks_register_wechat_paper` 直接加入「文献精读」并标记“待上传
+  PDF”。此步骤不下载 PDF、不把公众号导读当作全文证据；后续人工上传原文时
+  复用原 `bundleId`/`reportId`，避免生成重复条目。
 - **持久化**（`lab_tasks` domain）：LabProject / LiteratureSearchRun /
   PaperSourceBundle / ReadingReport / PresentationRun / ArtifactProvenance
   （输入哈希 + skill 版本 + 模型 + 时间，每条产物可追溯）。

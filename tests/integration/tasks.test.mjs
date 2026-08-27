@@ -476,3 +476,79 @@ test("one session aggregates multiple literature queries into one entry and one 
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test("WeChat metadata enters the reading queue without a PDF and later reuses the same bundle/report", async () => {
+	const { handle, dir, fxDir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-wechat",
+			name: "公众号文献收集",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		await assert.rejects(() => tasks.registerWechatPaper({
+			projectId: "proj-wechat", sourceUrl: "https://example.com/article", title: "Invalid"
+		}), /mp\.weixin\.qq\.com/);
+
+		const first = await tasks.registerWechatPaper({
+			projectId: "proj-wechat",
+			sourceUrl: "https://mp.weixin.qq.com/s?__biz=test&mid=123&idx=1&sn=abc&scene=21#wechat_redirect",
+			title: "A prodrug polymer platform for targeted delivery",
+			authors: ["Alice Zhang", "Bo Li"],
+			doi: "https://doi.org/10.1000/wechat.1",
+			journal: "Biomaterials",
+			publicationDate: "2025-06-12",
+			volume: "320",
+			pages: "100-112",
+			abstract: "The article reports a targeted prodrug polymer platform.",
+			keywords: ["prodrug", "polymer"]
+		});
+		assert.equal(first.created, true);
+		assert.equal(first.bundle.sourceType, "wechat");
+		assert.equal(first.bundle.acquisitionStatus, "awaiting-pdf");
+		assert.equal(first.bundle.status, "pending");
+		assert.equal(first.bundle.pdfPath, undefined);
+		assert.equal(first.bundle.sourceUrl.includes("scene="), false);
+		assert.equal(first.bundle.year, 2025);
+		assert.deepEqual(first.bundle.authors, ["Alice Zhang", "Bo Li"]);
+		assert.equal(first.report.status, "pending");
+		assert.equal(first.report.locatorMode, "source-limited");
+		assert.match((await tasks.readingReportOverview(first.report.id)).summary, /targeted prodrug polymer/i);
+
+		const repeated = await tasks.registerWechatPaper({
+			projectId: "proj-wechat",
+			sourceUrl: "https://mp.weixin.qq.com/s?__biz=test&mid=123&idx=1&sn=abc",
+			title: "A prodrug polymer platform for targeted delivery",
+			doi: "10.1000/wechat.1",
+			issue: "4"
+		});
+		assert.equal(repeated.created, false);
+		assert.equal(repeated.bundle.id, first.bundle.id);
+		assert.equal(repeated.report.id, first.report.id);
+		assert.equal(repeated.bundle.issue, "4");
+		assert.equal(tasks.listBundles("proj-wechat").length, 1);
+		assert.equal(tasks.listReadingReports("proj-wechat").length, 1);
+
+		const pdfPath = join(fxDir, "wechat-paper.pdf");
+		await writeFile(pdfPath, Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF"));
+		const attached = await tasks.preparePaper({
+			projectId: "proj-wechat",
+			bundleId: first.bundle.id,
+			sourceMapPath: join(fxDir, "min-source-map.json"),
+			pdfPath
+		});
+		assert.equal(attached.id, first.bundle.id);
+		assert.equal(attached.acquisitionStatus, "ready");
+		assert.equal(attached.status, "succeeded");
+		assert.equal(attached.sourceType, "wechat");
+		assert.equal(attached.sourceUrl, first.bundle.sourceUrl);
+		assert.equal(tasks.getReadingReport(first.report.id).locatorMode, "structure-grounded");
+		assert.ok(tasks.listProvenance("proj-wechat").some((row) => row.kind === "metadata-intake" && row.source === "wechat-ai-extraction"));
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});

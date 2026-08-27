@@ -154,9 +154,23 @@ export const paperSourceBundleSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
 	title: z.string().default(""),
+	/** 来源入口：普通原文登记或由 AI 从微信公众号文章提取的元数据占位。 */
+	sourceType: z.enum(["document", "wechat"]).default("document"),
+	sourceUrl: z.string().url().optional(),
+	/** 元数据占位可先进入精读队列，PDF 由研究人员稍后手工上传。 */
+	acquisitionStatus: z.enum(["ready", "awaiting-pdf"]).default("ready"),
 	/** 论文 DOI（规范化形式）：把 PDF/SI 原文与检索条目关联，面板条目按钮据此点亮。 */
 	doi: z.string().optional(),
 	journal: z.string().optional(),
+	authors: z.array(z.string()).default([]),
+	year: z.number().int().min(1000).max(9999).optional(),
+	publicationDate: z.string().optional(),
+	volume: z.string().optional(),
+	issue: z.string().optional(),
+	pages: z.string().optional(),
+	abstract: z.string().optional(),
+	keywords: z.array(z.string()).default([]),
+	metadataExtractedAt: z.string().optional(),
 	/** PDF is optional when the bundle was prepared from a structure-grounded source map only. */
 	pdfPath: z.string().min(1).optional(),
 	pdfSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
@@ -244,7 +258,7 @@ export const presentationRunSchema = z.object({
 export const artifactProvenanceSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
-	kind: z.enum(["search", "source-bundle", "reading-report", "presentation"]),
+	kind: z.enum(["search", "metadata-intake", "source-bundle", "reading-report", "presentation"]),
 	runId: z.string().regex(PROFILE_ID_RE),
 	inputsSha256: z.string().min(1),
 	skillVersions: z.array(

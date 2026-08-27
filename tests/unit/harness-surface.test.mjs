@@ -66,6 +66,22 @@ test("literature summary tools expose public identifiers and diagnostics", async
 	assert.match(source, /有效项会立即保存/);
 });
 
+test("research preset and task tools expose the WeChat metadata intake workflow", async () => {
+	const [toolsSource, preset] = await Promise.all([
+		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(presetPath, "utf8")
+	]);
+	assert.match(toolsSource, /lab_tasks_register_wechat_paper/);
+	assert.match(toolsSource, /lab_tasks_fetch_wechat_article/);
+	assert.match(toolsSource, /待上传 PDF/);
+	assert.match(toolsSource, /bundleId: args\.bundleId/);
+	assert.match(toolsSource, /reportId 与 bundleId 不属于同一文献/);
+	assert.match(preset, /微信公众号文献链接（新增入口）/);
+	assert.match(preset, /lab_tasks_fetch_wechat_article/);
+	assert.match(preset, /fetch: false/);
+	assert.match(preset, /不下载 PDF/);
+});
+
 test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
 	const source = await readFile(clientPath, "utf8");
 	// 自动 launch：专属工作区 + 新对话 + 科研 Agent 预设
@@ -125,6 +141,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /检索/);
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);
+	assert.match(source, /微信公众号元数据/);
+	assert.match(source, /待上传 PDF/);
+	assert.match(source, /bundleRecordIndex/);
 	assert.match(source, /PPT/);
 	// 需要 connection（wire api）来选择预设
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
