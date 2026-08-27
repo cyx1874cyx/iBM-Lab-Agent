@@ -84,7 +84,7 @@ agent preset，并把当前版本核心记忆**落盘为课题工作区根目录
 整个界面通过 client 插件叠加在 Harness 上，不修改 Harness 核心。
 
 科研 Agent 对话里还可直接调用 **`lab_project_memory_read` / `lab_project_memory_update`**
-模型工具读写课题核心记忆（自动按会话定位课题）：总结/进展归档请用
+模型工具读写课题核心记忆（优先按会话绑定、回退按工作目录定位课题）：总结/进展归档请用
 `lab_project_memory_update` 提交新版本（版本化数据行、带 changeNote 与哈希，
 面板可见、后续对话自动加载）——每次提交都会**同步重写课题工作区的
 `项目记忆.md`**，agent 在对话里读取的就是这份文件（不是孤立文件）。
@@ -180,7 +180,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 | Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：左上角 iBM Agent 品牌课题入口、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
 | 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取 |
 | 工作区级绑定 | 空间内所有对话（含手动新建）按会话绑定/cwd 识别课题，共享同一份核心记忆 |
-| 核心记忆工具 | `lab_project_memory_read/_update` 模型工具自动按会话定位课题，版本化写入（changeNote + 哈希），面板可见 |
+| 核心记忆工具 | `lab_project_memory_read/_update` 模型工具按会话绑定或工作目录定位课题，版本化写入（changeNote + 哈希），面板可见 |
 | 工具作用域 | lab 工具只挂 lab-research 预设工具层，standard 等预设不可见；不在全局 toolOrder 引用未注册工具（修复"标准模式链接不上模型"） |
 | 文档转换 | markitdown（microsoft/markitdown）PDF/Office/图片 → Markdown + 转换登记；不可用时清晰降级（`--check` 权威探测，不用 pip list/which 误判） |
 | profile 组合 | `--dump-config` 含 11 个 lab 服务行（新增 lab-convert / lab-remote） |
@@ -292,7 +292,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
   by_workspace/by_cwd` 让空间内所有对话按会话绑定或 cwd 识别课题；绑定关系
   持久化于 `lab_tasks` domain `project_bindings` 表。
 - **核心记忆模型工具**（`lib/memory-tool.js`）：`lab_project_memory_read` /
-  `lab_project_memory_update` 自动按会话定位课题，版本化写入（changeNote +
+  `lab_project_memory_update` 按会话绑定或工作目录定位课题，版本化写入（changeNote +
   哈希）；persona 第 6 条强制引导走正道，禁止发明孤立记忆文件。
 - **Web 管理界面**（`client/index.js` + `lib/remote.js`）：lab Remote bridge
   经 Typert Gateway（source-mode discovery）暴露 9 个 lab 服务；浏览器 client

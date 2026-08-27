@@ -100,7 +100,8 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
   让空间内**所有**对话（含手动新建）都能按会话绑定或 cwd 识别课题；绑定关系
   持久化在 `lab_tasks` domain 的 `project_bindings` 表，会话冷读也能解析。
 - **核心记忆模型工具**（`lib/memory-tool.js`）：`lab_project_memory_read` /
-  `lab_project_memory_update` 两个模型工具自动按当前会话反查课题（`bySession`），
+  `lab_project_memory_update` 两个模型工具优先按当前会话绑定反查课题，未绑定时
+  使用会话头中的 cwd 匹配课题工作区（`bySession → byCwd`），
   读写版本化核心记忆数据行（只增不改、changeNote + 哈希）——agent 归档/总结
   走正道，而不是发明 `PROJECT_MEMORY.md` 之类的孤立文件（系统不会加载）。
 - **lab 工具作用域**：`lab_convert_document`、`lab_project_memory_*` 只挂在

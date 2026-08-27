@@ -26,7 +26,8 @@ async function bootMemoryTool() {
 			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
 			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
-			{ id: "lab-memory-tool", name: "dsh-lab-agent/memory-tool", inject: ["tools", "labTasks"] }
+			{ id: "lab-memory-tool", name: "dsh-lab-agent/memory-tool", inject: ["tools", "labTasks"] },
+			{ id: "lab-tasks-tool", name: "dsh-lab-agent/tasks-tool", inject: ["tools", "labTasks"] }
 		]
 	});
 	// 造一个课题 + 绑定会话（模拟课题 launch 后的环境）
@@ -42,7 +43,7 @@ async function bootMemoryTool() {
 	return { handle, dir, project };
 }
 
-const agentExec = (sessionId) => ({ agent: { session: { id: sessionId } } });
+const agentExec = (sessionId, cwd) => ({ agent: { session: { id: sessionId, header: cwd ? { cwd } : {} } } });
 
 test("memory tools: register, resolve project by session, read and update core memory", async () => {
 	const { handle, dir, project } = await bootMemoryTool();
@@ -83,7 +84,23 @@ test("memory tools: register, resolve project by session, read and update core m
 		assert.equal(byId.ok, true);
 		assert.equal(byId.projectId, "mtool-project");
 
-		// 未绑定会话 → 明确错误（引导先进入课题）
+		// 从课题工作目录直接创建、未经过 launch 绑定的会话也能自动定位。
+		const byCwd = await read.execute({}, agentExec("session-cwd-only", project.workspacePath));
+		assert.equal(byCwd.ok, true);
+		assert.equal(byCwd.projectId, "mtool-project");
+
+		// 所有文献登记工具共享同一回退；公众号登记无需再手传 projectId。
+		const registerWechat = tools.get("lab_tasks_register_wechat_paper");
+		const wechat = await registerWechat.execute({
+			sourceUrl: "https://mp.weixin.qq.com/s?__biz=test&mid=456&idx=1&sn=cwd",
+			title: "Cwd-resolved paper"
+		}, agentExec("session-cwd-wechat", project.workspacePath));
+		assert.equal(wechat.ok, true);
+		assert.ok(wechat.bundleId);
+		assert.ok(wechat.reportId);
+		assert.equal(handle.ctx.labTasks.getBundle(wechat.bundleId).projectId, "mtool-project");
+
+		// 未绑定且 cwd 不属于课题空间 → 明确错误（引导先进入课题）
 		const unbound = await read.execute({}, agentExec("session-nobody"));
 		assert.equal(unbound.ok, false);
 		assert.match(unbound.error, /未归属任何课题/);
