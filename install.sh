@@ -76,7 +76,7 @@ if [[ -n "$source_dir" ]]; then
 		-cf - . | tar -C "$tmp_root/source" -xf -
 else
 	archive="$tmp_root/source.tar.gz"
-	curl --fail --location --retry 3 --silent --show-error \
+	curl --fail --location --retry 3 --progress-bar \
 		"https://codeload.github.com/${repo_slug}/tar.gz/${source_ref}" -o "$archive"
 	mkdir -p "$tmp_root/unpack"
 	tar -xzf "$archive" -C "$tmp_root/unpack"
@@ -128,7 +128,7 @@ node_target="$runtime_root/node-v${NODE_VERSION}-linux-${node_arch}"
 node_link="$runtime_root/node"
 if [[ ! -x "$node_target/bin/node" || "$($node_target/bin/node --version 2>/dev/null || true)" != "v$NODE_VERSION" ]]; then
 	node_archive="$tmp_root/node.tar.xz"
-	curl --fail --location --retry 3 --silent --show-error \
+	curl --fail --location --retry 3 --progress-bar \
 		"https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o "$node_archive"
 	echo "$node_sha256  $node_archive" | sha256sum --check --status || {
 		echo "Node.js 下载校验失败" >&2
@@ -148,7 +148,7 @@ mkdir -p "$launcher_root"
 pnpm_root="$runtime_root/pnpm-$PNPM_VERSION"
 pnpm_archive="$tmp_root/pnpm.tgz"
 if [[ ! -f "$pnpm_root/package/bin/pnpm.cjs" ]]; then
-	curl --fail --location --retry 3 --silent --show-error \
+	curl --fail --location --retry 3 --progress-bar \
 		"https://registry.npmjs.org/pnpm/-/pnpm-${PNPM_VERSION}.tgz" -o "$pnpm_archive"
 	echo "$PNPM_SHA256  $pnpm_archive" | sha256sum --check --status || {
 		echo "pnpm 下载校验失败" >&2
@@ -172,7 +172,7 @@ runtime_bin="$runtime_root/runtime-bin"
 python_bin_dir="$runtime_root/python-bin"
 mkdir -p "$runtime_bin" "$python_bin_dir"
 if [[ ! -x "$runtime_bin/uv" || "$($runtime_bin/uv --version 2>/dev/null || true)" != "uv $UV_VERSION"* ]]; then
-	curl --fail --location --retry 3 --silent --show-error "https://astral.sh/uv/${UV_VERSION}/install.sh" -o "$tmp_root/install-uv.sh"
+	curl --fail --location --retry 3 --progress-bar "https://astral.sh/uv/${UV_VERSION}/install.sh" -o "$tmp_root/install-uv.sh"
 	env UV_UNMANAGED_INSTALL="$runtime_bin" sh "$tmp_root/install-uv.sh"
 fi
 export UV_PYTHON_INSTALL_DIR="$runtime_root/python"

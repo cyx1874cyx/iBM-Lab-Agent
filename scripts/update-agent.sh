@@ -5,6 +5,7 @@ set -Eeuo pipefail
 
 REPO="cyx1874cyx/iBM-Lab-Agent"
 REF="main"
+INSTALLER_REF="main"
 SKIP_SYSTEM_DEPS=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,6 +15,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ref=*)
       REF="${1#--ref=}"
+      shift
+      ;;
+    --installer-ref)
+      INSTALLER_REF="${2:-main}"
+      shift 2
+      ;;
+    --installer-ref=*)
+      INSTALLER_REF="${1#--installer-ref=}"
       shift
       ;;
     --skip-system-deps)
@@ -74,8 +83,8 @@ if [[ $SKIP_SYSTEM_DEPS -eq 0 && ${EUID:-$(id -u)} -ne 0 ]]; then
   sudo -v
 fi
 
-installer_url="https://raw.githubusercontent.com/${REPO}/${REF}/install.sh"
-echo "==> 下载安装器 ${REPO}@${REF} ..."
+installer_url="https://raw.githubusercontent.com/${REPO}/${INSTALLER_REF}/install.sh"
+echo "==> 下载安装器 ${REPO}@${INSTALLER_REF} ..."
 curl -fL --progress-bar --retry 3 --retry-all-errors "$installer_url" -o "$tmp_dir/install.sh"
 chmod 700 "$tmp_dir/install.sh"
 
