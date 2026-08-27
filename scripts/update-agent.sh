@@ -83,7 +83,7 @@ if [[ $SKIP_SYSTEM_DEPS -eq 0 && ${EUID:-$(id -u)} -ne 0 ]]; then
   sudo -v
 fi
 
-installer_url="https://raw.githubusercontent.com/${REPO}/${INSTALLER_REF}/install.sh"
+installer_url="https://raw.githubusercontent.com/${REPO}/${INSTALLER_REF}/install.sh?cache=$RANDOM"
 echo "==> 下载安装器 ${REPO}@${INSTALLER_REF} ..."
 curl -fL --progress-bar --retry 3 --retry-all-errors "$installer_url" -o "$tmp_dir/install.sh"
 chmod 700 "$tmp_dir/install.sh"
