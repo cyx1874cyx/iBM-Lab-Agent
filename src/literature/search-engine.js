@@ -81,7 +81,7 @@ export function buildPubMedQuery(query) {
 	return unique.map((concept) => concept.includes(" ") ? `\"${concept}\"[Title/Abstract]` : `${concept}[Title/Abstract]`).join(" AND ");
 }
 
-function titleSimilarity(a, b) {
+export function titleSimilarity(a, b) {
 	const left = new Set(normalizeTitle(a).split(" ").filter(Boolean));
 	const right = new Set(normalizeTitle(b).split(" ").filter(Boolean));
 	const union = new Set([...left, ...right]);
@@ -91,9 +91,70 @@ function titleSimilarity(a, b) {
 	return intersection / union.size;
 }
 
-function firstAuthorSurname(paper) {
-	const value = String(paper.authors?.[0] ?? "").toLowerCase().trim();
+/** 作者姓氏：兼容 "Given Family" 与 "Family, Given" 两种写法，返回小写纯字母数字姓氏。 */
+export function authorSurname(author) {
+	const value = String(author ?? "").toLowerCase().trim();
+	if (!value) return "";
 	return (value.includes(",") ? value.split(",")[0] : value.split(/\s+/).at(-1))?.replace(/[^\p{L}\p{N}]/gu, "") ?? "";
+}
+
+function firstAuthorSurname(paper) {
+	return authorSurname(paper.authors?.[0]);
+}
+
+/**
+ * 用外部来源元数据（如公众号页面提取的题名/作者/年份）校验一篇检索候选是否
+ * 是同一篇论文。返回 0–1 标题相似度、作者姓氏重合数与年份差值，以及加权评分
+ * （标题 60%、作者最多 2 位各 25%、年份吻合 15%）。纯函数，供 DOI 检索校验与
+ * 去重之外的匹配场景复用。
+ */
+export function verifyPaperMatch(paper, { title, authors = [], year } = {}) {
+	const expectedTitle = normalizeTitle(title);
+	const titleScore = expectedTitle ? titleSimilarity(paper.title ?? "", expectedTitle) : undefined;
+	const surnames = new Set((Array.isArray(authors) ? authors : []).map(authorSurname).filter(Boolean));
+	const matchedAuthors = (paper.authors ?? []).filter((author) => surnames.has(authorSurname(author)));
+	const expectedYear = year == null || year === "" ? undefined : Number(year);
+	const yearMatch = Number.isInteger(expectedYear) && Number.isInteger(paper.year) ? Math.abs(paper.year - expectedYear) : undefined;
+	const score = (titleScore ?? 0) * 60 + Math.min(matchedAuthors.length, 2) * 25 + (yearMatch === 0 ? 15 : yearMatch === 1 ? 5 : 0);
+	return { titleScore, matchedAuthors, yearMatch, score };
+}
+
+/**
+ * 对一次检索结果做 DOI 匹配校验：保留有 DOI 且标题相似度 ≥ 0.5 的候选，
+ * 按「标题 ≥0.9 且有作者/年份佐证（或无作者线索）→ high；标题 ≥0.7 且有
+ * 佐证 → medium；其余 → low」分级，并先按置信度再按标题相似度排序。
+ * 纯函数，供微信公众号 DOI 检索校验（resolveWechatPaperDoi）使用。
+ */
+export function rankDoiCandidates(results, { title, authors = [], year } = {}) {
+	const normalizedAuthors = (Array.isArray(authors) ? authors : []).map(authorSurname).filter(Boolean);
+	const candidates = [];
+	for (const paper of results ?? []) {
+		const match = verifyPaperMatch(paper, { title, authors, year });
+		if (!paper.doi || (match.titleScore ?? 0) < 0.5) continue;
+		const authorBacked = match.matchedAuthors.length > 0;
+		const yearBacked = match.yearMatch === 0;
+		let confidence = "low";
+		if ((match.titleScore ?? 0) >= 0.9 && (authorBacked || yearBacked || normalizedAuthors.length === 0)) confidence = "high";
+		else if ((match.titleScore ?? 0) >= 0.7 && (authorBacked || yearBacked || match.yearMatch === 1)) confidence = "medium";
+		candidates.push({
+			doi: paper.doi,
+			title: paper.title,
+			authors: paper.authors ?? [],
+			journal: paper.journal,
+			year: paper.year,
+			volume: paper.volume,
+			issue: paper.issue,
+			pages: paper.pages,
+			publicationDate: paper.publicationDate,
+			confidence,
+			titleScore: Math.round((match.titleScore ?? 0) * 1000) / 1000,
+			matchedAuthors: match.matchedAuthors,
+			yearMatch: match.yearMatch
+		});
+	}
+	const rank = { high: 3, medium: 2, low: 1 };
+	candidates.sort((a, b) => rank[b.confidence] - rank[a.confidence] || b.titleScore - a.titleScore);
+	return candidates;
 }
 
 function abstractFromIndex(index) {

@@ -552,3 +552,48 @@ test("WeChat metadata enters the reading queue without a PDF and later reuses th
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test("WeChat DOI verification resolves a candidate and registers the DOI into the reading queue", async () => {
+	const { handle, dir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		stubNetwork(tasks.executor);
+		await tasks.createProject({
+			id: "proj-wechat-doi",
+			name: "公众号 DOI 校验",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+
+		// 页面未展示 DOI → 检索校验（stub 返回的 openalex/crossref 风格记录）
+		const resolved = await tasks.resolveWechatPaperDoi({
+			projectId: "proj-wechat-doi",
+			title: "Prodrug-conjugated polymers for drug delivery",
+			authors: ["A. Chemist"],
+			year: 2024
+		});
+		assert.equal(resolved.candidates[0].doi, "10.1000/fake.1");
+		assert.equal(resolved.candidates[0].confidence, "high");
+		assert.equal(resolved.candidates[0].titleScore, 1);
+		assert.ok(tasks.listProvenance("proj-wechat-doi").some((row) => row.kind === "search" && row.source === "wechat-doi-verify"));
+
+		// 把校验得到的 DOI 提交到文献精读
+		const registered = await tasks.registerWechatPaper({
+			projectId: "proj-wechat-doi",
+			sourceUrl: "https://mp.weixin.qq.com/s?__biz=doi&mid=1&idx=1&sn=xyz",
+			title: "Prodrug-conjugated polymers for drug delivery",
+			authors: ["A. Chemist"],
+			doi: resolved.candidates[0].doi,
+			year: 2024
+		});
+		assert.equal(registered.created, true);
+		assert.equal(registered.bundle.doi, "10.1000/fake.1");
+		assert.equal(registered.bundle.sourceType, "wechat");
+		assert.equal(registered.bundle.acquisitionStatus, "awaiting-pdf");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});

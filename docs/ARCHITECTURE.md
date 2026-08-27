@@ -199,14 +199,18 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
   暂存到课题文献条目。机器自查同步给出提醒，但不决定能否人工审核。
 - **微信公众号入口**：`lab_tasks_fetch_wechat_article` 仅取用户明确给出的
   `mp.weixin.qq.com/s` 可见正文，AI 提取可核验字段后调用
-  `lab_tasks_register_wechat_paper`。系统创建 metadata-only `PaperSourceBundle`
-  和 pending `ReadingReport`；后续 `preparePaper(bundleId=...)` 原地补齐 PDF/
-  source-map，精读报告继续复用原 `reportId`。
+  `lab_tasks_register_wechat_paper`。页面未展示 DOI 时，先调用
+  `lab_tasks_resolve_wechat_doi`（`resolveWechatPaperDoi` → OpenAlex/Crossref
+  检索 + `rankDoiCandidates` 校验，标题相似度/作者姓氏/年份容差打分并分级
+  high/medium/low），把 confidence=high 的权威 DOI 随登记一并提交；medium 需
+  人工确认，low/检索失败则省略，不猜测。系统创建 metadata-only
+  `PaperSourceBundle` 和 pending `ReadingReport`；后续 `preparePaper(bundleId=...)`
+  原地补齐 PDF/source-map，精读报告继续复用原 `reportId`。
 - **持久化**（`lab_tasks` domain，6 表）：LabProject（目标/模板版本快照）、
   LiteratureSearchRun、PaperSourceBundle、ReadingReport、PresentationRun、
   ArtifactProvenance（输入哈希 / skill 版本 / 模型 / 时间）。
-- **接口**（§六）：`searchLiterature` `fetchWechatArticle` `registerWechatPaper`
-  `preparePaper` `createReadingReport`
+- **接口**（§六）：`searchLiterature` `fetchWechatArticle` `resolveWechatPaperDoi`
+  `registerWechatPaper` `preparePaper` `createReadingReport`
   `validateReadingReport` `createPresentation` `validatePresentation` + 完成/查询。
 - **人工审核与下载门禁**：条目右侧抽屉通过打包环境中的 LibreOffice 把实际
   DOCX/PPTX 渲染成 PDF 分页预览（无文本/近似降级）。审核记录绑定源文件

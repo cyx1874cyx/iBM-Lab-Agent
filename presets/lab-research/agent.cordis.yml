@@ -73,8 +73,14 @@
            先调用 lab_tasks_fetch_wechat_article 读取这个公开页面，由你从工具
            返回的页面可见内容提取论文题名、
            作者、期刊、发表日期/年份、卷期页、DOI、摘要和关键词；页面没有的
-           字段必须省略，禁止猜测或用公众号推送日期冒充论文发表日期。随后立即
-           调用 lab_tasks_register_wechat_paper，把元数据提交到右侧「文献精读」。
+           字段必须省略，禁止猜测或用公众号推送日期冒充论文发表日期。随后
+           **检索校验 DOI**：若页面未明确展示 DOI，调用
+           lab_tasks_resolve_wechat_doi（传提取到的题名/作者/年份）到
+           OpenAlex/Crossref 检索校验，从返回候选中采用 confidence=high 的
+           DOI 补全；medium 需与用户确认后采用；low、检索不可用或无候选时
+           省略 DOI，禁止猜测；页面已展示 DOI 时直接采用、跳过检索。最后
+           调用 lab_tasks_register_wechat_paper，把校验后的元数据（含 DOI）
+           提交到右侧「文献精读」。
            此入口**不下载 PDF、不调用全文解析/精读 skill、不把公众号导读当作
            全文证据**；若读取工具无法取得正文，明确请用户粘贴包含文献信息的
            文字或截图，不得虚构元数据。工具会返回 bundleId/reportId，并将条目
