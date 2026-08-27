@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
 	[Parameter(Position = 0)]
 	[string]$Server = "vlab.ustc.edu.cn",
@@ -41,7 +41,7 @@ if ($Ref -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or $Ref.Contains("..")) {
 
 $ssh = Get-Command ssh.exe -ErrorAction SilentlyContinue
 if ($null -eq $ssh) {
-	throw '未找到 Windows OpenSSH 客户端。请先在“可选功能”中安装 OpenSSH 客户端。'
+	throw '未找到 Windows OpenSSH 客户端。请先在 Windows 可选功能中安装 OpenSSH 客户端。'
 }
 
 $skipSystemLine = if ($SkipSystemDeps) {

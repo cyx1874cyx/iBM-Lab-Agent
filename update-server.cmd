@@ -15,7 +15,7 @@ echo.
 
 echo Downloading the updater from GitHub...
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^
-	-Command "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing -Uri $env:UPDATER_MAIN_URL -OutFile $env:UPDATE_SCRIPT -ErrorAction Stop } catch { Invoke-WebRequest -UseBasicParsing -Uri $env:UPDATER_FIX_URL -OutFile $env:UPDATE_SCRIPT -ErrorAction Stop }"
+	-Command "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing -Uri $env:UPDATER_MAIN_URL -OutFile $env:UPDATE_SCRIPT -ErrorAction Stop } catch { Invoke-WebRequest -UseBasicParsing -Uri $env:UPDATER_FIX_URL -OutFile $env:UPDATE_SCRIPT -ErrorAction Stop }; $text=[IO.File]::ReadAllText($env:UPDATE_SCRIPT,[Text.Encoding]::UTF8); [IO.File]::WriteAllText($env:UPDATE_SCRIPT,$text,(New-Object Text.UTF8Encoding($true)))"
 
 if errorlevel 1 (
 	echo.
