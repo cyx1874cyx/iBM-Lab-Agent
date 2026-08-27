@@ -1009,16 +1009,27 @@ window.__ModuleLoader__.load({
 					if (!form.file) throw new Error("请选择 .pptx 文件");
 					const base64 = await toBase64(form.file);
 					const result = await call("templates_import", { request: { id: form.id.trim(), name: form.name.trim(), base64, meta: { audience: form.audience, purpose: form.purpose } } });
-					const profile = result.profile;
-					const suggestions = result.suggestions || {};
-					setStaged({ profile, parsed: result.parsed, suggestions });
-					setMapping(Object.fromEntries(Object.entries(suggestions).map(([role, m]) => [role, m.layoutId])));
+					const profile = result?.profile;
+					const parsed = result?.parsed;
+					const suggestions = result?.suggestions;
+					if (!profile || !parsed || !suggestions || typeof suggestions !== "object") {
+						throw new Error("模板解析结果不完整，请确认文件是有效的 .pptx 后重试");
+					}
+					const initialMapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => {
+						if (!suggestion?.layoutId) throw new Error(`模板解析结果缺少「${role}」版式映射`);
+						return [role, suggestion.layoutId];
+					}));
+					// React 17 不会批处理异步回调中的连续状态更新。必须先写 mapping，
+					// 再切换到 staged 视图，否则首次渲染会读取 null["cover"]。
+					setMapping(initialMapping);
+					setStaged({ profile, parsed, suggestions });
 					setBusy(false);
 				} catch (reason) { setError(reason.message); setBusy(false); }
 			};
 			const confirm = async () => {
 				setBusy(true); setError("");
 				try {
+					if (!mapping) throw new Error("版式映射尚未准备完成，请稍后重试");
 					const result = await call("templates_confirm", { request: { id: staged.profile.id, version: staged.profile.version, mapping: Object.fromEntries(Object.entries(mapping).map(([role, layoutId]) => [role, { layoutId }])) } });
 					if (!result.ok) throw new Error(`模板映射无效：${(result.problems || []).join("；")}`);
 					onDone(result.profile?.id || staged.profile.id);
@@ -1035,7 +1046,7 @@ window.__ModuleLoader__.load({
 			const roles = staged.profile.layoutRoleMapping ? Object.keys(staged.profile.layoutRoleMapping) : [];
 			const roleRows = roles.map((role) => h("div", { className: "ib-table-row", key: role },
 				h("span", { className: "ib-tm-key", style: { flex: 1 } }, role),
-				h("select", { style: { flex: 1, marginRight: 8 }, value: mapping[role] || "", onChange: (e) => setMapping((old) => ({ ...old, [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
+				h("select", { style: { flex: 1, marginRight: 8 }, value: mapping?.[role] || "", onChange: (e) => setMapping((old) => ({ ...(old || {}), [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
 				h("span", { className: "ib-sub", style: { flex: 1 } }, (staged.suggestions && staged.suggestions[role] && staged.suggestions[role].reason) || "")
 			));
 			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `确认「${staged.profile.name}」角色映射`), h("span", { className: "ib-chip" }, `${staged.parsed?.layoutCount || "?"} 个布局`)),

@@ -56,6 +56,16 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.doesNotMatch(source, /我的科研课题"\) : null/);
 });
 
+test("PPT template import initializes role mappings before rendering the staged form", async () => {
+	const source = await readFile(clientPath, "utf8");
+	const mappingUpdate = source.indexOf("setMapping(initialMapping)");
+	const stagedUpdate = source.indexOf("setStaged({ profile, parsed, suggestions })");
+	assert.ok(mappingUpdate >= 0, "client initializes the imported template mapping");
+	assert.ok(stagedUpdate > mappingUpdate, "mapping is initialized before the staged form can render");
+	assert.match(source, /value: mapping\?\.\[role\] \|\| ""/);
+	assert.match(source, /\(old \|\| \{\}\)/);
+});
+
 test("literature summary tools expose public identifiers and diagnostics", async () => {
 	const source = await readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8");
 	assert.match(source, /lab_tasks_get_search_summary_inputs/);
