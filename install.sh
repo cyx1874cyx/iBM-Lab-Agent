@@ -128,8 +128,9 @@ node_target="$runtime_root/node-v${NODE_VERSION}-linux-${node_arch}"
 node_link="$runtime_root/node"
 if [[ ! -x "$node_target/bin/node" || "$($node_target/bin/node --version 2>/dev/null || true)" != "v$NODE_VERSION" ]]; then
 	node_archive="$tmp_root/node.tar.xz"
+	# Node.js 走 USTC 校内镜像(服务器就在 USTC,最快);路径结构与官方 nodejs.org 一致
 	curl --fail --location --http1.1 -C - --retry 3 --retry-all-errors --progress-bar \
-		"https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o "$node_archive"
+		"https://mirrors.ustc.edu.cn/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o "$node_archive"
 	echo "$node_sha256  $node_archive" | sha256sum --check --status || {
 		echo "Node.js 下载校验失败" >&2
 		exit 1
@@ -148,6 +149,7 @@ mkdir -p "$launcher_root"
 pnpm_root="$runtime_root/pnpm-$PNPM_VERSION"
 pnpm_archive="$tmp_root/pnpm.tgz"
 if [[ ! -f "$pnpm_root/package/bin/pnpm.cjs" ]]; then
+	# pnpm:USTC 镜像站无 npm registry 镜像,用 npmmirror(国内,速度快)
 	curl --fail --location --http1.1 -C - --retry 3 --retry-all-errors --progress-bar \
 		"https://registry.npmmirror.com/pnpm/-/pnpm-${PNPM_VERSION}.tgz" -o "$pnpm_archive"
 	echo "$PNPM_SHA256  $pnpm_archive" | sha256sum --check --status || {
