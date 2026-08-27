@@ -14,7 +14,7 @@
 完成配置自检，并在 `127.0.0.1:3080` 启动 Web 界面：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/install.sh | bash -s -- --start
+curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --start
 ```
 
 安装系统包时会正常请求 `sudo`；Node、DSH、pnpm、Python 及 Python 包都装在
@@ -53,7 +53,7 @@ SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git
 `--keep-default-preset`。查看全部参数：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cyx1874cyx/iBM-Lab-Agent/main/install.sh | bash -s -- --help
+curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --help
 ```
 
 ## 源码开发与手动部署

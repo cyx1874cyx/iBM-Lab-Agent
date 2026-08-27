@@ -46,13 +46,17 @@ test("SSH server updater uses interactive password auth and preserves rollback m
 	assert.match(source, /old_release/);
 	assert.match(source, /更新失败，正在尝试恢复并启动旧版本/);
 	assert.match(source, /--ref \"\$ref\"/);
+	assert.match(source, /repo="qbdeng2025\/iBM-Lab-Agent"/);
+	assert.match(source, /git\.ustc\.edu\.cn\/\$\{repo\}\/\-\/raw\/\$\{ref\}\/install\.sh/);
+	assert.doesNotMatch(source, /raw\.githubusercontent\.com\/cyx1874cyx/);
 	assert.doesNotMatch(source, /ConvertTo-SecureString|sshpass|plink(?:\.exe)?\s+-pw|password\s*=/i);
 });
 
 test("local server updater launches the PowerShell updater without handling passwords", async () => {
 	const source = await readFile(localServerUpdatePath, "utf8");
-	assert.match(source, /raw\.githubusercontent\.com\/cyx1874cyx\/iBM-Lab-Agent\/main\/scripts\/update-server\.ps1/);
-	assert.match(source, /fix\/template-list-boundary\/scripts\/update-server\.ps1/);
+	assert.match(source, /git\.ustc\.edu\.cn\/qbdeng2025\/iBM-Lab-Agent\/\-\/raw\/main\/scripts\/update-server\.ps1/);
+	assert.doesNotMatch(source, /raw\.githubusercontent\.com\/cyx1874cyx/);
+	assert.doesNotMatch(source, /fix\/template-list-boundary/);
 	assert.match(source, /%TEMP%\\ibm-lab-agent-update-server/);
 	assert.match(source, /Invoke-WebRequest/);
 	assert.match(source, /\?cache=%RANDOM%/);

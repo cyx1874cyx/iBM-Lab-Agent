@@ -1,27 +1,40 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions DisableDelayedExpansion
+chcp 65001 >nul
+
+set "UPDATE_SCRIPT=%TEMP%\ibm-lab-agent-update-server-%RANDOM%-%RANDOM%.ps1"
+set "UPDATER_URL=https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/scripts/update-server.ps1?cache=%RANDOM%"
 
 echo ========================================
-echo   iBM Lab Agent - server updater
-echo   Server: ubuntu@vlab.ustc.edu.cn
+echo       iBM Lab Agent server updater
 echo ========================================
-echo.
-echo Downloading and updating on the server...
-echo Progress is streamed live from the server.
+echo Server: ubuntu@vlab.ustc.edu.cn
+echo Source: latest main branch
 echo.
 
-REM One ssh command: download the script on the server (with progress bar) and run it.
-REM -tt allocates a pty so curl progress and script output stream to this window.
-REM Source is USTC GitLab (campus network); fix branch for testing, switch to main after merge.
-ssh -tt ubuntu@vlab.ustc.edu.cn "curl -fL --progress-bar 'https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/fix/template-list-boundary/scripts/update-agent.sh?cache=%RANDOM%' -o /tmp/update-agent.sh && chmod 700 /tmp/update-agent.sh && bash /tmp/update-agent.sh --ref main --installer-ref fix/template-list-boundary"
+echo Downloading the updater from USTC GitLab...
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^
+	-Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri $env:UPDATER_URL -OutFile $env:UPDATE_SCRIPT -ErrorAction Stop; $text=[IO.File]::ReadAllText($env:UPDATE_SCRIPT,[Text.Encoding]::UTF8); [IO.File]::WriteAllText($env:UPDATE_SCRIPT,$text,(New-Object Text.UTF8Encoding($true)))"
 
-set "SSH_CODE=%ERRORLEVEL%"
+if errorlevel 1 (
+	echo.
+	echo [ERROR] Failed to download the updater from USTC GitLab.
+	echo Please check the network connection and try again.
+	pause
+	exit /b 1
+)
+
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^
+	-File "%UPDATE_SCRIPT%"
+
+set "UPDATE_EXIT_CODE=%ERRORLEVEL%"
+del /f /q "%UPDATE_SCRIPT%" >nul 2>&1
 echo.
-if "%SSH_CODE%"=="0" (
+if "%UPDATE_EXIT_CODE%"=="0" (
 	echo Update finished successfully.
 ) else (
-	echo Update failed with exit code %SSH_CODE%.
+	echo Update failed with exit code %UPDATE_EXIT_CODE%.
 )
 echo.
 pause
-exit /b %SSH_CODE%
+exit /b %UPDATE_EXIT_CODE%

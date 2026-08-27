@@ -53,7 +53,7 @@ $skipSystemLine = if ($SkipSystemDeps) {
 $remoteScript = @'
 set -Eeuo pipefail
 
-repo="cyx1874cyx/iBM-Lab-Agent"
+repo="qbdeng2025/iBM-Lab-Agent"
 ref="__REF__"
 launcher="${XDG_BIN_HOME:-$HOME/.local/bin}/ibm-lab-agent"
 install_options=(--ref "$ref")
@@ -107,7 +107,7 @@ if [[ " ${install_options[*]} " != *" --skip-system-deps "* && ${EUID:-$(id -u)}
 	sudo -v
 fi
 
-installer_url="https://raw.githubusercontent.com/${repo}/${ref}/install.sh"
+installer_url="https://git.ustc.edu.cn/${repo}/-/raw/${ref}/install.sh?cache=$RANDOM"
 echo "下载 ${repo}@${ref} 的安装器……"
 curl -fsSL --retry 3 --retry-all-errors "$installer_url" -o "$tmp_dir/install.sh"
 chmod 700 "$tmp_dir/install.sh"

@@ -6,8 +6,8 @@ umask 077
 repo_slug="${IBM_LAB_AGENT_REPO:-qbdeng2025/iBM-Lab-Agent}"
 source_ref="${IBM_LAB_AGENT_REF:-main}"
 # 源码包下载前缀:默认 USTC GitLab 校内(服务器下载走校内网)。
-# 如需切回 GitHub 镜像,设置:
-#   IBM_LAB_AGENT_ARCHIVE_PREFIX=https://codeload.github.com/cyx1874cyx/iBM-Lab-Agent/tar.gz
+# 如需切换到其他代码镜像,设置:
+#   IBM_LAB_AGENT_ARCHIVE_PREFIX=https://example.edu/group/project/-/archive
 archive_prefix="${IBM_LAB_AGENT_ARCHIVE_PREFIX:-https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/archive}"
 data_root="${IBM_LAB_AGENT_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ibm-lab-agent}"
 dsh_home="${DSH_HOME:-$HOME/.dsh}"
