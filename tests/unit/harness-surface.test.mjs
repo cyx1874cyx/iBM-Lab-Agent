@@ -29,6 +29,9 @@ test("bundle patch is portable and contains no developer-machine browser paths",
 
 test("SSH server updater uses interactive password auth and preserves rollback metadata", async () => {
 	const source = await readFile(serverUpdatePath, "utf8");
+	assert.match(source, /\$Server = "vlab\.ustc\.edu\.cn"/);
+	assert.match(source, /\$UserName = "ubuntu"/);
+	assert.match(source, /\$Ref = "main"/);
 	assert.match(source, /Get-Command ssh\.exe/);
 	assert.match(source, /PreferredAuthentications=keyboard-interactive,password/);
 	assert.match(source, /PubkeyAuthentication=no/);

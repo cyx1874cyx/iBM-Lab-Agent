@@ -15,6 +15,8 @@ if not exist "%UPDATE_SCRIPT%" (
 echo ========================================
 echo       iBM Lab Agent server updater
 echo ========================================
+echo Server: ubuntu@vlab.ustc.edu.cn
+echo Source: latest main branch
 echo.
 
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^

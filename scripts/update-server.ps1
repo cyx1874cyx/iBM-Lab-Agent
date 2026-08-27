@@ -1,15 +1,15 @@
 [CmdletBinding()]
 param(
 	[Parameter(Position = 0)]
-	[string]$Server,
+	[string]$Server = "vlab.ustc.edu.cn",
 
 	[Parameter(Position = 1)]
-	[string]$UserName,
+	[string]$UserName = "ubuntu",
 
 	[ValidateRange(1, 65535)]
 	[int]$Port = 22,
 
-	[string]$Ref,
+	[string]$Ref = "main",
 
 	[switch]$SkipSystemDeps
 )

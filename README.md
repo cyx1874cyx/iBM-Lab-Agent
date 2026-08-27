@@ -36,8 +36,9 @@ SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git
 [`docs/LINUX_RELEASE.md`](docs/LINUX_RELEASE.md)。
 
 不熟悉 PowerShell 命令时，也可以直接双击仓库根目录的
-[`update-server.cmd`](update-server.cmd)，输入目标分支（直接回车使用 `main`），
-然后按窗口提示完成服务器地址、用户名和密码输入。
+[`update-server.cmd`](update-server.cmd)。本地入口固定连接
+`ubuntu@vlab.ustc.edu.cn`，自动安装 `main` 分支的最新版本，只需按 SSH 提示
+输入登录密码；需要更新系统依赖时，服务器还可能提示输入 `sudo` 密码。
 
 默认锁定 Node.js 24.16.0、DSH 0.1.1-rc.2、pnpm 10.34.5、Python 3.12.11，
 同时安装 MarkItDown、PyMuPDF、python-pptx 与 RDKit。完整版本与校验值见
