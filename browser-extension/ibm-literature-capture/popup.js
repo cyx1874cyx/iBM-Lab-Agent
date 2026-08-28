@@ -15,7 +15,11 @@
   };
   const stateTone = (task) => (task ? task.status : "idle");
 
-  function render(task) {
+  function render(task, trustedOrigin) {
+    $("trustedOrigin").textContent = trustedOrigin || "尚未设置";
+    $("trustHelp").textContent = trustedOrigin
+      ? "只有这个站点可以布防；更换服务器时在新页面重新授权。"
+      : "请先在 iBM 页面打开此扩展，并点击下方按钮完成一次性授权。";
     const tone = stateTone(task);
     $("stateDot").dataset.state = tone;
     $("stateText").textContent = stateText(task);
@@ -40,9 +44,9 @@
   async function refresh() {
     try {
       const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
-      render(response?.ok ? response.task : null);
+      render(response?.ok ? response.task : null, response?.trustedOrigin || "");
     } catch {
-      render(null);
+      render(null, "");
     }
   }
 
@@ -56,9 +60,32 @@
     }
   });
 
+  $("trustBtn").addEventListener("click", async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !/^https?:\/\//i.test(tab.url || "")) {
+        throw new Error("请先打开 iBM 网页，再点击扩展图标进行授权");
+      }
+      const origin = new URL(tab.url).origin;
+      const currentUrl = new URL(tab.url);
+      const pattern = `${currentUrl.protocol}//${currentUrl.hostname}/*`;
+      const granted = await chrome.permissions.request({ origins: [pattern] });
+      if (!granted) throw new Error("未授予当前站点访问权限");
+      const response = await chrome.runtime.sendMessage({ type: "SET_TRUSTED_ORIGIN", origin });
+      if (!response?.ok) throw new Error(response?.error || "保存可信站点失败");
+      await chrome.tabs.reload(tab.id);
+      window.close();
+    } catch (error) {
+      $("taskError").textContent = String(error?.message || error);
+      $("taskError").classList.remove("hidden");
+      $("taskCard").classList.remove("hidden");
+      $("emptyCard").classList.add("hidden");
+    }
+  });
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes.ibmCaptureTask) {
-      render(changes.ibmCaptureTask.newValue || null);
+      void refresh();
     }
   });
 

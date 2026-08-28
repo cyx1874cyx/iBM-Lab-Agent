@@ -27,6 +27,7 @@ import { createCaptureUploadHandler } from "../../lib/manual-capture.js";
 
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
+const extensionRoot = fileURLToPath(new URL("../../browser-extension/ibm-literature-capture/", import.meta.url));
 
 /** 合法 chrome-extension:// Origin（MV3 扩展 id = 32 个 a–p 字符）。 */
 const CHROME_ORIGIN = `chrome-extension://${"a".repeat(32)}`;
@@ -236,13 +237,16 @@ test("capture: 微信来源只使用 DOI 出版社页面；无 DOI 拒绝启动"
 	}
 });
 
-test("capture: 普通来源无 DOI 也拒绝启动", async () => {
+test("capture: 普通来源无 DOI 可使用 HTTPS 出版社页；无入口仍拒绝", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
-		await boot.putBundle({ id: "bundle-cap-nodoi", title: "无 DOI 文献", sourceType: "document", status: "pending" });
+		await boot.putBundle({ id: "bundle-cap-nodoi", title: "无 DOI 文献", sourceType: "document", sourceUrl: "https://publisher.example/article/123", status: "pending" });
+		const created = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-nodoi", kind: "si" });
+		assert.equal(created.task.publisherUrl, "https://publisher.example/article/123");
+		await boot.putBundle({ id: "bundle-cap-no-entry", title: "无入口文献", sourceType: "document", status: "pending" });
 		await assert.rejects(
-			() => ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-nodoi", kind: "si" }),
+			() => ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-no-entry", kind: "si" }),
 			/未登记 DOI/
 		);
 		// 未知 kind 拒绝
@@ -298,6 +302,20 @@ test("capture: 上传接口 — 非法令牌 404 / 过期拒绝 / 重放 409 / �
 		const replay = await boot.upload(uploadRequest({ token, fileName: "paper2.pdf", body: pdf }));
 		assert.equal(replay.status, 409);
 		assert.match(replay.payload.error, /replay|已使用/);
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
+test("capture: 同一令牌并发上传时只有一次能认领", async () => {
+	const boot = await bootCapture();
+	try {
+		const created = await boot.ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
+		const request = () => uploadRequest({ token: created.token, fileName: "concurrent.pdf", body: minimalPdf("race") });
+		const responses = await Promise.all([boot.upload(request()), boot.upload(request())]);
+		assert.deepEqual(responses.map((row) => row.status).sort((a, b) => a - b), [200, 409]);
+		assert.equal(boot.ctx.labCapture.getTask(created.task.id).status, "completed");
 	} finally {
 		await boot.handle.dispose();
 		await rm(boot.dir, { recursive: true, force: true });
@@ -498,6 +516,8 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	// 未获取 → 灰色可点击：同步打开出版社页 + 异步创建捕获任务 + 通知扩展
 	assert.match(client, /manual_capture_create/);
 	assert.match(client, /ARM_CAPTURE/);
+	assert.match(client, /ARM_CAPTURE_RESULT/);
+	assert.match(client, /未收到文献捕获扩展确认/);
 	assert.match(client, /armCaptureFor/);
 	assert.match(client, /window\.open\(publisherUrl/);
 	assert.match(client, /等待下一次/, "显示等待下一次下载提示");
@@ -506,5 +526,29 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /ibm-lit-capture-ext/);
 	// 不显示公众号链接：前端不含 mp.weixin.qq.com 域名，微信来源不回退 sourceUrl
 	assert.ok(!client.includes("mp.weixin.qq.com"), "前端不含公众号域名");
-	assert.match(client, /sourceType === "wechat" \? undefined :/, "微信来源不回退到公众号链接");
+	assert.match(client, /bundle\.sourceType === "wechat" \|\| !bundle\.sourceUrl/, "微信来源不回退到公众号链接");
+});
+
+test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受限绝对路径", async () => {
+	const manifest = JSON.parse(await readFile(join(extensionRoot, "manifest.json"), "utf8"));
+	assert.equal(manifest.content_scripts, undefined, "不再向所有网页静态注入 content script");
+	assert.ok(manifest.permissions.includes("activeTab"));
+	assert.ok(manifest.permissions.includes("scripting"));
+	assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
+	const background = await readFile(join(extensionRoot, "background.js"), "utf8");
+	assert.match(background, /SET_TRUSTED_ORIGIN/);
+	assert.match(background, /senderOrigin !== trustedOrigin/);
+	assert.match(background, /url\.origin !== trustedOrigin/);
+	assert.match(background, /state !== "complete" && state !== "interrupted"/);
+	assert.match(background, /downloadPath:/);
+	assert.match(background, /item\.startTime/);
+	const content = await readFile(join(extensionRoot, "content.js"), "utf8");
+	assert.match(content, /ARM_CAPTURE_RESULT/);
+	assert.match(content, /ok: true, taskId:/);
+	const installer = await readFile(join(extensionRoot, "native-bridge", "install-bridge.py"), "utf8");
+	assert.match(installer, /REG_SZ, manifest_path/);
+	assert.doesNotMatch(installer, /REG_SZ, manifest\)/);
+	const host = await readFile(join(extensionRoot, "native-bridge", "host.py"), "utf8");
+	assert.match(host, /message\.get\("downloadPath"/);
+	assert.match(host, /os\.path\.commonpath/);
 });

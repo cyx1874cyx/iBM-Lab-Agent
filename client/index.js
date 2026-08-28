@@ -484,7 +484,7 @@ window.__ModuleLoader__.load({
 			// 扩展完成/失败后通知本页（content script 经 window.postMessage 转发）。
 			useEffect(() => {
 				const onCaptureMessage = (event) => {
-					if (event.source !== window) return;
+					if (event.source !== window || event.origin !== location.origin) return;
 					const data = event.data;
 					if (!data || data.source !== "ibm-lit-capture-ext") return;
 					if (data.type === "CAPTURE_COMPLETED" || data.type === "CAPTURE_FAILED") {
@@ -498,10 +498,28 @@ window.__ModuleLoader__.load({
 				return () => window.removeEventListener("message", onCaptureMessage);
 			}, [onChanged]);
 			/** 通知 iBM 页面内的扩展 content script：布防下一次手工下载捕获。 */
-			const armExtension = (payload) => {
-				try { window.postMessage({ source: "ibm-lab-agent", type: "ARM_CAPTURE", payload }, "*"); }
-				catch (reason) { console.warn("[dsh-lab-agent] arm extension failed", reason); }
-			};
+			const armExtension = (payload) => new Promise((resolve, reject) => {
+				const requestId = globalThis.crypto?.randomUUID?.() ?? `capture-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				let settled = false;
+				const finish = (callback, value) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(timer);
+					window.removeEventListener("message", onResult);
+					callback(value);
+				};
+				const onResult = (event) => {
+					if (event.source !== window || event.origin !== location.origin) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lit-capture-ext" || data.type !== "ARM_CAPTURE_RESULT" || data.requestId !== requestId) return;
+					if (data.payload?.ok) finish(resolve, data.payload);
+					else finish(reject, new Error(data.payload?.error || "扩展布防失败"));
+				};
+				const timer = setTimeout(() => finish(reject, new Error("未收到文献捕获扩展确认；请安装扩展，并在扩展弹窗中信任当前 iBM 页面")), 3000);
+				window.addEventListener("message", onResult);
+				try { window.postMessage({ source: "ibm-lab-agent", type: "ARM_CAPTURE", requestId, payload }, location.origin); }
+				catch (reason) { finish(reject, reason); }
+			});
 			/**
 			 * 点击未获取的 PDF/SI 按钮：同步打开出版社页面（避免弹窗被拦截），
 			 * 异步创建一次性捕获任务并通知扩展。无 DOI 的微信来源条目直接拒绝，
@@ -510,7 +528,14 @@ window.__ModuleLoader__.load({
 			const armCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
 				const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
-				const publisherUrl = doiUrl || (bundle.sourceType === "wechat" ? undefined : bundle.sourceUrl);
+				const sourcePublisherUrl = (() => {
+					if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return undefined;
+					try {
+						const url = new URL(bundle.sourceUrl);
+						return url.protocol === "https:" ? url.href : undefined;
+					} catch { return undefined; }
+				})();
+				const publisherUrl = doiUrl || sourcePublisherUrl;
 				if (!publisherUrl) {
 					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
 					return;
@@ -519,10 +544,10 @@ window.__ModuleLoader__.load({
 				window.open(publisherUrl, "_blank", "noopener,noreferrer");
 				// 2. 异步创建一次性捕获任务并通知扩展
 				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
-					.then((result) => {
+					.then(async (result) => {
 						const task = result.task;
 						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(task.token)}`;
-						armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
+						await armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
 						setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
 						notify(`已布防捕获：请在打开的出版社页面下载 ${task.kind === "pdf" ? "PDF" : "SI"}，扩展会自动上传并点亮按钮`);
 					})
@@ -739,7 +764,13 @@ window.__ModuleLoader__.load({
 						const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
 						const publisherUrl = bundle.doi
 							? `https://doi.org/${encodeURIComponent(bundle.doi)}`
-							: (bundle.sourceType === "wechat" ? undefined : bundle.sourceUrl);
+							: (() => {
+								if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return undefined;
+								try {
+									const url = new URL(bundle.sourceUrl);
+									return url.protocol === "https:" ? url.href : undefined;
+								} catch { return undefined; }
+							})();
 						// legacy source-map-only 行把 JSON 存在 pdfPath：不当作可下载 PDF。
 						const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
 						const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : undefined;

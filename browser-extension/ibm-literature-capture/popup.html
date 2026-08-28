@@ -14,6 +14,11 @@
     </div>
   </header>
   <main>
+    <section class="card trust-card">
+      <div class="task-row"><span>可信 iBM 站点</span><b id="trustedOrigin">尚未设置</b></div>
+      <p id="trustHelp">请先在 iBM 页面打开此扩展，并点击下方按钮完成一次性授权。</p>
+      <button id="trustBtn" class="primary">信任当前 iBM 页面</button>
+    </section>
     <section class="card" id="emptyCard">
       <p>当前没有捕获任务。在 iBM Lab 文献精读中点击灰色 PDF/SI 按钮即可布防。</p>
     </section>
@@ -27,7 +32,7 @@
     </section>
   </main>
   <footer>
-    <span>只捕获你主动布防的下一份下载，不读取 Cookie。</span>
+    <span>只接受可信 iBM 站点布防，不读取 Cookie。</span>
   </footer>
   <script src="popup.js"></script>
 </body>

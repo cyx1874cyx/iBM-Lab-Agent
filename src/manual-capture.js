@@ -146,6 +146,13 @@ export function validateCapturedFile({ kind, buffer, fileName }) {
 export function publisherUrlForBundle(bundle) {
 	const doi = bundle?.doi ? normalizeDoi(bundle.doi) : undefined;
 	if (doi) return `https://doi.org/${doi}`;
+	// 微信来源绝不回退公众号链接；普通来源允许使用已登记的 HTTPS 出版社页面。
+	if (bundle?.sourceType !== "wechat" && bundle?.sourceUrl) {
+		try {
+			const url = new URL(bundle.sourceUrl);
+			if (url.protocol === "https:" && url.hostname !== "mp.weixin.qq.com") return url.href;
+		} catch { /* invalid source URL */ }
+	}
 	return undefined;
 }
 

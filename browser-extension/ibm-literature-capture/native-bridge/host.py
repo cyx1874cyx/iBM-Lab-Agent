@@ -2,13 +2,13 @@
 """
 iBM Lab 文献捕获 — Native Messaging 本地桥接宿主（Windows）。
 
-只做一件事：接收扩展发来的 { cmd: "upload", taskId, uploadUrl, relativePath, fileName }，
-读取**指定的那一份**下载文件（相对 Chrome 下载目录，防目录穿越），PUT 上传到
+只做一件事：接收扩展发来的 { cmd: "upload", taskId, uploadUrl, downloadPath, fileName }，
+读取**指定的那一份**下载文件（必须位于已配置的下载目录内），PUT 上传到
 一次性上传地址（含 token），把结果回传给扩展。
 
 安全边界：
   - 不读取 Cookie、浏览历史或任何其他文件；
-  - 只处理相对下载目录的路径，拒绝 ".." 与绝对路径；
+  - Chrome 返回绝对下载路径；只允许路径落在 Chrome/Edge 配置或系统下载目录内；
   - 上传地址由服务端一次性令牌保护，不可复用。
 """
 
@@ -20,6 +20,16 @@ import urllib.parse
 import urllib.request
 
 BRIDGE_NAME = "com.ibm.lab.capture"
+MAX_FILE_BYTES = 100 * 1024 * 1024
+
+
+def configure_binary_stdio():
+    """Windows Native Messaging 必须禁用标准流的 CRLF 文本转换。"""
+    if os.name != "nt":
+        return
+    import msvcrt
+    msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
 
 def read_message():
@@ -27,7 +37,7 @@ def read_message():
     if len(raw) < 4:
         return None
     (length,) = struct.unpack("@I", raw)
-    if length <= 0 or length > 64 * 1024 * 1024:
+    if length <= 0 or length > 1024 * 1024:
         return None
     return json.loads(sys.stdin.buffer.read(length).decode("utf-8"))
 
@@ -95,25 +105,41 @@ def downloads_dirs():
     return unique
 
 
-def resolve_download_path(relative):
-    """在全部候选下载目录中定位下载文件；找不到返回 (None, 错误信息)。"""
-    if not relative:
-        return None, "empty relative path"
-    norm = os.path.normpath(relative.replace("/", os.sep).replace("\\", os.sep))
-    if norm.startswith("..") or norm.startswith("." + os.sep) or os.path.isabs(norm):
-        return None, "unsafe relative path: " + relative
-    for base in downloads_dirs():
-        candidate = os.path.abspath(os.path.join(base, norm))
-        base_abs = os.path.abspath(base)
-        if not candidate.startswith(base_abs + os.sep):
+def _inside_directory(candidate, base):
+    """使用 realpath/commonpath 判断 candidate 是否严格位于 base 内。"""
+    candidate_real = os.path.normcase(os.path.realpath(candidate))
+    base_real = os.path.normcase(os.path.realpath(base))
+    try:
+        return os.path.commonpath([candidate_real, base_real]) == base_real
+    except ValueError:  # 不同盘符
+        return False
+
+
+def resolve_download_path(download_path):
+    """解析 Chrome 的绝对路径（兼容旧相对值），并强制限制在批准的下载目录内。"""
+    if not download_path:
+        return None, "empty download path"
+    norm = os.path.normpath(download_path.replace("/", os.sep).replace("\\", os.sep))
+    bases = downloads_dirs()
+    candidates = [norm] if os.path.isabs(norm) else [os.path.join(base, norm) for base in bases]
+    for candidate in candidates:
+        candidate_abs = os.path.abspath(candidate)
+        if not any(_inside_directory(candidate_abs, base) for base in bases):
             continue
-        if os.path.isfile(candidate):
-            return candidate, None
-    return None, "file not found in any download directory: " + relative
+        if os.path.isfile(candidate_abs):
+            return candidate_abs, None
+    return None, "file is missing or outside approved download directories: " + download_path
 
 
 def upload(upload_url, file_path, file_name):
     """PUT 上传；服务端校验一次性 token、Origin 与文件类型。"""
+    parsed = urllib.parse.urlparse(upload_url)
+    query = urllib.parse.parse_qs(parsed.query)
+    if parsed.scheme not in ("http", "https") or parsed.path != "/api/lab-capture-upload" or not query.get("token"):
+        raise ValueError("uploadUrl is not an iBM capture endpoint")
+    size = os.path.getsize(file_path)
+    if size > MAX_FILE_BYTES:
+        raise ValueError("file exceeds 100 MB capture limit")
     with open(file_path, "rb") as handle:
         content = handle.read()
     request = urllib.request.Request(upload_url, data=content, method="PUT")
@@ -130,6 +156,7 @@ def upload(upload_url, file_path, file_name):
 
 
 def main():
+    configure_binary_stdio()
     message = read_message()
     if not message:
         write_message({"ok": False, "error": "empty message"})
@@ -140,19 +167,19 @@ def main():
 
     task_id = str(message.get("taskId", ""))
     upload_url = str(message.get("uploadUrl", ""))
-    relative = str(message.get("relativePath", ""))
-    file_name = str(message.get("fileName", "") or os.path.basename(relative.replace("\\", "/")))
+    download_path = str(message.get("downloadPath", "") or message.get("relativePath", ""))
+    file_name = str(message.get("fileName", "") or os.path.basename(download_path.replace("\\", "/")))
 
     if not task_id or not upload_url.startswith(("http://", "https://")):
         write_message({"ok": False, "error": "missing taskId or uploadUrl"})
         return
 
-    file_path, path_error = resolve_download_path(relative)
+    file_path, path_error = resolve_download_path(download_path)
     if path_error:
         write_message({"ok": False, "taskId": task_id, "error": path_error})
         return
     if not os.path.isfile(file_path):
-        write_message({"ok": False, "taskId": task_id, "error": "file not found: " + relative})
+        write_message({"ok": False, "taskId": task_id, "error": "file not found: " + download_path})
         return
 
     try:

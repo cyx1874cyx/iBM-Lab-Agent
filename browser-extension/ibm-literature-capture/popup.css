@@ -31,11 +31,15 @@ body {
 .title small { color: var(--muted); font-size: 11px; }
 .card { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px; }
 .card p { margin: 0; color: var(--muted); }
+.trust-card { margin-bottom: 10px; }
+.trust-card p { margin-top: 7px; font-size: 10.5px; }
 .task-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
 .task-row span { color: var(--muted); flex: none; }
 .task-row b { text-align: right; word-break: break-all; font-weight: 560; }
 .error { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--red-bg); color: var(--red); font-size: 11px; white-space: pre-wrap; }
 .danger { width: 100%; margin-top: 10px; border: 1px solid rgba(181, 74, 74, 0.35); background: var(--red-bg); color: var(--red); border-radius: 9px; padding: 8px; cursor: pointer; font: inherit; }
 .danger:hover { background: #f6dcdc; }
+.primary { width: 100%; margin-top: 10px; border: 1px solid rgba(47, 158, 124, 0.4); background: var(--green-bg); color: #23765d; border-radius: 9px; padding: 8px; cursor: pointer; font: inherit; }
+.primary:hover { background: #d8eee6; }
 .hidden { display: none !important; }
 footer { margin-top: 12px; color: var(--muted); font-size: 10px; line-height: 1.5; }

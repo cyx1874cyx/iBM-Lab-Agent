@@ -10,22 +10,21 @@
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.source !== "ibm-lab-agent" || data.type !== "ARM_CAPTURE") return;
+    const requestId = String(data.requestId || "");
+    const reply = (payload) => window.postMessage({
+      source: "ibm-lit-capture-ext",
+      type: "ARM_CAPTURE_RESULT",
+      requestId,
+      payload
+    }, location.origin);
     chrome.runtime.sendMessage({ type: "ARM_CAPTURE", payload: data.payload })
       .then((response) => {
-        if (response && response.ok === false) {
-          window.postMessage({
-            source: "ibm-lit-capture-ext",
-            type: "ARM_CAPTURE_RESULT",
-            payload: { ok: false, error: response.error || "扩展布防失败" }
-          }, "*");
-        }
+        reply(response?.ok
+          ? { ok: true, taskId: response.taskId }
+          : { ok: false, error: response?.error || "扩展布防失败" });
       })
       .catch((error) => {
-        window.postMessage({
-          source: "ibm-lit-capture-ext",
-          type: "ARM_CAPTURE_RESULT",
-          payload: { ok: false, error: String(error?.message || error || "扩展不可用") }
-        }, "*");
+        reply({ ok: false, error: String(error?.message || error || "扩展不可用") });
       });
   });
 
@@ -33,7 +32,7 @@
   chrome.runtime.onMessage.addListener((message) => {
     if (!message) return;
     if (["CAPTURE_COMPLETED", "CAPTURE_FAILED", "CAPTURE_UPLOADING"].includes(message.type)) {
-      window.postMessage({ source: "ibm-lit-capture-ext", type: message.type, payload: message.payload || {} }, "*");
+      window.postMessage({ source: "ibm-lit-capture-ext", type: message.type, payload: message.payload || {} }, location.origin);
     }
   });
 })();

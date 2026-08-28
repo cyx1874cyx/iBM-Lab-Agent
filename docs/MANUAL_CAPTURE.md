@@ -19,7 +19,7 @@
    │ 扩展只捕获布防之后的下一份**匹配**下载；其余下载一律忽略
    ▼
 Service Worker → Native Messaging（本地桥接 host.py）
-   │ 桥接读取该下载文件（相对 Chrome 下载目录，防目录穿越）并 PUT 上传
+   │ 桥接读取该下载文件（绝对路径必须位于批准的下载目录内）并 PUT 上传
    ▼
 PUT /api/lab-capture-upload?token=...   （仅接受 chrome-extension:// Origin；100 MB 上限）
    │ %PDF- 头 / %%EOF / 大小 / SHA-256 校验（PDF）；扩展名白名单（SI）
@@ -48,14 +48,16 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
 
 ## 为什么需要本地桥接（P1 验证结论）
 
-Chrome 扩展 **Service Worker 不支持 `fetch("file://…")`**，且 `chrome.downloads`
-API 只返回相对下载目录的路径、不暴露绝对路径 —— 即使开启「允许访问文件网址」
-也无法让扩展本身稳定读取下载文件。因此采用 **Chrome Native Messaging 本地桥接**：
+Chrome 扩展 **Service Worker 不支持稳定读取下载后的本地文件**；`chrome.downloads`
+返回绝对本地路径。因此采用 **Chrome Native Messaging 本地桥接**：
 
-- 扩展只向桥接程序发送：一次性上传地址（含 token）、任务编号、下载文件相对路径；
+- 扩展只向桥接程序发送：一次性上传地址（含 token）、任务编号、Chrome 返回的下载路径；
 - 本地桥接（`browser-extension/ibm-literature-capture/native-bridge/host.py`）解析
-  用户 Downloads 目录（Windows 注册表优先），读取**指定那一份**文件并 PUT 上传；
+  Chrome/Edge 配置与系统 Downloads 目录，只允许读取这些目录内的**指定文件**并 PUT 上传；
 - 桥接不读取 Cookie、浏览历史或任何其他文件。
+
+扩展不会向全部网页静态注入。用户必须先在扩展弹窗中把当前 iBM 页面设为可信
+站点；后台同时校验消息来源与上传接口同源，其他网页无法布防或指定上传服务器。
 
 ## 安装
 
@@ -93,7 +95,8 @@ curl -s http://localhost:<端口>/api/lab-capture-upload -X OPTIONS -i | head -5
    ```
 
 5. 回到 `chrome://extensions`，点击扩展卡片的 **刷新** 按钮重新加载；
-6. 打开 iBM Lab 面板 → 文献精读，点击灰色 PDF/SI 按钮验证。
+6. 打开 iBM Lab 页面，点击扩展图标 → **信任当前 iBM 页面**，页面会自动刷新；
+7. 进入文献精读，点击灰色 PDF/SI 按钮验证。
 
 > 若扩展 id 因重新打包而变化，需要重新运行 `install-bridge.py <新 id>`。
 
@@ -111,6 +114,7 @@ python install-bridge.py --uninstall
 | 现象 | 原因与处理 |
 |---|---|
 | popup 显示「本地桥接未注册 / Specified native messaging host not found」 | 没有运行 `install-bridge.py`，或扩展后来被**重新加载/重打包**导致 id 变化。用 `chrome://extensions` 里的新 id 重跑 `python install-bridge.py <扩展id>`，再用 `python install-bridge.py <扩展id> --verify` 校验，最后刷新扩展 |
+| 页面提示「未收到文献捕获扩展确认」 | 扩展未安装，或尚未信任当前 iBM 站点。打开扩展弹窗点击“信任当前 iBM 页面”，等待页面刷新后重试 |
 | 点击按钮提示「无法启动捕获：未登记 DOI」 | 该文献（尤其是公众号来源）没有 DOI。请先在对话中让 Agent 解析 DOI，或改用全文下载队列 |
 | 点击按钮提示「已有一个进行中的捕获任务」 | 同一篇文献的同一类型已有未过期的布防；等待 20 分钟过期或取消后重试 |
 | 上传后按钮仍灰色 | 上传失败，扩展 popup 会显示错误；常见：文件类型不匹配（PDF 任务只收 `.pdf`；SI 只收 pdf/zip/docx/xlsx/csv/txt/cif/sdf）、PDF 损坏（无 `%PDF-` 头或 `%%EOF`） |

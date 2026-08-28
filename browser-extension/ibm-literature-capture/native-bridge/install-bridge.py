@@ -8,21 +8,20 @@ iBM Lab 文献捕获 — Native Messaging host 安装/卸载脚本（Windows）�
   python install-bridge.py --list        # 仅显示扩展 id（chrome://extensions 手动查）
 
 <EXTENSION_ID> 是扩展安装后 chrome://extensions 里显示的 32 位字母 id。
-脚本会把 com.ibm.lab.capture.json 注册到 Chrome 与 Edge 的
-NativeMessagingHosts 注册表位置，并指向本目录的 bridge.cmd。
+脚本会生成绑定当前 Python 解释器的 bridge.generated.cmd 与 host manifest，
+再把 manifest 文件路径注册到 Chrome 与 Edge 的 NativeMessagingHosts。
 """
 
 import argparse
 import json
 import os
-import shutil
-import subprocess
 import sys
 import winreg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(HERE, "com.ibm.lab.capture.json")
-BRIDGE_CMD = os.path.join(HERE, "bridge.cmd")
+GENERATED_BRIDGE_CMD = os.path.join(HERE, "bridge.generated.cmd")
+INSTALLED_MANIFEST = os.path.join(HERE, "com.ibm.lab.capture.generated.json")
 
 EXTENSION_ID_RE = "abcdefghijklmnop"  # 校验用；实际按长度与字符集检查
 
@@ -30,10 +29,9 @@ HOST_PATHS = [
     ("Chrome", r"Software\Google\Chrome\NativeMessagingHosts"),
     ("Edge", r"Software\Microsoft\Edge\NativeMessagingHosts"),
 ]
-# 32 位浏览器读取的注册表视图（WOW6432Node）；一并注册可覆盖 32/64 位安装
-HOST_PATHS_32 = [
-    ("Chrome", r"Software\WOW6432Node\Google\Chrome\NativeMessagingHosts"),
-    ("Edge", r"Software\WOW6432Node\Microsoft\Edge\NativeMessagingHosts"),
+REGISTRY_VIEWS = [
+    ("32位", winreg.KEY_WOW64_32KEY),
+    ("64位", winreg.KEY_WOW64_64KEY),
 ]
 
 
@@ -44,26 +42,37 @@ def validate_extension_id(value):
 
 
 def install(extension_id):
-    if not os.path.exists(BRIDGE_CMD):
-        print("错误：找不到 bridge.cmd（请确认在扩展目录的 native-bridge 下运行）")
+    host_py = os.path.join(HERE, "host.py")
+    if not os.path.exists(host_py):
+        print("错误：找不到 host.py（请确认在扩展目录的 native-bridge 下运行）")
         return 1
+    # 固定使用执行安装脚本的同一个 Python，避免 Chrome 启动时 PATH 不同或命中
+    # Microsoft Store 的 python 别名。保留 bridge.cmd 仅作手工排查回退。
+    with open(GENERATED_BRIDGE_CMD, "w", encoding="utf-8", newline="\r\n") as handle:
+        handle.write("@echo off\n")
+        handle.write(f'"{os.path.abspath(sys.executable)}" "{os.path.abspath(host_py)}"\n')
+        handle.write("exit /b %errorlevel%\n")
     with open(TEMPLATE, "r", encoding="utf-8") as handle:
-        manifest = handle.read()
-    manifest = manifest.replace("%%BRIDGE_PATH%%", BRIDGE_CMD.replace("\\", "\\\\"))
-    manifest = manifest.replace("%%EXTENSION_ID%%", extension_id.lower())
-    for browser, subkey in HOST_PATHS + HOST_PATHS_32:
-        # Chrome 按「子键名」查找 host：HKCU\...\NativeMessagingHosts\<host名>，
-        # 子键的「默认值」必须是 manifest JSON。绝不能写成父键下的一个值。
+        manifest = json.load(handle)
+    manifest["path"] = os.path.abspath(GENERATED_BRIDGE_CMD)
+    manifest["allowed_origins"] = [f"chrome-extension://{extension_id.lower()}/"]
+    with open(INSTALLED_MANIFEST, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    manifest_path = os.path.abspath(INSTALLED_MANIFEST)
+    for browser, subkey in HOST_PATHS:
         host_key = subkey + r"\com.ibm.lab.capture"
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, host_key) as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, manifest)
-        # 清理早期版本误写入父键下的同名值（错误注册遗留）
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, subkey, 0, winreg.KEY_SET_VALUE) as parent:
-                winreg.DeleteValue(parent, "com.ibm.lab.capture")
-        except FileNotFoundError:
-            pass
-        print(f"[OK] 已注册 {browser} NativeMessagingHosts → com.ibm.lab.capture")
+        for view, flag in REGISTRY_VIEWS:
+            access = winreg.KEY_WRITE | flag
+            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, host_key, 0, access) as key:
+                # Chrome 要求默认值为 host manifest 文件的绝对路径，不是 JSON 内容。
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, manifest_path)
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, subkey, 0, access) as parent:
+                    winreg.DeleteValue(parent, "com.ibm.lab.capture")
+            except FileNotFoundError:
+                pass
+            print(f"[OK] 已注册 {browser}({view}) NativeMessagingHosts → {manifest_path}")
     print("完成。请重新加载扩展（chrome://extensions 中点击刷新）。")
     print("提示：扩展每次「重新打包/重装」后 id 可能变化，若扩展报"
           "「Specified native messaging host not found」，用新 id 重跑本脚本，"
@@ -72,12 +81,18 @@ def install(extension_id):
 
 
 def uninstall():
-    for browser, subkey in HOST_PATHS + HOST_PATHS_32:
+    for browser, subkey in HOST_PATHS:
+        for view, flag in REGISTRY_VIEWS:
+            try:
+                winreg.DeleteKeyEx(winreg.HKEY_CURRENT_USER, subkey + r"\com.ibm.lab.capture", flag, 0)
+                print(f"[OK] 已移除 {browser}({view}) 注册")
+            except FileNotFoundError:
+                print(f"[--] {browser}({view}) 未注册，跳过")
+    for generated in (INSTALLED_MANIFEST, GENERATED_BRIDGE_CMD):
         try:
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, subkey + r"\com.ibm.lab.capture")
-            print(f"[OK] 已移除 {browser} 注册")
+            os.remove(generated)
         except FileNotFoundError:
-            print(f"[--] {browser} 未注册，跳过")
+            pass
     return 0
 
 
@@ -92,32 +107,39 @@ def show_extension_id():
 def verify(extension_id=None):
     """校验注册状态：host 是否注册、path 是否可执行、allowed_origins 是否匹配当前扩展。"""
     ok = True
-    for browser, subkey in HOST_PATHS + HOST_PATHS_32:
-        view = "32位" if "WOW6432Node" in subkey else "64位"
-        key = subkey + r"\com.ibm.lab.capture"
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
-                manifest, _ = winreg.QueryValueEx(handle, "")
-        except FileNotFoundError:
-            print(f"[FAIL] {browser}({view})：未注册（先运行 install-bridge.py <扩展id>）")
-            ok = False
-            continue
-        try:
-            data = json.loads(manifest)
-        except ValueError:
-            print(f"[FAIL] {browser}({view})：manifest 不是合法 JSON")
-            ok = False
-            continue
-        path = data.get("path", "")
-        allowed = data.get("allowed_origins", [])
-        print(f"[INFO] {browser}({view})：path={path}")
-        print(f"[INFO] {browser}({view})：allowed_origins={allowed}")
-        if not os.path.exists(path):
-            print(f"[FAIL] {browser}({view})：path 指向的文件不存在（{path}）——请确认目录未移动")
-            ok = False
-        if extension_id and f"chrome-extension://{extension_id}/" not in allowed:
-            print(f"[FAIL] {browser}({view})：allowed_origins 与当前扩展 id 不匹配（期望 {extension_id}）——重新打包后 id 会变化，请重跑 install-bridge.py {extension_id}")
-            ok = False
+    for browser, subkey in HOST_PATHS:
+        for view, flag in REGISTRY_VIEWS:
+            key = subkey + r"\com.ibm.lab.capture"
+            try:
+                access = winreg.KEY_READ | flag
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key, 0, access) as handle:
+                    manifest_path, _ = winreg.QueryValueEx(handle, "")
+            except FileNotFoundError:
+                print(f"[FAIL] {browser}({view})：未注册（先运行 install-bridge.py <扩展id>）")
+                ok = False
+                continue
+            print(f"[INFO] {browser}({view})：manifest={manifest_path}")
+            if not os.path.isabs(manifest_path) or not os.path.isfile(manifest_path):
+                print(f"[FAIL] {browser}({view})：注册表必须指向存在的 manifest JSON 绝对路径")
+                ok = False
+                continue
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as handle:
+                    data = json.load(handle)
+            except (OSError, ValueError) as error:
+                print(f"[FAIL] {browser}({view})：无法读取 manifest JSON：{error}")
+                ok = False
+                continue
+            path = data.get("path", "")
+            allowed = data.get("allowed_origins", [])
+            print(f"[INFO] {browser}({view})：path={path}")
+            print(f"[INFO] {browser}({view})：allowed_origins={allowed}")
+            if not os.path.exists(path):
+                print(f"[FAIL] {browser}({view})：path 指向的文件不存在（{path}）——请确认目录未移动")
+                ok = False
+            if extension_id and f"chrome-extension://{extension_id}/" not in allowed:
+                print(f"[FAIL] {browser}({view})：allowed_origins 与当前扩展 id 不匹配（期望 {extension_id}）——重新打包后 id 会变化，请重跑 install-bridge.py {extension_id}")
+                ok = False
     print("校验" + ("通过" if ok else "未通过，请按上方提示修复"))
     return 0 if ok else 1
 
