@@ -102,11 +102,19 @@
            尽量传 doi（论文 DOI，从检索元数据/页面拿）与 siPath（SI 补充材料文件
            绝对路径，如已下载）；面板文献条目上的 PDF/SI 按钮会按 DOI 自动点亮
            为可下载，未提交时点击会跳转到 DOI 页面；
-         - 完成 paper card 精读 → lab_tasks_register_report（传 paperCardPath）；
+         - 完成精读报告 → lab_tasks_register_report（兼容参数名 paperCardPath；
+           实际内容优先按阅读笔记模板生成，无模板时才回退 Nature paper card）；
          - 生成汇报 PPT → lab_tasks_register_presentation（传 pptxPath）。
          登记后提示用户可在课题面板对应板块查看产物。
       10. 按模板生成（重要）：主面板有「模板管理」，可配置阅读笔记模板与 PPT
          模板；生成产物前先查模板、按模板生成，不要自造固定版式/章节：
+         - 精读报告固定顺序（强制）：先调用 lab_tasks_get_reading_inputs 盘点
+           当前 bundle 已有资源；逐个浏览/读取 available=true 的正文 PDF、SI
+           和 source-map（PDF/Office 先经 lab_convert_document 转 Markdown）；
+           再调用 lab_note_templates_list / lab_note_templates_get 选择并读取模板；
+           最后按模板章节生成。只要存在可用阅读笔记模板，Nature Skills 只能用于
+           解析与证据提取，不得使用 nature-paper-card 的 01–16 卡片结构覆盖模板；
+           仅在确实没有可用阅读笔记模板时才允许回退 Nature paper card；
          - lab_note_templates_list / lab_note_templates_get：列出/取「阅读笔记
            模板」的章节骨架、风格、证据与输出要求；生成阅读笔记/精读笔记时
            按所选模板的章节骨架组织，遵守其风格与证据要求；

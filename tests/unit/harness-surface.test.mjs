@@ -136,6 +136,18 @@ test("research preset and task tools expose the WeChat metadata intake workflow"
 	assert.match(preset, /不下载 PDF/);
 });
 
+test("reading reports inventory PDF and SI before using note templates", async () => {
+	const [toolsSource, preset] = await Promise.all([
+		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(presetPath, "utf8")
+	]);
+	assert.match(toolsSource, /lab_tasks_get_reading_inputs/);
+	assert.match(toolsSource, /正文 PDF、SI 和 source-map/);
+	assert.match(toolsSource, /Nature paper-card 仅在没有可用模板时回退/);
+	assert.match(preset, /逐个浏览\/读取 available=true 的正文 PDF、SI/);
+	assert.match(preset, /不得使用 nature-paper-card 的 01–16 卡片结构覆盖模板/);
+});
+
 test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
 	const source = await readFile(clientPath, "utf8");
 	// 自动 launch：专属工作区 + 新对话 + 科研 Agent 预设

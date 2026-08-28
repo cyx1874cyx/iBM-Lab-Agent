@@ -44,7 +44,20 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
 - 文件名清洗路径字符、禁止目录穿越；保存目录由服务端从课题工作区构造
   （`captured-literature/<bundleId>/`），不接受客户端提供的保存路径。
 - 微信来源仅使用 DOI 出版社页面；**无 DOI 时拒绝启动捕获，绝不回退到公众号链接**。
-- 捕获只登记原始文件，不自动冒充已完成全文精读（不生成 paper card、不改变报告状态）。
+- 捕获只登记原始文件，不自动冒充已完成全文精读（不生成报告、不改变报告状态）。
+
+## 捕获后的精读顺序
+
+1. 生成报告前调用 `lab_tasks_get_reading_inputs`，盘点该文献当前已登记的正文
+   PDF、SI 与 source-map；逐个读取所有 `available=true` 的资源，不能只依据元数据
+   或公众号导读。
+2. PDF/Office 先通过 `lab_convert_document` 转为 Markdown，再读取正文；正文与 SI
+   的证据在报告中分别标注来源。
+3. 查询并读取课题的阅读笔记模板，报告严格沿用模板章节、风格和证据要求。
+   Nature Skills 可用于全文解析和证据提取，但只要存在阅读笔记模板，就不能用
+   `nature-paper-card` 的 01–16 卡片结构覆盖模板；仅无模板时才回退该结构。
+4. 用 `lab_tasks_register_report` 登记生成的 Markdown，并传入实际采用的
+   `noteTemplateId` / `noteTemplateVersion` 固化模板快照。
 
 ## 为什么需要本地桥接（P1 验证结论）
 

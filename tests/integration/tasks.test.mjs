@@ -160,6 +160,18 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const siFile = await tasks.bundleFile(bundleWithFiles.id, "si");
 		assert.deepEqual(pdfFile.buffer, pdfBytes);
 		assert.deepEqual(siFile.buffer, siBytes);
+		// 精读前必须盘点全部已有资源，并优先返回阅读笔记模板要求。
+		const readingInputs = await tasks.readingReportInputs({ projectId: "proj-1", bundleId: bundleWithFiles.id });
+		assert.equal(readingInputs.formatSource, "reading-note-template");
+		assert.equal(readingInputs.templateId, "note-default");
+		assert.deepEqual(readingInputs.resources.map((row) => [row.kind, row.available]), [
+			["main-pdf", true],
+			["si", true],
+			["source-map", true]
+		]);
+		assert.deepEqual(new Set(readingInputs.mustReadPaths), new Set([pdfPath, siPath, bundleWithFiles.sourceMapPath]));
+		assert.match(readingInputs.instructions.join("\n"), /正文和 SI/);
+		assert.match(readingInputs.instructions.join("\n"), /不得覆盖模板结构/);
 
 		// 步骤 5：精读报告（目标快照 + paper-card 审查要求）
 		const report = await tasks.createReadingReport({
@@ -180,6 +192,12 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const reportCustom = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1", noteTemplateId: "proj-note-custom", noteTemplateVersion: "1" });
 		assert.equal(reportCustom.noteTemplateSnapshot?.id, "proj-note-custom");
 		assert.equal(reportCustom.noteRequirements.sections[0].key, "takeaways");
+		// 微信占位等既有待精读条目，也能在生成产物前切换并固化所选模板。
+		const selectedTemplate = await tasks.selectReadingReportTemplate({ reportId: report.id, noteTemplateId: "proj-note-custom", noteTemplateVersion: "1" });
+		assert.equal(selectedTemplate.noteTemplateSnapshot.id, "proj-note-custom");
+		const selectedInputs = await tasks.readingReportInputs({ projectId: "proj-1", reportId: report.id });
+		assert.equal(selectedInputs.templateId, "proj-note-custom");
+		assert.equal(selectedInputs.generationRequirements.sections[0].title, "要点");
 
 		// 步骤 7：agent 完成精读（fixture 通过版）
 		const completed = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
