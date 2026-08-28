@@ -14,6 +14,12 @@
     return labels[task.status] || task.status;
   };
   const stateTone = (task) => (task ? task.status : "idle");
+  const trustButton = $("trustBtn");
+
+  function showTrustError(message) {
+    $("trustError").textContent = String(message || "");
+    $("trustError").classList.toggle("hidden", !message);
+  }
 
   function render(task, trustedOrigin) {
     $("trustedOrigin").textContent = trustedOrigin || "尚未设置";
@@ -60,8 +66,12 @@
     }
   });
 
-  $("trustBtn").addEventListener("click", async () => {
+  trustButton.addEventListener("click", async () => {
+    const originalText = trustButton.textContent;
     try {
+      showTrustError("");
+      trustButton.disabled = true;
+      trustButton.textContent = "正在授权…";
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id || !/^https?:\/\//i.test(tab.url || "")) {
         throw new Error("请先打开 iBM 网页，再点击扩展图标进行授权");
@@ -69,22 +79,27 @@
       const origin = new URL(tab.url).origin;
       const currentUrl = new URL(tab.url);
       const pattern = `${currentUrl.protocol}//${currentUrl.hostname}/*`;
-      const granted = await chrome.permissions.request({ origins: [pattern] });
-      if (!granted) throw new Error("未授予当前站点访问权限");
-      const response = await chrome.runtime.sendMessage({ type: "SET_TRUSTED_ORIGIN", origin });
-      if (!response?.ok) throw new Error(response?.error || "保存可信站点失败");
-      // 动态注册的 content script 默认只会在后续导航时运行。当前页面无需刷新，
-      // 直接注入即可立即接收“下载 PDF/SI”的布防消息；content.js 自带幂等保护。
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content.js"]
+      const prepared = await chrome.runtime.sendMessage({
+        type: "PREPARE_TRUSTED_ORIGIN",
+        origin,
+        tabId: tab.id
       });
+      if (!prepared?.ok) throw new Error(prepared?.error || "准备站点授权失败");
+      const granted = await chrome.permissions.request({ origins: [pattern] });
+      if (!granted) {
+        await chrome.runtime.sendMessage({ type: "CANCEL_PENDING_TRUST" }).catch(() => {});
+        throw new Error("未授予当前站点访问权限");
+      }
+      const response = await chrome.runtime.sendMessage({ type: "SET_TRUSTED_ORIGIN", origin, tabId: tab.id });
+      if (!response?.ok) throw new Error(response?.error || "保存可信站点失败");
       await refresh();
+      trustButton.textContent = "已信任当前页面";
+      showTrustError(response.warning || "");
     } catch (error) {
-      $("taskError").textContent = String(error?.message || error);
-      $("taskError").classList.remove("hidden");
-      $("taskCard").classList.remove("hidden");
-      $("emptyCard").classList.add("hidden");
+      showTrustError(error?.message || error);
+      trustButton.textContent = originalText;
+    } finally {
+      trustButton.disabled = false;
     }
   });
 
@@ -94,5 +109,6 @@
     }
   });
 
+  $("extensionVersion").textContent = ` v${chrome.runtime.getManifest().version}`;
   void refresh();
 })();

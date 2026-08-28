@@ -13,6 +13,7 @@
 
 const STATE_KEY = "ibmCaptureTask";
 const TRUSTED_ORIGIN_KEY = "ibmTrustedOrigin";
+const PENDING_TRUST_KEY = "ibmPendingTrustedOrigin";
 const CONTENT_SCRIPT_ID = "ibm-literature-capture-trusted";
 const CAPTURE_UPLOAD_PATH = "/api/lab-capture-upload";
 
@@ -65,6 +66,64 @@ async function setTrustedOrigin(value) {
   await chrome.storage.local.set({ [TRUSTED_ORIGIN_KEY]: origin });
   await registerTrustedContentScript(origin);
   return origin;
+}
+
+async function prepareTrustedOrigin(value, tabId) {
+  const origin = normalizedWebOrigin(value);
+  if (!origin || !Number.isInteger(tabId)) throw new Error("无法识别当前 iBM 页面");
+  const tab = await chrome.tabs.get(tabId);
+  if (normalizedWebOrigin(tab?.url) !== origin) throw new Error("当前标签页地址已变化，请重新授权");
+  await chrome.storage.local.set({
+    [PENDING_TRUST_KEY]: { origin, tabId, createdAt: Date.now() }
+  });
+  return { origin, pattern: permissionPatternForOrigin(origin) };
+}
+
+let trustFinalization = null;
+async function completeTrustedOrigin(value, tabId) {
+  if (trustFinalization) return trustFinalization;
+  trustFinalization = (async () => {
+    const origin = normalizedWebOrigin(value);
+    if (!origin) throw new Error("可信站点必须是 HTTP/HTTPS 地址");
+    const pattern = permissionPatternForOrigin(origin);
+    if (!await chrome.permissions.contains({ origins: [pattern] })) {
+      throw new Error("当前站点访问权限尚未授予");
+    }
+    const trustedOrigin = await setTrustedOrigin(origin);
+    let warning = "";
+    if (Number.isInteger(tabId)) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (normalizedWebOrigin(tab?.url) === trustedOrigin) {
+          await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+        } else {
+          warning = "页面地址已变化；重新打开 iBM 页面后桥接会自动生效";
+        }
+      } catch (error) {
+        warning = `当前页面即时启用失败：${error?.message || error}；重新打开页面后会自动生效`;
+      }
+    }
+    await chrome.storage.local.remove(PENDING_TRUST_KEY);
+    return { trustedOrigin, warning };
+  })();
+  try {
+    return await trustFinalization;
+  } finally {
+    trustFinalization = null;
+  }
+}
+
+async function completePendingTrustedOrigin() {
+  const data = await chrome.storage.local.get(PENDING_TRUST_KEY);
+  const pending = data[PENDING_TRUST_KEY];
+  if (!pending) return null;
+  if (!pending.createdAt || Date.now() - pending.createdAt > 5 * 60 * 1000) {
+    await chrome.storage.local.remove(PENDING_TRUST_KEY);
+    return null;
+  }
+  const origin = normalizedWebOrigin(pending.origin);
+  if (!origin || !await chrome.permissions.contains({ origins: [permissionPatternForOrigin(origin)] })) return null;
+  return completeTrustedOrigin(origin, pending.tabId);
 }
 
 function validateUploadUrl(raw, trustedOrigin) {
@@ -324,12 +383,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: false, error: "可信站点只能从扩展弹窗设置" });
       return false;
     }
-    setTrustedOrigin(message.origin)
-      .then((trustedOrigin) => sendResponse({ ok: true, trustedOrigin }))
+    completeTrustedOrigin(message.origin, message.tabId)
+      .then(({ trustedOrigin, warning }) => sendResponse({ ok: true, trustedOrigin, warning }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (type === "PREPARE_TRUSTED_ORIGIN") {
+    if (sender?.tab) {
+      sendResponse({ ok: false, error: "可信站点只能从扩展弹窗设置" });
+      return false;
+    }
+    prepareTrustedOrigin(message.origin, message.tabId)
+      .then((prepared) => sendResponse({ ok: true, ...prepared }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (type === "CANCEL_PENDING_TRUST") {
+    chrome.storage.local.remove(PENDING_TRUST_KEY)
+      .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
   return false;
+});
+
+// Chrome 的权限确认框可能关闭扩展弹窗。授权信息预先持久化后，即使弹窗被销毁，
+// Service Worker 仍会在权限加入时完成注册与当前页面注入。
+chrome.permissions.onAdded.addListener(() => {
+  void completePendingTrustedOrigin().catch(() => {});
 });
 
 // ── Badge：armed=布防中 / uploading=上传中 / 其他=清空 ──────────────────

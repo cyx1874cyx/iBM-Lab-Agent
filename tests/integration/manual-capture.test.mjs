@@ -542,13 +542,17 @@ test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受�
 	assert.match(background, /state !== "complete" && state !== "interrupted"/);
 	assert.match(background, /downloadPath:/);
 	assert.match(background, /item\.startTime/);
+	assert.match(background, /PREPARE_TRUSTED_ORIGIN/, "权限弹窗关闭扩展小窗后仍可恢复授权流程");
+	assert.match(background, /chrome\.permissions\.onAdded/, "权限授予后由后台完成可信站点注册");
+	assert.match(background, /chrome\.scripting\.executeScript/, "后台立即注入当前可信页面");
 	const content = await readFile(join(extensionRoot, "content.js"), "utf8");
 	assert.match(content, /ARM_CAPTURE_RESULT/);
 	assert.match(content, /ok: true, taskId:/);
 	assert.match(content, /__ibmLiteratureCaptureContentLoaded/, "重复注入时不重复注册消息监听器");
 	const popup = await readFile(join(extensionRoot, "popup.js"), "utf8");
-	assert.match(popup, /chrome\.scripting\.executeScript/, "信任后立即注入当前页面");
 	assert.doesNotMatch(popup, /chrome\.tabs\.reload/, "信任当前页面不应强制刷新 iBM 页面");
+	assert.match(popup, /正在授权/, "授权时直接向用户显示进行中状态");
+	assert.match(popup, /trustError/, "授权错误显示在可信站点卡片中");
 	const installer = await readFile(join(extensionRoot, "native-bridge", "install-bridge.py"), "utf8");
 	assert.match(installer, /REG_SZ, manifest_path/);
 	assert.doesNotMatch(installer, /REG_SZ, manifest\)/);
