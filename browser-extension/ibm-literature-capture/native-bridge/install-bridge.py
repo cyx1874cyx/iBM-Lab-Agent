@@ -47,8 +47,17 @@ def install(extension_id):
     manifest = manifest.replace("%%BRIDGE_PATH%%", BRIDGE_CMD.replace("\\", "\\\\"))
     manifest = manifest.replace("%%EXTENSION_ID%%", extension_id.lower())
     for browser, subkey in HOST_PATHS:
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, subkey) as key:
-            winreg.SetValueEx(key, "com.ibm.lab.capture", 0, winreg.REG_SZ, manifest)
+        # Chrome 按「子键名」查找 host：HKCU\...\NativeMessagingHosts\<host名>，
+        # 子键的「默认值」必须是 manifest JSON。绝不能写成父键下的一个值。
+        host_key = subkey + r"\com.ibm.lab.capture"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, host_key) as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, manifest)
+        # 清理早期版本误写入父键下的同名值（错误注册遗留）
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, subkey, 0, winreg.KEY_SET_VALUE) as parent:
+                winreg.DeleteValue(parent, "com.ibm.lab.capture")
+        except FileNotFoundError:
+            pass
         print(f"[OK] 已注册 {browser} NativeMessagingHosts → com.ibm.lab.capture")
     print("完成。请重新加载扩展（chrome://extensions 中点击刷新）。")
     print("提示：扩展每次「重新打包/重装」后 id 可能变化，若扩展报"
