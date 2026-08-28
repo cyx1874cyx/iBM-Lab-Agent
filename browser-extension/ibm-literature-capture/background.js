@@ -164,7 +164,7 @@ function uploadViaBridge(task, item) {
     try {
       port = chrome.runtime.connectNative("com.ibm.lab.capture");
     } catch (error) {
-      reject(new Error("无法连接本地桥接程序，请先运行 install-bridge 并重新加载扩展"));
+      reject(new Error("无法连接本地桥接程序。请在扩展目录 native-bridge 下运行：python install-bridge.py <扩展id>，再刷新扩展"));
       return;
     }
     const timer = setTimeout(() => {
@@ -178,8 +178,11 @@ function uploadViaBridge(task, item) {
     });
     port.onDisconnect.addListener(() => {
       clearTimeout(timer);
-      if (chrome.runtime.lastError) {
-        reject(new Error("本地桥接连接已断开：" + chrome.runtime.lastError.message));
+      const detail = chrome.runtime.lastError?.message || "";
+      if (/not found/i.test(detail)) {
+        reject(new Error("本地桥接未注册：请在扩展目录 native-bridge 下运行 python install-bridge.py <扩展id>（id 在 chrome://extensions 查看），再刷新扩展"));
+      } else if (detail) {
+        reject(new Error("本地桥接连接已断开：" + detail));
       }
     });
     port.postMessage({

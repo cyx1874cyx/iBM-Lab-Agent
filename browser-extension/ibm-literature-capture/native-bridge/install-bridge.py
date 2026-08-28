@@ -51,6 +51,9 @@ def install(extension_id):
             winreg.SetValueEx(key, "com.ibm.lab.capture", 0, winreg.REG_SZ, manifest)
         print(f"[OK] 已注册 {browser} NativeMessagingHosts → com.ibm.lab.capture")
     print("完成。请重新加载扩展（chrome://extensions 中点击刷新）。")
+    print("提示：扩展每次「重新打包/重装」后 id 可能变化，若扩展报"
+          "「Specified native messaging host not found」，用新 id 重跑本脚本，"
+          "再执行 --verify 校验。")
     return 0
 
 
@@ -72,17 +75,55 @@ def show_extension_id():
     return 0
 
 
+def verify(extension_id=None):
+    """校验注册状态：host 是否注册、path 是否可执行、allowed_origins 是否匹配当前扩展。"""
+    ok = True
+    for browser, subkey in HOST_PATHS:
+        key = subkey + r"\com.ibm.lab.capture"
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
+                manifest, _ = winreg.QueryValueEx(handle, "")
+        except FileNotFoundError:
+            print(f"[FAIL] {browser}：未注册（先运行 install-bridge.py <扩展id>）")
+            ok = False
+            continue
+        try:
+            data = json.loads(manifest)
+        except ValueError:
+            print(f"[FAIL] {browser}：manifest 不是合法 JSON")
+            ok = False
+            continue
+        path = data.get("path", "")
+        allowed = data.get("allowed_origins", [])
+        print(f"[INFO] {browser}：path={path}")
+        print(f"[INFO] {browser}：allowed_origins={allowed}")
+        if not os.path.exists(path):
+            print(f"[FAIL] {browser}：path 指向的文件不存在（{path}）——请确认目录未移动")
+            ok = False
+        if extension_id and f"chrome-extension://{extension_id}/" not in allowed:
+            print(f"[FAIL] {browser}：allowed_origins 与当前扩展 id 不匹配（期望 {extension_id}）——重新打包后 id 会变化，请重跑 install-bridge.py {extension_id}")
+            ok = False
+    print("校验" + ("通过" if ok else "未通过，请按上方提示修复"))
+    return 0 if ok else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="iBM Lab 捕获本地桥接注册脚本")
     parser.add_argument("extension_id", nargs="?", help="扩展 id（chrome://extensions 查看）")
     parser.add_argument("--uninstall", action="store_true", help="卸载桥接注册")
     parser.add_argument("--list", action="store_true", help="说明如何获取扩展 id")
+    parser.add_argument("--verify", action="store_true", help="校验注册状态（可带扩展 id 一并比对）")
     args = parser.parse_args()
 
     if args.list:
         return show_extension_id()
     if args.uninstall:
         return uninstall()
+    if args.verify:
+        if args.extension_id and not validate_extension_id(args.extension_id):
+            print("扩展 id 格式不对：应为 32 位 a–p 字母（MV3 扩展 id 字符集）。")
+            return 1
+        return verify(args.extension_id.lower() if args.extension_id else None)
     if not args.extension_id:
         parser.print_help()
         return 1

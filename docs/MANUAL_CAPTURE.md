@@ -110,9 +110,11 @@ python install-bridge.py --uninstall
 
 | 现象 | 原因与处理 |
 |---|---|
+| popup 显示「本地桥接未注册 / Specified native messaging host not found」 | 没有运行 `install-bridge.py`，或扩展后来被**重新加载/重打包**导致 id 变化。用 `chrome://extensions` 里的新 id 重跑 `python install-bridge.py <扩展id>`，再用 `python install-bridge.py <扩展id> --verify` 校验，最后刷新扩展 |
 | 点击按钮提示「无法启动捕获：未登记 DOI」 | 该文献（尤其是公众号来源）没有 DOI。请先在对话中让 Agent 解析 DOI，或改用全文下载队列 |
 | 点击按钮提示「已有一个进行中的捕获任务」 | 同一篇文献的同一类型已有未过期的布防；等待 20 分钟过期或取消后重试 |
 | 上传后按钮仍灰色 | 上传失败，扩展 popup 会显示错误；常见：文件类型不匹配（PDF 任务只收 `.pdf`；SI 只收 pdf/zip/docx/xlsx/csv/txt/cif/sdf）、PDF 损坏（无 `%PDF-` 头或 `%%EOF`） |
+| 下载完成后提示「file not found in any download directory」 | 下载目录不在默认位置。桥接会自动读取 Chrome/Edge 设置里的下载目录（含桌面等自定义目录）并逐目录查找；仍找不到时确认文件已下载完成、文件名未改，必要时把 Chrome 下载位置改回默认 Downloads 后重试 |
 | popup 显示「无法连接本地桥接程序」 | 未运行 `install-bridge.py`，或扩展 id 与注册时不符；重新安装并刷新扩展 |
 | 下载完成后没有上传 | 下载的不是**布防之后**的下一份**匹配类型**文件（例如布防了 SI 却下载了 PDF，或下载被浏览器拦截）；重新点击按钮布防 |
 | 上传提示 403 | 上传来源不是扩展/本地桥接（例如直接用 curl 带自定义 Origin）；扩展页面刷新后重试 |

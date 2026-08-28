@@ -39,8 +39,34 @@ def write_message(obj):
     sys.stdout.buffer.flush()
 
 
-def downloads_dir():
-    """解析用户 Downloads 目录：Windows 注册表优先，环境变量兜底。"""
+def _chrome_download_dirs():
+    """从 Chrome/Edge 的 Preferences 读取用户自定义的下载目录（如桌面）。"""
+    found = []
+    user_data_roots = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "User Data"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Edge", "User Data"),
+    ]
+    for root in user_data_roots:
+        if not os.path.isdir(root):
+            continue
+        for name in os.listdir(root):
+            prefs = os.path.join(root, name, "Preferences")
+            if not os.path.isfile(prefs):
+                continue
+            try:
+                with open(prefs, "r", encoding="utf-8") as handle:
+                    data = json.load(handle)
+                directory = (data.get("download", {}) or {}).get("default_directory")
+                if directory:
+                    found.append(os.path.expandvars(directory))
+            except Exception:
+                continue
+    return found
+
+
+def downloads_dirs():
+    """候选下载目录（按优先级）：Chrome/Edge 配置目录 → 注册表 Downloads → 常见目录。"""
+    dirs = _chrome_download_dirs()
     try:
         import winreg  # Windows only
         key = winreg.HKEY_CURRENT_USER
@@ -49,26 +75,41 @@ def downloads_dir():
             value, _ = winreg.QueryValueEx(handle, "{374DE290-123F-4565-9164-39C4925E467B}")
         expanded = os.path.expandvars(value)
         if os.path.isdir(expanded):
-            return expanded
+            dirs.append(expanded)
     except Exception:
         pass
     home = os.environ.get("USERPROFILE") or os.path.expanduser("~")
-    candidate = os.path.join(home, "Downloads")
-    return candidate if os.path.isdir(candidate) else os.path.join(home, "下载")
+    dirs += [
+        os.path.join(home, "Downloads"),
+        os.path.join(home, "下载"),
+        os.path.join(home, "Desktop"),
+        os.path.join(home, "桌面")
+    ]
+    seen = set()
+    unique = []
+    for directory in dirs:
+        key = os.path.normcase(os.path.abspath(directory))
+        if directory and os.path.isdir(directory) and key not in seen:
+            seen.add(key)
+            unique.append(directory)
+    return unique
 
 
-def safe_join(base, relative):
-    """拼接下载目录 + 相对路径；拒绝目录穿越与绝对路径。"""
+def resolve_download_path(relative):
+    """在全部候选下载目录中定位下载文件；找不到返回 (None, 错误信息)。"""
     if not relative:
         return None, "empty relative path"
     norm = os.path.normpath(relative.replace("/", os.sep).replace("\\", os.sep))
     if norm.startswith("..") or norm.startswith("." + os.sep) or os.path.isabs(norm):
         return None, "unsafe relative path: " + relative
-    candidate = os.path.abspath(os.path.join(base, norm))
-    base_abs = os.path.abspath(base)
-    if not candidate.startswith(base_abs + os.sep):
-        return None, "path escapes download directory"
-    return candidate, None
+    for base in downloads_dirs():
+        candidate = os.path.abspath(os.path.join(base, norm))
+        base_abs = os.path.abspath(base)
+        if not candidate.startswith(base_abs + os.sep):
+            continue
+        if os.path.isfile(candidate):
+            return candidate, None
+    return None, "file not found in any download directory: " + relative
 
 
 def upload(upload_url, file_path, file_name):
@@ -106,8 +147,7 @@ def main():
         write_message({"ok": False, "error": "missing taskId or uploadUrl"})
         return
 
-    base = downloads_dir()
-    file_path, path_error = safe_join(base, relative)
+    file_path, path_error = resolve_download_path(relative)
     if path_error:
         write_message({"ok": False, "taskId": task_id, "error": path_error})
         return
