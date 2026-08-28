@@ -84,8 +84,10 @@ async function failTask(message) {
 // ── 布防 ────────────────────────────────────────────────────────────────
 async function handleArm(payload, sender) {
   const existing = await loadTask();
+  // 用户再次点击按钮 = 重新捕获意图：作废旧布防（服务端也已作废旧任务，
+  // 旧 token 已失效），接受新布防。仍保持「一次只允许一个待捕获任务」。
   if (existing && existing.status === "armed" && !isExpired(existing)) {
-    return { ok: false, error: `已有一个待捕获任务（${existing.id}，${existing.kind.toUpperCase()}）；请先完成或取消` };
+    await updateTask({ status: "cancelled", error: "用户重新发起捕获，旧布防作废" });
   }
   const uploadUrl = String(payload?.uploadUrl || "");
   if (!uploadUrl || !/^https?:\/\//.test(uploadUrl)) {

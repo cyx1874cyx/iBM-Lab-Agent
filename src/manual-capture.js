@@ -158,7 +158,7 @@ export function isCaptureExpired(task, now = new Date()) {
 export function captureHttpStatusFor(error) {
 	const message = String(error?.message ?? error ?? "");
 	if (message.includes("not found")) return 404; // 非法/未知令牌
-	if (message.includes("replay") || message.includes("已使用") || message.includes("过期")) return 409;
+	if (message.includes("replay") || message.includes("已使用") || message.includes("过期") || message.includes("已失效")) return 409;
 	if (message.includes("Origin")) return 403;
 	if (message.includes("上限") || message.includes("过大")) return 413; // 超过大小上限
 	return 400; // 内容/格式/匹配错误（含"过小"）

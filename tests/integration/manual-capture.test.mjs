@@ -155,10 +155,44 @@ test("capture: 创建任务成功，publisherUrl 用 DOI 出版社页面，令�
 		assert.equal(row.tokenSha256, created.task.tokenSha256);
 		assert.equal(createHash("sha256").update(created.token).digest("hex"), row.tokenSha256, "哈希与明文一致");
 		// 同一 bundle+kind 已有 armed 任务 → 拒绝重复布防
-		await assert.rejects(
-			() => ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" }),
-			/已有一个进行中的捕获任务/
-		);
+		// 同一 bundle+kind 已有 armed 未过期任务 → 用户再次点击 = 重新捕获：
+		// 旧任务作废（cancelled，旧令牌失效），创建新任务。
+		const retry = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
+		assert.notEqual(retry.task.id, created.task.id, "重新捕获创建新任务");
+		assert.equal(ctx.labCapture.getTask(created.task.id).status, "cancelled", "旧任务作废");
+		assert.equal(ctx.labCapture.getTask(retry.task.id).status, "armed");
+		// 作废后旧令牌不可再上传（防重放）
+		const res = await boot.upload(uploadRequest({ token: created.token, fileName: "old.pdf", body: minimalPdf() }));
+		assert.equal(res.status, 409);
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
+test("capture: 捕获失败后能重新捕获（扩展侧失败时服务端任务仍 armed，再次点击作废重建）", async () => {
+	const boot = await bootCapture();
+	try {
+		const ctx = boot.ctx;
+		// 模拟扩展侧上传失败（桥接不可用）：服务端任务从未收到 PUT，仍停在 armed
+		const first = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		assert.equal(first.task.status, "armed");
+		// 用户再次点击按钮 → 不再被"已有进行中的捕获任务"拦截，而是作废旧任务重建
+		const second = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		assert.notEqual(second.task.id, first.task.id);
+		assert.equal(ctx.labCapture.getTask(first.task.id).status, "cancelled");
+		// 新任务可正常完成上传
+		const si = Buffer.from("recovered supplementary data");
+		const res = await boot.upload(uploadRequest({ token: second.token, fileName: "recover.zip", body: si }));
+		assert.equal(res.status, 200, JSON.stringify(res.payload));
+		assert.equal(ctx.labCapture.getTask(second.task.id).status, "completed");
+		// 服务端校验失败（任务 failed）后同样可重新捕获
+		const third = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		const bad = await boot.upload(uploadRequest({ token: third.token, fileName: "bad.exe", body: Buffer.from("MZ") }));
+		assert.equal(bad.status, 400);
+		assert.equal(ctx.labCapture.getTask(third.task.id).status, "failed");
+		const fourth = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		assert.equal(ctx.labCapture.getTask(fourth.task.id).status, "armed", "failed 后重建不受阻塞");
 	} finally {
 		await boot.handle.dispose();
 		await rm(boot.dir, { recursive: true, force: true });
