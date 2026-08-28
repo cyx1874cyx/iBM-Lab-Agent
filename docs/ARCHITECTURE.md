@@ -145,6 +145,11 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
 - 课题相关 domain（`lab_tasks`）：`lab_projects`（课题行 + 目标/模板版本快照）、
   `project_memory_versions`（核心记忆版本行，只增不改）、`project_bindings`
   （会话/工作区/cwd → 课题绑定），以及文献/PPT 产物表与 ArtifactProvenance。
+- 手工捕获 domain（`lab_captures`）：`lab_capture_tasks` 表（一次性捕获任务）。
+  行字段：id / projectId / bundleId / kind(pdf|si) / publisherUrl / status /
+  **tokenSha256（只存哈希，明文仅创建响应返回一次）** / expiresAt / 文件名 /
+  大小 / SHA-256 / 错误信息。默认有效期 20 分钟；完成/失败/过期/取消后令牌失效，
+  同一令牌只允许成功一次。
 
 ## 4. 执行边界
 
@@ -157,15 +162,17 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
 ## 5. 目录
 
 ```
-lib/                  Cordis 服务（version-registry, python-env, goal-profiles, ppt-templates, index）
+lib/                  Cordis 服务（version-registry, python-env, goal-profiles, ppt-templates,
+                      tasks, remote, artifact-download, manual-capture, index）
 src/                  纯 Node 模块（paths, lockfile, skill-catalog, python-env, harness-root,
-                      goal-profile, ppt-template, pptx-parse）
+                      goal-profile, ppt-template, pptx-parse, manual-capture）
 presets/lab-research/ 课题组 agent preset 模板
 vendor/nature-skills/ 固定 commit 的第三方完整目录（含 vendor.lock.json）
 python/               pyproject.toml + requirements.lock
 scripts/              install / pin-vendor / dev-link / vendor-fetch / regression(run, golden-diff)
+browser-extension/    iBM 文献捕获 Chrome/Edge 扩展（MV3）+ Native Messaging 本地桥接
 tests/unit|integration|regression/cases|fixtures(pptx-builder)
-docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION
+docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION/MANUAL_CAPTURE
 ```
 
 ## 6. 阶段二：目标与模板系统（§三/§四）
@@ -289,3 +296,36 @@ SKILL.md）实现：
   false），`casLoginEntry` 只返回登录入口；`CasProvider` 为占位接口，所有
   操作经 `assertCasAuthorized` 拒绝；获得明确 API+LLM 授权后再启用 OAuth2
   PKCE 与独立 CAS Provider（本阶段不启用）。
+
+## 11. 手工下载文献自动捕获（Manual Browser Capture）
+
+针对出版社 PDF/SI 需要机构订阅、自动化下载不可行的场景，提供「用户手工下载 +
+扩展捕获」通道（详细说明见 `docs/MANUAL_CAPTURE.md`）：
+
+- **服务端**（`lib/manual-capture.js` + `src/manual-capture.js`，`ctx.labCapture`）：
+  - 捕获任务表 `lab_captures.lab_capture_tasks`，一次性令牌 32 字节随机、
+    **只存 SHA-256**、默认 20 分钟有效、绑定 projectId/bundleId/kind；
+  - `PUT /api/lab-capture-upload?token=...`：OPTIONS 预检放行、只接受合法
+    `chrome-extension://` Origin（或同源/本地桥接无 Origin）、100 MB 上限、
+    文件名清洗防目录穿越、临时文件 + 原子重命名写入
+    `课题工作区/captured-literature/<bundleId>/`；
+  - PDF 校验 `%PDF-` 头 / `%%EOF` / 大小 / SHA-256；SI 扩展名白名单
+    （pdf/zip/docx/xlsx/csv/txt/cif/sdf）；
+  - 成功后调用 `LabTasksService.registerCapturedFile` 登记到**原 bundle**
+    （复用 bundleId/reportId，不新建文献），PDF 更新 pdfPath/pdfSha256/
+    acquisitionStatus=ready，SI 更新 siPath/siSha256，记录 provenance
+    `source = manual-browser-capture`；捕获只登记原始文件，不冒充已完成精读。
+- **前端**（`client/index.js`）：PDF/SI 按钮始终存在；已获取点亮并下载（长度 +
+  SHA-256 校验），未获取灰色可点击：同步打开 DOI 出版社页面（避免弹窗被拦截）→
+  异步 `manual_capture_create` → `window.postMessage(ARM_CAPTURE)` 通知扩展 →
+  显示「等待下一次下载」；扩展完成/失败经 `window.postMessage` 通知页面后
+  重新拉取 workspace 点亮按钮。微信来源只走 DOI 页面，无 DOI 拒绝，不显示公众号链接。
+- **扩展**（`browser-extension/ibm-literature-capture/`，MV3）：权限最小化
+  （downloads/storage/nativeMessaging），只处理明确的 `ARM_CAPTURE` 布防、
+  一次一个任务、只捕获布防后下一份匹配下载、过期自动清理、中断通知、
+  上传成功清除任务并通知页面；popup 显示六状态 + 取消按钮。
+  由于扩展 SW 无法读取 `file://`、downloads API 不返回绝对路径（P1 验证结论），
+  文件读取与上传经 **Native Messaging 本地桥接**（`native-bridge/host.py`），
+  桥接只接收一次性上传地址/任务编号/下载文件相对路径。
+- **Remote**：`manual_capture_create` / `manual_capture_get` / `manual_capture_list`
+  经 Typert Gateway 暴露给浏览器 client。

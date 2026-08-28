@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>iBM Lab 文献捕获</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="head">
+    <span class="dot" id="stateDot"></span>
+    <div class="title">
+      <b>iBM Lab 文献捕获</b>
+      <small id="stateText">未启动</small>
+    </div>
+  </header>
+  <main>
+    <section class="card" id="emptyCard">
+      <p>当前没有捕获任务。在 iBM Lab 文献精读中点击灰色 PDF/SI 按钮即可布防。</p>
+    </section>
+    <section class="card hidden" id="taskCard">
+      <div class="task-row"><span>任务编号</span><b id="taskId">—</b></div>
+      <div class="task-row"><span>类型</span><b id="taskKind">—</b></div>
+      <div class="task-row"><span>到期时间</span><b id="taskExpires">—</b></div>
+      <div class="task-row"><span>下载文件</span><b id="taskFile">—</b></div>
+      <div class="error hidden" id="taskError"></div>
+      <button id="cancelBtn" class="danger hidden">取消捕获</button>
+    </section>
+  </main>
+  <footer>
+    <span>只捕获你主动布防的下一份下载，不读取 Cookie。</span>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>

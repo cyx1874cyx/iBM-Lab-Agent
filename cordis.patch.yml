@@ -175,13 +175,24 @@
         venvDir: !!js dshHomePath('lab-agent/.venv')
         convertedDir: !!js dshHomePath('lab-agent/converted')
 
+    # ── 手工下载文献自动捕获（labCapture）─────────────────────────────────
+    #
+    # Host service `ctx.labCapture`：文献精读条目未获取的 PDF/SI 按钮 → 创建
+    # 一次性捕获任务（32 字节随机令牌、仅存哈希、20 分钟有效）→ 用户手工下载 →
+    # Chrome 扩展/本地桥接 PUT /api/lab-capture-upload?token=... → 校验后登记到
+    # 原 bundle（captured-literature/<bundleId>/）。只允许合法 chrome-extension://
+    # Origin；微信来源无 DOI 时拒绝启动，绝不回退公众号链接。
+    - id: lab-capture
+      name: 'dsh-lab-agent/manual-capture'
+      inject: [storageDomain, labTasks, webServer]
+
     # ── Lab remote bridge（项目工作台用）──────────────────────────────────
     #
     # Host service `ctx.lab` 把项目核心记忆、三类项目成果及底层能力经
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert]
+      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。

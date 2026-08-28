@@ -33,7 +33,7 @@ window.__ModuleLoader__.load({
 			".ib-lit{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}",
 			".ib-lit-col{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-width:0}.ib-lit-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}.ib-lit-head h3{font-size:13px;font-weight:700;margin:0;color:#e4f5ee}.ib-lit-head small{color:#7fa396;font-size:9px}.ib-lit-note{color:#6f8d83;font-size:9.5px;margin:2px 0 10px;line-height:1.5}",
 			".ib-lit-list{display:grid;gap:7px}.ib-lit-row{display:flex;align-items:center;gap:9px;border:1px solid rgba(129,205,178,.12);background:rgba(7,22,17,.5);border-radius:11px;padding:9px 10px}.ib-lit-row[data-waiting=true]{border-color:rgba(229,181,103,.3);background:rgba(229,181,103,.055)}.ib-lit-row[data-clickable]{cursor:pointer}.ib-lit-row[data-clickable]:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.08)}.ib-lit-main{flex:1;min-width:0;display:grid;gap:2px}.ib-lit-main b{font-size:11px;color:#d8ebe3;font-weight:560;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-main b i{font-family:Georgia,serif;font-weight:560}.ib-lit-main small{display:block;font-size:9px;color:#7fa396;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-acts{flex:none;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;max-width:58%}.ib-lit-btn{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(115,220,230,.1);color:#c3ecf1;font-size:10px;padding:7px 10px;cursor:pointer;font-weight:560;line-height:1}.ib-lit-btn:hover{border-color:rgba(115,220,230,.5);background:rgba(115,220,230,.2)}.ib-lit-btn[data-review=approve]{border-color:rgba(81,212,163,.42);background:rgba(81,212,163,.13);color:#c9f5e3}.ib-lit-btn[data-review=reject]{border-color:rgba(255,137,137,.35);background:rgba(255,137,137,.08);color:#ffc0c0}.ib-lit-btn:disabled{opacity:.4;pointer-events:none}.ib-lit-fmt{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(7,22,17,.5);color:#bfe8ee;font-size:10px;padding:6px 8px;cursor:pointer;outline:none}.ib-lit-fmt:hover{border-color:rgba(115,220,230,.5)}.ib-lit-fmt:focus{border-color:rgba(81,212,163,.5)}.ib-lit-fmt option{background:#0b2320;color:#e6f5ef}",
-			".ib-lit-empty{border:1px dashed rgba(129,205,178,.35);border-radius:12px;padding:22px 14px;text-align:center;color:#75a089;font-size:10px;line-height:1.6}.ib-lit-overview{margin-top:8px;border:1px solid rgba(94,208,173,.24);border-radius:10px;background:rgba(94,208,173,.06);padding:10px 12px;font-size:10.2px;line-height:1.75;color:#bde0d2;white-space:pre-wrap}.ib-lit-overview b{display:block;color:#e9f9f2;font-size:10.5px;margin-bottom:4px}.ib-review-detail{margin-top:8px;border:1px solid rgba(115,220,230,.22);border-radius:10px;background:rgba(115,220,230,.045);padding:10px 12px;color:#a9ccc7}.ib-review-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ib-review-detail-head b{font-size:10.5px;color:#e4f6f1}.ib-review-detail-head span{font-size:9px;color:#7fa39a}.ib-review-findings{display:grid;gap:5px}.ib-review-finding{display:grid;grid-template-columns:44px 1fr;gap:7px;font-size:9.5px;line-height:1.55}.ib-review-finding i{font-style:normal;text-transform:uppercase;font-size:8px;color:#75a092}.ib-review-finding[data-level=error] i{color:#ff9696}.ib-review-finding[data-level=warning] i{color:#e9b56f}.ib-review-finding[data-level=pass] i{color:#5fd4a8}",
+			".ib-lit-empty{border:1px dashed rgba(129,205,178,.35);border-radius:12px;padding:22px 14px;text-align:center;color:#75a089;font-size:10px;line-height:1.6}.ib-capture-hint{margin-top:7px;border:1px solid rgba(115,220,230,.3);border-radius:9px;background:rgba(115,220,230,.07);padding:7px 10px;font-size:9.5px;color:#a9e2ec}.ib-lit-overview{margin-top:8px;border:1px solid rgba(94,208,173,.24);border-radius:10px;background:rgba(94,208,173,.06);padding:10px 12px;font-size:10.2px;line-height:1.75;color:#bde0d2;white-space:pre-wrap}.ib-lit-overview b{display:block;color:#e9f9f2;font-size:10.5px;margin-bottom:4px}.ib-review-detail{margin-top:8px;border:1px solid rgba(115,220,230,.22);border-radius:10px;background:rgba(115,220,230,.045);padding:10px 12px;color:#a9ccc7}.ib-review-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ib-review-detail-head b{font-size:10.5px;color:#e4f6f1}.ib-review-detail-head span{font-size:9px;color:#7fa39a}.ib-review-findings{display:grid;gap:5px}.ib-review-finding{display:grid;grid-template-columns:44px 1fr;gap:7px;font-size:9.5px;line-height:1.55}.ib-review-finding i{font-style:normal;text-transform:uppercase;font-size:8px;color:#75a092}.ib-review-finding[data-level=error] i{color:#ff9696}.ib-review-finding[data-level=warning] i{color:#e9b56f}.ib-review-finding[data-level=pass] i{color:#5fd4a8}",
 			".ib-search-results{margin:-1px 4px 4px;border:1px solid rgba(115,220,230,.18);border-top:0;border-radius:0 0 11px 11px;background:rgba(4,17,14,.55);padding:8px;display:grid;gap:6px;max-height:420px;overflow:auto}.ib-search-paper{border-top:1px solid rgba(129,205,178,.1);padding:7px 5px 2px}.ib-search-paper:first-child{border-top:0}.ib-search-citation{font-size:10.5px;line-height:1.5;color:#dbece6}.ib-search-citation i{font-family:Georgia,serif;color:#f0faf6}.ib-search-citation span{color:#83cdb1}.ib-search-paper small{display:block;margin-top:2px;color:#6f9286;font-size:8.8px;line-height:1.4}.ib-search-paper a{color:#82dce6;text-decoration:none;margin-left:7px}.ib-search-paper a:hover{text-decoration:underline}.ib-search-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}.ib-icon-btn{display:inline-grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid rgba(115,220,230,.26);border-radius:8px;background:rgba(115,220,230,.08);color:#9fc3cb;cursor:pointer;line-height:1}.ib-icon-btn svg{display:block}.ib-icon-btn[data-ready=false]{opacity:.42;filter:grayscale(.9)}.ib-icon-btn[data-ready=false]:hover{border-color:rgba(115,220,230,.5);opacity:.72;filter:grayscale(.3)}.ib-icon-btn[data-ready=true]{border-color:rgba(81,212,163,.48);background:rgba(81,212,163,.15);color:#bfe9d7}.ib-icon-btn[data-ready=true]:hover{border-color:rgba(81,212,163,.72);background:rgba(81,212,163,.24)}",
 			".ib-preview-backdrop{position:fixed;inset:0;z-index:1004;background:rgba(3,14,11,.42);backdrop-filter:blur(2px)}.ib-preview-drawer{position:fixed;z-index:1005;top:0;right:0;bottom:0;width:min(760px,68vw);display:flex;flex-direction:column;background:#f4f7f6;color:#17382f;border-left:1px solid rgba(36,130,99,.22);box-shadow:-28px 0 70px rgba(3,25,18,.24)}.ib-preview-head{flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;background:#fff;border-bottom:1px solid rgba(45,130,101,.14)}.ib-preview-title{min-width:0;flex:1}.ib-preview-title b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.ib-preview-title small{display:block;margin-top:3px;color:#718b82;font-size:9.5px}.ib-preview-state{border-radius:999px;padding:4px 8px;background:#eef6f3;color:#31745e;font-size:9px}.ib-preview-frame{min-height:0;flex:1;width:100%;border:0;background:#59615e}.ib-preview-foot{flex:none;display:flex;align-items:center;gap:8px;padding:11px 14px;background:#fff;border-top:1px solid rgba(45,130,101,.14)}.ib-preview-foot-note{min-width:0;flex:1;color:#70867e;font-size:9.5px;line-height:1.45}.ib-preview-btn{border:1px solid rgba(43,132,101,.22);background:#fff;color:#286f58;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:10px;white-space:nowrap}.ib-preview-btn[data-primary]{border-color:#35a97e;background:#35a97e;color:white}.ib-preview-btn[data-danger]{border-color:rgba(190,80,80,.3);color:#a94c4c}.ib-preview-btn:disabled{opacity:.45;cursor:not-allowed}.ib-preview-review{flex:none;max-height:190px;overflow:auto;padding:12px 14px;background:#f9fbfa;border-top:1px solid rgba(45,130,101,.14)}.ib-preview-review .ib-review-detail{margin:0;background:#fff;color:#476b61}.ib-preview-review .ib-review-detail-head b{color:#17382f}.ib-approval-shade{position:absolute;inset:0;z-index:2;display:grid;place-items:center;padding:24px;background:rgba(9,28,22,.55);backdrop-filter:blur(3px)}.ib-approval-card{width:min(560px,100%);max-height:min(650px,86vh);overflow:auto;box-sizing:border-box;border:1px solid #c9ddd5;border-radius:17px;background:#fff;padding:22px;box-shadow:0 22px 70px rgba(4,28,20,.28)}.ib-approval-card h3{margin:0 0 7px;font-size:17px}.ib-approval-card>p{margin:0 0 14px;color:#668178;font-size:10.5px;line-height:1.65}.ib-approval-card .ib-review-detail{margin:0;background:#f7faf9;color:#476b61}.ib-approval-card .ib-review-detail-head b{color:#17382f}.ib-approval-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.ib-approval-ok{display:grid;place-items:center;text-align:center;padding:18px 8px}.ib-approval-ok strong{font-size:16px}.ib-approval-ok span{margin-top:6px;color:#668178;font-size:10px}",
 			"@media(max-width:880px){.ib-lit{grid-template-columns:1fr}.ib-preview-drawer{width:100vw}}",
@@ -70,7 +70,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload", "project_file_upload"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_list"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -479,6 +479,55 @@ window.__ModuleLoader__.load({
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [reviewVisible, setReviewVisible] = useState(false);
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
+			// 手工下载文献捕获：{ bundleId, kind, taskId } —— 布防后显示"等待下载"提示。
+			const [captureHint, setCaptureHint] = useState(null);
+			// 扩展完成/失败后通知本页（content script 经 window.postMessage 转发）。
+			useEffect(() => {
+				const onCaptureMessage = (event) => {
+					if (event.source !== window) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lit-capture-ext") return;
+					if (data.type === "CAPTURE_COMPLETED" || data.type === "CAPTURE_FAILED") {
+						setCaptureHint(null);
+						if (data.type === "CAPTURE_FAILED") notify(`文献捕获失败：${data.payload?.error || "未知错误"}`);
+						else notify("文献捕获完成，文件已归档到课题，按钮已点亮");
+						void onChanged();
+					}
+				};
+				window.addEventListener("message", onCaptureMessage);
+				return () => window.removeEventListener("message", onCaptureMessage);
+			}, [onChanged]);
+			/** 通知 iBM 页面内的扩展 content script：布防下一次手工下载捕获。 */
+			const armExtension = (payload) => {
+				try { window.postMessage({ source: "ibm-lab-agent", type: "ARM_CAPTURE", payload }, "*"); }
+				catch (reason) { console.warn("[dsh-lab-agent] arm extension failed", reason); }
+			};
+			/**
+			 * 点击未获取的 PDF/SI 按钮：同步打开出版社页面（避免弹窗被拦截），
+			 * 异步创建一次性捕获任务并通知扩展。无 DOI 的微信来源条目直接拒绝，
+			 * 绝不回退到公众号链接。
+			 */
+			const armCaptureFor = (event, bundle, kind) => {
+				event.stopPropagation();
+				const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
+				const publisherUrl = doiUrl || (bundle.sourceType === "wechat" ? undefined : bundle.sourceUrl);
+				if (!publisherUrl) {
+					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
+					return;
+				}
+				// 1. 同步打开出版社页面
+				window.open(publisherUrl, "_blank", "noopener,noreferrer");
+				// 2. 异步创建一次性捕获任务并通知扩展
+				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
+					.then((result) => {
+						const task = result.task;
+						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(task.token)}`;
+						armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
+						setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
+						notify(`已布防捕获：请在打开的出版社页面下载 ${task.kind === "pdf" ? "PDF" : "SI"}，扩展会自动上传并点亮按钮`);
+					})
+					.catch((reason) => notify(reason.message || "创建捕获任务失败"));
+			};
 			const markBusy = (key, value) => setBusy((old) => ({ ...old, [key]: value }));
 			const run = async (key, work) => {
 				if (busy[key]) return;
@@ -683,7 +732,7 @@ window.__ModuleLoader__.load({
 				// ── 右：文献精读 ──
 				h("section", { className: "ib-lit-col" },
 					h("div", { className: "ib-lit-head" }, h("h3", null, "文献精读"), h("small", null, `${reports.length} 篇`)),
-					h("div", { className: "ib-lit-note" }, "公众号链接提取的文献会先显示为“待上传 PDF”；对话生成的 DOCX/PPTX 会自动暂存，人工审核通过后才开放下载。"),
+					h("div", { className: "ib-lit-note" }, "未获取原文时点击灰色 PDF/SI 按钮：自动打开 DOI 出版社页面并布防捕获，下一次下载会归档到本课题（需安装 iBM 文献捕获扩展）；公众号条目仅支持 DOI 出版社页面，不显示公众号链接。"),
 					reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) => {
 						const presentation = presentationByReport[report.id];
 						const bundle = bundleById[report.bundleId] || {};
@@ -691,10 +740,11 @@ window.__ModuleLoader__.load({
 						const publisherUrl = bundle.doi
 							? `https://doi.org/${encodeURIComponent(bundle.doi)}`
 							: (bundle.sourceType === "wechat" ? undefined : bundle.sourceUrl);
-						const bundlePdfUrl = bundle.pdfPath ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
+						// legacy source-map-only 行把 JSON 存在 pdfPath：不当作可下载 PDF。
+						const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
 						const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
-						const openPublisher = (event) => { event.stopPropagation(); if (publisherUrl) window.open(publisherUrl, "_blank", "noopener,noreferrer"); };
 						const downloadBundleFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
+						const captureActive = captureHint?.bundleId === bundle.id;
 						const metadata = [
 							(bundle.authors || []).length ? bundle.authors.join(", ") : null,
 							bundle.journal,
@@ -708,13 +758,14 @@ window.__ModuleLoader__.load({
 							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
 								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
 								h("div", { className: "ib-lit-acts" },
-									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "下载 PDF 原文" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面" : "尚未获取 PDF · 未登记 DOI/原文页面"), onClick: (event) => bundlePdfUrl ? downloadBundleFile(event, bundlePdfUrl) : openPublisher(event), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面" : "尚未获取 SI · 未登记 DOI/原文页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : openPublisher(event), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "下载 PDF 原文" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面"), onClick: (event) => bundlePdfUrl ? downloadBundleFile(event, bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
 									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "打开报告预览、审核与下载" : "DOCX 尚未暂存" }, "报告"),
 									h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "打开 PPT 预览、审核与下载" : "尚未生成或暂存 PPT" }, "PPT")
 								)
 							),
+							captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
 						);
 					})

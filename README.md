@@ -321,6 +321,13 @@ standard 等其他模式看不到 lab 工具，避免误调用。
   markitdown（microsoft/markitdown）把 PDF/Office/图片转 Markdown 存
   `lab-agent/converted/` 并登记；`lab_convert_document` 工具 + `--check`
   权威探测 + 不可用时明确降级。
+- **手工下载文献自动捕获**（`lib/manual-capture.js` + `src/manual-capture.js` +
+  `browser-extension/`）：文献精读的灰色 PDF/SI 按钮 → 打开 DOI 出版社页面 →
+  用户手工下载 → Chrome/Edge 扩展（MV3 + Native Messaging 本地桥接）捕获该下载
+  并上传 → 服务端校验（%PDF- 头/%%EOF/大小/SHA-256、SI 扩展名白名单、100 MB
+  上限、防目录穿越）→ 登记到原 bundle 后按钮点亮。一次性令牌只存哈希、默认
+  20 分钟有效、重放返回 409；微信来源仅用 DOI 页面，无 DOI 拒绝启动，不显示
+  公众号链接。安装与排查见 `docs/MANUAL_CAPTURE.md`。
 
 ## 部署环境与安全约定
 
@@ -335,6 +342,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 ## 文档
 
 - `docs/ARCHITECTURE.md` —— 组成模型与本插件叠加内容
+- `docs/MANUAL_CAPTURE.md` —— 手工下载文献自动捕获（扩展安装 / Ubuntu 升级 / 失败排查）
 - `docs/VERSIONING.md` —— 固定 commit 与手动升级流程
 - `docs/REGRESSION.md` —— 回归框架与用例
 - `docs/THIRD_PARTY_NOTICES.md` —— nature-skills 第三方声明

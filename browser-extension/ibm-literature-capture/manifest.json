@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "iBM Lab 文献捕获",
+  "version": "0.1.0",
+  "description": "用户点击 iBM Lab 文献精读的灰色 PDF/SI 按钮后，捕获下一次手工下载并通过本地桥接上传到 iBM Lab Agent。只捕获用户明确布防的那一份匹配下载，不监控或上传其他下载，不读取 Cookie。",
+  "minimum_chrome_version": "102",
+  "permissions": ["downloads", "storage", "nativeMessaging"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "iBM Lab 文献捕获"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

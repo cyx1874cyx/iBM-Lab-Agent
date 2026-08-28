@@ -1,0 +1,41 @@
+/* iBM Lab 文献捕获 — Popup 样式（浅色，与系统一致） */
+:root {
+  --ink: #17382f;
+  --muted: #6b8a80;
+  --line: #d7e5df;
+  --panel: #f6faf8;
+  --green: #2f9e7c;
+  --green-bg: #e7f5f0;
+  --amber: #b97a1f;
+  --amber-bg: #fbf1e0;
+  --red: #b54a4a;
+  --red-bg: #fbeaea;
+}
+* { box-sizing: border-box; }
+body {
+  width: 320px;
+  margin: 0;
+  padding: 14px;
+  font: 12px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: #fdfefd;
+}
+.head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #c6d4cf; flex: none; }
+.dot[data-state="armed"] { background: var(--green); box-shadow: 0 0 0 4px var(--green-bg); }
+.dot[data-state="uploading"] { background: var(--amber); box-shadow: 0 0 0 4px var(--amber-bg); animation: pulse 1.2s infinite; }
+.dot[data-state="completed"] { background: var(--green); }
+.dot[data-state="failed"], .dot[data-state="expired"], .dot[data-state="cancelled"] { background: var(--red); }
+@keyframes pulse { 50% { opacity: 0.45; } }
+.title b { display: block; font-size: 13px; }
+.title small { color: var(--muted); font-size: 11px; }
+.card { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px; }
+.card p { margin: 0; color: var(--muted); }
+.task-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
+.task-row span { color: var(--muted); flex: none; }
+.task-row b { text-align: right; word-break: break-all; font-weight: 560; }
+.error { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--red-bg); color: var(--red); font-size: 11px; white-space: pre-wrap; }
+.danger { width: 100%; margin-top: 10px; border: 1px solid rgba(181, 74, 74, 0.35); background: var(--red-bg); color: var(--red); border-radius: 9px; padding: 8px; cursor: pointer; font: inherit; }
+.danger:hover { background: #f6dcdc; }
+.hidden { display: none !important; }
+footer { margin-top: 12px; color: var(--muted); font-size: 10px; line-height: 1.5; }
