@@ -236,7 +236,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /PPT/);
 	// 需要 connection（wire api）来选择预设
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
-	// 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG。
+	// 品牌覆盖：展开侧栏使用人像 Logo；烧瓶作为原生侧栏开关图标。
 	assert.match(source, /function applyBranding/);
 	assert.match(source, /iBM Agent/);
 	assert.match(source, /based on DSH/);
@@ -250,6 +250,11 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
 	assert.match(source, /\.ib-rail-flask\{position:absolute;z-index:2/);
+	assert.match(source, /\.ib-rail-flask\{[^}]*background:#023373;[^}]*pointer-events:none/);
+	assert.doesNotMatch(source, /bindEntry\(railEntry\)/);
+	assert.match(source, /课题界面统一主题/);
+	assert.match(source, /\.ib-overlay\{--ib-bg:#010f24;[^}]*#023373/);
+	assert.match(source, /\.ib-btn\[data-primary\][^{]*\{background:#023373/);
 	assert.match(source, /\[class\*='_brand'\] svg/);
 	assert.match(source, /\[class\*='_railMark'\]/);
 	assert.match(source, /\[class\*='_railFish'\]/);

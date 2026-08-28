@@ -53,9 +53,11 @@ window.__ModuleLoader__.load({
 			"@media(prefers-color-scheme:dark){body.ib-research-chat [class*='_centerCol']{background:radial-gradient(circle at 78% 6%,rgba(81,212,163,.08),transparent 28%),#07130f}body.ib-research-chat [class*='_centerCol'] header{background:rgba(7,19,15,.9)}body.ib-research-chat [class*='_userStack']{background:linear-gradient(135deg,rgba(61,177,136,.14),rgba(31,89,74,.14))}body.ib-research-chat [class*='_flowItem'] [class*='_card']{background:rgba(13,31,25,.75)}body.ib-research-chat [class*='_markdown'] h1,body.ib-research-chat [class*='_markdown'] h2,body.ib-research-chat [class*='_markdown'] h3{color:#e5f5ef}body.ib-research-chat [class*='_composerSeat']{background:linear-gradient(180deg,rgba(7,19,15,0),rgba(7,19,15,.92) 30%)}body.ib-research-chat [class*='_composerStack'] [class*='_card']{background:rgba(13,31,25,.96)}}",
 			"@media(max-width:760px){.ib-research-badge small,.ib-research-badge .ib-badge-version{display:none}body.ib-research-chat [class*='_centerCol'] header{height:auto;min-height:72px}body.ib-research-chat [class*='_scrollBody'] [class*='_column']{max-width:calc(100vw - 24px)!important}}",
 			"@media(max-width:900px){.ib-grid{grid-template-columns:repeat(2,1fr)}.ib-memory{grid-template-columns:1fr}.ib-artifacts{grid-template-columns:1fr}}@media(max-width:620px){.ib-top{padding:0 14px}.ib-brand{min-width:auto}.ib-brand div:last-child,.ib-crumb{display:none}.ib-main{padding:25px 14px 55px}.ib-head{align-items:flex-start;flex-direction:column}.ib-grid,.ib-tabs,.ib-form-grid{grid-template-columns:1fr}.ib-head h1{font-size:24px}.ib-project-head{flex-wrap:wrap}.ib-agent{width:100%;justify-content:center}}",
+			// ── 课题界面统一主题：以 #023373 为唯一品牌主色，层级色均由该蓝色派生 ──
+			".ib-overlay{--ib-bg:#010f24;--ib-panel:#021d43;--ib-panel2:#022856;--ib-line:rgba(112,157,211,.24);--ib-text:#f4f8ff;--ib-muted:#9bb3d1;--ib-green:#6f9ed6;--ib-cyan:#8cb5e5;background:radial-gradient(circle at 80% -10%,rgba(2,51,115,.72),transparent 36%),linear-gradient(160deg,#010f24,#021a3b 58%,#023373);color:var(--ib-text)}.ib-overlay .ib-top{background:rgba(1,15,36,.92);border-color:rgba(112,157,211,.24)}.ib-overlay .ib-logo,.ib-overlay .ib-btn[data-primary],.ib-overlay .ib-preview-btn[data-primary]{background:#023373;border-color:#023373;color:#fff;box-shadow:0 10px 28px rgba(2,51,115,.42)}.ib-overlay .ib-btn:hover,.ib-overlay .ib-project:hover{border-color:rgba(111,158,214,.62);background:rgba(2,51,115,.34)}.ib-overlay .ib-project{background:linear-gradient(145deg,rgba(3,44,94,.96),rgba(1,24,55,.94))}.ib-overlay .ib-card,.ib-overlay .ib-board{background:rgba(2,29,67,.88)}.ib-overlay input,.ib-overlay textarea,.ib-overlay select,.ib-overlay .ib-search-results,.ib-overlay .ib-lit-fmt,.ib-overlay .ib-section-row input[type=text]{background:#011832;color:var(--ib-text);border-color:rgba(112,157,211,.24)}.ib-overlay input:focus,.ib-overlay textarea:focus,.ib-overlay select:focus{border-color:#6f9ed6}.ib-overlay .ib-chip,.ib-overlay .ib-badge,.ib-overlay .ib-db-toggle,.ib-overlay .ib-tab[data-active=true],.ib-overlay .ib-tm-tab[data-active=true],.ib-overlay .ib-icon-btn[data-ready=true],.ib-overlay .ib-lit-btn[data-review=approve]{background:rgba(2,51,115,.42);border-color:rgba(111,158,214,.48);color:#d9e9fb}.ib-overlay .ib-project-icon,.ib-overlay .ib-count,.ib-overlay .ib-kicker,.ib-overlay .ib-badge-mark{color:#8cb5e5}.ib-overlay .ib-fulltext,.ib-overlay .ib-lit-overview,.ib-overlay .ib-review-detail,.ib-overlay .ib-capture-hint{background:rgba(2,51,115,.22);border-color:rgba(111,158,214,.3)}.ib-overlay .ib-table-head{background:rgba(2,51,115,.3)}.ib-overlay .ib-toast{background:#023373;border-color:#6f9ed6}.ib-overlay .ib-preview-backdrop{background:rgba(1,12,30,.62)}.ib-overlay .ib-preview-drawer,.ib-overlay .ib-preview-head,.ib-overlay .ib-preview-foot,.ib-overlay .ib-approval-card{background:#f4f7fc;color:#102b4e}.ib-overlay .ib-preview-state{background:#dce9f8;color:#023373}",
 			// ── 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG ──
-			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#2eb38e;box-shadow:0 6px 18px rgba(81,212,163,.22)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a69b);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
-			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;z-index:2;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:linear-gradient(145deg,#51d4a3,#238e72);box-shadow:0 4px 12px rgba(81,212,163,.18)}.ib-rail-flask svg{width:13px;height:13px}",
+			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#023373;box-shadow:0 6px 18px rgba(2,51,115,.28)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a6c4);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
+			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;z-index:2;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#023373;box-shadow:0 4px 12px rgba(2,51,115,.3);pointer-events:none}.ib-rail-flask svg{width:13px;height:13px}",
 			".ib-hero-avatar{display:block;width:2em!important;height:2em!important;max-width:none;flex:none;object-fit:cover;border-radius:10px;box-shadow:0 8px 22px rgba(46,163,123,.2)}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
@@ -1189,7 +1191,7 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		/** 实验室烧瓶 SVG（配色与课题面板一致：绿色渐变主体 + 青色气泡）。 */
+		/** 实验室烧瓶 SVG（配色与课题面板一致：#023373 主题主体 + 浅蓝气泡）。 */
 		function FlaskSvg({ width = 18, height = 18 }) {
 			return h("svg", { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
 				h("path", { d: "M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3", stroke: "#fff", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }),
@@ -1221,8 +1223,8 @@ window.__ModuleLoader__.load({
 		 * dsh-client-ui-sidebar 渲染——这里用 CSS 隐藏原品牌，再注入自定义
 		 * 「人像 Logo + iBM Agent / based on DSH」元素，并把整个品牌区设为课题入口。
 		 * CSS modules 本地类名后缀（_logoRow/_brand，以及新旧折叠标记
-		 * _railMark/_railFish）来自 sidebar 包。折叠时仅烧瓶区域打开课题，
-		 * 面板按钮仍可展开侧栏。
+		 * _railMark/_railFish）来自 sidebar 包。折叠时烧瓶仅替换按钮外观，
+		 * 点击仍由原生 toggle 处理侧栏展开/收起。
 		 */
 		function applyBranding(onOpen) {
 			if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
@@ -1291,7 +1293,7 @@ window.__ModuleLoader__.load({
 					brand.appendChild(shell);
 					touched = true;
 				}
-				// 折叠栏：小烧瓶打开科研课题；烧瓶之外仍沿用侧栏展开按钮。
+				// 折叠栏：小烧瓶仅作为原生侧栏开关的图标，不另行绑定课题入口。
 				const toggle = row.querySelector("[class*='_toggle']");
 				if (toggle && !toggle.querySelector(".ib-rail-flask")) {
 					const flask = document.createElement("span");
@@ -1299,11 +1301,6 @@ window.__ModuleLoader__.load({
 					flask.setAttribute("data-dsh-lab-brand", "1");
 					flask.innerHTML = FLASK_RAIL_HTML;
 					toggle.appendChild(flask);
-					touched = true;
-				}
-				const railEntry = toggle?.querySelector(".ib-rail-flask");
-				if (railEntry && railEntry.dataset.dshLabResearchEntry !== "1") {
-					bindEntry(railEntry);
 					touched = true;
 				}
 				return touched;
