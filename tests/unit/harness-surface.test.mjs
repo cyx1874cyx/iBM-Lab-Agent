@@ -225,8 +225,12 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /待上传 PDF/);
 	assert.match(source, /尚未获取 PDF · 点击前往论文出版社页面/);
 	assert.match(source, /尚未获取 SI · 点击前往论文出版社页面/);
-	assert.match(source, /bundlePdfUrl \? downloadBundleFile/);
 	assert.match(source, /bundleSiUrl \? downloadBundleFile/);
+	assert.match(source, /function openPdfPreview/);
+	assert.match(source, /searchParams\.set\("preview", "1"\)/);
+	assert.match(source, /bundlePdfUrl \? previewBundlePdf/);
+	assert.match(source, /网页预览 PDF 原文/);
+	assert.match(source, /"网页预览"/);
 	assert.doesNotMatch(source, /}, "公众号"\) : null/);
 	assert.match(source, /bundleRecordIndex/);
 	assert.match(source, /PPT/);

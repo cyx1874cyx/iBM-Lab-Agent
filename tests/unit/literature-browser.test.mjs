@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
 	inferSourceIdFromUrl,
@@ -7,6 +11,17 @@ import {
 	safePdfFileName,
 	validatePdfBuffer
 } from "../../lib/literature-browser.js";
+import { LabLiteratureSourcesService } from "../../lib/literature-sources.js";
+
+function responseCapture() {
+	return {
+		status: 0,
+		headers: {},
+		body: Buffer.alloc(0),
+		writeHead(status, headers = {}) { this.status = status; this.headers = headers; },
+		end(body = "") { this.body = Buffer.isBuffer(body) ? body : Buffer.from(String(body)); }
+	};
+}
 
 test("normalizes DOI links without retaining resolver parameters", () => {
 	assert.deepEqual(normalizePaperIdentifier("https://doi.org/10.1038/s41586-023-00000-0"), {
@@ -48,4 +63,36 @@ test("validates PDF signature, EOF, size and returns integrity metadata", () => 
 
 test("creates a Windows-safe PDF name", () => {
 	assert.equal(safePdfFileName({ title: "A/B: paper?" }), "A_B_ paper_.pdf");
+});
+
+test("completed literature PDF supports inline web preview and verified download", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "dsh-literature-preview-"));
+	try {
+		const pdf = Buffer.concat([Buffer.from("%PDF-1.7\n"), Buffer.alloc(9_000, 0x20), Buffer.from("\n%%EOF")]);
+		const filePath = join(dir, "paper.pdf");
+		await writeFile(filePath, pdf);
+		const id = "12345678-1234-1234-1234-123456789abc";
+		const job = {
+			id,
+			state: "completed",
+			filePath,
+			fileName: "paper.pdf",
+			byteLength: pdf.byteLength,
+			sha256: createHash("sha256").update(pdf).digest("hex")
+		};
+		const service = { downloadTable: new Map([[id, job]]), config: {} };
+
+		const preview = responseCapture();
+		await LabLiteratureSourcesService.prototype.handleDownloadRequest.call(service, { method: "GET", url: `/api/lab-literature-download?id=${id}&preview=1`, headers: { "sec-fetch-site": "same-origin" } }, preview);
+		assert.equal(preview.status, 200);
+		assert.equal(preview.headers["content-type"], "application/pdf");
+		assert.match(preview.headers["content-disposition"], /^inline;/);
+		assert.deepEqual(preview.body, pdf);
+
+		const download = responseCapture();
+		await LabLiteratureSourcesService.prototype.handleDownloadRequest.call(service, { method: "GET", url: `/api/lab-literature-download?id=${id}`, headers: {} }, download);
+		assert.match(download.headers["content-disposition"], /^attachment;/);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
 });

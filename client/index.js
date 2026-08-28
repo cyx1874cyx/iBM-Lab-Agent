@@ -128,6 +128,12 @@ window.__ModuleLoader__.load({
 			downloadBlob(fileName, blob.type || "application/octet-stream", blob);
 			return fileName;
 		}
+		/** 已归档 PDF 使用同源 inline 响应交给浏览器原生 PDF 阅读器；阅读器内仍可下载。 */
+		function openPdfPreview(url) {
+			const previewUrl = new URL(url, location.origin);
+			previewUrl.searchParams.set("preview", "1");
+			window.open(previewUrl.href, "_blank", "noopener,noreferrer");
+		}
 
 		function Artifact({ title, rows = [], empty }) {
 			return h("section", { className: "ib-artifact" }, h("div", { className: "ib-artifact-top" }, h("h3", null, title), h("span", { className: "ib-count" }, rows.length)), rows.length ? h("div", { className: "ib-rows" }, rows.slice(0, 4).map((row, index) => h("div", { className: "ib-row", key: row.id || index }, h("b", { title: titleOf(row) }, titleOf(row)), h("span", null, statusOf(row))))) : h("div", { className: "ib-artifact-empty" }, empty));
@@ -221,7 +227,10 @@ window.__ModuleLoader__.load({
 				jobs.length ? h("div", { className: "ib-dl-list" }, jobs.map((job) => h("div", { className: "ib-dl-row", key: job.id },
 					h("div", { className: "ib-dl-main" }, h("b", { title: job.title || job.identifier }, job.title || job.identifier), h("small", { title: job.message }, `${job.message}${job.route ? ` · ${job.route === "open-access" ? "开放获取" : "学校授权"}` : ""}${job.pageEstimate ? ` · 约 ${job.pageEstimate} 页` : ""}`)),
 					h("span", { className: "ib-dl-state", "data-ok": job.state === "completed" ? "true" : undefined, "data-warn": ["waiting-login", "verification-required", "no-access"].includes(job.state) ? "true" : undefined }, downloadState(job.state)),
-					job.state === "completed" ? h("button", { className: "ib-lit-btn", onClick: () => void downloadVerifiedBinary(job.downloadUrl).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)) }, "下载 PDF") : ["waiting-login", "verification-required", "failed"].includes(job.state) ? h("button", { className: "ib-lit-btn", onClick: () => void retry(job) }, "重试") : null
+					job.state === "completed" ? h(React.Fragment, null,
+						h("button", { className: "ib-lit-btn", onClick: () => openPdfPreview(job.downloadUrl) }, "网页预览"),
+						h("button", { className: "ib-lit-btn", onClick: () => void downloadVerifiedBinary(job.downloadUrl).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)) }, "下载 PDF")
+					) : ["waiting-login", "verification-required", "failed"].includes(job.state) ? h("button", { className: "ib-lit-btn", onClick: () => void retry(job) }, "重试") : null
 				))) : null
 			);
 		}
@@ -684,12 +693,13 @@ window.__ModuleLoader__.load({
 				const pdfReady = !!paper.localPdfUrl;
 				const siReady = !!paper.localSiUrl;
 				const openExternal = (event, url) => { event.stopPropagation(); if (url) window.open(url, "_blank", "noopener,noreferrer"); };
+				const previewPdf = (event, url) => { event.stopPropagation(); openPdfPreview(url); };
 				const saveFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 				return h("article", { className: "ib-search-paper", key: paper.doi || paper.pmid || paper.arxivId || paper.id || paper.title },
 					h("div", { className: "ib-search-citation" }, h("i", null, journal), bibliographic, h("span", null, `（${description}）`), target ? h("a", { href: target, target: "_blank", rel: "noopener noreferrer", onClick: (event) => event.stopPropagation() }, paper.pdfUrl ? "PDF" : "原文") : null),
 					h("small", { title: paper.title }, paper.title),
 					h("div", { className: "ib-search-actions" },
-						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", title: pdfReady ? "下载 PDF 原文" : "未提交 PDF · 点击前往 DOI 页面", onClick: (event) => pdfReady ? saveFile(event, paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", title: pdfReady ? "网页预览 PDF 原文（预览页可下载）" : "未提交 PDF · 点击前往 DOI 页面", onClick: (event) => pdfReady ? previewPdf(event, paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
 						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", title: siReady ? "下载 SI 补充材料" : "未提交 SI · 点击前往 DOI 页面", onClick: (event) => siReady ? saveFile(event, paper.localSiUrl) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
 					)
 				);
@@ -774,6 +784,7 @@ window.__ModuleLoader__.load({
 						// legacy source-map-only 行把 JSON 存在 pdfPath：不当作可下载 PDF。
 						const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
 						const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
+						const previewBundlePdf = (event, url) => { event.stopPropagation(); openPdfPreview(url); };
 						const downloadBundleFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 						const captureActive = captureHint?.bundleId === bundle.id;
 						const metadata = [
@@ -789,7 +800,7 @@ window.__ModuleLoader__.load({
 							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
 								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
 								h("div", { className: "ib-lit-acts" },
-									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "下载 PDF 原文" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面"), onClick: (event) => bundlePdfUrl ? downloadBundleFile(event, bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "网页预览 PDF 原文（预览页可下载）" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面"), onClick: (event) => bundlePdfUrl ? previewBundlePdf(event, bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
 									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
 									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "打开报告预览、审核与下载" : "DOCX 尚未暂存" }, "报告"),

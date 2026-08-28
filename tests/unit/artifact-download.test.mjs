@@ -49,6 +49,37 @@ test("PDF and SI artifact endpoints validate bundleId without requiring reportId
 	}
 });
 
+test("submitted PDF can be previewed inline while its normal endpoint still downloads", async () => {
+	const expected = Buffer.from("%PDF-1.7\npreviewable\n%%EOF");
+	const tasks = {
+		async bundleFile(id, kind) {
+			assert.equal(id, "bundle-1");
+			assert.equal(kind, "pdf");
+			return { fileName: "论文 原文.pdf", mime: "application/pdf", buffer: expected, byteLength: expected.length, sha256: "f".repeat(64) };
+		}
+	};
+	const handler = createArtifactDownloadHandler(tasks);
+	const preview = responseCapture();
+	await handler({ method: "GET", url: "/api/lab-artifacts?preview=1&kind=pdf&bundleId=bundle-1", headers: { host: "localhost" } }, preview);
+	assert.equal(preview.status, 200);
+	assert.equal(preview.headers["content-type"], "application/pdf");
+	assert.match(preview.headers["content-disposition"], /^inline;/);
+	assert.equal(preview.headers["x-file-name"], encodeURIComponent("论文 原文.pdf"));
+	assert.deepEqual(preview.body, expected);
+
+	const download = responseCapture();
+	await handler({ method: "GET", url: "/api/lab-artifacts?kind=pdf&bundleId=bundle-1", headers: { host: "localhost" } }, download);
+	assert.match(download.headers["content-disposition"], /^attachment;/);
+});
+
+test("SI files cannot be sent through PDF preview mode", async () => {
+	const handler = createArtifactDownloadHandler({});
+	const res = responseCapture();
+	await handler({ method: "GET", url: "/api/lab-artifacts?preview=1&kind=si&bundleId=bundle-1", headers: { host: "localhost" } }, res);
+	assert.equal(res.status, 400);
+	assert.match(res.body.toString("utf8"), /PDF, report or ppt/);
+});
+
 test("preview endpoint renders the actual unapproved Office bytes as inline PDF", async () => {
 	const source = Buffer.from("PK\x03\x04staged-pptx", "latin1");
 	const pdf = Buffer.from("%PDF-1.7\npreview");
