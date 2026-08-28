@@ -5,6 +5,11 @@
  * 不注入任何公众号链接，也不读取页面 Cookie/凭据。
  */
 (() => {
+  // 授权弹窗会把桥接立即注入当前页面；后续导航时，动态 content script 还会
+  // 自动运行。使用隔离世界内的标记避免同一页面重复注册消息监听器。
+  if (globalThis.__ibmLiteratureCaptureContentLoaded) return;
+  globalThis.__ibmLiteratureCaptureContentLoaded = true;
+
   // 页面 → SW：布防下一次下载捕获
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;

@@ -73,8 +73,13 @@
       if (!granted) throw new Error("未授予当前站点访问权限");
       const response = await chrome.runtime.sendMessage({ type: "SET_TRUSTED_ORIGIN", origin });
       if (!response?.ok) throw new Error(response?.error || "保存可信站点失败");
-      await chrome.tabs.reload(tab.id);
-      window.close();
+      // 动态注册的 content script 默认只会在后续导航时运行。当前页面无需刷新，
+      // 直接注入即可立即接收“下载 PDF/SI”的布防消息；content.js 自带幂等保护。
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      });
+      await refresh();
     } catch (error) {
       $("taskError").textContent = String(error?.message || error);
       $("taskError").classList.remove("hidden");
@@ -84,7 +89,7 @@
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.ibmCaptureTask) {
+    if (area === "local" && (changes.ibmCaptureTask || changes.ibmTrustedOrigin)) {
       void refresh();
     }
   });

@@ -75,8 +75,8 @@ node scripts/install.mjs --strict --force-preset --force-vendor   # 部署/更�
 重启 Web 服务后验证：
 
 ```bash
-curl -s http://localhost:<端口>/api/lab-capture-upload -X OPTIONS -i | head -5
-# 期望：HTTP/1.1 204 No Content，且允许 PUT
+curl -sS -i -X OPTIONS http://127.0.0.1:3080/api/lab-capture-upload | head -5
+# 期望：HTTP/1.1 204 No Content。若设置了 IBM_LAB_AGENT_PORT，请替换 3080。
 ```
 
 ### 2. Chrome / Edge 扩展
