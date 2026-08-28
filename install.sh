@@ -24,7 +24,7 @@ iBM Lab Agent Linux installer
 
 Usage: install.sh [options]
   --start                  install and start the Web UI in the background
-  --ref <git-ref>          GitHub branch/tag/commit (default: main)
+  --ref <git-ref>          GitLab branch/tag/commit (default: main)
   --data-dir <path>        install root (default: ~/.local/share/ibm-lab-agent)
   --dsh-home <path>        DSH state root (default: ~/.dsh)
   --source-dir <path>      install from a local checkout (test/offline packaging)
@@ -85,7 +85,7 @@ else
 	mkdir -p "$tmp_root/unpack"
 	tar -xzf "$archive" -C "$tmp_root/unpack"
 	mapfile -t roots < <(find "$tmp_root/unpack" -mindepth 1 -maxdepth 1 -type d)
-	[[ ${#roots[@]} -eq 1 ]] || { echo "GitHub 源码包结构异常" >&2; exit 1; }
+	[[ ${#roots[@]} -eq 1 ]] || { echo "GitLab 源码包结构异常" >&2; exit 1; }
 	mv "${roots[0]}" "$tmp_root/source"
 fi
 

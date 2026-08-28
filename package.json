@@ -176,10 +176,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cyx1874cyx/iBM-Lab-Agent.git"
+    "url": "git+https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent.git"
   },
-  "homepage": "https://github.com/cyx1874cyx/iBM-Lab-Agent#readme",
+  "homepage": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent",
   "bugs": {
-    "url": "https://github.com/cyx1874cyx/iBM-Lab-Agent/issues"
+    "url": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/issues"
   }
 }
