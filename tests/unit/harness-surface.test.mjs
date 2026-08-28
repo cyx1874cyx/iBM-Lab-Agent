@@ -174,6 +174,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /image\/gif/);
 	assert.match(source, /inputActions\.setDraft/);
 	assert.match(source, /单个不超过 25 MB/);
+	assert.match(source, /Array\.from\(event\.currentTarget\.files/);
+	assert.match(source, /正在读取并上传/);
+	assert.match(source, /当前会话尚未关联课题/);
 	// 深度科研对话皮肤仍只在绑定课题的会话启用
 	assert.match(source, /ib-research-chat/);
 	assert.doesNotMatch(source, /ib-context-flow/);

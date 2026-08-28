@@ -306,8 +306,16 @@ window.__ModuleLoader__.load({
 			latestInput.current = input;
 
 			const uploadFiles = useCallback(async (fileList) => {
-				if (!bound?.project?.id || busy) return;
 				const picked = Array.from(fileList ?? []);
+				if (!picked.length) return;
+				if (!bound?.project?.id) {
+					toast("当前会话尚未关联课题，请稍后重试或先从课题面板进入会话。");
+					return;
+				}
+				if (busy) {
+					toast("已有文件正在上传，请等待完成后再试。");
+					return;
+				}
 				const files = picked.filter((file) => !isNativeImageFile(file));
 				const imageCount = picked.length - files.length;
 				if (imageCount) toast(files.length ? "文档正在上传；混合拖入的图片请单独拖入，以保留图片预览。" : "图片请使用输入框原生的图片按钮或单独拖入。");
@@ -322,6 +330,7 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				setBusy(true);
+				toast(`已选择 ${files.length} 个文件，正在读取并上传…`);
 				const uploaded = [];
 				const failed = [];
 				try {
@@ -352,6 +361,17 @@ window.__ModuleLoader__.load({
 					setBusy(false);
 				}
 			}, [bound?.project?.id, busy, call, inputActions, toast]);
+
+			const onPickerChange = (event) => {
+				// FileList 由浏览器事件持有；先转成普通数组再清空 input，避免异步阶段
+				// 遇到已失效或已被清空的列表，也允许用户立即重新选择同一个文件。
+				const files = Array.from(event.currentTarget.files ?? []);
+				event.currentTarget.value = "";
+				void uploadFiles(files).catch((reason) => {
+					setBusy(false);
+					toast(`文件上传失败：${reason?.message ?? reason}`);
+				});
+			};
 
 			const uploadRef = useRef(uploadFiles);
 			uploadRef.current = uploadFiles;
@@ -389,7 +409,7 @@ window.__ModuleLoader__.load({
 
 			if (!bound?.project) return null;
 			return h("span", { className: "ib-file-upload" },
-				h("input", { ref: picker, type: "file", multiple: true, onChange: (event) => { void uploadFiles(event.target.files); event.target.value = ""; } }),
+				h("input", { ref: picker, type: "file", multiple: true, onChange: onPickerChange }),
 				h("button", { type: "button", className: "ib-file-upload-btn", disabled: busy, title: "上传 PDF、Office、文本、数据或其他科研文件（单个不超过 25 MB）", "aria-label": "上传科研文件", onClick: () => picker.current?.click() }, busy ? "上传中…" : "上传文件"),
 				dragging ? h("div", { className: "ib-file-drop" }, h("span", null, "松开后上传到当前课题")) : null
 			);
