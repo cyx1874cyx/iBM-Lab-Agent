@@ -22,7 +22,7 @@ Python 环境和 DSH profile 全部验证成功后，才原子切换 `current` �
 
 ```text
 ~/.local/share/ibm-lab-agent/
-├── current -> releases/0.1.5-<timestamp>/
+├── current -> releases/0.1.6-<timestamp>/
 ├── releases/                       # 插件源码快照
 └── runtime/
     ├── node -> node-v24.16.0-linux-<arch>/

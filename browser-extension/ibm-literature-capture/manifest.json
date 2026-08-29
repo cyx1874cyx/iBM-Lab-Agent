@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "iBM Lab 文献捕获",
-  "version": "0.2.1",
-  "description": "用户点击 iBM Lab 文献精读的灰色 PDF/SI 按钮后，捕获下一次手工下载并通过本地桥接上传到 iBM Lab Agent。只捕获用户明确布防的那一份匹配下载，不监控或上传其他下载，不读取 Cookie。",
+  "version": "0.3.0",
+  "description": "为 iBM Lab Agent 捕获用户明确布防的文献下载，并通过本地桥接安全保存已审核的 PPTX/DOCX。只处理用户主动发起的任务，不读取 Cookie、历史或其他文件。",
   "minimum_chrome_version": "102",
   "permissions": ["activeTab", "downloads", "storage", "nativeMessaging", "scripting"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],

@@ -130,6 +130,56 @@ window.__ModuleLoader__.load({
 			downloadBlob(fileName, blob.type || "application/octet-stream", blob);
 			return fileName;
 		}
+		/** 让受信任浏览器扩展调用 Windows 本地桥接保存 Office 文件。 */
+		function saveArtifactViaExtension(url) {
+			return new Promise((resolve, reject) => {
+				const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				let settled = false;
+				let acknowledged = false;
+				const finish = (callback, value) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(readyTimer);
+					clearTimeout(completionTimer);
+					window.removeEventListener("message", onResult);
+					callback(value);
+				};
+				const onResult = (event) => {
+					if (event.source !== window || event.origin !== location.origin) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lit-capture-ext" || data.requestId !== requestId) return;
+					if (data.type === "SAVE_ARTIFACT_ACK") {
+						acknowledged = true;
+						clearTimeout(readyTimer);
+						return;
+					}
+					if (data.type !== "SAVE_ARTIFACT_RESULT") return;
+					if (data.payload?.ok) finish(resolve, data.payload);
+					else finish(reject, new Error(data.payload?.error || "本地桥接保存失败"));
+				};
+				const readyTimer = setTimeout(() => {
+					if (!acknowledged) finish(reject, new Error("未检测到 iBM 浏览器扩展"));
+				}, 1800);
+				const completionTimer = setTimeout(() => finish(reject, new Error("本地桥接保存超时（5 分钟）")), 5 * 60 * 1000);
+				window.addEventListener("message", onResult);
+				try {
+					const artifactUrl = new URL(url, location.origin).href;
+					window.postMessage({ source: "ibm-lab-agent", type: "SAVE_ARTIFACT", requestId, payload: { artifactUrl } }, location.origin);
+				} catch (reason) {
+					finish(reject, reason);
+				}
+			});
+		}
+		/** Office 文件优先由本地桥接落盘；不可用时保留浏览器下载回退。 */
+		async function downloadOfficeArtifact(url) {
+			try {
+				const saved = await saveArtifactViaExtension(url);
+				return { ...saved, native: true };
+			} catch (bridgeError) {
+				const fileName = await downloadVerifiedBinary(url);
+				return { fileName, native: false, bridgeError: bridgeError?.message || String(bridgeError) };
+			}
+		}
 		/** 已归档 PDF 使用同源 inline 响应交给浏览器原生 PDF 阅读器；阅读器内仍可下载。 */
 		function openPdfPreview(url) {
 			const previewUrl = new URL(url, location.origin);
@@ -618,12 +668,12 @@ window.__ModuleLoader__.load({
 				void run(`mr:${context.key}`, async () => { await ensureMachineReview(); setReviewVisible(true); });
 			};
 			const downloadReport = (report) => run(`rep:${report.id}`, async () => {
-				const fileName = await downloadVerifiedBinary(`/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(report.id)}`);
-				notify(`报告已开始下载：${fileName}`);
+				const saved = await downloadOfficeArtifact(`/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(report.id)}`);
+				notify(saved.native ? `报告已保存并校验：${saved.fileName}` : `报告已通过浏览器下载：${saved.fileName}；本地若被阻止，请安装或更新 iBM 本地桥接`);
 			});
 			const downloadPpt = (report) => run(`ppt:${report.id}`, async () => {
-				const fileName = await downloadVerifiedBinary(`/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(report.id)}`);
-				notify(`PPT 已开始下载：${fileName}`);
+				const saved = await downloadOfficeArtifact(`/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(report.id)}`);
+				notify(saved.native ? `PPT 已保存并校验：${saved.fileName}` : `PPT 已通过浏览器下载：${saved.fileName}；本地若被阻止，请安装或更新 iBM 本地桥接`);
 			});
 			const rejectArtifact = () => {
 				const context = reviewContext();

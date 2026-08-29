@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-iBM Lab 文献捕获 — Native Messaging 本地桥接宿主（Windows）。
+iBM Lab Native Messaging 本地桥接宿主（Windows）。
 
-只做一件事：接收扩展发来的 { cmd: "upload", taskId, uploadUrl, downloadPath, fileName }，
-读取**指定的那一份**下载文件（必须位于已配置的下载目录内），PUT 上传到
-一次性上传地址（含 token），把结果回传给扩展。
+支持两项由用户明确触发的操作：
+  - upload：读取指定下载文件并上传到一次性捕获地址；
+  - save_artifact：从可信本机 iBM 接口下载 PPTX/DOCX，校验后保存到下载目录。
 
 安全边界：
   - 不读取 Cookie、浏览历史或任何其他文件；
@@ -13,14 +13,28 @@ iBM Lab 文献捕获 — Native Messaging 本地桥接宿主（Windows）。
 """
 
 import json
+import hashlib
 import os
+import re
 import struct
 import sys
+import tempfile
 import urllib.parse
 import urllib.request
+import zipfile
 
 BRIDGE_NAME = "com.ibm.lab.capture"
 MAX_FILE_BYTES = 100 * 1024 * 1024
+ARTIFACT_PATH = "/api/lab-artifacts"
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+ARTIFACT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+INVALID_FILE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 
 
 def configure_binary_stdio():
@@ -155,13 +169,180 @@ def upload(upload_url, file_path, file_name):
         return {"ok": False, "error": "server returned non-JSON response: " + body[:200]}
 
 
+def normalized_origin(value):
+    """规范化 HTTP(S) origin，拒绝凭据、路径、查询和片段。"""
+    parsed = urllib.parse.urlparse(str(value or ""))
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("trustedOrigin is not a valid HTTP(S) origin")
+    if parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        raise ValueError("trustedOrigin must contain only scheme, host and port")
+    host = parsed.hostname.lower()
+    authority = f"[{host}]" if ":" in host else host
+    default_port = 80 if parsed.scheme == "http" else 443
+    if parsed.port and parsed.port != default_port:
+        authority += f":{parsed.port}"
+    return f"{parsed.scheme}://{authority}"
+
+
+def validate_artifact_url(artifact_url, trusted_origin):
+    """只接受可信本机 iBM 服务中的已审核 PPTX/DOCX 下载地址。"""
+    parsed = urllib.parse.urlparse(str(artifact_url or ""))
+    origin = normalized_origin(trusted_origin)
+    if normalized_origin(f"{parsed.scheme}://{parsed.netloc}") != origin:
+        raise ValueError("artifactUrl origin does not match trustedOrigin")
+    if parsed.hostname.lower() not in LOOPBACK_HOSTS:
+        raise ValueError("artifactUrl must use a loopback host")
+    if parsed.path != ARTIFACT_PATH or parsed.fragment or parsed.username or parsed.password:
+        raise ValueError("artifactUrl is not an iBM artifact endpoint")
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    kind = (query.get("kind") or [""])[0]
+    report_id = (query.get("reportId") or [""])[0]
+    allowed_keys = {"kind", "reportId", "format"} if kind == "report" else {"kind", "reportId"}
+    if not set(query).issubset(allowed_keys) or any(len(values) != 1 for values in query.values()):
+        raise ValueError("artifactUrl contains unsupported or duplicate parameters")
+    if not ARTIFACT_ID_RE.fullmatch(report_id):
+        raise ValueError("artifactUrl contains an invalid reportId")
+    if kind == "ppt":
+        return ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    if kind == "report" and (query.get("format") or [""])[0] == "docx":
+        return ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    raise ValueError("artifactUrl only supports approved PPTX or DOCX artifacts")
+
+
+def sanitize_artifact_name(raw_name, expected_extension):
+    """将响应文件名限制为安全的 Windows basename，并固定 Office 扩展名。"""
+    decoded = urllib.parse.unquote(str(raw_name or ""))
+    name = os.path.basename(decoded.replace("\\", "/"))
+    name = INVALID_FILE_CHARS_RE.sub("_", name).strip(" .")
+    stem, extension = os.path.splitext(name)
+    if extension.lower() != expected_extension:
+        raise ValueError(f"artifact file name must end with {expected_extension}")
+    stem = stem.strip(" .") or "artifact"
+    if stem.upper() in WINDOWS_RESERVED_NAMES:
+        stem = "_" + stem
+    stem = stem[: max(1, 180 - len(expected_extension))].rstrip(" .")
+    return stem + expected_extension
+
+
+def available_destination(directory, file_name):
+    """避免覆盖现有文件，按 Windows 常见规则追加 (n)。"""
+    stem, extension = os.path.splitext(file_name)
+    candidate = os.path.join(directory, file_name)
+    for index in range(1, 10000):
+        if not os.path.exists(candidate):
+            return candidate
+        candidate = os.path.join(directory, f"{stem} ({index}){extension}")
+    raise ValueError("too many files with the same artifact name")
+
+
+def validate_office_package(file_path, expected_extension):
+    """验证 ZIP 完整性及格式核心部件，避免把错误页保存成 Office 文件。"""
+    required_part = "ppt/presentation.xml" if expected_extension == ".pptx" else "word/document.xml"
+    try:
+        with zipfile.ZipFile(file_path, "r") as package:
+            names = set(package.namelist())
+            if "[Content_Types].xml" not in names or required_part not in names:
+                raise ValueError("downloaded file is not the expected Office package")
+            corrupt_part = package.testzip()
+            if corrupt_part:
+                raise ValueError("downloaded Office package contains a corrupt part: " + corrupt_part)
+    except zipfile.BadZipFile as error:
+        raise ValueError("downloaded file is not a valid Office ZIP package") from error
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """本地保存不跟随重定向，防止可信端点把桥接带到其他来源。"""
+
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        raise ValueError("artifact endpoint redirects are not allowed")
+
+
+def save_artifact(artifact_url, trusted_origin):
+    """从可信本机接口流式下载、校验并原子写入浏览器下载目录。"""
+    expected_extension, expected_mime = validate_artifact_url(artifact_url, trusted_origin)
+    directories = downloads_dirs()
+    if not directories:
+        raise ValueError("no approved Windows download directory is available")
+    destination_dir = directories[0]
+    request = urllib.request.Request(artifact_url, method="GET", headers={"Accept": expected_mime})
+    opener = urllib.request.build_opener(NoRedirectHandler())
+    temp_path = None
+    try:
+        with opener.open(request, timeout=300) as response:
+            content_type = str(response.headers.get("Content-Type", "")).split(";", 1)[0].lower()
+            if content_type != expected_mime:
+                raise ValueError("artifact response has an unexpected Content-Type")
+            expected_hash = str(response.headers.get("X-Content-SHA256", "")).lower()
+            if not SHA256_RE.fullmatch(expected_hash):
+                raise ValueError("artifact response is missing a valid SHA-256 header")
+            try:
+                expected_bytes = int(response.headers.get("Content-Length", ""))
+            except ValueError as error:
+                raise ValueError("artifact response is missing a valid Content-Length") from error
+            if expected_bytes < 1 or expected_bytes > MAX_FILE_BYTES:
+                raise ValueError("artifact size is outside the allowed range")
+            file_name = sanitize_artifact_name(response.headers.get("X-File-Name", ""), expected_extension)
+            destination = available_destination(destination_dir, file_name)
+            descriptor, temp_path = tempfile.mkstemp(prefix=".ibm-artifact-", suffix=".part", dir=destination_dir)
+            digest = hashlib.sha256()
+            byte_length = 0
+            with os.fdopen(descriptor, "wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    byte_length += len(chunk)
+                    if byte_length > MAX_FILE_BYTES:
+                        raise ValueError("artifact exceeds the 100 MB limit")
+                    handle.write(chunk)
+                    digest.update(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
+        if byte_length != expected_bytes:
+            raise ValueError(f"artifact length mismatch: expected {expected_bytes}, received {byte_length}")
+        actual_hash = digest.hexdigest()
+        if actual_hash != expected_hash:
+            raise ValueError("artifact SHA-256 mismatch")
+        validate_office_package(temp_path, expected_extension)
+        os.replace(temp_path, destination)
+        temp_path = None
+        zone_stream = destination + ":Zone.Identifier"
+        if os.name == "nt":
+            try:
+                os.remove(zone_stream)
+            except FileNotFoundError:
+                pass
+        return {
+            "ok": True,
+            "fileName": os.path.basename(destination),
+            "filePath": destination,
+            "byteLength": byte_length,
+            "sha256": actual_hash,
+        }
+    finally:
+        if temp_path:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+
+
 def main():
     configure_binary_stdio()
     message = read_message()
     if not message:
         write_message({"ok": False, "error": "empty message"})
         return
-    if message.get("cmd") != "upload":
+    command = message.get("cmd")
+    if command == "save_artifact":
+        artifact_url = str(message.get("artifactUrl", ""))
+        trusted_origin = str(message.get("trustedOrigin", ""))
+        try:
+            write_message(save_artifact(artifact_url, trusted_origin))
+        except Exception as error:  # noqa: BLE001 — 桥接边界，任何异常都要回传
+            write_message({"ok": False, "error": str(error)})
+        return
+    if command != "upload":
         write_message({"ok": False, "error": "unsupported command"})
         return
 

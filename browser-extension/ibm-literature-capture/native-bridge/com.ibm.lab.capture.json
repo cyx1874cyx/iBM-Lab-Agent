@@ -1,6 +1,6 @@
 {
   "name": "com.ibm.lab.capture",
-  "description": "iBM Lab 文献捕获本地桥接：读取用户布防的下载文件并上传到 iBM Lab Agent",
+  "description": "iBM Lab 本地桥接：捕获文献文件，并安全保存已审核的 PPTX/DOCX",
   "path": "%%BRIDGE_PATH%%",
   "type": "stdio",
   "allowed_origins": ["chrome-extension://%%EXTENSION_ID%%/"]

@@ -16,6 +16,8 @@ const TRUSTED_ORIGIN_KEY = "ibmTrustedOrigin";
 const PENDING_TRUST_KEY = "ibmPendingTrustedOrigin";
 const CONTENT_SCRIPT_ID = "ibm-literature-capture-trusted";
 const CAPTURE_UPLOAD_PATH = "/api/lab-capture-upload";
+const ARTIFACT_DOWNLOAD_PATH = "/api/lab-artifacts";
+const ARTIFACT_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 function normalizedWebOrigin(value) {
   try {
@@ -133,6 +135,22 @@ function validateUploadUrl(raw, trustedOrigin) {
     throw new Error("布防失败：上传地址不是可信 iBM 站点的捕获接口");
   }
   if (!url.searchParams.get("token")) throw new Error("布防失败：上传地址缺少一次性令牌");
+  return url.href;
+}
+
+function validateArtifactUrl(raw, trustedOrigin) {
+  let url;
+  try { url = new URL(String(raw || "")); } catch { throw new Error("保存失败：产物地址格式无效"); }
+  if (url.origin !== trustedOrigin || url.pathname !== ARTIFACT_DOWNLOAD_PATH || url.username || url.password || url.hash) {
+    throw new Error("保存失败：产物地址不是可信 iBM 站点的下载接口");
+  }
+  const kind = url.searchParams.get("kind");
+  const reportId = url.searchParams.get("reportId") || "";
+  const allowedKeys = kind === "report" ? new Set(["kind", "format", "reportId"]) : new Set(["kind", "reportId"]);
+  if (![...url.searchParams.keys()].every((key) => allowedKeys.has(key))) throw new Error("保存失败：产物地址含有未授权参数");
+  if (!ARTIFACT_ID_RE.test(reportId)) throw new Error("保存失败：报告编号无效");
+  if (kind === "report" && url.searchParams.get("format") !== "docx") throw new Error("保存失败：报告只允许 DOCX 格式");
+  if (kind !== "report" && kind !== "ppt") throw new Error("保存失败：只允许 PPTX 或 DOCX 产物");
   return url.href;
 }
 
@@ -316,7 +334,7 @@ chrome.downloads.onChanged.addListener((delta) => {
  * 桥接只接收一次性上传地址、任务编号与 Chrome 返回的绝对下载路径；桥接会再次
  * 校验该路径必须位于批准的下载目录内。
  */
-function uploadViaBridge(task, item) {
+function requestNativeBridge(message, operation) {
   return new Promise((resolve, reject) => {
     let port;
     let settled = false;
@@ -333,7 +351,7 @@ function uploadViaBridge(task, item) {
       return;
     }
     const timer = setTimeout(() => {
-      finish(reject, new Error("本地桥接上传超时（5 分钟）"));
+      finish(reject, new Error(`本地桥接${operation}超时（5 分钟）`));
       try { port.disconnect(); } catch { /* noop */ }
     }, 5 * 60 * 1000);
     port.onMessage.addListener((message) => {
@@ -351,14 +369,31 @@ function uploadViaBridge(task, item) {
         finish(reject, new Error("本地桥接未返回结果即断开"));
       }
     });
-    port.postMessage({
-      cmd: "upload",
-      taskId: task.id,
-      uploadUrl: task.uploadUrl,
-      downloadPath: String(item.filename || ""),
-      fileName: String(item.filename || "").split("/").pop()?.split("\\").pop() || "download.bin"
-    });
+    port.postMessage(message);
   });
+}
+
+function uploadViaBridge(task, item) {
+  return requestNativeBridge({
+    cmd: "upload",
+    taskId: task.id,
+    uploadUrl: task.uploadUrl,
+    downloadPath: String(item.filename || ""),
+    fileName: String(item.filename || "").split("/").pop()?.split("\\").pop() || "download.bin"
+  }, "上传");
+}
+
+async function handleSaveArtifact(payload, sender) {
+  const trustedOrigin = await loadTrustedOrigin();
+  const senderOrigin = normalizedWebOrigin(sender?.tab?.url);
+  if (!trustedOrigin) throw new Error("请先打开扩展弹窗并信任当前 iBM 页面");
+  if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0 || senderOrigin !== trustedOrigin) {
+    throw new Error("保存失败：消息不是来自可信 iBM 页面");
+  }
+  const artifactUrl = validateArtifactUrl(payload?.artifactUrl, trustedOrigin);
+  const result = await requestNativeBridge({ cmd: "save_artifact", artifactUrl, trustedOrigin }, "保存");
+  if (!result || result.ok !== true) throw new Error(result?.error || "本地桥接保存失败");
+  return result;
 }
 
 // ── 消息入口 ────────────────────────────────────────────────────────────
@@ -375,6 +410,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === "GET_STATE") {
     Promise.all([loadTask(), loadTrustedOrigin()])
       .then(([task, trustedOrigin]) => sendResponse({ ok: true, task, trustedOrigin }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (type === "SAVE_ARTIFACT") {
+    handleSaveArtifact(message.payload, sender)
+      .then(sendResponse)
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }

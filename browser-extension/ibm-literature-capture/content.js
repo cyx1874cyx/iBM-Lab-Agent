@@ -1,7 +1,7 @@
 /**
  * iBM Lab 文献捕获 — content script。
  * 双向桥：iBM 页面（window.postMessage）↔ 扩展 Service Worker（chrome.runtime）。
- * 只转发用户主动发起的 ARM_CAPTURE 布防消息与扩展的上传结果通知，
+ * 只转发用户主动发起的 ARM_CAPTURE / SAVE_ARTIFACT 消息与扩展结果通知，
  * 不注入任何公众号链接，也不读取页面 Cookie/凭据。
  */
 (() => {
@@ -10,27 +10,39 @@
   if (globalThis.__ibmLiteratureCaptureContentLoaded) return;
   globalThis.__ibmLiteratureCaptureContentLoaded = true;
 
-  // 页面 → SW：布防下一次下载捕获
+  // 页面 → SW：布防下一次下载捕获，或请求本地桥接保存 Office 产物。
   window.addEventListener("message", (event) => {
-    if (event.source !== window) return;
+    if (event.source !== window || event.origin !== location.origin) return;
     const data = event.data;
-    if (!data || data.source !== "ibm-lab-agent" || data.type !== "ARM_CAPTURE") return;
+    if (!data || data.source !== "ibm-lab-agent") return;
     const requestId = String(data.requestId || "");
-    const reply = (payload) => window.postMessage({
+    if (!requestId) return;
+    const reply = (type, payload) => window.postMessage({
       source: "ibm-lit-capture-ext",
-      type: "ARM_CAPTURE_RESULT",
+      type,
       requestId,
       payload
     }, location.origin);
-    chrome.runtime.sendMessage({ type: "ARM_CAPTURE", payload: data.payload })
-      .then((response) => {
-        reply(response?.ok
-          ? { ok: true, taskId: response.taskId }
-          : { ok: false, error: response?.error || "扩展布防失败" });
-      })
-      .catch((error) => {
-        reply({ ok: false, error: String(error?.message || error || "扩展不可用") });
-      });
+    if (data.type === "ARM_CAPTURE") {
+      chrome.runtime.sendMessage({ type: "ARM_CAPTURE", payload: data.payload })
+        .then((response) => {
+          reply("ARM_CAPTURE_RESULT", response?.ok
+            ? { ok: true, taskId: response.taskId }
+            : { ok: false, error: response?.error || "扩展布防失败" });
+        })
+        .catch((error) => {
+          reply("ARM_CAPTURE_RESULT", { ok: false, error: String(error?.message || error || "扩展不可用") });
+        });
+      return;
+    }
+    if (data.type === "SAVE_ARTIFACT") {
+      reply("SAVE_ARTIFACT_ACK", { ok: true });
+      chrome.runtime.sendMessage({ type: "SAVE_ARTIFACT", payload: data.payload })
+        .then((response) => reply("SAVE_ARTIFACT_RESULT", response?.ok
+          ? response
+          : { ok: false, error: response?.error || "本地桥接保存失败" }))
+        .catch((error) => reply("SAVE_ARTIFACT_RESULT", { ok: false, error: String(error?.message || error || "扩展不可用") }));
+    }
   });
 
   // SW → 页面：上传完成/失败/进行中

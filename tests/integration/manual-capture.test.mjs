@@ -513,6 +513,9 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /data-ready/);
 	// 已获取 → 点亮下载（downloadVerifiedBinary 长度+SHA-256 校验）
 	assert.match(client, /downloadVerifiedBinary/);
+	assert.match(client, /downloadOfficeArtifact/);
+	assert.match(client, /SAVE_ARTIFACT/);
+	assert.match(client, /本地若被阻止/);
 	// 未获取 → 灰色可点击：同步打开出版社页 + 异步创建捕获任务 + 通知扩展
 	assert.match(client, /manual_capture_create/);
 	assert.match(client, /ARM_CAPTURE/);
@@ -541,12 +544,17 @@ test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受�
 	assert.match(background, /url\.origin !== trustedOrigin/);
 	assert.match(background, /state !== "complete" && state !== "interrupted"/);
 	assert.match(background, /downloadPath:/);
+	assert.match(background, /validateArtifactUrl/);
+	assert.match(background, /save_artifact/);
+	assert.match(background, /senderOrigin !== trustedOrigin/);
 	assert.match(background, /item\.startTime/);
 	assert.match(background, /PREPARE_TRUSTED_ORIGIN/, "权限弹窗关闭扩展小窗后仍可恢复授权流程");
 	assert.match(background, /chrome\.permissions\.onAdded/, "权限授予后由后台完成可信站点注册");
 	assert.match(background, /chrome\.scripting\.executeScript/, "后台立即注入当前可信页面");
 	const content = await readFile(join(extensionRoot, "content.js"), "utf8");
 	assert.match(content, /ARM_CAPTURE_RESULT/);
+	assert.match(content, /SAVE_ARTIFACT_ACK/);
+	assert.match(content, /SAVE_ARTIFACT_RESULT/);
 	assert.match(content, /ok: true, taskId:/);
 	assert.match(content, /__ibmLiteratureCaptureContentLoaded/, "重复注入时不重复注册消息监听器");
 	const popup = await readFile(join(extensionRoot, "popup.js"), "utf8");
@@ -559,4 +567,8 @@ test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受�
 	const host = await readFile(join(extensionRoot, "native-bridge", "host.py"), "utf8");
 	assert.match(host, /message\.get\("downloadPath"/);
 	assert.match(host, /os\.path\.commonpath/);
+	assert.match(host, /validate_artifact_url/);
+	assert.match(host, /X-Content-SHA256/);
+	assert.match(host, /validate_office_package/);
+	assert.match(host, /Zone\.Identifier/);
 });
