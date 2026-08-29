@@ -516,6 +516,10 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /downloadOfficeArtifact/);
 	assert.match(client, /SAVE_ARTIFACT/);
 	assert.match(client, /本地若被阻止/);
+	assert.match(client, /PPT 下载成功/);
+	assert.match(client, /保存位置：\$\{saved\.filePath \|\| saved\.fileName\}/);
+	assert.match(client, /\.ib-toast\{position:fixed;z-index:1100/, "下载提示必须显示在 PPT 预览层上方");
+	assert.match(client, /aria-live": "polite"/, "下载完成提示应对辅助技术可见");
 	// 未获取 → 灰色可点击：同步打开出版社页 + 异步创建捕获任务 + 通知扩展
 	assert.match(client, /manual_capture_create/);
 	assert.match(client, /ARM_CAPTURE/);
