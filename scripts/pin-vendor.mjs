@@ -17,11 +17,11 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { readFile, writeFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMIT_SHA_RE, createVendorLock } from "../src/lockfile.js";
+import { pythonLockSha256 } from "../src/python-lock-hash.js";
 import { scanSkillsRoot } from "../src/skill-catalog.js";
 import { fetchTree } from "./vendor-fetch.mjs";
 
@@ -55,10 +55,10 @@ function resolveLatest() {
 	return sha;
 }
 
-async function pythonLockSha256() {
+async function readPythonLockSha256() {
 	const path = join(repoRoot, "python", "requirements.lock");
 	const buffer = await readFile(path);
-	return createHash("sha256").update(buffer).digest("hex");
+	return pythonLockSha256(buffer);
 }
 
 async function main() {
@@ -96,7 +96,7 @@ async function main() {
 		pinnedAt: new Date().toISOString(),
 		license: "Apache-2.0",
 		skills,
-		pythonDepsSha256: await pythonLockSha256(),
+		pythonDepsSha256: await readPythonLockSha256(),
 		pythonDepsFile: "requirements.lock"
 	});
 

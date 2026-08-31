@@ -31,7 +31,7 @@ Python 环境和 DSH profile 全部验证成功后，才原子切换 `current` �
     └── python-bin/
 
 ~/.dsh/
-├── profiles/web/                   # DSH Web profile
+├── profiles/ibm-lab/               # 专用 DSH Web + Lab profile
 ├── .agent-presets/lab-research/
 └── lab-agent/                      # 项目、模板、venv、产物与版本登记
 ```
@@ -67,7 +67,7 @@ SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent
   它会临时下载 PowerShell 更新逻辑，完成后删除临时文件并保留窗口供检查结果。
 
 - 回滚：停止服务，把 `current` 软链接指回 `releases/` 内的旧版本，再对旧路径
-  执行 `ibm-lab-agent dsh plugin --profile web add <旧版本绝对路径>`。
+  执行 `ibm-lab-agent dsh plugin --profile ibm-lab add <旧版本绝对路径>`。
 - 停止：`ibm-lab-agent stop`。
 - 自检：`ibm-lab-agent doctor`，机器可读报告保存在
   `$DSH_HOME/lab-agent/doctor-linux.json`。
