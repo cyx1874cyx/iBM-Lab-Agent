@@ -1,4 +1,5 @@
 # dsh-lab-agent working tree ignores
+.workbuddy/
 node_modules/
 *.tgz
 *.tar.gz
