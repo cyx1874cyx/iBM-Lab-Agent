@@ -93,12 +93,25 @@ impl RuntimeManager {
         bootstrap_user_data(&self.layout, &self.logger)?;
         let port = port::find_available_port(3080, 32)?;
         let config = self.load_config()?;
-        let mut child = process::spawn_dsh(&self.layout, &self.logger, port, &config)?;
+        let child = process::spawn_dsh(&self.layout, &self.logger, port, &config)?;
         let pid = child.id();
         self.logger.app(&format!("Started DSH child process pid={pid}, port={port}"))?;
-        let url = health::wait_until_ready(port, &mut child, &self.logger)?;
         process::write_pid_state(&self.layout, pid, port)?;
         *self.process.lock().map_err(|_| RuntimeError::new("Runtime process lock poisoned"))? = Some(child);
+        let url = match health::wait_until_ready(port, &self.process, &self.logger) {
+            Ok(url) => url,
+            Err(error) => {
+                if let Ok(mut guard) = self.process.lock() {
+                    if let Some(mut child) = guard.take() {
+                        if child.try_wait().ok().flatten().is_none() {
+                            let _ = process::terminate_process_tree(&mut child, &self.logger);
+                        }
+                    }
+                }
+                let _ = process::remove_pid_state(&self.layout);
+                return Err(error);
+            }
+        };
         *self.status.lock().map_err(|_| RuntimeError::new("Runtime status lock poisoned"))? = RuntimeStatus {
             running: true,
             port: Some(port),
@@ -117,6 +130,11 @@ impl RuntimeManager {
         if let Some(mut child) = guard.take() {
             self.logger.app(&format!("Stopping DSH process tree pid={}", child.id()))?;
             process::terminate_process_tree(&mut child, &self.logger)?;
+        } else if let Some(pid) = process::read_pid_state(&self.layout)? {
+            if process::is_our_dsh_process(pid, &self.layout) {
+                self.logger.app(&format!("Stopping starting/stale DSH process tree pid={pid}"))?;
+                process::terminate_pid_tree(pid, &self.logger)?;
+            }
         }
         process::remove_pid_state(&self.layout)?;
         let mut status = self.status.lock().map_err(|_| RuntimeError::new("Runtime status lock poisoned"))?;

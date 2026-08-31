@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Mutex;
 use std::time::Duration;
 use super::{logging::AppLogger, process::ManagedProcess, RuntimeError};
 
@@ -15,9 +16,14 @@ fn probe(port: u16) -> bool {
     head.starts_with("HTTP/1.1 2") || head.starts_with("HTTP/1.1 3")
 }
 
-pub fn wait_until_ready(port: u16, child: &mut ManagedProcess, logger: &AppLogger) -> Result<String, RuntimeError> {
+pub fn wait_until_ready(port: u16, process: &Mutex<Option<ManagedProcess>>, logger: &AppLogger) -> Result<String, RuntimeError> {
     for attempt in 1..=90 {
-        if let Some(status) = child.try_wait().map_err(|error| RuntimeError::new(format!("Cannot inspect DSH process: {error}")))? {
+        let status = {
+            let mut guard = process.lock().map_err(|_| RuntimeError::new("Runtime process lock poisoned"))?;
+            let child = guard.as_mut().ok_or_else(|| RuntimeError::new("DSH startup was cancelled"))?;
+            child.try_wait().map_err(|error| RuntimeError::new(format!("Cannot inspect DSH process: {error}")))?
+        };
+        if let Some(status) = status {
             return Err(RuntimeError::new(format!("DSH exited before becoming ready ({status}); inspect dsh.log and stderr.log")));
         }
         if probe(port) { return Ok(format!("http://127.0.0.1:{port}")); }

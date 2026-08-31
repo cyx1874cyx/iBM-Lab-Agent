@@ -13,6 +13,7 @@ $required = @(
   'plugin\vendor.lock.json',
   'plugin\dsh-lab-agent\package.json',
   'plugin\dsh-lab-agent\vendor\nature-skills',
+  'plugin\dsh-lab-agent\python\requirements.lock',
   'plugin\presets\lab-research\agent.cordis.yml',
   'plugin\python\requirements.lock'
 )
@@ -29,6 +30,11 @@ try {
   $profile = Join-Path $temporaryHome 'profiles\ibm-lab'
   New-Item -ItemType Directory -Force -Path (Join-Path $profile 'node_modules') | Out-Null
   Copy-Item -LiteralPath (Join-Path $resourceRoot 'plugin\dsh-lab-agent') -Destination (Join-Path $profile 'node_modules\dsh-lab-agent') -Recurse -Force
+  $labHome = Join-Path $temporaryHome 'lab-agent'
+  New-Item -ItemType Directory -Force -Path $labHome | Out-Null
+  Copy-Item -LiteralPath (Join-Path $resourceRoot 'plugin\dsh-lab-agent\vendor') -Destination (Join-Path $labHome 'vendor') -Recurse -Force
+  Copy-Item -LiteralPath (Join-Path $resourceRoot 'plugin\vendor.lock.json') -Destination (Join-Path $labHome 'vendor.lock.json') -Force
+  Copy-Item -LiteralPath (Join-Path $resourceRoot 'plugin\dsh-lab-agent\python\requirements.lock') -Destination (Join-Path $labHome 'requirements.lock') -Force
   $profileManifest = @'
 {
   "name": "dsh-profile-ibm-lab",

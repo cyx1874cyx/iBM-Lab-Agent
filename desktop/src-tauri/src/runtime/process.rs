@@ -59,18 +59,38 @@ pub fn remove_pid_state(layout: &RuntimeLayout) -> Result<(), RuntimeError> {
 }
 
 pub fn terminate_process_tree(child: &mut ManagedProcess, logger: &AppLogger) -> Result<(), RuntimeError> { terminate_pid_tree(child.id(), logger) }
+fn command_line_matches_dsh(command_line: &str, layout: &RuntimeLayout) -> bool {
+    let command_line = command_line.to_ascii_lowercase();
+    let node = layout.node_exe().display().to_string().to_ascii_lowercase();
+    let dsh = layout.dsh_bin().display().to_string().to_ascii_lowercase();
+    command_line.contains(&node)
+        && command_line.contains(&dsh)
+        && command_line.contains("--profile ibm-lab")
+        && command_line.contains("--host 127.0.0.1")
+}
 pub fn is_our_dsh_process(pid: u32, layout: &RuntimeLayout) -> bool {
     #[cfg(windows)]
     {
         let query = format!("$p=Get-CimInstance Win32_Process -Filter 'ProcessId={pid}' -ErrorAction SilentlyContinue; if ($p) {{ [Console]::Write($p.CommandLine) }}");
         let Ok(output) = Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", &query]).output() else { return false; };
-        let command_line = String::from_utf8_lossy(&output.stdout).to_ascii_lowercase();
-        let dsh = layout.dsh_bin().display().to_string().to_ascii_lowercase();
-        let home = layout.dsh_home.display().to_string().to_ascii_lowercase();
-        return command_line.contains(&dsh) && command_line.contains(&home);
+        return command_line_matches_dsh(&String::from_utf8_lossy(&output.stdout), layout);
     }
     #[cfg(not(windows))]
     { let _ = (pid, layout); false }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognizes_only_the_bundled_ibm_lab_command() {
+        let layout = RuntimeLayout::new(PathBuf::from(r"C:\Users\test\AppData\Local\iBM-Lab-Agent"), PathBuf::from(r"H:\iBM Lab Agent"));
+        let expected = r#"\"H:\iBM Lab Agent\node\node.exe\" \"H:\iBM Lab Agent\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js\" --profile ibm-lab --no-open --host 127.0.0.1 --port 3080"#;
+        assert!(command_line_matches_dsh(expected, &layout));
+        assert!(!command_line_matches_dsh(&expected.replace("ibm-lab", "other"), &layout));
+        assert!(!command_line_matches_dsh(&expected.replace(r"H:\iBM Lab Agent\node\node.exe", r"C:\node.exe"), &layout));
+    }
 }
 pub fn terminate_pid_tree(pid: u32, logger: &AppLogger) -> Result<(), RuntimeError> {
     #[cfg(windows)]
