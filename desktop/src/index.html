@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iBM Lab Agent</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #101827; color: #e7edf7; }
+    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: #101827; }
+    .shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: #162136; border-bottom: 1px solid #26334d; }
+    .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; } .state { color: #9fb1ca; font-size: 13px; flex: 1; }
+    button { border: 1px solid #405675; background: #203451; color: #ecf3fb; padding: 7px 11px; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #29466c; } .workspace { position: relative; min-height: 0; }
+    #app { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: white; display: none; }
+    #splash { max-width: 640px; margin: 13vh auto; padding: 32px; text-align: center; }
+    .spinner { margin: 0 auto 22px; width: 34px; height: 34px; border: 3px solid #344b70; border-top-color: #72b4ff; border-radius: 50%; animation: spin 1s linear infinite; }
+    .title { font-size: 21px; font-weight: 600; } .detail { margin: 12px 0 20px; color: #9fb1ca; line-height: 1.6; }
+    #error-actions, #settings { display: none; } #settings { max-width: 560px; margin: 18px auto; text-align: left; }
+    label { display: block; margin: 14px 0 5px; color: #bfd0e6; font-size: 13px; }
+    input { width: 100%; padding: 9px; border-radius: 6px; border: 1px solid #3c5375; background: #0d1625; color: #eef5ff; }
+    .hint { font-size: 12px; color: #8ea2bd; margin-top: 12px; line-height: 1.55; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="topbar">
+      <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
+      <button id="settings-button" type="button">设置</button><button id="logs-button" type="button">日志</button>
+    </nav>
+    <section class="workspace">
+      <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
+      <section id="splash">
+        <div class="spinner" id="spinner"></div><div class="title" id="title">正在启动 iBM Lab Agent</div>
+        <p class="detail" id="detail">首次启动会准备内置运行环境；这不会打开浏览器，也不会连接公网。</p>
+        <div id="error-actions"><button id="retry-button" type="button">重试启动</button></div>
+        <form id="settings" autocomplete="off">
+          <label for="api-key">API Key</label><input id="api-key" type="password" placeholder="可选：留空则沿用 DSH 已有设置">
+          <label for="base-url">接口地址</label><input id="base-url" type="url" placeholder="可选">
+          <label for="model">模型</label><input id="model" type="text" placeholder="可选">
+          <label for="workspace-path">工作目录</label><input id="workspace-path" type="text" placeholder="可选">
+          <p class="hint">设置仅保存在当前 Windows 用户的本地应用目录，界面和日志不会显示 API Key。保存后请重新启动运行环境使其生效。</p>
+          <button type="submit">保存设置</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args);
+    const splash = $('splash'), frame = $('app'), settings = $('settings');
+    function setText(id, value) { $(id).textContent = value; }
+    async function showSettings() {
+      settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
+      if (settings.style.display !== 'block') return;
+      try {
+        const config = await invoke('load_config');
+        $('api-key').value = config.apiKey || ''; $('base-url').value = config.baseUrl || '';
+        $('model').value = config.model || ''; $('workspace-path').value = config.workspace || '';
+      } catch (error) { setText('detail', `无法读取设置：${error}`); }
+    }
+    window.ibmLabRuntimeStarting = () => {
+      frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'block';
+      $('error-actions').style.display = 'none'; setText('title', '正在启动 iBM Lab Agent'); setText('detail', '正在选择本地端口并检查服务状态…'); setText('state', '本地服务启动中');
+    };
+    window.ibmLabRuntimeReady = (url) => {
+      frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', `本地服务已就绪：${url}`);
+    };
+    window.ibmLabRuntimeFailed = (message) => {
+      frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'none'; $('error-actions').style.display = 'block';
+      setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看日志或修改设置后重试。`); setText('state', '启动失败');
+    };
+    $('retry-button').addEventListener('click', () => invoke('restart_runtime').catch(window.ibmLabRuntimeFailed));
+    $('logs-button').addEventListener('click', () => invoke('open_logs').catch(window.ibmLabRuntimeFailed));
+    $('settings-button').addEventListener('click', showSettings);
+    settings.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await invoke('save_config', { config: { apiKey: $('api-key').value, baseUrl: $('base-url').value, model: $('model').value, workspace: $('workspace-path').value } });
+        setText('detail', '设置已保存。点击“重试启动”将重新启动本地服务。');
+      } catch (error) { setText('detail', `无法保存设置：${error}`); }
+    });
+  </script>
+</body>
+</html>

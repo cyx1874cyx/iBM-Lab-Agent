@@ -7,6 +7,7 @@ import {
 	vendorLockSchema,
 	COMMIT_SHA_RE
 } from "../../src/lockfile.js";
+import { pythonLockSha256 } from "../../src/python-lock-hash.js";
 
 const SHA = "c171989db699bd601d4373912b3fb8db96ecc95b";
 
@@ -88,4 +89,10 @@ test("COMMIT_SHA_RE accepts 40-hex only", () => {
 	assert.equal(COMMIT_SHA_RE.test(SHA), true);
 	assert.equal(COMMIT_SHA_RE.test(SHA.slice(0, 39)), false);
 	assert.equal(COMMIT_SHA_RE.test(SHA.toUpperCase()), false);
+});
+
+test("python lock hash is independent of Windows CRLF checkout conversion", () => {
+	const lf = Buffer.from("alpha==1\nbeta==2\n", "utf8");
+	const crlf = Buffer.from("alpha==1\r\nbeta==2\r\n", "utf8");
+	assert.equal(pythonLockSha256(crlf), pythonLockSha256(lf));
 });

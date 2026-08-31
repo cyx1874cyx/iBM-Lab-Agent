@@ -1,0 +1,34 @@
+name: Windows desktop installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: npm ci --omit=peer --legacy-peer-deps
+      - run: corepack pnpm install --frozen-lockfile --prod
+        working-directory: runtime/launcher
+      - run: npm ci
+        working-directory: desktop
+      - run: .\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
+        working-directory: desktop
+        shell: pwsh
+      - run: .\scripts\verify-package.ps1 -WebSmokeTest
+        working-directory: desktop
+        shell: pwsh
+      - run: npx tauri build
+        working-directory: desktop
+      - run: .\scripts\verify-package.ps1 -InstallerPath (Get-ChildItem src-tauri\target\release\bundle\nsis\*.exe | Select-Object -First 1).FullName
+        working-directory: desktop
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iBM-Lab-Agent-Windows
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe

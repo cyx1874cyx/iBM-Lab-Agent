@@ -120,6 +120,17 @@ SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git
 curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --help
 ```
 
+## Windows 桌面端（develop）
+
+`desktop/` 包含正在开发的 Windows Tauri 桌面壳：随包携带 Node.js、固定版
+DSH 与本插件，使用独立 `ibm-lab` profile，在回环端口启动后嵌入本地 Web UI。
+当前已完成单实例、动态端口、健康检查、启动错误/重试、日志入口、进程树清理、
+本地设置、运行时准备/校验脚本和 NSIS 构建配置；Rust 编译检查、隔离 profile
+校验以及真实 DSH Web 回环端口健康检查已通过。打包资源已排除 pnpm 冗余内部存储，
+同时补齐插件完整生产依赖树。最终 NSIS 安装包和干净 Windows 用户环境验收仍在进行中，详见
+[`desktop/README.md`](desktop/README.md) 与
+[`desktop/docs/release-checklist.md`](desktop/docs/release-checklist.md)。
+
 ## 源码开发与手动部署
 
 ```bash
@@ -130,8 +141,9 @@ node scripts/dev-link.mjs
 node scripts/install.mjs --strict
 node scripts/lab-doctor.mjs
 npm run test:all
-dsh plugin --profile web add "$PWD"
-dsh web
+node scripts/ensure-ibm-lab-profile.mjs
+dsh plugin --profile ibm-lab add "$PWD"
+dsh --profile ibm-lab
 ```
 
 之后新会话选择 **iBM科研Agent** preset，nature skills
@@ -173,7 +185,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 `agent-presets.default`），因此**所有新会话默认就是科研 Agent 模式**，无需
 切换；课题空间的「开始科研 Agent 对话」在此基础上进课题工作区、开场提示
 读取 `项目记忆.md`。不要在已开始的会话里要求"切换模式"（会被拒绝）。
-若需恢复默认，把 `agent-presets.default` 改回 `standard` 并重启 `dsh web`。
+若需恢复默认，把 `agent-presets.default` 改回 `standard` 并重启 `dsh --profile ibm-lab`。
 
 ## 阶段一验证记录（2026-08-17）
 
@@ -183,7 +195,7 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 | 单元测试 | 21/21 通过 |
 | 集成测试（真实 boot：registry CRUD、skill 发现、preset 组合） | 4/4 通过 |
 | 回归套件 | 4/4 通过，已记录回归日期（vendor.lock.json `regression.lastPassedAt`） |
-| profile 组合 | `dsh --profile web --patch cordis.patch.yml --dump-config` 三行均正确插入 |
+| profile 组合 | 历史记录：`dsh --profile web --patch cordis.patch.yml --dump-config` 三行均正确插入；当前基线改为独立 `ibm-lab` profile |
 | 安装演练（临时 DSH_HOME） | vendor 物化/幂等、preset 安装、19 条 NatureSkillVersion 登记成功 |
 | golden-diff 脚手架 | `--old <sha> --new <sha>` 下载两棵树并输出结构化差异报告 |
 

@@ -5,9 +5,9 @@
  * requirements, and its sha256 must match vendor.lock.json's pythonDeps hash.
  */
 
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pythonLockSha256 } from "../../../src/python-lock-hash.js";
 
 const REQ_LINE = /^[A-Za-z0-9._-]+(==|>=|<=|~=|!=)[^\s]+(\s+#.*)?$/;
 
@@ -27,7 +27,7 @@ export default {
 		for (const line of lines) {
 			if (!REQ_LINE.test(line)) problems.push(`invalid requirement line: ${line}`);
 		}
-		const sha = createHash("sha256").update(await readFile(lockPath)).digest("hex");
+		const sha = pythonLockSha256(await readFile(lockPath));
 		if (sha !== ctx.vendorLock.pythonDeps.sha256) {
 			problems.push(`hash mismatch: file ${sha} != lock ${ctx.vendorLock.pythonDeps.sha256}`);
 		}

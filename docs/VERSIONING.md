@@ -4,7 +4,7 @@
 
 | 层 | 固定方式 | 记录位置 |
 |---|---|---|
-| DeepSeek Harness | npm 精确版本（CLI `0.1.0-rc.6`，包集 `0.1.0-rc.7`） | `harness.lock.json` |
+| DeepSeek Harness | npm 精确版本（CLI 与包集 `0.1.1-rc.2`） | `harness.lock.json` |
 | nature-skills | git commit SHA（40 hex） | `vendor.lock.json` `pinnedCommit` |
 | Python 依赖 | `requirements.lock` 全量精确 pin + sha256 | `vendor.lock.json` `pythonDeps.sha256` |
 

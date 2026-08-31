@@ -184,9 +184,10 @@ async function main() {
 	}
 
 	console.log("\nnext steps:");
-	console.log("  1. restart the web profile so the bundle rows activate:");
-	console.log("     dsh plugin --profile web add <path-to-this-repo>   # once");
-	console.log("     dsh web");
+	console.log("  1. create the dedicated iBM Lab profile and add this bundle:");
+	console.log("     node scripts/ensure-ibm-lab-profile.mjs");
+	console.log("     dsh plugin --profile ibm-lab add <path-to-this-repo>   # once");
+	console.log("     dsh --profile ibm-lab");
 	console.log("  2. pick the iBM科研Agent preset for new sessions; nature skills appear in the skill catalog.");
 	console.log("  3. verify: node scripts/regression/run.mjs");
 }

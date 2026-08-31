@@ -221,9 +221,10 @@ else
 	echo "已按要求跳过 Linux Python 扩展。"
 fi
 
-echo "[6/8] 把插件加入 DSH Web profile"
+echo "[6/8] 创建独立 iBM Lab profile 并加入插件"
 dsh_bin="$launcher_root/node_modules/.bin/dsh"
-"$dsh_bin" plugin --profile web add "$release_dir"
+node "$tmp_root/source/scripts/ensure-ibm-lab-profile.mjs" --dsh-home "$dsh_home"
+"$dsh_bin" plugin --profile ibm-lab add "$release_dir"
 if [[ $set_default_preset -eq 1 ]]; then
 	node "$release_dir/scripts/configure-default-preset.mjs" --dsh-home "$dsh_home"
 fi
@@ -237,8 +238,8 @@ ln -sfn "$release_dir" "$current_link"
 mkdir -p "${XDG_BIN_HOME:-$HOME/.local/bin}"
 ln -sfn "$current_link/bin/ibm-lab-agent" "${XDG_BIN_HOME:-$HOME/.local/bin}/ibm-lab-agent"
 
-"$dsh_bin" --profile web --dump-config > "$tmp_root/resolved-web.yml"
-grep -q 'dsh-lab-agent' "$tmp_root/resolved-web.yml" || { echo "DSH 配置中未发现插件" >&2; exit 1; }
+"$dsh_bin" --profile ibm-lab --dump-config > "$tmp_root/resolved-ibm-lab.yml"
+grep -q 'dsh-lab-agent' "$tmp_root/resolved-ibm-lab.yml" || { echo "DSH 配置中未发现插件" >&2; exit 1; }
 node "$release_dir/scripts/lab-doctor.mjs" --python "$venv_python" --json > "$dsh_home/lab-agent/doctor-linux.json"
 
 echo "[8/8] 安装完成"

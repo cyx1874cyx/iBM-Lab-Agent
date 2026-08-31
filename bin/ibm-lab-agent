@@ -80,7 +80,7 @@ start_server() {
 	: > "$log_file"
 	(
 		cd "$workspace"
-		nohup "$dsh_bin" web --no-open --port "$port" "$@" >>"$log_file" 2>&1 < /dev/null &
+		nohup "$dsh_bin" --profile ibm-lab --no-open --port "$port" "$@" >>"$log_file" 2>&1 < /dev/null &
 		echo "$!" > "$pid_file"
 	)
 	local pid
@@ -146,7 +146,7 @@ case "$command_name" in
 		require_runtime
 		mkdir -p "$workspace"
 		cd "$workspace"
-		exec "$dsh_bin" web --no-open --port "$port" "$@"
+		exec "$dsh_bin" --profile ibm-lab --no-open --port "$port" "$@"
 		;;
 	stop) stop_server ;;
 	restart) stop_server; start_server "$@" ;;
