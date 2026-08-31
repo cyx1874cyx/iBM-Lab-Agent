@@ -50,9 +50,16 @@ pub fn write_pid_state(layout: &RuntimeLayout, pid: u32, port: u16) -> Result<()
     fs::write(pid_file(layout), format!("{pid}\n{port}\n")).map_err(|error| RuntimeError::new(format!("Cannot persist runtime state: {error}")))
 }
 pub fn read_pid_state(layout: &RuntimeLayout) -> Result<Option<u32>, RuntimeError> {
+    read_runtime_state(layout).map(|state| state.map(|(pid, _)| pid))
+}
+/// 读取持久化的运行时状态：第一行 PID，第二行端口。
+pub fn read_runtime_state(layout: &RuntimeLayout) -> Result<Option<(u32, u16)>, RuntimeError> {
     let path = pid_file(layout); if !path.exists() { return Ok(None); }
     let text = fs::read_to_string(path).map_err(|error| RuntimeError::new(format!("Cannot read runtime state: {error}")))?;
-    Ok(text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()).filter(|pid| *pid > 0))
+    let mut lines = text.lines();
+    let pid = lines.next().and_then(|line| line.trim().parse::<u32>().ok()).filter(|pid| *pid > 0);
+    let port = lines.next().and_then(|line| line.trim().parse::<u16>().ok()).filter(|port| *port > 0);
+    Ok(pid.zip(port))
 }
 pub fn remove_pid_state(layout: &RuntimeLayout) -> Result<(), RuntimeError> {
     let path = pid_file(layout); if path.exists() { fs::remove_file(path).map_err(|error| RuntimeError::new(format!("Cannot remove runtime state: {error}")))?; }; Ok(())

@@ -193,8 +193,38 @@ window.__ModuleLoader__.load({
 
 		const databaseState = (state) => ({ available: "可用", connected: "已连接", degraded: "受限", "auth-required": "需登录", "waiting-user": "等待登录", "agreement-required": "待勾选协议", "verification-required": "待验证", unavailable: "不可用", "not-supported": "不适用", idle: "未连接", "browser-open": "浏览器已打开", expired: "已过期", error: "异常", unknown: "未知" })[state] || state || "未知";
 		const databaseStateTone = (state) => ({ "data-ok": ["available", "connected"].includes(state) ? "true" : undefined, "data-warn": ["auth-required", "waiting-user", "agreement-required", "verification-required", "degraded", "browser-open", "idle"].includes(state) ? "true" : undefined });
+		/**
+		 * 请求桌面 shell 在外部 Microsoft Edge 中打开 URL（desktop-edge-handoff）。
+		 * 本页运行在 WebView2 iframe 中，Tauri 桥只在顶层 shell 页面可见，故经
+		 * window.parent.postMessage 转发；shell 侧调用 open_in_edge 命令
+		 * （loopback handoff 页或外部 https 机构/出版社 URL），并回传结果。
+		 */
+		const openInEdgeViaShell = (url) => new Promise((resolve, reject) => {
+			const requestId = globalThis.crypto?.randomUUID?.() ?? `edge-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+			let settled = false;
+			const finish = (callback, value) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				window.removeEventListener("message", onResult);
+				callback(value);
+			};
+			const onResult = (event) => {
+				// 只接受顶层 shell（Tauri 页面）的回复；iframe 与 tauri:// 不同源，
+				// 无法校验 event.origin，仅按 requestId 匹配并核对消息来源结构。
+				if (event.source !== window.parent) return;
+				const data = event.data;
+				if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_IN_EDGE_RESULT" || data.requestId !== requestId) return;
+				if (data.payload?.ok) finish(resolve, data.payload);
+				else finish(reject, new Error(data.payload?.error || "桌面客户端未能在 Edge 中打开页面"));
+			};
+			const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应（未收到 open_in_edge 确认）；请检查是否运行在 iBM Lab Agent 桌面版")), 4000);
+			window.addEventListener("message", onResult);
+			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_IN_EDGE", requestId, url }, "*"); }
+			catch (reason) { finish(reject, reason); }
+		});
 
-		/** 数据库实时状态总览：人工当前标签页与受控持久浏览器两种授权模式。 */
+		/** 数据库实时状态总览：人工当前标签页、外部 Edge 与受控持久浏览器三种授权模式。 */
 		function DatabaseOverview({ call, notify }) {
 			const [snapshot, setSnapshot] = useState({ loading: true, sources: [], checkedAt: "", error: "" });
 			const [busy, setBusy] = useState("");
@@ -202,7 +232,7 @@ window.__ModuleLoader__.load({
 			const refresh = useCallback(async (force = false) => {
 				try {
 					const result = await call("literature_status", { request: { force } });
-					setSnapshot({ loading: false, sources: result.sources || [], checkedAt: result.checkedAt || "", error: "" });
+					setSnapshot({ loading: false, sources: result.sources || [], checkedAt: result.checkedAt || "", browserMode: result.browserMode || "managed-edge", error: "" });
 				} catch (reason) { setSnapshot((old) => ({ ...old, loading: false, error: reason.message })); }
 			}, [call]);
 			useEffect(() => {
@@ -218,6 +248,12 @@ window.__ModuleLoader__.load({
 				try {
 					const result = await call(kind === "connect" ? "literature_connect" : "literature_verify", { request: { sourceId: source.id, mode } });
 					notify(result.message || result.connection?.message || "状态已更新");
+					// desktop-edge-handoff：connect 只登记会话，实际打开机构入口
+					// 由 Desktop URL Router 在外部 Edge 中完成。
+					if (kind === "connect" && mode === "handoff" && result.entryUrl) {
+						try { await openInEdgeViaShell(result.entryUrl); }
+						catch (reason) { notify(reason.message); }
+					}
 					await refresh(true);
 				} catch (reason) { notify(reason.message); } finally { setBusy(""); }
 			};
@@ -235,7 +271,9 @@ window.__ModuleLoader__.load({
 						h("div", { className: "ib-db-name" }, h("b", { title: source.name }, source.name), h("span", { className: "ib-db-tier" }, source.authMode === "institutional" ? "校内授权" : "开放源")),
 						h("div", { className: "ib-db-state" }, h("span", { className: "ib-db-pill", title: source.search?.message, ...searchTone }, `检索 · ${databaseState(source.search?.state)}`), h("span", { className: "ib-db-pill", title: source.download?.message, ...downloadTone }, `下载 · ${databaseState(source.download?.state)}`), h("span", { className: "ib-db-pill", title: source.connection?.message, ...connectionTone }, `会话 · ${databaseState(source.connection?.state)}`)),
 						source.authMode === "institutional" ? h("div", { className: "ib-db-actions" },
-							h("button", { className: "ib-btn", title: "在当前 DSH 浏览器新标签页人工使用；不会把 Cookie 暴露给 DSH", disabled: !!busy, onClick: () => void run("connect", source, "current") }, "当前浏览器"),
+							snapshot.browserMode === "desktop-edge-handoff"
+								? h("button", { className: "ib-btn", title: "在外部 Microsoft Edge 中打开学校数据库；登录与下载由 Edge + 捕获扩展完成，PDF/SI 自动回传", disabled: !!busy, onClick: () => void run("connect", source, "handoff") }, busy === `connect:${source.id}` ? "启动中…" : "外部 Edge")
+								: h("button", { className: "ib-btn", title: "在当前 DSH 浏览器新标签页人工使用；不会把 Cookie 暴露给 DSH", disabled: !!busy, onClick: () => void run("connect", source, "current") }, "当前浏览器"),
 							h("button", { className: "ib-btn", title: "启动可见的持久检索浏览器，支持登录状态复用和合法 PDF 捕获", disabled: !!busy || source.restrictedAutomation, onClick: () => void run("connect", source, "managed") }, busy === `connect:${source.id}` ? "启动中…" : "受控检索"),
 							h("button", { className: "ib-btn", title: "登录、协议和验证码完成后验证当前会话", disabled: !!busy, onClick: () => void run("verify", source) }, busy === `verify:${source.id}` ? "验证中…" : "验证登录")
 						) : null
@@ -542,6 +580,17 @@ window.__ModuleLoader__.load({
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
 			// 手工下载文献捕获：{ bundleId, kind, taskId } —— 布防后显示"等待下载"提示。
 			const [captureHint, setCaptureHint] = useState(null);
+			// 浏览器模式（web-current / managed-edge / desktop-edge-handoff）：
+			// desktop 下 WebView2 不是扩展宿主，捕获必须经外部 Edge handoff。
+			const [browserMode, setBrowserMode] = useState("managed-edge");
+			useEffect(() => {
+				let alive = true;
+				call("literature_status", { request: { force: false } })
+					.then((result) => { if (alive && result?.browserMode) setBrowserMode(result.browserMode); })
+					.catch(() => { /* 状态面板会重试，静默即可 */ });
+				return () => { alive = false; };
+			}, [call]);
+			const desktopEdgeHandoff = browserMode === "desktop-edge-handoff";
 			// 扩展完成/失败后通知本页（content script 经 window.postMessage 转发）。
 			useEffect(() => {
 				const onCaptureMessage = (event) => {
@@ -585,6 +634,9 @@ window.__ModuleLoader__.load({
 			 * 点击未获取的 PDF/SI 按钮：同步打开出版社页面（避免弹窗被拦截），
 			 * 异步创建一次性捕获任务并通知扩展。无 DOI 的微信来源条目直接拒绝，
 			 * 绝不回退到公众号链接。
+			 * desktop-edge-handoff：WebView2 不是扩展宿主，改为创建任务后把
+			 * capture handoff 页面交给 Desktop 在外部 Microsoft Edge 中打开，
+			 * 扩展在 Edge 标签页内完成布防与回传。
 			 */
 			const armCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
@@ -601,13 +653,28 @@ window.__ModuleLoader__.load({
 					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
 					return;
 				}
-				// 1. 同步打开出版社页面
+				// Desktop（desktop-edge-handoff）：任务在外部 Edge 中完成。本页面运行在
+				// WebView2 的 iframe 内，看不到 __TAURI_INTERNALS__，因此经 postMessage
+				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
+				if (desktopEdgeHandoff) {
+					void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
+						.then(async (result) => {
+							const task = result.task;
+							const handoffUrl = `${location.origin}/lab/capture/${encodeURIComponent(task.id)}#t=${encodeURIComponent(result.token)}`;
+							await openInEdgeViaShell(handoffUrl);
+							setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
+							notify(`已布防捕获：将在 Microsoft Edge 中打开出版社页面，下载 ${task.kind === "pdf" ? "PDF" : "SI"} 后扩展会自动上传并点亮按钮`);
+						})
+						.catch((reason) => notify(reason.message || "创建捕获任务失败"));
+					return;
+				}
+				// Web 宿主（DSH 页面在 Edge/Chrome 标签页中运行）：同步打开出版社页面
+				// 再布防当前标签页内的扩展 Content Script。
 				window.open(publisherUrl, "_blank", "noopener,noreferrer");
-				// 2. 异步创建一次性捕获任务并通知扩展
 				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
 					.then(async (result) => {
 						const task = result.task;
-						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(task.token)}`;
+						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(result.token)}`;
 						await armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
 						setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
 						notify(`已布防捕获：请在打开的出版社页面下载 ${task.kind === "pdf" ? "PDF" : "SI"}，扩展会自动上传并点亮按钮`);

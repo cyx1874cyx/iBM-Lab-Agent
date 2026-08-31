@@ -9,14 +9,16 @@
  *   - audit_paper_card.py    精读报告审计（--card --bundle --locator-mode --report）
  *   - audit_pptx_quality.py  PPTX 质量审计（--report --json --fail-on）
  *
- * Python 解析：优先 labPython 的 venv python；不可用则回退系统 python3
- * （win32 用 py -3）。所有脚本仅依赖 stdlib，故系统 Python 即可运行。
+ * P1-2：实际执行经统一 resolver（venv → bundled → py -3.11/-3 → python），
+ * Windows 不再回退到不存在的 python3。[pythonCommand] 保留同步语义（venv
+ * 优先，否则系统命令）供诊断/兼容；[resolvePython] 为真实的异步解析。
  */
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { resolvePythonExecutable } from "./python-env.js";
 import { searchAcademicLiterature } from "./literature/search-engine.js";
 
 const PYTHON_HTTP_FETCH = [
@@ -60,10 +62,12 @@ export class SkillExecutor {
 	 */
 	async academicFetch(url, options = {}) {
 		if (!/(?:\.ncbi\.nlm\.nih\.gov|\.nih\.gov)\//i.test(String(url))) return await globalThis.fetch(url, options);
-		const python = this.pythonCommand();
+		const resolved = await this.resolvePython();
+		if (!resolved.command) throw new Error("no python available for NCBI fetch fallback (venv missing and py/python unavailable)");
+		const command = resolved.command;
 		const accept = options.headers?.Accept ?? options.headers?.accept ?? "application/json";
 		return await new Promise((resolve, reject) => {
-			const child = spawn(python, ["-c", PYTHON_HTTP_FETCH, String(url), accept], {
+			const child = spawn(command[0], [...command.slice(1), "-c", PYTHON_HTTP_FETCH, String(url), accept], {
 				env: { ...process.env },
 				stdio: ["ignore", "pipe", "pipe"],
 				shell: this.platform === "win32"
@@ -90,7 +94,21 @@ export class SkillExecutor {
 		});
 	}
 
-	/** 实际 python 命令：venv python 优先，否则系统 python。 */
+	/**
+	 * 统一 resolver 解析实际 python 命令（异步，成功结果缓存；失败不缓存，
+	 * 便于 venv 后续 bootstrap 后自动生效）。
+	 */
+	async resolvePython() {
+		if (this._pythonResolved) return this._pythonResolved;
+		const resolved = await resolvePythonExecutable({ venvPython: this.venvPython, platform: this.platform });
+		if (resolved.command) this._pythonResolved = resolved;
+		return resolved;
+	}
+
+	/**
+	 * 实际 python 命令：venv python 优先，否则系统 python（同步，兼容诊断）。
+	 * 真实执行请用 [resolvePython]（统一 resolver，win32 含 py -3.11 → python 序列）。
+	 */
 	pythonCommand() {
 		if (this.venvPython && existsSync(this.venvPython)) return this.venvPython;
 		return systemPython(this.platform);
@@ -108,11 +126,15 @@ export class SkillExecutor {
 	 * 运行一个脚本，收集 stdout/stderr；支持超时与中止。
 	 * @returns {{ code: number, stdout: string, stderr: string, timedOut: boolean }}
 	 */
-	run(name, args, { timeoutMs = 120000, signal } = {}) {
-		const python = this.pythonCommand();
+	async run(name, args, { timeoutMs = 120000, signal } = {}) {
+		const resolved = await this.resolvePython();
+		if (!resolved.command) {
+			return { code: -1, stdout: "", stderr: "no python available (venv missing and py/python unavailable)", timedOut: false };
+		}
+		const command = resolved.command;
 		const script = this.scriptPath(name);
 		return new Promise((resolve, reject) => {
-			const child = spawn(python, [script, ...args], {
+			const child = spawn(command[0], [...command.slice(1), script, ...args], {
 				env: { ...process.env },
 				stdio: ["ignore", "pipe", "pipe"],
 				shell: this.platform === "win32"

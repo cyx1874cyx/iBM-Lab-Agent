@@ -3,23 +3,24 @@
  *
  * 调用 scripts/markitdown/convert.py（需要 python 环境安装 markitdown）。
  * 不可用时返回 { available: false } + 安装指引，绝不静默给出伪结果。
- * Python 解析：先探测 labPython venv 是否装有 markitdown（venv 存在但未
- * 安装时会静默失败），不可用则回退系统 python3（系统可能已装 markitdown）。
+ *
+ * P1-2：解释器候选经统一 resolver（venv → bundled → py -3.11/-3 → python），
+ * 对每个候选探测 markitdown 是否已安装；Windows 不再单独回退 python3。
  */
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { pythonCandidates } from "./python-env.js";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/markitdown/convert.py", import.meta.url));
 
 /** 用指定 python 命令探测 markitdown 可用性（--check，只做 import 检查）。 */
-function probeWith(python) {
+function probeWith(command, platform) {
 	return new Promise((resolve) => {
-		const child = spawn(python, [SCRIPT, "--check"], {
+		const child = spawn(command[0], [...command.slice(1), SCRIPT, "--check"], {
 			env: { ...process.env },
 			stdio: ["ignore", "pipe", "pipe"],
-			shell: process.platform === "win32"
+			shell: platform === "win32"
 		});
 		let stdout = "";
 		child.stdout.on("data", (chunk) => (stdout += chunk));
@@ -36,19 +37,16 @@ function probeWith(python) {
 }
 
 /**
- * 解析实际可用的 python 命令：venv 存在时先探测其中是否装有 markitdown，
- * 不可用则回退系统 python3（系统可能已装）。
- * @returns {Promise<{ python: string, note: string, probe: { available: boolean, error?: string } | null }>}
+ * 解析实际可用的 python 命令：按统一 resolver 候选序列（venv 优先）
+ * 探测其中是否装有 markitdown。
+ * @returns {Promise<{ command: string[] | null, source: string, note: string, probe: { available: boolean, error?: string } | null }>}
  */
 async function resolveMarkitdownPython({ venvPython, platform = process.platform } = {}) {
-	const candidates = [];
-	if (venvPython && existsSync(venvPython)) candidates.push({ python: venvPython, note: "venv" });
-	candidates.push({ python: platform === "win32" ? "py" : "python3", note: "system" });
-	for (const c of candidates) {
-		const probe = await probeWith(c.python);
-		if (probe.available) return { ...c, probe };
+	for (const candidate of pythonCandidates({ venvPython, platform })) {
+		const probe = await probeWith(candidate.command, platform);
+		if (probe.available) return { ...candidate, note: candidate.source, probe };
 	}
-	return { python: candidates[0].python, note: candidates[0].note, probe: null };
+	return { command: null, source: "unavailable", note: "unavailable", probe: null };
 }
 
 /**
@@ -58,11 +56,14 @@ async function resolveMarkitdownPython({ venvPython, platform = process.platform
  */
 export async function convertWithMarkitdown(path, { venvPython, platform = process.platform, output } = {}) {
 	const resolved = await resolveMarkitdownPython({ venvPython, platform });
-	const python = resolved.python;
+	if (!resolved.command) {
+		return { available: false, error: "no python with markitdown found (venv missing and py/python unavailable); run: python -m pip install markitdown" };
+	}
+	const command = resolved.command;
 	const args = [SCRIPT, path];
 	if (output) args.push(output);
 	return new Promise((resolve) => {
-		const child = spawn(python, args, {
+		const child = spawn(command[0], [...command.slice(1), ...args], {
 			env: { ...process.env },
 			stdio: ["ignore", "pipe", "pipe"],
 			shell: platform === "win32"

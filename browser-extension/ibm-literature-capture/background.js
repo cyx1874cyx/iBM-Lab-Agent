@@ -29,6 +29,43 @@ function normalizedWebOrigin(value) {
   }
 }
 
+// ── loopback（desktop-edge-handoff）──────────────────────────────────────
+// 桌面版中 DSH 运行在 127.0.0.1:port，端口可能因占用而漂移。扩展对 loopback
+// 来源使用「协议 + 主机」前缀匹配（忽略端口），并允许自动信任 loopback：
+// loopback 页面只能由本机进程产生，不存在外站伪造 origin 的风险。
+function loopbackHostname(hostname) {
+  const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
+  return host === "127.0.0.1" || host === "localhost" || host === "::1" ? host : null;
+}
+
+function isLoopbackOrigin(origin) {
+  try { return !!loopbackHostname(new URL(origin).hostname); } catch { return false; }
+}
+
+/** 两个 origin 是否一致：普通站点要求完全相等；loopback 允许端口漂移。 */
+function originsMatch(left, right) {
+  if (!left || !right) return false;
+  if (left === right) return true;
+  try {
+    const a = new URL(left);
+    const b = new URL(right);
+    const host = loopbackHostname(a.hostname);
+    return a.protocol === b.protocol && !!host && host === loopbackHostname(b.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** desktop 首次运行（无任何可信站点）时自动信任 loopback，无需用户打开弹窗。 */
+async function ensureLoopbackTrusted() {
+  const existing = await loadTrustedOrigin();
+  if (existing) return null;
+  const loopback = "http://127.0.0.1";
+  await chrome.storage.local.set({ [TRUSTED_ORIGIN_KEY]: loopback });
+  try { await registerTrustedContentScript(loopback); } catch { /* 固定 host_permissions 下不应失败 */ }
+  return loopback;
+}
+
 function permissionPatternForOrigin(origin) {
   const url = new URL(origin);
   // Chrome match patterns do not carry ports; 后台仍以完整 origin（含端口）做精确校验。
@@ -131,7 +168,7 @@ async function completePendingTrustedOrigin() {
 function validateUploadUrl(raw, trustedOrigin) {
   let url;
   try { url = new URL(String(raw || "")); } catch { throw new Error("布防失败：上传地址格式无效"); }
-  if (url.origin !== trustedOrigin || url.pathname !== CAPTURE_UPLOAD_PATH) {
+  if (!originsMatch(url.origin, trustedOrigin) || url.pathname !== CAPTURE_UPLOAD_PATH) {
     throw new Error("布防失败：上传地址不是可信 iBM 站点的捕获接口");
   }
   if (!url.searchParams.get("token")) throw new Error("布防失败：上传地址缺少一次性令牌");
@@ -141,7 +178,7 @@ function validateUploadUrl(raw, trustedOrigin) {
 function validateArtifactUrl(raw, trustedOrigin) {
   let url;
   try { url = new URL(String(raw || "")); } catch { throw new Error("保存失败：产物地址格式无效"); }
-  if (url.origin !== trustedOrigin || url.pathname !== ARTIFACT_DOWNLOAD_PATH || url.username || url.password || url.hash) {
+  if (!originsMatch(url.origin, trustedOrigin) || url.pathname !== ARTIFACT_DOWNLOAD_PATH || url.username || url.password || url.hash) {
     throw new Error("保存失败：产物地址不是可信 iBM 站点的下载接口");
   }
   const kind = url.searchParams.get("kind");
@@ -228,10 +265,15 @@ async function failTask(message, taskId) {
 
 // ── 布防 ────────────────────────────────────────────────────────────────
 async function handleArm(payload, sender) {
-  const trustedOrigin = await loadTrustedOrigin();
+  let trustedOrigin = await loadTrustedOrigin();
   const senderOrigin = normalizedWebOrigin(sender?.tab?.url);
+  // desktop-edge-handoff：loopback 来源未设置可信站点时自动信任（无需弹窗）；
+  // 端口漂移时 originsMatch 按主机匹配，不因端口变化导致布防失败。
+  if (!trustedOrigin && isLoopbackOrigin(senderOrigin)) {
+    trustedOrigin = await ensureLoopbackTrusted() || senderOrigin;
+  }
   if (!trustedOrigin) return { ok: false, error: "请先打开扩展弹窗并信任当前 iBM 页面" };
-  if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0 || senderOrigin !== trustedOrigin) {
+  if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0 || !originsMatch(senderOrigin, trustedOrigin)) {
     return { ok: false, error: "布防失败：消息不是来自可信 iBM 页面" };
   }
   const existing = await loadTask();
@@ -285,8 +327,12 @@ chrome.downloads.onChanged.addListener((delta) => {
     const task = await loadTask();
     if (!task || task.status !== "armed") return;
     if (task.trustedOrigin !== await loadTrustedOrigin()) {
-      await failTask("可信站点已变化，请重新点击按钮布防", task.id);
-      return;
+      // desktop-edge-handoff：loopback 端口漂移后 trustedOrigin 可能变成新端口，
+      // 只要仍是同一 loopback 主机，任务应继续有效。
+      if (!(isLoopbackOrigin(task.trustedOrigin) && originsMatch(task.trustedOrigin, await loadTrustedOrigin()))) {
+        await failTask("可信站点已变化，请重新点击按钮布防", task.id);
+        return;
+      }
     }
     const state = delta.state?.current;
     if (state !== "complete" && state !== "interrupted") return;
@@ -347,7 +393,7 @@ function requestNativeBridge(message, operation) {
     try {
       port = chrome.runtime.connectNative("com.ibm.lab.capture");
     } catch (error) {
-      reject(new Error("无法连接本地桥接程序。请在扩展目录 native-bridge 下运行：python install-bridge.py <扩展id>，再刷新扩展"));
+      reject(new Error("无法连接本地桥接程序。使用 iBM Lab 桌面客户端时请重启桌面应用以自动注册；或手动运行：python install-bridge.py <扩展id>，再刷新扩展"));
       return;
     }
     const timer = setTimeout(() => {
@@ -362,7 +408,7 @@ function requestNativeBridge(message, operation) {
       if (settled) return;
       const detail = chrome.runtime.lastError?.message || "";
       if (/not found/i.test(detail)) {
-        finish(reject, new Error("本地桥接未注册：请在扩展目录 native-bridge 下运行 python install-bridge.py <扩展id>（id 在 chrome://extensions 查看），再刷新扩展"));
+        finish(reject, new Error("本地桥接未注册：使用 iBM Lab 桌面客户端时请重启桌面应用以自动注册（扩展 id 由桌面写入注册表）；手动安装请运行 python install-bridge.py <扩展id>（id 在 chrome://extensions 查看），再刷新扩展"));
       } else if (detail) {
         finish(reject, new Error("本地桥接连接已断开：" + detail));
       } else {
@@ -384,10 +430,13 @@ function uploadViaBridge(task, item) {
 }
 
 async function handleSaveArtifact(payload, sender) {
-  const trustedOrigin = await loadTrustedOrigin();
+  let trustedOrigin = await loadTrustedOrigin();
   const senderOrigin = normalizedWebOrigin(sender?.tab?.url);
+  if (!trustedOrigin && isLoopbackOrigin(senderOrigin)) {
+    trustedOrigin = await ensureLoopbackTrusted() || senderOrigin;
+  }
   if (!trustedOrigin) throw new Error("请先打开扩展弹窗并信任当前 iBM 页面");
-  if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0 || senderOrigin !== trustedOrigin) {
+  if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0 || !originsMatch(senderOrigin, trustedOrigin)) {
     throw new Error("保存失败：消息不是来自可信 iBM 页面");
   }
   const artifactUrl = validateArtifactUrl(payload?.artifactUrl, trustedOrigin);
@@ -469,6 +518,7 @@ async function updateBadge() {
 // 启动时：恢复存储中的任务（含过期判定）并设置徽标与到期定时器。
 chrome.runtime.onStartup.addListener(() => {
   void loadTrustedOrigin().then(registerTrustedContentScript).catch(() => {});
+  void ensureLoopbackTrusted().then((origin) => { if (origin) void registerTrustedContentScript(origin); }).catch(() => {});
   void loadTask().then((task) => {
     if (!task) return;
     if (isExpired(task)) {
@@ -481,13 +531,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 chrome.runtime.onInstalled.addListener(() => {
   void loadTrustedOrigin().then(registerTrustedContentScript).catch(() => {});
+  void ensureLoopbackTrusted().then((origin) => { if (origin) void registerTrustedContentScript(origin); }).catch(() => {});
 });
 void loadTrustedOrigin().then(registerTrustedContentScript).catch(() => {});
-void loadTask().then((task) => {
-  if (task && isExpired(task)) {
-    void expireTask();
-  } else {
-    updateBadge();
-    scheduleExpiry();
-  }
-});
+void ensureLoopbackTrusted().then((origin) => { if (origin) void registerTrustedContentScript(origin); }).catch(() => {});

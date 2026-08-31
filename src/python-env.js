@@ -7,6 +7,12 @@
  * requirements.lock — no system-site mutation, no auto-install at boot.
  *
  * Platform-aware (win32 venv layout and `py` launcher support).
+ *
+ * P1-2: unified Windows resolver. [resolvePythonExecutable] and
+ * [pythonCandidates] give every consumer (RDKit / MarkItDown / nature
+ * skills / Doctor) one deterministic resolution order:
+ *   managed venv → bundled python → py -3.11 → py -3 → python.exe
+ * Windows never falls back to the nonexistent `python3` command.
  */
 
 import { createHash } from "node:crypto";
@@ -146,4 +152,67 @@ export async function pythonVersion(venvDir, platform = process.platform) {
 		child.on("exit", (code) => (code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`python --version failed: ${stderr || stdout}`))));
 	});
 	return (stdout || stderr).trim();
+}
+
+/**
+ * P1-2：统一 Python Resolver 的候选解释器序列（高→低优先级）。
+ *
+ *   1. managed venv python.exe（存在时）
+ *   2. bundled Python（可选捆绑，如桌面资源目录；未捆绑时为空）
+ *   3. win32: py -3.11 → py -3 → python.exe；unix: python3
+ *
+ * 每个候选形如 `{ command: string[], source }`，command 可直接作为
+ * `spawn(...command, args)` 的前缀（py launcher 需要多 token 表达）。
+ */
+export function pythonCandidates({ venvPython, bundledPython, platform = process.platform } = {}) {
+	const candidates = [];
+	if (venvPython && existsSync(venvPython)) candidates.push({ command: [venvPython], source: "venv" });
+	if (bundledPython && existsSync(bundledPython)) candidates.push({ command: [bundledPython], source: "bundled" });
+	if (platform === "win32") {
+		candidates.push({ command: ["py", "-3.11"], source: "py" });
+		candidates.push({ command: ["py", "-3"], source: "py" });
+		candidates.push({ command: ["python"], source: "python" });
+	} else {
+		candidates.push({ command: ["python3"], source: "python3" });
+	}
+	return candidates;
+}
+
+/**
+ * P1-2：统一 Python Resolver。
+ * 返回第一个版本可用的候选 `{ command, source, version }`；
+ * 全部不可用时返回 `{ command: null, source: "unavailable", version: "" }`。
+ * Windows 上绝不回退到不存在的 "python3"；Store alias（python.exe）的
+ * 非零退出码会被 [pythonVersionFrom] 过滤，不会误判为已安装。
+ */
+export async function resolvePythonExecutable({ venvPython, bundledPython, platform = process.platform } = {}) {
+	for (const candidate of pythonCandidates({ venvPython, bundledPython, platform })) {
+		const version = await pythonVersionFrom(candidate.command, platform);
+		if (version) return { ...candidate, version };
+	}
+	return { command: null, source: "unavailable", version: "" };
+}
+
+/**
+ * Python 环境聚合状态（供 Doctor 一屏展示）：venv 路径/存在/版本、
+ * lock 存在/hash、统一 resolver 结果。检测只读，不修改任何内容。
+ */
+export async function pythonEnvironmentStatus({ venvDir, lockFile, bundledPython, platform = process.platform } = {}) {
+	const venvPython = venvDir ? venvPythonPath(venvDir, platform) : undefined;
+	const venvExists = venvPython ? existsSync(venvPython) : false;
+	const lockExists = lockFile ? existsSync(lockFile) : false;
+	const [venvVersion, lockHash, resolved] = await Promise.all([
+		venvExists ? pythonVersion(venvDir, platform) : null,
+		lockExists ? sha256OfFile(lockFile) : undefined,
+		resolvePythonExecutable({ venvPython, bundledPython, platform })
+	]);
+	return {
+		venv: { dir: venvDir ?? null, python: venvPython ?? null, exists: venvExists, version: venvVersion },
+		lock: { file: lockFile ?? null, exists: lockExists, hash: lockHash ?? null },
+		resolved,
+		available: resolved.source !== "unavailable",
+		summary: resolved.source === "unavailable"
+			? "未找到可用 Python（无 venv，且 py/python 均不可用）"
+			: `${resolved.version}（${resolved.source}）`
+	};
 }

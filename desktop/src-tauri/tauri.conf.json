@@ -24,7 +24,8 @@
     "resources": {
       "resources/node/": "node/",
       "resources/dsh/": "dsh/",
-      "resources/plugin/": "plugin/"
+      "resources/plugin/": "plugin/",
+      "resources/bridge/": "bridge/"
     },
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper" },

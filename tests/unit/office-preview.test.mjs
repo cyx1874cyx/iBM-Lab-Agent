@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OfficePreviewRenderer } from "../../lib/office-preview.js";
+import { OfficePreviewRenderer, resolveSofficeExecutable } from "../../lib/office-preview.js";
 
 test("Office preview cache is keyed by the exact source hash and must contain a real PDF", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "office-preview-test-"));
@@ -30,6 +30,56 @@ test("Office preview has no approximate fallback when LibreOffice is unavailable
 	try {
 		const renderer = new OfficePreviewRenderer({ cacheDir: dir, sofficePath: join(dir, "missing-soffice") });
 		await assert.rejects(() => renderer.preflight(), /renderer unavailable/);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+// ---- P1-3 LibreOffice 可执行文件解析 ----
+
+test("resolveSofficeExecutable reports an explicit missing renderer without silent fallback", async () => {
+	const resolved = await resolveSofficeExecutable({ explicit: "C:\\definitely-missing\\soffice.exe", platform: "win32" });
+	assert.equal(resolved.source, "explicit-missing");
+	assert.equal(resolved.command, null);
+	assert.match(resolved.detail, /不存在/);
+	assert.ok(resolved.hint.length > 0);
+});
+
+test("resolveSofficeExecutable flags an explicit non-executable renderer", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "office-preview-explicit-"));
+	try {
+		const fake = join(dir, "soffice.exe");
+		await writeFile(fake, "not an executable");
+		const resolved = await resolveSofficeExecutable({ explicit: fake, platform: "win32" });
+		assert.equal(resolved.source, "explicit-missing");
+		assert.equal(resolved.command, null);
+		assert.match(resolved.detail, /不可执行|不存在/);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("resolveSofficeExecutable returns a consistent structure without explicit config", async () => {
+	const resolved = await resolveSofficeExecutable({ platform: "win32" });
+	assert.ok(["explicit", "paths", "path", "unavailable"].includes(resolved.source), resolved.source);
+	if (resolved.command) {
+		assert.ok(resolved.version, "a found renderer must carry its version");
+		assert.equal(resolved.source === "paths" || resolved.source === "explicit", resolved.command.includes("soffice"));
+	} else {
+		assert.equal(resolved.source, "unavailable");
+		assert.match(resolved.detail, /未找到 LibreOffice/);
+		assert.match(resolved.hint, /libreoffice\.org/);
+	}
+});
+
+test("renderer status surfaces the resolver diagnostic", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "office-preview-status-"));
+	try {
+		const renderer = new OfficePreviewRenderer({ cacheDir: dir, sofficePath: join(dir, "missing-soffice") });
+		const status = await renderer.status();
+		assert.equal(status.command, null);
+		assert.equal(status.source, "explicit-missing");
+		assert.ok(status.detail && status.hint);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

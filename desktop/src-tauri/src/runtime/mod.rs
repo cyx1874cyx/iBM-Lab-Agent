@@ -1,4 +1,6 @@
+mod bridge;
 mod config;
+mod deps;
 mod dsh;
 mod health;
 mod logging;
@@ -13,6 +15,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 pub use config::AppConfig;
+pub use deps::RuntimeDeps;
 use dsh::{bootstrap_user_data, RuntimeLayout};
 use logging::AppLogger;
 use process::ManagedProcess;
@@ -91,7 +94,15 @@ impl RuntimeManager {
         if let Some(url) = self.running_url() { return Ok(url); }
         self.shutdown_stale_process()?;
         bootstrap_user_data(&self.layout, &self.logger)?;
-        let port = port::find_available_port(3080, 32)?;
+        // Native Messaging host 自动注册（P0-5）：首次启动写 manifest + wrapper
+        // 并注册 Chrome/Edge HKCU，用户无需命令行操作。失败不阻断 DSH 启动，
+        // 状态可在 P1-1 runtime dependency doctor 中暴露。
+        if let Err(error) = bridge::ensure_registered(&self.layout, &self.logger) {
+            let _ = self.logger.write("error.log", &format!("Native Messaging host registration failed: {error}"));
+        }
+        // 优先复用上次持久化端口：扩展/Native Messaging 注册的 trustedOrigin
+        // 跟随端口，端口漂移会造成捕获回传静默失败；仅在占用时才另寻端口。
+        let port = self.reconcile_port()?;
         let config = self.load_config()?;
         let child = process::spawn_dsh(&self.layout, &self.logger, port, &config)?;
         let pid = child.id();
@@ -123,6 +134,20 @@ impl RuntimeManager {
         };
         self.logger.app(&format!("DSH health check passed: {url}"))?;
         Ok(url)
+    }
+
+    /// 端口对账：上次持久化端口仍可用则复用，否则在候选范围内寻找新端口。
+    fn reconcile_port(&self) -> Result<u16, RuntimeError> {
+        if let Some((_, previous)) = process::read_runtime_state(&self.layout)? {
+            if port::is_available(previous) {
+                self.logger.app(&format!("Reusing persisted runtime port {previous}"))?;
+                return Ok(previous);
+            }
+            self.logger.app(&format!("Persisted port {previous} is in use; selecting a new port"))?;
+        }
+        let port = port::find_available_port(3080, 32)?;
+        self.logger.app(&format!("Selected new runtime port {port}"))?;
+        Ok(port)
     }
 
     pub fn shutdown(&self) -> Result<(), RuntimeError> {
@@ -185,4 +210,9 @@ impl RuntimeManager {
 
     pub fn load_config(&self) -> Result<AppConfig, RuntimeError> { config::load(&self.layout.config_dir) }
     pub fn save_config(&self, config: AppConfig) -> Result<(), RuntimeError> { config::save(&self.layout.config_dir, config) }
+
+    /// P1-1 runtime dependency doctor：Edge/Python/Node/Bridge/Office 一屏状态。
+    pub fn deps(&self) -> RuntimeDeps {
+        deps::probe(&self.layout)
+    }
 }

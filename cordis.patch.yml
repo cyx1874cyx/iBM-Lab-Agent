@@ -116,7 +116,12 @@
         sessionsDir: !!js dshHomePath('lab-agent/literature-sessions')
         downloadsDir: !!js dshHomePath('lab-agent/literature-downloads')
         institutionPortalUrl: 'https://lib.ustc.edu.cn/'
-        clientManagedBrowser: true
+        # 浏览器模式（browserMode，替代旧的 clientManagedBrowser 布尔）：
+        #   web-current          # 传统 DSH Web 运行在真实浏览器，复用当前标签页（默认，兼容旧行为）
+        #   managed-edge         # 应用启动独立 Edge profile + CDP，可自动定位页面
+        #   desktop-edge-handoff # Windows Desktop 默认；外部 Edge 承担登录/下载，
+        #                        # PDF/SI 经 capture handoff + 扩展 + Native Messaging 回传
+        browserMode: 'desktop-edge-handoff'
 
     # ── Office 产物二进制下载 ─────────────────────────────────────────────
     # DOCX/PPTX 走同源 HTTP 二进制流并附带长度/SHA-256，避免大型 base64 经
@@ -185,6 +190,18 @@
     - id: lab-capture
       name: 'dsh-lab-agent/manual-capture'
       inject: [storageDomain, labTasks, webServer]
+
+    # ── Edge capture handoff 页面（labCaptureHandoff）──────────────────────
+    #
+    # Windows Desktop 默认 browserMode=desktop-edge-handoff：客户端创建捕获任务
+    # 后由 Tauri open_in_edge() 打开 http://127.0.0.1:<port>/lab/capture/<id>#t=<token>，
+    # 本服务渲染 handoff 页面（运行在 Edge 标签页，扩展 Content Script 可注入），
+    # 页面内嵌任务元数据并向扩展 ARM_CAPTURE，ACK 后跳转出版社页面；扩展继续
+    # 监听 chrome.downloads 并经 Native Messaging 回传 DSH。页面只服务 loopback，
+    # 令牌经 URL fragment 传递，不落历史/日志/服务器。
+    - id: lab-capture-handoff
+      name: 'dsh-lab-agent/capture-handoff'
+      inject: [labCapture, webServer]
 
     # ── Lab remote bridge（项目工作台用）──────────────────────────────────
     #

@@ -5,28 +5,35 @@
  * 不可用时 rdkitProperties() 返回 { available: false }，服务降级为
  * 分子式级计算（src/chemistry/elements.js）——绝不静默给出 SMILES 级数值。
  *
+ * P1-2：解释器经统一 resolver 解析（venv → bundled → py -3.11/-3 → python），
+ * Windows 上不再回退到不存在的 "python3"。
+ *
  * PubChem：REST PUG API（无 key 开放数据）；查询结果标记
  * sourceKind: "db-measured"（数据库实测值），区别于 computed/model-predicted。
  * 网络依赖，自动化测试以 stub 代替。
  */
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { resolvePythonExecutable } from "../python-env.js";
 
 export class RdkitUnavailableError extends Error {
 	name = "RdkitUnavailableError";
 }
 
 /** 运行 rdkit calc.py；返回 { available, result }。 */
-export function runRdkitCalc(venvPython, smiles, { timeoutMs = 30000 } = {}) {
+export async function runRdkitCalc(venvPython, smiles, { timeoutMs = 30000, platform = process.platform } = {}) {
 	const script = fileURLToPath(new URL("../../scripts/rdkit/calc.py", import.meta.url));
-	const python = venvPython && existsSync(venvPython) ? venvPython : "python3";
+	const resolved = await resolvePythonExecutable({ venvPython, platform });
+	if (!resolved.command) {
+		return { available: false, result: undefined, error: "no python available (venv missing and no py/python on PATH)" };
+	}
+	const command = resolved.command;
 	return new Promise((resolve) => {
-		const child = spawn(python, [script], {
+		const child = spawn(command[0], [...command.slice(1), script], {
 			env: { ...process.env },
 			stdio: ["pipe", "pipe", "pipe"],
-			shell: process.platform === "win32"
+			shell: platform === "win32"
 		});
 		let stdout = "";
 		let stderr = "";
