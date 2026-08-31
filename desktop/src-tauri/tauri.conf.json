@@ -27,7 +27,7 @@
       "resources/plugin/": "plugin/"
     },
     "windows": {
-      "webviewInstallMode": { "type": "embedBootstrapper" },
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
       "nsis": {
         "installMode": "perMachine",
         "displayLanguageSelector": false,

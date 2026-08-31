@@ -6,16 +6,25 @@ The desktop shell is deliberately small: it starts a bundled Node.js and DSH pro
 
 ## Build
 
-On a Windows build machine with Rust stable, the Microsoft C++ build tools, and Node 24:
+On a Windows build machine with Rust stable, the Microsoft C++ build tools, Node 24, and Corepack:
 
 ```powershell
-npm install
-npm run prepare-runtime
+Set-Location <repository-root>
+npm ci --omit=peer --legacy-peer-deps
+Push-Location runtime\launcher
+corepack pnpm install --frozen-lockfile --prod
+Pop-Location
+Set-Location desktop
+npm ci
+.\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
+.\scripts\verify-package.ps1 -WebSmokeTest
 npx tauri build
-npm run verify-package -InstallerPath .\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.0_x64-setup.exe
+.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.0_x64-setup.exe'
 ```
 
-`prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. Pass `-NodeExe` when the intended Node binary is not supplied by the build environment.
+`prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its complete production dependency tree, locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. pnpm's redundant internal store is excluded after the flattened runtime has been materialized. Pass `-RuntimeSourceRoot` only when reusing a separately prepared `runtime\launcher\node_modules` tree, and pass `-NodeExe` when the intended Node binary is not supplied by the build environment.
+
+`verify-package -WebSmokeTest` boots the packaged `ibm-lab` profile on an ephemeral loopback port, requires an HTTP success response, rejects duplicate `labAgent`/plugin-tree errors, and terminates the test process tree. The NSIS installer uses Tauri's `downloadBootstrapper` WebView2 mode: Windows 10/11 normally already provide WebView2, while a missing runtime is downloaded by the installer.
 
 ## Runtime location
 

@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$SourceRoot,
+  [string]$RuntimeSourceRoot,
   [string]$NodeExe = $env:CODEX_MCP_NODE_PATH
 )
 
@@ -12,9 +13,11 @@ if (-not $NodeExe) {
   if ($nodeCommand) { $NodeExe = $nodeCommand.Source }
 }
 $sourceRoot = (Resolve-Path $SourceRoot).Path
+if (-not $RuntimeSourceRoot) { $RuntimeSourceRoot = $sourceRoot }
+$runtimeSourceRoot = (Resolve-Path $RuntimeSourceRoot).Path
 $resourceRoot = Join-Path $projectRoot 'src-tauri\resources'
 $iconRoot = Join-Path $projectRoot 'src-tauri\icons'
-$dshSource = Join-Path $sourceRoot 'runtime\launcher\node_modules'
+$dshSource = Join-Path $runtimeSourceRoot 'runtime\launcher\node_modules'
 
 if (-not $NodeExe -or -not (Test-Path -LiteralPath $NodeExe)) {
   throw 'A Windows node.exe is required. Pass -NodeExe with an approved Node 24 executable before packaging.'
@@ -42,13 +45,26 @@ $icon = [System.Drawing.Icon]::FromHandle($bitmap.GetHicon())
 $stream = [System.IO.File]::Create((Join-Path $iconRoot 'icon.ico'))
 $icon.Save($stream); $stream.Dispose(); $icon.Dispose(); $brush.Dispose(); $graphics.Dispose(); $bitmap.Dispose()
 
-function Copy-Tree([string]$Source, [string]$Destination) {
-  & robocopy $Source $Destination /E /SL /NFL /NDL /NJH /NJS /NP | Out-Null
+function Copy-Tree(
+  [string]$Source,
+  [string]$Destination,
+  [string[]]$ExcludeDirectories = @(),
+  [string[]]$ExcludeFiles = @()
+) {
+  $arguments = @($Source, $Destination, '/E', '/SL', '/NFL', '/NDL', '/NJH', '/NJS', '/NP')
+  if ($ExcludeDirectories.Count -gt 0) { $arguments += '/XD'; $arguments += $ExcludeDirectories }
+  if ($ExcludeFiles.Count -gt 0) { $arguments += '/XF'; $arguments += $ExcludeFiles }
+  & robocopy @arguments | Out-Null
   if ($LASTEXITCODE -gt 7) { throw "robocopy failed while copying $Source (exit $LASTEXITCODE)" }
 }
 
 Copy-Item -LiteralPath $NodeExe -Destination (Join-Path $resourceRoot 'node\node.exe') -Force
-Copy-Tree $dshSource (Join-Path $resourceRoot 'dsh\node_modules')
+# pnpm's internal content-addressed store duplicates the already materialized top-level
+# runtime dependencies. Bundling it adds hundreds of thousands of files without being
+# consulted by Node.js at runtime, so keep the flattened dependency tree only.
+Copy-Tree $dshSource (Join-Path $resourceRoot 'dsh\node_modules') `
+  -ExcludeDirectories @((Join-Path $dshSource '.pnpm')) `
+  -ExcludeFiles @('.modules.yaml', '.package-map.json', '.pnpm-workspace-state-v1.json')
 $pluginRoot = Join-Path $resourceRoot 'plugin\dsh-lab-agent'
 New-Item -ItemType Directory -Force -Path $pluginRoot, (Join-Path $pluginRoot 'node_modules') | Out-Null
 foreach ($item in @('package.json', 'LICENSE', 'lib', 'client', 'cordis.patch.yml', 'presets', 'python', 'scripts', 'bin', 'src', 'vendor', 'vendor.lock.json', 'harness.lock.json')) {
@@ -56,8 +72,15 @@ foreach ($item in @('package.json', 'LICENSE', 'lib', 'client', 'cordis.patch.ym
   $to = Join-Path $pluginRoot $item
   if ((Get-Item -LiteralPath $from).PSIsContainer) { Copy-Tree $from $to } else { Copy-Item -LiteralPath $from -Destination $to -Force }
 }
-foreach ($dependency in @('fast-xml-parser', 'js-yaml', 'jszip', 'zod')) {
-  Copy-Tree (Join-Path $sourceRoot "node_modules\$dependency") (Join-Path $pluginRoot "node_modules\$dependency")
+# Copy the complete materialized production dependency tree. npm places transitive
+# packages (including scoped packages) beside the direct dependencies, and copying
+# only the four manifest entries can leave a package that passes import checks but
+# fails when a feature loads at runtime. Test-only DSH junctions are excluded.
+$dependencyRoot = Join-Path $sourceRoot 'node_modules'
+foreach ($dependency in Get-ChildItem -LiteralPath $dependencyRoot -Directory -Force) {
+  if ($dependency.Name -in @('.bin', '@deepseek-ai', 'dsh-lab-agent')) { continue }
+  if (($dependency.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+  Copy-Tree $dependency.FullName (Join-Path $pluginRoot "node_modules\$($dependency.Name)")
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $resourceRoot 'plugin\presets') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'presets\lab-research') -Destination (Join-Path $resourceRoot 'plugin\presets\lab-research') -Recurse -Force

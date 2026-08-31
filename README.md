@@ -125,8 +125,9 @@ curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.s
 `desktop/` 包含正在开发的 Windows Tauri 桌面壳：随包携带 Node.js、固定版
 DSH 与本插件，使用独立 `ibm-lab` profile，在回环端口启动后嵌入本地 Web UI。
 当前已完成单实例、动态端口、健康检查、启动错误/重试、日志入口、进程树清理、
-本地设置、运行时准备/校验脚本和 NSIS 构建配置；Rust 编译检查及隔离 profile
-校验已通过。最终 NSIS 安装包和干净 Windows 用户环境验收仍在进行中，详见
+本地设置、运行时准备/校验脚本和 NSIS 构建配置；Rust 编译检查、隔离 profile
+校验以及真实 DSH Web 回环端口健康检查已通过。打包资源已排除 pnpm 冗余内部存储，
+同时补齐插件完整生产依赖树。最终 NSIS 安装包和干净 Windows 用户环境验收仍在进行中，详见
 [`desktop/README.md`](desktop/README.md) 与
 [`desktop/docs/release-checklist.md`](desktop/docs/release-checklist.md)。
 
