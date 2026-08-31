@@ -1,6 +1,6 @@
 [package]
 name = "ibm-lab-desktop"
-version = "0.1.6"
+version = "0.1.7"
 description = "iBM Lab Agent Windows desktop client"
 authors = ["iBM Lab"]
 edition = "2021"
@@ -16,6 +16,18 @@ tauri = { version = "2.11.5", features = [] }
 tauri-plugin-single-instance = "2.4.3"
 url = "2.5"
 winreg = "0.55"
+rfd = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = "0.10"
+percent-encoding = "2.3"
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_Storage_FileSystem",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading"
+] }
 
 [profile.release]
 lto = true

@@ -16,6 +16,9 @@ use serde::Serialize;
 
 use super::bridge;
 use super::dsh::RuntimeLayout;
+use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ};
+use winreg::types::FromRegValue;
+use winreg::{RegKey, HKEY};
 
 /// 单项依赖状态。state 取值 "ok" | "warning" | "missing"（前端映射颜色）。
 #[derive(Debug, Clone, Serialize)]
@@ -104,7 +107,10 @@ fn find_libreoffice() -> Option<PathBuf> {
 /// 以 "Python " 开头的结果——Windows 的 Microsoft Store python alias 会
 /// 以非零退出码 + stderr 提示安装，因此不会误判为已安装。
 fn probe_python(command: &str, args: &[&str]) -> Option<String> {
-    let output = std::process::Command::new(command).args(args).output().ok()?;
+    let output = std::process::Command::new(command)
+        .args(args)
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -227,7 +233,11 @@ fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
 fn bridge_status(layout: &RuntimeLayout) -> DependencyStatus {
     let snapshot = bridge::status(layout);
     let id = &snapshot.extension_id;
-    if snapshot.host_js_exists && snapshot.node_exe_exists && snapshot.registered && snapshot.origins_match {
+    if snapshot.host_js_exists
+        && snapshot.node_exe_exists
+        && snapshot.registered
+        && snapshot.origins_match
+    {
         return ok(
             "bridge",
             "Native Messaging 桥",
@@ -284,6 +294,74 @@ fn office_status() -> DependencyStatus {
     }
 }
 
+fn policy_strings(root: HKEY, subkey: &str) -> Vec<String> {
+    RegKey::predef(root)
+        .open_subkey_with_flags(subkey, KEY_READ)
+        .ok()
+        .map(|key| {
+            key.enum_values()
+                .filter_map(Result::ok)
+                .filter_map(|(_, value)| String::from_reg_value(&value).ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn edge_policy_status() -> DependencyStatus {
+    const POLICY: &str = r"Software\Policies\Microsoft\Edge";
+    let mut blocklist = Vec::new();
+    let mut allowlist = Vec::new();
+    let mut user_level_disabled = false;
+    for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+        blocklist.extend(policy_strings(
+            root,
+            &format!(r"{POLICY}\NativeMessagingBlocklist"),
+        ));
+        allowlist.extend(policy_strings(
+            root,
+            &format!(r"{POLICY}\NativeMessagingAllowlist"),
+        ));
+        if let Ok(key) = RegKey::predef(root).open_subkey_with_flags(POLICY, KEY_READ) {
+            user_level_disabled |= key
+                .get_value::<u32, _>("NativeMessagingUserLevelHosts")
+                .ok()
+                == Some(0);
+        }
+    }
+    let host = bridge::HOST_NAME;
+    let explicitly_allowed = allowlist.iter().any(|value| value == host || value == "*");
+    let blocked =
+        blocklist.iter().any(|value| value == host || value == "*") && !explicitly_allowed;
+    if blocked || user_level_disabled {
+        let mut reasons = Vec::new();
+        if blocked {
+            reasons.push("Native Messaging blocklist blocks this host");
+        }
+        if user_level_disabled {
+            reasons.push("user-level Native Messaging hosts are disabled");
+        }
+        return warning(
+            "edge-policy",
+            "Edge 企业策略",
+            reasons.join("；"),
+            &format!("请管理员将 {host} 加入 NativeMessagingAllowlist，并允许用户级 Native Messaging host。"),
+        );
+    }
+    let detail = if blocklist.is_empty() && allowlist.is_empty() {
+        "未检测到会阻止 Native Messaging 的 Edge 组织策略".to_string()
+    } else if explicitly_allowed {
+        format!("策略已允许 {host}")
+    } else {
+        "检测到 Edge 策略，但未发现对本 host 的阻止".to_string()
+    };
+    ok(
+        "edge-policy",
+        "Edge 企业策略",
+        detail,
+        "Native Messaging host 名称：com.ibm.lab.capture。",
+    )
+}
+
 /// 聚合探测：Edge / Python / Node / Bridge / Office 一屏可见。
 pub fn probe(layout: &RuntimeLayout) -> RuntimeDeps {
     RuntimeDeps {
@@ -293,6 +371,7 @@ pub fn probe(layout: &RuntimeLayout) -> RuntimeDeps {
             node_status(layout),
             bridge_status(layout),
             office_status(),
+            edge_policy_status(),
         ],
         bridge: bridge::status(layout),
     }
@@ -304,7 +383,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sandbox_layout() -> (RuntimeLayout, PathBuf) {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let sandbox = std::env::temp_dir().join(format!("ibm-deps-{}-{nonce}", std::process::id()));
         let resources = sandbox.join("resources");
         fs::create_dir_all(resources.join("node")).unwrap();
@@ -327,12 +409,15 @@ mod tests {
     }
 
     #[test]
-    fn probe_reports_all_five_deps_with_valid_states() {
+    fn probe_reports_all_six_deps_with_valid_states() {
         let (layout, sandbox) = sandbox_layout();
         let deps = probe(&layout);
-        // 五项齐全且顺序稳定
+        // 六项齐全且顺序稳定
         let keys: Vec<&str> = deps.items.iter().map(|item| item.key.as_str()).collect();
-        assert_eq!(keys, ["edge", "python", "node", "bridge", "office"]);
+        assert_eq!(
+            keys,
+            ["edge", "python", "node", "bridge", "office", "edge-policy"]
+        );
         // 捆绑 node 存在 → ok
         let node = deps.items.iter().find(|item| item.key == "node").unwrap();
         assert_eq!(node.state, "ok");
@@ -341,7 +426,12 @@ mod tests {
         assert_ne!(bridge_item.state, "ok");
         // 所有状态字符串合法、提示非空
         for item in &deps.items {
-            assert!(matches!(item.state.as_str(), "ok" | "warning" | "missing"), "{}: {}", item.key, item.state);
+            assert!(
+                matches!(item.state.as_str(), "ok" | "warning" | "missing"),
+                "{}: {}",
+                item.key,
+                item.state
+            );
             assert!(!item.detail.is_empty());
             assert!(!item.hint.is_empty());
         }

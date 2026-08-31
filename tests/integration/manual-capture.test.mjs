@@ -514,6 +514,8 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	// 已获取 → 点亮下载（downloadVerifiedBinary 长度+SHA-256 校验）
 	assert.match(client, /downloadVerifiedBinary/);
 	assert.match(client, /downloadOfficeArtifact/);
+	assert.match(client, /saveArtifactViaDesktop/);
+	assert.match(client, /DESKTOP_SAVE_FAILED/);
 	assert.match(client, /SAVE_ARTIFACT/);
 	assert.match(client, /本地若被阻止/);
 	assert.match(client, /PPT 下载成功/);
@@ -526,7 +528,8 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /ARM_CAPTURE_RESULT/);
 	assert.match(client, /未收到文献捕获扩展确认/);
 	assert.match(client, /armCaptureFor/);
-	assert.match(client, /window\.open\(publisherUrl/);
+	assert.match(client, /openExternalUrl\(publisherUrl\)/);
+	assert.match(client, /openInEdgeViaShell/);
 	assert.match(client, /等待下一次/, "显示等待下一次下载提示");
 	// 扩展完成通知 → 重新拉取 workspace（onChanged）
 	assert.match(client, /CAPTURE_COMPLETED/);
@@ -544,13 +547,13 @@ test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受�
 	assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
 	const background = await readFile(join(extensionRoot, "background.js"), "utf8");
 	assert.match(background, /SET_TRUSTED_ORIGIN/);
-	assert.match(background, /senderOrigin !== trustedOrigin/);
-	assert.match(background, /url\.origin !== trustedOrigin/);
+	assert.match(background, /!originsMatch\(senderOrigin, trustedOrigin\)/);
+	assert.match(background, /!originsMatch\(url\.origin, trustedOrigin\)/);
 	assert.match(background, /state !== "complete" && state !== "interrupted"/);
 	assert.match(background, /downloadPath:/);
 	assert.match(background, /validateArtifactUrl/);
 	assert.match(background, /save_artifact/);
-	assert.match(background, /senderOrigin !== trustedOrigin/);
+	assert.match(background, /!originsMatch\(senderOrigin, trustedOrigin\)/);
 	assert.match(background, /item\.startTime/);
 	assert.match(background, /PREPARE_TRUSTED_ORIGIN/, "权限弹窗关闭扩展小窗后仍可恢复授权流程");
 	assert.match(background, /chrome\.permissions\.onAdded/, "权限授予后由后台完成可信站点注册");

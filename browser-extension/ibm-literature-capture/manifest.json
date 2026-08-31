@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "iBM Lab 文献捕获",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "为 iBM Lab Agent 捕获用户明确布防的文献下载，并通过本地桥接安全保存已审核的 PPTX/DOCX。只处理用户主动发起的任务，不读取 Cookie、历史或其他文件。",
   "minimum_chrome_version": "102",
   "permissions": ["activeTab", "downloads", "storage", "nativeMessaging", "scripting"],

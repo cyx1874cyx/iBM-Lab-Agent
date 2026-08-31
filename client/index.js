@@ -109,8 +109,8 @@ window.__ModuleLoader__.load({
 			for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 			downloadBlob(fileName, type, new Blob([bytes], { type }));
 		};
-		/** 同源二进制下载：先校验 Content-Length 与 SHA-256，再保存到 Windows。 */
-		async function downloadVerifiedBinary(url) {
+		/** Web 宿主下载：先校验 Content-Length 与 SHA-256，再触发浏览器保存。 */
+		async function browserDownloadVerifiedBinary(url) {
 			const response = await fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" });
 			if (!response.ok) throw new Error((await response.text()) || `下载失败（HTTP ${response.status}）`);
 			const blob = await response.blob();
@@ -129,6 +129,51 @@ window.__ModuleLoader__.load({
 			try { fileName = decodeURIComponent(encodedName); } catch { /* 保留服务端原值 */ }
 			downloadBlob(fileName, blob.type || "application/octet-stream", blob);
 			return fileName;
+		}
+		/** Desktop 宿主原生保存：iframe 请求顶层 Tauri shell 下载、校验并显示另存为。 */
+		function saveArtifactViaDesktop(url) {
+			return new Promise((resolve, reject) => {
+				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				let settled = false;
+				let acknowledged = false;
+				const fail = (message, code) => { const error = new Error(message); error.code = code; return error; };
+				const finish = (callback, value) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(readyTimer); clearTimeout(completionTimer);
+					window.removeEventListener("message", onResult);
+					callback(value);
+				};
+				const onResult = (event) => {
+					if (event.source !== window.parent) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lab-agent-shell" || data.requestId !== requestId) return;
+					if (data.type === "SAVE_ARTIFACT_ACK") { acknowledged = true; clearTimeout(readyTimer); return; }
+					if (data.type !== "SAVE_ARTIFACT_RESULT") return;
+					if (data.payload?.ok) finish(resolve, data.payload.saved);
+					else finish(reject, fail(data.payload?.error || "桌面原生保存失败", acknowledged ? "DESKTOP_SAVE_FAILED" : "NO_DESKTOP_SHELL"));
+				};
+				const readyTimer = setTimeout(() => finish(reject, fail("未检测到桌面文件服务", "NO_DESKTOP_SHELL")), 1800);
+				const completionTimer = setTimeout(() => finish(reject, fail("桌面原生保存超时（5 分钟）", "DESKTOP_SAVE_FAILED")), 5 * 60 * 1000);
+				window.addEventListener("message", onResult);
+				try {
+					const artifactUrl = new URL(url, location.origin).href;
+					window.parent.postMessage({ source: "ibm-lab-agent", type: "SAVE_ARTIFACT", requestId, payload: { artifactUrl } }, "*");
+				} catch (reason) { finish(reject, reason); }
+			});
+		}
+		/** 桌面优先走 Tauri 原生保存；Web 宿主保留浏览器校验下载。 */
+		async function downloadVerifiedBinary(url) {
+			if (window.parent !== window) {
+				try {
+					const saved = await saveArtifactViaDesktop(url);
+					if (saved?.cancelled) throw new Error("已取消保存");
+					return saved?.fileName || "artifact";
+				} catch (error) {
+					if (error?.code !== "NO_DESKTOP_SHELL") throw error;
+				}
+			}
+			return browserDownloadVerifiedBinary(url);
 		}
 		/** 让受信任浏览器扩展调用 Windows 本地桥接保存 Office 文件。 */
 		function saveArtifactViaExtension(url) {
@@ -170,13 +215,22 @@ window.__ModuleLoader__.load({
 				}
 			});
 		}
-		/** Office 文件优先由本地桥接落盘；不可用时保留浏览器下载回退。 */
+		/** Office 文件：Desktop 用 Tauri 原生另存为；Web 用扩展桥接或浏览器下载。 */
 		async function downloadOfficeArtifact(url) {
+			if (window.parent !== window) {
+				try {
+					const saved = await saveArtifactViaDesktop(url);
+					if (saved?.cancelled) throw new Error("已取消保存");
+					return { ...saved, native: true };
+				} catch (error) {
+					if (error?.code !== "NO_DESKTOP_SHELL") throw error;
+				}
+			}
 			try {
 				const saved = await saveArtifactViaExtension(url);
 				return { ...saved, native: true };
 			} catch (bridgeError) {
-				const fileName = await downloadVerifiedBinary(url);
+				const fileName = await browserDownloadVerifiedBinary(url);
 				return { fileName, native: false, bridgeError: bridgeError?.message || String(bridgeError) };
 			}
 		}
@@ -223,6 +277,12 @@ window.__ModuleLoader__.load({
 			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_IN_EDGE", requestId, url }, "*"); }
 			catch (reason) { finish(reject, reason); }
 		});
+		/** 统一外部 URL Router：Desktop 交给 Rust/Edge，Web 才使用 window.open。 */
+		const openExternalUrl = async (url) => {
+			if (!url) return;
+			if (window.parent !== window) return openInEdgeViaShell(url);
+			window.open(url, "_blank", "noopener,noreferrer");
+		};
 
 		/** 数据库实时状态总览：人工当前标签页、外部 Edge 与受控持久浏览器三种授权模式。 */
 		function DatabaseOverview({ call, notify }) {
@@ -242,7 +302,7 @@ window.__ModuleLoader__.load({
 			}, [refresh]);
 			const run = async (kind, source, mode) => {
 				if (kind === "connect" && mode === "current") {
-					window.open(source.institutionEntryUrl || source.entryUrl || "https://lib.ustc.edu.cn/", "_blank", "noopener,noreferrer");
+					void openExternalUrl(source.institutionEntryUrl || source.entryUrl || "https://lib.ustc.edu.cn/");
 				}
 				setBusy(`${kind}:${source.id}`);
 				try {
@@ -670,7 +730,7 @@ window.__ModuleLoader__.load({
 				}
 				// Web 宿主（DSH 页面在 Edge/Chrome 标签页中运行）：同步打开出版社页面
 				// 再布防当前标签页内的扩展 Content Script。
-				window.open(publisherUrl, "_blank", "noopener,noreferrer");
+				void openExternalUrl(publisherUrl);
 				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
 					.then(async (result) => {
 						const task = result.task;
@@ -811,7 +871,7 @@ window.__ModuleLoader__.load({
 				const doiUrl = paper.doi ? `https://doi.org/${encodeURIComponent(paper.doi)}` : (paper.landingUrl || paper.pdfUrl || undefined);
 				const pdfReady = !!paper.localPdfUrl;
 				const siReady = !!paper.localSiUrl;
-				const openExternal = (event, url) => { event.stopPropagation(); if (url) window.open(url, "_blank", "noopener,noreferrer"); };
+				const openExternal = (event, url) => { event.stopPropagation(); if (url) void openExternalUrl(url).catch((reason) => notify(reason.message)); };
 				const previewPdf = (event, url) => { event.stopPropagation(); openPdfPreview(url); };
 				const saveFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 				return h("article", { className: "ib-search-paper", key: paper.doi || paper.pmid || paper.arxivId || paper.id || paper.title },

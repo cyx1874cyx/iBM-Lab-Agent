@@ -46,7 +46,7 @@
   <main class="shell">
     <nav class="topbar">
       <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
-      <button id="settings-button" type="button">设置</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
+      <button id="settings-button" type="button">设置</button><button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
@@ -73,7 +73,7 @@
           <label for="base-url">接口地址</label><input id="base-url" type="url" placeholder="可选">
           <label for="model">模型</label><input id="model" type="text" placeholder="可选">
           <label for="workspace-path">工作目录</label><input id="workspace-path" type="text" placeholder="可选">
-          <p class="hint">设置仅保存在当前 Windows 用户的本地应用目录，界面和日志不会显示 API Key。保存后请重新启动运行环境使其生效。</p>
+          <p class="hint">API Key 使用 Windows DPAPI 加密，仅当前 Windows 用户可解密；普通配置与日志不保存明文 Key。保存后请重新启动运行环境使其生效。</p>
           <button type="submit">保存设置</button>
         </form>
       </section>
@@ -149,6 +149,7 @@
     };
     $('retry-button').addEventListener('click', () => invoke('restart_runtime').catch(window.ibmLabRuntimeFailed));
     $('logs-button').addEventListener('click', () => invoke('open_logs').catch(window.ibmLabRuntimeFailed));
+    $('workspace-button').addEventListener('click', () => invoke('open_workspace').catch(window.ibmLabRuntimeFailed));
     $('settings-button').addEventListener('click', showSettings);
     $('deps-button').addEventListener('click', showDiagnostics);
     $('diag-refresh').addEventListener('click', refreshDiagnostics);
@@ -160,19 +161,36 @@
         setText('detail', '设置已保存。点击“重试启动”将重新启动本地服务。');
       } catch (error) { setText('detail', `无法保存设置：${error}`); }
     });
-    // desktop-edge-handoff：来自工作台 iframe 的捕获请求桥。iframe 内看不到
-    // __TAURI_INTERNALS__，因此由本 shell 接收 OPEN_IN_EDGE 并调用 Tauri 命令；
-    // 结果回传给 iframe，超时/失败同样回传（iframe 侧 4s 超时兜底）。
+    // Desktop capability bridge. Only the active local-runtime iframe origin is
+    // accepted; arbitrary nested frames cannot invoke native file or URL actions.
     window.addEventListener('message', (event) => {
       const data = event.data;
-      if (!data || data.source !== 'ibm-lab-agent' || data.type !== 'OPEN_IN_EDGE' || !data.requestId) return;
-      const reply = (payload) => {
-        try { (event.source || window).postMessage({ source: 'ibm-lab-agent-shell', type: 'OPEN_IN_EDGE_RESULT', requestId: data.requestId, payload }, '*'); }
+      if (!data || data.source !== 'ibm-lab-agent' || !data.requestId || event.source !== frame.contentWindow) return;
+      let runtimeOrigin;
+      try { runtimeOrigin = new URL(frame.src).origin; } catch { return; }
+      if (event.origin !== runtimeOrigin) return;
+      const reply = (type, payload) => {
+        try { event.source.postMessage({ source: 'ibm-lab-agent-shell', type, requestId: data.requestId, payload }, runtimeOrigin); }
         catch { /* iframe 已卸载时忽略 */ }
       };
-      invoke('open_in_edge', { url: String(data.url || '') })
-        .then(() => reply({ ok: true }))
-        .catch((error) => reply({ ok: false, error: String(error) }));
+      if (data.type === 'OPEN_IN_EDGE') {
+        invoke('open_in_edge', { url: String(data.url || '') })
+          .then(() => reply('OPEN_IN_EDGE_RESULT', { ok: true }))
+          .catch((error) => reply('OPEN_IN_EDGE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'SAVE_ARTIFACT') {
+        reply('SAVE_ARTIFACT_ACK', { ok: true });
+        invoke('save_artifact', { url: String(data.payload?.artifactUrl || '') })
+          .then((saved) => reply('SAVE_ARTIFACT_RESULT', { ok: true, saved }))
+          .catch((error) => reply('SAVE_ARTIFACT_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'OPEN_SAVED_PATH') {
+        invoke('open_path', { path: String(data.path || '') })
+          .then(() => reply('OPEN_SAVED_PATH_RESULT', { ok: true }))
+          .catch((error) => reply('OPEN_SAVED_PATH_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'REVEAL_SAVED_PATH') {
+        invoke('reveal_path', { path: String(data.path || '') })
+          .then(() => reply('REVEAL_SAVED_PATH_RESULT', { ok: true }))
+          .catch((error) => reply('REVEAL_SAVED_PATH_RESULT', { ok: false, error: String(error) }));
+      }
     });
   </script>
 </body>

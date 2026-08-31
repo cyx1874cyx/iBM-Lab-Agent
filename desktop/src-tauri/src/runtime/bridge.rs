@@ -55,6 +55,11 @@ pub fn extension_id() -> String {
         .map(|value| value.trim().to_lowercase())
         .ok()
         .filter(|value| valid_extension_id(value))
+        .or_else(|| {
+            option_env!("IBM_LAB_EXTENSION_ID")
+                .map(str::to_lowercase)
+                .filter(|value| valid_extension_id(value))
+        })
         .unwrap_or_else(|| DEFAULT_EXTENSION_ID.to_string())
 }
 
@@ -92,23 +97,43 @@ pub fn ensure_registered(layout: &RuntimeLayout, logger: &AppLogger) -> Result<b
     let paths = bridge_paths(layout);
     let id = extension_id();
     let manifest = build_manifest(&paths.wrapper, &id);
-    let wrapper = build_wrapper(&layout.node_exe(), &layout.resources.join("bridge").join("host.js"));
+    let wrapper = build_wrapper(
+        &layout.node_exe(),
+        &layout.resources.join("bridge").join("host.js"),
+    );
 
     if is_current(&paths, &manifest, &wrapper) {
-        logger.app(&format!("Native Messaging host {HOST_NAME} already registered (extension {id})"))?;
+        logger.app(&format!(
+            "Native Messaging host {HOST_NAME} already registered (extension {id})"
+        ))?;
         return Ok(false);
     }
 
-    fs::create_dir_all(&paths.bridge_dir)
-        .map_err(|error| RuntimeError::new(format!("Cannot create bridge directory {}: {error}", paths.bridge_dir.display())))?;
-    fs::write(&paths.manifest, &manifest)
-        .map_err(|error| RuntimeError::new(format!("Cannot write host manifest {}: {error}", paths.manifest.display())))?;
-    fs::write(&paths.wrapper, &wrapper)
-        .map_err(|error| RuntimeError::new(format!("Cannot write bridge wrapper {}: {error}", paths.wrapper.display())))?;
+    fs::create_dir_all(&paths.bridge_dir).map_err(|error| {
+        RuntimeError::new(format!(
+            "Cannot create bridge directory {}: {error}",
+            paths.bridge_dir.display()
+        ))
+    })?;
+    fs::write(&paths.manifest, &manifest).map_err(|error| {
+        RuntimeError::new(format!(
+            "Cannot write host manifest {}: {error}",
+            paths.manifest.display()
+        ))
+    })?;
+    fs::write(&paths.wrapper, &wrapper).map_err(|error| {
+        RuntimeError::new(format!(
+            "Cannot write bridge wrapper {}: {error}",
+            paths.wrapper.display()
+        ))
+    })?;
     for (browser, subkey) in HOST_SUBKEYS {
-        register_host(subkey, &paths.manifest).map_err(|error| RuntimeError::new(format!("{browser}: {error}")))?;
+        register_host(subkey, &paths.manifest)
+            .map_err(|error| RuntimeError::new(format!("{browser}: {error}")))?;
     }
-    logger.app(&format!("Registered Native Messaging host {HOST_NAME} for extension {id}"))?;
+    logger.app(&format!(
+        "Registered Native Messaging host {HOST_NAME} for extension {id}"
+    ))?;
     Ok(true)
 }
 
@@ -124,9 +149,17 @@ fn register_host(subkey: &str, manifest_path: &Path) -> Result<(), RuntimeError>
     for view in REGISTRY_VIEWS {
         let (key, _) = hkcu
             .create_subkey_with_flags(&key_path, KEY_WRITE | view)
-            .map_err(|error| RuntimeError::new(format!("Cannot create registry key {key_path} ({view}): {error}")))?;
+            .map_err(|error| {
+                RuntimeError::new(format!(
+                    "Cannot create registry key {key_path} ({view}): {error}"
+                ))
+            })?;
         key.set_value("", &manifest_path.display().to_string())
-            .map_err(|error| RuntimeError::new(format!("Cannot set host manifest path under {key_path}: {error}")))?;
+            .map_err(|error| {
+                RuntimeError::new(format!(
+                    "Cannot set host manifest path under {key_path}: {error}"
+                ))
+            })?;
     }
     Ok(())
 }
@@ -134,7 +167,9 @@ fn register_host(subkey: &str, manifest_path: &Path) -> Result<(), RuntimeError>
 fn registry_value(subkey: &str, view: u32) -> Option<String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let key_path = format!(r"{subkey}\{HOST_NAME}");
-    let handle = hkcu.open_subkey_with_flags(key_path, KEY_READ | view).ok()?;
+    let handle = hkcu
+        .open_subkey_with_flags(key_path, KEY_READ | view)
+        .ok()?;
     handle.get_value::<String, _>("").ok()
 }
 
@@ -170,13 +205,19 @@ pub fn status(layout: &RuntimeLayout) -> BridgeStatus {
         .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
         .and_then(|value| value.get("allowed_origins").cloned())
         .and_then(|value| value.as_array().cloned())
-        .map(|origins| origins.iter().any(|origin| origin.as_str() == Some(&format!("chrome-extension://{id}/"))))
+        .map(|origins| {
+            origins
+                .iter()
+                .any(|origin| origin.as_str() == Some(&format!("chrome-extension://{id}/")))
+        })
         .unwrap_or(false);
     BridgeStatus {
         registered: registry_points_to(&paths.manifest),
         extension_id: id,
         manifest_path: manifest_text.map(|_| paths.manifest.display().to_string()),
-        wrapper_path: fs::read_to_string(&paths.wrapper).ok().map(|_| paths.wrapper.display().to_string()),
+        wrapper_path: fs::read_to_string(&paths.wrapper)
+            .ok()
+            .map(|_| paths.wrapper.display().to_string()),
         host_js_exists: layout.resources.join("bridge").join("host.js").exists(),
         node_exe_exists: layout.node_exe().exists(),
         origins_match,
@@ -189,8 +230,12 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sandbox_layout() -> (RuntimeLayout, PathBuf) {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let sandbox = std::env::temp_dir().join(format!("ibm-bridge-{}-{nonce}", std::process::id()));
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sandbox =
+            std::env::temp_dir().join(format!("ibm-bridge-{}-{nonce}", std::process::id()));
         let resources = sandbox.join("resources");
         fs::create_dir_all(resources.join("node")).unwrap();
         fs::create_dir_all(resources.join("bridge")).unwrap();
@@ -220,14 +265,20 @@ mod tests {
         assert_eq!(parsed["name"], "com.ibm.lab.capture");
         assert_eq!(parsed["type"], "stdio");
         assert_eq!(parsed["path"], paths.wrapper.display().to_string());
-        assert_eq!(parsed["allowed_origins"][0], "chrome-extension://lnchddahblkaaphicaglckkpedmpbfkc/");
+        assert_eq!(
+            parsed["allowed_origins"][0],
+            "chrome-extension://lnchddahblkaaphicaglckkpedmpbfkc/"
+        );
         let _ = fs::remove_dir_all(sandbox);
     }
 
     #[test]
     fn builds_wrapper_binding_bundled_node() {
         let (layout, sandbox) = sandbox_layout();
-        let wrapper = build_wrapper(&layout.node_exe(), &layout.resources.join("bridge").join("host.js"));
+        let wrapper = build_wrapper(
+            &layout.node_exe(),
+            &layout.resources.join("bridge").join("host.js"),
+        );
         assert!(wrapper.contains(&layout.node_exe().display().to_string()));
         assert!(wrapper.contains(r"bridge\host.js"));
         assert!(wrapper.starts_with("@echo off"));
@@ -240,7 +291,10 @@ mod tests {
         let paths = bridge_paths(&layout);
         let id = extension_id();
         let manifest = build_manifest(&paths.wrapper, &id);
-        let wrapper = build_wrapper(&layout.node_exe(), &layout.resources.join("bridge").join("host.js"));
+        let wrapper = build_wrapper(
+            &layout.node_exe(),
+            &layout.resources.join("bridge").join("host.js"),
+        );
         // 文件尚未生成 → 不满足
         assert!(!is_current(&paths, &manifest, &wrapper));
         // 文件已生成但注册表未写 → 仍不满足（避免跳过注册）
@@ -273,8 +327,12 @@ mod tests {
     #[test]
     #[ignore = "writes the real HKCU registry; run manually on Windows"]
     fn real_registration_roundtrip() {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let sandbox = std::env::temp_dir().join(format!("ibm-bridge-real-{}-{nonce}", std::process::id()));
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sandbox =
+            std::env::temp_dir().join(format!("ibm-bridge-real-{}-{nonce}", std::process::id()));
         let resources = sandbox.join("resources");
         fs::create_dir_all(resources.join("node")).unwrap();
         fs::create_dir_all(resources.join("bridge")).unwrap();
@@ -292,12 +350,21 @@ mod tests {
         // manifest 的 path 指向 wrapper（bridge.cmd），wrapper 绑定捆绑 node.exe
         let manifest_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&paths.manifest).unwrap()).unwrap();
-        assert_eq!(manifest_value["path"], serde_json::Value::String(paths.wrapper.display().to_string()));
-        assert!(fs::read_to_string(&paths.wrapper).unwrap().contains("node.exe"));
+        assert_eq!(
+            manifest_value["path"],
+            serde_json::Value::String(paths.wrapper.display().to_string())
+        );
+        assert!(fs::read_to_string(&paths.wrapper)
+            .unwrap()
+            .contains("node.exe"));
         // HKCU 四键均指向本沙箱 manifest
         for (_, subkey) in HOST_SUBKEYS {
             for view in REGISTRY_VIEWS {
-                assert_eq!(registry_value(subkey, view).as_deref(), Some(manifest_path.as_str()), "{subkey} {view}");
+                assert_eq!(
+                    registry_value(subkey, view).as_deref(),
+                    Some(manifest_path.as_str()),
+                    "{subkey} {view}"
+                );
             }
         }
 
@@ -313,7 +380,8 @@ mod tests {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         for (_, subkey) in HOST_SUBKEYS {
             for view in REGISTRY_VIEWS {
-                if let Ok(parent) = hkcu.open_subkey_with_flags(subkey, KEY_READ | KEY_WRITE | view) {
+                if let Ok(parent) = hkcu.open_subkey_with_flags(subkey, KEY_READ | KEY_WRITE | view)
+                {
                     let _ = parent.delete_subkey_all(HOST_NAME);
                 }
             }

@@ -19,7 +19,7 @@ npm ci
 .\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
 .\scripts\verify-package.ps1 -WebSmokeTest
 npx tauri build
-.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.6_x64-setup.exe'
+.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.7_x64-setup.exe'
 ```
 
 `prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its complete production dependency tree, locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. pnpm's redundant internal store is excluded after the flattened runtime has been materialized. Pass `-RuntimeSourceRoot` only when reusing a separately prepared `runtime\launcher\node_modules` tree, and pass `-NodeExe` when the intended Node binary is not supplied by the build environment.
@@ -51,11 +51,12 @@ Per-user operational data is kept below `%LOCALAPPDATA%\iBM-Lab-Agent`:
 
 - `dsh\` — private DSH home and the `ibm-lab` profile
 - `workspace\` — default work folder
-- `config\app-config.json` — optional local OpenAI-compatible provider settings
+- `config\app-config.json` — non-secret provider settings plus a DPAPI credential reference
+- `config\api-key.dpapi` — API key encrypted for the current Windows user with DPAPI
 - `logs\app.log`, `logs\dsh.log`, `logs\stderr.log`
 - `runtime-state\dsh.pid` — recoverable child-process state
 
-The API key is neither logged nor placed in the packaged application. It is stored only in the current user's local configuration file; future builds can substitute Windows Credential Manager without changing the UI contract.
+The API key is neither logged nor written to ordinary JSON. Windows DPAPI encrypts it for the current user; existing plaintext `apiKey` values are migrated on first read and removed from `app-config.json`.
 
 ## Distribution checks
 

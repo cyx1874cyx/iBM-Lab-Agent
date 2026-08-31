@@ -8,11 +8,19 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      IBM_LAB_EXTENSION_ID: ${{ vars.IBM_LAB_EXTENSION_ID }}
+      WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '24' }
       - run: npm ci --omit=peer --legacy-peer-deps
+      - run: npm test
+      - run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}\ibm-lab-cargo-test
       - run: corepack pnpm install --frozen-lockfile --prod
         working-directory: runtime/launcher
       - run: npm ci
@@ -23,12 +31,33 @@ jobs:
       - run: .\scripts\verify-package.ps1 -WebSmokeTest
         working-directory: desktop
         shell: pwsh
+      - name: Require fixed Edge catalog ID for tagged releases
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*' -and $env:IBM_LAB_EXTENSION_ID -notmatch '^[a-p]{32}$') {
+            throw 'Tagged releases require repository variable IBM_LAB_EXTENSION_ID with the approved Edge Add-ons catalog ID.'
+          }
       - run: npx tauri build
         working-directory: desktop
+      - name: Authenticode sign Windows installer
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem src-tauri\target\release\bundle\nsis\*.exe
+          $options = @{}
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $options.Required = $true }
+          .\scripts\sign-windows.ps1 -Files $installers.FullName @options
       - run: .\scripts\verify-package.ps1 -InstallerPath (Get-ChildItem src-tauri\target\release\bundle\nsis\*.exe | Select-Object -First 1).FullName
         working-directory: desktop
         shell: pwsh
+      - name: Package Edge Add-ons submission
+        shell: pwsh
+        run: .\browser-extension\ibm-literature-capture\package-store.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: iBM-Lab-Agent-Windows
           path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iBM-Lab-Edge-Extension
+          path: browser-extension/ibm-literature-capture/dist/*.zip
