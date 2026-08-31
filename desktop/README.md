@@ -26,6 +26,25 @@ npx tauri build
 
 `verify-package -WebSmokeTest` boots the packaged `ibm-lab` profile on an ephemeral loopback port, requires an HTTP success response, rejects duplicate `labAgent`/plugin-tree errors, and terminates the test process tree. The NSIS installer uses Tauri's `downloadBootstrapper` WebView2 mode: Windows 10/11 normally already provide WebView2, while a missing runtime is downloaded by the installer.
 
+### Note: build-script resource scan
+
+`tauri-build` walks every file declared in `bundle.resources` and emits one
+`rerun-if-changed` line per file. With the bundled DSH dependency tree
+(hundreds of thousands of files under `resources\dsh\`) this makes the
+build script appear frozen for 20+ minutes. Pass the config override below to
+skip that walk during compilation; the Tauri bundler still packages the full
+resources from `tauri.conf.json`, so the installer keeps Node/DSH/plugin:
+
+```powershell
+$env:TAURI_CONFIG = '{"bundle":{"resources":[]}}'
+npx tauri build
+Remove-Item Env:TAURI_CONFIG
+```
+
+If GitHub is unreachable from the build machine, the NSIS toolchain download
+also stalls; a proxy or mirror must be available for
+`github.com/tauri-apps/binary-releases` and `github.com/tauri-apps/nsis-tauri-utils`.
+
 ## Runtime location
 
 Per-user operational data is kept below `%LOCALAPPDATA%\iBM-Lab-Agent`:
