@@ -57,6 +57,14 @@ impl RuntimeManager {
             .or_else(|| app.path().app_local_data_dir().ok())
             .ok_or_else(|| RuntimeError::new("Cannot resolve local application data directory"))?;
         let resource_dir = app.path().resource_dir().map_err(|error| RuntimeError::new(format!("Cannot resolve bundled resources: {error}")))?;
+        // On Windows the packaged resource dir may come back as a verbatim
+        // extended-length path (\\?\H:\...). Node.js 24 realpathSync cannot
+        // parse the `\\?\` prefix and fails with EISDIR on the bare drive
+        // root, so normalize it back to the regular path form.
+        let resource_dir = if cfg!(windows) {
+            let text = resource_dir.to_string_lossy();
+            if let Some(stripped) = text.strip_prefix(r"\\?\") { PathBuf::from(stripped) } else { resource_dir }
+        } else { resource_dir };
         let development_resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
         let resources = if resource_dir.join("node").exists() { resource_dir } else { development_resources };
         let layout = RuntimeLayout::new(local_data, resources);
