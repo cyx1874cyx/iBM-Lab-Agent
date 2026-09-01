@@ -196,29 +196,20 @@ test("web client auto-launches per-project workspace + research session and cust
 	// 否则定制色会让原生文字和 backdrop 同时出现，形成重影。
 	assert.match(source, /textarea\{color:transparent;font-size:inherit;caret-color:var\(--ib-chat-ink\)\}/);
 	assert.doesNotMatch(source, /className: "ib-context"/);
-	assert.match(source, /人工审阅/);
+	assert.match(source, /Office\/WPS/);
 	assert.match(source, /const parseJournalCitation/);
 	assert.match(source, /shortNode\(report\)/);
-	assert.match(source, /tasks_review_details/);
-	assert.match(source, /自查提醒/);
-	// 产物工作流：条目只保留概览/报告/PPT；右侧真实 Office 分页预览统一承载
-	// 自查、二次确认、人审与下载，报告和 PPT 不能出现功能差异。
-	assert.match(source, /ib-preview-drawer/);
-	assert.match(source, /preview=1&kind=/);
-	assert.match(source, /实际 DOCX 经 LibreOffice 渲染的分页预览/);
-	assert.match(source, /实际 PPTX 经 LibreOffice 渲染的分页预览/);
-	assert.match(source, /打开报告预览、审核与下载/);
-	assert.match(source, /打开 PPT 预览、审核与下载/);
+	// 桌面产物工作流：条目只保留概览/报告/PPT；报告和 PPT 都原生保存并由
+	// Windows 默认 Office/WPS 关联打开，不经过网页预览、审核或二次确认。
+	assert.match(source, /function openOfficeArtifact/);
+	assert.match(source, /function openSavedPathViaDesktop/);
+	assert.match(source, /OPEN_SAVED_PATH/);
+	assert.match(source, /打开报告/);
+	assert.match(source, /打开PPT/);
+	assert.match(source, /已交给本机 Office\/WPS 打开/);
 	assert.match(source, /disabled: !presentation\?\.pptxPath/);
-	assert.doesNotMatch(source, /"预览报告"/);
-	assert.doesNotMatch(source, /"预览PPT"/);
-	assert.match(source, /审核通过前请确认自查提醒/);
-	assert.match(source, /二次确认并通过/);
-	assert.match(source, /approval\.stage === "approved"/);
-	assert.match(source, /审核通过/);
-	assert.match(source, /disabled: !previewApproved/);
-	assert.match(source, /preview\.kind === "ppt" \? "下载PPT" : "下载DOCX"/);
-	assert.match(source, /SELF_CHECK_UNAVAILABLE/);
+	assert.doesNotMatch(source, /打开报告预览、审核与下载/);
+	assert.doesNotMatch(source, /打开 PPT 预览、审核与下载/);
 	assert.match(source, /检索/);
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);

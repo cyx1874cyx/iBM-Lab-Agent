@@ -17,3 +17,9 @@ test("MarkItDown invokes Python without a Windows shell", async () => {
 	const source = await readFile(fileURLToPath(new URL("../../src/markitdown.js", import.meta.url)), "utf8");
 	assert.doesNotMatch(source, /shell\s*:/, "shell 会把 C:\\Program Files 中的脚本路径拆开");
 });
+
+test("MarkItDown converter fixes its JSON protocol to UTF-8", async () => {
+	const source = await readFile(fileURLToPath(new URL("../../scripts/markitdown/convert.py", import.meta.url)), "utf8");
+	assert.match(source, /reconfigure\(encoding="utf-8"/, "Windows GBK stdout must not reject extracted Unicode symbols");
+	assert.match(source, /open\(output, "w", encoding="utf-8"/, "Markdown output must remain UTF-8");
+});

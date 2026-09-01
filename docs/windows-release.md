@@ -18,6 +18,7 @@ Run `browser-extension/ibm-literature-capture/package-store.ps1` and submit the 
 
 | Desktop | Extension | Native host | Notes |
 |---|---|---|---|
+| 0.1.12 | 0.5.2 | `com.ibm.lab.capture` | UTF-8-safe MarkItDown protocol; Office renderer auto-discovery no longer treats `soffice` as an invalid path |
 | 0.1.11 | 0.5.2 | `com.ibm.lab.capture` | Bundled Python + MarkItDown required and verified; Windows path-safe process launches |
 | 0.1.10 | 0.5.2 | `com.ibm.lab.capture` | Manifest-key-pinned unpacked extension ID; Native Messaging authorization remains stable across folders |
 | 0.1.9 | 0.5.1 | `com.ibm.lab.capture` | Fixed-route Edge handoff (`/lab/capture/?taskId=...`); loopback-only download capture bridge |

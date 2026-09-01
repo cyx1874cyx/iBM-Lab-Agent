@@ -72,6 +72,12 @@ test("resolveSofficeExecutable returns a consistent structure without explicit c
 	}
 });
 
+test("a legacy bare soffice command does not suppress normal renderer discovery", async () => {
+	const resolved = await resolveSofficeExecutable({ explicit: "soffice", platform: "win32" });
+	assert.notEqual(resolved.source, "explicit-missing");
+	assert.doesNotMatch(resolved.detail, /配置的渲染器不存在: soffice/);
+});
+
 test("renderer status surfaces the resolver diagnostic", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "office-preview-status-"));
 	try {

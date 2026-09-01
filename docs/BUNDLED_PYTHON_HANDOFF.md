@@ -127,7 +127,7 @@ npx tauri build
 Remove-Item Env:TAURI_CONFIG
 ```
 
-产物：`desktop/src-tauri/target/release/bundle/nsis/iBM Lab Agent_0.1.11_x64-setup.exe`
+产物：`desktop/src-tauri/target/release/bundle/nsis/iBM Lab Agent_0.1.12_x64-setup.exe`
 
 ### 7.2 验收
 

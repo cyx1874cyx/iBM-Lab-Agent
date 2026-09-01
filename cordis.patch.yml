@@ -131,7 +131,6 @@
       inject: [labTasks, webServer]
       config:
         # 实际 Office 文件由打包环境内的 LibreOffice 渲染为 PDF；无文本降级预览。
-        sofficePath: 'soffice'
         previewDir: !!js dshHomePath('lab-agent/previews')
 
     # ── Chemistry & experiment plans (ChemicalEntity / ChemicalProperty /

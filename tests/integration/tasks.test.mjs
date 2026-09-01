@@ -359,12 +359,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		assert.ok(derived.summary.length > 0);
 		assert.match(derived.summary, /polymer platform/i, "derived from paper-card body");
 
-		// 审核前只能预览，不能下载原文件。
-		await assert.rejects(() => tasks.readingReportDownload(report.id), /awaiting human review/);
-		const approvedReport = await tasks.reviewReadingReport({ reportId: report.id, decision: "approved" });
-		assert.equal(approvedReport.review.artifactSha256, approvedReport.artifactSha256);
-
-		// 审核后精读报告下载：返回 paper-card Markdown
+		// 精读报告生成后即可下载；桌面端会保存后直接用 Office/WPS 打开。
 		const download = await tasks.readingReportDownload(report.id);
 		assert.equal(download.fileName, `${report.id}.md`);
 		assert.match(download.mime, /text\/markdown/);
@@ -377,9 +372,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		await writeFile(pptxPath, buffer);
 		const done = await tasks.completePresentation({ runId: pres.id, pptxPath });
 		assert.equal(done.status, "under-review");
-		await assert.rejects(() => tasks.presentationDownload(report.id), /awaiting human review/);
-		const approvedPpt = await tasks.reviewPresentation({ runId: pres.id, decision: "approved" });
-		assert.equal(approvedPpt.review.artifactSha256, approvedPpt.artifactSha256);
+		// PPT 同样不再受人工审核门禁限制。
 		const ppt = await tasks.presentationDownload(report.id);
 		assert.equal(ppt.fileName, `${pres.id}.pptx`);
 		assert.match(ppt.mime, /presentationml\.presentation/);

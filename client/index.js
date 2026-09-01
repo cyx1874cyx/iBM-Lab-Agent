@@ -162,6 +162,31 @@ window.__ModuleLoader__.load({
 				} catch (reason) { finish(reject, reason); }
 			});
 		}
+		/** Ask the desktop shell to open a file that it saved in this session. */
+		function openSavedPathViaDesktop(path) {
+			return new Promise((resolve, reject) => {
+				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-open-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				let settled = false;
+				const finish = (callback, value) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(timer);
+					window.removeEventListener("message", onResult);
+					callback(value);
+				};
+				const onResult = (event) => {
+					if (event.source !== window.parent) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_SAVED_PATH_RESULT" || data.requestId !== requestId) return;
+					if (data.payload?.ok) finish(resolve, data.payload);
+					else finish(reject, new Error(data.payload?.error || "桌面客户端未能打开文件"));
+				};
+				const timer = setTimeout(() => finish(reject, new Error("桌面客户端打开文件超时")), 10000);
+				window.addEventListener("message", onResult);
+				try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_SAVED_PATH", requestId, path }, "*"); }
+				catch (reason) { finish(reject, reason); }
+			});
+		}
 		/** 桌面优先走 Tauri 原生保存；Web 宿主保留浏览器校验下载。 */
 		async function downloadVerifiedBinary(url) {
 			if (window.parent !== window) {
@@ -185,6 +210,18 @@ window.__ModuleLoader__.load({
 				} catch (error) {
 					if (error?.code !== "NO_DESKTOP_SHELL") throw error;
 				}
+			}
+			const fileName = await browserDownloadVerifiedBinary(url);
+			return { fileName, native: false };
+		}
+		/** Desktop workflow: save the actual Office artifact, then use the Windows Office/WPS association to open it. */
+		async function openOfficeArtifact(url) {
+			if (window.parent !== window) {
+				const saved = await saveArtifactViaDesktop(url);
+				if (saved?.cancelled) throw new Error("已取消保存");
+				if (!saved?.filePath) throw new Error("桌面客户端未返回保存路径");
+				await openSavedPathViaDesktop(saved.filePath);
+				return { ...saved, native: true };
 			}
 			const fileName = await browserDownloadVerifiedBinary(url);
 			return { fileName, native: false };
@@ -720,7 +757,19 @@ window.__ModuleLoader__.load({
 				setMachineReviews((old) => ({ ...old, [context.key]: detail }));
 				return detail;
 			};
-			const openPreview = (target) => { setPreview(target); setReviewVisible(false); setApproval(null); };
+			// Desktop does not use an in-app Office preview or a review gate: save the
+			// actual DOCX/PPTX and let the user's default Office/WPS association open it.
+			const openPreview = (target) => {
+				const isPpt = target.kind === "ppt";
+				const key = `${isPpt ? "open-ppt" : "open-report"}:${target.report.id}`;
+				void run(key, async () => {
+					const url = isPpt
+						? `/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(target.report.id)}`
+						: `/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(target.report.id)}`;
+					const opened = await openOfficeArtifact(url);
+					notify(opened.native ? `${isPpt ? "PPT" : "精读报告"} 已交给本机 Office/WPS 打开` : `${isPpt ? "PPT" : "精读报告"} 已下载`);
+				});
+			};
 			const closePreview = () => { setPreview(null); setReviewVisible(false); setApproval(null); };
 			const toggleMachineReview = () => {
 				if (reviewVisible) { setReviewVisible(false); return; }
@@ -907,7 +956,7 @@ window.__ModuleLoader__.load({
 						].filter(Boolean).join(" · ");
 						const artifactState = awaitingPdf
 							? `${metadata || "元数据已登记"} · 待上传 PDF`
-							: `${metadata ? `${metadata} · ` : ""}DOCX${report.review?.status === "approved" ? "已审核可下载" : (report.docxPath ? "已暂存待审核" : "待生成")} · 自查${report.paperCardPath ? (report.audit?.ok ? "无明显问题" : "有提醒") : "待执行"}${presentation ? ` · PPT${presentation.review?.status === "approved" ? "已审核可下载" : (presentation.pptxPath ? "已暂存待审核" : "生成中")}` : ""}`;
+							: `${metadata ? `${metadata} · ` : ""}DOCX${report.docxPath ? "已生成" : "待生成"}${presentation ? ` · PPT${presentation.pptxPath ? "已生成" : "生成中"}` : ""}`;
 						return h("div", { key: report.id, onClick: report.id in overview ? () => setOverview((old) => { const n = { ...old }; delete n[report.id]; return n; }) : undefined },
 							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
 								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
@@ -915,8 +964,8 @@ window.__ModuleLoader__.load({
 									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "网页预览 PDF 原文（预览页可下载）" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面"), onClick: (event) => bundlePdfUrl ? previewBundlePdf(event, bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
 									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
-									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "打开报告预览、审核与下载" : "DOCX 尚未暂存" }, "报告"),
-									h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "打开 PPT 预览、审核与下载" : "尚未生成或暂存 PPT" }, "PPT")
+									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "保存后用本机 Office 或 WPS 打开精读报告" : "DOCX 尚未生成" }, busy[`open-report:${report.id}`] ? "打开中…" : "打开报告"),
+									h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "保存后用本机 Office 或 WPS 打开 PPT" : "尚未生成 PPT" }, busy[`open-ppt:${report.id}`] ? "打开中…" : "打开PPT")
 								)
 							),
 							captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : null,

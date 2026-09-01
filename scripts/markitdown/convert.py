@@ -12,7 +12,23 @@ import json
 import sys
 
 
+def configure_utf8_stdio() -> None:
+    """Keep JSON protocol and diagnostics Unicode-safe on legacy Windows code pages.
+
+    MarkItDown's extracted text can contain symbols such as ✉ and non-breaking
+    hyphens.  When this helper is launched by Node on a Chinese Windows system,
+    Python may otherwise choose the GBK console encoding for its stdout pipe and
+    fail while printing the JSON response.  Output files already use UTF-8; the
+    process protocol must use the same encoding.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 def main() -> int:
+    configure_utf8_stdio()
     if len(sys.argv) >= 2 and sys.argv[1] == "--check":
         try:
             from markitdown import MarkItDown  # noqa: F401
