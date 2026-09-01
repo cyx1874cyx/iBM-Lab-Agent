@@ -516,8 +516,7 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /downloadOfficeArtifact/);
 	assert.match(client, /saveArtifactViaDesktop/);
 	assert.match(client, /DESKTOP_SAVE_FAILED/);
-	assert.match(client, /SAVE_ARTIFACT/);
-	assert.match(client, /本地若被阻止/);
+	assert.doesNotMatch(client, /saveArtifactViaExtension/, "Office 保存不得再经过浏览器扩展");
 	assert.match(client, /PPT 下载成功/);
 	assert.match(client, /保存位置：\$\{saved\.filePath \|\| saved\.fileName\}/);
 	assert.match(client, /\.ib-toast\{position:fixed;z-index:1100/, "下载提示必须显示在 PPT 预览层上方");
@@ -527,58 +526,50 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /const token = task\?\.token/, "前端必须从 Remote task 对象读取一次性令牌");
 	assert.doesNotMatch(client, /encodeURIComponent\(result\.token\)/, "不得从错误的顶层字段读取令牌");
 	assert.match(client, /响应缺少一次性令牌/, "异常响应不得继续打开带 undefined 令牌的地址");
-	assert.match(client, /ARM_CAPTURE/);
-	assert.match(client, /ARM_CAPTURE_RESULT/);
-	assert.match(client, /未收到文献捕获扩展确认/);
+	assert.doesNotMatch(client, /armExtension/, "普通 iBM 页面不得直接连接浏览器扩展");
 	assert.match(client, /armCaptureFor/);
-	assert.match(client, /openExternalUrl\(publisherUrl\)/);
 	assert.match(client, /openInEdgeViaShell/);
 	assert.match(client, /等待下一次/, "显示等待下一次下载提示");
-	// 扩展完成通知 → 重新拉取 workspace（onChanged）
-	assert.match(client, /CAPTURE_COMPLETED/);
-	assert.match(client, /ibm-lit-capture-ext/);
+	// 桌面主界面不依赖扩展注入；轮询服务端任务状态后刷新 workspace。
+	assert.match(client, /manual_capture_get/);
+	assert.match(client, /task\?\.status === "completed"/);
 	// 不显示公众号链接：前端不含 mp.weixin.qq.com 域名，微信来源不回退 sourceUrl
 	assert.ok(!client.includes("mp.weixin.qq.com"), "前端不含公众号域名");
 	assert.match(client, /bundle\.sourceType === "wechat" \|\| !bundle\.sourceUrl/, "微信来源不回退到公众号链接");
 });
 
-test("capture: 扩展仅在用户授权的可信站点注入，桥接使用受限绝对路径", async () => {
+test("capture: 扩展仅作为桌面 loopback handoff 下载桥", async () => {
 	const manifest = JSON.parse(await readFile(join(extensionRoot, "manifest.json"), "utf8"));
-	assert.equal(manifest.content_scripts, undefined, "不再向所有网页静态注入 content script");
-	assert.ok(manifest.permissions.includes("activeTab"));
-	assert.ok(manifest.permissions.includes("scripting"));
-	assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
+	assert.deepEqual(manifest.permissions, ["downloads", "storage", "nativeMessaging"]);
+	assert.equal(manifest.optional_host_permissions, undefined);
+	assert.deepEqual(manifest.content_scripts[0].matches, [
+		"http://127.0.0.1/lab/capture/*",
+		"http://localhost/lab/capture/*"
+	]);
 	const background = await readFile(join(extensionRoot, "background.js"), "utf8");
-	assert.match(background, /SET_TRUSTED_ORIGIN/);
-	assert.match(background, /!originsMatch\(senderOrigin, trustedOrigin\)/);
-	assert.match(background, /!originsMatch\(url\.origin, trustedOrigin\)/);
+	assert.match(background, /validateHandoffSender/);
+	assert.match(background, /senderUrl\.pathname !== `\/lab\/capture\/\$\{taskId\}`/);
+	assert.match(background, /url\.origin !== senderUrl\.origin/);
 	assert.match(background, /state !== "complete" && state !== "interrupted"/);
-	assert.match(background, /downloadPath:/);
-	assert.match(background, /validateArtifactUrl/);
-	assert.match(background, /save_artifact/);
-	assert.match(background, /!originsMatch\(senderOrigin, trustedOrigin\)/);
+	assert.match(background, /const downloadPath = String\(item\.filename/);
 	assert.match(background, /item\.startTime/);
-	assert.match(background, /PREPARE_TRUSTED_ORIGIN/, "权限弹窗关闭扩展小窗后仍可恢复授权流程");
-	assert.match(background, /chrome\.permissions\.onAdded/, "权限授予后由后台完成可信站点注册");
-	assert.match(background, /chrome\.scripting\.executeScript/, "后台立即注入当前可信页面");
+	assert.doesNotMatch(background, /TRUSTED_ORIGIN|SET_TRUSTED_ORIGIN|PREPARE_TRUSTED_ORIGIN/);
+	assert.doesNotMatch(background, /SAVE_ARTIFACT|save_artifact|validateArtifactUrl/);
 	const content = await readFile(join(extensionRoot, "content.js"), "utf8");
 	assert.match(content, /ARM_CAPTURE_RESULT/);
-	assert.match(content, /SAVE_ARTIFACT_ACK/);
-	assert.match(content, /SAVE_ARTIFACT_RESULT/);
+	assert.doesNotMatch(content, /SAVE_ARTIFACT_ACK|SAVE_ARTIFACT_RESULT/);
 	assert.match(content, /ok: true, taskId:/);
 	assert.match(content, /__ibmLiteratureCaptureContentLoaded/, "重复注入时不重复注册消息监听器");
 	const popup = await readFile(join(extensionRoot, "popup.js"), "utf8");
-	assert.doesNotMatch(popup, /chrome\.tabs\.reload/, "信任当前页面不应强制刷新 iBM 页面");
-	assert.match(popup, /正在授权/, "授权时直接向用户显示进行中状态");
-	assert.match(popup, /trustError/, "授权错误显示在可信站点卡片中");
+	assert.doesNotMatch(popup, /trust|permissions\.request|chrome\.tabs/);
 	const installer = await readFile(join(extensionRoot, "native-bridge", "install-bridge.py"), "utf8");
 	assert.match(installer, /REG_SZ, manifest_path/);
 	assert.doesNotMatch(installer, /REG_SZ, manifest\)/);
 	const host = await readFile(join(extensionRoot, "native-bridge", "host.py"), "utf8");
 	assert.match(host, /message\.get\("downloadPath"/);
 	assert.match(host, /os\.path\.commonpath/);
-	assert.match(host, /validate_artifact_url/);
-	assert.match(host, /X-Content-SHA256/);
-	assert.match(host, /validate_office_package/);
-	assert.match(host, /Zone\.Identifier/);
+	assert.match(host, /validate_upload_url/);
+	assert.doesNotMatch(host, /save_artifact|validate_artifact_url/);
+	assert.match(host, /X-Capture-Source/);
+	assert.match(host, /download bridge accepts upload only/);
 });

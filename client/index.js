@@ -175,47 +175,7 @@ window.__ModuleLoader__.load({
 			}
 			return browserDownloadVerifiedBinary(url);
 		}
-		/** 让受信任浏览器扩展调用 Windows 本地桥接保存 Office 文件。 */
-		function saveArtifactViaExtension(url) {
-			return new Promise((resolve, reject) => {
-				const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-				let settled = false;
-				let acknowledged = false;
-				const finish = (callback, value) => {
-					if (settled) return;
-					settled = true;
-					clearTimeout(readyTimer);
-					clearTimeout(completionTimer);
-					window.removeEventListener("message", onResult);
-					callback(value);
-				};
-				const onResult = (event) => {
-					if (event.source !== window || event.origin !== location.origin) return;
-					const data = event.data;
-					if (!data || data.source !== "ibm-lit-capture-ext" || data.requestId !== requestId) return;
-					if (data.type === "SAVE_ARTIFACT_ACK") {
-						acknowledged = true;
-						clearTimeout(readyTimer);
-						return;
-					}
-					if (data.type !== "SAVE_ARTIFACT_RESULT") return;
-					if (data.payload?.ok) finish(resolve, data.payload);
-					else finish(reject, new Error(data.payload?.error || "本地桥接保存失败"));
-				};
-				const readyTimer = setTimeout(() => {
-					if (!acknowledged) finish(reject, new Error("未检测到 iBM 浏览器扩展"));
-				}, 1800);
-				const completionTimer = setTimeout(() => finish(reject, new Error("本地桥接保存超时（5 分钟）")), 5 * 60 * 1000);
-				window.addEventListener("message", onResult);
-				try {
-					const artifactUrl = new URL(url, location.origin).href;
-					window.postMessage({ source: "ibm-lab-agent", type: "SAVE_ARTIFACT", requestId, payload: { artifactUrl } }, location.origin);
-				} catch (reason) {
-					finish(reject, reason);
-				}
-			});
-		}
-		/** Office 文件：Desktop 用 Tauri 原生另存为；Web 用扩展桥接或浏览器下载。 */
+		/** Office 文件：Desktop 用 Tauri 原生另存为；Web 使用浏览器校验下载。 */
 		async function downloadOfficeArtifact(url) {
 			if (window.parent !== window) {
 				try {
@@ -226,13 +186,8 @@ window.__ModuleLoader__.load({
 					if (error?.code !== "NO_DESKTOP_SHELL") throw error;
 				}
 			}
-			try {
-				const saved = await saveArtifactViaExtension(url);
-				return { ...saved, native: true };
-			} catch (bridgeError) {
-				const fileName = await browserDownloadVerifiedBinary(url);
-				return { fileName, native: false, bridgeError: bridgeError?.message || String(bridgeError) };
-			}
+			const fileName = await browserDownloadVerifiedBinary(url);
+			return { fileName, native: false };
 		}
 		/** 已归档 PDF 使用同源 inline 响应交给浏览器原生 PDF 阅读器；阅读器内仍可下载。 */
 		function openPdfPreview(url) {
@@ -650,53 +605,40 @@ window.__ModuleLoader__.load({
 					.catch(() => { /* 状态面板会重试，静默即可 */ });
 				return () => { alive = false; };
 			}, [call]);
-			const desktopEdgeHandoff = browserMode === "desktop-edge-handoff";
-			// 扩展完成/失败后通知本页（content script 经 window.postMessage 转发）。
+			const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
+			// 桌面模式不在普通 iBM 页面注入扩展。服务端是捕获状态的唯一事实来源，
+			// 布防后轮询任务，完成时刷新当前课题的文件状态。
 			useEffect(() => {
-				const onCaptureMessage = (event) => {
-					if (event.source !== window || event.origin !== location.origin) return;
-					const data = event.data;
-					if (!data || data.source !== "ibm-lit-capture-ext") return;
-					if (data.type === "CAPTURE_COMPLETED" || data.type === "CAPTURE_FAILED") {
-						setCaptureHint(null);
-						if (data.type === "CAPTURE_FAILED") notify(`文献捕获失败：${data.payload?.error || "未知错误"}`);
-						else notify("文献捕获完成，文件已归档到课题，按钮已点亮");
-						void onChanged();
-					}
+				const taskId = captureHint?.taskId;
+				if (!taskId) return undefined;
+				let disposed = false;
+				let timer;
+				const poll = async () => {
+					try {
+						const result = await call("manual_capture_get", { request: { taskId } });
+						if (disposed) return;
+						const task = result?.task;
+						if (task?.status === "completed") {
+							setCaptureHint(null);
+							notify("文献捕获完成，文件已归档到课题，按钮已点亮");
+							void onChanged();
+							return;
+						}
+						if (["failed", "expired", "cancelled"].includes(task?.status)) {
+							setCaptureHint(null);
+							notify(`文献捕获失败：${task?.error || "任务未完成"}`);
+							return;
+						}
+					} catch { /* 临时查询失败时继续等待，服务端恢复后会再次检查 */ }
+					timer = setTimeout(() => void poll(), 1500);
 				};
-				window.addEventListener("message", onCaptureMessage);
-				return () => window.removeEventListener("message", onCaptureMessage);
-			}, [onChanged]);
-			/** 通知 iBM 页面内的扩展 content script：布防下一次手工下载捕获。 */
-			const armExtension = (payload) => new Promise((resolve, reject) => {
-				const requestId = globalThis.crypto?.randomUUID?.() ?? `capture-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-				let settled = false;
-				const finish = (callback, value) => {
-					if (settled) return;
-					settled = true;
-					clearTimeout(timer);
-					window.removeEventListener("message", onResult);
-					callback(value);
-				};
-				const onResult = (event) => {
-					if (event.source !== window || event.origin !== location.origin) return;
-					const data = event.data;
-					if (!data || data.source !== "ibm-lit-capture-ext" || data.type !== "ARM_CAPTURE_RESULT" || data.requestId !== requestId) return;
-					if (data.payload?.ok) finish(resolve, data.payload);
-					else finish(reject, new Error(data.payload?.error || "扩展布防失败"));
-				};
-				const timer = setTimeout(() => finish(reject, new Error("未收到文献捕获扩展确认；请安装扩展，并在扩展弹窗中信任当前 iBM 页面")), 3000);
-				window.addEventListener("message", onResult);
-				try { window.postMessage({ source: "ibm-lab-agent", type: "ARM_CAPTURE", requestId, payload }, location.origin); }
-				catch (reason) { finish(reject, reason); }
-			});
+				void poll();
+				return () => { disposed = true; clearTimeout(timer); };
+			}, [captureHint?.taskId, call, onChanged]);
 			/**
-			 * 点击未获取的 PDF/SI 按钮：同步打开出版社页面（避免弹窗被拦截），
-			 * 异步创建一次性捕获任务并通知扩展。无 DOI 的微信来源条目直接拒绝，
-			 * 绝不回退到公众号链接。
-			 * desktop-edge-handoff：WebView2 不是扩展宿主，改为创建任务后把
-			 * capture handoff 页面交给 Desktop 在外部 Microsoft Edge 中打开，
-			 * 扩展在 Edge 标签页内完成布防与回传。
+			 * 点击未获取的 PDF/SI：Windows 桌面应用创建一次性任务，把本机 handoff
+			 * 页面交给外部 Edge；扩展只在 handoff 页面完成布防。普通 Web 宿主不再
+			 * 直接与扩展通信。
 			 */
 			const armCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
@@ -730,20 +672,7 @@ window.__ModuleLoader__.load({
 						.catch((reason) => notify(reason.message || "创建捕获任务失败"));
 					return;
 				}
-				// Web 宿主（DSH 页面在 Edge/Chrome 标签页中运行）：同步打开出版社页面
-				// 再布防当前标签页内的扩展 Content Script。
-				void openExternalUrl(publisherUrl);
-				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
-					.then(async (result) => {
-						const task = result?.task;
-						const token = task?.token;
-						if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
-						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(token)}`;
-						await armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
-						setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
-						notify(`已布防捕获：请在打开的出版社页面下载 ${task.kind === "pdf" ? "PDF" : "SI"}，扩展会自动上传并点亮按钮`);
-					})
-					.catch((reason) => notify(reason.message || "创建捕获任务失败"));
+				notify("文献自动捕获仅支持 iBM Lab Agent Windows 桌面应用");
 			};
 			const markBusy = (key, value) => setBusy((old) => ({ ...old, [key]: value }));
 			const run = async (key, work) => {
@@ -800,11 +729,11 @@ window.__ModuleLoader__.load({
 			};
 			const downloadReport = (report) => run(`rep:${report.id}`, async () => {
 				const saved = await downloadOfficeArtifact(`/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(report.id)}`);
-				notify(saved.native ? `报告下载成功\n保存位置：${saved.filePath || saved.fileName}` : `报告下载已开始：${saved.fileName}\n本地若被阻止，请安装或更新 iBM 本地桥接`);
+				notify(saved.native ? `报告下载成功\n保存位置：${saved.filePath || saved.fileName}` : `报告下载已开始：${saved.fileName}`);
 			});
 			const downloadPpt = (report) => run(`ppt:${report.id}`, async () => {
 				const saved = await downloadOfficeArtifact(`/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(report.id)}`);
-				notify(saved.native ? `PPT 下载成功\n保存位置：${saved.filePath || saved.fileName}` : `PPT 下载已开始：${saved.fileName}\n本地若被阻止，请安装或更新 iBM 本地桥接`);
+				notify(saved.native ? `PPT 下载成功\n保存位置：${saved.filePath || saved.fileName}` : `PPT 下载已开始：${saved.fileName}`);
 			});
 			const rejectArtifact = () => {
 				const context = reviewContext();

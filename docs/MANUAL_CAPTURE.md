@@ -18,10 +18,10 @@
    │ chrome.downloads.onChanged 匹配类型（PDF→.pdf；SI→pdf/zip/docx/xlsx/csv/txt/cif/sdf）
    │ 扩展只捕获布防之后的下一份**匹配**下载；其余下载一律忽略
    ▼
-Service Worker → Native Messaging（本地桥接 host.py）
+Service Worker → Native Messaging（桌面内置 Node Host；开发回退为 host.py）
    │ 桥接读取该下载文件（绝对路径必须位于批准的下载目录内）并 PUT 上传
    ▼
-PUT /api/lab-capture-upload?token=...   （仅接受 chrome-extension:// Origin；100 MB 上限）
+PUT /api/lab-capture-upload?token=...   （一次性令牌 + native-bridge 来源；100 MB 上限）
    │ %PDF- 头 / %%EOF / 大小 / SHA-256 校验（PDF）；扩展名白名单（SI）
    │ 临时文件 + 原子重命名保存到 课题工作区/captured-literature/<bundleId>/
    ▼
@@ -29,12 +29,12 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
    │ PDF → pdfPath/pdfSha256/acquisitionStatus=ready；SI → siPath/siSha256
    │ 记录 provenance source = manual-browser-capture
    ▼
-扩展通知页面（CAPTURE_COMPLETED）→ 页面重新拉取 workspace → 按钮点亮
+桌面页面轮询服务端任务状态 → 重新拉取 workspace → 按钮点亮
 ```
 
 ## 安全边界
 
-- 只有收到 iBM 页面明确的 `ARM_CAPTURE` 消息后才开始监听下载；一次只允许一个
+- 只有收到本机桌面 handoff 页面明确的 `ARM_CAPTURE` 消息后才开始监听下载；一次只允许一个
   待捕获任务；只捕获布防之后出现的下一份匹配下载。
 - 令牌为 32 字节随机一次性值，**数据库只存 SHA-256**，明文只在创建响应中出现一次；
   完成 / 失败 / 过期后令牌立即失效，重放返回 409。
@@ -65,12 +65,13 @@ Chrome 扩展 **Service Worker 不支持稳定读取下载后的本地文件**�
 返回绝对本地路径。因此采用 **Chrome Native Messaging 本地桥接**：
 
 - 扩展只向桥接程序发送：一次性上传地址（含 token）、任务编号、Chrome 返回的下载路径；
-- 本地桥接（`browser-extension/ibm-literature-capture/native-bridge/host.py`）解析
+- 桌面版内置的 Node Native Host（独立开发时可用 `native-bridge/host.py`）解析
   Chrome/Edge 配置与系统 Downloads 目录，只允许读取这些目录内的**指定文件**并 PUT 上传；
 - 桥接不读取 Cookie、浏览历史或任何其他文件。
 
-扩展不会向全部网页静态注入。用户必须先在扩展弹窗中把当前 iBM 页面设为可信
-站点；后台同时校验消息来源与上传接口同源，其他网页无法布防或指定上传服务器。
+扩展只向桌面应用生成的本机 `127.0.0.1/localhost` `/lab/capture/*` handoff 页面
+静态注入布防桥，不提供站点信任功能，也不注入普通 iBM、出版社或机构页面。后台
+同时校验 handoff 任务编号、端口同源和一次性上传地址，其他网页无法布防。
 
 ## 安装
 
@@ -100,7 +101,8 @@ curl -sS -i -X OPTIONS http://127.0.0.1:3080/api/lab-capture-upload | head -5
    `browser-extension/ibm-literature-capture/` 目录；
 3. 记下扩展卡片上显示的 **32 位字母 id**（形如 `abcdefghijklmnop…`，全部是
    a–p 字母）；
-4. 安装本地桥接（需本机 Python 3，Windows）：
+4. 启动 iBM Lab Agent 桌面应用，桌面版会自动注册内置 Node 桥接。仅在不运行桌面版的
+   独立开发环境中，才需用 Python 手动安装：
 
    ```cmd
    cd browser-extension\ibm-literature-capture\native-bridge
@@ -108,8 +110,7 @@ curl -sS -i -X OPTIONS http://127.0.0.1:3080/api/lab-capture-upload | head -5
    ```
 
 5. 回到 `chrome://extensions`，点击扩展卡片的 **刷新** 按钮重新加载；
-6. 打开 iBM Lab 页面，点击扩展图标 → **信任当前 iBM 页面**，页面会自动刷新；
-7. 进入文献精读，点击灰色 PDF/SI 按钮验证。
+6. 进入桌面应用的文献精读，点击灰色 PDF/SI 按钮验证；无需授权或信任网页。
 
 > 若扩展 id 因重新打包而变化，需要重新运行 `install-bridge.py <新 id>`。
 
@@ -127,7 +128,7 @@ python install-bridge.py --uninstall
 | 现象 | 原因与处理 |
 |---|---|
 | popup 显示「本地桥接未注册 / Specified native messaging host not found」 | 没有运行 `install-bridge.py`，或扩展后来被**重新加载/重打包**导致 id 变化。用 `chrome://extensions` 里的新 id 重跑 `python install-bridge.py <扩展id>`，再用 `python install-bridge.py <扩展id> --verify` 校验，最后刷新扩展 |
-| 页面提示「未收到文献捕获扩展确认」 | 扩展未安装，或尚未信任当前 iBM 站点。打开扩展弹窗点击“信任当前 iBM 页面”，等待页面刷新后重试 |
+| 页面提示「未收到文献捕获扩展确认」 | 扩展未安装、未重新加载到 0.5.0，或旧版动态脚本仍残留。打开 `edge://extensions` 重新加载；仍失败时移除旧版后重新加载扩展目录 |
 | 点击按钮提示「无法启动捕获：未登记 DOI」 | 该文献（尤其是公众号来源）没有 DOI。请先在对话中让 Agent 解析 DOI，或改用全文下载队列 |
 | 点击按钮提示「已有一个进行中的捕获任务」 | 同一篇文献的同一类型已有未过期的布防；等待 20 分钟过期或取消后重试 |
 | 上传后按钮仍灰色 | 上传失败，扩展 popup 会显示错误；常见：文件类型不匹配（PDF 任务只收 `.pdf`；SI 只收 pdf/zip/docx/xlsx/csv/txt/cif/sdf）、PDF 损坏（无 `%PDF-` 头或 `%%EOF`） |

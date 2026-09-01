@@ -1,12 +1,23 @@
 {
   "manifest_version": 3,
   "name": "iBM Lab 文献捕获",
-  "version": "0.4.0",
-  "description": "为 iBM Lab Agent 捕获用户明确布防的文献下载，并通过本地桥接安全保存已审核的 PPTX/DOCX。只处理用户主动发起的任务，不读取 Cookie、历史或其他文件。",
+  "version": "0.5.0",
+  "description": "iBM Lab Agent 桌面应用专用下载桥：监听已布防的 PDF/SI 下载，并归档到对应课题。",
   "minimum_chrome_version": "102",
-  "permissions": ["activeTab", "downloads", "storage", "nativeMessaging", "scripting"],
-  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": ["downloads", "storage", "nativeMessaging"],
+  "host_permissions": [
+    "http://127.0.0.1/lab/capture/*",
+    "http://localhost/lab/capture/*"
+  ],
+  "content_scripts": [{
+    "matches": [
+      "http://127.0.0.1/lab/capture/*",
+      "http://localhost/lab/capture/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_start",
+    "all_frames": false
+  }],
   "background": {
     "service_worker": "background.js"
   },

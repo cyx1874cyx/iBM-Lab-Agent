@@ -18,7 +18,7 @@ Run `browser-extension/ibm-literature-capture/package-store.ps1` and submit the 
 
 | Desktop | Extension | Native host | Notes |
 |---|---|---|---|
-| 0.1.7 | 0.4.0 | `com.ibm.lab.capture` | Native save router, DPAPI credentials, Job Object cleanup, policy diagnostics |
+| 0.1.8 | 0.5.0 | `com.ibm.lab.capture` | Loopback-only download capture bridge; native save router; DPAPI; Job Object |
 
 ## Clean-machine checklist
 

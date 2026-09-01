@@ -1,48 +1,38 @@
-# iBM Lab 文献捕获扩展（MV3）
+# iBM Lab 文献下载桥（MV3）
 
-配合 iBM Lab Agent 使用：用户在文献精读面板点击灰色 PDF/SI 按钮后，本扩展
-捕获**下一次匹配类型的手工下载**，经本地桥接上传并登记到原文献条目；用户下载
-已审核的 PPTX/DOCX 时，Windows 桌面版使用 Tauri 原生“另存为”；Web 版仍可由
-本地桥接校验并保存。
+本扩展只配合 iBM Lab Agent Windows 桌面应用工作。用户在文献条目中点击尚未获取的
+PDF/SI 后，桌面应用会在 Edge 打开一个本机 handoff 页面；扩展从该页面接收一次性
+任务，监听随后出现的下一份匹配下载，并通过 Native Messaging 上传。服务端依据任务
+绑定关系把文件归档到对应课题目录。
 
-## 目录
+## 边界
 
-- `manifest.json` — Manifest V3；站点权限由用户在 iBM 页面明确授权，不再向所有
-  网页静态注入脚本
-- `background.js` — Service Worker：布防（ARM_CAPTURE）、安全保存
-  （SAVE_ARTIFACT）、下载匹配、状态机、Native Messaging 与页面通知
-- `content.js` — 页面（`window.postMessage`）↔ 扩展（`chrome.runtime`）桥
-- `popup.html/js/css` — 六状态（未启动/等待下载/上传中/完成/失败/取消）+ 取消按钮
-- `icons/` — 扩展图标
-- `native-bridge/` — 本地桥接：`host.py`（读取捕获文件并上传；校验并保存
-  PPTX/DOCX）、
-  `com.ibm.lab.capture.json`（host manifest 模板）、`install-bridge.py`
-  （Windows 注册脚本）、`bridge.cmd`、`make-icons.py`
+- 只在 `127.0.0.1/localhost` 的 `/lab/capture/*` 页面注入布防桥。
+- 不需要也不提供“信任当前页面”。
+- 不向出版社、学校数据库或普通 iBM 页面注入脚本。
+- 不读取 Cookie、浏览历史或未布防的下载文件。
+- 不保存 PPTX/DOCX；桌面应用的报告/PPT 下载由 Tauri 原生文件服务负责。
+- Native Host 只接受 `upload`，目标必须是本机一次性捕获接口；项目目标目录由服务端
+  决定，扩展不能指定。
 
-## 为什么需要本地桥接
+## 文件
 
-Chrome 扩展 Service Worker 不支持稳定读取或修复下载后的本地文件。因此文件读取、
-上传和 Office 产物保存交给 Native Messaging 本地桥接。桥接只接受已授权页面发起的
-本机 iBM 产物地址，只向 Chrome/Edge 配置或系统下载目录写入通过大小、SHA-256 和
-OOXML 包结构校验的 PPTX/DOCX，不读取 Cookie、浏览历史或其他目录中的文件。
-
-## Edge Add-ons 发布包
-
-运行 `package-store.ps1` 生成不包含开发期 Native Host 脚本的商店提交 ZIP。首次在
-Microsoft Partner Center 审核通过并获得固定 Catalog ID 后，将该 ID 写入发布环境的
-`IBM_LAB_EXTENSION_ID`；桌面安装包会把同一 ID 编译进 Native Messaging
-`allowed_origins`。具体发布门禁见 `docs/windows-release.md`。
+- `manifest.json` — 最小权限、固定 loopback handoff 注入范围。
+- `background.js` — 单任务状态机、下载匹配、Native Messaging 上传。
+- `content.js` — handoff 页面到扩展的 `ARM_CAPTURE` 单向桥。
+- `popup.*` — 只显示等待/归档/完成/失败状态，可取消等待中的任务。
+- `native-bridge/host.py` — 无桌面安装包时的开发回退 Host；正式桌面版使用内置 Node Host。
 
 ## 开发模式安装
 
-1. `chrome://extensions` → 开发者模式 → 加载已解压的扩展程序 → 选择本目录；
-2. 记下扩展 id（32 位 a–p 字母）；
-3. `python native-bridge\install-bridge.py <扩展 id>`；
-4. 刷新扩展；
-5. 打开 iBM 页面，点击扩展图标，再点击“信任当前 iBM 页面”。
+1. 打开 `edge://extensions`，启用开发者模式。
+2. 选择“加载解压缩的扩展”，指向本目录。
+3. 记下扩展 ID；未运行桌面版时可执行
+   `python native-bridge\install-bridge.py <扩展ID>` 注册开发 Host。
+4. 运行 iBM Lab Agent 桌面应用，再从文献条目点击 PDF/SI。无需进行网页信任操作。
 
-升级扩展后请重新执行第 3 步并刷新扩展，确保 Windows 注册的桥接路径和当前扩展 id
-一致。桌面客户端会自动注册 Node 版桥接；上面的 Python 注册步骤仅用于不运行桌面
-客户端时的扩展独立开发。
+升级到 0.5.0 后必须在 `edge://extensions` 点击“重新加载”，以清除旧版动态内容脚本和
+可选站点权限。必要时先移除旧版扩展再重新加载本目录。
 
-完整流程与失败排查见仓库 `docs/MANUAL_CAPTURE.md`。
+运行 `package-store.ps1` 可生成 Edge Add-ons 提交 ZIP。正式桌面安装包会用固定扩展 ID
+注册 `com.ibm.lab.capture` Native Host。

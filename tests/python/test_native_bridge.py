@@ -1,13 +1,8 @@
-import hashlib
 import importlib.util
-import io
-import os
 from pathlib import Path
 import tempfile
 import threading
 import unittest
-import urllib.parse
-import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -18,100 +13,79 @@ HOST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HOST)
 
 
-def minimal_pptx():
-    output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as package:
-        package.writestr("[Content_Types].xml", "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>")
-        package.writestr("ppt/presentation.xml", "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"/>")
-    return output.getvalue()
+class UploadHandler(BaseHTTPRequestHandler):
+    received = None
 
-
-def minimal_docx():
-    output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as package:
-        package.writestr("[Content_Types].xml", "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>")
-        package.writestr("word/document.xml", "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"/>")
-    return output.getvalue()
-
-
-class ArtifactHandler(BaseHTTPRequestHandler):
-    payload = minimal_pptx()
-    advertised_hash = hashlib.sha256(payload).hexdigest()
-    content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    file_name = "reviewed-deck.pptx"
-
-    def do_GET(self):
+    def do_PUT(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        UploadHandler.received = {
+            "path": self.path,
+            "file_name": self.headers.get("X-File-Name"),
+            "body": self.rfile.read(length),
+        }
+        body = b'{"ok":true}'
         self.send_response(200)
-        self.send_header("Content-Type", self.content_type)
-        self.send_header("Content-Length", str(len(self.payload)))
-        self.send_header("X-Content-SHA256", self.advertised_hash)
-        self.send_header("X-File-Name", urllib.parse.quote(self.file_name))
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(self.payload)
+        self.wfile.write(body)
 
     def log_message(self, _format, *_args):
         return
 
 
-class NativeBridgeArtifactTests(unittest.TestCase):
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.original_downloads_dirs = HOST.downloads_dirs
-        HOST.downloads_dirs = lambda: [self.temp_dir.name]
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), ArtifactHandler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.origin = f"http://127.0.0.1:{self.server.server_port}"
-        self.url = self.origin + "/api/lab-artifacts?kind=ppt&reportId=report-1"
+class NativeDownloadBridgeTests(unittest.TestCase):
+    def test_only_accepts_loopback_capture_upload(self):
+        valid = "http://127.0.0.1:3080/api/lab-capture-upload?token=once"
+        self.assertEqual(HOST.validate_upload_url(valid), valid)
+        for invalid in (
+            "https://127.0.0.1/api/lab-capture-upload?token=x",
+            "http://example.com/api/lab-capture-upload?token=x",
+            "http://127.0.0.1/api/lab-artifacts?token=x",
+            "http://127.0.0.1/api/lab-capture-upload",
+            "http://127.0.0.1/api/lab-capture-upload?token=x&extra=1",
+        ):
+            with self.assertRaises(ValueError):
+                HOST.validate_upload_url(invalid)
 
-    def tearDown(self):
-        ArtifactHandler.payload = minimal_pptx()
-        ArtifactHandler.advertised_hash = hashlib.sha256(ArtifactHandler.payload).hexdigest()
-        ArtifactHandler.content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        ArtifactHandler.file_name = "reviewed-deck.pptx"
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=2)
-        HOST.downloads_dirs = self.original_downloads_dirs
-        self.temp_dir.cleanup()
+    def test_resolve_download_path_stays_in_approved_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original = HOST.downloads_dirs
+            HOST.downloads_dirs = lambda: [directory]
+            try:
+                file_path = Path(directory) / "paper.pdf"
+                file_path.write_bytes(b"%PDF-1.7\n%%EOF")
+                resolved, error = HOST.resolve_download_path(str(file_path))
+                self.assertIsNone(error)
+                self.assertEqual(Path(resolved), file_path)
+                outside, error = HOST.resolve_download_path(str(Path(directory).parent / "outside.pdf"))
+                self.assertIsNone(outside)
+                self.assertIn("outside approved", error)
+            finally:
+                HOST.downloads_dirs = original
 
-    def test_saves_verified_pptx_without_zone_identifier(self):
-        result = HOST.save_artifact(self.url, self.origin)
-        destination = Path(result["filePath"])
-        self.assertTrue(result["ok"])
-        self.assertEqual(destination.read_bytes(), ArtifactHandler.payload)
-        self.assertFalse(os.path.exists(str(destination) + ":Zone.Identifier"))
+    def test_upload_puts_download_into_capture_endpoint(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), UploadHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                payload = b"%PDF-1.7\nbridge-test\n%%EOF"
+                file_path = Path(directory) / "paper.pdf"
+                file_path.write_bytes(payload)
+                url = f"http://127.0.0.1:{server.server_port}/api/lab-capture-upload?token=test"
+                result = HOST.upload(url, str(file_path), "paper.pdf")
+                self.assertTrue(result["ok"])
+                self.assertEqual(UploadHandler.received["body"], payload)
+                self.assertEqual(UploadHandler.received["file_name"], "paper.pdf")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
-    def test_uses_collision_safe_name(self):
-        first = HOST.save_artifact(self.url, self.origin)
-        second = HOST.save_artifact(self.url, self.origin)
-        self.assertNotEqual(first["filePath"], second["filePath"])
-        self.assertTrue(second["fileName"].endswith(" (1).pptx"))
-
-    def test_saves_verified_docx(self):
-        ArtifactHandler.payload = minimal_docx()
-        ArtifactHandler.advertised_hash = hashlib.sha256(ArtifactHandler.payload).hexdigest()
-        ArtifactHandler.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ArtifactHandler.file_name = "reading-report.docx"
-        url = self.origin + "/api/lab-artifacts?kind=report&format=docx&reportId=report-1"
-        result = HOST.save_artifact(url, self.origin)
-        self.assertEqual(Path(result["filePath"]).read_bytes(), ArtifactHandler.payload)
-        self.assertEqual(result["fileName"], "reading-report.docx")
-
-    def test_rejects_hash_mismatch_and_removes_temporary_file(self):
-        ArtifactHandler.advertised_hash = "0" * 64
-        with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
-            HOST.save_artifact(self.url, self.origin)
-        self.assertEqual(list(Path(self.temp_dir.name).iterdir()), [])
-
-    def test_rejects_non_loopback_and_unapproved_parameters(self):
-        with self.assertRaisesRegex(ValueError, "loopback"):
-            HOST.validate_artifact_url(
-                "https://example.com/api/lab-artifacts?kind=ppt&reportId=report-1",
-                "https://example.com",
-            )
-        with self.assertRaisesRegex(ValueError, "unsupported"):
-            HOST.validate_artifact_url(self.url + "&preview=1", self.origin)
+    def test_office_artifact_api_removed(self):
+        self.assertFalse(hasattr(HOST, "save_artifact"))
+        self.assertFalse(hasattr(HOST, "validate_artifact_url"))
 
 
 if __name__ == "__main__":

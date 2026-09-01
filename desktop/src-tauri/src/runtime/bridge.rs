@@ -70,7 +70,7 @@ pub fn valid_extension_id(value: &str) -> bool {
 fn build_manifest(wrapper: &Path, extension_id: &str) -> String {
     let manifest = serde_json::json!({
         "name": HOST_NAME,
-        "description": "iBM Lab 本地桥接：捕获文献文件，并安全保存已审核的 PPTX/DOCX",
+        "description": "iBM Lab 桌面下载桥：将已布防的文献下载归档到对应课题",
         "path": wrapper.display().to_string(),
         "type": "stdio",
         "allowed_origins": [format!("chrome-extension://{extension_id}/")]

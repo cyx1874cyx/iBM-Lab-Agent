@@ -1,16 +1,14 @@
 /**
  * iBM Lab 文献捕获 — content script。
- * 双向桥：iBM 页面（window.postMessage）↔ 扩展 Service Worker（chrome.runtime）。
- * 只转发用户主动发起的 ARM_CAPTURE / SAVE_ARTIFACT 消息与扩展结果通知，
- * 不注入任何公众号链接，也不读取页面 Cookie/凭据。
+ * 单向布防桥：本机 handoff 页面（window.postMessage）→ 扩展 Service Worker。
+ * 本文件只会由 manifest 注入 127.0.0.1/localhost 的 /lab/capture/* 页面；
+ * 不注入出版社、机构或普通 iBM 页面，也不读取 Cookie/凭据。
  */
 (() => {
-  // 授权弹窗会把桥接立即注入当前页面；后续导航时，动态 content script 还会
-  // 自动运行。使用隔离世界内的标记避免同一页面重复注册消息监听器。
   if (globalThis.__ibmLiteratureCaptureContentLoaded) return;
   globalThis.__ibmLiteratureCaptureContentLoaded = true;
 
-  // 页面 → SW：布防下一次下载捕获，或请求本地桥接保存 Office 产物。
+  // handoff 页面 → SW：只允许布防下一次下载捕获。
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== location.origin) return;
     const data = event.data;
@@ -35,21 +33,6 @@
         });
       return;
     }
-    if (data.type === "SAVE_ARTIFACT") {
-      reply("SAVE_ARTIFACT_ACK", { ok: true });
-      chrome.runtime.sendMessage({ type: "SAVE_ARTIFACT", payload: data.payload })
-        .then((response) => reply("SAVE_ARTIFACT_RESULT", response?.ok
-          ? response
-          : { ok: false, error: response?.error || "本地桥接保存失败" }))
-        .catch((error) => reply("SAVE_ARTIFACT_RESULT", { ok: false, error: String(error?.message || error || "扩展不可用") }));
-    }
-  });
-
-  // SW → 页面：上传完成/失败/进行中
-  chrome.runtime.onMessage.addListener((message) => {
-    if (!message) return;
-    if (["CAPTURE_COMPLETED", "CAPTURE_FAILED", "CAPTURE_UPLOADING"].includes(message.type)) {
-      window.postMessage({ source: "ibm-lit-capture-ext", type: message.type, payload: message.payload || {} }, location.origin);
-    }
+    // 其他页面消息一律忽略。
   });
 })();
