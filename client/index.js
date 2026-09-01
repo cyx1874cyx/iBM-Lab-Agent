@@ -719,8 +719,10 @@ window.__ModuleLoader__.load({
 				if (desktopEdgeHandoff) {
 					void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
 						.then(async (result) => {
-							const task = result.task;
-							const handoffUrl = `${location.origin}/lab/capture/${encodeURIComponent(task.id)}#t=${encodeURIComponent(result.token)}`;
+							const task = result?.task;
+							const token = task?.token;
+							if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
+							const handoffUrl = `${location.origin}/lab/capture/${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
 							await openInEdgeViaShell(handoffUrl);
 							setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
 							notify(`已布防捕获：将在 Microsoft Edge 中打开出版社页面，下载 ${task.kind === "pdf" ? "PDF" : "SI"} 后扩展会自动上传并点亮按钮`);
@@ -733,8 +735,10 @@ window.__ModuleLoader__.load({
 				void openExternalUrl(publisherUrl);
 				void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
 					.then(async (result) => {
-						const task = result.task;
-						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(result.token)}`;
+						const task = result?.task;
+						const token = task?.token;
+						if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
+						const uploadUrl = `${location.origin}/api/lab-capture-upload?token=${encodeURIComponent(token)}`;
 						await armExtension({ id: task.id, kind: task.kind, expiresAt: task.expiresAt, uploadUrl });
 						setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
 						notify(`已布防捕获：请在打开的出版社页面下载 ${task.kind === "pdf" ? "PDF" : "SI"}，扩展会自动上传并点亮按钮`);

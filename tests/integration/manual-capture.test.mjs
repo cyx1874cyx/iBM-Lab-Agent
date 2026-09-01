@@ -524,6 +524,9 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 	assert.match(client, /aria-live": "polite"/, "下载完成提示应对辅助技术可见");
 	// 未获取 → 灰色可点击：同步打开出版社页 + 异步创建捕获任务 + 通知扩展
 	assert.match(client, /manual_capture_create/);
+	assert.match(client, /const token = task\?\.token/, "前端必须从 Remote task 对象读取一次性令牌");
+	assert.doesNotMatch(client, /encodeURIComponent\(result\.token\)/, "不得从错误的顶层字段读取令牌");
+	assert.match(client, /响应缺少一次性令牌/, "异常响应不得继续打开带 undefined 令牌的地址");
 	assert.match(client, /ARM_CAPTURE/);
 	assert.match(client, /ARM_CAPTURE_RESULT/);
 	assert.match(client, /未收到文献捕获扩展确认/);
