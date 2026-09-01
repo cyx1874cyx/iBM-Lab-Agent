@@ -25,6 +25,10 @@ if (-not $NodeExe -or -not (Test-Path -LiteralPath $NodeExe)) {
 if (-not (Test-Path -LiteralPath (Join-Path $dshSource '@deepseek-ai\dsh\lib\bin.js'))) {
   throw "DeepSeek Harness payload was not found at $dshSource"
 }
+$bundledPython = Join-Path $resourceRoot 'python\dist\python.exe'
+if (-not (Test-Path -LiteralPath $bundledPython)) {
+  throw "Bundled Python is missing: $bundledPython. Run scripts/build-bundled-python.ps1 before prepare-runtime."
+}
 
 $targets = @('node', 'dsh', 'plugin') | ForEach-Object { Join-Path $resourceRoot $_ }
 foreach ($target in $targets) {
@@ -88,4 +92,4 @@ Copy-Item -LiteralPath (Join-Path $sourceRoot 'vendor.lock.json') -Destination (
 New-Item -ItemType Directory -Force -Path (Join-Path $resourceRoot 'plugin\python') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'python\requirements.lock') -Destination (Join-Path $resourceRoot 'plugin\python\requirements.lock') -Force
 
-Write-Host 'Bundled Node, DSH 0.1.1-rc.2, iBM Lab plugin, preset, and Python lock were prepared.'
+Write-Host 'Bundled Node, DSH 0.1.1-rc.2, iBM Lab plugin, preset, bundled Python, and Python lock were prepared.'

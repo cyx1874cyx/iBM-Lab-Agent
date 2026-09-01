@@ -25,6 +25,9 @@ jobs:
         working-directory: runtime/launcher
       - run: npm ci
         working-directory: desktop
+      - run: .\scripts\build-bundled-python.ps1 -SourceRoot ..
+        working-directory: desktop
+        shell: pwsh
       - run: .\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
         working-directory: desktop
         shell: pwsh

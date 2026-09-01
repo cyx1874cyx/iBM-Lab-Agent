@@ -18,7 +18,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { resolvePythonExecutable } from "./python-env.js";
+import { resolvePythonExecutable, bundledPythonFromEnv } from "./python-env.js";
 import { searchAcademicLiterature } from "./literature/search-engine.js";
 
 const PYTHON_HTTP_FETCH = [
@@ -69,8 +69,7 @@ export class SkillExecutor {
 		return await new Promise((resolve, reject) => {
 			const child = spawn(command[0], [...command.slice(1), "-c", PYTHON_HTTP_FETCH, String(url), accept], {
 				env: { ...process.env },
-				stdio: ["ignore", "pipe", "pipe"],
-				shell: this.platform === "win32"
+				stdio: ["ignore", "pipe", "pipe"]
 			});
 			const stdout = [], stderr = [];
 			child.stdout.on("data", (chunk) => stdout.push(chunk));
@@ -100,7 +99,11 @@ export class SkillExecutor {
 	 */
 	async resolvePython() {
 		if (this._pythonResolved) return this._pythonResolved;
-		const resolved = await resolvePythonExecutable({ venvPython: this.venvPython, platform: this.platform });
+		const resolved = await resolvePythonExecutable({
+			venvPython: this.venvPython,
+			bundledPython: bundledPythonFromEnv(),
+			platform: this.platform
+		});
 		if (resolved.command) this._pythonResolved = resolved;
 		return resolved;
 	}
@@ -136,8 +139,7 @@ export class SkillExecutor {
 		return new Promise((resolve, reject) => {
 			const child = spawn(command[0], [...command.slice(1), script, ...args], {
 				env: { ...process.env },
-				stdio: ["ignore", "pipe", "pipe"],
-				shell: this.platform === "win32"
+				stdio: ["ignore", "pipe", "pipe"]
 			});
 			let stdout = "";
 			let stderr = "";

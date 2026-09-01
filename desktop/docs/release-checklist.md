@@ -1,7 +1,7 @@
 # Release checklist
 
 1. Build from the pinned `iBM-Lab-Agent-release` source and run its unit, integration, and regression suites first.
-2. Run `npm run prepare-runtime`, then `npm run verify-package` before the Tauri build.
+2. Run `build-bundled-python.ps1`, then `npm run prepare-runtime` and `npm run verify-package` before the Tauri build.
 3. Build the NSIS installer and re-run `verify-package` with its `-InstallerPath` argument.
 4. On a clean Windows user profile, install the executable and start it twice. The second launch must focus the first window.
 5. Confirm the startup window changes from its progress screen to DSH without opening a browser; confirm failure view offers retry and logs.

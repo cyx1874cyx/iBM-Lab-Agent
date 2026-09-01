@@ -21,7 +21,7 @@ const asJson = process.argv.includes("--json");
 
 function probePython(code) {
 	return new Promise((resolve2) => {
-		const child = spawn(python, ["-c", code], { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
+		const child = spawn(python, ["-c", code], { stdio: ["ignore", "pipe", "pipe"] });
 		let out = "";
 		let err = "";
 		child.stdout.on("data", (c) => (out += c));

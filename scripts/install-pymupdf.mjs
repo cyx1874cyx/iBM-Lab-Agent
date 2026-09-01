@@ -33,8 +33,7 @@ function run(args) {
 	return new Promise((resolve2, reject) => {
 		const child = spawn(args[0], args.slice(1), {
 			env: { ...process.env },
-			stdio: "inherit",
-			shell: process.platform === "win32"
+			stdio: "inherit"
 		});
 		child.on("error", reject);
 		child.on("exit", (code) => (code === 0 ? resolve2() : reject(new Error(`command failed (${code}): ${args.join(" ")}`))));

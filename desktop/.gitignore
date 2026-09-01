@@ -1,6 +1,7 @@
 /src-tauri/resources/node/
 /src-tauri/resources/dsh/
 /src-tauri/resources/plugin/
+/src-tauri/resources/python/
 /src-tauri/target/
 /src-tauri/gen/
 /dist/

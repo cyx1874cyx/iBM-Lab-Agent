@@ -133,6 +133,7 @@ pub fn spawn_dsh(
         .env("DSH_HOME", &layout.dsh_home)
         .env("DSH_HARNESS_NODE_MODULES", layout.dsh_node_modules())
         .env("IBM_LAB_AGENT_WORKSPACE", &layout.workspace_dir)
+        .env("IBM_LAB_AGENT_BUNDLED_PYTHON", layout.bundled_python())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

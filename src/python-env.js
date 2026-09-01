@@ -42,8 +42,7 @@ export function runCommand(args, { cwd, env }) {
 		const child = spawn(args[0], args.slice(1), {
 			cwd,
 			env: { ...process.env, ...env },
-			stdio: ["ignore", "inherit", "inherit"],
-			shell: process.platform === "win32"
+			stdio: ["ignore", "inherit", "inherit"]
 		});
 		child.on("error", reject);
 		child.on("exit", (code, signal) => {
@@ -104,8 +103,7 @@ export async function bootstrap({ venvDir, lockFile, platform = process.platform
 async function pythonIsUsable(python, platform) {
 	try {
 		const child = spawn(python, ["-I", "-c", "import encodings, sys; assert sys.prefix"], {
-			stdio: "ignore",
-			shell: platform === "win32"
+			stdio: "ignore"
 		});
 		await new Promise((resolve, reject) => {
 			child.on("error", reject);
@@ -121,8 +119,7 @@ async function pythonIsUsable(python, platform) {
 async function pythonVersionFrom(args, platform) {
 	try {
 		const child = spawn(args[0], [...args.slice(1), "--version"], {
-			stdio: ["ignore", "pipe", "pipe"],
-			shell: platform === "win32"
+			stdio: ["ignore", "pipe", "pipe"]
 		});
 		let stdout = "";
 		let stderr = "";
@@ -164,6 +161,17 @@ export async function pythonVersion(venvDir, platform = process.platform) {
  * 每个候选形如 `{ command: string[], source }`，command 可直接作为
  * `spawn(...command, args)` 的前缀（py launcher 需要多 token 表达）。
  */
+
+/**
+ * 桌面打包环境注入的捆绑 Python（Rust 启动 DSH 子进程时设置
+ * IBM_LAB_AGENT_BUNDLED_PYTHON 环境变量）。未设置或文件不存在时返回
+ * undefined，各 resolver 自然回退到 venv / 系统 python。
+ */
+export function bundledPythonFromEnv(env = process.env) {
+	const value = env.IBM_LAB_AGENT_BUNDLED_PYTHON;
+	return value && existsSync(value) ? value : undefined;
+}
+
 export function pythonCandidates({ venvPython, bundledPython, platform = process.platform } = {}) {
 	const candidates = [];
 	if (venvPython && existsSync(venvPython)) candidates.push({ command: [venvPython], source: "venv" });
@@ -184,8 +192,9 @@ export function pythonCandidates({ venvPython, bundledPython, platform = process
  * 全部不可用时返回 `{ command: null, source: "unavailable", version: "" }`。
  * Windows 上绝不回退到不存在的 "python3"；Store alias（python.exe）的
  * 非零退出码会被 [pythonVersionFrom] 过滤，不会误判为已安装。
+ * 桌面打包环境自动纳入 bundled Python（默认参数读取环境变量）。
  */
-export async function resolvePythonExecutable({ venvPython, bundledPython, platform = process.platform } = {}) {
+export async function resolvePythonExecutable({ venvPython, bundledPython = bundledPythonFromEnv(), platform = process.platform } = {}) {
 	for (const candidate of pythonCandidates({ venvPython, bundledPython, platform })) {
 		const version = await pythonVersionFrom(candidate.command, platform);
 		if (version) return { ...candidate, version };

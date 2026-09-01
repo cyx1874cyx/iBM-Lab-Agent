@@ -57,6 +57,19 @@ impl RuntimeLayout {
     pub fn dsh_node_modules(&self) -> PathBuf {
         self.resources.join("dsh").join("node_modules")
     }
+    /// Bundled Python interpreter (resources/python/dist), platform-aware.
+    /// dist/ is a self-contained Python install (interpreter + stdlib +
+    /// site-packages all in one tree), so the packaged app works offline
+    /// without any system Python. Note: a copied venv is NOT portable on
+    /// Windows (pyvenv.cfg pins the base interpreter), hence the dist layout.
+    pub fn bundled_python(&self) -> PathBuf {
+        let dist = self.resources.join("python").join("dist");
+        if cfg!(windows) {
+            dist.join("python.exe")
+        } else {
+            dist.join("bin").join("python3")
+        }
+    }
 }
 
 fn copy_tree(source: &Path, target: &Path) -> Result<(), RuntimeError> {

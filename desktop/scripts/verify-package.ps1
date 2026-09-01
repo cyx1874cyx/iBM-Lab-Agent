@@ -14,6 +14,7 @@ $required = @(
   'plugin\dsh-lab-agent\package.json',
   'plugin\dsh-lab-agent\vendor\nature-skills',
   'plugin\dsh-lab-agent\python\requirements.lock',
+  'python\dist\python.exe',
   'plugin\presets\lab-research\agent.cordis.yml',
   'plugin\python\requirements.lock'
 )
@@ -24,6 +25,9 @@ foreach ($relativePath in $required) {
 
 $node = Join-Path $resourceRoot 'node\node.exe'
 $dshBin = Join-Path $resourceRoot 'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'
+$python = Join-Path $resourceRoot 'python\dist\python.exe'
+$pythonCheck = & $python -I -c 'import markitdown; print(markitdown.__name__)'
+if ($LASTEXITCODE -ne 0 -or $pythonCheck -ne 'markitdown') { throw 'Bundled Python cannot import markitdown.' }
 $temporaryHome = Join-Path ([System.IO.Path]::GetTempPath()) ("ibm-lab-desktop-verify-" + [guid]::NewGuid())
 $smokeProcess = $null
 try {
@@ -58,8 +62,10 @@ try {
     $stderrPath = Join-Path $temporaryHome 'web-smoke.stderr.log'
     $previousHarnessModules = $env:DSH_HARNESS_NODE_MODULES
     $previousWorkspace = $env:IBM_LAB_AGENT_WORKSPACE
+    $previousBundledPython = $env:IBM_LAB_AGENT_BUNDLED_PYTHON
     $env:DSH_HARNESS_NODE_MODULES = Join-Path $resourceRoot 'dsh\node_modules'
     $env:IBM_LAB_AGENT_WORKSPACE = $temporaryHome
+    $env:IBM_LAB_AGENT_BUNDLED_PYTHON = Join-Path $resourceRoot 'python\dist\python.exe'
     try {
       $smokeProcess = Start-Process -FilePath $node -ArgumentList @(
         $dshBin, '--profile', 'ibm-lab', '--no-open', '--host', '127.0.0.1', '--port', $port
@@ -110,6 +116,7 @@ try {
       }
       $env:DSH_HARNESS_NODE_MODULES = $previousHarnessModules
       $env:IBM_LAB_AGENT_WORKSPACE = $previousWorkspace
+      $env:IBM_LAB_AGENT_BUNDLED_PYTHON = $previousBundledPython
     }
   }
 } finally {

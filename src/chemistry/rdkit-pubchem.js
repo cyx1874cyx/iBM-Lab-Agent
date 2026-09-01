@@ -15,7 +15,7 @@
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { resolvePythonExecutable } from "../python-env.js";
+import { bundledPythonFromEnv, resolvePythonExecutable } from "../python-env.js";
 
 export class RdkitUnavailableError extends Error {
 	name = "RdkitUnavailableError";
@@ -24,7 +24,7 @@ export class RdkitUnavailableError extends Error {
 /** 运行 rdkit calc.py；返回 { available, result }。 */
 export async function runRdkitCalc(venvPython, smiles, { timeoutMs = 30000, platform = process.platform } = {}) {
 	const script = fileURLToPath(new URL("../../scripts/rdkit/calc.py", import.meta.url));
-	const resolved = await resolvePythonExecutable({ venvPython, platform });
+	const resolved = await resolvePythonExecutable({ venvPython, bundledPython: bundledPythonFromEnv(), platform });
 	if (!resolved.command) {
 		return { available: false, result: undefined, error: "no python available (venv missing and no py/python on PATH)" };
 	}
@@ -32,8 +32,7 @@ export async function runRdkitCalc(venvPython, smiles, { timeoutMs = 30000, plat
 	return new Promise((resolve) => {
 		const child = spawn(command[0], [...command.slice(1), script], {
 			env: { ...process.env },
-			stdio: ["pipe", "pipe", "pipe"],
-			shell: platform === "win32"
+			stdio: ["pipe", "pipe", "pipe"]
 		});
 		let stdout = "";
 		let stderr = "";

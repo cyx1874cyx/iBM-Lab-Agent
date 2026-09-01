@@ -16,13 +16,23 @@ corepack pnpm install --frozen-lockfile --prod
 Pop-Location
 Set-Location desktop
 npm ci
+.\scripts\build-bundled-python.ps1 -SourceRoot ..   # self-contained Python + markitdown
 .\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
 .\scripts\verify-package.ps1 -WebSmokeTest
 npx tauri build
-.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.10_x64-setup.exe'
+.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.11_x64-setup.exe'
 ```
 
 `prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its complete production dependency tree, locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. pnpm's redundant internal store is excluded after the flattened runtime has been materialized. Pass `-RuntimeSourceRoot` only when reusing a separately prepared `runtime\launcher\node_modules` tree, and pass `-NodeExe` when the intended Node binary is not supplied by the build environment.
+
+`build-bundled-python` materializes `resources\python\dist` — a self-contained
+Python 3.11 install (interpreter + stdlib + `site-packages` with the pinned
+`requirements.lock` plus `markitdown[pdf,docx,pptx,xls,xlsx]`), so document
+conversion and skill scripts work offline without any system Python. The
+desktop shell injects `IBM_LAB_AGENT_BUNDLED_PYTHON` into the DSH child
+process; the plugin resolver prefers this bundled interpreter (venv →
+bundled → system python). Do not replace it with a copied venv: Windows venvs
+pin the base interpreter via `pyvenv.cfg` and are not portable.
 
 `verify-package -WebSmokeTest` boots the packaged `ibm-lab` profile on an ephemeral loopback port, requires an HTTP success response, rejects duplicate `labAgent`/plugin-tree errors, and terminates the test process tree. The NSIS installer uses Tauri's `downloadBootstrapper` WebView2 mode: Windows 10/11 normally already provide WebView2, while a missing runtime is downloaded by the installer.
 
@@ -30,10 +40,11 @@ npx tauri build
 
 `tauri-build` walks every file declared in `bundle.resources` and emits one
 `rerun-if-changed` line per file. With the bundled DSH dependency tree
-(hundreds of thousands of files under `resources\dsh\`) this makes the
+(hundreds of thousands of files under `resources\dsh\`) and the bundled
+Python (tens of thousands under `resources\python\dist\`) this makes the
 build script appear frozen for 20+ minutes. Pass the config override below to
 skip that walk during compilation; the Tauri bundler still packages the full
-resources from `tauri.conf.json`, so the installer keeps Node/DSH/plugin:
+resources from `tauri.conf.json`, so the installer keeps Node/DSH/plugin/Python:
 
 ```powershell
 $env:TAURI_CONFIG = '{"bundle":{"resources":[]}}'
