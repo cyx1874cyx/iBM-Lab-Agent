@@ -63,16 +63,18 @@ test("isLoopbackRequest accepts loopback hosts only", () => {
 
 test("parseTaskId validates the capture id format", () => {
 	const service = makeService(ctxWithCapture());
-	assert.equal(service.parseTaskId("/lab/capture/capture-abc123"), "capture-abc123");
-	assert.equal(service.parseTaskId("/lab/capture/capture-abc123/"), "capture-abc123");
-	assert.equal(service.parseTaskId("/lab/capture/not-capture"), undefined);
-	assert.equal(service.parseTaskId("/lab/capture/capture-UPPER"), undefined);
+	assert.equal(service.parseTaskId("/lab/capture/?taskId=capture-abc123"), "capture-abc123");
+	assert.equal(service.parseTaskId("http://127.0.0.1:3080/lab/capture/?taskId=capture-abc123"), "capture-abc123");
+	assert.equal(service.parseTaskId("/lab/capture/?taskId=not-capture"), undefined);
+	assert.equal(service.parseTaskId("/lab/capture/?taskId=capture-UPPER"), undefined);
+	assert.equal(service.parseTaskId("/lab/capture/?taskId=capture-abc123&extra=1"), undefined);
+	assert.equal(service.parseTaskId("/lab/capture/capture-abc123"), undefined);
 	assert.equal(service.parseTaskId("/lab/capture/"), undefined);
 	assert.equal(service.parseTaskId("/lab/capture"), undefined);
 	assert.equal(service.parseTaskId("/other/path"), undefined);
 });
 
-test("registers the handoff route prefix on init", async () => {
+test("registers the fixed handoff route on init", async () => {
 	const ctx = ctxWithCapture();
 	const service = makeService(ctx);
 	// 模拟 cordis [Service.init]：直接执行与 init 相同的注册逻辑。
@@ -100,7 +102,7 @@ test("serves the handoff page with task metadata but never the token", async () 
 	const service = makeService(ctx);
 	const res = responseCapture();
 	await service.handleHandoff(
-		{ headers: { host: "127.0.0.1:3080" }, url: "/lab/capture/capture-ab12cd" },
+		{ headers: { host: "127.0.0.1:3080" }, url: "/lab/capture/?taskId=capture-ab12cd" },
 		res
 	);
 	assert.equal(res.status, 200);
@@ -118,7 +120,7 @@ test("rejects non-loopback requests with 403", async () => {
 	const service = makeService(ctx);
 	const res = responseCapture();
 	await service.handleHandoff(
-		{ headers: { host: "evil.example.com" }, url: "/lab/capture/capture-ab12cd" },
+		{ headers: { host: "evil.example.com" }, url: "/lab/capture/?taskId=capture-ab12cd" },
 		res
 	);
 	assert.equal(res.status, 403);
@@ -130,7 +132,7 @@ test("returns 404 for unknown task ids", async () => {
 	const service = makeService(ctx);
 	const res = responseCapture();
 	await service.handleHandoff(
-		{ headers: { host: "localhost:3080" }, url: "/lab/capture/capture-unknown" },
+		{ headers: { host: "localhost:3080" }, url: "/lab/capture/?taskId=capture-unknown" },
 		res
 	);
 	assert.equal(res.status, 404);

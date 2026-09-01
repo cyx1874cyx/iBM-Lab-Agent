@@ -18,6 +18,7 @@ Run `browser-extension/ibm-literature-capture/package-store.ps1` and submit the 
 
 | Desktop | Extension | Native host | Notes |
 |---|---|---|---|
+| 0.1.9 | 0.5.1 | `com.ibm.lab.capture` | Fixed-route Edge handoff (`/lab/capture/?taskId=...`); loopback-only download capture bridge |
 | 0.1.8 | 0.5.0 | `com.ibm.lab.capture` | Loopback-only download capture bridge; native save router; DPAPI; Job Object |
 
 ## Clean-machine checklist

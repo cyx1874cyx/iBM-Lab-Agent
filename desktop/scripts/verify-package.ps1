@@ -81,7 +81,29 @@ try {
       if ($stderr -match 'service\s+["'']labAgent["'']\s+has been registered|plugin tree failed to load') {
         throw "Bundled DSH Web reported a duplicate service or plugin-tree error:`n$stderr"
       }
+      $handoffUri = "http://127.0.0.1:$port/lab/capture/?taskId=capture-route-smoke"
+      if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')) {
+        $handoffResponse = Invoke-WebRequest -Uri $handoffUri -UseBasicParsing -TimeoutSec 2 -SkipHttpErrorCheck
+        $handoffStatus = [int]$handoffResponse.StatusCode
+        $handoffBody = [string]$handoffResponse.Content
+      } else {
+        try {
+          $handoffResponse = Invoke-WebRequest -Uri $handoffUri -UseBasicParsing -TimeoutSec 2
+          $handoffStatus = [int]$handoffResponse.StatusCode
+          $handoffBody = [string]$handoffResponse.Content
+        } catch {
+          $errorResponse = $_.Exception.Response
+          if (-not $errorResponse) { throw }
+          $handoffStatus = [int]$errorResponse.StatusCode
+          $reader = New-Object System.IO.StreamReader($errorResponse.GetResponseStream())
+          try { $handoffBody = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        }
+      }
+      if ($handoffStatus -ne 404 -or $handoffBody -ne 'capture task not found') {
+        throw "Bundled DSH fixed capture handoff route did not reach the plugin handler (status=$handoffStatus, body=$handoffBody)."
+      }
       Write-Host "Bundled DSH Web health check passed on 127.0.0.1:$port."
+      Write-Host 'Bundled DSH fixed capture handoff route check passed.'
     } finally {
       if ($smokeProcess -and -not $smokeProcess.HasExited) {
         & taskkill.exe /PID $smokeProcess.Id /T /F | Out-Null

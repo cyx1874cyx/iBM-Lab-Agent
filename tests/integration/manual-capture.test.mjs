@@ -548,7 +548,8 @@ test("capture: 扩展仅作为桌面 loopback handoff 下载桥", async () => {
 	]);
 	const background = await readFile(join(extensionRoot, "background.js"), "utf8");
 	assert.match(background, /validateHandoffSender/);
-	assert.match(background, /senderUrl\.pathname !== `\/lab\/capture\/\$\{taskId\}`/);
+	assert.match(background, /senderUrl\.pathname !== "\/lab\/capture\/"/);
+	assert.match(background, /senderUrl\.searchParams\.get\("taskId"\) !== taskId/);
 	assert.match(background, /url\.origin !== senderUrl\.origin/);
 	assert.match(background, /state !== "complete" && state !== "interrupted"/);
 	assert.match(background, /const downloadPath = String\(item\.filename/);

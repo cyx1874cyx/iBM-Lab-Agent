@@ -19,7 +19,7 @@ npm ci
 .\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
 .\scripts\verify-package.ps1 -WebSmokeTest
 npx tauri build
-.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.8_x64-setup.exe'
+.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.9_x64-setup.exe'
 ```
 
 `prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its complete production dependency tree, locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. pnpm's redundant internal store is excluded after the flattened runtime has been materialized. Pass `-RuntimeSourceRoot` only when reusing a separately prepared `runtime\launcher\node_modules` tree, and pass `-NodeExe` when the intended Node binary is not supplied by the build environment.

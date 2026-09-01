@@ -7,7 +7,7 @@ PDF/SI 后，桌面应用会在 Edge 打开一个本机 handoff 页面；扩展�
 
 ## 边界
 
-- 只在 `127.0.0.1/localhost` 的 `/lab/capture/*` 页面注入布防桥。
+- 只在 `127.0.0.1/localhost` 的固定 `/lab/capture/?taskId=...` 页面注入布防桥。
 - 不需要也不提供“信任当前页面”。
 - 不向出版社、学校数据库或普通 iBM 页面注入脚本。
 - 不读取 Cookie、浏览历史或未布防的下载文件。
@@ -31,7 +31,8 @@ PDF/SI 后，桌面应用会在 Edge 打开一个本机 handoff 页面；扩展�
    `python native-bridge\install-bridge.py <扩展ID>` 注册开发 Host。
 4. 运行 iBM Lab Agent 桌面应用，再从文献条目点击 PDF/SI。无需进行网页信任操作。
 
-升级到 0.5.0 后必须在 `edge://extensions` 点击“重新加载”，以清除旧版动态内容脚本和
+升级到 0.5.1 后必须在 `edge://extensions` 点击“重新加载”，使固定 handoff 路由和
+下载桥代码生效；从 0.4.x 升级时也会同时清除旧版动态内容脚本和
 可选站点权限。必要时先移除旧版扩展再重新加载本目录。
 
 运行 `package-store.ps1` 可生成 Edge Add-ons 提交 ZIP。正式桌面安装包会用固定扩展 ID

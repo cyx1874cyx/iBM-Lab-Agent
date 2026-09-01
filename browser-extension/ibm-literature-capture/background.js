@@ -2,7 +2,7 @@
  * iBM Lab 文献捕获 — 桌面应用专用下载桥（MV3 Service Worker）。
  *
  * 唯一职责：
- *   1. 接受本机 /lab/capture/<taskId> handoff 页的一次性布防；
+ *   1. 接受本机 /lab/capture/?taskId=<taskId> handoff 页的一次性布防；
  *   2. 监听布防后出现的下一份匹配 PDF/SI 下载；
  *   3. 通过 Native Messaging 把文件上传给桌面应用的 loopback 捕获接口，
  *      由服务端归档到任务绑定的项目目录。
@@ -32,7 +32,12 @@ function validateHandoffSender(sender, taskId) {
   if (!isLoopbackUrl(senderUrl) || senderUrl.username || senderUrl.password) {
     throw new Error("布防失败：只接受桌面应用的本机 handoff 页面");
   }
-  if (!CAPTURE_TASK_RE.test(taskId) || senderUrl.pathname !== `/lab/capture/${taskId}`) {
+  const queryKeys = [...senderUrl.searchParams.keys()];
+  if (!CAPTURE_TASK_RE.test(taskId)
+      || senderUrl.pathname !== "/lab/capture/"
+      || queryKeys.length !== 1
+      || queryKeys[0] !== "taskId"
+      || senderUrl.searchParams.get("taskId") !== taskId) {
     throw new Error("布防失败：handoff 页面与任务编号不匹配");
   }
   return senderUrl;

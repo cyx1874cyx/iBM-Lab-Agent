@@ -102,7 +102,7 @@ fn save_config(config: AppConfig, state: tauri::State<'_, AppState>) -> Result<(
 /// desktop-edge-handoff：在外部 Microsoft Edge 中打开 URL（URL Router）。
 ///
 /// 放行两类地址，其余一律拒绝，防止桌面客户端被用作任意网页启动器：
-///   1. loopback（127.0.0.1/localhost/[::1]）上的 /lab/capture/<id> capture handoff 页面；
+///   1. loopback（127.0.0.1/localhost/[::1]）上的 /lab/capture/?taskId=<id>#t=<token> 页面；
 ///   2. https:// 外部机构/出版社入口（DOI 跳转、学校数据库入口等）。
 #[tauri::command]
 fn open_in_edge(url: String) -> Result<(), String> {
@@ -111,13 +111,37 @@ fn open_in_edge(url: String) -> Result<(), String> {
         Some("127.0.0.1") | Some("localhost") | Some("[::1]") | Some("::1") => true,
         _ => false,
     };
-    let allowed = if is_loopback && parsed.path().starts_with("/lab/capture/") {
+    let capture_task_id = parsed.query_pairs().collect::<Vec<_>>();
+    let capture_fragment = parsed
+        .fragment()
+        .map(|fragment| url::form_urlencoded::parse(fragment.as_bytes()).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let valid_capture = parsed.scheme() == "http"
+        && parsed.path() == "/lab/capture/"
+        && capture_task_id.len() == 1
+        && capture_task_id[0].0 == "taskId"
+        && capture_task_id[0]
+            .1
+            .strip_prefix("capture-")
+            .is_some_and(|suffix| {
+                !suffix.is_empty()
+                    && suffix
+                        .bytes()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+            })
+        && capture_fragment.len() == 1
+        && capture_fragment[0].0 == "t"
+        && !capture_fragment[0].1.is_empty();
+    let allowed = if is_loopback && valid_capture {
         true
     } else {
         parsed.scheme() == "https" && parsed.host_str().is_some()
     };
     if !allowed {
-        return Err("only loopback /lab/capture/ or https URLs are allowed".to_string());
+        return Err(
+            "only an authenticated loopback /lab/capture/ URL or an https URL is allowed"
+                .to_string(),
+        );
     }
     let candidates = [
         std::path::PathBuf::from(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),

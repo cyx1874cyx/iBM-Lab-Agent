@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "iBM Lab 文献捕获",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "iBM Lab Agent 桌面应用专用下载桥：监听已布防的 PDF/SI 下载，并归档到对应课题。",
   "minimum_chrome_version": "102",
   "permissions": ["downloads", "storage", "nativeMessaging"],
