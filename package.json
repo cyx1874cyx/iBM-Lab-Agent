@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
   "private": true,
   "type": "module",

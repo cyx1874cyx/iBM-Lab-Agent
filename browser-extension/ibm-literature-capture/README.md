@@ -31,8 +31,11 @@ PDF/SI 后，桌面应用会在 Edge 打开一个本机 handoff 页面；扩展�
    `python native-bridge\install-bridge.py <扩展ID>` 注册开发 Host。
 4. 运行 iBM Lab Agent 桌面应用，再从文献条目点击 PDF/SI。无需进行网页信任操作。
 
-升级到 0.5.1 后必须在 `edge://extensions` 点击“重新加载”，使固定 handoff 路由和
-下载桥代码生效；从 0.4.x 升级时也会同时清除旧版动态内容脚本和
+扩展清单内置固定公钥，开发模式 ID 恒为 `jgmbofdnfjolmoipffalikkhmofnibaf`，从不同
+目录加载或解压升级时不会再使 Native Messaging 授权漂移。
+
+升级到 0.5.2 后必须在 `edge://extensions` 点击“重新加载”，使固定扩展 ID 和
+handoff 路由生效；从 0.4.x 升级时也会同时清除旧版动态内容脚本和
 可选站点权限。必要时先移除旧版扩展再重新加载本目录。
 
 运行 `package-store.ps1` 可生成 Edge Add-ons 提交 ZIP。正式桌面安装包会用固定扩展 ID

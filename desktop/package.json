@@ -1,6 +1,6 @@
 {
   "name": "ibm-lab-desktop",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "description": "Windows desktop shell for the pinned DSH + iBM Lab Agent runtime",
   "scripts": {

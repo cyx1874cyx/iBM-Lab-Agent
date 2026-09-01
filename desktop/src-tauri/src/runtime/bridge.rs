@@ -21,10 +21,10 @@ use super::{dsh::RuntimeLayout, logging::AppLogger, RuntimeError};
 
 pub const HOST_NAME: &str = "com.ibm.lab.capture";
 
-/// 默认扩展 id：P0-6 发布 Edge Add-ons 后固定；发布前与用户本机
-/// 「加载已解压的扩展程序」生成的 id 一致。可用环境变量
-/// IBM_LAB_EXTENSION_ID 覆盖（多开发机/CI 场景）。
-pub const DEFAULT_EXTENSION_ID: &str = "lnchddahblkaaphicaglckkpedmpbfkc";
+/// 默认扩展 id：由扩展 manifest.json 的固定 RSA 公钥确定，因此从任意
+/// 目录「加载已解压的扩展程序」都保持一致。正式商店构建仍可通过
+/// IBM_LAB_EXTENSION_ID 覆盖为 Edge Add-ons 分配的目录 ID。
+pub const DEFAULT_EXTENSION_ID: &str = "jgmbofdnfjolmoipffalikkhmofnibaf";
 
 const HOST_SUBKEYS: [(&str, &str); 2] = [
     ("Chrome", r"Software\Google\Chrome\NativeMessagingHosts"),
@@ -249,10 +249,10 @@ mod tests {
     #[test]
     fn accepts_only_32_character_a_to_p_ids() {
         let (_, sandbox) = sandbox_layout();
-        assert!(valid_extension_id("lnchddahblkaaphicaglckkpedmpbfkc"));
+        assert!(valid_extension_id("jgmbofdnfjolmoipffalikkhmofnibaf"));
         assert!(!valid_extension_id("abc"));
-        assert!(!valid_extension_id("lnchddahblkaaphicaglckkpedmpbfkz")); // 非法字符 z
-        assert!(!valid_extension_id("LNCHDDAHBLKAAPHICAGLCKKPEDMPBFKC")); // 大写
+        assert!(!valid_extension_id("jgmbofdnfjolmoipffalikkhmofnibaz")); // 非法字符 z
+        assert!(!valid_extension_id("JGMBOFDNFJOLMOIPFFALIKKHMOFNIBAF")); // 大写
         let _ = fs::remove_dir_all(sandbox);
     }
 
@@ -260,14 +260,14 @@ mod tests {
     fn builds_manifest_with_wrapper_path_and_origin() {
         let (layout, sandbox) = sandbox_layout();
         let paths = bridge_paths(&layout);
-        let manifest = build_manifest(&paths.wrapper, "lnchddahblkaaphicaglckkpedmpbfkc");
+        let manifest = build_manifest(&paths.wrapper, "jgmbofdnfjolmoipffalikkhmofnibaf");
         let parsed: serde_json::Value = serde_json::from_str(&manifest).unwrap();
         assert_eq!(parsed["name"], "com.ibm.lab.capture");
         assert_eq!(parsed["type"], "stdio");
         assert_eq!(parsed["path"], paths.wrapper.display().to_string());
         assert_eq!(
             parsed["allowed_origins"][0],
-            "chrome-extension://lnchddahblkaaphicaglckkpedmpbfkc/"
+            "chrome-extension://jgmbofdnfjolmoipffalikkhmofnibaf/"
         );
         let _ = fs::remove_dir_all(sandbox);
     }

@@ -127,8 +127,9 @@ python install-bridge.py --uninstall
 
 | 现象 | 原因与处理 |
 |---|---|
-| popup 显示「本地桥接未注册 / Specified native messaging host not found」 | 没有运行 `install-bridge.py`，或扩展后来被**重新加载/重打包**导致 id 变化。用 `chrome://extensions` 里的新 id 重跑 `python install-bridge.py <扩展id>`，再用 `python install-bridge.py <扩展id> --verify` 校验，最后刷新扩展 |
-| 页面提示「未收到文献捕获扩展确认」 | 扩展未安装、未重新加载到 0.5.1，或旧版动态脚本仍残留。打开 `edge://extensions` 重新加载；仍失败时移除旧版后重新加载扩展目录 |
+| popup 显示「本地桥接未注册 / Specified native messaging host not found」 | 桌面端未启动、版本低于 0.1.10，或开发 Host 未注册。正式桌面版请升级并重启；只用源码开发 Host 时运行 `python install-bridge.py jgmbofdnfjolmoipffalikkhmofnibaf`，再用 `--verify` 校验 |
+| 页面提示「未收到文献捕获扩展确认」 | 扩展未安装、未重新加载到 0.5.2，或旧版动态脚本仍残留。打开 `edge://extensions` 重新加载；仍失败时移除旧版后重新加载扩展目录 |
+| 下载后提示 `Access to the specified native messaging host is forbidden` | 扩展 ID 与桌面桥授权不一致。升级桌面端到 0.1.10、扩展到 0.5.2，重新加载扩展并重启桌面端；0.5.2 起开发模式 ID 由清单公钥固定 |
 | 点击按钮提示「无法启动捕获：未登记 DOI」 | 该文献（尤其是公众号来源）没有 DOI。请先在对话中让 Agent 解析 DOI，或改用全文下载队列 |
 | 点击按钮提示「已有一个进行中的捕获任务」 | 同一篇文献的同一类型已有未过期的布防；等待 20 分钟过期或取消后重试 |
 | 上传后按钮仍灰色 | 上传失败，扩展 popup 会显示错误；常见：文件类型不匹配（PDF 任务只收 `.pdf`；SI 只收 pdf/zip/docx/xlsx/csv/txt/cif/sdf）、PDF 损坏（无 `%PDF-` 头或 `%%EOF`） |

@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "iBM Lab 文献捕获",
-  "version": "0.5.1",
+  "version": "0.5.2",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAykdFvw/phSAYJuZAK6kuM8rqRYt/4PbNGb9N/8lTyaySCGkHWyPOGkiG8DjABN/SfRfB7ZLgXF/A1cXJgewl2sOJ3BfOkoV59cVqz26i+/NyBEeCalPg7bOBvFjpXkBviItl8+qpoe+vyGZsC4ZAAxXQw4R/46dGQfFWsJ43gIq+2Rw0lMnViaN49np2XgyP07Rlp4m0QH0uGav5Lj0lq8YWCetqIZXIu0Li/afkLawFAwbNS8PBNt4Zsg6oOxp/GZjya3GDOYdvQmGugSISQoAgKdi00s6GrNoZN6PJDRDYwEOjme01zlIy4r2gx0LF1bHJk7a7dSM6Na2BogpJtQIDAQAB",
   "description": "iBM Lab Agent 桌面应用专用下载桥：监听已布防的 PDF/SI 下载，并归档到对应课题。",
   "minimum_chrome_version": "102",
   "permissions": ["downloads", "storage", "nativeMessaging"],

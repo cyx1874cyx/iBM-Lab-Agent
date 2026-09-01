@@ -540,6 +540,11 @@ test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态�
 
 test("capture: 扩展仅作为桌面 loopback handoff 下载桥", async () => {
 	const manifest = JSON.parse(await readFile(join(extensionRoot, "manifest.json"), "utf8"));
+	const extensionDer = Buffer.from(manifest.key, "base64");
+	const extensionDigest = createHash("sha256").update(extensionDer).digest().subarray(0, 16);
+	const extensionId = [...extensionDigest].map((byte) =>
+		String.fromCharCode(97 + (byte >> 4), 97 + (byte & 0x0f))).join("");
+	assert.equal(extensionId, "jgmbofdnfjolmoipffalikkhmofnibaf", "manifest key 必须固定开发模式扩展 ID");
 	assert.deepEqual(manifest.permissions, ["downloads", "storage", "nativeMessaging"]);
 	assert.equal(manifest.optional_host_permissions, undefined);
 	assert.deepEqual(manifest.content_scripts[0].matches, [
