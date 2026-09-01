@@ -63,6 +63,14 @@ async fn save_artifact(
 }
 
 #[tauri::command]
+async fn open_artifact(url: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let runtime = Arc::clone(&state.0);
+    tauri::async_runtime::spawn_blocking(move || runtime.open_artifact(&url)).await
+        .map_err(|error| format!("Artifact open task failed: {error}"))?
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn open_path(path: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.0.open_path(&path).map_err(|error| error.to_string())
 }
@@ -194,6 +202,7 @@ fn main() {
             open_logs,
             open_workspace,
             save_artifact,
+            open_artifact,
             open_path,
             reveal_path,
             runtime_status,

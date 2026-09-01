@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use super::{config::AppConfig, dsh::RuntimeLayout, logging::AppLogger, RuntimeError};
 
 #[cfg(windows)]
@@ -118,6 +121,8 @@ pub fn spawn_dsh(
         path
     };
     let mut command = Command::new(layout.node_exe());
+	#[cfg(windows)]
+	command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     command
         .arg(layout.dsh_bin())
         .args([

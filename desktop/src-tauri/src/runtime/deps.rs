@@ -48,6 +48,15 @@ const OFFICE_CANDIDATES: [&str; 2] = [
     r"C:\Program Files\LibreOffice\program\soffice.exe",
     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
 ];
+const MS_OFFICE_CANDIDATES: [&str; 3] = [
+    r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE",
+    r"C:\Program Files (x86)\Microsoft Office\root\Office16\WINWORD.EXE",
+    r"C:\Program Files\Microsoft Office\Office16\WINWORD.EXE",
+];
+const WPS_CANDIDATES: [&str; 2] = [
+    r"C:\Program Files\WPS Office\ksolaunch.exe",
+    r"C:\Program Files (x86)\Kingsoft\WPS Office\ksolaunch.exe",
+];
 
 fn ok(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> DependencyStatus {
     DependencyStatus {
@@ -277,6 +286,10 @@ fn bridge_status(layout: &RuntimeLayout) -> DependencyStatus {
 }
 
 fn office_status() -> DependencyStatus {
+	for path in MS_OFFICE_CANDIDATES.iter().chain(WPS_CANDIDATES.iter()) {
+		let candidate = PathBuf::from(path);
+		if candidate.is_file() { return ok("office", "Office（默认打开程序）", candidate.display().to_string(), "检测到 Microsoft Office/WPS；报告和 PPT 会直接由系统默认程序打开。 "); }
+	}
     match find_libreoffice() {
         Some(path) => ok(
             "office",

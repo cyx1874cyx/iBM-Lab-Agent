@@ -182,6 +182,10 @@
         invoke('save_artifact', { url: String(data.payload?.artifactUrl || '') })
           .then((saved) => reply('SAVE_ARTIFACT_RESULT', { ok: true, saved }))
           .catch((error) => reply('SAVE_ARTIFACT_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'OPEN_ARTIFACT') {
+        invoke('open_artifact', { url: String(data.payload?.artifactUrl || '') })
+          .then(() => reply('OPEN_ARTIFACT_RESULT', { ok: true }))
+          .catch((error) => reply('OPEN_ARTIFACT_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'OPEN_SAVED_PATH') {
         invoke('open_path', { path: String(data.path || '') })
           .then(() => reply('OPEN_SAVED_PATH_RESULT', { ok: true }))

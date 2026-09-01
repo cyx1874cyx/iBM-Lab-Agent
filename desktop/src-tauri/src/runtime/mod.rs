@@ -284,6 +284,11 @@ impl RuntimeManager {
         }
         Ok(saved)
     }
+    pub fn open_artifact(&self, url: &str) -> Result<(), RuntimeError> {
+        let port = self.status.lock().map_err(|_| RuntimeError::new("Runtime status lock poisoned"))?.port
+            .ok_or_else(|| RuntimeError::new("Local runtime is not ready"))?;
+        files::open_artifact(url, port, &self.layout.state_dir.join("open-artifacts"))
+    }
 
     fn is_session_saved_path(&self, path: &std::path::Path) -> Result<bool, RuntimeError> {
         Ok(self

@@ -223,6 +223,25 @@ pub fn save_artifact(raw_url: &str, expected_port: u16) -> Result<SavedArtifact,
     result
 }
 
+/// Fetch a loopback artifact into the app-owned transient cache and open it
+/// with the Windows file association. No save dialog is shown.
+pub fn open_artifact(raw_url: &str, expected_port: u16, cache_dir: &Path) -> Result<(), RuntimeError> {
+    let url = validate_artifact_url(raw_url, expected_port)?;
+    let response = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(120))
+        .build().map_err(|e| RuntimeError::new(format!("Cannot initialize artifact request: {e}")))?
+        .get(url).send().map_err(|e| RuntimeError::new(format!("Artifact open failed: {e}")))?;
+    if !response.status().is_success() { return Err(RuntimeError::new(format!("Artifact open failed (HTTP {})", response.status()))); }
+    let file_name = safe_file_name(response.headers().get("x-file-name").and_then(|v| v.to_str().ok()).unwrap_or("artifact.bin"))?;
+    let bytes = response.bytes().map_err(|e| RuntimeError::new(format!("Artifact download was interrupted: {e}")))?;
+    if bytes.len() as u64 > MAX_ARTIFACT_BYTES { return Err(RuntimeError::new("Artifact exceeds the 256 MB desktop open limit")); }
+    fs::create_dir_all(cache_dir).map_err(|e| RuntimeError::new(format!("Cannot create artifact cache: {e}")))?;
+    let target = cache_dir.join(format!("{}-{}", std::process::id(), file_name));
+    fs::write(&target, &bytes).map_err(|e| RuntimeError::new(format!("Cannot cache artifact for opening: {e}")))?;
+    open_path(&target)
+}
+
 pub fn open_path(path: &Path) -> Result<(), RuntimeError> {
     if !path.exists() {
         return Err(RuntimeError::new(
