@@ -71,6 +71,10 @@ try {
   # 6) Verify the bundled interpreter stands alone and markitdown works.
   & (Join-Path $dist 'python.exe') -c "import sys; assert sys.prefix == r'$dist', sys.prefix; import markitdown; print('bundled python OK:', sys.version.split()[0])"
   if ($LASTEXITCODE -ne 0) { throw 'bundled python self-check failed' }
+
+  # 6b) Verify the pinned origin-mcp is importable and at the exact version.
+  & (Join-Path $dist 'python.exe') -c "import origin_mcp; assert origin_mcp.__version__ == '0.1.4', origin_mcp.__version__; print('origin-mcp OK:', origin_mcp.__version__)"
+  if ($LASTEXITCODE -ne 0) { throw 'bundled origin-mcp self-check failed' }
 } finally {
   if ($null -eq $previousPythonUtf8) { Remove-Item Env:PYTHONUTF8 -ErrorAction SilentlyContinue }
   else { $env:PYTHONUTF8 = $previousPythonUtf8 }

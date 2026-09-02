@@ -67,6 +67,11 @@ const MNOVA_CANDIDATES: [&str; 3] = [
     r"C:\Program Files\Mestrelab Research\MestReNova\MestReNova.exe",
     r"C:\Program Files (x86)\Mestrelab Research S.L\MestReNova\MestReNova.exe",
 ];
+const ORIGIN_EXE_NAMES: [&str; 3] = ["Origin64.exe", "Origin_64.exe", "Origin.exe"];
+const ORIGIN_LAB_ROOTS: [&str; 2] = [
+    r"C:\Program Files\OriginLab",
+    r"C:\Program Files (x86)\OriginLab",
+];
 
 fn ok(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> DependencyStatus {
     DependencyStatus {
@@ -371,6 +376,107 @@ fn policy_strings(root: HKEY, subkey: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// 在目录树中查找 Origin/OriginPro 主程序：根目录 + 一层子目录。
+fn find_origin_exe_under(root: &Path) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for name in ORIGIN_EXE_NAMES {
+        candidates.push(root.join(name));
+    }
+    if let Ok(entries) = fs::read_dir(root) {
+        for entry in entries.flatten() {
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            for name in ORIGIN_EXE_NAMES {
+                candidates.push(entry.path().join(name));
+            }
+        }
+    }
+    find_first(&candidates)
+}
+
+/// 遍历 Windows 卸载注册表，DisplayName 命中 OriginLab 产品且
+/// InstallLocation 下存在 Origin64.exe/Origin.exe 时返回该主程序路径。
+fn find_origin_via_registry() -> Option<PathBuf> {
+    let roots = [HKEY_LOCAL_MACHINE, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER];
+    let subkeys = [
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+    ];
+    for (root, subkey) in roots.iter().zip(subkeys.iter()) {
+        let Ok(key) = RegKey::predef(*root).open_subkey_with_flags(subkey, KEY_READ) else {
+            continue;
+        };
+        for name in key.enum_keys().filter_map(Result::ok) {
+            let Ok(app) = key.open_subkey_with_flags(&name, KEY_READ) else {
+                continue;
+            };
+            let display: Option<String> = app.get_value("DisplayName").ok();
+            let looks_like_origin = display.as_deref().is_some_and(|value| {
+                let value = value.to_ascii_lowercase();
+                (value.contains("originpro") || value.contains("originlab"))
+                    && value.contains("origin")
+            });
+            if !looks_like_origin {
+                continue;
+            }
+            let install_location: Option<String> = app.get_value("InstallLocation").ok();
+            if let Some(location) = install_location {
+                let dir = PathBuf::from(location.trim());
+                if let Some(exe) = find_origin_exe_under(&dir) {
+                    return Some(exe);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 查找本机 Origin/OriginPro 主程序。检测顺序：卸载注册表 →
+/// C:\Program Files\OriginLab → (x86)。不写死版本号目录。
+fn find_origin() -> Option<PathBuf> {
+    if let Some(path) = find_origin_via_registry() {
+        return Some(path);
+    }
+    for root in ORIGIN_LAB_ROOTS {
+        let root = PathBuf::from(root);
+        if root.is_dir() {
+            if let Some(path) = find_origin_exe_under(&root) {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+/// Doctor 聚合项：Origin/OriginPro 是否已安装 + origin-mcp 配置状态。
+/// Origin 未安装仅 warning——不影响主程序；Bridge/启动诊断见 mcp 子块。
+fn origin_status(layout: &RuntimeLayout) -> DependencyStatus {
+    let config = config::load(&layout.config_dir).unwrap_or_default();
+    let mcp_status = mcp::status(layout, &config, "origin", false);
+    let installed = find_origin();
+    let mut item = match installed {
+        Some(path) => ok(
+            "origin",
+            "Origin/OriginPro",
+            path.display().to_string(),
+            "已检测到 Origin 主程序；未启动也可由 origin-mcp Bridge 按需拉起。",
+        ),
+        None => warning(
+            "origin",
+            "Origin/OriginPro",
+            "未找到 Origin64.exe / Origin.exe",
+            "不影响桌面主功能；需要 Origin MCP 时才要求安装 Origin。",
+        ),
+    };
+    item.mcp_capable = true;
+    if mcp_status.configured {
+        item.mcp = Some(mcp_status);
+    }
+    item
+}
+
 fn edge_policy_status() -> DependencyStatus {
     const POLICY: &str = r"Software\Policies\Microsoft\Edge";
     let mut blocklist = Vec::new();
@@ -436,6 +542,7 @@ pub fn probe(layout: &RuntimeLayout) -> RuntimeDeps {
             bridge_status(layout),
             office_status(),
             mnova_status(layout),
+            origin_status(layout),
             edge_policy_status(),
         ],
         bridge: bridge::status(layout),
@@ -477,7 +584,7 @@ mod tests {
     fn probe_reports_all_six_deps_with_valid_states() {
         let (layout, sandbox) = sandbox_layout();
         let deps = probe(&layout);
-        // 七项齐全且顺序稳定
+        // 八项齐全且顺序稳定
         let keys: Vec<&str> = deps.items.iter().map(|item| item.key.as_str()).collect();
         assert_eq!(
             keys,
@@ -488,6 +595,7 @@ mod tests {
                 "bridge",
                 "office",
                 "mnova",
+                "origin",
                 "edge-policy"
             ]
         );
