@@ -73,8 +73,16 @@
         <section id="mcp-editor">
           <div class="diag-head"><h3 id="mcp-editor-title">MCP 管理</h3><span class="state" id="mcp-editor-result"></span></div>
           <label class="check-row"><input id="mcp-enabled" type="checkbox">启用此应用的 MCP</label>
-          <label for="mcp-dir">MCP 服务目录（包含 run_server.py）</label>
-          <div class="field-row"><input id="mcp-dir" type="text"><button id="mcp-browse" type="button">选择目录</button></div>
+          <div id="mcp-dir-section">
+            <label for="mcp-dir">MCP 服务目录（包含 run_server.py）</label>
+            <div class="field-row"><input id="mcp-dir" type="text"><button id="mcp-browse" type="button">选择目录</button></div>
+          </div>
+          <div id="mcp-bridge-section" style="display:none">
+            <p class="dep-hint">Origin 使用内置 Python 启动 origin-mcp，无需目录；
+              启用后 DSH 自动注入 <code>python -m origin_mcp</code>（工具前缀 mcp__origin__*）。
+              “准备 Bridge”调用捆绑的 origin-mcp 输出 OPX 注册指令，便于 Origin 按需拉起。</p>
+            <div class="field-row"><button id="mcp-install-bridge" type="button">准备 Origin Bridge（install-origin-app）</button></div>
+          </div>
           <div id="mcp-editor-status" data-state="unconfigured">尚未配置</div>
           <div class="diag-actions"><button id="mcp-save" type="button">保存</button><button id="mcp-test" type="button">测试连接</button><button id="mcp-remove" type="button">移除配置</button><button id="mcp-cancel" type="button">收起</button></div>
         </section>
@@ -153,7 +161,13 @@
     function renderMcpStatus(status) {
       const node = $('mcp-editor-status');
       node.dataset.state = status.state || 'error';
-      node.textContent = `${status.detail || '状态未知'} · run_server.py：${status.serverFileExists ? '已找到' : '未找到'} · uv：${status.uvAvailable ? '可用' : '不可用'}`;
+      const requiresDirectory = status.requiresDirectory !== undefined ? status.requiresDirectory : activeMcpApp !== 'origin';
+      const startInfo = requiresDirectory
+        ? `run_server.py：${status.serverFileExists ? '已找到' : '未找到'} · uv：${status.uvAvailable ? '可用' : '不可用'}`
+        : `启动：${esc(status.launcher || '内置 Python')} · 模块：${status.entrypointAvailable ? '就绪' : '未安装'} · 连接：${status.connected ? '已连通' : '未连通'}`;
+      node.textContent = `${status.detail || '状态未知'} · ${startInfo}`;
+      $('mcp-dir-section').style.display = requiresDirectory ? '' : 'none';
+      $('mcp-bridge-section').style.display = requiresDirectory ? 'none' : '';
     }
     async function refreshMcpStatus(testConnection = false) {
       if (!activeMcpApp) return;
@@ -197,6 +211,14 @@
       if (button) void openMcpEditor(button.dataset.mcpApp, button.dataset.mcpLabel);
     });
     $('mcp-browse').addEventListener('click', async () => { const path = await invoke('pick_mcp_dir'); if (path) $('mcp-dir').value = path; });
+    $('mcp-install-bridge').addEventListener('click', async () => {
+      const button = $('mcp-install-bridge'); button.disabled = true;
+      try {
+        const result = await invoke('install_origin_bridge');
+        setText('mcp-editor-result', `Bridge 准备完成：${result}`); await refreshMcpStatus(false); await refreshDiagnostics();
+      } catch (error) { setText('mcp-editor-result', `Bridge 准备失败：${error}`); }
+      finally { button.disabled = false; }
+    });
     $('mcp-save').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       try {

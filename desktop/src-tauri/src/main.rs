@@ -111,7 +111,7 @@ fn runtime_deps(state: tauri::State<'_, AppState>) -> RuntimeDeps {
 #[tauri::command]
 fn pick_mcp_dir() -> Option<String> {
     rfd::FileDialog::new()
-        .set_title("选择 mnova-mcp 目录")
+        .set_title("选择 MCP 服务目录")
         .pick_folder()
         .map(|path| path.display().to_string())
 }
@@ -125,7 +125,7 @@ async fn app_mcp_status(
     let runtime = Arc::clone(&state.0);
     tauri::async_runtime::spawn_blocking(move || runtime.app_mcp_status(&app_key, test_connection))
         .await
-        .map_err(|error| format!("Mnova MCP status task failed: {error}"))?
+        .map_err(|error| format!("MCP status task failed: {error}"))?
         .map_err(|error| error.to_string())
 }
 
@@ -147,6 +147,16 @@ fn remove_app_mcp(app_key: String, state: tauri::State<'_, AppState>) -> Result<
     state
         .0
         .remove_app_mcp(&app_key)
+        .map_err(|error| error.to_string())
+}
+
+/// 准备 Origin MCP Bridge：调用捆绑 origin_mcp install-origin-app --force，
+/// 输出 OPX 注册指令。命令只做 “准备”，不谎称 Bridge 已完成注册。
+#[tauri::command]
+fn install_origin_bridge(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    state
+        .0
+        .install_origin_bridge()
         .map_err(|error| error.to_string())
 }
 
@@ -394,6 +404,7 @@ fn main() {
             app_mcp_status,
             save_app_mcp,
             remove_app_mcp,
+            install_origin_bridge,
             open_in_edge,
             open_artifact_in_browser
         ])
