@@ -28,6 +28,18 @@ $dshBin = Join-Path $resourceRoot 'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'
 $python = Join-Path $resourceRoot 'python\dist\python.exe'
 $pythonCheck = & $python -I -c 'import markitdown; print(markitdown.__name__)'
 if ($LASTEXITCODE -ne 0 -or $pythonCheck -ne 'markitdown') { throw 'Bundled Python cannot import markitdown.' }
+# Origin MCP（固定 0.1.4）打包自检：版本精确 + CLI 可执行 + JSON 可解析。
+# Bridge/Origin 未启动属合法环境，不允许因此判打包失败（任务书 §18）。
+$originVersion = & $python -I -c 'import origin_mcp; print(origin_mcp.__version__)'
+if ($LASTEXITCODE -ne 0 -or $originVersion -ne '0.1.4') { throw "Bundled origin-mcp version mismatch: '$originVersion' (expected 0.1.4)." }
+$originStatusOut = (& $python -I -m origin_mcp status --json 2>$null) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'Bundled origin_mcp status --json could not execute.' }
+try {
+  $originStatus = $originStatusOut | ConvertFrom-Json
+} catch {
+  throw "Bundled origin_mcp status --json is not parseable JSON. Output: $originStatusOut"
+}
+if ($null -eq $originStatus.PSObject.Properties['state']) { throw 'origin_mcp status --json missing top-level state.' }
 $temporaryHome = Join-Path ([System.IO.Path]::GetTempPath()) ("ibm-lab-desktop-verify-" + [guid]::NewGuid())
 $smokeProcess = $null
 try {

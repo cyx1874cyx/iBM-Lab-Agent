@@ -72,3 +72,14 @@ The API key is neither logged nor written to ordinary JSON. Windows DPAPI encryp
 ## Distribution checks
 
 See [docs/release-checklist.md](docs/release-checklist.md) for the clean-machine and regression checklist, and [docs/reference-desktop-analysis.md](docs/reference-desktop-analysis.md) for the separately reviewed reference architecture and licensing decision.
+
+## Origin / OriginPro Integration
+
+The desktop bundle carries `origin-mcp==0.1.4` inside the self-contained
+Python 3.11 (`resources/python/dist`), so Origin automation never needs a
+system Python or a user-installed `origin-mcp`. The DSH MCP patch for Origin
+is injected as `IBM_LAB_AGENT_BUNDLED_PYTHON` + `python -m origin_mcp` with
+`ORIGIN_MCP_TOOL_PROFILE=compact`; Mnova keeps its `uv run run_server.py`
+layout. See `desktop/docs/release-checklist.md` for the Origin release gates
+and `tests/e2e/origin/` at the repository root for the on-machine E2E data
+and expectations (`sample.csv` / `expected.json` / `README.md`).

@@ -1,0 +1,28 @@
+{
+  "comment": "iBM-Lab-Agent Origin MCP 真机 E2E 静态期望。仅在装有 Origin/OriginPro 的机器上执行；无 Origin 环境禁止伪造成功，只跑 tests/e2e/origin/README.md 中的「无 Origin 诊断验证」。",
+  "originMcp": "0.1.4",
+  "dataSource": "sample.csv (x: 0.0-9.5, y 近似 2x+1，含轻微噪声)",
+  "toolChain": [
+    "mcp__origin__create_workbook",
+    "mcp__origin__write_worksheet (导入/写入 sample.csv 数据)",
+    "mcp__origin__create_line_plot",
+    "mcp__origin__linear_fit",
+    "mcp__origin__export_png",
+    "mcp__origin__save_opju"
+  ],
+  "expectations": {
+    "linearFit": {
+      "slope": { "min": 1.9, "max": 2.1, "note": "真值 2.0" },
+      "intercept": { "min": 0.2, "max": 1.8, "note": "真值约 1.0" },
+      "rSquared": { "min": 0.99 }
+    },
+    "pngExport": { "fileExists": true, "note": "导出 PNG 文件真实存在且非空" },
+    "opjuSave": { "fileExists": true, "note": "OPJU 工程保存成功" },
+    "statusSemantics": {
+      "serverConnected": true,
+      "connected": false,
+      "state": "bridge-missing",
+      "note": "origin-mcp 已装、Origin 已装、Bridge 未启动时：MCP 握手成功但最终链路未通，UI 显示「Origin MCP Server 正常，但 Origin MCP Bridge 未启动」，不得崩溃"
+    }
+  }
+}

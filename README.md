@@ -439,3 +439,25 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 - [x] 阶段八 模式修复与工具作用域收口（预设选择失败修复 + lab 工具移入 preset）
 - [x] 阶段九 主面板模板管理（阅读笔记模板 + PPT 模板 + 任务版本快照）
 - [x] 阶段十 文献入口完善（公众号 DOI 校验 + PDF/SI 捕获 + 全文盘点 + PDF 网页预览）
+
+## Origin / OriginPro Integration
+
+桌面版内置 `origin-mcp==0.1.4`（随捆绑 Python 3.11 分发），可让 Agent
+直接操作本机 Origin/OriginPro（建 Workbook、写 Worksheet、绘图、
+Linear Fit、导出 PNG、保存 OPJU）。**不要求系统安装 Python，
+不要求系统安装 origin-mcp。**
+
+用户流程：
+
+1. 安装 Origin/OriginPro。
+2. iBM 已内置 Origin MCP Server，不需要安装 Python。
+3. 打开 Desktop → 诊断 → Origin → 准备 Bridge。
+4. 按提示完成 Origin Bridge App 注册。
+5. 每次新的 Origin session 点击 Origin MCP Bridge Start。
+6. 在 Desktop 点击测试连接。
+7. 启用 Origin MCP。
+8. 如需要，重启 iBM Runtime。
+
+Origin 未安装/未启动、Bridge 未启动都不影响 Desktop 主功能与文献捕获
+链路；Bridge 缺失时诊断页明确显示 `bridge-missing`。真机 E2E 数据与
+期望见 `tests/e2e/origin/`（sample.csv / expected.json / README.md）。
