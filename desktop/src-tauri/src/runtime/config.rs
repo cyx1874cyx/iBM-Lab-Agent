@@ -8,13 +8,34 @@ use super::RuntimeError;
 const CREDENTIAL_REF: &str = "dpapi:user:api-key-v1";
 const CREDENTIAL_FILE: &str = "api-key.dpapi";
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerConfig {
+    pub app_key: String,
+    pub server_name: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub directory: String,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
     pub base_url: String,
+    #[serde(default)]
     pub model: String,
+    #[serde(default)]
     pub workspace: String,
+    #[serde(default)]
+    pub mnova_mcp_enabled: bool,
+    #[serde(default)]
+    pub mnova_mcp_dir: String,
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerConfig>,
 }
 
 impl Default for AppConfig {
@@ -24,6 +45,9 @@ impl Default for AppConfig {
             base_url: String::new(),
             model: String::new(),
             workspace: String::new(),
+            mnova_mcp_enabled: false,
+            mnova_mcp_dir: String::new(),
+            mcp_servers: Vec::new(),
         }
     }
 }
@@ -41,6 +65,12 @@ struct DiskConfig {
     model: String,
     #[serde(default)]
     workspace: String,
+    #[serde(default)]
+    mnova_mcp_enabled: bool,
+    #[serde(default)]
+    mnova_mcp_dir: String,
+    #[serde(default)]
+    mcp_servers: Vec<McpServerConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     credential_ref: Option<String>,
 }
@@ -212,14 +242,29 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
                 base_url: disk.base_url.clone(),
                 model: disk.model.clone(),
                 workspace: disk.workspace.clone(),
+                mnova_mcp_enabled: disk.mnova_mcp_enabled,
+                mnova_mcp_dir: disk.mnova_mcp_dir.clone(),
+                mcp_servers: disk.mcp_servers.clone(),
             },
         )?;
+    }
+    let mut mcp_servers = disk.mcp_servers;
+    if mcp_servers.is_empty() && !disk.mnova_mcp_dir.trim().is_empty() {
+        mcp_servers.push(McpServerConfig {
+            app_key: "mnova".into(),
+            server_name: "mnova".into(),
+            enabled: disk.mnova_mcp_enabled,
+            directory: disk.mnova_mcp_dir.clone(),
+        });
     }
     Ok(AppConfig {
         api_key,
         base_url: disk.base_url,
         model: disk.model,
         workspace: disk.workspace,
+        mnova_mcp_enabled: disk.mnova_mcp_enabled,
+        mnova_mcp_dir: disk.mnova_mcp_dir,
+        mcp_servers,
     })
 }
 
@@ -246,6 +291,9 @@ pub fn save(config_dir: &Path, config: AppConfig) -> Result<(), RuntimeError> {
         base_url: config.base_url,
         model: config.model,
         workspace: config.workspace,
+        mnova_mcp_enabled: config.mnova_mcp_enabled,
+        mnova_mcp_dir: config.mnova_mcp_dir,
+        mcp_servers: config.mcp_servers,
         credential_ref,
     };
     let body = serde_json::to_vec_pretty(&disk).map_err(|error| {
@@ -280,6 +328,9 @@ mod tests {
                 base_url: "https://example.test".into(),
                 model: "m".into(),
                 workspace: "w".into(),
+                mnova_mcp_enabled: true,
+                mnova_mcp_dir: r"C:\tools\mnova-mcp".into(),
+                mcp_servers: Vec::new(),
             },
         )
         .unwrap();

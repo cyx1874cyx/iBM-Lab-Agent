@@ -72,12 +72,32 @@ test("submitted PDF can be previewed inline while its normal endpoint still down
 	assert.match(download.headers["content-disposition"], /^attachment;/);
 });
 
-test("SI files cannot be sent through PDF preview mode", async () => {
-	const handler = createArtifactDownloadHandler({});
+test("non-PDF SI files cannot be sent through inline preview mode", async () => {
+	const handler = createArtifactDownloadHandler({
+		async bundleFile() {
+			return { fileName: "supporting.zip", mime: "application/zip", buffer: Buffer.from("zip"), byteLength: 3, sha256: "a".repeat(64) };
+		}
+	});
 	const res = responseCapture();
 	await handler({ method: "GET", url: "/api/lab-artifacts?preview=1&kind=si&bundleId=bundle-1", headers: { host: "localhost" } }, res);
 	assert.equal(res.status, 400);
-	assert.match(res.body.toString("utf8"), /PDF, report or ppt/);
+	assert.match(res.body.toString("utf8"), /only available for PDF files/);
+});
+
+test("archived SI PDF opens inline in the browser", async () => {
+	const expected = Buffer.from("%PDF-1.7\nSI\n%%EOF");
+	const handler = createArtifactDownloadHandler({
+		async bundleFile(id, kind) {
+			assert.equal(id, "bundle-1"); assert.equal(kind, "si");
+			return { fileName: "supporting.pdf", mime: "application/pdf", buffer: expected, byteLength: expected.length, sha256: "b".repeat(64) };
+		}
+	});
+	const res = responseCapture();
+	await handler({ method: "GET", url: "/api/lab-artifacts?preview=1&kind=si&bundleId=bundle-1", headers: { host: "localhost" } }, res);
+	assert.equal(res.status, 200);
+	assert.equal(res.headers["content-type"], "application/pdf");
+	assert.match(res.headers["content-disposition"], /^inline;/);
+	assert.deepEqual(res.body, expected);
 });
 
 test("preview endpoint renders the actual unapproved Office bytes as inline PDF", async () => {

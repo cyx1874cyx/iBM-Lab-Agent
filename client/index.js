@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
 			".ib-lit-col{border:1px solid rgba(129,205,178,.11);background:rgba(255,255,255,.018);border-radius:12px;padding:13px;min-width:0}.ib-lit-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}.ib-lit-head h3{font-size:13px;font-weight:700;margin:0;color:#e4f5ee}.ib-lit-head small{color:#7fa396;font-size:9px}.ib-lit-note{color:#6f8d83;font-size:9.5px;margin:2px 0 10px;line-height:1.5}",
 			".ib-lit-list{display:grid;gap:7px}.ib-lit-row{display:flex;align-items:center;gap:9px;border:1px solid rgba(129,205,178,.12);background:rgba(7,22,17,.5);border-radius:11px;padding:9px 10px}.ib-lit-row[data-waiting=true]{border-color:rgba(229,181,103,.3);background:rgba(229,181,103,.055)}.ib-lit-row[data-clickable]{cursor:pointer}.ib-lit-row[data-clickable]:hover{border-color:rgba(81,212,163,.45);background:rgba(81,212,163,.08)}.ib-lit-main{flex:1;min-width:0;display:grid;gap:2px}.ib-lit-main b{font-size:11px;color:#d8ebe3;font-weight:560;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-main b i{font-family:Georgia,serif;font-weight:560}.ib-lit-main small{display:block;font-size:9px;color:#7fa396;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-acts{flex:none;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;max-width:58%}.ib-lit-btn{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(115,220,230,.1);color:#c3ecf1;font-size:10px;padding:7px 10px;cursor:pointer;font-weight:560;line-height:1}.ib-lit-btn:hover{border-color:rgba(115,220,230,.5);background:rgba(115,220,230,.2)}.ib-lit-btn[data-review=approve]{border-color:rgba(81,212,163,.42);background:rgba(81,212,163,.13);color:#c9f5e3}.ib-lit-btn[data-review=reject]{border-color:rgba(255,137,137,.35);background:rgba(255,137,137,.08);color:#ffc0c0}.ib-lit-btn:disabled{opacity:.4;pointer-events:none}.ib-lit-fmt{border:1px solid rgba(115,220,230,.28);border-radius:9px;background:rgba(7,22,17,.5);color:#bfe8ee;font-size:10px;padding:6px 8px;cursor:pointer;outline:none}.ib-lit-fmt:hover{border-color:rgba(115,220,230,.5)}.ib-lit-fmt:focus{border-color:rgba(81,212,163,.5)}.ib-lit-fmt option{background:#0b2320;color:#e6f5ef}",
 			".ib-lit-empty{border:1px dashed rgba(129,205,178,.35);border-radius:12px;padding:22px 14px;text-align:center;color:#75a089;font-size:10px;line-height:1.6}.ib-capture-hint{margin-top:7px;border:1px solid rgba(115,220,230,.3);border-radius:9px;background:rgba(115,220,230,.07);padding:7px 10px;font-size:9.5px;color:#a9e2ec}.ib-lit-overview{margin-top:8px;border:1px solid rgba(94,208,173,.24);border-radius:10px;background:rgba(94,208,173,.06);padding:10px 12px;font-size:10.2px;line-height:1.75;color:#bde0d2;white-space:pre-wrap}.ib-lit-overview b{display:block;color:#e9f9f2;font-size:10.5px;margin-bottom:4px}.ib-review-detail{margin-top:8px;border:1px solid rgba(115,220,230,.22);border-radius:10px;background:rgba(115,220,230,.045);padding:10px 12px;color:#a9ccc7}.ib-review-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ib-review-detail-head b{font-size:10.5px;color:#e4f6f1}.ib-review-detail-head span{font-size:9px;color:#7fa39a}.ib-review-findings{display:grid;gap:5px}.ib-review-finding{display:grid;grid-template-columns:44px 1fr;gap:7px;font-size:9.5px;line-height:1.55}.ib-review-finding i{font-style:normal;text-transform:uppercase;font-size:8px;color:#75a092}.ib-review-finding[data-level=error] i{color:#ff9696}.ib-review-finding[data-level=warning] i{color:#e9b56f}.ib-review-finding[data-level=pass] i{color:#5fd4a8}",
-			".ib-search-results{margin:-1px 4px 4px;border:1px solid rgba(115,220,230,.18);border-top:0;border-radius:0 0 11px 11px;background:rgba(4,17,14,.55);padding:8px;display:grid;gap:6px;max-height:420px;overflow:auto}.ib-search-paper{border-top:1px solid rgba(129,205,178,.1);padding:7px 5px 2px}.ib-search-paper:first-child{border-top:0}.ib-search-citation{font-size:10.5px;line-height:1.5;color:#dbece6}.ib-search-citation i{font-family:Georgia,serif;color:#f0faf6}.ib-search-citation span{color:#83cdb1}.ib-search-paper small{display:block;margin-top:2px;color:#6f9286;font-size:8.8px;line-height:1.4}.ib-search-paper a{color:#82dce6;text-decoration:none;margin-left:7px}.ib-search-paper a:hover{text-decoration:underline}.ib-search-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}.ib-icon-btn{display:inline-grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid rgba(115,220,230,.26);border-radius:8px;background:rgba(115,220,230,.08);color:#9fc3cb;cursor:pointer;line-height:1}.ib-icon-btn svg{display:block}.ib-icon-btn[data-ready=false]{opacity:.42;filter:grayscale(.9)}.ib-icon-btn[data-ready=false]:hover{border-color:rgba(115,220,230,.5);opacity:.72;filter:grayscale(.3)}.ib-icon-btn[data-ready=true]{border-color:rgba(81,212,163,.48);background:rgba(81,212,163,.15);color:#bfe9d7}.ib-icon-btn[data-ready=true]:hover{border-color:rgba(81,212,163,.72);background:rgba(81,212,163,.24)}",
+			".ib-search-results{margin:-1px 4px 4px;border:1px solid rgba(115,220,230,.18);border-top:0;border-radius:0 0 11px 11px;background:rgba(4,17,14,.55);padding:8px;display:grid;gap:6px;max-height:420px;overflow:auto}.ib-search-paper{border-top:1px solid rgba(129,205,178,.1);padding:7px 5px 2px}.ib-search-paper:first-child{border-top:0}.ib-search-citation{font-size:10.5px;line-height:1.5;color:#dbece6}.ib-search-citation i{font-family:Georgia,serif;color:#f0faf6}.ib-search-citation span{color:#83cdb1}.ib-search-paper small{display:block;margin-top:2px;color:#6f9286;font-size:8.8px;line-height:1.4}.ib-search-paper a{color:#82dce6;text-decoration:none;margin-left:7px}.ib-search-paper a:hover{text-decoration:underline}.ib-search-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}.ib-icon-btn{display:inline-grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid rgba(115,220,230,.26);border-radius:8px;background:rgba(115,220,230,.08);color:#9fc3cb;cursor:pointer;line-height:1}.ib-icon-btn svg{display:block}.ib-icon-btn[data-ready=false]{opacity:.42;filter:grayscale(.9)}.ib-icon-btn[data-ready=false]:hover{border-color:rgba(115,220,230,.5);opacity:.72;filter:grayscale(.3)}.ib-icon-btn[data-ready=true]{border-color:rgba(81,212,163,.48);background:rgba(81,212,163,.15);color:#bfe9d7}.ib-icon-btn[data-ready=true]:hover{border-color:rgba(81,212,163,.72);background:rgba(81,212,163,.24)}.ib-icon-btn[data-opening=true]{cursor:progress;animation:ib-opening-pulse 1.1s ease-in-out infinite}@keyframes ib-opening-pulse{0%,100%{opacity:.45}50%{opacity:1}}",
 			".ib-preview-backdrop{position:fixed;inset:0;z-index:1004;background:rgba(3,14,11,.42);backdrop-filter:blur(2px)}.ib-preview-drawer{position:fixed;z-index:1005;top:0;right:0;bottom:0;width:min(760px,68vw);display:flex;flex-direction:column;background:#f4f7f6;color:#17382f;border-left:1px solid rgba(36,130,99,.22);box-shadow:-28px 0 70px rgba(3,25,18,.24)}.ib-preview-head{flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;background:#fff;border-bottom:1px solid rgba(45,130,101,.14)}.ib-preview-title{min-width:0;flex:1}.ib-preview-title b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.ib-preview-title small{display:block;margin-top:3px;color:#718b82;font-size:9.5px}.ib-preview-state{border-radius:999px;padding:4px 8px;background:#eef6f3;color:#31745e;font-size:9px}.ib-preview-frame{min-height:0;flex:1;width:100%;border:0;background:#59615e}.ib-preview-foot{flex:none;display:flex;align-items:center;gap:8px;padding:11px 14px;background:#fff;border-top:1px solid rgba(45,130,101,.14)}.ib-preview-foot-note{min-width:0;flex:1;color:#70867e;font-size:9.5px;line-height:1.45}.ib-preview-btn{border:1px solid rgba(43,132,101,.22);background:#fff;color:#286f58;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:10px;white-space:nowrap}.ib-preview-btn[data-primary]{border-color:#35a97e;background:#35a97e;color:white}.ib-preview-btn[data-danger]{border-color:rgba(190,80,80,.3);color:#a94c4c}.ib-preview-btn:disabled{opacity:.45;cursor:not-allowed}.ib-preview-review{flex:none;max-height:190px;overflow:auto;padding:12px 14px;background:#f9fbfa;border-top:1px solid rgba(45,130,101,.14)}.ib-preview-review .ib-review-detail{margin:0;background:#fff;color:#476b61}.ib-preview-review .ib-review-detail-head b{color:#17382f}.ib-approval-shade{position:absolute;inset:0;z-index:2;display:grid;place-items:center;padding:24px;background:rgba(9,28,22,.55);backdrop-filter:blur(3px)}.ib-approval-card{width:min(560px,100%);max-height:min(650px,86vh);overflow:auto;box-sizing:border-box;border:1px solid #c9ddd5;border-radius:17px;background:#fff;padding:22px;box-shadow:0 22px 70px rgba(4,28,20,.28)}.ib-approval-card h3{margin:0 0 7px;font-size:17px}.ib-approval-card>p{margin:0 0 14px;color:#668178;font-size:10.5px;line-height:1.65}.ib-approval-card .ib-review-detail{margin:0;background:#f7faf9;color:#476b61}.ib-approval-card .ib-review-detail-head b{color:#17382f}.ib-approval-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.ib-approval-ok{display:grid;place-items:center;text-align:center;padding:18px 8px}.ib-approval-ok strong{font-size:16px}.ib-approval-ok span{margin-top:6px;color:#668178;font-size:10px}",
 			"@media(max-width:880px){.ib-lit{grid-template-columns:1fr}.ib-preview-drawer{width:100vw}}",
 			// ── 模板管理：阅读笔记模板 / PPT 模板 ─────────────────────────────
@@ -58,7 +58,7 @@ window.__ModuleLoader__.load({
 			// ── 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG ──
 			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#023373;box-shadow:0 6px 18px rgba(2,51,115,.28)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a6c4);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
 			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;z-index:2;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#023373;box-shadow:0 4px 12px rgba(2,51,115,.3);pointer-events:none}.ib-rail-flask svg{width:13px;height:13px}",
-			".ib-hero-avatar{display:block;width:2em!important;height:2em!important;max-width:none;flex:none;object-fit:cover;border-radius:10px;box-shadow:0 8px 22px rgba(46,163,123,.2)}"
+			".ib-hero-avatar{display:block;width:68px!important;height:68px!important;max-width:none;flex:none;object-fit:cover;border-radius:14px;box-shadow:0 8px 22px rgba(46,163,123,.2)}body:not(.ib-research-chat) [class*='_headlineText']{font-size:52px!important;line-height:1!important}body:not(.ib-research-chat) [class*='_fishHitbox']{margin-right:18px!important}.ib-overlay .ib-logo{padding:0;overflow:hidden;background:none;box-shadow:0 9px 28px rgba(2,51,115,.42)}.ib-logo img{display:block;width:100%;height:100%;object-fit:cover}"
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
@@ -98,10 +98,43 @@ window.__ModuleLoader__.load({
 			anchor.remove();
 			setTimeout(() => URL.revokeObjectURL(url), 4000);
 		}
-		const downloadText = (fileName, mime, text) => {
-			const type = mime || "text/plain;charset=utf-8";
-			downloadBlob(fileName, type, new Blob([text], { type }));
-		};
+		/** Desktop 宿主文本另存为：用于内存中生成、没有下载 URL 的 RIS。 */
+		function saveTextArtifactViaDesktop(fileName, text) {
+			if (window.parent === window) return Promise.reject(new Error("RIS 另存为仅支持桌面客户端"));
+			return new Promise((resolve, reject) => {
+				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-text-save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+				let settled = false;
+				let acknowledged = false;
+				const fail = (message, code) => { const error = new Error(message); error.code = code; return error; };
+				const finish = (callback, value) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(readyTimer); clearTimeout(completionTimer);
+					window.removeEventListener("message", onResult);
+					callback(value);
+				};
+				const onResult = (event) => {
+					if (event.source !== window.parent) return;
+					const data = event.data;
+					if (!data || data.source !== "ibm-lab-agent-shell" || data.requestId !== requestId) return;
+					if (data.type === "SAVE_TEXT_ARTIFACT_ACK") { acknowledged = true; clearTimeout(readyTimer); return; }
+					if (data.type !== "SAVE_TEXT_ARTIFACT_RESULT") return;
+					if (data.payload?.ok) finish(resolve, data.payload.saved);
+					else finish(reject, fail(data.payload?.error || "桌面原生文本保存失败", acknowledged ? "DESKTOP_SAVE_FAILED" : "NO_DESKTOP_SHELL"));
+				};
+				const readyTimer = setTimeout(() => finish(reject, fail("未检测到桌面文件服务", "NO_DESKTOP_SHELL")), 1800);
+				const completionTimer = setTimeout(() => finish(reject, fail("桌面原生保存超时（5 分钟）", "DESKTOP_SAVE_FAILED")), 5 * 60 * 1000);
+				window.addEventListener("message", onResult);
+				try { window.parent.postMessage({ source: "ibm-lab-agent", type: "SAVE_TEXT_ARTIFACT", requestId, payload: { fileName, text } }, "*"); }
+				catch (reason) { finish(reject, reason); }
+			});
+		}
+		/** RIS 统一交给 Desktop 显示系统另存为，不使用 WebView Blob 下载。 */
+		async function saveRis(fileName, text) {
+			const saved = await saveTextArtifactViaDesktop(fileName, text);
+			if (saved?.cancelled) return { cancelled: true, fileName };
+			return { ...saved, native: true };
+		}
 		const downloadBase64 = (fileName, mime, base64) => {
 			const type = mime || "application/octet-stream";
 			const binary = atob(base64);
@@ -234,11 +267,18 @@ window.__ModuleLoader__.load({
 			const fileName = await browserDownloadVerifiedBinary(url);
 			return { fileName, native: false };
 		}
-		/** 已归档 PDF 使用同源 inline 响应交给浏览器原生 PDF 阅读器；阅读器内仍可下载。 */
-		function openPdfPreview(url) {
+		/** 已归档 PDF 使用浏览器原生 PDF 阅读器；桌面版走专用本地文献通道。 */
+		async function openPdfPreview(url) {
 			const previewUrl = new URL(url, location.origin);
 			previewUrl.searchParams.set("preview", "1");
-			window.open(previewUrl.href, "_blank", "noopener,noreferrer");
+			if (window.parent === window) {
+				window.open(previewUrl.href, "_blank", "noopener,noreferrer");
+				return;
+			}
+			const kind = previewUrl.searchParams.get("kind");
+			const bundleId = previewUrl.searchParams.get("bundleId");
+			if (!bundleId || !["pdf", "si"].includes(kind)) throw new Error("文献阅读地址无效");
+			return openArtifactInBrowserViaShell(kind, bundleId);
 		}
 
 		function Artifact({ title, rows = [], empty }) {
@@ -275,6 +315,31 @@ window.__ModuleLoader__.load({
 			const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应（未收到 open_in_edge 确认）；请检查是否运行在 iBM Lab Agent 桌面版")), 4000);
 			window.addEventListener("message", onResult);
 			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_IN_EDGE", requestId, url }, "*"); }
+			catch (reason) { finish(reject, reason); }
+		});
+		/** 只向桌面 shell 传文献标识；本地阅读地址由 Rust 按当前运行端口生成。 */
+		const openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
+			const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-browser-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+			let settled = false;
+			const finish = (callback, value) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				window.removeEventListener("message", onResult);
+				callback(value);
+			};
+			const onResult = (event) => {
+				if (event.source !== window.parent) return;
+				const data = event.data;
+				if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_ARTIFACT_IN_BROWSER_RESULT" || data.requestId !== requestId) return;
+				if (data.payload?.ok) finish(resolve, data.payload);
+				else finish(reject, new Error(data.payload?.error || "桌面客户端未能打开文献阅读页"));
+			};
+			// Rust 侧会先对本地 PDF 端点做一次预检（最长 20 秒）再启动 Edge，
+			// 超时必须大于该预检上限，否则会被误报成"桌面客户端未响应"。
+			const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应，无法打开文献阅读页")), 30000);
+			window.addEventListener("message", onResult);
+			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_ARTIFACT_IN_BROWSER", requestId, payload: { kind, bundleId } }, "*"); }
 			catch (reason) { finish(reject, reason); }
 		});
 		/** 统一外部 URL Router：Desktop 交给 Rust/Edge，Web 才使用 window.open。 */
@@ -643,6 +708,8 @@ window.__ModuleLoader__.load({
 			// 浏览器模式（web-current / managed-edge / desktop-edge-handoff）：
 			// desktop 下 WebView2 不是扩展宿主，捕获必须经外部 Edge handoff。
 			const [browserMode, setBrowserMode] = useState("managed-edge");
+			// 正文/SI 正在交给外部 Edge 打开（key: `${kind}:${report.id}`）。
+			const [opening, setOpening] = useState({});
 			useEffect(() => {
 				let alive = true;
 				call("literature_status", { request: { force: false } })
@@ -729,8 +796,9 @@ window.__ModuleLoader__.load({
 			};
 			const risFor = (search) => run(`ris:${search.id}`, async () => {
 				const result = await call("tasks_search_ris", { request: { runId: search.id } });
-				downloadText(result.ris.fileName, "application/x-research-info-systems;charset=utf-8", result.ris.text);
-				notify(`已开始下载 ${result.ris.fileName}（${result.ris.count} 条文献）`);
+				const saved = await saveRis(result.ris.fileName, result.ris.text);
+				if (saved.cancelled) { notify("已取消保存 RIS"); return; }
+				notify(`${saved.native ? "已保存" : "已开始下载"} ${result.ris.fileName}（${result.ris.count} 条文献）`);
 			});
 			const openOverview = (report) => run(`ov:${report.id}`, async () => {
 				if (!(report.id in overview)) {
@@ -862,14 +930,24 @@ window.__ModuleLoader__.load({
 				const pdfReady = !!paper.localPdfUrl;
 				const siReady = !!paper.localSiUrl;
 				const openExternal = (event, url) => { event.stopPropagation(); if (url) void openExternalUrl(url).catch((reason) => notify(reason.message)); };
-				const previewPdf = (event, url) => { event.stopPropagation(); openPdfPreview(url); };
 				const saveFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
+				// 与精读条目一致：检索条目交给外部 Edge 时也显示"正在打开"，失败必须 toast。
+				const searchKey = paper.doi || paper.pmid || paper.arxivId || paper.id || paper.title;
+				const searchOpenKey = (kind) => `${kind}:search:${searchKey}`;
+				const openSearchInEdge = (event, kind, url) => {
+					event.stopPropagation();
+					if (opening[searchOpenKey(kind)]) return;
+					setOpening((old) => ({ ...old, [searchOpenKey(kind)]: true }));
+					void openPdfPreview(url)
+						.catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`))
+						.finally(() => setOpening((old) => { const next = { ...old }; delete next[searchOpenKey(kind)]; return next; }));
+				};
 				return h("article", { className: "ib-search-paper", key: paper.doi || paper.pmid || paper.arxivId || paper.id || paper.title },
 					h("div", { className: "ib-search-citation" }, h("i", null, journal), bibliographic, h("span", null, `（${description}）`), target ? h("a", { href: target, target: "_blank", rel: "noopener noreferrer", onClick: (event) => event.stopPropagation() }, paper.pdfUrl ? "PDF" : "原文") : null),
 					h("small", { title: paper.title }, paper.title),
 					h("div", { className: "ib-search-actions" },
-						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", title: pdfReady ? "网页预览 PDF 原文（预览页可下载）" : "未提交 PDF · 点击前往 DOI 页面", onClick: (event) => pdfReady ? previewPdf(event, paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", title: siReady ? "下载 SI 补充材料" : "未提交 SI · 点击前往 DOI 页面", onClick: (event) => siReady ? saveFile(event, paper.localSiUrl) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
+						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", "data-opening": opening[searchOpenKey("pdf")] ? "true" : undefined, disabled: !!opening[searchOpenKey("pdf")], title: opening[searchOpenKey("pdf")] ? "正在打开正文 PDF…" : (pdfReady ? "在外部 Microsoft Edge 中打开正文 PDF" : "未提交 PDF · 点击前往 DOI 页面"), onClick: (event) => pdfReady ? openSearchInEdge(event, "pdf", paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : undefined, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : (siReady ? (paper.localSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : "未提交 SI · 点击前往 DOI 页面"), onClick: (event) => siReady ? (paper.localSiIsPdf ? openSearchInEdge(event, "si", paper.localSiUrl) : saveFile(event, paper.localSiUrl)) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
 					)
 				);
 			};
@@ -953,7 +1031,18 @@ window.__ModuleLoader__.load({
 						// legacy source-map-only 行把 JSON 存在 pdfPath：不当作可下载 PDF。
 						const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
 						const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : undefined;
-						const previewBundlePdf = (event, url) => { event.stopPropagation(); openPdfPreview(url); };
+						// 0.1.15：已登记的 SI 一律按 PDF 处理，不再依据路径后缀猜测。
+						const bundleSiIsPdf = !!bundle.siPath;
+						const openKey = (kind) => `${kind}:${report.id}`;
+						/** 正文/SI 交给外部 Edge 打开；期间显示"正在打开"，失败必须 toast，不得静默。 */
+						const openEntryInEdge = (event, kind, url) => {
+							event.stopPropagation();
+							if (opening[openKey(kind)]) return;
+							setOpening((old) => ({ ...old, [openKey(kind)]: true }));
+							void openPdfPreview(url)
+								.catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`))
+								.finally(() => setOpening((old) => { const next = { ...old }; delete next[openKey(kind)]; return next; }));
+						};
 						const downloadBundleFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 						const captureActive = captureHint?.bundleId === bundle.id;
 						const metadata = [
@@ -969,14 +1058,14 @@ window.__ModuleLoader__.load({
 							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
 								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
 								h("div", { className: "ib-lit-acts" },
-									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", title: bundlePdfUrl ? "网页预览 PDF 原文（预览页可下载）" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面"), onClick: (event) => bundlePdfUrl ? previewBundlePdf(event, bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", title: bundleSiUrl ? "下载 SI 补充材料" : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"), onClick: (event) => bundleSiUrl ? downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined, disabled: !!opening[openKey("pdf")], title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面")), onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI PDF…" : (bundleSiUrl ? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")), onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
 									h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "保存后用本机 Office 或 WPS 打开精读报告" : "DOCX 尚未生成" }, busy[`open-report:${report.id}`] ? "打开中…" : "打开报告"),
 									h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "保存后用本机 Office 或 WPS 打开 PPT" : "尚未生成 PPT" }, busy[`open-ppt:${report.id}`] ? "打开中…" : "打开PPT")
 								)
 							),
-							captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : null,
+							captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
 						);
 					})
@@ -1062,7 +1151,7 @@ window.__ModuleLoader__.load({
 
 		function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, initial }) {			const [project, setProject] = useState(initial ?? null);
 			const [templates, setTemplates] = useState(false);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, "iB"), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 		}
 
 		/** 模板管理主视图：阅读笔记模板（Agent 生成阅读笔记时参考）+ PPT 模板（组会汇报用）。 */
@@ -1431,6 +1520,12 @@ window.__ModuleLoader__.load({
 					heroHeadline.textContent = "专注源头创新";
 					touched = true;
 				}
+				document.querySelectorAll("*").forEach((element) => {
+					if (element.children.length === 0 && element.textContent?.trim() === "预览版") {
+						element.remove();
+						touched = true;
+					}
+				});
 				const heroMarkHost = heroHeadline?.parentElement?.querySelector("[class*='_fishHitbox']");
 				if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
 					const avatar = document.createElement("img");

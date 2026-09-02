@@ -216,11 +216,18 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /待上传 PDF/);
 	assert.match(source, /尚未获取 PDF · 点击前往论文出版社页面/);
 	assert.match(source, /尚未获取 SI · 点击前往论文出版社页面/);
-	assert.match(source, /bundleSiUrl \? downloadBundleFile/);
+	assert.match(source, /bundleSiIsPdf \? openEntryInEdge/);
 	assert.match(source, /function openPdfPreview/);
 	assert.match(source, /searchParams\.set\("preview", "1"\)/);
-	assert.match(source, /bundlePdfUrl \? previewBundlePdf/);
-	assert.match(source, /网页预览 PDF 原文/);
+	assert.match(source, /openArtifactInBrowserViaShell\(kind, bundleId\)/);
+	assert.match(source, /OPEN_ARTIFACT_IN_BROWSER/);
+	assert.match(source, /bundlePdfUrl \? openEntryInEdge/);
+	// 0.1.15：点击后必须有"正在打开"状态，失败必须 toast，不得静默
+	assert.match(source, /正在打开正文 PDF…/);
+	assert.match(source, /正在打开 SI PDF…/);
+	assert.match(source, /正在在外部 Microsoft Edge 中打开/);
+	assert.match(source, /无法打开\$\{kind === "pdf" \? "正文 PDF" : "SI PDF"\}：/);
+	assert.match(source, /data-opening/);
 	assert.match(source, /"网页预览"/);
 	assert.doesNotMatch(source, /}, "公众号"\) : null/);
 	assert.match(source, /bundleRecordIndex/);
@@ -235,7 +242,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /ib-brand-avatar/);
 	assert.match(source, /heroMarkHost\.replaceChildren\(avatar\)/);
 	assert.match(source, /class\*='_fishHitbox'/);
-	assert.match(source, /\.ib-hero-avatar\{[^}]*width:2em!important;height:2em!important/);
+	assert.match(source, /\.ib-hero-avatar\{[^}]*width:68px!important;height:68px!important/);
 	assert.match(source, /专注源头创新/);
 	assert.match(source, /function FlaskSvg/);
 	assert.match(source, /const FLASK_RAIL_HTML/);

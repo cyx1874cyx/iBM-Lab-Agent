@@ -202,6 +202,56 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
     Ok(())
 }
 
+/// Build the optional profile overlay used by the desktop MCP manager.  The
+/// repository path is passed through the child environment, so paths with
+/// spaces never have to be interpolated into YAML.
+pub fn prepare_mcp_patch(
+    layout: &RuntimeLayout,
+    servers: &[super::config::McpServerConfig],
+) -> Result<Option<PathBuf>, RuntimeError> {
+    let enabled: Vec<_> = servers.iter().filter(|entry| entry.enabled).collect();
+    if enabled.is_empty() {
+        return Ok(None);
+    }
+    let path = layout.config_dir.join("managed-mcp.patch.yml");
+    let mut contents = String::from("- insert:\n");
+    for entry in enabled {
+        if entry.server_name.is_empty()
+            || entry.server_name.len() > 32
+            || !entry
+                .server_name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+        {
+            return Err(RuntimeError::new("Invalid managed MCP server name"));
+        }
+        let env_name = format!("IBM_LAB_MCP_DIR_{}", entry.server_name.to_ascii_uppercase());
+        contents.push_str(&format!(
+            r#"    - id: mcp-{server}
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: {server}
+        transport: stdio
+        command: uv
+        args:
+          - run
+          - --directory
+          - !!js process.env['{env_name}']
+          - run_server.py
+        env:
+          MCP_SERVER_DIR: !!js process.env['{env_name}']
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+"#,
+            server = entry.server_name
+        ));
+    }
+    fs::write(&path, contents).map_err(|error| {
+        RuntimeError::new(format!("Cannot write managed MCP profile overlay: {error}"))
+    })?;
+    Ok(Some(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

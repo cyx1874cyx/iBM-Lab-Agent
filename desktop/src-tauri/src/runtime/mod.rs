@@ -5,6 +5,7 @@ mod dsh;
 mod files;
 mod health;
 mod logging;
+mod mcp;
 mod port;
 mod process;
 
@@ -16,11 +17,12 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-pub use config::AppConfig;
+pub use config::{AppConfig, McpServerConfig};
 pub use deps::RuntimeDeps;
 use dsh::{bootstrap_user_data, RuntimeLayout};
 pub use files::SavedArtifact;
 use logging::AppLogger;
+pub use mcp::AppMcpStatus;
 use process::ManagedProcess;
 
 #[derive(Debug)]
@@ -263,6 +265,11 @@ impl RuntimeManager {
         files::open_path(&self.layout.logs_dir)
     }
 
+    /// 供桌面命令写入 app.log；logger 为私有字段，上层模块需要经此访问。
+    pub fn logger(&self) -> &AppLogger {
+        &self.logger
+    }
+
     pub fn open_workspace(&self) -> Result<(), RuntimeError> {
         let config = self.load_config()?;
         files::open_workspace(&self.layout, &config.workspace)
@@ -284,8 +291,26 @@ impl RuntimeManager {
         }
         Ok(saved)
     }
+    pub fn save_text_artifact(
+        &self,
+        file_name: &str,
+        text: &str,
+    ) -> Result<SavedArtifact, RuntimeError> {
+        let saved = files::save_text_artifact(file_name, text)?;
+        if let Some(path) = saved.file_path.as_deref() {
+            self.saved_paths
+                .lock()
+                .map_err(|_| RuntimeError::new("Saved path lock poisoned"))?
+                .insert(PathBuf::from(path));
+        }
+        Ok(saved)
+    }
     pub fn open_artifact(&self, url: &str) -> Result<(), RuntimeError> {
-        let port = self.status.lock().map_err(|_| RuntimeError::new("Runtime status lock poisoned"))?.port
+        let port = self
+            .status
+            .lock()
+            .map_err(|_| RuntimeError::new("Runtime status lock poisoned"))?
+            .port
             .ok_or_else(|| RuntimeError::new("Local runtime is not ready"))?;
         files::open_artifact(url, port, &self.layout.state_dir.join("open-artifacts"))
     }
@@ -320,7 +345,45 @@ impl RuntimeManager {
     pub fn load_config(&self) -> Result<AppConfig, RuntimeError> {
         config::load(&self.layout.config_dir)
     }
-    pub fn save_config(&self, config: AppConfig) -> Result<(), RuntimeError> {
+    pub fn app_mcp_status(
+        &self,
+        app_key: &str,
+        test_connection: bool,
+    ) -> Result<AppMcpStatus, RuntimeError> {
+        Ok(mcp::status(&self.load_config()?, app_key, test_connection))
+    }
+
+    pub fn save_app_mcp(
+        &self,
+        app_key: &str,
+        directory: &str,
+        enabled: bool,
+    ) -> Result<AppMcpStatus, RuntimeError> {
+        let server_name = mcp::server_name_for(app_key)
+            .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {app_key}")))?;
+        let mut config = self.load_config()?;
+        if app_key == "mnova" {
+            config.mnova_mcp_enabled = false;
+            config.mnova_mcp_dir.clear();
+        }
+        config.mcp_servers.retain(|entry| entry.app_key != app_key);
+        config.mcp_servers.push(McpServerConfig {
+            app_key: app_key.to_string(),
+            server_name: server_name.to_string(),
+            enabled,
+            directory: directory.trim().to_string(),
+        });
+        config::save(&self.layout.config_dir, config.clone())?;
+        Ok(mcp::status(&config, app_key, false))
+    }
+
+    pub fn remove_app_mcp(&self, app_key: &str) -> Result<(), RuntimeError> {
+        let mut config = self.load_config()?;
+        if app_key == "mnova" {
+            config.mnova_mcp_enabled = false;
+            config.mnova_mcp_dir.clear();
+        }
+        config.mcp_servers.retain(|entry| entry.app_key != app_key);
         config::save(&self.layout.config_dir, config)
     }
 

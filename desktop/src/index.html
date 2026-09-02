@@ -16,7 +16,7 @@
     #splash { max-width: 640px; margin: 13vh auto; padding: 32px; text-align: center; }
     .spinner { margin: 0 auto 22px; width: 34px; height: 34px; border: 3px solid #344b70; border-top-color: #72b4ff; border-radius: 50%; animation: spin 1s linear infinite; }
     .title { font-size: 21px; font-weight: 600; } .detail { margin: 12px 0 20px; color: #9fb1ca; line-height: 1.6; }
-    #error-actions, #settings { display: none; } #settings { max-width: 560px; margin: 18px auto; text-align: left; }
+    #error-actions { display: none; }
     label { display: block; margin: 14px 0 5px; color: #bfd0e6; font-size: 13px; }
     input { width: 100%; padding: 9px; border-radius: 6px; border: 1px solid #3c5375; background: #0d1625; color: #eef5ff; }
     .hint { font-size: 12px; color: #8ea2bd; margin-top: 12px; line-height: 1.55; }
@@ -39,6 +39,18 @@
     #bridge-detail { margin-top: 14px; padding: 12px 14px; background: #0d1625; border: 1px solid #1c2940; border-radius: 8px; font-size: 12px; color: #8ea2bd; line-height: 1.7; }
     #bridge-detail code { color: #c6d3e6; word-break: break-all; }
     .diag-actions { display: flex; gap: 10px; margin: 16px 0 14px; }
+    .field-row { display: flex; gap: 8px; align-items: center; }
+    .field-row input { flex: 1; }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; color: #d8e6f7; font-size: 13px; }
+    .check-row input { width: auto; }
+    .mcp-cell { min-width: 180px; color: #9fb1ca; font-size: 12px; }
+    .mcp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mcp-actions button { padding: 4px 8px; font-size: 12px; }
+    #mcp-editor { display: none; margin: 16px 0; padding: 16px; border: 1px solid #304768; border-radius: 9px; background: #111d30; }
+    #mcp-editor h3 { margin: 0; font-size: 15px; }
+    #mcp-editor-status { min-height: 36px; margin-top: 10px; padding: 9px 11px; border-radius: 7px; background: #0d1625; color: #9fb1ca; font-size: 12px; }
+    #mcp-editor-status[data-state="connected"] { color: #64d7a3; }
+    #mcp-editor-status[data-state="error"], #mcp-editor-status[data-state="invalid"], #mcp-editor-status[data-state="missing"] { color: #ef8b87; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -46,20 +58,28 @@
   <main class="shell">
     <nav class="topbar">
       <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
-      <button id="settings-button" type="button">设置</button><button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
+      <button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
       <!-- P1-1 runtime dependency doctor：覆盖层，一屏展示依赖状态 -->
       <section id="diagnostics">
-        <div class="diag-head"><h2>运行时依赖诊断</h2><span class="state" id="diag-state">加载中…</span></div>
-        <p class="diag-sub">检测 Edge / Python / Bridge / Office 等运行时依赖；检测只读，不会修改系统。</p>
+        <div class="diag-head"><h2>应用与连接诊断</h2><span class="state" id="diag-state">加载中…</span></div>
+        <p class="diag-sub">按应用或运行组件检查本机状态；只有已配置 MCP 的应用才显示 MCP 连接状态。</p>
         <div class="diag-actions">
           <button id="diag-refresh" type="button">重新检测</button>
           <button id="diag-close" type="button">关闭</button>
         </div>
+        <section id="mcp-editor">
+          <div class="diag-head"><h3 id="mcp-editor-title">MCP 管理</h3><span class="state" id="mcp-editor-result"></span></div>
+          <label class="check-row"><input id="mcp-enabled" type="checkbox">启用此应用的 MCP</label>
+          <label for="mcp-dir">MCP 服务目录（包含 run_server.py）</label>
+          <div class="field-row"><input id="mcp-dir" type="text"><button id="mcp-browse" type="button">选择目录</button></div>
+          <div id="mcp-editor-status" data-state="unconfigured">尚未配置</div>
+          <div class="diag-actions"><button id="mcp-save" type="button">保存</button><button id="mcp-test" type="button">测试连接</button><button id="mcp-remove" type="button">移除配置</button><button id="mcp-cancel" type="button">收起</button></div>
+        </section>
         <table class="deps-table">
-          <thead><tr><th style="width:180px">依赖</th><th style="width:88px">状态</th><th>详情</th><th>建议</th></tr></thead>
+          <thead><tr><th style="width:170px">应用 / 组件</th><th style="width:88px">本机状态</th><th>详情</th><th style="width:220px">MCP 状态</th><th style="width:100px">管理</th></tr></thead>
           <tbody id="deps-body"></tbody>
         </table>
         <div id="bridge-detail" style="display:none"></div>
@@ -68,21 +88,14 @@
         <div class="spinner" id="spinner"></div><div class="title" id="title">正在启动 iBM Lab Agent</div>
         <p class="detail" id="detail">首次启动会准备内置运行环境；这不会打开浏览器，也不会连接公网。</p>
         <div id="error-actions"><button id="retry-button" type="button">重试启动</button></div>
-        <form id="settings" autocomplete="off">
-          <label for="api-key">API Key</label><input id="api-key" type="password" placeholder="可选：留空则沿用 DSH 已有设置">
-          <label for="base-url">接口地址</label><input id="base-url" type="url" placeholder="可选">
-          <label for="model">模型</label><input id="model" type="text" placeholder="可选">
-          <label for="workspace-path">工作目录</label><input id="workspace-path" type="text" placeholder="可选">
-          <p class="hint">API Key 使用 Windows DPAPI 加密，仅当前 Windows 用户可解密；普通配置与日志不保存明文 Key。保存后请重新启动运行环境使其生效。</p>
-          <button type="submit">保存设置</button>
-        </form>
       </section>
     </section>
   </main>
   <script>
     const $ = (id) => document.getElementById(id);
     const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args);
-    const splash = $('splash'), frame = $('app'), settings = $('settings'), diagnostics = $('diagnostics');
+    const splash = $('splash'), frame = $('app'), diagnostics = $('diagnostics');
+    let activeMcpApp = null;
     // P1-1：状态徽章映射（ok=绿 / warning=黄 / missing=红，暗色主题）
     const DEP_STATES = {
       ok: { text: '正常', badge: 'badge-ok' },
@@ -98,19 +111,29 @@
     async function refreshDiagnostics() {
       const body = $('deps-body'), bridgeDetail = $('bridge-detail');
       $('diag-state').textContent = '检测中…';
-      body.innerHTML = '<tr><td colspan="4" style="color:#8ea2bd">正在检测运行时依赖…</td></tr>';
+      body.innerHTML = '<tr><td colspan="5" style="color:#8ea2bd">正在检测应用与运行组件…</td></tr>';
       bridgeDetail.style.display = 'none';
       try {
         const deps = await invoke('runtime_deps');
-        body.innerHTML = deps.items.map((item) => {
+        const renderItems = () => { body.innerHTML = deps.items.map((item) => {
           const state = DEP_STATES[item.state] || DEP_STATES.missing;
+          const mcp = item.mcp;
+          const mcpText = mcp ? `${esc(mcp.detail)}<br><span class="dep-hint">服务：${esc(mcp.serverName)} · ${mcp.enabled ? '已启用' : '未启用'}</span>` : '';
+          const manage = item.mcpCapable ? `<button type="button" data-mcp-app="${esc(item.key)}" data-mcp-label="${esc(item.label)}">${mcp ? '管理 MCP' : '配置 MCP'}</button>` : '';
           return `<tr>
             <td class="dep-label">${esc(item.label)}</td>
             <td><span class="badge ${state.badge}">${state.text}</span></td>
-            <td class="dep-detail">${esc(item.detail)}</td>
-            <td class="dep-hint">${esc(item.hint)}</td>
+            <td class="dep-detail">${esc(item.detail)}<br><span class="dep-hint">${esc(item.hint)}</span></td>
+            <td class="mcp-cell">${mcpText}</td>
+            <td class="mcp-actions">${manage}</td>
           </tr>`;
-        }).join('');
+        }).join(''); };
+        renderItems();
+        await Promise.all(deps.items.filter((item) => item.mcp).map(async (item) => {
+          try { item.mcp = await invoke('app_mcp_status', { appKey: item.key, testConnection: true }); }
+          catch (error) { item.mcp = { ...item.mcp, state: 'error', connected: false, detail: String(error) }; }
+        }));
+        renderItems();
         const counts = deps.items.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
         const summary = ['ok', 'warning', 'missing'].filter((k) => counts[k]).map((k) => `${DEP_STATES[k].text} ${counts[k]} 项`).join('，');
         $('diag-state').textContent = `检测完成：${summary}`;
@@ -122,19 +145,35 @@
           <br>wrapper：<code>${esc(bridge.wrapperPath || '未生成')}</code>
           <br>host.js 存在：${bridge.hostJsExists ? '是' : '否'}；node.exe 存在：${bridge.nodeExeExists ? '是' : '否'}`;
       } catch (error) {
-        body.innerHTML = `<tr><td colspan="4" style="color:#e0706c">检测失败：${esc(error)}。请查看日志。</td></tr>`;
+        body.innerHTML = `<tr><td colspan="5" style="color:#e0706c">检测失败：${esc(error)}。请查看日志。</td></tr>`;
         $('diag-state').textContent = '检测失败';
       }
     }
     function setText(id, value) { $(id).textContent = value; }
-    async function showSettings() {
-      settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
-      if (settings.style.display !== 'block') return;
+    function renderMcpStatus(status) {
+      const node = $('mcp-editor-status');
+      node.dataset.state = status.state || 'error';
+      node.textContent = `${status.detail || '状态未知'} · run_server.py：${status.serverFileExists ? '已找到' : '未找到'} · uv：${status.uvAvailable ? '可用' : '不可用'}`;
+    }
+    async function refreshMcpStatus(testConnection = false) {
+      if (!activeMcpApp) return;
+      const node = $('mcp-editor-status');
+      node.dataset.state = 'ready'; node.textContent = testConnection ? '正在启动独立 MCP 握手测试…' : '正在检查配置…';
       try {
-        const config = await invoke('load_config');
-        $('api-key').value = config.apiKey || ''; $('base-url').value = config.baseUrl || '';
-        $('model').value = config.model || ''; $('workspace-path').value = config.workspace || '';
-      } catch (error) { setText('detail', `无法读取设置：${error}`); }
+        const status = await invoke('app_mcp_status', { appKey: activeMcpApp, testConnection });
+        $('mcp-enabled').checked = !!status.enabled;
+        $('mcp-dir').value = status.directory || '';
+        renderMcpStatus(status);
+      }
+      catch (error) { renderMcpStatus({ state: 'error', detail: String(error), serverFileExists: false, uvAvailable: false }); }
+    }
+    async function openMcpEditor(appKey, label) {
+      activeMcpApp = appKey;
+      $('mcp-editor-title').textContent = `${label} · MCP 管理`;
+      $('mcp-editor-result').textContent = '';
+      $('mcp-editor').style.display = 'block';
+      await refreshMcpStatus(false);
+      $('mcp-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     window.ibmLabRuntimeStarting = () => {
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'block';
@@ -145,22 +184,39 @@
     };
     window.ibmLabRuntimeFailed = (message) => {
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'none'; $('error-actions').style.display = 'block';
-      setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看日志或修改设置后重试。`); setText('state', '启动失败');
+      setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看诊断与日志后重试。`); setText('state', '启动失败');
     };
     $('retry-button').addEventListener('click', () => invoke('restart_runtime').catch(window.ibmLabRuntimeFailed));
     $('logs-button').addEventListener('click', () => invoke('open_logs').catch(window.ibmLabRuntimeFailed));
     $('workspace-button').addEventListener('click', () => invoke('open_workspace').catch(window.ibmLabRuntimeFailed));
-    $('settings-button').addEventListener('click', showSettings);
     $('deps-button').addEventListener('click', showDiagnostics);
     $('diag-refresh').addEventListener('click', refreshDiagnostics);
-    $('diag-close').addEventListener('click', () => { diagnostics.style.display = 'none'; });
-    settings.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      try {
-        await invoke('save_config', { config: { apiKey: $('api-key').value, baseUrl: $('base-url').value, model: $('model').value, workspace: $('workspace-path').value } });
-        setText('detail', '设置已保存。点击“重试启动”将重新启动本地服务。');
-      } catch (error) { setText('detail', `无法保存设置：${error}`); }
+    $('diag-close').addEventListener('click', () => { diagnostics.style.display = 'none'; activeMcpApp = null; $('mcp-editor').style.display = 'none'; });
+    $('deps-body').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-mcp-app]');
+      if (button) void openMcpEditor(button.dataset.mcpApp, button.dataset.mcpLabel);
     });
+    $('mcp-browse').addEventListener('click', async () => { const path = await invoke('pick_mcp_dir'); if (path) $('mcp-dir').value = path; });
+    $('mcp-save').addEventListener('click', async () => {
+      if (!activeMcpApp) return;
+      try {
+        const status = await invoke('save_app_mcp', { appKey: activeMcpApp, directory: $('mcp-dir').value, enabled: $('mcp-enabled').checked });
+        renderMcpStatus(status); setText('mcp-editor-result', '已保存；重启运行环境后生效。'); await refreshDiagnostics();
+      } catch (error) { setText('mcp-editor-result', `保存失败：${error}`); }
+    });
+    $('mcp-test').addEventListener('click', async () => {
+      if (!activeMcpApp) return;
+      try {
+        await invoke('save_app_mcp', { appKey: activeMcpApp, directory: $('mcp-dir').value, enabled: $('mcp-enabled').checked });
+        await refreshMcpStatus(true); await refreshDiagnostics();
+      } catch (error) { renderMcpStatus({ state: 'error', detail: String(error), serverFileExists: false, uvAvailable: false }); }
+    });
+    $('mcp-remove').addEventListener('click', async () => {
+      if (!activeMcpApp) return;
+      await invoke('remove_app_mcp', { appKey: activeMcpApp });
+      $('mcp-editor').style.display = 'none'; activeMcpApp = null; await refreshDiagnostics();
+    });
+    $('mcp-cancel').addEventListener('click', () => { $('mcp-editor').style.display = 'none'; activeMcpApp = null; });
     // Desktop capability bridge. Only the active local-runtime iframe origin is
     // accepted; arbitrary nested frames cannot invoke native file or URL actions.
     window.addEventListener('message', (event) => {
@@ -177,11 +233,35 @@
         invoke('open_in_edge', { url: String(data.url || '') })
           .then(() => reply('OPEN_IN_EDGE_RESULT', { ok: true }))
           .catch((error) => reply('OPEN_IN_EDGE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'OPEN_ARTIFACT_IN_BROWSER') {
+        // 0.1.15：分段留痕（收到请求 → 命令返回），便于定位失败发生在
+        // 前端消息、Tauri 命令、Rust 预检还是 Edge 启动。
+        const openKind = String(data.payload?.kind || '');
+        const openBundleId = String(data.payload?.bundleId || '');
+        console.log(`[iBM][shell] 收到打开请求 kind=${openKind} bundleId=${openBundleId}`);
+        invoke('open_artifact_in_browser', { kind: openKind, bundleId: openBundleId })
+          .then(() => {
+            console.log(`[iBM][shell] 打开成功 kind=${openKind} bundleId=${openBundleId}`);
+            reply('OPEN_ARTIFACT_IN_BROWSER_RESULT', { ok: true });
+          })
+          .catch((error) => {
+            const message = String(error);
+            console.error(`[iBM][shell] 打开失败 kind=${openKind} bundleId=${openBundleId} error=${message}`);
+            reply('OPEN_ARTIFACT_IN_BROWSER_RESULT', { ok: false, error: message });
+          });
       } else if (data.type === 'SAVE_ARTIFACT') {
         reply('SAVE_ARTIFACT_ACK', { ok: true });
         invoke('save_artifact', { url: String(data.payload?.artifactUrl || '') })
           .then((saved) => reply('SAVE_ARTIFACT_RESULT', { ok: true, saved }))
           .catch((error) => reply('SAVE_ARTIFACT_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'SAVE_TEXT_ARTIFACT') {
+        reply('SAVE_TEXT_ARTIFACT_ACK', { ok: true });
+        invoke('save_text_artifact', {
+          fileName: String(data.payload?.fileName || ''),
+          text: String(data.payload?.text || '')
+        })
+          .then((saved) => reply('SAVE_TEXT_ARTIFACT_RESULT', { ok: true, saved }))
+          .catch((error) => reply('SAVE_TEXT_ARTIFACT_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'OPEN_ARTIFACT') {
         invoke('open_artifact', { url: String(data.payload?.artifactUrl || '') })
           .then(() => reply('OPEN_ARTIFACT_RESULT', { ok: true }))

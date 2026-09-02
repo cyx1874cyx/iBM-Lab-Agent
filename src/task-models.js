@@ -182,6 +182,10 @@ export const paperSourceBundleSchema = z.object({
 	translationNotesPath: z.string().optional(),
 	figuresDir: z.string().optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
+	/** 文献条目标识与固化目录（"<短引用> <10字以内短介绍>"）：占位创建时固化，
+	 *  正文/SI/精读报告/PPT 全部落在同一条目目录，保证分批存档不产生第二个文件夹。 */
+	entryStem: z.string().optional(),
+	entryDir: z.string().optional(),
 	status: z.enum(RUN_STATUSES).default("pending"),
 	error: z.string().optional(),
 	createdAt: z.string(),

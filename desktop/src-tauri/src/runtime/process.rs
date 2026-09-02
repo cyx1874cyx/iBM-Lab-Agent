@@ -120,9 +120,19 @@ pub fn spawn_dsh(
         }
         path
     };
+    for mcp in config.mcp_servers.iter().filter(|entry| entry.enabled) {
+        let directory = PathBuf::from(mcp.directory.trim());
+        if !directory.is_dir() || !directory.join("run_server.py").is_file() {
+            return Err(RuntimeError::new(format!(
+                "{} MCP 已启用，但目录无效或缺少 run_server.py；请在诊断页修正后重试",
+                mcp.server_name
+            )));
+        }
+    }
+    let mcp_patch = super::dsh::prepare_mcp_patch(layout, &config.mcp_servers)?;
     let mut command = Command::new(layout.node_exe());
-	#[cfg(windows)]
-	command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    #[cfg(windows)]
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     command
         .arg(layout.dsh_bin())
         .args([
@@ -142,14 +152,14 @@ pub fn spawn_dsh(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if !config.api_key.trim().is_empty() {
-        command.env("OPENAI_API_KEY", config.api_key.trim());
+    if let Some(path) = mcp_patch {
+        command.arg("--patch").arg(path);
     }
-    if !config.base_url.trim().is_empty() {
-        command.env("OPENAI_BASE_URL", config.base_url.trim());
-    }
-    if !config.model.trim().is_empty() {
-        command.env("OPENAI_MODEL", config.model.trim());
+    for mcp in config.mcp_servers.iter().filter(|entry| entry.enabled) {
+        command.env(
+            format!("IBM_LAB_MCP_DIR_{}", mcp.server_name.to_ascii_uppercase()),
+            mcp.directory.trim(),
+        );
     }
     let mut child = command
         .spawn()

@@ -15,7 +15,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use super::bridge;
+use super::config;
 use super::dsh::RuntimeLayout;
+use super::mcp::{self, AppMcpStatus};
 use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ};
 use winreg::types::FromRegValue;
 use winreg::{RegKey, HKEY};
@@ -29,6 +31,9 @@ pub struct DependencyStatus {
     pub state: String,
     pub detail: String,
     pub hint: String,
+    pub mcp_capable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<AppMcpStatus>,
 }
 
 /// Doctor 聚合结果：依赖列表 + Bridge 注册快照（前端可展开显示）。
@@ -57,6 +62,11 @@ const WPS_CANDIDATES: [&str; 2] = [
     r"C:\Program Files\WPS Office\ksolaunch.exe",
     r"C:\Program Files (x86)\Kingsoft\WPS Office\ksolaunch.exe",
 ];
+const MNOVA_CANDIDATES: [&str; 3] = [
+    r"C:\Program Files\Mestrelab Research S.L\MestReNova\MestReNova.exe",
+    r"C:\Program Files\Mestrelab Research\MestReNova\MestReNova.exe",
+    r"C:\Program Files (x86)\Mestrelab Research S.L\MestReNova\MestReNova.exe",
+];
 
 fn ok(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> DependencyStatus {
     DependencyStatus {
@@ -65,6 +75,8 @@ fn ok(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> Dependen
         state: "ok".into(),
         detail: detail.into(),
         hint: hint.into(),
+        mcp_capable: false,
+        mcp: None,
     }
 }
 
@@ -75,6 +87,8 @@ fn warning(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> Dep
         state: "warning".into(),
         detail: detail.into(),
         hint: hint.into(),
+        mcp_capable: false,
+        mcp: None,
     }
 }
 
@@ -85,6 +99,8 @@ fn missing(key: &str, label: &str, detail: impl Into<String>, hint: &str) -> Dep
         state: "missing".into(),
         detail: detail.into(),
         hint: hint.into(),
+        mcp_capable: false,
+        mcp: None,
     }
 }
 
@@ -286,10 +302,17 @@ fn bridge_status(layout: &RuntimeLayout) -> DependencyStatus {
 }
 
 fn office_status() -> DependencyStatus {
-	for path in MS_OFFICE_CANDIDATES.iter().chain(WPS_CANDIDATES.iter()) {
-		let candidate = PathBuf::from(path);
-		if candidate.is_file() { return ok("office", "Office（默认打开程序）", candidate.display().to_string(), "检测到 Microsoft Office/WPS；报告和 PPT 会直接由系统默认程序打开。 "); }
-	}
+    for path in MS_OFFICE_CANDIDATES.iter().chain(WPS_CANDIDATES.iter()) {
+        let candidate = PathBuf::from(path);
+        if candidate.is_file() {
+            return ok(
+                "office",
+                "Office（默认打开程序）",
+                candidate.display().to_string(),
+                "检测到 Microsoft Office/WPS；报告和 PPT 会直接由系统默认程序打开。 ",
+            );
+        }
+    }
     match find_libreoffice() {
         Some(path) => ok(
             "office",
@@ -305,6 +328,34 @@ fn office_status() -> DependencyStatus {
              下载安装；不影响文献捕获核心链路。",
         ),
     }
+}
+
+fn mnova_status(layout: &RuntimeLayout) -> DependencyStatus {
+    let installed = MNOVA_CANDIDATES
+        .iter()
+        .map(PathBuf::from)
+        .find(|path| path.is_file());
+    let config = config::load(&layout.config_dir).unwrap_or_default();
+    let mcp_status = mcp::status(&config, "mnova", false);
+    let mut item = match installed {
+        Some(path) => ok(
+            "mnova",
+            "MestReNova",
+            path.display().to_string(),
+            "已检测到 MestReNova 应用。",
+        ),
+        None => warning(
+            "mnova",
+            "MestReNova",
+            "未找到 MestReNova.exe",
+            "NMR 分析需要本地 MestReNova；安装后会自动检测。",
+        ),
+    };
+    item.mcp_capable = true;
+    if mcp_status.configured {
+        item.mcp = Some(mcp_status);
+    }
+    item
 }
 
 fn policy_strings(root: HKEY, subkey: &str) -> Vec<String> {
@@ -384,6 +435,7 @@ pub fn probe(layout: &RuntimeLayout) -> RuntimeDeps {
             node_status(layout),
             bridge_status(layout),
             office_status(),
+            mnova_status(layout),
             edge_policy_status(),
         ],
         bridge: bridge::status(layout),
@@ -425,11 +477,19 @@ mod tests {
     fn probe_reports_all_six_deps_with_valid_states() {
         let (layout, sandbox) = sandbox_layout();
         let deps = probe(&layout);
-        // 六项齐全且顺序稳定
+        // 七项齐全且顺序稳定
         let keys: Vec<&str> = deps.items.iter().map(|item| item.key.as_str()).collect();
         assert_eq!(
             keys,
-            ["edge", "python", "node", "bridge", "office", "edge-policy"]
+            [
+                "edge",
+                "python",
+                "node",
+                "bridge",
+                "office",
+                "mnova",
+                "edge-policy"
+            ]
         );
         // 捆绑 node 存在 → ok
         let node = deps.items.iter().find(|item| item.key == "node").unwrap();

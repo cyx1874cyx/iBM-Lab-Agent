@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 use super::{dsh::RuntimeLayout, RuntimeError};
 
 const MAX_ARTIFACT_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_TEXT_ARTIFACT_BYTES: usize = 16 * 1024 * 1024;
 const ALLOWED_EXTENSIONS: [&str; 8] = ["docx", "pptx", "pdf", "zip", "ris", "bib", "txt", "md"];
 
 #[derive(Debug, Clone, Serialize)]
@@ -223,22 +224,102 @@ pub fn save_artifact(raw_url: &str, expected_port: u16) -> Result<SavedArtifact,
     result
 }
 
+/// Save an in-memory RIS export through the native Windows save dialog.
+/// Unlike binary artifacts this content has no loopback download URL, so it
+/// must cross the authenticated iframe bridge as text.
+pub fn save_text_artifact(raw_file_name: &str, text: &str) -> Result<SavedArtifact, RuntimeError> {
+    let file_name = safe_file_name(raw_file_name)?;
+    if !file_name.to_ascii_lowercase().ends_with(".ris") {
+        return Err(RuntimeError::new("Only RIS text exports may be saved"));
+    }
+    let bytes = text.as_bytes();
+    if bytes.len() > MAX_TEXT_ARTIFACT_BYTES {
+        return Err(RuntimeError::new(
+            "RIS export exceeds the 16 MB desktop save limit",
+        ));
+    }
+    let Some(target) = rfd::FileDialog::new()
+        .add_filter("RIS citation file", &["ris"])
+        .set_file_name(&file_name)
+        .save_file()
+    else {
+        return Ok(SavedArtifact {
+            cancelled: true,
+            file_name,
+            file_path: None,
+            bytes: 0,
+            sha256: None,
+        });
+    };
+    let temp = atomic_target(&target);
+    let result = (|| {
+        let mut output = File::create(&temp).map_err(|error| {
+            RuntimeError::new(format!("Cannot create selected RIS file: {error}"))
+        })?;
+        output.write_all(bytes).map_err(|error| {
+            RuntimeError::new(format!("Cannot write selected RIS file: {error}"))
+        })?;
+        output.sync_all().map_err(|error| {
+            RuntimeError::new(format!("Cannot flush selected RIS file: {error}"))
+        })?;
+        let actual_hash = format!("{:x}", Sha256::digest(bytes));
+        finalize_atomic(&temp, &target)?;
+        Ok(SavedArtifact {
+            cancelled: false,
+            file_name,
+            file_path: Some(target.display().to_string()),
+            bytes: bytes.len() as u64,
+            sha256: Some(actual_hash),
+        })
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
+}
+
 /// Fetch a loopback artifact into the app-owned transient cache and open it
 /// with the Windows file association. No save dialog is shown.
-pub fn open_artifact(raw_url: &str, expected_port: u16, cache_dir: &Path) -> Result<(), RuntimeError> {
+pub fn open_artifact(
+    raw_url: &str,
+    expected_port: u16,
+    cache_dir: &Path,
+) -> Result<(), RuntimeError> {
     let url = validate_artifact_url(raw_url, expected_port)?;
     let response = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(120))
-        .build().map_err(|e| RuntimeError::new(format!("Cannot initialize artifact request: {e}")))?
-        .get(url).send().map_err(|e| RuntimeError::new(format!("Artifact open failed: {e}")))?;
-    if !response.status().is_success() { return Err(RuntimeError::new(format!("Artifact open failed (HTTP {})", response.status()))); }
-    let file_name = safe_file_name(response.headers().get("x-file-name").and_then(|v| v.to_str().ok()).unwrap_or("artifact.bin"))?;
-    let bytes = response.bytes().map_err(|e| RuntimeError::new(format!("Artifact download was interrupted: {e}")))?;
-    if bytes.len() as u64 > MAX_ARTIFACT_BYTES { return Err(RuntimeError::new("Artifact exceeds the 256 MB desktop open limit")); }
-    fs::create_dir_all(cache_dir).map_err(|e| RuntimeError::new(format!("Cannot create artifact cache: {e}")))?;
+        .build()
+        .map_err(|e| RuntimeError::new(format!("Cannot initialize artifact request: {e}")))?
+        .get(url)
+        .send()
+        .map_err(|e| RuntimeError::new(format!("Artifact open failed: {e}")))?;
+    if !response.status().is_success() {
+        return Err(RuntimeError::new(format!(
+            "Artifact open failed (HTTP {})",
+            response.status()
+        )));
+    }
+    let file_name = safe_file_name(
+        response
+            .headers()
+            .get("x-file-name")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("artifact.bin"),
+    )?;
+    let bytes = response
+        .bytes()
+        .map_err(|e| RuntimeError::new(format!("Artifact download was interrupted: {e}")))?;
+    if bytes.len() as u64 > MAX_ARTIFACT_BYTES {
+        return Err(RuntimeError::new(
+            "Artifact exceeds the 256 MB desktop open limit",
+        ));
+    }
+    fs::create_dir_all(cache_dir)
+        .map_err(|e| RuntimeError::new(format!("Cannot create artifact cache: {e}")))?;
     let target = cache_dir.join(format!("{}-{}", std::process::id(), file_name));
-    fs::write(&target, &bytes).map_err(|e| RuntimeError::new(format!("Cannot cache artifact for opening: {e}")))?;
+    fs::write(&target, &bytes)
+        .map_err(|e| RuntimeError::new(format!("Cannot cache artifact for opening: {e}")))?;
     open_path(&target)
 }
 
@@ -271,11 +352,12 @@ pub fn reveal_path(path: &Path) -> Result<(), RuntimeError> {
 }
 
 pub fn open_workspace(layout: &RuntimeLayout, configured: &str) -> Result<(), RuntimeError> {
-    let path = if configured.trim().is_empty() {
-        &layout.workspace_dir
-    } else {
-        Path::new(configured.trim())
-    };
+    let _ = configured; // desktop button always opens the project storage root
+    let projects = layout.dsh_home.join("lab-agent").join("projects");
+    fs::create_dir_all(&projects).map_err(|error| {
+        RuntimeError::new(format!("Cannot create project storage directory: {error}"))
+    })?;
+    let path = projects.as_path();
     if !path.is_dir() {
         return Err(RuntimeError::new(
             "Configured workspace does not exist or is not a directory",
@@ -312,5 +394,13 @@ mod tests {
         assert_eq!(safe_file_name("..%2Fpaper.pdf").unwrap(), "paper.pdf");
         assert!(safe_file_name("payload.exe").is_err());
         assert!(safe_file_name("artifact.bin").is_err());
+    }
+
+    #[test]
+    fn ris_text_save_accepts_only_ris_names() {
+        assert_eq!(safe_file_name("search-1.ris").unwrap(), "search-1.ris");
+        assert_eq!(safe_file_name("检索结果.RIS").unwrap(), "检索结果.RIS");
+        assert!(safe_file_name("search-1.exe").is_err());
+        assert!(!"search-1.txt".to_ascii_lowercase().ends_with(".ris"));
     }
 }

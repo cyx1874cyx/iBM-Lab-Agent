@@ -19,11 +19,12 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { bootLite } from "../helpers/boot-lite.mjs";
 import { createCaptureUploadHandler } from "../../lib/manual-capture.js";
+import { buildEntryStem, entryFileName } from "../../lib/entry-layout.js";
 
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
@@ -182,9 +183,9 @@ test("capture: 捕获失败后能重新捕获（扩展侧失败时服务端任�
 		const second = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
 		assert.notEqual(second.task.id, first.task.id);
 		assert.equal(ctx.labCapture.getTask(first.task.id).status, "cancelled");
-		// 新任务可正常完成上传
-		const si = Buffer.from("recovered supplementary data");
-		const res = await boot.upload(uploadRequest({ token: second.token, fileName: "recover.zip", body: si }));
+		// 新任务可正常完成上传（SI 同样必须是 PDF，ZIP/TXT 一律拒绝）
+		const si = minimalPdf("recovered");
+		const res = await boot.upload(uploadRequest({ token: second.token, fileName: "recover.pdf", body: si }));
 		assert.equal(res.status, 200, JSON.stringify(res.payload));
 		assert.equal(ctx.labCapture.getTask(second.task.id).status, "completed");
 		// 服务端校验失败（任务 failed）后同样可重新捕获
@@ -379,7 +380,7 @@ test("capture: 上传接口 — 100MB 上限 / 非 PDF / 头与 EOF 错误 / SI 
 	}
 });
 
-test("capture: 路径穿越文件名被清理，文件落在课题工作区 captured-literature/<bundleId>/", async () => {
+test("capture: 路径穿越文件名被清理，文件落在该条目的 literature/<entryStem>/ 目录", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
@@ -387,11 +388,15 @@ test("capture: 路径穿越文件名被清理，文件落在课题工作区 capt
 		const created = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
 		const res = await boot.upload(uploadRequest({ token: created.token, fileName: "../../../evil.pdf", body: pdf }));
 		assert.equal(res.status, 200, JSON.stringify(res.payload));
-		assert.equal(res.payload.fileName, "evil.pdf", "路径组件被剥离");
 		const bundle = ctx.labTasks.getBundle("bundle-cap-1");
 		assert.ok(bundle.pdfPath, "bundle.pdfPath 已登记");
 		assert.ok(!bundle.pdfPath.includes(".."), "登记路径无目录穿越");
-		assert.ok(bundle.pdfPath.endsWith(join("captured-literature", "bundle-cap-1", "evil.pdf")), "保存到课题工作区 captured-literature/<bundleId>/");
+		// 最终文件名由服务端按条目规则生成，不采用浏览器提供的下载名
+		assert.notEqual(res.payload.fileName, "evil.pdf", "不沿用出版社下载名");
+		assert.match(bundle.pdfPath, /\.pdf$/, "正文扩展名强制 .pdf");
+		const stem = buildEntryStem(bundle);
+		assert.ok(bundle.pdfPath.includes(join("literature", stem)), `应落在 literature/${stem}/，实际 ${bundle.pdfPath}`);
+		assert.equal(bundle.pdfPath, join(bundle.entryDir, entryFileName(stem, "pdf")), "文件名 = <entryStem> 正文.pdf");
 		assert.ok(existsSync(bundle.pdfPath), "文件真实存在");
 		assert.equal(ctx.labCapture.table.get(created.task.id).status, "completed");
 	} finally {
@@ -414,7 +419,7 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		assert.equal(bundle.id, "bundle-cap-1", "复用原 bundleId，不新建文献");
 		assert.equal(bundle.acquisitionStatus, "ready");
 		assert.equal(bundle.pdfSha256, pdfSha);
-		assert.ok(bundle.pdfPath.endsWith("paper.pdf"));
+		assert.ok(bundle.pdfPath.endsWith(`${buildEntryStem(bundle)} 正文.pdf`), "正文文件名 = <entryStem> 正文.pdf，不再沿用出版社下载名");
 		// provenance 记录 manual-browser-capture
 		const prov = ctx.labTasks.listProvenance("capture-project").find((p) => p.source === "manual-browser-capture");
 		assert.ok(prov, "manual-browser-capture provenance 已记录");
@@ -423,16 +428,21 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		const file = await ctx.labTasks.bundleFile("bundle-cap-1", "pdf");
 		assert.equal(file.byteLength, pdf.byteLength);
 		assert.equal(file.sha256, pdfSha);
-		assert.equal(file.fileName, "paper.pdf");
-		// SI 上传（同一 bundle 追加 siPath）
-		const si = Buffer.from("supplementary data for capture test");
+		assert.equal(file.fileName, entryFileName(buildEntryStem(bundle), "pdf"), "出流文件名与归档名一致");
+		assert.equal(file.mime, "application/pdf");
+		// SI 上传（同一 bundle 追加 siPath）：SI 同样必须是 PDF，且与正文同目录
+		const si = minimalPdf("supporting");
+		const siSha = createHash("sha256").update(si).digest("hex");
 		const createdSi = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
-		const resSi = await boot.upload(uploadRequest({ token: createdSi.token, fileName: "supporting.zip", body: si }));
+		const resSi = await boot.upload(uploadRequest({ token: createdSi.token, fileName: "supporting.pdf", body: si }));
 		assert.equal(resSi.status, 200, JSON.stringify(resSi.payload));
 		bundle = ctx.labTasks.getBundle("bundle-cap-1");
-		assert.equal(bundle.siSha256, createHash("sha256").update(si).digest("hex"));
-		assert.ok(bundle.siPath.endsWith(join("captured-literature", "bundle-cap-1", "supporting.zip")));
+		assert.equal(bundle.siSha256, siSha);
+		assert.ok(bundle.siPath.endsWith(`${buildEntryStem(bundle)} SI.pdf`), "SI 文件名 = <entryStem> SI.pdf");
+		assert.equal(dirname(bundle.siPath), dirname(bundle.pdfPath), "正文与 SI 落在同一条目目录");
 		const siFile = await ctx.labTasks.bundleFile("bundle-cap-1", "si");
+		assert.equal(siFile.mime, "application/pdf", "已登记 SI 一律按 PDF 出流，不再按扩展名猜测");
+		assert.equal(siFile.sha256, siSha);
 		assert.deepEqual(siFile.buffer, si);
 		// 精读报告不被捕获改动（不冒充全文精读完成）
 		const report = await ctx.labTasks.createReadingReport({ projectId: "capture-project", bundleId: "bundle-cap-1", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });

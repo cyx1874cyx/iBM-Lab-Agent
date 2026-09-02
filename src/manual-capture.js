@@ -33,7 +33,8 @@ export const CAPTURE_MAX_BYTES = 100 * 1024 * 1024;
 export const CAPTURE_PDF_MIN_BYTES = 8 * 1024;
 
 /** SI 补充材料允许的扩展名（小写、无点）。 */
-export const SUPPORTED_SI_EXTENSIONS = ["pdf", "zip", "docx", "xlsx", "csv", "txt", "cif", "sdf"];
+/** 本版本正文与 SI 都必须是 PDF（0.1.15：SI 不再接受 ZIP/TXT 等打包格式）。 */
+export const SUPPORTED_SI_EXTENSIONS = ["pdf"];
 
 /** 合法 chrome-extension:// Origin：MV3 扩展 id 是 32 个 a-p 字符。 */
 export const CHROME_EXTENSION_ORIGIN_RE = /^chrome-extension:\/\/([a-p]{32})$/i;
@@ -95,18 +96,16 @@ export function extensionOf(fileName) {
 	return match ? match[1].toLowerCase() : "";
 }
 
-/** 下载文件名是否匹配捕获任务类型。 */
+/** 下载文件名是否匹配捕获任务类型（正文与 SI 都必须是 .pdf）。 */
 export function kindMatchesFileName(kind, fileName) {
 	const ext = extensionOf(fileName);
-	if (kind === "pdf") return ext === "pdf";
-	if (kind === "si") return SUPPORTED_SI_EXTENSIONS.includes(ext);
+	if (kind === "pdf" || kind === "si") return ext === "pdf";
 	return false;
 }
 
 /**
- * 校验捕获文件内容。
- * PDF：%PDF- 头 + %%EOF + 大小上限；SI：扩展名白名单（内容不做深度解析，
- * 与出版社补充材料经常为打包格式的现实一致，但保留大小上限）。
+ * 校验捕获文件内容。正文与 SI 都必须通过 PDF 签名（%PDF-）、EOF、大小与
+ * SHA-256 校验；SI 不能再依据原始响应文件名保存成 ZIP/TXT。
  * @returns {{ sha256: string, byteLength: number }}
  */
 export function validateCapturedFile({ kind, buffer, fileName }) {
@@ -114,23 +113,17 @@ export function validateCapturedFile({ kind, buffer, fileName }) {
 	if (bytes.byteLength > CAPTURE_MAX_BYTES) {
 		throw new Error(`文件超过 ${Math.round(CAPTURE_MAX_BYTES / 1024 / 1024)} MB 安全上限`);
 	}
-	const ext = extensionOf(fileName);
-	if (kind === "pdf") {
-		if (ext !== "pdf") throw new Error(`PDF 任务只接受 .pdf 文件（收到 .${ext || "?"}）`);
-		if (bytes.byteLength < CAPTURE_PDF_MIN_BYTES) throw new Error(`PDF 文件过小（${bytes.byteLength} 字节），疑似错误页`);
-		if (!bytes.subarray(0, Math.min(bytes.byteLength, 1024)).includes(Buffer.from("%PDF-"))) {
-			throw new Error("下载内容不是有效 PDF（缺少 PDF 文件头）");
-		}
-		if (!bytes.subarray(Math.max(0, bytes.byteLength - 4096)).includes(Buffer.from("%%EOF"))) {
-			throw new Error("PDF 结尾不完整（缺少 EOF 标记）");
-		}
-	} else if (kind === "si") {
-		if (!SUPPORTED_SI_EXTENSIONS.includes(ext)) {
-			throw new Error(`SI 只支持 ${SUPPORTED_SI_EXTENSIONS.join("/").toUpperCase()} 格式（收到 .${ext || "?"}）`);
-		}
-		if (bytes.byteLength === 0) throw new Error("SI 文件为空");
-	} else {
+	if (kind !== "pdf" && kind !== "si") {
 		throw new Error(`未知捕获类型：${kind}`);
+	}
+	const ext = extensionOf(fileName);
+	if (ext !== "pdf") throw new Error(`${kind === "pdf" ? "PDF" : "SI"} 任务只接受 .pdf 文件（收到 .${ext || "?"}）`);
+	if (bytes.byteLength < CAPTURE_PDF_MIN_BYTES) throw new Error(`PDF 文件过小（${bytes.byteLength} 字节），疑似错误页`);
+	if (!bytes.subarray(0, Math.min(bytes.byteLength, 1024)).includes(Buffer.from("%PDF-"))) {
+		throw new Error("下载内容不是有效 PDF（缺少 PDF 文件头）");
+	}
+	if (!bytes.subarray(Math.max(0, bytes.byteLength - 4096)).includes(Buffer.from("%%EOF"))) {
+		throw new Error("PDF 结尾不完整（缺少 EOF 标记）");
 	}
 	return {
 		sha256: createHash("sha256").update(bytes).digest("hex"),

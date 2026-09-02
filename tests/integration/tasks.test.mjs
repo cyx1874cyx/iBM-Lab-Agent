@@ -11,12 +11,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, rm, writeFile, readFile, copyFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
 import { buildPptx } from "../fixtures/pptx-builder.mjs";
 import { PAPER_CARD_SECTION_CONTRACT } from "../../src/goal-profile.js";
+import { entryFileName } from "../../lib/entry-layout.js";
+
+/** 读取 bundle 已固化的条目标识（0.1.15 条目目录规则）。 */
+const entryStemOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryStem;
+const entryDirOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryDir;
 
 const skillsRoot = fileURLToPath(new URL("../../vendor/nature-skills/skills", import.meta.url));
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
@@ -142,9 +148,9 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		// When both inputs are available, source-map preparation and PDF download
 		// keep separate hashes so client-side integrity verification uses PDF bytes.
 		const pdfPath = join(fxDir, "paper.pdf");
-		const siPath = join(fxDir, "supporting.txt");
+		const siPath = join(fxDir, "supporting.pdf"); // 0.1.15：SI 同样必须是 PDF
 		const pdfBytes = Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF");
-		const siBytes = Buffer.from("supplementary information");
+		const siBytes = Buffer.from("%PDF-1.7\n1 0 obj<</Type /SI>>endobj\n%%EOF");
 		await writeFile(pdfPath, pdfBytes);
 		await writeFile(siPath, siBytes);
 		const bundleWithFiles = await tasks.preparePaper({
@@ -169,7 +175,13 @@ test("full flow: search → prepare → report → audit gate → presentation �
 			["si", true],
 			["source-map", true]
 		]);
-		assert.deepEqual(new Set(readingInputs.mustReadPaths), new Set([pdfPath, siPath, bundleWithFiles.sourceMapPath]));
+		// 0.1.15：工程外输入的 PDF/SI 必须已归档到条目目录，不能再指向临时输入路径。
+		assert.equal(bundleWithFiles.pdfPath, join(bundleWithFiles.entryDir, entryFileName(bundleWithFiles.entryStem, "pdf")), "正文已归档到条目目录");
+		assert.equal(bundleWithFiles.siPath, join(bundleWithFiles.entryDir, entryFileName(bundleWithFiles.entryStem, "si")), "SI 已归档到条目目录");
+		assert.equal(dirname(bundleWithFiles.pdfPath), bundleWithFiles.entryDir, "正文与条目同目录");
+		assert.equal(dirname(bundleWithFiles.siPath), bundleWithFiles.entryDir, "SI 与条目同目录");
+		assert.ok(!bundleWithFiles.pdfPath.includes(fxDir), "不再登记工程外临时路径");
+		assert.deepEqual(new Set(readingInputs.mustReadPaths), new Set([bundleWithFiles.pdfPath, bundleWithFiles.siPath, bundleWithFiles.sourceMapPath]));
 		assert.match(readingInputs.instructions.join("\n"), /正文和 SI/);
 		assert.match(readingInputs.instructions.join("\n"), /不得覆盖模板结构/);
 
@@ -361,7 +373,10 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 
 		// 精读报告生成后即可下载；桌面端会保存后直接用 Office/WPS 打开。
 		const download = await tasks.readingReportDownload(report.id);
-		assert.equal(download.fileName, `${report.id}.md`);
+		// 0.1.15：报告按文献条目命名，且与正文/SI 落在同一条目目录。
+		assert.equal(download.fileName, entryFileName(entryStemOf(tasks, bundle.id), "report-md"));
+		assert.ok(download.fileName.endsWith("精读报告.md"), `实际文件名 ${download.fileName}`);
+		assert.equal(dirname(download.filePath ?? tasks.getReadingReport(report.id).paperCardPath), entryDirOf(tasks, bundle.id), "报告与正文同一条目目录");
 		assert.match(download.mime, /text\/markdown/);
 		assert.match(download.text, /1 Overview|^#/m, "markdown content returned");
 
@@ -603,6 +618,62 @@ test("WeChat DOI verification resolves a candidate and registers the DOI into th
 		assert.equal(registered.bundle.doi, "10.1000/fake.1");
 		assert.equal(registered.bundle.sourceType, "wechat");
 		assert.equal(registered.bundle.acquisitionStatus, "awaiting-pdf");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("legacy bundle 无 entryStem 时可正常读取并受控迁移到条目目录", async () => {
+	const { handle, dir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-migrate",
+			name: "迁移测试",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		const workspace = await tasks.ensureProjectWorkspace("proj-migrate");
+		// 构造 0.1.14 形态旧 bundle：无 entryStem/entryDir，文件在 captured-literature/<bundleId>/
+		const legacyDir = join(workspace.path, "captured-literature", "bundle-legacy-1");
+		await mkdir(legacyDir, { recursive: true });
+		const oldPdf = Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF");
+		const oldPdfPath = join(legacyDir, "old-paper.pdf");
+		await writeFile(oldPdfPath, oldPdf);
+		const now = new Date().toISOString();
+		await tasks.table("bundles").put("bundle-legacy-1", {
+			id: "bundle-legacy-1",
+			projectId: "proj-migrate",
+			title: "Legacy paper",
+			doi: "10.1000/legacy.1",
+			pdfPath: oldPdfPath,
+			pdfSha256: createHash("sha256").update(oldPdf).digest("hex"),
+			acquisitionStatus: "ready",
+			locatorMode: "page-grounded",
+			status: "pending",
+			createdAt: now,
+			updatedAt: now
+		});
+		const legacy = tasks.getBundle("bundle-legacy-1");
+		assert.equal(legacy.entryStem, undefined, "旧数据初始无 entryStem");
+		// 触发迁移（读旧文件 → 校验 → 复制到条目目录 → 原子替换 → 更新 DB）
+		const migrated = await tasks.ensureBundleEntryLayout(legacy);
+		assert.ok(migrated.entryStem, "entryStem 已固化");
+		assert.ok(migrated.entryDir, "entryDir 已固化");
+		assert.equal(migrated.entryDir, join(workspace.path, "literature", migrated.entryStem), "条目目录 = literature/<entryStem>/");
+		assert.equal(migrated.pdfPath, join(migrated.entryDir, entryFileName(migrated.entryStem, "pdf")), "旧文件已按条目规则改名迁移");
+		assert.ok(existsSync(migrated.pdfPath), "迁移后文件真实存在");
+		assert.equal(createHash("sha256").update(await readFile(migrated.pdfPath)).digest("hex"), migrated.pdfSha256, "迁移后内容哈希不变");
+		assert.ok(existsSync(oldPdfPath), "旧文件保留，数据库更新前不删除");
+		// 二次调用幂等：不再重复迁移
+		const again = await tasks.ensureBundleEntryLayout(migrated);
+		assert.equal(again.pdfPath, migrated.pdfPath, "幂等，不重复迁移");
+		// 数据库中的 bundle 已持久化新布局，可正常读取
+		assert.equal(tasks.getBundle("bundle-legacy-1").entryStem, migrated.entryStem);
+		assert.equal(tasks.getBundle("bundle-legacy-1").pdfPath, migrated.pdfPath);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
