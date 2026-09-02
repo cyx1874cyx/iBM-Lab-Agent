@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mnova-mcp"
+version = "0.3.1"
+description = "Local MCP bridge for MestReNova 15.0 NMR processing, structure verification, and assignment writeback"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "filelock>=3.15,<4",
+  "mcp>=1.28,<2",
+  "pydantic>=2.7,<3",
+]
+classifiers = [
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+mnova-mcp = "mnova_mcp.server:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mnova_mcp = ["assets/*.qs"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,13 @@
+{
+  "schema": "dsh-lab-agent/vendor-component-lock/v1",
+  "name": "mnova-mcp",
+  "version": "0.3.1",
+  "repo": "https://github.com/cyx1874cyx/mnova-mcp.git",
+  "pinnedCommit": "e015c3424e7165dc9aa518d63d8195f643f4f169",
+  "pinnedAt": "2026-09-02T07:46:03.405Z",
+  "license": "MIT",
+  "mcpPackage": "mnova-mcp",
+  "skill": "skill/nmr-analyze-simulate",
+  "vendoredFileCount": 19,
+  "contentHash": "30f91b22aec7829249590d94f117ae24b51d0573f759002f5a1fb4758d581042"
+}

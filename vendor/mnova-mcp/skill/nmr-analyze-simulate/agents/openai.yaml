@@ -1,0 +1,13 @@
+interface:
+  display_name: "核磁解读、Mnova 标峰与仿真"
+  short_description: "解读核磁、在 Mnova 中用字母标峰核验结构，并生成可复现 FID"
+  default_prompt: "使用 $nmr-analyze-simulate 解读核磁数据，并根据 ChemDraw 结构在 MestReNova 中以对应小写字母标峰与核验。"
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "mnova"
+      description: "在本地 MestReNova 中处理一维核磁、导入 ChemDraw 结构、写回字母指认并运行 Verify"
+
+policy:
+  allow_implicit_invocation: true
