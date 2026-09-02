@@ -336,7 +336,7 @@ fn mnova_status(layout: &RuntimeLayout) -> DependencyStatus {
         .map(PathBuf::from)
         .find(|path| path.is_file());
     let config = config::load(&layout.config_dir).unwrap_or_default();
-    let mcp_status = mcp::status(&config, "mnova", false);
+    let mcp_status = mcp::status(layout, &config, "mnova", false);
     let mut item = match installed {
         Some(path) => ok(
             "mnova",

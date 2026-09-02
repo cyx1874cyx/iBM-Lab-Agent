@@ -350,41 +350,54 @@ impl RuntimeManager {
         app_key: &str,
         test_connection: bool,
     ) -> Result<AppMcpStatus, RuntimeError> {
-        Ok(mcp::status(&self.load_config()?, app_key, test_connection))
+        let config = self.load_config()?;
+        Ok(mcp::status(&self.layout, &config, app_key, test_connection))
     }
 
+    /// 保存某 MCP 应用配置。启动类型由 app_key → McpAppSpec 决定，
+    /// 不把 launcher 写进用户 JSON；Origin 的 directory 可以为空，
+    /// Mnova 的 directory 保持必需。
     pub fn save_app_mcp(
         &self,
         app_key: &str,
         directory: &str,
         enabled: bool,
     ) -> Result<AppMcpStatus, RuntimeError> {
-        let server_name = mcp::server_name_for(app_key)
+        let spec = mcp::spec_for(app_key)
             .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {app_key}")))?;
-        let mut config = self.load_config()?;
-        if app_key == "mnova" {
-            config.mnova_mcp_enabled = false;
-            config.mnova_mcp_dir.clear();
+        if spec.requires_directory && directory.trim().is_empty() {
+            return Err(RuntimeError::new(format!(
+                "{} MCP 需要选择一个服务目录",
+                spec.server_name
+            )));
         }
+        let mut config = self.load_config()?;
         config.mcp_servers.retain(|entry| entry.app_key != app_key);
         config.mcp_servers.push(McpServerConfig {
             app_key: app_key.to_string(),
-            server_name: server_name.to_string(),
+            server_name: spec.server_name.to_string(),
             enabled,
             directory: directory.trim().to_string(),
         });
         config::save(&self.layout.config_dir, config.clone())?;
-        Ok(mcp::status(&config, app_key, false))
+        Ok(mcp::status(&self.layout, &config, app_key, false))
     }
 
     pub fn remove_app_mcp(&self, app_key: &str) -> Result<(), RuntimeError> {
-        let mut config = self.load_config()?;
-        if app_key == "mnova" {
-            config.mnova_mcp_enabled = false;
-            config.mnova_mcp_dir.clear();
+        if mcp::spec_for(app_key).is_none() {
+            return Err(RuntimeError::new(format!(
+                "Unsupported MCP application: {app_key}"
+            )));
         }
+        let mut config = self.load_config()?;
         config.mcp_servers.retain(|entry| entry.app_key != app_key);
         config::save(&self.layout.config_dir, config)
+    }
+
+    /// 准备 Origin Bridge App 源文件并返回输出（含 OPX 注册指引）。
+    /// 仅准备文件，不自动执行 Origin mkOPX。
+    pub fn install_origin_bridge(&self) -> Result<String, RuntimeError> {
+        mcp::install_origin_bridge(&self.layout)
     }
 
     /// P1-1 runtime dependency doctor：Edge/Python/Node/Bridge/Office 一屏状态。

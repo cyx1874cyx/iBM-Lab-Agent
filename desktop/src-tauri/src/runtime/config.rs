@@ -249,7 +249,11 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
         )?;
     }
     let mut mcp_servers = disk.mcp_servers;
-    if mcp_servers.is_empty() && !disk.mnova_mcp_dir.trim().is_empty() {
+    // 旧 Mnova 单字段（mnova_mcp_enabled / mnova_mcp_dir）迁移：只要目录非空，
+    // 就补一条 mnova 条目，避免 mcp_servers 已存在其他应用时旧配置丢失。
+    if !mcp_servers.iter().any(|entry| entry.app_key == "mnova")
+        && !disk.mnova_mcp_dir.trim().is_empty()
+    {
         mcp_servers.push(McpServerConfig {
             app_key: "mnova".into(),
             server_name: "mnova".into(),
@@ -271,6 +275,14 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
 pub fn save(config_dir: &Path, config: AppConfig) -> Result<(), RuntimeError> {
     fs::create_dir_all(config_dir)
         .map_err(|error| RuntimeError::new(format!("Cannot create config directory: {error}")))?;
+    // 旧 Mnova 单字段镜像：始终以 mcp_servers 中的 mnova 条目为准（迁移逻辑
+    // 收敛在 config.rs；上层 save_app_mcp/remove_app_mcp 不再关心旧字段）。
+    let (mnova_enabled, mnova_dir) = config
+        .mcp_servers
+        .iter()
+        .find(|entry| entry.app_key == "mnova")
+        .map(|entry| (entry.enabled, entry.directory.clone()))
+        .unwrap_or((false, String::new()));
     let secret_path = credential_path(config_dir);
     let credential_ref = if config.api_key.trim().is_empty() {
         if secret_path.exists() {
@@ -291,8 +303,8 @@ pub fn save(config_dir: &Path, config: AppConfig) -> Result<(), RuntimeError> {
         base_url: config.base_url,
         model: config.model,
         workspace: config.workspace,
-        mnova_mcp_enabled: config.mnova_mcp_enabled,
-        mnova_mcp_dir: config.mnova_mcp_dir,
+        mnova_mcp_enabled: mnova_enabled,
+        mnova_mcp_dir: mnova_dir,
         mcp_servers: config.mcp_servers,
         credential_ref,
     };

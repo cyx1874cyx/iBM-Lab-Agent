@@ -205,6 +205,11 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
 /// Build the optional profile overlay used by the desktop MCP manager.  The
 /// repository path is passed through the child environment, so paths with
 /// spaces never have to be interpolated into YAML.
+///
+/// 启动命令按 [super::mcp::McpAppSpec] 输出：
+/// - Mnova（UvProject）：uv run --directory <IBM_LAB_MCP_DIR_*> run_server.py
+/// - Origin（BundledPythonModule）：IBM_LAB_AGENT_BUNDLED_PYTHON -m origin_mcp
+///   不把打包后的绝对路径写进 YAML，Python 解释器路径一律经环境变量传递。
 pub fn prepare_mcp_patch(
     layout: &RuntimeLayout,
     servers: &[super::config::McpServerConfig],
@@ -225,9 +230,18 @@ pub fn prepare_mcp_patch(
         {
             return Err(RuntimeError::new("Invalid managed MCP server name"));
         }
-        let env_name = format!("IBM_LAB_MCP_DIR_{}", entry.server_name.to_ascii_uppercase());
-        contents.push_str(&format!(
-            r#"    - id: mcp-{server}
+        let spec = super::mcp::spec_for(&entry.app_key).ok_or_else(|| {
+            RuntimeError::new(format!(
+                "Invalid managed MCP app_key: {}",
+                entry.app_key
+            ))
+        })?;
+        let server = &entry.server_name;
+        match spec.launch_kind {
+            super::mcp::McpLaunchKind::UvProject { entrypoint } => {
+                let env_name = format!("IBM_LAB_MCP_DIR_{}", server.to_ascii_uppercase());
+                contents.push_str(&format!(
+                    r#"    - id: mcp-{server}
       name: '@deepseek-ai/dsh-mcp-client'
       config:
         serverName: {server}
@@ -237,14 +251,35 @@ pub fn prepare_mcp_patch(
           - run
           - --directory
           - !!js process.env['{env_name}']
-          - run_server.py
+          - {entrypoint}
         env:
           MCP_SERVER_DIR: !!js process.env['{env_name}']
         toolCallTimeoutMs: 120000
         failOnStartupError: false
 "#,
-            server = entry.server_name
-        ));
+                    server = server,
+                ));
+            }
+            super::mcp::McpLaunchKind::BundledPythonModule { module } => {
+                contents.push_str(&format!(
+                    r#"    - id: mcp-{server}
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: {server}
+        transport: stdio
+        command: !!js process.env['IBM_LAB_AGENT_BUNDLED_PYTHON']
+        args:
+          - -m
+          - {module}
+        env:
+          ORIGIN_MCP_TOOL_PROFILE: compact
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+"#,
+                    server = server,
+                ));
+            }
+        }
     }
     fs::write(&path, contents).map_err(|error| {
         RuntimeError::new(format!("Cannot write managed MCP profile overlay: {error}"))
@@ -359,6 +394,131 @@ mod tests {
             r#"{"pinned":"v2"}"#
         );
 
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn prepare_mcp_patch_mnova_keeps_uv_layout() {
+        let sandbox = std::env::temp_dir().join(format!(
+            "ibm-patch-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let layout = RuntimeLayout::new(sandbox.join("data"), sandbox.join("resources"));
+        layout.create_user_directories().unwrap();
+        let servers = [super::super::config::McpServerConfig {
+            app_key: "mnova".into(),
+            server_name: "mnova".into(),
+            enabled: true,
+            directory: r"C:\tools\mnova-mcp".into(),
+        }];
+        let patch = prepare_mcp_patch(&layout, &servers)
+            .unwrap()
+            .expect("enabled mnova must produce a patch");
+        let contents = fs::read_to_string(patch).unwrap();
+        assert!(contents.contains("- id: mcp-mnova"));
+        assert!(contents.contains("command: uv"));
+        assert!(contents.contains("- --directory"));
+        assert!(contents.contains("!!js process.env['IBM_LAB_MCP_DIR_MNOVA']"));
+        assert!(contents.contains("- run_server.py"));
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn prepare_mcp_patch_origin_uses_bundled_python_env() {
+        let sandbox = std::env::temp_dir().join(format!(
+            "ibm-patch-origin-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let layout = RuntimeLayout::new(sandbox.join("data"), sandbox.join("resources"));
+        layout.create_user_directories().unwrap();
+        let servers = [super::super::config::McpServerConfig {
+            app_key: "origin".into(),
+            server_name: "origin".into(),
+            enabled: true,
+            directory: String::new(),
+        }];
+        let patch = prepare_mcp_patch(&layout, &servers)
+            .unwrap()
+            .expect("enabled origin must produce a patch");
+        let contents = fs::read_to_string(patch).unwrap();
+        assert!(contents.contains("- id: mcp-origin"));
+        assert!(contents.contains("serverName: origin"));
+        // 不把打包后的绝对路径插进 YAML，解释器路径走环境变量
+        assert!(contents.contains("!!js process.env['IBM_LAB_AGENT_BUNDLED_PYTHON']"));
+        assert!(!contents.contains(r"C:\Program Files"));
+        assert!(contents.contains("- -m"));
+        assert!(contents.contains("- origin_mcp"));
+        assert!(contents.contains("ORIGIN_MCP_TOOL_PROFILE: compact"));
+        assert!(!contents.contains("uv"));
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn prepare_mcp_patch_returns_none_without_enabled_servers() {
+        let sandbox = std::env::temp_dir().join(format!(
+            "ibm-patch-none-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let layout = RuntimeLayout::new(sandbox.join("data"), sandbox.join("resources"));
+        layout.create_user_directories().unwrap();
+        let servers = [
+            super::super::config::McpServerConfig {
+                app_key: "mnova".into(),
+                server_name: "mnova".into(),
+                enabled: false,
+                directory: String::new(),
+            },
+            super::super::config::McpServerConfig {
+                app_key: "origin".into(),
+                server_name: "origin".into(),
+                enabled: false,
+                directory: String::new(),
+            },
+        ];
+        assert!(prepare_mcp_patch(&layout, &servers).unwrap().is_none());
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn prepare_mcp_patch_rejects_invalid_server_names_and_app_keys() {
+        let sandbox = std::env::temp_dir().join(format!(
+            "ibm-patch-invalid-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let layout = RuntimeLayout::new(sandbox.join("data"), sandbox.join("resources"));
+        layout.create_user_directories().unwrap();
+        // Case D-1：非法 server_name 仍拒绝
+        let bad_name = [super::super::config::McpServerConfig {
+            app_key: "mnova".into(),
+            server_name: "bad name!".into(),
+            enabled: true,
+            directory: r"C:\tools\mnova-mcp".into(),
+        }];
+        assert!(prepare_mcp_patch(&layout, &bad_name).is_err());
+        // Case D-2：app_key 无注册规格也拒绝（防止任意 executable 被启用）
+        let bad_key = [super::super::config::McpServerConfig {
+            app_key: "unknown-app".into(),
+            server_name: "unknown".into(),
+            enabled: true,
+            directory: String::new(),
+        }];
+        assert!(prepare_mcp_patch(&layout, &bad_key).is_err());
         let _ = fs::remove_dir_all(sandbox);
     }
 }

@@ -121,13 +121,7 @@ pub fn spawn_dsh(
         path
     };
     for mcp in config.mcp_servers.iter().filter(|entry| entry.enabled) {
-        let directory = PathBuf::from(mcp.directory.trim());
-        if !directory.is_dir() || !directory.join("run_server.py").is_file() {
-            return Err(RuntimeError::new(format!(
-                "{} MCP 已启用，但目录无效或缺少 run_server.py；请在诊断页修正后重试",
-                mcp.server_name
-            )));
-        }
+        super::mcp::validate_enabled_server(layout, mcp)?;
     }
     let mcp_patch = super::dsh::prepare_mcp_patch(layout, &config.mcp_servers)?;
     let mut command = Command::new(layout.node_exe());
@@ -156,10 +150,14 @@ pub fn spawn_dsh(
         command.arg("--patch").arg(path);
     }
     for mcp in config.mcp_servers.iter().filter(|entry| entry.enabled) {
-        command.env(
-            format!("IBM_LAB_MCP_DIR_{}", mcp.server_name.to_ascii_uppercase()),
-            mcp.directory.trim(),
-        );
+        // 仅需目录的启动器（uv 项目型）注入目录 env；内置 Python 模块型
+        // （origin）已通过 IBM_LAB_AGENT_BUNDLED_PYTHON 定位解释器。
+        if super::mcp::spec_for(&mcp.app_key).map(|spec| spec.requires_directory).unwrap_or(false) {
+            command.env(
+                format!("IBM_LAB_MCP_DIR_{}", mcp.server_name.to_ascii_uppercase()),
+                mcp.directory.trim(),
+            );
+        }
     }
     let mut child = command
         .spawn()
