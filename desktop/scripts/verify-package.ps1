@@ -29,11 +29,13 @@ $python = Join-Path $resourceRoot 'python\dist\python.exe'
 $pythonCheck = & $python -I -c 'import markitdown; print(markitdown.__name__)'
 if ($LASTEXITCODE -ne 0 -or $pythonCheck -ne 'markitdown') { throw 'Bundled Python cannot import markitdown.' }
 # Origin MCP（固定 0.1.4）打包自检：版本精确 + CLI 可执行 + JSON 可解析。
-# Bridge/Origin 未启动属合法环境，不允许因此判打包失败（任务书 §18）。
+# Bridge/Origin 未启动属合法环境：CLI 此时可能返回非零退出码，但 JSON 依旧
+# 完整有效，不允许因此判打包失败（任务书 §18）。
 $originVersion = & $python -I -c 'import origin_mcp; print(origin_mcp.__version__)'
 if ($LASTEXITCODE -ne 0 -or $originVersion -ne '0.1.4') { throw "Bundled origin-mcp version mismatch: '$originVersion' (expected 0.1.4)." }
-$originStatusOut = (& $python -I -m origin_mcp status --json 2>$null) -join "`n"
-if ($LASTEXITCODE -ne 0) { throw 'Bundled origin_mcp status --json could not execute.' }
+$originStatusOut = (& $python -I -m origin_mcp status --json 2>&1) -join "`n"
+if ([string]::IsNullOrWhiteSpace($originStatusOut)) { throw 'Bundled origin_mcp status --json produced no output.' }
+if ($originStatusOut -match 'ModuleNotFoundError') { throw 'Bundled origin_mcp import failed (ModuleNotFoundError).' }
 try {
   $originStatus = $originStatusOut | ConvertFrom-Json
 } catch {
