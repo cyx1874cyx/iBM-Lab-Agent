@@ -1,0 +1,15 @@
+{
+  "ibmLabAgent": "0.2.0",
+  "dsh": "0.1.1-rc.2",
+  "python": "3.11",
+  "node": "24.16.0",
+  "originMcp": {
+    "version": "0.1.4",
+    "commit": "fecb7226ed60d7651d921d2586eb9950bf16b618"
+  },
+  "mnovaMcp": {
+    "version": "0.3.1",
+    "commit": "e015c3424e7165dc9aa518d63d8195f643f4f169"
+  },
+  "mcpSdk": "1.29.0"
+}
