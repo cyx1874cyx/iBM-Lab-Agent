@@ -17,14 +17,9 @@ use std::os::windows::process::CommandExt;
 /// 避免任意 executable 被 MCP manager 启动。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum McpLaunchKind {
-    /// uv run --directory <dir> <entrypoint>（外部项目型 MCP，如 Mnova）。
-    UvProject {
-        entrypoint: &'static str,
-    },
-    /// <bundled-python> -m <module>（随安装包内置的 Python 模块，如 origin_mcp）。
-    BundledPythonModule {
-        module: &'static str,
-    },
+    /// <bundled-python> -m <module>（随安装包内置的 Python 模块，如 origin_mcp /
+    /// mnova_mcp）。0.2.0 起 Origin 与 Mnova 均走 bundled Python，不再有 uv 项目型。
+    BundledPythonModule { module: &'static str },
 }
 
 /// MCP 应用规格：静态注册表，驱动启动命令 / 校验 / UI 渲染。
@@ -40,9 +35,9 @@ pub static MCP_APPS: [McpAppSpec; 2] = [
     McpAppSpec {
         app_key: "mnova",
         server_name: "mnova",
-        requires_directory: true,
-        launch_kind: McpLaunchKind::UvProject {
-            entrypoint: "run_server.py",
+        requires_directory: false,
+        launch_kind: McpLaunchKind::BundledPythonModule {
+            module: "mnova_mcp",
         },
     },
     McpAppSpec {
@@ -101,50 +96,20 @@ fn no_window(command: &mut Command) -> &mut Command {
     command
 }
 
-fn uv_candidates() -> Vec<PathBuf> {
-    let mut candidates = vec![PathBuf::from("uv")];
-    if let Some(profile) = std::env::var_os("USERPROFILE") {
-        candidates.push(PathBuf::from(profile).join(r".local\bin\uv.exe"));
-    }
-    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        candidates.push(PathBuf::from(local).join(r"Programs\uv\uv.exe"));
-    }
-    candidates
-}
-
-pub fn resolve_uv() -> Option<PathBuf> {
-    uv_candidates().into_iter().find(|candidate| {
-        let mut command = Command::new(candidate);
-        no_window(&mut command);
-        command
-            .arg("--version")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
-    })
-}
-
-/// 内置 origin_mcp 包目录（dist/Lib/site-packages/origin_mcp）。
-fn origin_mcp_package_dir(layout: &RuntimeLayout) -> Option<PathBuf> {
+/// 内置 Python site-packages 中某 MCP 模块的包目录
+/// （dist/Lib/site-packages/<module>），平台相关布局自适应。
+fn python_module_package_dir(layout: &RuntimeLayout, module: &str) -> Option<PathBuf> {
     let python_dist = layout.resources.join("python").join("dist");
     if cfg!(windows) {
-        let package = python_dist
-            .join("Lib")
-            .join("site-packages")
-            .join("origin_mcp");
+        let package = python_dist.join("Lib").join("site-packages").join(module);
         Some(package)
     } else {
-        // Unix dist 布局：dist/lib/python3.*/site-packages/origin_mcp
+        // Unix dist 布局：dist/lib/python3.*/site-packages/<module>
         let lib = python_dist.join("lib");
         fs_read_dir(&lib).ok()?.into_iter().find_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
             if name.starts_with("python3") {
-                let package = entry
-                    .path()
-                    .join("site-packages")
-                    .join("origin_mcp");
+                let package = entry.path().join("site-packages").join(module);
                 if package.join("__init__.py").is_file() {
                     Some(package)
                 } else {
@@ -157,12 +122,33 @@ fn origin_mcp_package_dir(layout: &RuntimeLayout) -> Option<PathBuf> {
     }
 }
 
+/// origin_mcp 专用别名（保留给既有调用点，语义不变）。
+fn origin_mcp_package_dir(layout: &RuntimeLayout) -> Option<PathBuf> {
+    python_module_package_dir(layout, "origin_mcp")
+}
+
+/// mnova_mcp 包目录（bundled Python site-packages）。
+fn mnova_mcp_package_dir(layout: &RuntimeLayout) -> Option<PathBuf> {
+    python_module_package_dir(layout, "mnova_mcp")
+}
+
+/// bundled Python 中 mnova_mcp 包内 bridge.qs 的实际路径
+/// （site-packages/mnova_mcp/assets/bridge.qs）。供 DSH child env
+/// （IBM_LAB_MNOVA_BRIDGE_SCRIPT）注入；找不到返回 None，调用方不注入，
+/// mnova_mcp 侧会回退到包内 asset 兜底。
+pub fn mnova_bridge_script(layout: &RuntimeLayout) -> Option<PathBuf> {
+    let bridge = mnova_mcp_package_dir(layout)?
+        .join("assets")
+        .join("bridge.qs");
+    bridge.is_file().then_some(bridge)
+}
+
 fn fs_read_dir(path: &Path) -> std::io::Result<Vec<std::fs::DirEntry>> {
     std::fs::read_dir(path)?.collect()
 }
 
-/// 探测内置 Python 中 origin_mcp 包版本（供状态详情显示；失败返回 None 不阻断）。
-fn origin_package_version(layout: &RuntimeLayout) -> Option<String> {
+/// 探测内置 Python 中某 MCP 包版本（供状态详情显示；失败返回 None 不阻断）。
+fn python_package_version(layout: &RuntimeLayout, module: &str) -> Option<String> {
     let python = layout.bundled_python();
     if !python.is_file() {
         return None;
@@ -170,7 +156,10 @@ fn origin_package_version(layout: &RuntimeLayout) -> Option<String> {
     let mut command = Command::new(python);
     no_window(&mut command);
     let output = command
-        .args(["-c", "import origin_mcp; print(origin_mcp.__version__)"])
+        .args([
+            "-c",
+            &format!("import {module}; print({module}.__version__)"),
+        ])
         .stdin(Stdio::null())
         .output()
         .ok()?;
@@ -185,40 +174,40 @@ fn origin_package_version(layout: &RuntimeLayout) -> Option<String> {
     }
 }
 
+/// origin_mcp 版本探测（专用别名）。
+fn origin_package_version(layout: &RuntimeLayout) -> Option<String> {
+    python_package_version(layout, "origin_mcp")
+}
+
+/// mnova_mcp 版本探测（deps 诊断面板亦使用）。
+pub(crate) fn mnova_package_version(layout: &RuntimeLayout) -> Option<String> {
+    python_package_version(layout, "mnova_mcp")
+}
+
 /// 根据 app_key 规格构造 MCP 启动命令。此函数只做静态构造，可用性校验
 /// 由 [validate_enabled_server] / [status] 完成，因此可单元测试。
 pub fn build_launch_command(
     layout: &RuntimeLayout,
     entry: &McpServerConfig,
 ) -> Result<McpLaunchCommand, RuntimeError> {
-    let spec = spec_for(&entry.app_key)
-        .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {}", entry.app_key)))?;
+    let spec = spec_for(&entry.app_key).ok_or_else(|| {
+        RuntimeError::new(format!("Unsupported MCP application: {}", entry.app_key))
+    })?;
     match spec.launch_kind {
-        McpLaunchKind::UvProject { entrypoint } => {
-            let directory = PathBuf::from(entry.directory.trim());
-            if directory.as_os_str().is_empty() {
-                return Err(RuntimeError::new("MCP 服务目录为空"));
+        McpLaunchKind::BundledPythonModule { module } => {
+            let mut env = vec![];
+            if spec.app_key == "origin" {
+                env.push((
+                    OsString::from("ORIGIN_MCP_TOOL_PROFILE"),
+                    OsString::from("compact"),
+                ));
             }
-            let mut args: Vec<OsString> = vec![
-                OsString::from("run"),
-                OsString::from("--directory"),
-                directory.into_os_string(),
-            ];
-            args.push(OsString::from(entrypoint));
             Ok(McpLaunchCommand {
-                program: PathBuf::from("uv"),
-                args,
-                env: Vec::new(),
+                program: layout.bundled_python(),
+                args: vec![OsString::from("-m"), OsString::from(module)],
+                env,
             })
         }
-        McpLaunchKind::BundledPythonModule { module } => Ok(McpLaunchCommand {
-            program: layout.bundled_python(),
-            args: vec![OsString::from("-m"), OsString::from(module)],
-            env: vec![(
-                OsString::from("ORIGIN_MCP_TOOL_PROFILE"),
-                OsString::from("compact"),
-            )],
-        }),
     }
 }
 
@@ -245,7 +234,7 @@ fn handshake(command: &McpLaunchCommand) -> Result<Vec<String>, RuntimeError> {
         .take()
         .ok_or_else(|| RuntimeError::new("MCP stdout 不可用"))?;
     let messages = [
-        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ibm-lab-desktop","version":"0.1.17"}}}"#,
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ibm-lab-desktop","version":"0.2.0"}}}"#,
         r#"{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}"#,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#,
     ];
@@ -382,12 +371,8 @@ fn run_origin_cli_json(
             }
         }
     };
-    let stdout_text = stdout_handle
-        .join()
-        .unwrap_or_default();
-    let stderr_text = stderr_handle
-        .join()
-        .unwrap_or_default();
+    let stdout_text = stdout_handle.join().unwrap_or_default();
+    let stderr_text = stderr_handle.join().unwrap_or_default();
     if !status.success() && stdout_text.trim().is_empty() {
         return Err(RuntimeError::new(format!(
             "origin_mcp 诊断退出码 {}: {}",
@@ -493,44 +478,16 @@ fn origin_doctor(layout: &RuntimeLayout) -> (String, bool, bool, String) {
     (state, bridge_ok, origin_ok, detail)
 }
 
-/// DSH 启动前的 MCP 配置校验（取代旧的“目录 + run_server.py”通用假设）。
-/// Origin 应用未安装 / Bridge 未启动不视为安装损坏，不阻止 DSH 启动。
+/// DSH 启动前的 MCP 配置校验（bundled Python 模块型）。
+/// Origin/Mnova 应用未安装不视为安装损坏，不阻止 DSH 启动。
 pub fn validate_enabled_server(
     layout: &RuntimeLayout,
     entry: &McpServerConfig,
 ) -> Result<(), RuntimeError> {
-    let spec = spec_for(&entry.app_key)
-        .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {}", entry.app_key)))?;
+    let spec = spec_for(&entry.app_key).ok_or_else(|| {
+        RuntimeError::new(format!("Unsupported MCP application: {}", entry.app_key))
+    })?;
     match spec.launch_kind {
-        McpLaunchKind::UvProject { entrypoint } => {
-            let directory = PathBuf::from(entry.directory.trim());
-            if directory.as_os_str().is_empty() {
-                return Err(RuntimeError::new(format!(
-                    "{} MCP 已启用但未配置服务目录；请在诊断页选择目录",
-                    entry.server_name
-                )));
-            }
-            if !directory.is_dir() {
-                return Err(RuntimeError::new(format!(
-                    "{} MCP 已启用，但目录不存在：{}",
-                    entry.server_name,
-                    directory.display()
-                )));
-            }
-            if !directory.join(entrypoint).is_file() {
-                return Err(RuntimeError::new(format!(
-                    "{} MCP 已启用，但缺少 {entrypoint}；请在诊断页修正后重试",
-                    entry.server_name
-                )));
-            }
-            if resolve_uv().is_none() {
-                return Err(RuntimeError::new(format!(
-                    "{} MCP 已启用，但未找到 uv；无法启动 MCP Server",
-                    entry.server_name
-                )));
-            }
-            Ok(())
-        }
         McpLaunchKind::BundledPythonModule { module } => {
             if !layout.bundled_python().is_file() {
                 return Err(RuntimeError::new(format!(
@@ -538,7 +495,7 @@ pub fn validate_enabled_server(
                     entry.server_name
                 )));
             }
-            let package_dir = origin_mcp_package_dir(layout)
+            let package_dir = python_module_package_dir(layout, module)
                 .ok_or_else(|| RuntimeError::new(format!("{} MCP 包目录不可解析", module)))?;
             if !package_dir.join("__init__.py").is_file() {
                 return Err(RuntimeError::new(format!(
@@ -557,7 +514,9 @@ pub fn validate_enabled_server(
 pub fn install_origin_bridge(layout: &RuntimeLayout) -> Result<String, RuntimeError> {
     let python = layout.bundled_python();
     if !python.is_file() {
-        return Err(RuntimeError::new("内置 Python 缺失，无法准备 Origin Bridge"));
+        return Err(RuntimeError::new(
+            "内置 Python 缺失，无法准备 Origin Bridge",
+        ));
     }
     let mut command = Command::new(&python);
     no_window(&mut command);
@@ -622,7 +581,9 @@ pub fn status(
         .find(|entry| entry.app_key == app_key);
     let configured = entry.is_some();
     let enabled = entry.map(|entry| entry.enabled).unwrap_or(false);
-    let directory = entry.map(|entry| entry.directory.clone()).unwrap_or_default();
+    let directory = entry
+        .map(|entry| entry.directory.clone())
+        .unwrap_or_default();
     let fallback_entry = McpServerConfig {
         app_key: app_key.to_string(),
         server_name: spec.server_name.to_string(),
@@ -631,25 +592,17 @@ pub fn status(
     };
     let entry = entry.unwrap_or(&fallback_entry);
 
-    // launcher / 可用性描述（用于动态 UI 与诊断 detail）。
-    let (launcher, launcher_available, entrypoint_available) = match spec.launch_kind {
-        McpLaunchKind::UvProject { .. } => {
-            let uv = resolve_uv();
-            let dir = PathBuf::from(directory.trim());
-            let entrypoint_ok = !directory.trim().is_empty() && dir.join("run_server.py").is_file();
-            (
-                "uv run --directory <目录> run_server.py".to_string(),
-                uv.is_some(),
-                entrypoint_ok,
-            )
-        }
-        McpLaunchKind::BundledPythonModule { .. } => {
+    // launcher / 可用性描述（用于动态 UI 与诊断 detail）。0.2.0 起 Mnova 与
+    // Origin 均为 bundled Python 模块（无 uv / 无外部目录）。
+    let (module, launcher, launcher_available, entrypoint_available) = match spec.launch_kind {
+        McpLaunchKind::BundledPythonModule { module } => {
             let python_ok = layout.bundled_python().is_file();
-            let package_ok = origin_mcp_package_dir(layout)
+            let package_ok = python_module_package_dir(layout, module)
                 .map(|dir| dir.join("__init__.py").is_file())
                 .unwrap_or(false);
             (
-                "内置 Python（python -m origin_mcp）".to_string(),
+                module,
+                format!("内置 Python（python -m {module}）"),
                 python_ok,
                 package_ok,
             )
@@ -661,7 +614,8 @@ pub fn status(
                      state: &str,
                      detail: String,
                      entrypoint_ok: bool,
-                     launcher_ok: bool| -> AppMcpStatus {
+                     launcher_ok: bool|
+     -> AppMcpStatus {
         AppMcpStatus {
             app_key: app_key.to_string(),
             server_name: entry.server_name.clone(),
@@ -682,180 +636,313 @@ pub fn status(
     };
 
     if !configured {
-        let detail = if spec.requires_directory {
-            "尚未配置 MCP（需要选择包含 run_server.py 的服务目录）".to_string()
-        } else {
+        let detail = if spec.app_key == "origin" {
             "尚未配置 Origin MCP；点击“配置 MCP”启用（无需安装 Python/uv）".to_string()
+        } else {
+            "尚未配置 Mnova MCP；点击“配置 MCP”启用（无需安装 Python/uv/外部目录）".to_string()
         };
-        return mk_status(false, false, "unconfigured", detail, false, launcher_available);
+        return mk_status(
+            false,
+            false,
+            "unconfigured",
+            detail,
+            false,
+            launcher_available,
+        );
     }
     if !enabled {
-        return mk_status(false, false, "disabled", "MCP 已配置但未启用".into(), entrypoint_available, launcher_available);
+        return mk_status(
+            false,
+            false,
+            "disabled",
+            "MCP 已配置但未启用".into(),
+            entrypoint_available,
+            launcher_available,
+        );
     }
 
     // 配置可用性自检（不启动 Server）。
-    let availability_error: Option<RuntimeError> = match spec.launch_kind {
-        McpLaunchKind::UvProject { .. } => {
-            let dir = PathBuf::from(directory.trim());
-            if !entrypoint_available {
-                Some(RuntimeError::new(
-                    "配置目录无效或缺少 run_server.py",
-                ))
-            } else if !launcher_available {
-                Some(RuntimeError::new("未找到 uv，无法启动 Mnova MCP"))
-            } else {
-                None
-            }
-        }
-        McpLaunchKind::BundledPythonModule { .. } => {
-            if !launcher_available {
-                Some(RuntimeError::new("内置 Python 缺失，安装包不完整"))
-            } else if !entrypoint_available {
-                Some(RuntimeError::new("内置 origin_mcp 包缺失，安装包不完整"))
-            } else {
-                None
-            }
-        }
+    let availability_error: Option<RuntimeError> = if !launcher_available {
+        Some(RuntimeError::new("内置 Python 缺失，安装包不完整"))
+    } else if !entrypoint_available {
+        Some(RuntimeError::new(format!(
+            "内置 {module} 包缺失，安装包不完整"
+        )))
+    } else {
+        None
     };
     if let Some(error) = availability_error {
-        let state = if !launcher_available && matches!(spec.launch_kind, McpLaunchKind::UvProject { .. })
-        {
-            // uv 缺失属环境问题（missing）；目录/包问题属 invalid
-            "missing"
-        } else {
-            "invalid"
-        };
-        return mk_status(false, false, state, error.to_string(), entrypoint_available, launcher_available);
+        return mk_status(
+            false,
+            false,
+            "invalid",
+            error.to_string(),
+            entrypoint_available,
+            launcher_available,
+        );
     }
 
     // 自检通过：test_connection=false 时只做轻量检查，不启动 MCP Server。
     if !test_connection {
-        match spec.launch_kind {
-            McpLaunchKind::UvProject { .. } => mk_status(
-                false,
-                false,
+        let (detail, state) = if spec.app_key == "origin" {
+            // 普通刷新只运行 status --json（任务书 §6），不自动 doctor --ping-origin。
+            let bridge = origin_bridge_status(layout);
+            let version = origin_package_version(layout)
+                .map(|version| format!("（版本 {version}）"))
+                .unwrap_or_default();
+            let bridge_text = match bridge.state.as_str() {
+                "running" => "Bridge：运行中".to_string(),
+                "stale" => "Bridge：状态过期".to_string(),
+                "stopped" => "Bridge：未启动".to_string(),
+                _ => format!("Bridge：{}", bridge.detail),
+            };
+            (
+                format!("内置 origin-mcp {version} 就绪；{bridge_text}"),
                 "ready",
-                "配置检查通过；点击“测试连接”执行 MCP 握手".into(),
+            )
+        } else {
+            // Mnova 轻量就绪：bundled 包就绪即可；MestReNova 是否安装由
+            // deps 面板单独展示（缺失不阻断 DSH）。
+            let version = mnova_package_version(layout)
+                .map(|version| format!("（版本 {version}）"))
+                .unwrap_or_default();
+            (
+                format!("内置 mnova-mcp {version} 就绪；MestReNova 检测见依赖面板"),
+                "ready",
+            )
+        };
+        return mk_status(false, false, state, detail, true, true);
+    }
+
+    // test_connection=true：执行完整握手（Origin 额外执行 doctor）。
+    let entry_ref = McpServerConfig {
+        app_key: entry.app_key.clone(),
+        server_name: entry.server_name.clone(),
+        enabled,
+        directory: directory.clone(),
+    };
+    let handshake_result =
+        build_launch_command(layout, &entry_ref).and_then(|command| handshake(&command));
+    let tools = match handshake_result {
+        Err(error) => {
+            return mk_status(false, false, "error", error.to_string(), true, true);
+        }
+        Ok(tools) => tools,
+    };
+    // 握手成功 → server_connected=true。
+    if spec.app_key == "origin" {
+        // Origin 额外要求：工具名至少存在 origin_ 前缀。
+        let has_origin_tools = tools.iter().any(|name| name.starts_with("origin_"));
+        if !has_origin_tools {
+            return mk_status(
+                true,
+                false,
+                "error",
+                "MCP Server 未暴露 origin_* 工具，请检查内置 origin-mcp 安装".into(),
+                true,
+                true,
+            );
+        }
+        let (state, bridge_ok, origin_ok, detail) = origin_doctor(layout);
+        if bridge_ok && origin_ok {
+            mk_status(true, true, "connected", detail, true, true)
+        } else if bridge_ok && !origin_ok {
+            mk_status(
+                true,
+                false,
+                "origin-unreachable",
+                format!(
+                    "Origin MCP Server 正常，Bridge 已连接，但 Origin automation 不可达。{}",
+                    detail
+                ),
+                true,
+                true,
+            )
+        } else if state == "unavailable" {
+            mk_status(true, false, "error", detail, true, true)
+        } else {
+            mk_status(
+                true,
+                false,
+                "bridge-missing",
+                "Origin MCP Server 正常，但未检测到 Origin MCP Bridge。请打开 Origin/OriginPro，并启动 “Origin MCP Bridge Start”。"
+                    .into(),
+                true,
+                true,
+            )
+        }
+    } else {
+        // Mnova：需要 mnova_ 前缀工具存在，并调用 mnova_status 判断
+        // MestReNova / bridge 是否真正可用（任务书 §10）。
+        let required = [
+            "mnova_status",
+            "mnova_process_1d",
+            "mnova_prepare_structure_1d",
+            "mnova_apply_assignments_1d",
+        ];
+        let missing_tools: Vec<&str> = required
+            .iter()
+            .copied()
+            .filter(|name| !tools.iter().any(|tool| tool == name))
+            .collect();
+        if !missing_tools.is_empty() {
+            return mk_status(
+                true,
+                false,
+                "error",
+                format!(
+                    "MCP Server 缺少核心工具（{}），请检查内置 mnova-mcp 安装",
+                    missing_tools.join(", ")
+                ),
+                true,
+                true,
+            );
+        }
+        // mnova_status → 判断 MestReNova executable / bridge.qs。
+        let entry_ref = McpServerConfig {
+            app_key: entry.app_key.clone(),
+            server_name: entry.server_name.clone(),
+            enabled,
+            directory: directory.clone(),
+        };
+        let status_json = build_launch_command(layout, &entry_ref)
+            .and_then(|command| call_mnova_status(&command));
+        match status_json {
+            Err(error) => mk_status(
+                true,
+                false,
+                "mnova-missing",
+                format!("MCP Server 正常，但无法读取 Mnova 状态：{error}"),
                 true,
                 true,
             ),
-            McpLaunchKind::BundledPythonModule { .. } => {
-                // 普通刷新只运行 status --json（任务书 §6），不自动 doctor --ping-origin。
-                let bridge = origin_bridge_status(layout);
-                let version = origin_package_version(layout)
-                    .map(|version| format!("（版本 {version}）"))
-                    .unwrap_or_default();
-                let bridge_text = match bridge.state.as_str() {
-                    "running" => "Bridge：运行中".to_string(),
-                    "stale" => "Bridge：状态过期".to_string(),
-                    "stopped" => "Bridge：未启动".to_string(),
-                    _ => format!("Bridge：{}", bridge.detail),
-                };
-                mk_status(
-                    false,
-                    false,
-                    "ready",
-                    format!("内置 origin-mcp {version} 就绪；{bridge_text}"),
-                    true,
-                    true,
-                )
-            }
-        }
-    } else {
-        // test_connection=true：执行完整握手（+ Origin doctor）。
-        match spec.launch_kind {
-            McpLaunchKind::UvProject { .. } => {
-                let entry_ref = McpServerConfig {
-                    app_key: entry.app_key.clone(),
-                    server_name: entry.server_name.clone(),
-                    enabled,
-                    directory: directory.clone(),
-                };
-                match build_launch_command(layout, &entry_ref)
-                    .and_then(|command| handshake(&command))
-                {
-                    Ok(tools) => mk_status(
+            Ok(json) => {
+                let exe = json
+                    .pointer("/mnova_executable")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let bridge_ok = json
+                    .pointer("/bridge_script_exists")
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false);
+                if !exe.is_empty() && bridge_ok {
+                    mk_status(
                         true,
                         true,
                         "connected",
-                        format!("MCP 握手成功，共 {} 个工具", tools.len()),
+                        format!("Mnova MCP Server、MestReNova（{exe}）与 bridge.qs 均正常"),
                         true,
                         true,
-                    ),
-                    Err(error) => mk_status(
+                    )
+                } else if exe.is_empty() {
+                    mk_status(
+                        true,
                         false,
+                        "mnova-missing",
+                        "MCP Server 正常，但未检测到 MestReNova.exe。安装并授权 MestReNova 15 后可启用 GUI/Verify 工作流；文件型 NMR 分析与 synthetic FID 能力仍可使用。"
+                            .into(),
+                        true,
+                        true,
+                    )
+                } else {
+                    mk_status(
+                        true,
                         false,
-                        "error",
-                        error.to_string(),
+                        "bridge-missing",
+                        format!("MestReNova 已检测到（{exe}），但 bridge.qs 缺失：{bridge_ok}"),
                         true,
                         true,
-                    ),
-                }
-            }
-            McpLaunchKind::BundledPythonModule { .. } => {
-                let entry_ref = McpServerConfig {
-                    app_key: entry.app_key.clone(),
-                    server_name: entry.server_name.clone(),
-                    enabled,
-                    directory: directory.clone(),
-                };
-                let handshake_result =
-                    build_launch_command(layout, &entry_ref).and_then(|command| handshake(&command));
-                match handshake_result {
-                    Err(error) => mk_status(
-                        false,
-                        false,
-                        "error",
-                        error.to_string(),
-                        true,
-                        true,
-                    ),
-                    Ok(tools) => {
-                        // Origin 额外要求：工具名至少存在 origin_ 前缀。
-                        let has_origin_tools = tools.iter().any(|name| name.starts_with("origin_"));
-                        if !has_origin_tools {
-                            return mk_status(
-                                true,
-                                false,
-                                "error",
-                                "MCP Server 未暴露 origin_* 工具，请检查内置 origin-mcp 安装".into(),
-                                true,
-                                true,
-                            );
-                        }
-                        let (state, bridge_ok, origin_ok, detail) = origin_doctor(layout);
-                        if bridge_ok && origin_ok {
-                            mk_status(true, true, "connected", detail, true, true)
-                        } else if bridge_ok && !origin_ok {
-                            mk_status(
-                                true,
-                                false,
-                                "origin-unreachable",
-                                format!(
-                                    "Origin MCP Server 正常，Bridge 已连接，但 Origin automation 不可达。{}",
-                                    detail
-                                ),
-                                true,
-                                true,
-                            )
-                        } else if state == "unavailable" {
-                            mk_status(true, false, "error", detail, true, true)
-                        } else {
-                            mk_status(
-                                true,
-                                false,
-                                "bridge-missing",
-                                "Origin MCP Server 正常，但未检测到 Origin MCP Bridge。请打开 Origin/OriginPro，并启动 “Origin MCP Bridge Start”。"
-                                    .into(),
-                                true,
-                                true,
-                            )
-                        }
-                    }
+                    )
                 }
             }
         }
     }
+}
+
+/// 对已启动的 Mnova MCP 发送 initialize + initialized + tools/call(mnova_status)，
+/// 返回其 JSON-RPC result（含 mnova_executable / bridge_script_exists 等）。
+fn call_mnova_status(command: &McpLaunchCommand) -> Result<serde_json::Value, RuntimeError> {
+    let mut child = Command::new(&command.program);
+    no_window(&mut child);
+    let mut child = child
+        .args(&command.args)
+        .envs(command.env.iter().cloned())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| RuntimeError::new(format!("无法启动 Mnova MCP: {error}")))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| RuntimeError::new("MCP stdin 不可用"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| RuntimeError::new("MCP stdout 不可用"))?;
+    let messages = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ibm-lab-desktop","version":"0.2.0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"mnova_status","arguments":{}}}"#,
+    ];
+    for message in messages {
+        writeln!(stdin, "{message}").map_err(|error| {
+            RuntimeError::new(format!("无法向 Mnova MCP 发送自检请求: {error}"))
+        })?;
+    }
+    stdin
+        .flush()
+        .map_err(|error| RuntimeError::new(format!("无法提交 Mnova MCP 自检请求: {error}")))?;
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            let is_call_response = serde_json::from_str::<serde_json::Value>(&line)
+                .ok()
+                .and_then(|value| value.get("id").and_then(|id| id.as_i64()))
+                == Some(2);
+            if is_call_response {
+                let _ = sender.send(line);
+                return;
+            }
+        }
+    });
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let result = loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            break Err(RuntimeError::new("Mnova mnova_status 调用超时（20 秒）"));
+        }
+        match receiver.recv_timeout(remaining) {
+            Ok(line) if line.contains(r#""error"#) => {
+                break Err(RuntimeError::new(format!("Mnova MCP 返回错误: {line}")))
+            }
+            Ok(line) => {
+                break parse_tool_result_content(&line);
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                break Err(RuntimeError::new("Mnova mnova_status 调用超时（20 秒）"))
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                break Err(RuntimeError::new("Mnova MCP 在完成调用前退出"))
+            }
+        }
+    };
+    let _ = child.kill();
+    let _ = child.wait();
+    result
+}
+
+/// 从 tools/call 响应中解析 result.content[0].text 为 JSON（MCP 工具返回约定）。
+fn parse_tool_result_content(line: &str) -> Result<serde_json::Value, RuntimeError> {
+    let value: serde_json::Value =
+        serde_json::from_str(line).map_err(|_| RuntimeError::new("Mnova MCP 响应不是合法 JSON"))?;
+    let text = value
+        .pointer("/result/content/0/text")
+        .and_then(|text| text.as_str())
+        .ok_or_else(|| RuntimeError::new("Mnova MCP tools/call 响应缺少 content[0].text"))?;
+    serde_json::from_str(text)
+        .map_err(|error| RuntimeError::new(format!("mnova_status 返回不是合法 JSON: {error}")))
 }
 
 #[cfg(test)]
@@ -907,11 +994,11 @@ mod tests {
     fn spec_for_returns_expected_launch_kinds() {
         let mnova = spec_for("mnova").expect("mnova spec");
         assert_eq!(mnova.server_name, "mnova");
-        assert!(mnova.requires_directory);
+        assert!(!mnova.requires_directory);
         assert_eq!(
             mnova.launch_kind,
-            McpLaunchKind::UvProject {
-                entrypoint: "run_server.py"
+            McpLaunchKind::BundledPythonModule {
+                module: "mnova_mcp"
             }
         );
         let origin = spec_for("origin").expect("origin spec");
@@ -919,7 +1006,9 @@ mod tests {
         assert!(!origin.requires_directory);
         assert_eq!(
             origin.launch_kind,
-            McpLaunchKind::BundledPythonModule { module: "origin_mcp" }
+            McpLaunchKind::BundledPythonModule {
+                module: "origin_mcp"
+            }
         );
         assert!(spec_for("invalid").is_none());
         assert!(spec_for("").is_none());
@@ -930,12 +1019,21 @@ mod tests {
         let (layout, sandbox) = layout_with_python();
         let command = build_launch_command(&layout, &origin_entry(true)).expect("launch command");
         assert_eq!(command.program, layout.bundled_python());
-        let args: Vec<String> = command.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
+        let args: Vec<String> = command
+            .args
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
         assert_eq!(args, ["-m", "origin_mcp"]);
         let env: Vec<(String, String)> = command
             .env
             .iter()
-            .map(|(k, v)| (k.to_string_lossy().into_owned(), v.to_string_lossy().into_owned()))
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().into_owned(),
+                    v.to_string_lossy().into_owned(),
+                )
+            })
             .collect();
         assert!(
             env.contains(&("ORIGIN_MCP_TOOL_PROFILE".into(), "compact".into())),
@@ -945,20 +1043,23 @@ mod tests {
     }
 
     #[test]
-    fn mnova_launch_command_keeps_uv_layout() {
+    fn mnova_launch_command_uses_bundled_python_module() {
         let (layout, sandbox) = layout_with_python();
-        let directory = sandbox.join("mnova-mcp");
-        std::fs::create_dir_all(&directory).unwrap();
-        std::fs::write(directory.join("run_server.py"), "server").unwrap();
-        let command = build_launch_command(&layout, &mnova_entry(true, &directory.display().to_string()))
-            .expect("launch command");
-        assert_eq!(command.program, PathBuf::from("uv"));
-        let args: Vec<String> = command.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
-        assert_eq!(args[0], "run");
-        assert_eq!(args[1], "--directory");
-        assert_eq!(Path::new(&args[2]), directory);
-        assert_eq!(args[3], "run_server.py");
-        assert!(command.env.is_empty());
+        let command =
+            build_launch_command(&layout, &mnova_entry(true, "")).expect("launch command");
+        assert_eq!(command.program, layout.bundled_python());
+        let args: Vec<String> = command
+            .args
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(args, ["-m", "mnova_mcp"]);
+        // Mnova 不需要 ORIGIN_MCP_TOOL_PROFILE（那是 origin_mcp 专有）。
+        assert!(
+            command.env.is_empty(),
+            "mnova 不应注入 origin env: {:?}",
+            command.env
+        );
         let _ = std::fs::remove_dir_all(sandbox);
     }
 
@@ -982,6 +1083,25 @@ mod tests {
     }
 
     #[test]
+    fn validate_mnova_accepts_package_but_rejects_missing_package() {
+        let (layout, sandbox) = layout_with_python();
+        // 未创建 mnova_mcp 包目录 → 校验失败（安装损坏）
+        assert!(validate_enabled_server(&layout, &mnova_entry(true, "")).is_err());
+        // 创建包 → 校验通过（不要求 MestReNova 安装）
+        let package = layout
+            .resources
+            .join("python")
+            .join("dist")
+            .join("Lib")
+            .join("site-packages")
+            .join("mnova_mcp");
+        std::fs::create_dir_all(&package).unwrap();
+        std::fs::write(package.join("__init__.py"), "v").unwrap();
+        assert!(validate_enabled_server(&layout, &mnova_entry(true, "")).is_ok());
+        let _ = std::fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
     fn unconfigured_origin_is_not_invalid() {
         let (layout, sandbox) = layout_with_python();
         let config = AppConfig::default();
@@ -994,20 +1114,26 @@ mod tests {
     }
 
     #[test]
+    fn unconfigured_mnova_is_not_invalid() {
+        let (layout, sandbox) = layout_with_python();
+        let config = AppConfig::default();
+        let status = status(&layout, &config, "mnova", false);
+        assert_eq!(status.state, "unconfigured");
+        assert!(!status.configured);
+        assert!(!status.requires_directory);
+        assert_eq!(status.launcher, "内置 Python（python -m mnova_mcp）");
+        let _ = std::fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
     fn parse_tool_names_requires_at_least_one_tool() {
         let names = parse_tool_names(
             r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"origin_open_project"}]}}"#,
         )
         .expect("valid response");
         assert_eq!(names, ["origin_open_project"]);
-        assert!(parse_tool_names(
-            r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}"#
-        )
-        .is_err());
-        assert!(parse_tool_names(
-            r#"{"jsonrpc":"2.0","id":2,"result":{"no":"tools"}}"#
-        )
-        .is_err());
+        assert!(parse_tool_names(r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}"#).is_err());
+        assert!(parse_tool_names(r#"{"jsonrpc":"2.0","id":2,"result":{"no":"tools"}}"#).is_err());
         assert!(parse_tool_names("not json").is_err());
     }
 
@@ -1017,5 +1143,34 @@ mod tests {
         let dir = origin_mcp_package_dir(&layout).expect("package dir");
         assert!(dir.ends_with(Path::new("python/dist/Lib/site-packages/origin_mcp")));
         let _ = std::fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn mnova_package_dir_points_into_bundled_dist() {
+        let (layout, sandbox) = layout_with_python();
+        let dir = mnova_mcp_package_dir(&layout).expect("package dir");
+        assert!(dir.ends_with(Path::new("python/dist/Lib/site-packages/mnova_mcp")));
+        let _ = std::fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn parse_mnova_status_tool_result_content() {
+        let json = r#"{"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"ok\": true, \"mnova_executable\": \"C:\\\\Program Files\\\\Mestrelab\\\\MestReNova.exe\", \"bridge_script_exists\": true}"}]}}"#;
+        let value = parse_tool_result_content(json).expect("parse");
+        assert_eq!(
+            value.pointer("/mnova_executable").and_then(|v| v.as_str()),
+            Some(r"C:\Program Files\Mestrelab\MestReNova.exe")
+        );
+        assert_eq!(
+            value
+                .pointer("/bridge_script_exists")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        // 缺少 content[0].text 视为错误
+        assert!(
+            parse_tool_result_content(r#"{"jsonrpc":"2.0","id":2,"result":{"content":[]}}"#)
+                .is_err()
+        );
     }
 }

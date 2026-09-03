@@ -1,11 +1,11 @@
 {
   "name": "ibm-lab-desktop",
-  "version": "0.1.16",
+  "version": "0.2.0-rc.2",
   "private": true,
   "description": "Windows desktop shell for the pinned DSH + iBM Lab Agent runtime",
   "scripts": {
-    "prepare-runtime": "powershell -ExecutionPolicy Bypass -File scripts/prepare-runtime.ps1",
-    "verify-package": "powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1"
+    "prepare-runtime": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-runtime.ps1",
+    "verify-package": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/verify-package.ps1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.1"

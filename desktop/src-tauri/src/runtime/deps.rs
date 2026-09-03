@@ -335,6 +335,58 @@ fn office_status() -> DependencyStatus {
     }
 }
 
+/// Windows PE 文件版本（File Version 资源）。读取失败返回 None 不阻断
+/// （任务书 §18：MestReNova.exe 显示 File version）。
+#[cfg(windows)]
+fn exe_file_version(path: &Path) -> Option<String> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW, VS_FIXEDFILEINFO,
+    };
+    let wide: Vec<u16> = OsStr::new(path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    unsafe {
+        let size = GetFileVersionInfoSizeW(wide.as_ptr(), std::ptr::null_mut());
+        if size == 0 {
+            return None;
+        }
+        let mut buffer = vec![0u8; size as usize];
+        if GetFileVersionInfoW(wide.as_ptr(), 0, size, buffer.as_mut_ptr() as *mut _) == 0 {
+            return None;
+        }
+        let mut pointer: *mut core::ffi::c_void = std::ptr::null_mut();
+        let mut length: u32 = 0;
+        let root: Vec<u16> = "\\".encode_utf16().chain(std::iter::once(0)).collect();
+        if VerQueryValueW(
+            buffer.as_ptr() as *const _,
+            root.as_ptr(),
+            &mut pointer,
+            &mut length,
+        ) == 0
+            || pointer.is_null()
+        {
+            return None;
+        }
+        let info = &*(pointer as *const VS_FIXEDFILEINFO);
+        let (ms, ls) = (info.dwFileVersionMS, info.dwFileVersionLS);
+        Some(format!(
+            "{}.{}.{}.{}",
+            (ms >> 16) & 0xffff,
+            ms & 0xffff,
+            (ls >> 16) & 0xffff,
+            ls & 0xffff
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn exe_file_version(_path: &Path) -> Option<String> {
+    None
+}
+
 fn mnova_status(layout: &RuntimeLayout) -> DependencyStatus {
     let installed = MNOVA_CANDIDATES
         .iter()
@@ -342,20 +394,36 @@ fn mnova_status(layout: &RuntimeLayout) -> DependencyStatus {
         .find(|path| path.is_file());
     let config = config::load(&layout.config_dir).unwrap_or_default();
     let mcp_status = mcp::status(layout, &config, "mnova", false);
+    let mcp_version = mcp::mnova_package_version(layout)
+        .map(|version| format!("（版本 {version}）"))
+        .unwrap_or_default();
+    let bridge_ok = mcp::mnova_bridge_script(layout).is_some();
     let mut item = match installed {
-        Some(path) => ok(
-            "mnova",
-            "MestReNova",
-            path.display().to_string(),
-            "已检测到 MestReNova 应用。",
-        ),
+        Some(path) => {
+            let version = exe_file_version(&path)
+                .map(|version| format!(" · 文件版本 {version}"))
+                .unwrap_or_default();
+            ok(
+                "mnova",
+                "MestReNova",
+                format!("{}{version}", path.display()),
+                "已检测到 MestReNova 应用；GUI/Verify 工作流可用（需授权）。",
+            )
+        }
         None => warning(
             "mnova",
             "MestReNova",
             "未找到 MestReNova.exe",
-            "NMR 分析需要本地 MestReNova；安装后会自动检测。",
+            // 任务书 §18：缺失为 warning 而非 missing/Desktop failure；MCP 与
+            // Skill 已内置，只有 GUI/Verify 依赖本机授权安装。
+            "Mnova MCP 与 NMR Skill 已内置。安装并授权 MestReNova 后可启用 GUI/Verify 工作流；文件型 NMR 分析和 synthetic FID 能力仍可使用。",
         ),
     };
+    item.detail = format!(
+        "{}；Mnova MCP 内置{mcp_version}；bridge.qs：{}",
+        item.detail,
+        if bridge_ok { "已捆绑" } else { "缺失" }
+    );
     item.mcp_capable = true;
     if mcp_status.configured {
         item.mcp = Some(mcp_status);

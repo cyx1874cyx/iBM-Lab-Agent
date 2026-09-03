@@ -249,10 +249,12 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
         )?;
     }
     let mut mcp_servers = disk.mcp_servers;
-    // 旧 Mnova 单字段（mnova_mcp_enabled / mnova_mcp_dir）迁移：只要目录非空，
-    // 就补一条 mnova 条目，避免 mcp_servers 已存在其他应用时旧配置丢失。
+    // 旧 Mnova 单字段（mnova_mcp_enabled / mnova_mcp_dir）迁移：只要曾经
+    // enabled 或目录非空，就补一条 mnova 条目，避免 mcp_servers 已存在其他
+    // 应用时旧配置丢失。0.2.0 起 directory 不再参与启动（BundledPythonModule），
+    // 因此旧配置 dir 为空但 enabled 的 broken 态也一并迁移（保持启用意图）。
     if !mcp_servers.iter().any(|entry| entry.app_key == "mnova")
-        && !disk.mnova_mcp_dir.trim().is_empty()
+        && (disk.mnova_mcp_enabled || !disk.mnova_mcp_dir.trim().is_empty())
     {
         mcp_servers.push(McpServerConfig {
             app_key: "mnova".into(),
@@ -368,6 +370,104 @@ mod tests {
         let json = fs::read_to_string(dir.join("app-config.json")).unwrap();
         assert!(!json.contains("legacy-secret"));
         assert!(!json.contains("apiKey"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn write_disk_config(dir: &Path, body: &str) {
+        fs::create_dir_all(dir).unwrap();
+        fs::write(dir.join("app-config.json"), body).unwrap();
+    }
+
+    #[test]
+    fn migrates_legacy_mnova_fields_with_dir() {
+        let dir = sandbox("mnova-dir");
+        write_disk_config(
+            &dir,
+            r#"{"mnovaMcpEnabled":true,"mnovaMcpDir":"C:\\tools\\mnova-mcp"}"#,
+        );
+        let config = load(&dir).unwrap();
+        let mnova = config
+            .mcp_servers
+            .iter()
+            .find(|entry| entry.app_key == "mnova")
+            .expect("mnova entry must be migrated");
+        assert!(mnova.enabled);
+        assert_eq!(mnova.directory, r"C:\tools\mnova-mcp");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn migrates_legacy_mnova_enabled_without_dir() {
+        // 旧版本 enabled=true 但目录为空（broken 态）：0.2.0 下目录不再参与
+        // 启动，迁移须保留用户启用意图。
+        let dir = sandbox("mnova-enable-only");
+        write_disk_config(&dir, r#"{"mnovaMcpEnabled":true,"mnovaMcpDir":""}"#);
+        let config = load(&dir).unwrap();
+        let mnova = config
+            .mcp_servers
+            .iter()
+            .find(|entry| entry.app_key == "mnova")
+            .expect("enabled legacy mnova must migrate even with empty dir");
+        assert!(mnova.enabled);
+        assert_eq!(mnova.directory, "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn does_not_duplicate_existing_mnova_entry() {
+        let dir = sandbox("mnova-existing");
+        write_disk_config(
+            &dir,
+            r#"{"mnovaMcpEnabled":false,"mnovaMcpDir":"","mcpServers":[{"appKey":"origin","serverName":"origin","enabled":true,"directory":""}]}"#,
+        );
+        let config = load(&dir).unwrap();
+        assert_eq!(
+            config
+                .mcp_servers
+                .iter()
+                .filter(|entry| entry.app_key == "mnova")
+                .count(),
+            0,
+            "legacy mnova fields are empty; no entry should be fabricated"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn save_mirrors_mnova_entry_back_to_legacy_fields() {
+        let dir = sandbox("mnova-mirror");
+        save(
+            &dir,
+            AppConfig {
+                api_key: String::new(),
+                base_url: String::new(),
+                model: String::new(),
+                workspace: String::new(),
+                mnova_mcp_enabled: false,
+                mnova_mcp_dir: String::new(),
+                mcp_servers: vec![McpServerConfig {
+                    app_key: "mnova".into(),
+                    server_name: "mnova".into(),
+                    enabled: true,
+                    directory: r"C:\tools\mnova-mcp".into(),
+                }],
+            },
+        )
+        .unwrap();
+        let json = fs::read_to_string(dir.join("app-config.json")).unwrap();
+        assert!(json.contains(r#""mnovaMcpEnabled": true"#), "{json}");
+        assert!(json.contains(r#"C:\\tools\\mnova-mcp"#), "{json}");
+        // 回读：load 不再重复加条目（已有 mnova 且磁盘字段镜像一致）
+        let config = load(&dir).unwrap();
+        assert_eq!(
+            config
+                .mcp_servers
+                .iter()
+                .filter(|entry| entry.app_key == "mnova")
+                .count(),
+            1
+        );
+        assert!(config.mcp_servers[0].enabled);
         let _ = fs::remove_dir_all(dir);
     }
 }

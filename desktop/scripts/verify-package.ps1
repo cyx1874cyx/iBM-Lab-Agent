@@ -42,6 +42,44 @@ try {
   throw "Bundled origin_mcp status --json is not parseable JSON. Output: $originStatusOut"
 }
 if ($null -eq $originStatus.PSObject.Properties['state']) { throw 'origin_mcp status --json missing top-level state.' }
+# Mnova MCP（固定 0.3.1）打包自检：版本精确 + 打包 asset bridge.qs 存在 +
+# STDIO initialize/tools/list 探针。MestReNova 未安装属“功能不可用”，不是
+# Installer 损坏，因此探针只验证 MCP Server 层（任务书 §7/§18）。
+$mnovaVersion = & $python -I -c 'import mnova_mcp; print(mnova_mcp.__version__)'
+if ($LASTEXITCODE -ne 0 -or $mnovaVersion -ne '0.3.1') { throw "Bundled mnova-mcp version mismatch: '$mnovaVersion' (expected 0.3.1)." }
+$mnovaBridge = & $python -I -c 'from mnova_mcp.config import Settings; p = Settings.from_environment().bridge_script; print(p); assert p.is_file(), "bridge.qs missing"' 2>&1
+if ($LASTEXITCODE -ne 0) { throw "Bundled mnova-mcp bridge.qs is missing. Output: $mnovaBridge" }
+$mnovaProbe = & $python -I -c @'
+import json, subprocess, sys
+child = subprocess.Popen(
+    [sys.executable, "-m", "mnova_mcp"],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+)
+msgs = [
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ibm-lab-desktop-verify","version":"0.2.0"}}}',
+    '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}',
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}',
+]
+out, err = child.communicate("\n".join(msgs) + "\n", timeout=60)
+tools = []
+for line in out.splitlines():
+    try:
+        value = json.loads(line)
+    except Exception:
+        continue
+    if value.get("id") == 2 and "result" in value:
+        tools = [t["name"] for t in value["result"].get("tools", [])]
+        break
+required = ["mnova_status", "mnova_process_1d", "mnova_prepare_structure_1d", "mnova_apply_assignments_1d"]
+missing = [name for name in required if name not in tools]
+if missing:
+    print(f"mnova probe missing tools: {missing}", file=sys.stderr)
+    print(err[-2000:] if err else "", file=sys.stderr)
+    sys.exit(3)
+print(f"mnova probe OK: {len(tools)} tools")
+'@ 2>&1
+if ($LASTEXITCODE -ne 0) { throw "Bundled mnova_mcp STDIO probe failed. Output: $mnovaProbe" }
+Write-Host "Bundled Python checks: origin-mcp 0.1.4 | mnova-mcp $mnovaVersion | $mnovaBridge | $mnovaProbe"
 $temporaryHome = Join-Path ([System.IO.Path]::GetTempPath()) ("ibm-lab-desktop-verify-" + [guid]::NewGuid())
 $smokeProcess = $null
 try {

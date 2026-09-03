@@ -73,9 +73,9 @@
         <section id="mcp-editor">
           <div class="diag-head"><h3 id="mcp-editor-title">MCP 管理</h3><span class="state" id="mcp-editor-result"></span></div>
           <label class="check-row"><input id="mcp-enabled" type="checkbox">启用此应用的 MCP</label>
-          <div id="mcp-dir-section">
-            <label for="mcp-dir">MCP 服务目录（包含 run_server.py）</label>
-            <div class="field-row"><input id="mcp-dir" type="text"><button id="mcp-browse" type="button">选择目录</button></div>
+          <!-- 0.2.0：origin/mnova 均为内置 Python 模块型，无外部目录/run_server/uv -->
+          <div id="mcp-launch-section">
+            <p class="dep-hint" id="mcp-launch-hint">内置 Python 模块启动，无需选择目录。</p>
           </div>
           <div id="mcp-bridge-section" style="display:none">
             <p class="dep-hint">Origin 使用内置 Python 启动 origin-mcp，无需目录；
@@ -84,7 +84,8 @@
             <div class="field-row"><button id="mcp-install-bridge" type="button">准备 Origin Bridge（install-origin-app）</button></div>
           </div>
           <div id="mcp-editor-status" data-state="unconfigured">尚未配置</div>
-          <div class="diag-actions"><button id="mcp-save" type="button">保存</button><button id="mcp-test" type="button">测试连接</button><button id="mcp-remove" type="button">移除配置</button><button id="mcp-cancel" type="button">收起</button></div>
+          <div id="mcp-checklist" style="display:none; margin-top:10px; font-size:12px; line-height:1.8; color:#c6d3e6;"></div>
+          <div class="diag-actions"><button id="mcp-save" type="button">保存</button><button id="mcp-test" type="button">测试连接</button><button id="mcp-open-workspace" type="button">打开工作目录</button><button id="mcp-remove" type="button">移除配置</button><button id="mcp-cancel" type="button">收起</button></div>
         </section>
         <table class="deps-table">
           <thead><tr><th style="width:170px">应用 / 组件</th><th style="width:88px">本机状态</th><th>详情</th><th style="width:220px">MCP 状态</th><th style="width:100px">管理</th></tr></thead>
@@ -161,13 +162,41 @@
     function renderMcpStatus(status) {
       const node = $('mcp-editor-status');
       node.dataset.state = status.state || 'error';
-      const requiresDirectory = status.requiresDirectory !== undefined ? status.requiresDirectory : activeMcpApp !== 'origin';
-      const startInfo = requiresDirectory
-        ? `run_server.py：${status.serverFileExists ? '已找到' : '未找到'} · uv：${status.uvAvailable ? '可用' : '不可用'}`
-        : `启动：${esc(status.launcher || '内置 Python')} · 模块：${status.entrypointAvailable ? '就绪' : '未安装'} · 连接：${status.connected ? '已连通' : '未连通'}`;
-      node.textContent = `${status.detail || '状态未知'} · ${startInfo}`;
-      $('mcp-dir-section').style.display = requiresDirectory ? '' : 'none';
-      $('mcp-bridge-section').style.display = requiresDirectory ? 'none' : '';
+      // 0.2.0：origin/mnova 均为内置 Python 模块型（bundled python -m <module>），
+      // 不再出现外部目录选择 / run_server.py / uv 的配置 UX（任务书 §17/§19）。
+      $('mcp-launch-section').style.display = 'none';
+      $('mcp-bridge-section').style.display = activeMcpApp === 'origin' ? '' : 'none';
+      node.textContent = status.detail || '状态未知';
+      const checklist = $('mcp-checklist');
+      if (activeMcpApp !== 'mnova') {
+        checklist.style.display = 'none';
+        checklist.innerHTML = '';
+        return;
+      }
+      checklist.style.display = 'block';
+      const row = (ok, text) => `<div>${ok ? '✓' : '○'} ${esc(text)}</div>`;
+      const lines = [];
+      // 未配置/未启用时不渲染“包未安装”之类的误导行；先引导启用。
+      if (!status.configured || !status.enabled) {
+        lines.push(row(false, status.configured
+          ? '已配置但未启用：勾选“启用”并保存后运行“测试连接”'
+          : '尚未配置：勾选“启用”并保存后运行“测试连接”'));
+      } else {
+        lines.push(row(status.launcherAvailable, `启动器（${status.launcher || '内置 Python'}）：${status.launcherAvailable ? '就绪' : '缺失'}`));
+        lines.push(row(status.entrypointAvailable, `内置 mnova_mcp 包：${status.entrypointAvailable ? '就绪' : '未安装'}`));
+        lines.push(row(status.serverConnected, `MCP Server：${status.serverConnected ? '已连接' : '未连接'}`));
+        if (status.state === 'connected') {
+          lines.push(row(true, 'MestReNova：已检测到'));
+          lines.push(row(true, 'bridge.qs：正常'));
+        } else if (status.state === 'mnova-missing') {
+          lines.push(row(false, 'MestReNova：未检测到（文件型 NMR 分析与 synthetic FID 仍可使用）'));
+        } else if (status.state === 'bridge-missing') {
+          lines.push(row(false, 'bridge.qs：缺失'));
+        } else {
+          lines.push(row(false, 'MestReNova 检测与 bridge.qs 校验：运行“测试连接”后更新'));
+        }
+      }
+      checklist.innerHTML = lines.join('');
     }
     async function refreshMcpStatus(testConnection = false) {
       if (!activeMcpApp) return;
@@ -176,7 +205,6 @@
       try {
         const status = await invoke('app_mcp_status', { appKey: activeMcpApp, testConnection });
         $('mcp-enabled').checked = !!status.enabled;
-        $('mcp-dir').value = status.directory || '';
         renderMcpStatus(status);
       }
       catch (error) { renderMcpStatus({ state: 'error', detail: String(error), serverFileExists: false, uvAvailable: false }); }
@@ -210,7 +238,6 @@
       const button = event.target.closest('[data-mcp-app]');
       if (button) void openMcpEditor(button.dataset.mcpApp, button.dataset.mcpLabel);
     });
-    $('mcp-browse').addEventListener('click', async () => { const path = await invoke('pick_mcp_dir'); if (path) $('mcp-dir').value = path; });
     $('mcp-install-bridge').addEventListener('click', async () => {
       const button = $('mcp-install-bridge'); button.disabled = true;
       try {
@@ -222,17 +249,18 @@
     $('mcp-save').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       try {
-        const status = await invoke('save_app_mcp', { appKey: activeMcpApp, directory: $('mcp-dir').value, enabled: $('mcp-enabled').checked });
+        const status = await invoke('save_app_mcp', { appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked });
         renderMcpStatus(status); setText('mcp-editor-result', '已保存；重启运行环境后生效。'); await refreshDiagnostics();
       } catch (error) { setText('mcp-editor-result', `保存失败：${error}`); }
     });
     $('mcp-test').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       try {
-        await invoke('save_app_mcp', { appKey: activeMcpApp, directory: $('mcp-dir').value, enabled: $('mcp-enabled').checked });
+        await invoke('save_app_mcp', { appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked });
         await refreshMcpStatus(true); await refreshDiagnostics();
       } catch (error) { renderMcpStatus({ state: 'error', detail: String(error), serverFileExists: false, uvAvailable: false }); }
     });
+    $('mcp-open-workspace').addEventListener('click', () => invoke('open_workspace').catch((error) => setText('mcp-editor-result', `打开失败：${error}`)));
     $('mcp-remove').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       await invoke('remove_app_mcp', { appKey: activeMcpApp });

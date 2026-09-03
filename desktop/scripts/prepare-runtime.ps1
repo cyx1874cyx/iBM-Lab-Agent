@@ -30,9 +30,23 @@ if (-not (Test-Path -LiteralPath $bundledPython)) {
   throw "Bundled Python is missing: $bundledPython. Run scripts/build-bundled-python.ps1 before prepare-runtime."
 }
 
+function Remove-TreeFast([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $full = (Resolve-Path -LiteralPath $Path).Path
+  try {
+    # .NET 原生递归删除：比 Remove-Item -Recurse 快两个数量级（Remove-Item
+    # 在本机实测约 4 文件/秒，3 万文件的 dsh 树需要数小时）。
+    [System.IO.Directory]::Delete($full, $true)
+  } catch {
+    # 只读文件会阻断递归删除：先清只读位再删
+    Get-ChildItem -LiteralPath $full -Recurse -Force | ForEach-Object { $_.Attributes = 'Normal' }
+    [System.IO.Directory]::Delete($full, $true)
+  }
+}
+
 $targets = @('node', 'dsh', 'plugin') | ForEach-Object { Join-Path $resourceRoot $_ }
 foreach ($target in $targets) {
-  if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+  Remove-TreeFast $target
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $resourceRoot 'node'), (Join-Path $resourceRoot 'dsh'), (Join-Path $resourceRoot 'plugin') | Out-Null
 New-Item -ItemType Directory -Force -Path $iconRoot | Out-Null
@@ -55,7 +69,9 @@ function Copy-Tree(
   [string[]]$ExcludeDirectories = @(),
   [string[]]$ExcludeFiles = @()
 ) {
-  $arguments = @($Source, $Destination, '/E', '/SL', '/NFL', '/NDL', '/NJH', '/NJS', '/NP')
+  # /MT:16 多线程复制：单线程 robocopy 在本机实测约 6 文件/秒，2.9 万文件的
+  # dsh 树需 1 小时以上；16 线程可将整体刷新压缩到几分钟。
+  $arguments = @($Source, $Destination, '/E', '/SL', '/MT:16', '/NFL', '/NDL', '/NJH', '/NJS', '/NP')
   if ($ExcludeDirectories.Count -gt 0) { $arguments += '/XD'; $arguments += $ExcludeDirectories }
   if ($ExcludeFiles.Count -gt 0) { $arguments += '/XF'; $arguments += $ExcludeFiles }
   & robocopy @arguments | Out-Null

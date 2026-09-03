@@ -355,8 +355,8 @@ impl RuntimeManager {
     }
 
     /// 保存某 MCP 应用配置。启动类型由 app_key → McpAppSpec 决定，
-    /// 不把 launcher 写进用户 JSON；Origin 的 directory 可以为空，
-    /// Mnova 的 directory 保持必需。
+    /// 不把 launcher 写进用户 JSON；0.2.0 起 Mnova/Origin 均为 bundled
+    /// Python 模块，directory 一律不再必需。
     pub fn save_app_mcp(
         &self,
         app_key: &str,
@@ -365,12 +365,6 @@ impl RuntimeManager {
     ) -> Result<AppMcpStatus, RuntimeError> {
         let spec = mcp::spec_for(app_key)
             .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {app_key}")))?;
-        if spec.requires_directory && directory.trim().is_empty() {
-            return Err(RuntimeError::new(format!(
-                "{} MCP 需要选择一个服务目录",
-                spec.server_name
-            )));
-        }
         let mut config = self.load_config()?;
         config.mcp_servers.retain(|entry| entry.app_key != app_key);
         config.mcp_servers.push(McpServerConfig {
