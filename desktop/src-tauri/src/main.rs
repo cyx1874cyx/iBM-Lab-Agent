@@ -134,11 +134,12 @@ fn save_app_mcp(
     app_key: String,
     directory: String,
     enabled: bool,
+    tool_profile: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<AppMcpStatus, String> {
     state
         .0
-        .save_app_mcp(&app_key, &directory, enabled)
+        .save_app_mcp(&app_key, &directory, enabled, tool_profile)
         .map_err(|error| error.to_string())
 }
 

@@ -356,15 +356,32 @@ impl RuntimeManager {
 
     /// 保存某 MCP 应用配置。启动类型由 app_key → McpAppSpec 决定，
     /// 不把 launcher 写进用户 JSON；0.2.0 起 Mnova/Origin 均为 bundled
-    /// Python 模块，directory 一律不再必需。
+    /// Python 模块，directory 一律不再必需。tool_profile 仅 Origin 适用
+    /// （ORIGIN_MCP_TOOL_PROFILE 工具面档位，None=compact 默认）。
     pub fn save_app_mcp(
         &self,
         app_key: &str,
         directory: &str,
         enabled: bool,
+        tool_profile: Option<String>,
     ) -> Result<AppMcpStatus, RuntimeError> {
         let spec = mcp::spec_for(app_key)
             .ok_or_else(|| RuntimeError::new(format!("Unsupported MCP application: {app_key}")))?;
+        let profile = if spec.app_key == "origin" {
+            tool_profile
+                .map(|value| value.trim().to_ascii_lowercase())
+                .filter(|value| !value.is_empty())
+        } else {
+            None
+        };
+        if let Some(value) = &profile {
+            if !mcp::is_valid_origin_profile(value) {
+                return Err(RuntimeError::new(format!(
+                    "Unsupported Origin tool profile: {value:?}（可选：{:?}）",
+                    mcp::ORIGIN_TOOL_PROFILES
+                )));
+            }
+        }
         let mut config = self.load_config()?;
         config.mcp_servers.retain(|entry| entry.app_key != app_key);
         config.mcp_servers.push(McpServerConfig {
@@ -372,6 +389,7 @@ impl RuntimeManager {
             server_name: spec.server_name.to_string(),
             enabled,
             directory: directory.trim().to_string(),
+            tool_profile: profile,
         });
         config::save(&self.layout.config_dir, config.clone())?;
         Ok(mcp::status(&self.layout, &config, app_key, false))

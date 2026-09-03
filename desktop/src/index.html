@@ -43,6 +43,7 @@
     .field-row input { flex: 1; }
     .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; color: #d8e6f7; font-size: 13px; }
     .check-row input { width: auto; }
+    #mcp-profile-section select { background: #0d1625; color: #c6d3e6; border: 1px solid #2a3a55; border-radius: 6px; padding: 4px 8px; font-size: 12px; margin-left: 10px; max-width: 240px; }
     .mcp-cell { min-width: 180px; color: #9fb1ca; font-size: 12px; }
     .mcp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .mcp-actions button { padding: 4px 8px; font-size: 12px; }
@@ -51,6 +52,11 @@
     #mcp-editor-status { min-height: 36px; margin-top: 10px; padding: 9px 11px; border-radius: 7px; background: #0d1625; color: #9fb1ca; font-size: 12px; }
     #mcp-editor-status[data-state="connected"] { color: #64d7a3; }
     #mcp-editor-status[data-state="error"], #mcp-editor-status[data-state="invalid"], #mcp-editor-status[data-state="missing"] { color: #ef8b87; }
+    /* MCP 测试输出收纳：超长 detail 折叠为预览 + 可展开完整原文 */
+    .detail-preview { color: #9fb1ca; word-break: break-all; }
+    .detail-fold { margin-top: 6px; }
+    .detail-fold summary { cursor: pointer; color: #7fb0e8; font-size: 12px; user-select: none; }
+    .detail-fold pre { background: #0a1120; border: 1px solid #2a3a55; border-radius: 6px; padding: 10px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; margin: 8px 0 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -82,6 +88,19 @@
               启用后 DSH 自动注入 <code>python -m origin_mcp</code>（工具前缀 mcp__origin__*）。
               “准备 Bridge”调用捆绑的 origin-mcp 输出 OPX 注册指令，便于 Origin 按需拉起。</p>
             <div class="field-row"><button id="mcp-install-bridge" type="button">准备 Origin Bridge（install-origin-app）</button></div>
+          </div>
+          <div id="mcp-profile-section" style="display:none">
+            <label class="check-row" for="mcp-tool-profile">Origin 工具面档位（ORIGIN_MCP_TOOL_PROFILE）
+              <select id="mcp-tool-profile">
+                <option value="compact">compact（默认）</option>
+                <option value="data">data</option>
+                <option value="plot">plot</option>
+                <option value="analysis">analysis</option>
+                <option value="standard">standard</option>
+                <option value="full">full（全部工具）</option>
+              </select>
+            </label>
+            <p class="dep-hint">档位在 MCP Server 启动时读取一次：保存后需重启运行环境（重启桌面应用）才会切换 tools/list 工具面。</p>
           </div>
           <div id="mcp-editor-status" data-state="unconfigured">尚未配置</div>
           <div id="mcp-checklist" style="display:none; margin-top:10px; font-size:12px; line-height:1.8; color:#c6d3e6;"></div>
@@ -159,6 +178,24 @@
       }
     }
     function setText(id, value) { $(id).textContent = value; }
+    // MCP 测试输出收纳：≤400 字符直接显示；超长时只展示前 160 字符预览 +
+    // 可展开的完整原文（tools/list 等 server 响应可达数万字符，不全量铺开）。
+    function renderMcpDetail(node, text) {
+      const value = String(text ?? '');
+      node.textContent = '';
+      if (value.length <= 400) { node.textContent = value; return; }
+      const preview = document.createElement('span');
+      preview.className = 'detail-preview';
+      preview.textContent = `${value.slice(0, 160)}…（共 ${value.length} 字符，已折叠）`;
+      const details = document.createElement('details');
+      details.className = 'detail-fold';
+      const summary = document.createElement('summary');
+      summary.textContent = '展开完整输出';
+      const pre = document.createElement('pre');
+      pre.textContent = value;
+      details.append(summary, pre);
+      node.append(preview, details);
+    }
     function renderMcpStatus(status) {
       const node = $('mcp-editor-status');
       node.dataset.state = status.state || 'error';
@@ -166,7 +203,19 @@
       // 不再出现外部目录选择 / run_server.py / uv 的配置 UX（任务书 §17/§19）。
       $('mcp-launch-section').style.display = 'none';
       $('mcp-bridge-section').style.display = activeMcpApp === 'origin' ? '' : 'none';
-      node.textContent = status.detail || '状态未知';
+      $('mcp-profile-section').style.display = activeMcpApp === 'origin' ? '' : 'none';
+      if (activeMcpApp === 'origin') {
+        // 回填工具面档位；配置含别名（legacy/expert/all）时补一个实际值选项。
+        const select = $('mcp-tool-profile');
+        const profile = status.toolProfile || 'compact';
+        if (!Array.from(select.options).some((option) => option.value === profile)) {
+          const option = document.createElement('option');
+          option.value = profile; option.textContent = `${profile}（自定义）`;
+          select.append(option);
+        }
+        select.value = profile;
+      }
+      renderMcpDetail(node, status.detail || '状态未知');
       const checklist = $('mcp-checklist');
       if (activeMcpApp !== 'mnova') {
         checklist.style.display = 'none';
@@ -249,14 +298,22 @@
     $('mcp-save').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       try {
-        const status = await invoke('save_app_mcp', { appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked });
-        renderMcpStatus(status); setText('mcp-editor-result', '已保存；重启运行环境后生效。'); await refreshDiagnostics();
+        const status = await invoke('save_app_mcp', {
+          appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked,
+          toolProfile: $('mcp-tool-profile').value,
+        });
+        renderMcpStatus(status);
+        const profileNote = activeMcpApp === 'origin' ? `（工具面：${$('mcp-tool-profile').value}）` : '';
+        setText('mcp-editor-result', `已保存${profileNote}；重启运行环境后生效。`); await refreshDiagnostics();
       } catch (error) { setText('mcp-editor-result', `保存失败：${error}`); }
     });
     $('mcp-test').addEventListener('click', async () => {
       if (!activeMcpApp) return;
       try {
-        await invoke('save_app_mcp', { appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked });
+        await invoke('save_app_mcp', {
+          appKey: activeMcpApp, directory: '', enabled: $('mcp-enabled').checked,
+          toolProfile: $('mcp-tool-profile').value,
+        });
         await refreshMcpStatus(true); await refreshDiagnostics();
       } catch (error) { renderMcpStatus({ state: 'error', detail: String(error), serverFileExists: false, uvAvailable: false }); }
     });

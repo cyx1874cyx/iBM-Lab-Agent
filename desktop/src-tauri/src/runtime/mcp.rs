@@ -77,6 +77,9 @@ pub struct AppMcpStatus {
     pub state: String,
     pub detail: String,
 
+    /// Origin 工具面档位（ORIGIN_MCP_TOOL_PROFILE）；None=compact 默认。
+    pub tool_profile: Option<String>,
+
     // 旧字段保留（0.1.x UI 兼容；新 UI 请用 launcher/entrypoint 字段）。
     pub server_file_exists: bool,
     pub uv_available: bool,
@@ -184,6 +187,20 @@ pub(crate) fn mnova_package_version(layout: &RuntimeLayout) -> Option<String> {
     python_package_version(layout, "mnova_mcp")
 }
 
+/// origin_mcp 支持的 ORIGIN_MCP_TOOL_PROFILE 档位（0.1.4 tools/_shared.py）：
+/// PROFILE_TOOL_NAMES = compact/data/plot/analysis/standard/legacy；
+/// full/expert/all = 注册全部工具。UI 下拉只暴露常用六档，
+/// 后端校验保留别名以兼容手写配置。
+pub const ORIGIN_TOOL_PROFILES: &[&str] = &[
+    "compact", "data", "plot", "analysis", "standard", "legacy", "full", "expert", "all",
+];
+
+/// 校验 ORIGIN_MCP_TOOL_PROFILE 是否在白名单内（防手改配置注入非法值）。
+pub fn is_valid_origin_profile(profile: &str) -> bool {
+    let profile = profile.trim().to_ascii_lowercase();
+    ORIGIN_TOOL_PROFILES.contains(&profile.as_str())
+}
+
 /// 根据 app_key 规格构造 MCP 启动命令。此函数只做静态构造，可用性校验
 /// 由 [validate_enabled_server] / [status] 完成，因此可单元测试。
 pub fn build_launch_command(
@@ -197,9 +214,21 @@ pub fn build_launch_command(
         McpLaunchKind::BundledPythonModule { module } => {
             let mut env = vec![];
             if spec.app_key == "origin" {
+                // 工具面档位：None → compact（与 origin_mcp 默认一致）。
+                let profile = entry
+                    .tool_profile
+                    .as_deref()
+                    .unwrap_or("compact")
+                    .trim()
+                    .to_ascii_lowercase();
+                if !is_valid_origin_profile(&profile) {
+                    return Err(RuntimeError::new(format!(
+                        "Unsupported Origin tool profile: {profile:?}（可选：{ORIGIN_TOOL_PROFILES:?}）"
+                    )));
+                }
                 env.push((
                     OsString::from("ORIGIN_MCP_TOOL_PROFILE"),
-                    OsString::from("compact"),
+                    OsString::from(profile),
                 ));
             }
             Ok(McpLaunchCommand {
@@ -209,6 +238,21 @@ pub fn build_launch_command(
             })
         }
     }
+}
+
+/// 判定 JSON-RPC 响应是否为真正的协议错误（顶层 error 对象），并提取
+/// error.message 供展示。仅当协议层显式返回 error 时才算错——tools/list
+/// 等成功响应即使工具 schema/描述里出现 "error" 字面量也不会被误伤。
+fn jsonrpc_error(line: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(line).ok()?;
+    let error = value.get("error")?;
+    let message = error
+        .get("message")
+        .and_then(|message| message.as_str())
+        .filter(|message| !message.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("JSON-RPC error: {error}"));
+    Some(message)
 }
 
 /// 通用 MCP 握手：initialize → notifications/initialized → tools/list。
@@ -265,12 +309,12 @@ fn handshake(command: &McpLaunchCommand) -> Result<Vec<String>, RuntimeError> {
             break Err(RuntimeError::new("MCP 连接测试超时（10 秒）"));
         }
         match receiver.recv_timeout(remaining) {
-            Ok(line) if line.contains(r#""error"#) => {
-                break Err(RuntimeError::new(format!("MCP Server 返回错误: {line}")))
-            }
-            Ok(line) => {
-                break parse_tool_names(&line);
-            }
+            Ok(line) => match jsonrpc_error(&line) {
+                Some(message) => {
+                    break Err(RuntimeError::new(format!("MCP Server 返回错误: {message}")))
+                }
+                None => break parse_tool_names(&line),
+            },
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 break Err(RuntimeError::new("MCP 连接测试超时（10 秒）"))
             }
@@ -571,6 +615,7 @@ pub fn status(
             connected: false,
             state: "error".into(),
             detail: format!("Unsupported MCP application: {app_key}"),
+            tool_profile: None,
             server_file_exists: false,
             uv_available: false,
         };
@@ -589,6 +634,7 @@ pub fn status(
         server_name: spec.server_name.to_string(),
         enabled: false,
         directory: String::new(),
+        tool_profile: None,
     };
     let entry = entry.unwrap_or(&fallback_entry);
 
@@ -630,6 +676,7 @@ pub fn status(
             connected,
             state: state.into(),
             detail,
+            tool_profile: entry.tool_profile.clone(),
             server_file_exists: entrypoint_ok,
             uv_available: launcher_ok,
         }
@@ -720,6 +767,7 @@ pub fn status(
         server_name: entry.server_name.clone(),
         enabled,
         directory: directory.clone(),
+        tool_profile: entry.tool_profile.clone(),
     };
     let handshake_result =
         build_launch_command(layout, &entry_ref).and_then(|command| handshake(&command));
@@ -804,6 +852,7 @@ pub fn status(
             server_name: entry.server_name.clone(),
             enabled,
             directory: directory.clone(),
+            tool_profile: entry.tool_profile.clone(),
         };
         let status_json = build_launch_command(layout, &entry_ref)
             .and_then(|command| call_mnova_status(&command));
@@ -914,12 +963,12 @@ fn call_mnova_status(command: &McpLaunchCommand) -> Result<serde_json::Value, Ru
             break Err(RuntimeError::new("Mnova mnova_status 调用超时（20 秒）"));
         }
         match receiver.recv_timeout(remaining) {
-            Ok(line) if line.contains(r#""error"#) => {
-                break Err(RuntimeError::new(format!("Mnova MCP 返回错误: {line}")))
-            }
-            Ok(line) => {
-                break parse_tool_result_content(&line);
-            }
+            Ok(line) => match jsonrpc_error(&line) {
+                Some(message) => {
+                    break Err(RuntimeError::new(format!("Mnova MCP 返回错误: {message}")))
+                }
+                None => break parse_tool_result_content(&line),
+            },
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 break Err(RuntimeError::new("Mnova mnova_status 调用超时（20 秒）"))
             }
@@ -978,7 +1027,27 @@ mod tests {
             server_name: "origin".into(),
             enabled,
             directory: String::new(),
+            tool_profile: None,
         }
+    }
+
+    // 回归：tools/list 成功响应即使工具描述/属性含 "error" 字面量也不得判为
+    // 协议错误（曾用 line.contains("\"error\"") 子串守卫，误伤正常响应——
+    // 表现为“MCP Server 返回错误: {完整 tools/list}”全量展示）。
+    #[test]
+    fn jsonrpc_error_ignores_successful_tools_list_with_error_literals() {
+        let success = r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"origin_diagnose_worksheet","description":"structured issues: empty_worksheet and all_null_column (error), non_numeric_column (info)"},{"name":"origin_plot_auto","description":"Visual channels such as x, y, z, group, error."}]}}"#;
+        assert!(jsonrpc_error(success).is_none(), "successful tools/list must not be an error");
+        let real_error = r#"{"jsonrpc":"2.0","id":2,"error":{"code":-32601,"message":"Method not found: origin_bogus"}}"#;
+        assert_eq!(
+            jsonrpc_error(real_error).as_deref(),
+            Some("Method not found: origin_bogus")
+        );
+        let error_no_message = r#"{"jsonrpc":"2.0","id":2,"error":{"code":-32000}}"#;
+        assert!(jsonrpc_error(error_no_message)
+            .unwrap_or_default()
+            .contains("JSON-RPC error"));
+        assert!(jsonrpc_error("not json at all").is_none());
     }
 
     fn mnova_entry(enabled: bool, directory: &str) -> McpServerConfig {
@@ -987,6 +1056,7 @@ mod tests {
             server_name: "mnova".into(),
             enabled,
             directory: directory.into(),
+            tool_profile: None,
         }
     }
 

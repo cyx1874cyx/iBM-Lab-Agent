@@ -17,6 +17,10 @@ pub struct McpServerConfig {
     pub enabled: bool,
     #[serde(default)]
     pub directory: String,
+    /// Origin 工具面档位（ORIGIN_MCP_TOOL_PROFILE）。None=默认 compact。
+    /// 在 MCP server 启动时读取一次，修改后需重启运行环境生效。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_profile: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -261,6 +265,7 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
             server_name: "mnova".into(),
             enabled: disk.mnova_mcp_enabled,
             directory: disk.mnova_mcp_dir.clone(),
+            tool_profile: None,
         });
     }
     Ok(AppConfig {
@@ -450,6 +455,7 @@ mod tests {
                     server_name: "mnova".into(),
                     enabled: true,
                     directory: r"C:\tools\mnova-mcp".into(),
+                    tool_profile: None,
                 }],
             },
         )

@@ -273,6 +273,20 @@ pub fn prepare_mcp_patch(
                 server = server,
             ));
         } else {
+            // Origin：工具面档位来自配置（默认 compact）。值经白名单校验后
+            // 才可拼入 YAML，防手改配置注入非法键/值。
+            let profile = entry
+                .tool_profile
+                .as_deref()
+                .unwrap_or("compact")
+                .trim()
+                .to_ascii_lowercase();
+            if !super::mcp::is_valid_origin_profile(&profile) {
+                return Err(RuntimeError::new(format!(
+                    "Unsupported Origin tool profile: {profile:?}（可选：{:?}）",
+                    super::mcp::ORIGIN_TOOL_PROFILES
+                )));
+            }
             contents.push_str(&format!(
                 r#"    - id: mcp-{server}
       name: '@deepseek-ai/dsh-mcp-client'
@@ -284,7 +298,7 @@ pub fn prepare_mcp_patch(
           - -m
           - {module}
         env:
-          ORIGIN_MCP_TOOL_PROFILE: compact
+          ORIGIN_MCP_TOOL_PROFILE: {profile}
         toolCallTimeoutMs: 120000
         failOnStartupError: false
 "#,
@@ -433,6 +447,7 @@ mod tests {
             server_name: "mnova".into(),
             enabled: true,
             directory: String::new(),
+            tool_profile: None,
         }];
         let patch = prepare_mcp_patch(&layout, &servers)
             .unwrap()
@@ -482,6 +497,7 @@ mod tests {
             server_name: "origin".into(),
             enabled: true,
             directory: String::new(),
+            tool_profile: None,
         }];
         let patch = prepare_mcp_patch(&layout, &servers)
             .unwrap()
@@ -517,12 +533,14 @@ mod tests {
                 server_name: "mnova".into(),
                 enabled: false,
                 directory: String::new(),
+                tool_profile: None,
             },
             super::super::config::McpServerConfig {
                 app_key: "origin".into(),
                 server_name: "origin".into(),
                 enabled: false,
                 directory: String::new(),
+                tool_profile: None,
             },
         ];
         assert!(prepare_mcp_patch(&layout, &servers).unwrap().is_none());
@@ -547,6 +565,7 @@ mod tests {
             server_name: "bad name!".into(),
             enabled: true,
             directory: r"C:\tools\mnova-mcp".into(),
+            tool_profile: None,
         }];
         assert!(prepare_mcp_patch(&layout, &bad_name).is_err());
         // Case D-2：app_key 无注册规格也拒绝（防止任意 executable 被启用）
@@ -555,6 +574,7 @@ mod tests {
             server_name: "unknown".into(),
             enabled: true,
             directory: String::new(),
+            tool_profile: None,
         }];
         assert!(prepare_mcp_patch(&layout, &bad_key).is_err());
         let _ = fs::remove_dir_all(sandbox);
