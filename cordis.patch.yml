@@ -31,6 +31,20 @@
         customSkillDirs:
           - !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
 
+    # ── Mnova NMR Skill discovery (global skill layer, 0.2.0) ────────────────
+    #
+    # 独立 provider 实例只读 $DSH_HOME/lab-agent/vendor/mnova-mcp/skill/
+    # （mnova-mcp 0.3.1 附带的 nmr-analyze-simulate），与 nature-skills 的
+    # provider 隔离。根目录由 desktop bootstrap（dsh.rs）与 install.mjs 从
+    # 打包 vendor 树物化，随 mnova-mcp.lock.json 变更自动刷新。
+    - id: lab-mnova-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-mnova
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('lab-agent/vendor/mnova-mcp/skill')
+
     # ── Nature Skill version registry (NatureSkillVersion) ────────────────────
     #
     # Host service `ctx.labVersions`: durable registry of pinned Nature Skills

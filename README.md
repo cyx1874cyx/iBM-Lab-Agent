@@ -364,9 +364,12 @@ standard 等其他模式看不到 lab 工具，避免误调用。
 - **聚合物积分计算**（纯公式离线可测）：共聚组成、转化率、端基 DP、取代度、
   由取代度推算载药量——只接受已审核积分，全部标记 computed + 公式来源。
 - **mnova-mcp 集成**：Harness MCP Client 配置模板 `presets/mcp/mnova-mcp.patch.yml`
-  （stdio，`uv run run_server.py`）+ `scripts/install-nmr-skill.mjs` 安装
-  nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`；agent 通过 `mcp__mnova__*`
-  工具与 Mnova 交互（需本机 Mnova 环境，部署时启用）。
+  （0.2.0 起为 bundled Python 模块型：`python -m mnova_mcp`，不再依赖系统
+  Python/uv/源码 checkout）；nmr-analyze-simulate skill 随 mnova-mcp vendor 化，
+  由 cordis.patch.yml 的 `lab-mnova-skill-filesystem` provider 注册到
+  `$DSH_HOME/lab-agent/vendor/mnova-mcp/skill`（桌面端由 bootstrap 自动物化，
+  无需网络安装脚本）；agent 通过 `mcp__mnova__*` 工具与 Mnova 交互
+  （需本机 Mnova 环境，部署时启用）。
 
 ## 阶段六交付内容（开放数据首版）
 

@@ -1,19 +1,22 @@
-# dsh-lab-agent: Mnova MCP 集成配置模板（用户部署时启用）
+# dsh-lab-agent: Mnova MCP 集成配置模板（0.2.0 参考形态）
 #
-# 计划 §五：通过 Harness MCP Client 集成 mnova-mcp。此文件是可选 overlay——
-# 需要本机安装 Mnova 软件与 mnova-mcp 运行环境（uv），并在 harness 会话里
-# 让 agent 使用 mcp__mnova__* 工具（含 nmr-analyze-simulate skill 的流程）。
+# 计划 §五：通过 Harness MCP Client 集成 mnova-mcp。0.2.0 起 mnova-mcp 随
+# iBM-Lab-Agent 一起 vendor 化并以 bundled Python 模块启动（python -m mnova_mcp），
+# 无系统 Python/uv/源码 checkout 依赖；nmr-analyze-simulate skill 一并内置。
 #
-# 启用方式（二选一）：
-#   1) 追加到 profile 的 cordis.patch.yml（连同 dsh-lab-agent bundle）：
-#        dsh web --patch ./presets/mcp/mnova-mcp.patch.yml
-#   2) 或合并进 $DSH_HOME/profiles/web/cordis.patch.yml 后重启 dsh web。
+# 桌面端（Windows）：无需手工应用本文件——Rust runtime（runtime/dsh.rs
+# prepare_mcp_patch + runtime/process.rs）在启用 Mnova MCP 后自动生成
+# managed-mcp.patch.yml overlay，并以 IBM_LAB_MNOVA_* 注入四个运行时路径：
+#   MNOVA_MCP_WORKSPACE      = 用户 workspace（路径安全检查依据）
+#   MNOVA_MCP_OUTPUT_ROOT    = <workspace>\mnova-output
+#   MNOVA_MCP_RUNTIME_ROOT   = ASCII-safe 临时桥接目录（见任务书 §12/§13）
+#   MNOVA_MCP_BRIDGE_SCRIPT  = bundled Python 包内 assets/bridge.qs
 #
-# 前置：
-#   - git clone https://github.com/cyx1874cyx/mnova-mcp <本地路径>
-#   - cd <本地路径> && uv sync        （仓库自带 uv.lock，Python 依赖锁定）
-#   - node scripts/install-nmr-skill.mjs   （把 nmr-analyze-simulate skill 装到
-#                                          $DSH_HOME/skills/，供 agent 加载）
+# 本文件仅作部署形态参考（远程/其它嵌入场景可等价使用）：
+# - command 引用 IBM_LAB_AGENT_BUNDLED_PYTHON（启动器注入的 bundled 解释器）；
+# - 需要本机安装并授权 MestReNova（GUI/Verify 工作流；文件型 NMR 分析与
+#   synthetic FID 不依赖 MestReNova）。
+# - toolCallTimeoutMs=360000：Mnova 实际任务可能持续数分钟，勿用过短超时。
 #
 # 说明：MCP server 通过 stdio 与 Harness 通信；模型看到
 #   mcp__mnova__<tool> 工具。本插件（ctx.labNmr）只做工作流状态编排与
@@ -24,14 +27,14 @@
   config:
     serverName: mnova
     transport: stdio
-    command: uv
+    command: !!js process.env['IBM_LAB_AGENT_BUNDLED_PYTHON']
     args:
-      - run
-      - --directory
-      - !!js (process.env.MNOVA_MCP_DIR ?? '<请填入 mnova-mcp 克隆路径>')
-      - run_server.py
+      - -m
+      - mnova_mcp
     env:
-      # Mnova 自动化接口按需配置（见 mnova-mcp README）
-      MNOVA_MCP_DIR: !!js (process.env.MNOVA_MCP_DIR ?? '')
-    toolCallTimeoutMs: 120000
+      MNOVA_MCP_WORKSPACE: !!js process.env['IBM_LAB_MNOVA_WORKSPACE']
+      MNOVA_MCP_OUTPUT_ROOT: !!js process.env['IBM_LAB_MNOVA_OUTPUT_ROOT']
+      MNOVA_MCP_RUNTIME_ROOT: !!js process.env['IBM_LAB_MNOVA_RUNTIME_ROOT']
+      MNOVA_MCP_BRIDGE_SCRIPT: !!js process.env['IBM_LAB_MNOVA_BRIDGE_SCRIPT']
+    toolCallTimeoutMs: 360000
     failOnStartupError: false

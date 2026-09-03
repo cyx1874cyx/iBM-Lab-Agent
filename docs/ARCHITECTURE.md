@@ -256,9 +256,12 @@ docs/                 本目录 + VERSIONING/THIRD_PARTY_NOTICES/REGRESSION/MANU
   化摩尔分数）、聚合转化率、端基 DP、取代度、由取代度推算载药量——只接受
   **已审核积分**（approve 前 `calculate` 拒绝），全部标记 computed + 公式来源。
 - **mnova-mcp 集成**：Harness MCP Client 配置模板
-  `presets/mcp/mnova-mcp.patch.yml`（stdio，`uv run run_server.py`，用户部署
-  时启用，依赖本机 Mnova）；`scripts/install-nmr-skill.mjs` 安装其
-  nmr-analyze-simulate skill 到 `$DSH_HOME/skills/`（记录来源，不自动更新）。
+  `presets/mcp/mnova-mcp.patch.yml`（0.2.0 起 bundled Python 模块型
+  `python -m mnova_mcp`，无系统 Python/uv/源码 checkout 依赖；用户部署
+  时启用，依赖本机 Mnova）；nmr-analyze-simulate skill 随 mnova-mcp
+  vendor 化，经 cordis.patch.yml `lab-mnova-skill-filesystem` provider
+  注册到 `$DSH_HOME/lab-agent/vendor/mnova-mcp/skill`（桌面 bootstrap /
+  install.mjs 从打包 vendor 树物化，随 lock 变更刷新，不依赖网络安装）。
   agent 通过 `mcp__mnova__*` 工具与 Mnova 交互，本服务只编排与计算。
 
 ## 10.5. nature skills 的 PDF/Office 预处理耦合（markitdown）

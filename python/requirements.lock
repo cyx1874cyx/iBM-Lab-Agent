@@ -7,6 +7,15 @@
 # 传递依赖（numpy/python-dateutil/six/tzdata/et_xmlfile）版本一并固定。
 # 原有 mcp==1.29.0 / pydantic==2.13.4 满足 origin-mcp 约束（mcp>=1.8.0、
 # pydantic>=2.0），保持固定版本不变。
+# 更新：2026-09-02（0.2.0）追加 mnova-mcp 0.3.1 与 NMR skill 运行依赖：
+#   - mnova-mcp 本体由构建脚本从 vendor/mnova-mcp 构建 wheel 后 --no-deps
+#     安装（不进此 lock；其运行时约束 filelock>=3.15,<4 / mcp>=1.28,<2 /
+#     pydantic>=2.7,<3 均已被本文件满足）；
+#   - NMR skill 脚本（process_1d.py / simulate_1d.py）运行需要 scipy /
+#     matplotlib / nmrglue（nmrglue 用于读取 Bruker/Varian FID），与其
+#     传递依赖（contourpy/cycler/fonttools/kiwisolver/pyparsing）一并固定。
+# 解析环境：Windows Python 3.11.9 干净 venv，PyPI 清华镜像，全部 import
+# 自检通过（scipy 1.17.1 / matplotlib 3.11.1 / nmrglue 0.12 / filelock 3.32.5）。
 #
 # Reproducible Python 3.11 test environment for GitHub Actions.
 # Keep user-facing skill requirements flexible; update this file deliberately
@@ -18,8 +27,12 @@ certifi==2026.7.22
 cffi==2.1.0
 charset-normalizer==3.4.9
 click==8.4.2
+contourpy==1.3.3
 cryptography==50.0.0
+cycler==0.12.1
 et_xmlfile==2.0.0
+filelock==3.32.5
+fonttools==4.64.0
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
@@ -28,8 +41,11 @@ idna==3.18
 iniconfig==2.3.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
+kiwisolver==1.5.1
 lxml==5.4.0
+matplotlib==3.11.1
 mcp==1.29.0
+nmrglue==0.12
 numpy==2.4.6
 openpyxl==3.1.5
 origin-mcp==0.1.4
@@ -48,6 +64,7 @@ Pygments==2.20.0
 PyJWT==2.13.0
 pypdf==6.14.2
 pypdfium2==5.12.1
+pyparsing==3.3.2
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
@@ -56,6 +73,7 @@ PyYAML==6.0.3
 referencing==0.37.0
 requests==2.34.2
 rpds-py==2026.6.3
+scipy==1.17.1
 six==1.17.0
 sse-starlette==3.4.6
 starlette==1.3.1
