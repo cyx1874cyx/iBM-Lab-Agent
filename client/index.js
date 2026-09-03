@@ -58,7 +58,9 @@ window.__ModuleLoader__.load({
 			// ── 品牌覆盖：展开侧栏使用人像 Logo；折叠栏与会话徽章保留烧瓶 SVG ──
 			".ib-brand-shell{display:flex;align-items:center;gap:10px;min-width:0}.ib-brand-avatar{width:30px;height:30px;border-radius:9px;flex:none;overflow:hidden;background:#023373;box-shadow:0 6px 18px rgba(2,51,115,.28)}.ib-brand-avatar img{width:100%;height:100%;display:block;object-fit:cover}.ib-brand-text{min-width:0}.ib-brand-text b{display:block;color:var(--dsw-alias-label-primary,#eff9f5);font-size:13px;font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}.ib-brand-text small{display:block;color:var(--dsw-alias-label-tertiary,#88a6c4);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;margin-top:2px;white-space:nowrap}",
 			"[class*='_toggle']{position:relative}.ib-rail-flask{position:absolute;z-index:2;inset:0;margin:auto;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:#023373;box-shadow:0 4px 12px rgba(2,51,115,.3);pointer-events:none}.ib-rail-flask svg{width:13px;height:13px}",
-			".ib-hero-avatar{display:block;width:68px!important;height:68px!important;max-width:none;flex:none;object-fit:cover;border-radius:14px;box-shadow:0 8px 22px rgba(46,163,123,.2)}body:not(.ib-research-chat) [class*='_headlineText']{font-size:52px!important;line-height:1!important}body:not(.ib-research-chat) [class*='_fishHitbox']{margin-right:18px!important}.ib-overlay .ib-logo{padding:0;overflow:hidden;background:none;box-shadow:0 9px 28px rgba(2,51,115,.42)}.ib-logo img{display:block;width:100%;height:100%;object-fit:cover}"
+			".ib-hero-avatar{display:block;width:68px!important;height:68px!important;max-width:none;flex:none;object-fit:cover;border-radius:14px;box-shadow:0 8px 22px rgba(46,163,123,.2)}body:not(.ib-research-chat) [class*='_headlineText']{font-size:52px!important;line-height:1!important}body:not(.ib-research-chat) [class*='_fishHitbox']{margin-right:18px!important}.ib-overlay .ib-logo{padding:0;overflow:hidden;background:none;box-shadow:0 9px 28px rgba(2,51,115,.42)}.ib-logo img{display:block;width:100%;height:100%;object-fit:cover}",
+			// ── 研究设计 / 合成路线工作台（0.3.0，UI-001..004） ─────────────
+			".sw-plan{display:grid;gap:14px}.sw-sec{border:1px solid rgba(112,157,211,.22);background:rgba(2,29,67,.82);border-radius:15px;padding:15px 16px;min-width:0}.sw-sec+.sw-sec{margin-top:0}.sw-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.sw-head h3{margin:0;font-size:14px;letter-spacing:.01em}.sw-head p{margin:3px 0 0;color:var(--ib-muted);font-size:9.5px;line-height:1.6;max-width:720px}.sw-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sw-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:11px;padding:10px 12px;border:1px solid rgba(112,157,211,.18);border-radius:12px;background:rgba(1,24,55,.5)}.sw-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sw-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid rgba(112,157,211,.3);border-radius:999px;background:rgba(2,51,115,.25);color:#cfe4fb;font-size:9.5px;line-height:1.2}.sw-chip b{font-weight:650}.sw-chip[data-tone=good]{color:#a5e8c6;border-color:rgba(81,212,163,.38);background:rgba(81,212,163,.1)}.sw-chip[data-tone=warn]{color:#ffe1a0;border-color:rgba(242,201,109,.4);background:rgba(220,165,72,.1)}.sw-chip[data-tone=bad]{color:#ffb3bd;border-color:rgba(255,137,137,.4);background:rgba(190,70,90,.1)}.sw-chip[data-tone=dim]{color:#9bb3d1;border-color:rgba(112,157,211,.2)}.sw-dot{width:7px;height:7px;border-radius:50%;background:var(--sw-lv,#6f9ed6);box-shadow:0 0 10px var(--sw-lv,#6f9ed6)}.sw-select{background:#011832;color:var(--ib-text);border:1px solid rgba(112,157,211,.28);border-radius:9px;padding:7px 9px;font-size:10.5px;outline:none}.sw-graph{display:flex;align-items:stretch;gap:8px;overflow-x:auto;padding:6px 2px 10px;scrollbar-width:thin}.sw-step{position:relative;flex:none;width:min(280px,86vw);display:grid;gap:8px;align-content:start;border:1px solid rgba(112,157,211,.24);border-radius:13px;padding:12px 12px 11px;background:linear-gradient(150deg,rgba(3,44,94,.62),rgba(1,24,55,.72));cursor:pointer;text-align:left;color:var(--ib-text);transition:.16s;min-height:150px}.sw-step:hover{border-color:rgba(111,158,214,.66);transform:translateY(-1px)}.sw-step[data-active=true]{border-color:#6f9ed6;background:linear-gradient(150deg,rgba(2,51,115,.72),rgba(3,44,94,.5));box-shadow:inset 0 0 0 1px rgba(140,181,229,.4),0 10px 26px rgba(2,51,115,.35)}.sw-step-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.sw-step-id{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#023373;border:1px solid rgba(111,158,214,.5);font-size:9.5px;font-weight:800}.sw-step .sw-step-reaction{font-size:12px;font-weight:680;line-height:1.35;color:#eaf4ff}.sw-step .sw-step-flow{font-size:10px;color:#a9c3e2;line-height:1.5}.sw-step .sw-step-flow b{color:#cfe4fb;font-weight:560}.sw-step-preview{font-size:10px;color:#9db8d6;line-height:1.5;border-top:1px dashed rgba(112,157,211,.2);padding-top:8px;margin-top:auto}.sw-step-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}.sw-bar{flex:1;min-width:0;height:4px;border-radius:999px;background:rgba(112,157,211,.18);overflow:hidden}.sw-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#2f7bd8,#6f9ed6)}.sw-step[data-active=true] .sw-bar i{background:linear-gradient(90deg,#51d4a3,#8ce0c0)}.sw-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(340px,.88fr);gap:14px;align-items:start}.sw-cond{width:100%;border-collapse:collapse;font-size:11px}.sw-cond th,.sw-cond td{border-bottom:1px solid rgba(112,157,211,.15);padding:8px 9px;text-align:left;vertical-align:top}.sw-cond th{width:96px;color:#a9c8ea;font-weight:620;white-space:nowrap}.sw-cond td{color:#dcecff;line-height:1.55;overflow-wrap:anywhere}.sw-cond td[data-missing=true]{color:#7d97b5;font-style:italic}.sw-cond td[data-missing=true]::after{content:'（文献未提供 / 待确认）'}.sw-cond td[data-legacy=true]{color:#ffe1a0}.sw-cond .sw-src{display:inline-flex;align-items:center;gap:4px;color:#8cb5e5;text-decoration:none;border-bottom:1px dashed rgba(140,181,229,.4);font-size:9.5px;cursor:pointer}.sw-cond .sw-src:hover{color:#cfe4fb}.sw-notes{display:grid;gap:8px;margin-top:12px}.sw-note{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:flex-start;border:1px solid rgba(242,201,109,.3);background:rgba(220,165,72,.07);border-radius:10px;padding:9px 11px;color:#ffe1a0;font-size:10.5px;line-height:1.6}.sw-note i{font-style:normal;font-weight:800;color:#f2c96d}.sw-ev-list{display:grid;gap:9px}.sw-ev{border:1px solid rgba(112,157,211,.22);border-radius:11px;background:rgba(255,255,255,.02);padding:10px 11px}.sw-ev-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.sw-ev-title{font-size:11px;font-weight:680;color:#e3f0ff;line-height:1.4}.sw-ev-meta{font-size:9px;color:#8aa7c6;margin-top:4px;line-height:1.5}.sw-ev-quote{margin-top:8px;padding:8px 10px;border-left:2px solid #4d86c4;background:rgba(1,20,45,.5);color:#bcd6ee;font-size:10px;line-height:1.6;border-radius:0 8px 8px 0}.sw-ev-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.sw-ev-tag{border-radius:999px;padding:3px 7px;font-size:8.5px;border:1px solid rgba(112,157,211,.26);color:#a9c3e2;background:rgba(2,51,115,.2)}.sw-ev-tag[data-rel=conflicts]{color:#ffb0ba;border-color:rgba(255,137,137,.45);background:rgba(190,70,90,.12)}.sw-ev-tag[data-lv=1]{color:#9df1c8;border-color:rgba(81,212,163,.4)}.sw-ev-review{margin-left:auto}.sw-ev-act{display:inline-flex;gap:5px;align-items:center}.sw-ev-act button{border:1px solid rgba(112,157,211,.3);border-radius:7px;padding:3px 8px;font-size:8.5px;background:rgba(2,51,115,.25);color:#c3d9f2;cursor:pointer}.sw-ev-act button[data-ok=true]{border-color:rgba(81,212,163,.45);color:#b7ecd2}.sw-ev-act button[data-no=true]{border-color:rgba(255,137,137,.4);color:#ffc2ca}.sw-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}.sw-metric{border:1px solid rgba(112,157,211,.2);border-radius:11px;padding:9px 10px;background:rgba(255,255,255,.018);min-width:0}.sw-metric small{display:block;color:#8aa7c6;font-size:8.5px;margin-bottom:6px}.sw-metric strong{font-size:11px;display:flex;align-items:center;gap:6px}.sw-metric strong .sw-dot{flex:none}.sw-metric[data-lv=green] strong{color:#9df1c8}.sw-metric[data-lv=yellow] strong{color:#ffe1a0}.sw-metric[data-lv=red] strong{color:#ffb0ba}.sw-metric[data-lv=unknown] strong{color:#c9d8ea}.sw-analy{display:grid;gap:7px}.sw-analy-block{border:1px solid rgba(112,157,211,.16);border-radius:10px;background:rgba(2,51,115,.12);padding:9px 11px;color:#cfe3f8;font-size:10px;line-height:1.65}.sw-analy-block b{color:#a9c8ea;font-size:9px;letter-spacing:.08em;display:block;margin-bottom:4px}.sw-analy-block ul{margin:0;padding-left:16px}.sw-plan-empty{border:1px dashed rgba(112,157,211,.32);border-radius:13px;padding:34px 22px;text-align:center;color:#8aa7c6;font-size:11px;line-height:1.9}.sw-plan-empty b{display:block;color:#cfe4fb;font-size:13px;margin-bottom:6px}.sw-plans{display:grid;gap:6px;margin-top:10px}.sw-plan-row{display:flex;align-items:center;justify-content:space-between;gap:9px;border-top:1px solid rgba(112,157,211,.12);padding-top:7px;font-size:10px;color:#bcd2ea}.sw-plan-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:560;color:#d8e9ff}.sw-mini-btn{border:1px solid rgba(112,157,211,.28);background:rgba(2,51,115,.28);color:#cfe4fb;border-radius:8px;padding:5px 9px;font-size:9.5px;cursor:pointer}.sw-mini-btn:hover{border-color:#6f9ed6;background:rgba(2,51,115,.5)}.sw-mini-btn:disabled{opacity:.4;cursor:not-allowed}.sw-mini-btn[data-primary=true]{border-color:#2f7bd8;background:linear-gradient(135deg,#0b4da0,#023373);color:#fff}.sw-mini-btn[data-warn=true]{border-color:rgba(242,201,109,.5);color:#ffe6ad}.sw-hint{display:flex;align-items:flex-start;gap:8px;border:1px solid rgba(111,158,214,.24);background:rgba(2,51,115,.14);border-radius:11px;padding:9px 12px;color:#aec8e6;font-size:10px;line-height:1.7}.sw-hint b{color:#cfe4fb}.sw-spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(140,181,229,.35);border-top-color:#8cb5e5;border-radius:50%;animation:sw-rot .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes sw-rot{to{transform:rotate(360deg)}}.sw-sec-title{display:flex;align-items:center;gap:8px}@media(max-width:980px){.sw-grid{grid-template-columns:1fr}.sw-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.sw-metrics{grid-template-columns:1fr}.sw-toolbar{align-items:flex-start;flex-direction:column}}",
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
@@ -72,7 +74,7 @@ window.__ModuleLoader__.load({
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
 			...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_list"].map((name) => direct(name, ["request"])),
+			...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_list"].map((name) => direct(name, ["request"])),
 			direct("projects_list")
 		];
 
@@ -283,6 +285,361 @@ window.__ModuleLoader__.load({
 
 		function Artifact({ title, rows = [], empty }) {
 			return h("section", { className: "ib-artifact" }, h("div", { className: "ib-artifact-top" }, h("h3", null, title), h("span", { className: "ib-count" }, rows.length)), rows.length ? h("div", { className: "ib-rows" }, rows.slice(0, 4).map((row, index) => h("div", { className: "ib-row", key: row.id || index }, h("b", { title: titleOf(row) }, titleOf(row)), h("span", null, statusOf(row))))) : h("div", { className: "ib-artifact-empty" }, empty));
+		}
+
+		// ── 研究设计 / 合成路线工作台（0.3.0）────────────────────────────────
+		// 参考计划 §3/§4 与 preview.html：Route 层（顶部路线）→ Step 层（左条件
+		// 右 Evidence）→ 决策层（可行性 + 替代方法 + 实验计划）。可信度原则：
+		// 提取/证据/推断分离；无来源关键字段显示“文献未提供 / 待确认”，
+		// 不补默认值；不输出伪精确概率。
+		const ROUTE_ORIGIN_LABEL = { "literature-extracted": "文献提取", "human-edited": "人工修改", "agent-optimized": "Agent 优化", retrosynthesis: "逆向候选" };
+		const ROUTE_STATUS_LABEL = { draft: "draft·草稿", "under-review": "under-review·待审核", approved: "approved·已批准", rejected: "rejected·已驳回" };
+		const EVIDENCE_SOURCE_LABEL = { "paper-si": "Supporting Info", "paper-main": "正文/Scheme", "cited-method": "引用方法", "similar-literature": "相似文献", patent: "专利", "reaction-db": "反应数据库", "compound-db": "化合物库", internal: "内部 SOP", "model-inference": "Agent 推断" };
+		const EVIDENCE_REL_LABEL = { supports: "支持", conflicts: "冲突", context: "背景" };
+		const EVIDENCE_REVIEW_LABEL = { pending: "待审", confirmed: "已确认", edited: "已修订", rejected: "已驳回" };
+		const LEVEL_LABEL = { green: "绿·可行", yellow: "黄·需验证", red: "红·阻断", unknown: "未知" };
+		const LEVEL_TEXT = { green: "🟢", yellow: "🟡", red: "🔴", unknown: "⚪" };
+
+		/** 步骤展示行定义（结构化优先；legacy 兜底在 readStepRowValues 中处理）。 */
+		const STEP_FIELD_DEFS = [
+			{ key: "reagents", label: "试剂", hints: ["reagents", "试剂"] },
+			{ key: "catalysts", label: "催化剂", hints: ["catalysts", "催化剂"] },
+			{ key: "solvents", label: "溶剂", hints: ["solvents", "溶剂"] },
+			{ key: "temperature", label: "温度", hints: ["temperature", "温度"] },
+			{ key: "time", label: "时间", hints: ["time", "时间"] },
+			{ key: "atmosphere", label: "气氛", hints: ["atmosphere", "气氛"] },
+			{ key: "concentration", label: "浓度", hints: ["concentration", "浓度"] },
+			{ key: "yield", label: "收率", hints: ["yield", "收率"] },
+			{ key: "workup", label: "后处理", hints: ["workup", "后处理"] },
+			{ key: "purification", label: "纯化", hints: ["purification", "纯化"] },
+			{ key: "monitoring", label: "监测", hints: ["monitoring", "监测"] }
+		];
+
+		/** 从步骤读取某字段的展示值（procedure 优先；纯 legacy 由调用方单独渲染）。 */
+		function readStepFieldValue(step, def) {
+			const procedure = step.procedure || {};
+			const raw = procedure[def.key];
+			if (raw === undefined) return "";
+			if (Array.isArray(raw)) {
+				const items = raw.map((row) => {
+					if (typeof row === "string") return row;
+					if (def.key === "reagents") return [row.name, row.equivalent ? `(${row.equivalent})` : "", row.amount ? row.amount : ""].filter(Boolean).join(" ");
+					if (def.key === "catalysts") return [row.name, row.loading ? `(${row.loading})` : ""].filter(Boolean).join(" ");
+					if (def.key === "solvents") return [row.name, row.ratio ? `(${row.ratio})` : "", row.volume ? row.volume : ""].filter(Boolean).join(" ");
+					if (def.key === "temperature") return [row.value, row.stage ? `(${row.stage})` : ""].filter(Boolean).join(" ");
+					return Object.values(row).filter((v) => v !== undefined && v !== "").join(" ");
+				});
+				return items.filter(Boolean).join("；");
+			}
+			if (typeof raw === "object") {
+				return [raw.value, raw.unit, raw.type, raw.text].filter((v) => v !== undefined && v !== "").join(" ");
+			}
+			return String(raw ?? "");
+		}
+
+		/** 某字段的 Evidence 命中（弱匹配 supportsField）。 */
+		function evidenceForField(evidenceRows, hints) {
+			return (evidenceRows || []).filter((row) => hints.some((hint) => String(row.supportsField || "").toLowerCase().includes(String(hint).toLowerCase())));
+		}
+
+		function evidenceLocator(row) {
+			const bits = [];
+			if (row.page !== undefined && row.page !== null && row.page !== "") bits.push(`p.${row.page}`);
+			if (row.figure) bits.push(`Fig. ${row.figure}`);
+			if (row.table) bits.push(`Table ${row.table}`);
+			if (row.documentId) bits.push(row.documentId);
+			return bits.join(" · ");
+		}
+
+		function evidenceByStep(evidence, step) {
+			return (evidence || []).filter((row) => row.stepId === step.id || (row.stepId === undefined && row.stepKey !== undefined && Number(row.stepKey) === step.step));
+		}
+
+		function routeLevelEvidence(evidence) {
+			return (evidence || []).filter((row) => row.stepId === undefined && row.stepKey === undefined);
+		}
+
+		function stepIsStructured(step) {
+			return !!step.procedure && Object.keys(step.procedure).length > 0;
+		}
+
+		/** 研究设计工作台主组件（替换原三个 Artifact 卡片入口）。 */
+		function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onChanged }) {
+			const targetById = (id) => targets.find((row) => row.id === id) || null;
+			const [routeId, setRouteId] = useState(routes.length ? routes[0].id : null);
+			const [tick, setTick] = useState(0); // 手动刷新计数：同时重拉 detail
+			const [detail, setDetail] = useState(null);
+			const [selectedStepId, setSelectedStepId] = useState(null);
+			const [assess, setAssess] = useState(null);
+			const [alt, setAlt] = useState(null);
+			const [busy, setBusy] = useState({});
+			const [error, setError] = useState("");
+
+			useEffect(() => {
+				if (routes.length && !routes.some((row) => row.id === routeId)) setRouteId(routes[0].id);
+				if (!routes.length) { setDetail(null); setSelectedStepId(null); }
+			}, [routes]);
+
+			useEffect(() => {
+				if (!routeId) return;
+				let stale = false;
+				setDetail(null);
+				setAssess(null);
+				setAlt(null);
+				setError("");
+				setSelectedStepId(null);
+				call("synth_route_detail", { request: { id: routeId } })
+					.then((result) => {
+						if (stale) return;
+						setDetail(result);
+						const first = (result.route.steps || [])[0];
+						setSelectedStepId(first ? (first.id || `s${first.step}`) : null);
+					})
+					.catch((reason) => { if (!stale) setError(reason.message || "加载路线失败"); })
+					.finally(() => { if (!stale) setBusy((old) => { const next = { ...old }; delete next.detail; return next; }); });
+				return () => { stale = true; };
+			}, [routeId, tick]);
+
+			const route = routeId ? (routes.find((row) => row.id === routeId) || null) : null;
+			const target = route ? targetById(route.targetId) : null;
+			const selectedStep = detail ? (detail.route.steps || []).find((step) => step.id === selectedStepId || `s${step.step}` === selectedStepId) : null;
+			const stepEvidence = detail && selectedStep ? evidenceByStep(detail.evidence, selectedStep) : [];
+			const routeEvidence = detail ? routeLevelEvidence(detail.evidence) : [];
+
+			// 选中步骤变化 → 自动做规则级可行性分析（轻量，无 LLM）
+			useEffect(() => {
+				if (!routeId || !selectedStepId || !detail) return;
+				let stale = false;
+				setAssess(null);
+				setAlt(null);
+				setBusy((old) => ({ ...old, assess: true }));
+				call("synth_step_assess", { request: { routeId, stepId: selectedStepId } })
+					.then((result) => { if (!stale) setAssess(result.result); })
+					.catch((reason) => { if (!stale) setError(reason.message || "可行性分析失败"); })
+					.finally(() => { if (!stale) setBusy((old) => { const next = { ...old }; delete next.assess; return next; }); });
+				return () => { stale = true; };
+			}, [routeId, selectedStepId, !!detail]);
+
+			const withBusy = (key, work) => {
+				if (busy[key]) return;
+				setBusy((old) => ({ ...old, [key]: true }));
+				return Promise.resolve()
+					.then(work)
+					.catch((reason) => notify(reason.message || "操作失败"))
+					.finally(() => setBusy((old) => { const next = { ...old }; delete next[key]; return next; }));
+			};
+
+			const runAction = (action) => {
+				if (action === "extract") {
+					const capability = detail?.capability || { available: false };
+					if (!capability.available) {
+						notify(`「从文献提取路线」暂不可用：${capability.reason || "未配置多模态提取 Provider"}。可先在对话中让 Agent 人工登记路线与步骤，或人工编辑结构化条件。`);
+						return;
+					}
+					notify("提取管线已配置（当前版本未内置 Provider）。");
+					return;
+				}
+				if (action === "retro") {
+					notify("「整体逆向规划」为 Route-level 接口：需要 RetrosynthesisProvider（计划 RETRO-001）。0.3.0 未配置，候选路线不会生成；接口与空状态已预留。");
+					return;
+				}
+				if (action === "revision") {
+					if (!route) return;
+					const changeNotes = window.prompt(`把「${route.name}」复制为新版本（draft）？\n填写本次修改说明：`, "人工复核修订");
+					if (changeNotes === null) return;
+					return withBusy("revision", async () => {
+						const result = await call("synth_route_revision", { request: { id: routeId, changeNotes, origin: "human-edited" } });
+						notify(`已创建新版本 v${result.route.version}（${result.route.id}），原版本未被覆盖。`);
+						await onChanged();
+						setRouteId(result.route.id);
+					});
+				}
+				if (action === "plan") {
+					if (!route) return;
+					return withBusy("plan", async () => {
+						const result = await call("synth_plan_from_route", { request: { routeId } });
+						notify(`已生成实验计划草案「${result.plan.title}」（requiresReview=true，待人工审核）。`);
+						await onChanged();
+					});
+				}
+				if (action === "alternatives") {
+					if (!selectedStep) return;
+					return withBusy("alt", async () => {
+						const result = await call("synth_step_alternatives", { request: { routeId, stepId: selectedStep.id } });
+						setAlt(result.result);
+					});
+				}
+				if (action === "confirm") {
+					if (!selectedStep) return;
+					if (!route || route.status !== "draft") {
+						notify(`当前路线状态为 ${route?.status || "?"}；人工确认只允许在 draft 版本上进行，请先“复制为新版本”。`);
+						return;
+					}
+					return withBusy("confirm", async () => {
+						const result = await call("synth_step_review", { request: { id: routeId, stepKey: selectedStep.id, status: "confirmed" } });
+						notify(`已确认 Step ${selectedStep.id}，写入 review.status=confirmed。`);
+						const reload = await call("synth_route_detail", { request: { id: routeId } });
+						setDetail(reload);
+					});
+				}
+				if (action === "evidence-review") {
+					// 由按钮 data 属性驱动，此处不会到达
+					return;
+				}
+				if (action === "edit-step") {
+					notify("Step 条件人工编辑：当前版本可在对话中让 Agent 修改，或等待后续版本加入表单编辑（FR-12）。已确认字段不会被静默覆盖。");
+					return;
+				}
+			};
+
+			const reviewEvidence = (row, status) => withBusy(`ev:${row.id}`, async () => {
+				await call("synth_evidence_review", { request: { id: row.id, status } });
+				notify(`Evidence ${row.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
+				const reload = await call("synth_route_detail", { request: { id: routeId } });
+				setDetail(reload);
+			});
+
+			if (!routes.length) {
+				return h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
+					h("div", { className: "sw-plan-empty" }, h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"), targets.length ? "可让 Agent 根据文献登记路线与步骤，或从文献提取（需要多模态 Provider）。" : "先在课题中登记合成目标（Agent 对话：登记目标分子与路线），路线出现后会在这里变成可交互工作台。"));
+			}
+
+			const originChip = route ? (ROUTE_ORIGIN_LABEL[route.origin] || route.origin) : "";
+			const evidenceCount = detail ? detail.evidence.length : 0;
+
+return h("div", { className: "sw-plan" },
+			h("section", { className: "sw-sec" },
+				h("div", { className: "sw-head" },
+					h("div", null,
+						h("h3", null, "合成路线工作台"),
+						h("p", null, "路线层：目标、版本、步骤拓扑。点击任一 Step 查看条件、文献来源与可行性；修改请先“复制为新版本”，不会覆盖已审核版本。")),
+					h("div", { className: "sw-acts" },
+						h("button", { className: "sw-mini-btn", disabled: !!busy.extract, onClick: () => runAction("extract"), title: detail?.capability?.reason || "" }, "从文献提取路线"),
+						h("button", { className: "sw-mini-btn", onClick: () => runAction("revision"), disabled: !!busy.revision }, busy.revision ? "复制中…" : "复制为新版本"),
+						h("button", { className: "sw-mini-btn", "data-warn": true, onClick: () => runAction("retro"), title: "需要 RetrosynthesisProvider（0.3.0 未配置）" }, "整体逆向规划"),
+						h("button", { className: "sw-mini-btn", onClick: () => { setTick((t) => t + 1); void onChanged(); } }, "刷新"))),
+				h("div", { className: "sw-toolbar" },
+					h("div", { className: "sw-meta" },
+						h("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--ib-muted)" } },
+							"版本 ",
+							h("select", { className: "sw-select", value: routeId || "", onChange: (event) => setRouteId(event.target.value) },
+								routes.map((row) => h("option", { key: row.id, value: row.id }, `${row.name} · v${row.version}${row.origin ? ` · ${ROUTE_ORIGIN_LABEL[row.origin] || row.origin}` : ""}`)))),
+						target ? h("span", { className: "sw-chip" }, "Target：", h("b", null, target.name)) : null,
+						route ? h("span", { className: "sw-chip", "data-tone": route.status === "approved" ? "good" : (route.status === "rejected" ? "bad" : "warn") }, "状态：", h("b", null, ROUTE_STATUS_LABEL[route.status] || route.status)) : null,
+						h("span", { className: "sw-chip", "data-tone": evidenceCount ? "good" : "dim" }, `Evidence ${evidenceCount} 条`),
+						route ? h("span", { className: "sw-chip", "data-tone": "dim" }, `${route.steps?.length || 0} 步`) : null),
+					h("div", { className: "sw-meta" },
+						h("span", { className: "sw-chip", "data-tone": "dim" }, "提取能力：", h("b", null, detail?.capability?.available ? "已配置" : "未配置")),
+						h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.plan || !route?.steps?.length, onClick: () => runAction("plan"), title: route?.steps?.length ? "把已确认路线汇总为 ExperimentPlan draft（requiresReview=true）" : "需要至少一个步骤" }, busy.plan ? "生成中…" : "生成实验计划草案"))),
+				error ? h("div", { className: "ib-error", style: { marginTop: 10 } }, error) : null,
+				h("div", { className: "sw-graph" },
+					!detail
+						? h("div", { className: "sw-plan-empty", style: { flex: 1 } },
+							h("span", { className: "sw-spin" }),
+							h("b", null, error ? "路线加载失败" : "正在加载路线…"),
+							error || "正在读取路线、步骤与 Evidence…")
+						: !detail.route.steps?.length
+							? h("div", { className: "sw-plan-empty", style: { flex: 1 } },
+								h("b", null, "该路线还没有任何步骤"),
+								"使用“从文献提取路线”，或让 Agent / 人工登记步骤与结构化条件。")
+							: detail.route.steps.map((step) => {
+								const stepEv = evidenceByStep(detail.evidence, step);
+								const isActive = step.id === selectedStepId;
+								const structured = stepIsStructured(step);
+								const preview = structured
+									? [step.procedure.reagents?.length ? step.procedure.reagents.map((r) => r.name).join(" + ") : "", step.procedure.solvents?.length ? step.procedure.solvents.map((s) => s.name).join("/") : ""].filter(Boolean).join(" / ") || "条件待补全"
+									: (step.conditions ? String(step.conditions).slice(0, 56) : "仅方向，无原文条件");
+								return h("button", { key: step.id, className: "sw-step", "data-active": isActive ? "true" : undefined, onClick: () => setSelectedStepId(step.id) },
+									h("span", { className: "sw-step-top" },
+										h("span", { className: "sw-step-id" }, step.id),
+										h("span", { className: "sw-chip", "data-tone": structured ? "good" : "warn" }, structured ? "结构化" : "原文摘要")),
+									h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
+									h("span", { className: "sw-step-flow" }, h("b", null, (step.reactants || []).join(" + ") || "原料未登记"), " → ", h("b", null, (step.products || []).join(" + ") || "产物未登记")),
+									h("span", { className: "sw-step-preview" }, preview),
+									h("span", { className: "sw-step-foot" },
+										h("span", { className: "sw-chip", "data-tone": stepEv.length ? "good" : "dim" }, `Evidence ${stepEv.length}`),
+										h("span", { className: "sw-chip", "data-tone": step.review?.status === "confirmed" ? "good" : "dim" }, step.review?.status === "confirmed" ? "已人工确认" : (step.review?.status === "rejected" ? "已驳回" : "待确认"))))
+							}))),
+			selectedStep && detail ? h("div", { className: "sw-grid" },
+				h("section", { className: "sw-sec" },
+					h("div", { className: "sw-head" },
+						h("div", null,
+							h("h3", null, `${selectedStep.id} · 实验条件`),
+							h("p", null, `反应：${selectedStep.reaction || "—"}。字段无来源时显示“文献未提供 / 待确认”，系统不会自动补默认值。`)),
+						h("div", { className: "sw-acts" },
+							assess ? h("span", { className: "sw-chip", "data-tone": assess.assessment.overall === "green" ? "good" : (assess.assessment.overall === "yellow" ? "warn" : "dim") }, `字段完整度 ${assess.completeness ?? "—"}%`) : h("span", { className: "sw-chip", "data-tone": "dim" }, "评估中…"),
+							h("button", { className: "sw-mini-btn", onClick: () => runAction("edit-step") }, "编辑条件（占位）"))),
+					h("table", { className: "sw-cond" },
+						h("tbody", null,
+							h("tr", null, h("th", null, "反应物"), h("td", null, (selectedStep.reactants || []).join("、") || "文献未提供 / 待确认"), h("td", null, "—")),
+							h("tr", null, h("th", null, "产物"), h("td", null, (selectedStep.products || []).join("、") || "文献未提供 / 待确认"), h("td", null, "—")),
+							stepIsStructured(selectedStep)
+								? STEP_FIELD_DEFS.map((def) => {
+									const value = readStepFieldValue(selectedStep, def);
+									const hits = evidenceForField(stepEvidence, def.hints);
+									return h("tr", { key: def.key },
+										h("th", null, def.label),
+										h("td", { "data-missing": value ? undefined : "true" }, value),
+										h("td", null, hits.length
+											? hits.map((row, hitIndex) => h("span", { key: row.id }, hitIndex > 0 ? "；" : null, h("span", { className: "sw-src", title: `${row.sourceName}${evidenceLocator(row) ? " · " + evidenceLocator(row) : ""}`, onClick: (event) => { event.preventDefault(); notify(`${row.title || row.sourceName}${evidenceLocator(row) ? " · " + evidenceLocator(row) : ""} 支持字段：${row.supportsField}`); } }, `${row.title || row.sourceName}${evidenceLocator(row) ? " · " + evidenceLocator(row) : ""}`)))
+											: "—"));
+								})
+								: null,
+							!stepIsStructured(selectedStep) && selectedStep.conditions ? h("tr", null, h("th", null, "原文条件摘要"), h("td", { "data-legacy": true }, selectedStep.conditions), h("td", null, "—")) : null,
+							!stepIsStructured(selectedStep) && !selectedStep.conditions ? h("tr", null, h("th", null, "结构化条件"), h("td", { "data-missing": true }, ""), h("td", null, "—")) : null)),
+					selectedStep.procedure?.notes?.length ? h("div", { className: "sw-notes" }, selectedStep.procedure.notes.map((note, index) => h("div", { className: "sw-note", key: index }, h("i", null, "⚠"), h("span", null, note)))) : null,
+					!stepIsStructured(selectedStep) ? h("div", { className: "sw-notes" }, h("div", { className: "sw-note" }, h("i", null, "⚠"), h("span", null, "该步骤仍是原文摘要形态（未结构化）。关键字段暂视为“待确认”；可在对话中让 Agent 拆分为结构化条件并补充 Evidence（支持字段级溯源）。"))) : null),
+				h("section", { className: "sw-sec" },
+					h("div", { className: "sw-head" },
+						h("div", null,
+							h("h3", null, "文献来源 / Evidence"),
+							h("p", null, "每条证据绑定字段（supportsField），可定位到来源与页码；冲突不自动合并。"))),
+					stepEvidence.length
+						? h("div", { className: "sw-ev-list", style: { marginTop: 12 } },
+							stepEvidence.map((row) => h("article", { className: "sw-ev", key: row.id },
+								h("div", { className: "sw-ev-top" },
+									h("div", null,
+										h("div", { className: "sw-ev-title" }, row.title || row.sourceName),
+										h("div", { className: "sw-ev-meta" }, `${EVIDENCE_SOURCE_LABEL[row.sourceType] || row.sourceType}${row.doi ? " · DOI " + row.doi : ""}${evidenceLocator(row) ? " · " + evidenceLocator(row) : ""}`)),
+									h("div", { className: "sw-ev-act" },
+										row.reviewStatus !== "confirmed" ? h("button", { "data-ok": true, disabled: !!busy[`ev:${row.id}`], onClick: () => reviewEvidence(row, "confirmed") }, "确认") : null,
+										row.reviewStatus !== "rejected" ? h("button", { "data-no": true, disabled: !!busy[`ev:${row.id}`], onClick: () => reviewEvidence(row, "rejected") }, "驳回") : null)),
+								row.excerpt ? h("div", { className: "sw-ev-quote" }, row.excerpt) : null,
+								h("div", { className: "sw-ev-tags" },
+									h("span", { className: "sw-ev-tag", "data-lv": row.sourceTier }, `Tier ${row.sourceTier}`),
+									h("span", { className: "sw-ev-tag", "data-rel": row.relation === "conflicts" ? "conflicts" : undefined }, EVIDENCE_REL_LABEL[row.relation] || row.relation),
+									row.supportsField ? h("span", { className: "sw-ev-tag" }, row.supportsField) : null,
+									h("span", { className: "sw-ev-tag" }, `置信度 ${row.confidence || "unknown"}`),
+									h("span", { className: "sw-ev-tag" }, `审核 ${EVIDENCE_REVIEW_LABEL[row.reviewStatus] || row.reviewStatus}`)))))
+						: h("div", { className: "sw-plan-empty", style: { marginTop: 12, padding: "20px 14px" } }, h("b", null, "该步骤暂无字段级 Evidence"), "点击上方字段来源为空的单元格，表示关键实验字段缺少文献支撑（视为待确认）。可让 Agent 从 SI/正文提取并绑定到字段。"),
+					routeEvidence.length ? h("div", { style: { marginTop: 14 } }, h("div", { className: "sw-hint", style: { marginBottom: 8 } }, h("b", null, "路线级引用"), "（open-source 证据，route-level，不绑定单一步骤）"), h("div", { className: "sw-ev-list" }, routeEvidence.slice(0, 6).map((row, index) => h("article", { className: "sw-ev", key: row.id || index }, h("div", { className: "sw-ev-top" }, h("div", null, h("div", { className: "sw-ev-title" }, row.source), h("div", { className: "sw-ev-meta" }, row.reference)), h("span", { className: "sw-chip" }, row.type)))))) : null))
+				: null,
+			selectedStep ? h("section", { className: "sw-sec" },
+				h("div", { className: "sw-head" },
+					h("div", null,
+						h("h3", null, `${selectedStep.id} · 分析与决策`),
+						h("p", null, "可行性为规则 + 证据的可解释判断（绿/黄/红/未知），不输出伪精确“成功率”；替代方法检索只产生候选，永不自动替换当前步骤。")),
+					h("div", { className: "sw-acts" },
+						h("button", { className: "sw-mini-btn", disabled: !!busy.alt, onClick: () => runAction("alternatives") }, busy.alt ? "检索中…" : "检索该步骤其他方法"),
+						h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.confirm || !route || route.status !== "draft", onClick: () => runAction("confirm"), title: route?.status === "draft" ? "将本步骤标记为已人工确认" : "仅 draft 版本可确认（先复制为新版本）" }, busy.confirm ? "确认中…" : "确认本步骤"))),
+				assess
+					? h("div", null,
+						h("div", { className: "sw-metrics", style: { marginTop: 12 } },
+							h("div", { className: "sw-metric", "data-lv": assess.assessment.overall }, h("small", null, "总体可行性"), h("strong", null, h("span", { className: "sw-dot" }), `${LEVEL_TEXT[assess.assessment.overall] || "⚪"} ${LEVEL_LABEL[assess.assessment.overall] || assess.assessment.overall}`)),
+							assess.assessment.dimensions.slice(0, 7).map((dim) => h("div", { className: "sw-metric", "data-lv": dim.level, key: dim.key }, h("small", null, dim.label), h("strong", null, h("span", { className: "sw-dot" }), `${LEVEL_TEXT[dim.level] || "⚪"} ${LEVEL_LABEL[dim.level] || dim.level}`)))),
+						assess.assessment.blockingIssues?.length ? h("div", { className: "sw-analy-block", style: { marginBottom: 8 } }, h("b", null, "Blocking Issues"), h("ul", null, assess.assessment.blockingIssues.map((item, index) => h("li", { key: index }, item.text)))) : null,
+						h("div", { className: "sw-analy-block", style: { marginBottom: 8 } }, h("b", null, "分析与待验证"), h("ul", null, [...(assess.assessment.uncertainties || []), ...(assess.assessment.validationNeeded || [])].map((item, index) => h("li", { key: index }, item.text)))),
+						h("div", { className: "sw-analy-block" }, h("b", null, "结论依据"), `方法：${assess.assessment.method || "rule-based"} · 每项判断携带 Evidence ID 或标注 agent-inference。`))
+					: h("div", { className: "sw-plan-empty", style: { marginTop: 12, padding: "18px 14px" } }, busy.assess ? h("span", { className: "sw-spin" }) : null, "选择步骤后自动进行规则级可行性分析（无 LLM 补值）。"),
+				alt && alt.available === false ? h("div", { className: "sw-hint", style: { marginTop: 10 } }, h("b", null, "替代方法检索未配置"), h("span", null, alt.reason || "当前步骤条件不会被自动替换。")) : null)
+				: null,
+			h("section", { className: "sw-sec" },
+				h("div", { className: "sw-head" },
+					h("div", null,
+						h("h3", null, "实验计划"),
+						h("p", null, "由已确认路线一键生成时保持 requiresReview=true（draft），需人工审核后才可执行；本系统不自动执行实验。")),
+					h("div", { className: "sw-acts" }, h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.plan || !route?.steps?.length, onClick: () => runAction("plan") }, "从当前路线生成计划草案"))),
+				plans.length ? h("div", { className: "sw-plans" }, plans.slice(0, 8).map((row) => h("div", { className: "sw-plan-row", key: row.id }, h("b", { title: row.title || row.id }, row.title || row.id), h("span", null, statusOf(row))))) : h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "尚无实验计划。路线确认后点击“生成实验计划草案”，或在对话中让 Agent 制定实验方案。")));
 		}
 
 		const databaseState = (state) => ({ available: "可用", connected: "已连接", degraded: "受限", "auth-required": "需登录", "waiting-user": "等待登录", "agreement-required": "待勾选协议", "verification-required": "待验证", unavailable: "不可用", "not-supported": "不适用", idle: "未连接", "browser-open": "浏览器已打开", expired: "已过期", error: "异常", unknown: "未知" })[state] || state || "未知";
@@ -1124,7 +1481,7 @@ window.__ModuleLoader__.load({
 				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
 				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onChanged: load })) : null, tab === "planning" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "课题工作规划 / 实验方案", rows: planning.plans, empty: "让 Agent 制定阶段工作规划或实验方案。" }), h(Artifact, { title: "合成目标", rows: planning.targets, empty: "尚未登记合成目标。" }), h(Artifact, { title: "合成路线设计", rows: planning.routes, empty: "尚未形成合成路线。" })) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onChanged: load }) : null, tab === "characterization" ? h("div", { className: "ib-artifacts" }, h(Artifact, { title: "NMR / 结构分析", rows: characterization.nmr, empty: "导入 NMR 或结构表征任务后会归档到这里。" }), h(Artifact, { title: "已审核结果", rows: (characterization.nmr || []).filter((row) => ["approved-written", "visually-verified"].includes(row.status)), empty: "尚无完成人工审核的表征结果。" })) : null),
 				toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
 			);
 		}
