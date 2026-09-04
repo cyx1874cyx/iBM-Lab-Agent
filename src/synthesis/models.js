@@ -127,6 +127,24 @@ export const stepYieldSchema = z.object({
 });
 
 /** 结构化反应条件：作为 Step 的真数据来源；旧数据无此对象（optional）。 */
+// ── Step 化合物结构条目（0.3.2 工作台结构显示/编辑）─────────────────────────
+
+/** 化合物在步骤中的角色（展示用；旧 reactants/products 字符串仍是 quick display）。 */
+export const STEP_COMPOUND_ROLES = ["reactant", "product", "reagent", "catalyst", "unknown"];
+
+/** 结构式来源：登记自带 / PubChem 名称解析 / Ketcher 人工补绘或修正 / 关联化学实体。 */
+export const STRUCTURE_SOURCES = ["agent", "pubchem", "manual", "entity"];
+
+/** 一个化合物名 → 结构式条目。smiles 缺失 = 待补绘（UI 显示占位并允许 Ketcher 补）。 */
+export const stepStructureSchema = z.object({
+	name: z.string().min(1),
+	smiles: z.string().optional(),
+	entityId: z.string().regex(PROFILE_ID_RE).optional(),
+	role: z.enum(STEP_COMPOUND_ROLES).default("unknown"),
+	source: z.enum(STRUCTURE_SOURCES).default("agent"),
+	updatedAt: z.string().optional()
+});
+
 export const stepProcedureSchema = z.object({
 	reagents: z.array(stepReagentSchema).default([]),
 	catalysts: z.array(stepCatalystSchema).default([]),
@@ -171,6 +189,10 @@ export const routeStepSchema = z.object({
 	// 结构化条件（0.3.0 工作台主数据）
 	procedure: stepProcedureSchema.optional(),
 
+	// 化合物结构（0.3.2）：步骤反应物/产物/试剂按名称挂结构式；旧步骤无此
+	// 字段时工作台按名称去 route.compounds/化学实体/PubChem 匹配展示或待补绘。
+	structures: z.array(stepStructureSchema).default([]),
+
 	evidenceIds: z.array(z.string()).default([]),
 	confidence: z
 		.object({
@@ -204,6 +226,9 @@ export const synthesisEvidenceSchema = z.object({
 
 	sourceType: z.enum(EVIDENCE_SOURCE_TYPES).default("paper-si"),
 	sourceTier: z.number().int().min(1).max(5).default(5),
+	/** 0.3.2：截图定位所需的已捕获原文 bundle id（documentId 自由文本保留兼容；
+	 *  两者都有时截图端点优先按 bundleId 取 PDF 渲染）。 */
+	bundleId: z.string().regex(PROFILE_ID_RE).optional(),
 	sourceName: z.string().min(1),
 	title: z.string().optional(),
 	doi: z.string().optional(),

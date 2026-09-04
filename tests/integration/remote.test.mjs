@@ -262,6 +262,19 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 			assert.equal(ctx.labTasks.table(tableName).size, 0, `${tableName} cascaded`);
 		}
 
+		// 0.3.2：化合物结构 RPC（Ketcher 回写 + hydrate）经 gateway 可达
+		await ctx.labSynthesis.createTarget({ id: "tgt-remote-st", name: "结构目标" });
+		await ctx.labSynthesis.createRoute({ id: "rt-remote-st", projectId: "prj-remote-st", targetId: "tgt-remote-st", name: "结构路线" });
+		await ctx.labSynthesis.addRouteStep("rt-remote-st", { step: 1, reaction: "RAFT", reactants: ["HEMA"], products: ["PHEMA"] });
+		const routeDetail = await invoke(ctx, "synth_route_detail", { request: { id: "rt-remote-st" } });
+		assert.ok(Array.isArray(routeDetail.route.steps[0].structures), "detail hydrate 返回 structures");
+		const setResp = await invoke(ctx, "synth_step_set_structure", { request: { routeId: "rt-remote-st", stepId: "s1", name: "PHEMA", smiles: "CCC(C(=O)OCC)(C)C" } });
+		const after = setResp.route.steps[0].structures.find((s) => s.name === "PHEMA");
+		assert.equal(after.smiles, "CCC(C(=O)OCC)(C)C");
+		assert.equal(after.source, "manual");
+		// 参数契约错误仍被 gateway 拒绝
+		await assert.rejects(() => invoke(ctx, "synth_step_set_structure", { req: {} }), /args fields do not match/);
+
 		// 未注册方法 → 报错（无静默）
 		await assert.rejects(() => invoke(ctx, "not_a_method"), /no active Remote method/);
 

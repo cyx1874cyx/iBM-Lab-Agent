@@ -1,0 +1,25 @@
+{
+  "name": "ketcher-shell",
+  "private": true,
+  "version": "3.18.0",
+  "type": "module",
+  "description": "iBM Lab Agent 合成路线工作台 Ketcher 结构编辑器 shell（产物入库 client/assets/ketcher-standalone）。",
+  "scripts": {
+    "build": "vite build",
+    "rebuild:install": "npm ci --no-audit --no-fund && npm run build"
+  },
+  "dependencies": {
+    "events": "^3.3.0",
+    "ketcher-core": "3.18.0",
+    "ketcher-react": "3.18.0",
+    "ketcher-standalone": "3.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

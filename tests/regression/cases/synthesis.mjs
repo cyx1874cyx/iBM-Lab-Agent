@@ -49,6 +49,23 @@ export default {
 			const approved = await synth.updateRouteStatus("reg-rt", "approved");
 			if (approved.status !== "approved") problems.push("approve failed");
 
+			// 0.3.2 化合物结构条目：PubChem stub 解析回写 + Ketcher 人工补绘
+			await synth.createRoute({ id: "reg-rt-st", targetId: "reg-tgt", name: "reg route st" });
+			await synth.addRouteStep("reg-rt-st", { step: 1, reaction: "s", reactants: ["HEMA", "AIBN"], products: ["PHEMA"] });
+			const hydrateStructures = synth.getRoute("reg-rt-st").steps[0].structures;
+			if (!Array.isArray(hydrateStructures) || hydrateStructures.length < 3) problems.push("structure hydrate missing entries");
+			const stubLookup = async (name) => {
+				if (name === "AIBN") return { canonicalSmiles: "CC(C)(C#N)N=NC(C)(C)C#N", cid: 6547 };
+				throw new Error("not found: " + name);
+			};
+			const resolved = await synth.resolveStepStructures("reg-rt-st", "s1", { lookup: stubLookup });
+			if (!resolved.resolved.some((r) => r.name === "AIBN")) problems.push("structure pubchem resolve failed");
+			const afterResolve = synth.getRoute("reg-rt-st").steps[0].structures.find((s) => s.name === "AIBN");
+			if (!afterResolve?.smiles || afterResolve.source !== "pubchem") problems.push("structure resolve not persisted");
+			const manual = await synth.setStepStructure("reg-rt-st", "s1", "PHEMA", "CCC(C(=O)OCC)(C)C");
+			const afterManual = manual.steps[0].structures.find((s) => s.name === "PHEMA");
+			if (afterManual?.source !== "manual" || !afterManual.smiles) problems.push("structure manual set failed");
+
 			// CAS 边界：未授权只准备查询/登录入口
 			const policy = synth.casPolicy();
 			if (policy.policy.autoAccess !== false || policy.policy.llmIngest !== false) problems.push("CAS policy not fail-closed");

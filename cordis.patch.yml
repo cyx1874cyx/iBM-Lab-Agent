@@ -204,6 +204,31 @@
       name: 'dsh-lab-agent/manual-capture'
       inject: [storageDomain, labTasks, webServer]
 
+    # ── Ketcher standalone 静态资源（labKetcherAssets，0.3.2）─────────────
+    #
+    # Host service `ctx.labKetcherAssets`：把预构建的 Ketcher standalone 应用
+    # （client/assets/ketcher-standalone，vite 一次构建产物，自包含 worker/wasm）
+    # 以 /api/lab-ketcher/* 同源托管。前端「合成路线工作台」用 iframe 打开
+    # 编辑器弹层（加载/保存 SMILES 经 postMessage 通信），条件区化合物按名称
+    # 匹配 route.compounds / step.structures 显示结构式。
+    - id: lab-ketcher-assets
+      name: 'dsh-lab-agent/ketcher-assets'
+      inject: [webServer]
+
+    # ── Evidence 原文截图（labEvidenceShot，0.3.2）────────────────────────
+    #
+    # Host service `ctx.labEvidenceShot`：合成路线工作台 Evidence 卡「文献来源
+    # 板块」把已捕获原文 PDF 对应页（可含 bbox）渲染为 PNG 内嵌，供人工审核。
+    # 渲染走 scripts/evidence-shot.py（PyMuPDF/fitz，venv→bundled→系统 python
+    # 统一解析）；PDF 不落盘（tasks.bundleFile 校验后内存传临时文件），截图
+    # 缓存到 evidenceShotsDir；原文未捕获/无页码/页越界返回明确错误，不猜不补。
+    - id: lab-evidence-shot
+      name: 'dsh-lab-agent/evidence-shot'
+      inject: [labTasks, labSynthesis, webServer]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        cacheDir: !!js dshHomePath('lab-agent/evidence-shots')
+
     # ── Edge capture handoff 页面（labCaptureHandoff）──────────────────────
     #
     # Windows Desktop 默认 browserMode=desktop-edge-handoff：客户端创建捕获任务

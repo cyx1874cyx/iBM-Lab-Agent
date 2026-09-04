@@ -61,6 +61,9 @@ window.__ModuleLoader__.load({
 			".ib-hero-avatar{display:block;width:68px!important;height:68px!important;max-width:none;flex:none;object-fit:cover;border-radius:14px;box-shadow:0 8px 22px rgba(46,163,123,.2)}body:not(.ib-research-chat) [class*='_headlineText']{font-size:52px!important;line-height:1!important}body:not(.ib-research-chat) [class*='_fishHitbox']{margin-right:18px!important}.ib-overlay .ib-logo{padding:0;overflow:hidden;background:none;box-shadow:0 9px 28px rgba(2,51,115,.42)}.ib-logo img{display:block;width:100%;height:100%;object-fit:cover}",
 			// ── 研究设计 / 合成路线工作台（0.3.0，UI-001..004） ─────────────
 			".sw-plan{display:grid;gap:14px}.sw-sec{border:1px solid rgba(112,157,211,.22);background:rgba(2,29,67,.82);border-radius:15px;padding:15px 16px;min-width:0}.sw-sec+.sw-sec{margin-top:0}.sw-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.sw-head h3{margin:0;font-size:14px;letter-spacing:.01em}.sw-head p{margin:3px 0 0;color:var(--ib-muted);font-size:9.5px;line-height:1.6;max-width:720px}.sw-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sw-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:11px;padding:10px 12px;border:1px solid rgba(112,157,211,.18);border-radius:12px;background:rgba(1,24,55,.5)}.sw-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sw-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid rgba(112,157,211,.3);border-radius:999px;background:rgba(2,51,115,.25);color:#cfe4fb;font-size:9.5px;line-height:1.2}.sw-chip b{font-weight:650}.sw-chip[data-tone=good]{color:#a5e8c6;border-color:rgba(81,212,163,.38);background:rgba(81,212,163,.1)}.sw-chip[data-tone=warn]{color:#ffe1a0;border-color:rgba(242,201,109,.4);background:rgba(220,165,72,.1)}.sw-chip[data-tone=bad]{color:#ffb3bd;border-color:rgba(255,137,137,.4);background:rgba(190,70,90,.1)}.sw-chip[data-tone=dim]{color:#9bb3d1;border-color:rgba(112,157,211,.2)}.sw-dot{width:7px;height:7px;border-radius:50%;background:var(--sw-lv,#6f9ed6);box-shadow:0 0 10px var(--sw-lv,#6f9ed6)}.sw-select{background:#011832;color:var(--ib-text);border:1px solid rgba(112,157,211,.28);border-radius:9px;padding:7px 9px;font-size:10.5px;outline:none}.sw-graph{display:flex;align-items:stretch;gap:8px;overflow-x:auto;padding:6px 2px 10px;scrollbar-width:thin}.sw-step{position:relative;flex:none;width:min(280px,86vw);display:grid;gap:8px;align-content:start;border:1px solid rgba(112,157,211,.24);border-radius:13px;padding:12px 12px 11px;background:linear-gradient(150deg,rgba(3,44,94,.62),rgba(1,24,55,.72));cursor:pointer;text-align:left;color:var(--ib-text);transition:.16s;min-height:150px}.sw-step:hover{border-color:rgba(111,158,214,.66);transform:translateY(-1px)}.sw-step[data-active=true]{border-color:#6f9ed6;background:linear-gradient(150deg,rgba(2,51,115,.72),rgba(3,44,94,.5));box-shadow:inset 0 0 0 1px rgba(140,181,229,.4),0 10px 26px rgba(2,51,115,.35)}.sw-step-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.sw-step-id{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#023373;border:1px solid rgba(111,158,214,.5);font-size:9.5px;font-weight:800}.sw-step .sw-step-reaction{font-size:12px;font-weight:680;line-height:1.35;color:#eaf4ff}.sw-step .sw-step-flow{font-size:10px;color:#a9c3e2;line-height:1.5}.sw-step .sw-step-flow b{color:#cfe4fb;font-weight:560}.sw-step-preview{font-size:10px;color:#9db8d6;line-height:1.5;border-top:1px dashed rgba(112,157,211,.2);padding-top:8px;margin-top:auto}.sw-step-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}.sw-bar{flex:1;min-width:0;height:4px;border-radius:999px;background:rgba(112,157,211,.18);overflow:hidden}.sw-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#2f7bd8,#6f9ed6)}.sw-step[data-active=true] .sw-bar i{background:linear-gradient(90deg,#51d4a3,#8ce0c0)}.sw-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(340px,.88fr);gap:14px;align-items:start}.sw-cond{width:100%;border-collapse:collapse;font-size:11px}.sw-cond th,.sw-cond td{border-bottom:1px solid rgba(112,157,211,.15);padding:8px 9px;text-align:left;vertical-align:top}.sw-cond th{width:96px;color:#a9c8ea;font-weight:620;white-space:nowrap}.sw-cond td{color:#dcecff;line-height:1.55;overflow-wrap:anywhere}.sw-cond td[data-missing=true]{color:#7d97b5;font-style:italic}.sw-cond td[data-missing=true]::after{content:'（文献未提供 / 待确认）'}.sw-cond td[data-legacy=true]{color:#ffe1a0}.sw-cond .sw-src{display:inline-flex;align-items:center;gap:4px;color:#8cb5e5;text-decoration:none;border-bottom:1px dashed rgba(140,181,229,.4);font-size:9.5px;cursor:pointer}.sw-cond .sw-src:hover{color:#cfe4fb}.sw-notes{display:grid;gap:8px;margin-top:12px}.sw-note{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:flex-start;border:1px solid rgba(242,201,109,.3);background:rgba(220,165,72,.07);border-radius:10px;padding:9px 11px;color:#ffe1a0;font-size:10.5px;line-height:1.6}.sw-note i{font-style:normal;font-weight:800;color:#f2c96d}.sw-ev-list{display:grid;gap:9px}.sw-ev{border:1px solid rgba(112,157,211,.22);border-radius:11px;background:rgba(255,255,255,.02);padding:10px 11px}.sw-ev-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.sw-ev-title{font-size:11px;font-weight:680;color:#e3f0ff;line-height:1.4}.sw-ev-meta{font-size:9px;color:#8aa7c6;margin-top:4px;line-height:1.5}.sw-ev-quote{margin-top:8px;padding:8px 10px;border-left:2px solid #4d86c4;background:rgba(1,20,45,.5);color:#bcd6ee;font-size:10px;line-height:1.6;border-radius:0 8px 8px 0}.sw-ev-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.sw-ev-tag{border-radius:999px;padding:3px 7px;font-size:8.5px;border:1px solid rgba(112,157,211,.26);color:#a9c3e2;background:rgba(2,51,115,.2)}.sw-ev-tag[data-rel=conflicts]{color:#ffb0ba;border-color:rgba(255,137,137,.45);background:rgba(190,70,90,.12)}.sw-ev-tag[data-lv=1]{color:#9df1c8;border-color:rgba(81,212,163,.4)}.sw-ev-review{margin-left:auto}.sw-ev-act{display:inline-flex;gap:5px;align-items:center}.sw-ev-act button{border:1px solid rgba(112,157,211,.3);border-radius:7px;padding:3px 8px;font-size:8.5px;background:rgba(2,51,115,.25);color:#c3d9f2;cursor:pointer}.sw-ev-act button[data-ok=true]{border-color:rgba(81,212,163,.45);color:#b7ecd2}.sw-ev-act button[data-no=true]{border-color:rgba(255,137,137,.4);color:#ffc2ca}.sw-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}.sw-metric{border:1px solid rgba(112,157,211,.2);border-radius:11px;padding:9px 10px;background:rgba(255,255,255,.018);min-width:0}.sw-metric small{display:block;color:#8aa7c6;font-size:8.5px;margin-bottom:6px}.sw-metric strong{font-size:11px;display:flex;align-items:center;gap:6px}.sw-metric strong .sw-dot{flex:none}.sw-metric[data-lv=green] strong{color:#9df1c8}.sw-metric[data-lv=yellow] strong{color:#ffe1a0}.sw-metric[data-lv=red] strong{color:#ffb0ba}.sw-metric[data-lv=unknown] strong{color:#c9d8ea}.sw-analy{display:grid;gap:7px}.sw-analy-block{border:1px solid rgba(112,157,211,.16);border-radius:10px;background:rgba(2,51,115,.12);padding:9px 11px;color:#cfe3f8;font-size:10px;line-height:1.65}.sw-analy-block b{color:#a9c8ea;font-size:9px;letter-spacing:.08em;display:block;margin-bottom:4px}.sw-analy-block ul{margin:0;padding-left:16px}.sw-plan-empty{border:1px dashed rgba(112,157,211,.32);border-radius:13px;padding:34px 22px;text-align:center;color:#8aa7c6;font-size:11px;line-height:1.9}.sw-plan-empty b{display:block;color:#cfe4fb;font-size:13px;margin-bottom:6px}.sw-plans{display:grid;gap:6px;margin-top:10px}.sw-plan-row{display:flex;align-items:center;justify-content:space-between;gap:9px;border-top:1px solid rgba(112,157,211,.12);padding-top:7px;font-size:10px;color:#bcd2ea}.sw-plan-row b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:560;color:#d8e9ff}.sw-mini-btn{border:1px solid rgba(112,157,211,.28);background:rgba(2,51,115,.28);color:#cfe4fb;border-radius:8px;padding:5px 9px;font-size:9.5px;cursor:pointer}.sw-mini-btn:hover{border-color:#6f9ed6;background:rgba(2,51,115,.5)}.sw-mini-btn:disabled{opacity:.4;cursor:not-allowed}.sw-mini-btn[data-primary=true]{border-color:#2f7bd8;background:linear-gradient(135deg,#0b4da0,#023373);color:#fff}.sw-mini-btn[data-warn=true]{border-color:rgba(242,201,109,.5);color:#ffe6ad}.sw-hint{display:flex;align-items:flex-start;gap:8px;border:1px solid rgba(111,158,214,.24);background:rgba(2,51,115,.14);border-radius:11px;padding:9px 12px;color:#aec8e6;font-size:10px;line-height:1.7}.sw-hint b{color:#cfe4fb}.sw-spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(140,181,229,.35);border-top-color:#8cb5e5;border-radius:50%;animation:sw-rot .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes sw-rot{to{transform:rotate(360deg)}}.sw-sec-title{display:flex;align-items:center;gap:8px}@media(max-width:980px){.sw-grid{grid-template-columns:1fr}.sw-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.sw-metrics{grid-template-columns:1fr}.sw-toolbar{align-items:flex-start;flex-direction:column}}",
+
+			// ── 0.3.2 合成路线工作台：结构式(Ketcher)/原文截图/条件编辑 ──
+			".sw-struct{display:flex;flex-wrap:wrap;gap:7px;align-items:stretch;min-width:0}.sw-struct-card{display:flex;flex-direction:column;gap:4px;border:1px solid rgba(112,157,211,.24);border-radius:10px;background:rgba(1,20,45,.55);padding:7px;min-width:96px;max-width:150px;position:relative}.sw-struct-card[data-missing=true]{border-style:dashed;opacity:.72;background:rgba(1,16,38,.4)}.sw-struct-card img{display:block;width:100%;height:74px;object-fit:contain;background:#fff;border-radius:6px;padding:2px;box-sizing:border-box}.sw-struct-name{font-size:9px;line-height:1.35;color:#cfe4fb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sw-struct-name b{color:#e3f0ff;font-weight:650}.sw-struct-card[data-missing=true] .sw-struct-name{color:#8aa7c6;font-style:italic}.sw-struct-src{position:absolute;top:5px;right:5px;font-size:7px;border-radius:99px;padding:1px 5px;background:rgba(2,51,115,.5);color:#9db8d6;border:1px solid rgba(112,157,211,.3)}.sw-struct-acts{display:flex;gap:4px;margin-top:2px}.sw-struct-acts .sw-mini-btn{flex:1;font-size:8.5px;padding:3px 6px}.sw-struct-edit{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(3,10,18,.66);backdrop-filter:blur(3px);padding:18px}.sw-struct-edit-box{width:min(1080px,96vw);height:min(760px,94vh);display:flex;flex-direction:column;border:1px solid rgba(140,181,229,.4);border-radius:16px;overflow:hidden;background:#f4f7f6;box-shadow:0 30px 90px rgba(0,0,0,.5)}.sw-struct-edit-head{flex:none;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid #dbe6ee}.sw-struct-edit-head b{font-size:13px;color:#16384c}.sw-struct-edit-head small{flex:1;color:#6b8798;font-size:10px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sw-struct-edit-head button{border:1px solid #bcd0dc;background:#f6fafc;color:#1d5270;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer}.sw-struct-edit-head button[data-primary=true]{background:#0e7a4f;border-color:#0e7a4f;color:#fff}.sw-struct-edit-head button[data-primary=true]:disabled{opacity:.55;cursor:wait}.sw-struct-edit-frame{flex:1;border:0;width:100%;min-height:0}.sw-struct-loading{display:flex;align-items:center;justify-content:center;gap:8px;height:100%;color:#5c7c90;font-size:12px}.sw-ev-shot{margin-top:8px;display:grid;gap:6px}.sw-ev-shot img{max-width:100%;border:1px solid rgba(112,157,211,.3);border-radius:8px;background:#fff;display:block}.sw-ev-shot-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sw-ev-shot-note{font-size:9px;color:#8aa7c6;line-height:1.5}.sw-ev-shot-fail{border:1px dashed rgba(242,201,109,.35);background:rgba(220,165,72,.06);border-radius:8px;padding:8px 10px;color:#e9c47f;font-size:9.5px;line-height:1.55}.sw-edit-form{display:grid;gap:8px}.sw-edit-form textarea{width:100%;box-sizing:border-box;min-height:52px;border:1px solid rgba(112,157,211,.3);background:#011832;color:var(--ib-text);border-radius:9px;padding:9px 10px;font:10.5px/1.6 ui-monospace,Consolas,monospace;outline:none}.sw-edit-form textarea:focus{border-color:#6f9ed6}.sw-cond-smiles{display:block;font-family:ui-monospace,Consolas,monospace;font-size:8.6px;color:#79a9d6;word-break:break-all;line-height:1.5;margin-top:2px}",
 		].join("");
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
@@ -315,6 +318,101 @@ window.__ModuleLoader__.load({
 			{ key: "monitoring", label: "监测", hints: ["monitoring", "监测"] }
 		];
 
+		// ── 0.3.2 Ketcher 基础设施（模块级单例，供工作台各步骤复用）─────────
+		const KETCHER_URL = "/api/lab-ketcher/index.html";
+		// 名称归一化：结构与服务端 hydrate 一致（去空白）。
+		const normName = (name) => String(name ?? "").replace(/\s+/g, " ").trim();
+		// 隐藏缩略图 iframe 常驻：按需创建后只加载一次，排队逐个 render。
+		const ketcherModule = {
+			iframe: null,
+			ready: false,
+			queue: [],
+			busy: false,
+			seq: 0,
+			pending: {}, // requestId → { smiles, resolve }
+			// 缓存避免重复渲染同一 SMILES（dataURL 可能数 KB~上百 KB，适可而止）
+			cache: {}
+		};
+		function ensureKetcherHiddenFrame() {
+			if (ketcherModule.iframe && document.body.contains(ketcherModule.iframe)) return ketcherModule.iframe;
+			const frame = document.createElement("iframe");
+			frame.setAttribute("aria-hidden", "true");
+			frame.tabIndex = -1;
+			frame.style.cssText = "position:fixed;left:-9999px;top:0;width:560px;height:420px;border:0;opacity:0.01;pointer-events:none;z-index:-1";
+			frame.src = KETCHER_URL;
+			ketcherModule.iframe = frame;
+			// 模块级 message 只处理隐藏缩略图框架的回执（模态弹层由组件自监听）。
+			if (!ketcherModule.listenerInstalled) {
+				ketcherModule.listenerInstalled = true;
+				window.addEventListener("message", (event) => {
+					if (!ketcherModule.iframe || event.source !== ketcherModule.iframe.contentWindow) return;
+					const data = event.data || {};
+					if (data?.type === "ready") {
+						ketcherModule.ready = true;
+						return;
+					}
+					if (data?.type === "image") {
+						const pending = ketcherModule.pending[data.requestId];
+						if (pending) {
+							delete ketcherModule.pending[data.requestId];
+							pending.resolve(data.dataUrl || null);
+						}
+					}
+				});
+			}
+			document.body.appendChild(frame);
+			return frame;
+		}
+		/** 排队渲染 smiles → dataURL；重复或 iframe 不可用时返回 null。 */
+		function ketcherRenderSmiles(smiles, { timeoutMs = 30000 } = {}) {
+			const key = normName(smiles);
+			if (!key) return Promise.resolve(null);
+			if (ketcherModule.cache[key]) return Promise.resolve(ketcherModule.cache[key]);
+			const frame = ensureKetcherHiddenFrame();
+			return new Promise((resolve) => {
+				ketcherModule.queue.push({ smiles: key, resolve });
+				const drain = () => {
+					if (ketcherModule.busy || !ketcherModule.queue.length) return;
+					const job = ketcherModule.queue.shift();
+					ketcherModule.busy = true;
+					const requestId = `k${++ketcherModule.seq}`;
+					const timer = setTimeout(() => {
+						delete ketcherModule.pending[requestId];
+						ketcherModule.busy = false;
+						job.resolve(null);
+						drain();
+					}, timeoutMs);
+					ketcherModule.pending[requestId] = {
+						smiles: job.smiles,
+						resolve: (dataUrl) => {
+							clearTimeout(timer);
+							ketcherModule.cache[job.smiles] = dataUrl;
+							job.resolve(dataUrl);
+							ketcherModule.busy = false;
+							drain();
+						}
+					};
+					try {
+						frame.contentWindow.postMessage({ type: "render", smiles: job.smiles, requestId }, "*");
+					} catch (error) {
+						delete ketcherModule.pending[requestId];
+						ketcherModule.busy = false;
+						job.resolve(null);
+						drain();
+					}
+				};
+				// 等待隐藏 iframe 内 Ketcher 初始化（自身发 {type:'ready'}）；
+				// ready 可能因资源缺失/加载失败永远不来 —— 总超时后按不可用放行。
+				const deadline = Date.now() + 20000;
+				const waitReady = () => {
+					if (ketcherModule.ready) { drain(); return; }
+					if (Date.now() > deadline) { ketcherModule.ready = true; drain(); return; } // 降级放行（render 消息仍会走 timeoutMs 超时）
+					setTimeout(waitReady, 300);
+				};
+				waitReady();
+			});
+		}
+
 		/** 从步骤读取某字段的展示值（procedure 优先；纯 legacy 由调用方单独渲染）。 */
 		function readStepFieldValue(step, def) {
 			const procedure = step.procedure || {};
@@ -361,6 +459,174 @@ window.__ModuleLoader__.load({
 
 		function stepIsStructured(step) {
 			return !!step.procedure && Object.keys(step.procedure).length > 0;
+		}
+
+		/** 结构来源徽标文案（0.3.2）。 */
+		const STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库" };
+
+		/** 化合物结构小卡：有 smiles → Ketcher 缩略图；无 → “待补绘”。点击打开 Ketcher 编辑/补绘。 */
+		function StructureCard({ entry, onClick }) {
+			const [state, setState] = useState(entry?.smiles ? "loading" : "none"); // none | loading | ok | error
+			const [image, setImage] = useState(null);
+			const requested = useRef(false);
+			useEffect(() => {
+				if (!entry?.smiles || requested.current) return undefined;
+				requested.current = true;
+				let alive = true;
+				ketcherRenderSmiles(entry.smiles)
+					.then((dataUrl) => {
+						if (!alive) return;
+						if (dataUrl) { setImage(dataUrl); setState("ok"); } else { setState("error"); }
+					})
+					.catch(() => { if (alive) setState("error"); });
+				return () => { alive = false; };
+			}, [entry?.smiles]);
+			const hasSmiles = !!entry?.smiles;
+			return h("div", { className: "sw-struct-card", "data-missing": hasSmiles ? undefined : "true", title: hasSmiles ? `SMILES: ${entry.smiles}` : "该化合物尚无结构式，点击在 Ketcher 中补绘" },
+				hasSmiles && entry.source ? h("span", { className: "sw-struct-src" }, STRUCTURE_SOURCE_LABEL[entry.source] || entry.source) : null,
+				hasSmiles
+					? (state === "ok"
+						? h("img", { src: image, alt: entry.name, loading: "lazy" })
+						: h("div", { style: { height: 74, display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, state === "error" ? "预览暂不可用\n点击编辑查看" : "渲染中…"))
+					: null,
+				h("span", { className: "sw-struct-name" }, h("b", null, entry.name)),
+				hasSmiles ? h("span", { className: "sw-cond-smiles" }, entry.smiles) : null,
+				h("div", { className: "sw-struct-acts" },
+					h("button", { className: "sw-mini-btn", onClick: () => onClick(entry) }, hasSmiles ? "查看/编辑" : "Ketcher 补绘"))
+			);
+		}
+
+		/** 0.3.2：从步骤 structures 中取 role=reactant/product 的化合物（含 hydrate 占位）。 */
+		function stepCompoundsByRole(step, roles) {
+			const wanted = new Set(roles);
+			const seen = new Set();
+			const out = [];
+			for (const row of step?.structures ?? []) {
+				const role = row.role || "unknown";
+				if (!wanted.has(role)) continue;
+				const key = normName(row.name);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				out.push(row);
+			}
+			return out;
+		}
+
+		/**
+		 * Evidence 原文截图（0.3.2）：服务端按 bundleId+page 渲染已捕获原文 PDF
+		 * 的对应页；仅当 Evidence 带 bundleId/documentId 且页码时才请求，失败
+		 * 显示原因（未捕获原文/不可渲染）并允许打开原文（PDF 预览/下载）。
+		 */
+		function EvidenceShot({ routeId, row, notify }) {
+			const localPageNumber = (value) => {
+				if (value === undefined || value === null || value === "") return undefined;
+				const match = /\d+/.exec(String(value));
+				return match ? Number(match[0]) : undefined;
+			};
+			const shotable = (row?.bundleId || row?.documentId) && localPageNumber(row?.page) !== undefined;
+			const [state, setState] = useState(shotable ? "loading" : "off"); // loading | ok | error | off
+			const [src, setSrc] = useState("");
+			const [message, setMessage] = useState("");
+			const shotUrl = () => `/api/lab-evidence-shot?routeId=${encodeURIComponent(routeId)}&evidenceId=${encodeURIComponent(row.id)}&v=${encodeURIComponent(row.updatedAt || row.id)}`;
+			const load = () => {
+				if (!shotable) return;
+				setState("loading");
+				setMessage("");
+				const img = new Image();
+				img.onload = () => { setSrc(shotUrl()); setState("ok"); };
+				img.onerror = () => { setState("error"); setMessage("截图不可用：可能原文未捕获、无页码或渲染服务不可用"); };
+				img.src = shotUrl();
+			};
+			useEffect(load, [row.id, row.updatedAt]);
+			if (state === "off") return null;
+			const openOriginal = (event) => {
+				event.stopPropagation();
+				const bundleId = row.bundleId || row.documentId;
+				if (!bundleId) { notify("该证据未绑定已捕获原文（bundleId）"); return; }
+				const url = `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundleId)}`;
+				void openPdfPreview(url).catch((reason) => notify(reason?.message || "无法打开原文"));
+			};
+			const caption = row.page !== undefined && row.page !== "" ? `原文截图 · p.${row.page}${row.bbox ? "（定位区域）" : ""}` : "原文截图";
+			return h("div", { className: "sw-ev-shot" },
+				state === "ok"
+					? h(React.Fragment, null,
+						h("img", { src, alt: caption, title: caption, loading: "lazy" }),
+						h("div", { className: "sw-ev-shot-bar" },
+							h("span", { className: "sw-ev-shot-note" }, caption, " · 服务端按已捕获原文渲染，供人工与摘录核对"),
+							h("button", { className: "sw-mini-btn", onClick: openOriginal, title: "在 PDF 阅读器中打开原文对应条目" }, "打开原文")))
+					: state === "loading"
+						? h("div", { className: "sw-ev-shot-note" }, "正在渲染原文截图…")
+						: h("div", { className: "sw-ev-shot-fail" },
+							message,
+							row.bundleId || row.documentId ? h("button", { className: "sw-mini-btn", style: { marginLeft: 8 }, onClick: openOriginal }, "打开原文 PDF") : null,
+							h("button", { className: "sw-mini-btn", style: { marginLeft: 6 }, onClick: load }, "重试")));
+		}
+
+		/**
+		 * Ketcher 弹层编辑器（0.3.2）：同源 iframe 加载 /api/lab-ketcher/index.html。
+		 * onReady 后宿主 postMessage setMolecule(smiles)；Ketcher 内按钮：
+		 * 「保存结构」→ {type:'molecule', smiles}，「取消」→ {type:'cancel'}。
+		 * 渲染期间若 Ketcher 资源不可用（无 iframe 响应）→ 兜底显示 SMILES 文本编辑框。
+		 */
+		function KetcherEditorModal({ entry, onSave, onCancel }) {
+			const iframeRef = useRef(null);
+			const [status, setStatus] = useState("loading"); // loading | ready | timeout
+			const [fallbackSmiles, setFallbackSmiles] = useState(entry?.smiles || "");
+			const fallbackTimer = useRef(null);
+			const commitTimer = useRef(null);
+
+			const open = entry != null;
+			// 每次打开重建 iframe，避免 Ketcher 内部残留上一条分子。
+			useEffect(() => {
+				if (!open) return undefined;
+				setStatus("loading");
+				const onMessage = (event) => {
+					const data = event.data || {};
+					if (!event.source || !iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+					if (data?.type === "ready") {
+						if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+						setStatus("ready");
+						// Ketcher 就绪后再载入分子，避免 onInit 与 setMolecule 竞态
+						if (entry?.smiles) {
+							try { iframeRef.current.contentWindow.postMessage({ type: "setMolecule", smiles: entry.smiles }, "*"); } catch { /* ignore */ }
+						}
+						return;
+					}
+					if (data?.type === "molecule") {
+						if (commitTimer.current) clearTimeout(commitTimer.current);
+						onSave(data.smiles);
+						return;
+					}
+					if (data?.type === "cancel") {
+						if (commitTimer.current) clearTimeout(commitTimer.current);
+						onCancel();
+					}
+				};
+				window.addEventListener("message", onMessage);
+				// 兜底：Ketcher 大包加载慢/失败时给用户一个 SMILES 文本通道
+				fallbackTimer.current = setTimeout(() => setStatus((current) => (current === "loading" ? "timeout" : current)), 15000);
+				return () => {
+					window.removeEventListener("message", onMessage);
+					if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+					if (commitTimer.current) clearTimeout(commitTimer.current);
+				};
+			}, [open, entry?.smiles, entry?.name]);
+
+			if (!open) return null;
+			const saveFallback = () => { onSave(fallbackSmiles.trim()); };
+			return h("div", { className: "sw-struct-edit", role: "dialog", "aria-modal": "true", "aria-label": `编辑 ${entry.name} 结构式` },
+				h("div", { className: "sw-struct-edit-box" },
+					h("div", { className: "sw-struct-edit-head" },
+						h("b", null, `Ketcher · ${entry.name}`),
+						h("small", null, status === "ready" ? "在下方编辑器绘制/修正结构，点 Ketcher 顶栏「保存结构」回写；Ketcher 为本地离线编辑器。" : (status === "timeout" ? "Ketcher 加载超时，可在下方直接编辑 SMILES 文本。" : "正在加载 Ketcher 离线编辑器（首次约 10–20 秒）…")),
+						h("button", { onClick: onCancel }, "关闭")),
+					status === "timeout"
+						? h("div", { style: { flex: 1, padding: 16, background: "#fff", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 } },
+							h("textarea", { value: fallbackSmiles, onChange: (event) => setFallbackSmiles(event.target.value), placeholder: "SMILES，例如 CC(=O)Oc1ccccc1C(=O)O", style: { flex: 1, minHeight: 0, fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, border: "1px solid #bcd0dc", borderRadius: 8, padding: 10, boxSizing: "border-box", resize: "none" } }),
+							h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
+								h("button", { onClick: saveFallback, style: { border: "1px solid #0e7a4f", background: "#0e7a4f", color: "#fff", borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 12 } }, "保存 SMILES")))
+						: h("iframe", { ref: iframeRef, className: "sw-struct-edit-frame", title: `Ketcher 结构编辑器：${entry.name}`, src: KETCHER_URL }))
+			);
 		}
 
 		/** 研究设计工作台主组件（替换原三个 Artifact 卡片入口）。 */
@@ -499,6 +765,48 @@ window.__ModuleLoader__.load({
 				setDetail(reload);
 			});
 
+			// 0.3.2：Ketcher 编辑弹层状态（hooks 必须无条件调用）
+			const [ketcherModal, setKetcherModal] = useState(null); // { stepKey, name, smiles, role } | null
+
+			// ── 0.3.2 Ketcher 结构编辑状态 ────────────────────────────────────
+			const openStructureEditor = (entry) => {
+				if (!route || route.status !== "draft") {
+					notify(`结构式编辑只允许在 draft 版本上进行；当前路线状态为 ${route?.status || "?"}。请先“复制为新版本”。`);
+					return;
+				}
+				if (!selectedStep) return;
+				setKetcherModal({ stepKey: selectedStep.id, name: entry?.name || "", smiles: entry?.smiles || "", role: entry?.role || "unknown" });
+			};
+			const saveKetcherSmiles = (smiles) => withBusy(`struct:${ketcherModal?.name}`, async () => {
+				const modal = ketcherModal;
+				const clean = String(smiles ?? "").trim();
+				if (!modal || !clean) { notify(clean ? "结构式为空，未保存" : "保存失败：未收到结构式"); return; }
+				try {
+					await call("synth_step_set_structure", { request: { routeId, stepId: modal.stepKey, name: modal.name, smiles: clean } });
+					notify(`已用 Ketcher 结果更新「${modal.name}」结构式（source=manual）。`);
+					const reload = await call("synth_route_detail", { request: { id: routeId } });
+					setDetail(reload);
+					setKetcherModal(null);
+				} catch (reason) {
+					notify(reason.message || "结构式保存失败");
+				}
+			});
+			// PubChem 名称自动解析缺结构化合物（仅 draft）
+			const resolveStepSmiles = () => withBusy("resolve-smiles", async () => {
+				if (!route || route.status !== "draft") {
+					notify(`结构式解析只允许在 draft 版本上进行；当前状态 ${route?.status || "?"}。请先“复制为新版本”。`);
+					return;
+				}
+				if (!selectedStep) return;
+				const result = await call("synth_step_resolve_smiles", { request: { routeId, stepId: selectedStep.id } });
+				const r = result.result || {};
+				notify(r.resolved?.length
+					? `已按名称解析 ${r.resolved.length} 个结构式：${r.resolved.map((x) => x.name).join("、")}${r.failed?.length ? `；${r.failed.length} 个未命中（${r.failed.map((x) => x.name).join("、")}）可人工 Ketcher 补绘` : ""}`
+					: (r.failed?.length ? `PubChem 未能解析：${r.failed.map((x) => x.name).join("、")}。可人工在 Ketcher 中补绘。` : "该步骤化合物均有结构式，无需解析。"));
+				const reload = await call("synth_route_detail", { request: { id: routeId } });
+				setDetail(reload);
+			});
+
 			if (!routes.length) {
 				return h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
 					h("div", { className: "sw-plan-empty" }, h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"), targets.length ? "可让 Agent 根据文献登记路线与步骤，或从文献提取（需要多模态 Provider）。" : "先在课题中登记合成目标（Agent 对话：登记目标分子与路线），路线出现后会在这里变成可交互工作台。"));
@@ -565,14 +873,30 @@ return h("div", { className: "sw-plan" },
 					h("div", { className: "sw-head" },
 						h("div", null,
 							h("h3", null, `${selectedStep.id} · 实验条件`),
-							h("p", null, `反应：${selectedStep.reaction || "—"}。字段无来源时显示“文献未提供 / 待确认”，系统不会自动补默认值。`)),
+							h("p", null, `反应：${selectedStep.reaction || "—"}。字段无来源时显示“文献未提供 / 待确认”，系统不会自动补默认值；结构式按名称匹配，缺 SMILES 可 PubChem 解析或 Ketcher 补绘。`)),
 						h("div", { className: "sw-acts" },
 							assess ? h("span", { className: "sw-chip", "data-tone": assess.assessment.overall === "green" ? "good" : (assess.assessment.overall === "yellow" ? "warn" : "dim") }, `字段完整度 ${assess.completeness ?? "—"}%`) : h("span", { className: "sw-chip", "data-tone": "dim" }, "评估中…"),
-							h("button", { className: "sw-mini-btn", onClick: () => runAction("edit-step") }, "编辑条件（占位）"))),
+							h("button", { className: "sw-mini-btn", disabled: !!busy["resolve-smiles"], onClick: () => void resolveStepSmiles(), title: "对该步骤缺 SMILES 的化合物按名称查 PubChem（仅 draft）" }, busy["resolve-smiles"] ? "解析中…" : "解析缺结构"))),
 					h("table", { className: "sw-cond" },
 						h("tbody", null,
-							h("tr", null, h("th", null, "反应物"), h("td", null, (selectedStep.reactants || []).join("、") || "文献未提供 / 待确认"), h("td", null, "—")),
-							h("tr", null, h("th", null, "产物"), h("td", null, (selectedStep.products || []).join("、") || "文献未提供 / 待确认"), h("td", null, "—")),
+							h("tr", null, h("th", null, "反应物"),
+								h("td", null,
+									(() => {
+										const rows = stepCompoundsByRole(selectedStep, ["reactant"]);
+										return rows.length
+											? h("div", { className: "sw-struct" }, rows.map((entry) => h(StructureCard, { key: `${entry.name}-${entry.smiles || "none"}`, entry, onClick: openStructureEditor })))
+											: ((selectedStep.reactants || []).join("、") || "文献未提供 / 待确认");
+									})()),
+								h("td", null, "—")),
+							h("tr", null, h("th", null, "产物"),
+								h("td", null,
+									(() => {
+										const rows = stepCompoundsByRole(selectedStep, ["product"]);
+										return rows.length
+											? h("div", { className: "sw-struct" }, rows.map((entry) => h(StructureCard, { key: `${entry.name}-${entry.smiles || "none"}`, entry, onClick: openStructureEditor })))
+											: ((selectedStep.products || []).join("、") || "文献未提供 / 待确认");
+									})()),
+								h("td", null, "—")),
 							stepIsStructured(selectedStep)
 								? STEP_FIELD_DEFS.map((def) => {
 									const value = readStepFieldValue(selectedStep, def);
@@ -605,6 +929,7 @@ return h("div", { className: "sw-plan" },
 										row.reviewStatus !== "confirmed" ? h("button", { "data-ok": true, disabled: !!busy[`ev:${row.id}`], onClick: () => reviewEvidence(row, "confirmed") }, "确认") : null,
 										row.reviewStatus !== "rejected" ? h("button", { "data-no": true, disabled: !!busy[`ev:${row.id}`], onClick: () => reviewEvidence(row, "rejected") }, "驳回") : null)),
 								row.excerpt ? h("div", { className: "sw-ev-quote" }, row.excerpt) : null,
+								h(EvidenceShot, { routeId, row, notify }),
 								h("div", { className: "sw-ev-tags" },
 									h("span", { className: "sw-ev-tag", "data-lv": row.sourceTier }, `Tier ${row.sourceTier}`),
 									h("span", { className: "sw-ev-tag", "data-rel": row.relation === "conflicts" ? "conflicts" : undefined }, EVIDENCE_REL_LABEL[row.relation] || row.relation),
@@ -639,7 +964,8 @@ return h("div", { className: "sw-plan" },
 						h("h3", null, "实验计划"),
 						h("p", null, "由已确认路线一键生成时保持 requiresReview=true（draft），需人工审核后才可执行；本系统不自动执行实验。")),
 					h("div", { className: "sw-acts" }, h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.plan || !route?.steps?.length, onClick: () => runAction("plan") }, "从当前路线生成计划草案"))),
-				plans.length ? h("div", { className: "sw-plans" }, plans.slice(0, 8).map((row) => h("div", { className: "sw-plan-row", key: row.id }, h("b", { title: row.title || row.id }, row.title || row.id), h("span", null, statusOf(row))))) : h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "尚无实验计划。路线确认后点击“生成实验计划草案”，或在对话中让 Agent 制定实验方案。")));
+				plans.length ? h("div", { className: "sw-plans" }, plans.slice(0, 8).map((row) => h("div", { className: "sw-plan-row", key: row.id }, h("b", { title: row.title || row.id }, row.title || row.id), h("span", null, statusOf(row))))) : h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "尚无实验计划。路线确认后点击“生成实验计划草案”，或在对话中让 Agent 制定实验方案。")),
+			h(KetcherEditorModal, { entry: ketcherModal, onSave: (smiles) => void saveKetcherSmiles(smiles), onCancel: () => setKetcherModal(null) }));
 		}
 
 		const databaseState = (state) => ({ available: "可用", connected: "已连接", degraded: "受限", "auth-required": "需登录", "waiting-user": "等待登录", "agreement-required": "待勾选协议", "verification-required": "待验证", unavailable: "不可用", "not-supported": "不适用", idle: "未连接", "browser-open": "浏览器已打开", expired: "已过期", error: "异常", unknown: "未知" })[state] || state || "未知";

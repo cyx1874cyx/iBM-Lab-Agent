@@ -1,0 +1,11 @@
+# Ketcher standalone 构建产物（入库物化，离线可用）
+
+- Ketcher: v3.18.0（epam/ketcher，Apache-2.0）
+- 构建: scripts/ketcher-shell 最小 React shell（ketcher-react/ketcher-standalone
+  3.18.0 + react 18 + vite 5，MODE=standalone），产物 index.html + assets/*。
+- 自包含: 主 chunk ~29MB 内嵌 indigo worker 与 WASM（base64），离线无需 CDN。
+- 重建: cd scripts/ketcher-shell && npm ci && npm run build，产物替换本目录。
+- postMessage 协议:
+  - 宿主 → 子: { type:'setMolecule', smiles } | { type:'render', smiles, requestId } | { type:'getImage', requestId }
+  - 子 → 宿主: { type:'ready' } | { type:'molecule', smiles }（保存）
+               | { type:'image', requestId, dataUrl } | { type:'cancel' }
