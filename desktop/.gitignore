@@ -3,6 +3,7 @@
 /src-tauri/resources/plugin/
 /src-tauri/resources/python/
 /src-tauri/target/
+/src-tauri/target-v0*/
 /src-tauri/gen/
 /dist/
 /node_modules/
