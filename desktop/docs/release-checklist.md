@@ -31,13 +31,13 @@ All must pass before shipping a build with Origin MCP enabled:
 - [ ] Chinese user paths pass
 - [ ] Mnova MCP regression passes
 
-## 0.2.0 release gates
+## Release gates（以 docs/release-manifest.json 为准）
 
-All must pass before shipping the 0.2.0 build (see `docs/release-manifest.json`
+All must pass before shipping a desktop release build (see `docs/release-manifest.json`
 for the pinned component versions):
 
 ### Version & components
-- [ ] iBM Lab Agent version = 0.2.0 (package.json / desktop/package.json / Cargo.toml / tauri.conf.json)
+- [ ] iBM Lab Agent version = docs/release-manifest.json 的 ibmLabAgent（当前 0.3.0），4 处版本文件一致
 - [ ] origin-mcp = 0.1.4
 - [ ] mnova-mcp = 0.3.1
 - [ ] mcp SDK < 2 (1.29.0)

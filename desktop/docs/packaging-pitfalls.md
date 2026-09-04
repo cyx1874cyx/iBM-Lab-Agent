@@ -138,3 +138,25 @@ foreach ($f in $files) { if (Test-Path $f) { [Microsoft.VisualBasic.FileIO.FileS
 - **包内 exe 版本强验证**：7z e 提取 `*ibm-lab-desktop*` → `VersionInfo.FileVersion = 0.3.0`。
 - prepare-runtime 本机耗时波动大（本次 1h11m，robocopy /SL 遇大 junction 树变慢）；后台任务壳可能显示 running 但进程已退出，先查进程再决定是否 TaskStop 清理悬挂任务。
 
+---
+
+## 11. 0.3.1-rc.1 打包实录（修复版，2026-09-04）
+
+- **产物**：`iBM Lab Agent_0.3.1-rc.1_x64-setup.exe`（195,947,526 B，SHA256 720bf93b08afc21207e9bf9c8d4b2d9ff4651d655edeb15b2745d89bb4645a07）。全量重建（非增量），本地交付未推送。
+- **判活铁律（补 §1.2）**：`ps -W` 首列不是 PID（且可能显示已退进程的陈旧行）；`Get-Process -Id` 对错拿的 PID 会误报 "gone"。**权威查法**：PowerShell `Get-CimInstance Win32_Process | ? Name -in node/cargo/rustc/makensis | Select CommandLine`——能看到 rustc 实际编译命令行。
+- **双实例并发坑（新）**：连续两次后台启动 prepare-runtime（首轮任务壳看似结束实未退）会并发删除/重建同一 resources 树，表现为目标目录大小忽大忽小、文件缺失随机。处理：PowerShell `Stop-Process` 杀全部相关 pwsh + robocopy 子进程 → 清点后**只跑一轮**。重跑单轮 37m12s 完成（历史 1h11m 的 52%）。
+- **build-bundled-python 收尾慢**：`Remove-Item`/stale 清理旧 `dist.stale`（数 GB、数万文件）需 ~10min+ 且零日志，别误判卡死；实际 EXIT=0 由末尾 "EXIT=" 行确认（*>* 落盘为 UTF-16，`iconv -f UTF-16LE -t UTF-8` 转码后读）。
+- **tauri build 全量重建耗时重估**：resources 全变更时 build-script 顺序 fs::copy ~45k 文件 + 主 crate LTO（-C codegen-units=1）单线程编译，**合计 45–50min 属正常**；增量场景才是历史 ~18min。判据：CIM 里能看到 rustc 命令行即活着。
+- 资源树重建后**新增文件必须 7z 抽查**：本次验证含 pymupdf-1.28.2、plugin\dsh-lab-agent\lib\synthesis-tool.js、bridge\capture-spec.json、更新版 presets\lab-research\agent.cordis.yml。
+- 构建日志归档到仓库外（`C:\Users\admin\Desktop\iBM-Agent\build-logs-rc1\`），保持工作树干净。
+
+## 12. 0.3.1-rc.2 打包实录（2026-09-04）
+
+- **产物**：`iBM Lab Agent_0.3.1-rc.2_x64-setup.exe`（200,982,132 B，SHA256 a2b5a45627c880bfaceba5ddcddbef8040cd9bd2bb89fd5ba160429ccb0ed605）。含真机验收两轮热修（exports 根源头 + lab_synth_* cleanJson）。prepare-runtime **1h15m** + tauri build **22m**（增量，快一倍）。
+- **Remove-TreeFast 慢分支（新判活维度）**：删除遇只读/占用文件会进 catch（`Get-ChildItem -Recurse | ForEach Attributes='Normal'` 逐文件清只读，PowerShell 单线程管道），3 万文件 dsh 树可拖 40min+——**CPU 满载 ≠ 健康推进**，必须配合结构信号判断阶段：
+  - 删除期：目录**文件数递减**（PowerShell `Get-ChildItem -Recurse -File | Measure-Object`），无 robocopy 子进程、无新写入文件属正常；
+  - 同步期：文件数递增 + robocopy 子进程出现 + 关键文件（如 `dsh\node_modules\@deepseek-ai\dsh\lib\bin.js`）到位。
+  - 本轮全程顺序：node 删净 → dsh 3 万删剩 500 → plugin 归零 → robocopy 启动 → dsh 29,219 文件到位 → 完成。
+- **插件 exports 真源头 = 根 package.json**：dsh-lab-agent 插件包本体即根 package.json（prepare-runtime.ps1 第 90 行 foreach 直接拷贝生成 `resources/plugin/dsh-lab-agent/package.json`，整树 gitignore）。**热修必须三处同改**（根 / resources 副本 / 安装实例），校验与下轮打包只认根；`npm run check:preset-exports`（scripts/check-preset-exports.mjs）盯住 preset 挂载 ⊆ exports，负向自测过。
+- **validate 幂等修正**：9:20 首轮只热修 resources 副本与安装实例、漏根 → 若未补，下次 prepare-runtime 会把 bug 带回。教训：**gitignore 内的打包产物树不是修复对象，先找 git 跟踪的源头**。
+

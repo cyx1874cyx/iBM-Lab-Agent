@@ -6,6 +6,10 @@ The desktop shell is deliberately small: it starts a bundled Node.js and DSH pro
 
 ## Build
 
+> **Agent 必读**：本仓库 Windows 打包有大量环境性/工具链陷阱（tauri-build 资源扫描假死、
+> pwsh 输出捕获、后台管道阻塞、NSIS 耗时等），完整避坑记录见
+> [docs/packaging-pitfalls.md](docs/packaging-pitfalls.md)。先读再动手。
+
 On a Windows build machine with Rust stable, the Microsoft C++ build tools, Node 24, and Corepack:
 
 ```powershell
