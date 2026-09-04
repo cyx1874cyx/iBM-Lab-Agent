@@ -160,3 +160,16 @@ foreach ($f in $files) { if (Test-Path $f) { [Microsoft.VisualBasic.FileIO.FileS
 - **插件 exports 真源头 = 根 package.json**：dsh-lab-agent 插件包本体即根 package.json（prepare-runtime.ps1 第 90 行 foreach 直接拷贝生成 `resources/plugin/dsh-lab-agent/package.json`，整树 gitignore）。**热修必须三处同改**（根 / resources 副本 / 安装实例），校验与下轮打包只认根；`npm run check:preset-exports`（scripts/check-preset-exports.mjs）盯住 preset 挂载 ⊆ exports，负向自测过。
 - **validate 幂等修正**：9:20 首轮只热修 resources 副本与安装实例、漏根 → 若未补，下次 prepare-runtime 会把 bug 带回。教训：**gitignore 内的打包产物树不是修复对象，先找 git 跟踪的源头**。
 
+---
+
+## 13. 0.3.2-rc.1 打包实录（2026-09-04，合成路线结构式 + Evidence 截图）
+
+- **产物**：`iBM Lab Agent_0.3.2-rc.1_x64-setup.exe`（206,813,449 B，SHA256 b87cc80c5ff95e99d69d3e7fb83174f7ac8966bed908c8d6751330271a955186）。tag `v0.3.2-rc.1` @1f450bb 双远程 + GitHub Release。
+- **prepare-runtime 82.6min**（EXIT=0）：删除期 74min（node → dsh 29,219→0，尾段速度回落至 ~5 文件/s 属正常，勿误判卡死）+ robocopy 同步期 ~8min（dsh 重建 8,463→29,219，峰值 ~48 文件/s，/MT:16 生效）。全程结构信号判活。
+- **tauri build 18m39s（RC=0，增量大幅生效）**：`Compiling ibm-lab-desktop v0.3.2-rc.1` → 6m38s Finished（target/ 增量缓存 + tauri-build patch 跳过未变资源）→ makensis ~8min。**只要 resources 未全量变更 + patch 在位，不必按 §11 预期 45min 全量**。
+- **工作树提交惯例更新（本节实践）**：rc.1/rc.2 曾长期"本地出包不提交"，本次 0.3.2-rc.1 首次把 release-0.3.0 分支从 0.3.0 起的全部实底按主题入库：fix(rc 基线) → feat(0.3.2) → chore(工具/规范) → docs → chore(release bump) 5+1 提交；**混合文件（package.json 同时含 rc exports 修复 + 0.3.2 exports + bump）整体归 bump 提交**，不追求 hunk 级拆分。
+- **杂项清理**：tauri target-v0*（v014/v015/v016 各 ~5GB 编译产物残留）加入 desktop/.gitignore `/src-tauri/target-v0*/`（不删目录保缓存）；根 prepare-runtime.log/ps-tool-test.txt 直接删。
+- **GitHub Release**：gh release create 首遇 Bad Gateway（瞬时，重试即过）；206MB asset 上传后台 ~7min+（比 0.3.0 的 2.5min 慢，gh 服务器侧波动），未中断成功——仍按 §7 draft → upload --clobber → edit draft=false 流程。
+- **7z 抽查重点更新**：0.3.2 新组件 = `plugin\dsh-lab-agent\client\assets\ketcher-standalone\`（12 条目含 28.9MB 主 chunk）、`lib\ketcher-assets.js`、`lib\evidence-shot.js`、`scripts\evidence-shot.py`、`src\synthesis\{structures,pubchem-resolve}.js`。grep 模式 `ketcher-standalone/index\.html` 首查未命中是 7z 行格式问题，用宽松 `grep -ic ketcher` 确认即可。
+- 日志归档：`C:\Users\admin\Desktop\iBM-Agent\build-logs-032rc1\`（prepare-runtime.log + tauri-build.log）。
+
