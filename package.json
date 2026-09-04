@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.3.0",
+  "version": "0.3.2-rc.1",
   "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
   "private": true,
   "type": "module",
@@ -8,31 +8,24 @@
   "types": "./lib/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
     "./version-registry": {
-      "types": "./lib/types/version-registry.d.ts",
       "default": "./lib/version-registry.js"
     },
     "./python-env": {
-      "types": "./lib/types/python-env.d.ts",
       "default": "./lib/python-env.js"
     },
     "./goal-profiles": {
-      "types": "./lib/types/goal-profiles.d.ts",
       "default": "./lib/goal-profiles.js"
     },
     "./note-templates": {
-      "types": "./lib/types/note-templates.d.ts",
       "default": "./lib/note-templates.js"
     },
     "./ppt-templates": {
-      "types": "./lib/types/ppt-templates.d.ts",
       "default": "./lib/ppt-templates.js"
     },
     "./tasks": {
-      "types": "./lib/types/tasks.d.ts",
       "default": "./lib/tasks.js"
     },
     "./literature-sources": {
@@ -45,30 +38,30 @@
       "default": "./lib/office-preview.js"
     },
     "./chemistry": {
-      "types": "./lib/types/chemistry.d.ts",
       "default": "./lib/chemistry.js"
     },
     "./nmr": {
-      "types": "./lib/types/nmr.d.ts",
       "default": "./lib/nmr.js"
     },
     "./synthesis": {
-      "types": "./lib/types/synthesis.d.ts",
       "default": "./lib/synthesis.js"
     },
+    "./evidence-shot": {
+      "default": "./lib/evidence-shot.js"
+    },
+    "./ketcher-assets": {
+      "default": "./lib/ketcher-assets.js"
+    },
     "./convert-tool": {
-      "types": "./lib/types/convert-tool.d.ts",
       "default": "./lib/convert-tool.js"
     },
     "./memory-tool": {
       "default": "./lib/memory-tool.js"
     },
     "./convert": {
-      "types": "./lib/types/convert.d.ts",
       "default": "./lib/convert.js"
     },
     "./remote": {
-      "types": "./lib/types/remote.d.ts",
       "default": "./lib/remote.js"
     },
     "./llm-diag": {
@@ -90,11 +83,13 @@
       "default": "./client/index.js"
     },
     "./invariant": {
-      "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./synthesis-tool": {
+      "default": "./lib/synthesis-tool.js"
+    }
   },
   "files": [
     "lib",
@@ -130,7 +125,7 @@
     }
   },
   "scripts": {
-    "test": "node --test \"tests/unit/*.test.mjs\"",
+    "test": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
     "test:integration": "node --test \"tests/integration/*.test.mjs\"",
     "test:all": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
     "test:bridge": "python -m unittest tests/python/test_native_bridge.py",
@@ -141,7 +136,11 @@
     "dsh:patch": "node scripts/patch-dsh-runtime.mjs",
     "release:linux": "bash scripts/build-linux-release.sh",
     "pin:vendor": "node scripts/pin-vendor.mjs",
-    "dev:link": "node scripts/dev-link.mjs"
+    "dev:link": "node scripts/dev-link.mjs",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "build:client": "node scripts/build-client.mjs",
+    "lint": "eslint lib src scripts tests client browser-extension --max-warnings=200",
+    "check:preset-exports": "node scripts/check-preset-exports.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",
