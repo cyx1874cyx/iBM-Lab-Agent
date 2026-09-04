@@ -1,0 +1,25 @@
+# dsh-lab-agent 通用编辑约定（Doc2 工具链基础设施；样式工具可据此格式化）。
+# 说明：历史代码缩进不统一（lib/*.js 大量 tab，src/client 用空格）。为避免
+# 大规模重排引入回归，JS 缩进暂不强制；新文件请跟随所在目录主流风格，
+# 待 client/lib 拆分落地后统一 prettier。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.{ps1,cmd}]
+end_of_line = crlf
+
+[*.md]
+trim_trailing_whitespace = false
