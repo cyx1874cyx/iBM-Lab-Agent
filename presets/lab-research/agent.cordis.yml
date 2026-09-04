@@ -87,10 +87,19 @@
            标为「待上传 PDF」。后续用户手工上传 PDF 时，调用
            lab_tasks_register_bundle 传回该 bundleId（也可按 DOI/题名自动匹配），
            完成全文精读后调用 lab_tasks_register_report 传回原 reportId；
+         - 非公众号文献元数据（DOI/publisher 页面，或用户直接给出题名/DOI 等
+           元数据）同样可“先元数据登记、后补 PDF”：调用
+           lab_tasks_register_paper_meta（sourceType=publisher|doi；题名必填、
+           DOI 若给须合法；不需要 PDF，也不要伪造公众号链接），条目进入
+           「文献精读·待上传 PDF」并返回 bundleId/reportId；后续上传原文走
+           lab_tasks_register_bundle（传回 bundleId 或按 DOI/题名自动匹配）；
          - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
            无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
            RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接
-           复制检索式。登记结果会直接回显 runId 和公开 paperId；随后调用
+           复制检索式。确认单篇文献（用户已给出 DOI/PMID/arXiv 或精确题名）时把
+           query 直接写成该标识（如 10.1021/ja409686x），系统走精确命中并置顶
+           （不受 OA 过滤），不要用标题关键词检索后再人工筛选。登记结果会直接
+           回显 runId 和公开 paperId；随后调用
            lab_tasks_get_search_summary_inputs（runId 也可省略）读取每篇 abstract
            （缺摘要时读 title），把论文实现、发现或解决的核心内容提炼成 2–9 个
            字的中文短语，随即调用 lab_tasks_update_search_summaries 登记；例如“可降解无线传感”、
@@ -174,6 +183,10 @@
 - id: lab-templates-tool
   name: 'dsh-lab-agent/templates-tool'
   inject: [tools, labNoteTemplates, labTemplates]
+
+- id: lab-synthesis-tool
+  name: 'dsh-lab-agent/synthesis-tool'
+  inject: [tools, labTasks, labSynthesis]
 
 # ── skills ──────────────────────────────────────────────────────────────────
 - id: skill-filesystem

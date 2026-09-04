@@ -71,3 +71,34 @@ test("upload 将捕获文件 PUT 到 loopback 服务", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("三处实现共享同一份捕获安全 spec（无漂移、从 spec 加载）", () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const extSpec = readFileSync(path.join(root, "browser-extension/ibm-literature-capture/capture-spec.json"), "utf8");
+  const hostSpecPath = path.join(root, "desktop/src-tauri/resources/bridge/capture-spec.json");
+  const hostSpec = readFileSync(hostSpecPath, "utf8");
+  // 两个镜像 spec 必须逐字节一致，防止漂移
+  assert.equal(hostSpec, extSpec, "capture-spec.json 两处镜像必须一致");
+  const spec = JSON.parse(hostSpec);
+  assert.equal(spec.captureUploadPath, "/api/lab-capture-upload");
+  assert.equal(spec.maxFileBytes, 100 * 1024 * 1024);
+  assert.deepEqual(spec.loopbackHosts, ["127.0.0.1", "localhost", "::1"]);
+
+  // Node Host 实际从 sibling spec 取值
+  assert.equal(host.CAPTURE_UPLOAD_PATH, spec.captureUploadPath);
+  assert.equal(host.MAX_FILE_BYTES, spec.maxFileBytes);
+  assert.match(readFileSync(hostPath, "utf8"), /capture-spec\.json/);
+
+  // Python 开发桥加载 sibling spec（fail-closed）
+  const py = readFileSync(path.join(root, "browser-extension/ibm-literature-capture/native-bridge/host.py"), "utf8");
+  assert.match(py, /_CAPTURE_SPEC_FILE/);
+  assert.match(py, /fail closed/);
+  assert.doesNotMatch(py, /CAPTURE_UPLOAD_PATH = "\/api\/lab-capture-upload"/);
+
+  // background.js 从扩展打包的 spec 异步加载，不再硬编码常量
+  const bg = readFileSync(path.join(root, "browser-extension/ibm-literature-capture/background.js"), "utf8");
+  assert.match(bg, /loadCaptureSpec/);
+  assert.match(bg, /chrome\.runtime\.getURL\("capture-spec\.json"\)/);
+  assert.doesNotMatch(bg, /const CAPTURE_UPLOAD_PATH = "\/api\/lab-capture-upload"/);
+  assert.doesNotMatch(bg, /const CAPTURE_TASK_RE = /);
+});

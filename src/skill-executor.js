@@ -136,6 +136,9 @@ export class SkillExecutor {
 		}
 		const command = resolved.command;
 		const script = this.scriptPath(name);
+		// P2 修复 #8：非零退出时把“实际命中的解释器”前置到 stderr，报错不再
+		// 误导用户去改 PATH 里的系统 python（venv/bundled 才是真实执行者）。
+		const pythonLabel = `[python ${resolved.source} ${command.join(" ")}]`;
 		return new Promise((resolve, reject) => {
 			const child = spawn(command[0], [...command.slice(1), script, ...args], {
 				env: { ...process.env },
@@ -154,6 +157,9 @@ export class SkillExecutor {
 				if (settled) return;
 				settled = true;
 				if (timer) clearTimeout(timer);
+				if (value.code !== 0 && !value.timedOut) {
+					value = { ...value, stderr: `${pythonLabel}\n${value.stderr}` };
+				}
 				resolve(value);
 			};
 			child.stdout.on("data", (chunk) => (stdout += chunk));

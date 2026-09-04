@@ -14,10 +14,32 @@ import urllib.parse
 import urllib.request
 
 BRIDGE_NAME = "com.ibm.lab.capture"
-MAX_FILE_BYTES = 100 * 1024 * 1024
-CAPTURE_UPLOAD_PATH = "/api/lab-capture-upload"
-LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
-TASK_ID_RE = re.compile(r"^capture-[a-z0-9]+$")
+
+# ── 捕获安全 spec（单点事实源）────────────────────────────────────────────
+# 与 background.js、desktop/src-tauri/resources/bridge/host.js 共用同一份 JSON
+# （browser-extension/…/capture-spec.json），避免安全边界各自维护而漂移。
+# 找不到 spec 时直接失败（fail-closed），不回退到“宽容”的旧常量。
+_CAPTURE_SPEC_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "capture-spec.json",
+)
+
+
+def _load_capture_spec():
+    try:
+        with open(_CAPTURE_SPEC_FILE, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception as exc:  # fail closed
+        raise RuntimeError(
+            "cannot load capture security spec %s (%s)" % (_CAPTURE_SPEC_FILE, exc)
+        ) from exc
+
+
+_spec = _load_capture_spec()
+MAX_FILE_BYTES = int(_spec.get("maxFileBytes", 100 * 1024 * 1024))
+CAPTURE_UPLOAD_PATH = str(_spec.get("captureUploadPath", "/api/lab-capture-upload"))
+LOOPBACK_HOSTS = set(_spec.get("loopbackHosts", ["127.0.0.1", "localhost", "::1"]))
+TASK_ID_RE = re.compile(str(_spec.get("taskIdPattern", r"^capture-[a-z0-9]+$")))
 
 
 def configure_binary_stdio():

@@ -4,7 +4,9 @@ set -Eeuo pipefail
 umask 077
 
 repo_slug="${IBM_LAB_AGENT_REPO:-qbdeng2025/iBM-Lab-Agent}"
-source_ref="${IBM_LAB_AGENT_REF:-main}"
+# 固定版本安装：默认装最新正式 tag（v0.3.0），不随 main 漂移（Doc2 修复）。
+# 需要跟踪 main 时显式设置 IBM_LAB_AGENT_REF=main。
+source_ref="${IBM_LAB_AGENT_REF:-v0.3.0}"
 # 源码包下载前缀:默认 USTC GitLab 校内(服务器下载走校内网)。
 # 如需切换到其他代码镜像,设置:
 #   IBM_LAB_AGENT_ARCHIVE_PREFIX=https://example.edu/group/project/-/archive

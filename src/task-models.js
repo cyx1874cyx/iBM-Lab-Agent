@@ -154,8 +154,10 @@ export const paperSourceBundleSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
 	title: z.string().default(""),
-	/** 来源入口：普通原文登记或由 AI 从微信公众号文章提取的元数据占位。 */
-	sourceType: z.enum(["document", "wechat"]).default("document"),
+	/** 来源入口：普通原文登记（document）、AI 从微信公众号文章提取的元数据
+	 *  占位（wechat）、publisher 页/DOI 直达页的通用“仅元数据”占位
+	 *  （publisher | doi，registerPaperMeta）。 */
+	sourceType: z.enum(["document", "wechat", "publisher", "doi"]).default("document"),
 	sourceUrl: z.string().url().optional(),
 	/** 元数据占位可先进入精读队列，PDF 由研究人员稍后手工上传。 */
 	acquisitionStatus: z.enum(["ready", "awaiting-pdf"]).default("ready"),

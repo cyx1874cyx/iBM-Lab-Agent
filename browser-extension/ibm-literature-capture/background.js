@@ -12,29 +12,50 @@
  */
 
 const STATE_KEY = "ibmCaptureTask";
-const CAPTURE_UPLOAD_PATH = "/api/lab-capture-upload";
-const CAPTURE_TASK_RE = /^capture-[a-z0-9]+$/;
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+const HANDOFF_PATH = "/lab/capture/";
+const SPEC_URL = chrome.runtime.getURL("capture-spec.json");
+
+// 捕获安全 spec（单点事实源，MV3 SW 无同步 IO → 异步 fetch 一次并缓存）。
+// 与 native-bridge/host.py、desktop resources/bridge/host.js 共用同一份 JSON
+// （browser-extension/…/capture-spec.json），避免安全边界各自维护而漂移。
+let captureSpecPromise;
+function loadCaptureSpec() {
+  if (!captureSpecPromise) {
+    captureSpecPromise = fetch(SPEC_URL)
+      .then((response) => response.ok ? response.json() : null)
+      .then((spec) => (spec ? {
+        uploadPath: spec.captureUploadPath,
+        taskPattern: spec.taskIdPattern,
+        loopbackHosts: new Set(spec.loopbackHosts || []),
+        scheme: spec.scheme || "http"
+      } : null))
+      .catch(() => null);
+  }
+  return captureSpecPromise;
+}
 
 function parseUrl(value) {
   try { return new URL(String(value || "")); } catch { return null; }
 }
 
-function isLoopbackUrl(url) {
-  return !!url && url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname.toLowerCase());
+function isLoopbackUrl(url, loopbackHosts) {
+  return !!url && url.protocol === "http:" && loopbackHosts.has(url.hostname.toLowerCase());
 }
 
-function validateHandoffSender(sender, taskId) {
+async function validateHandoffSender(sender, taskId) {
+  const spec = await loadCaptureSpec();
+  const loopbackHosts = spec?.loopbackHosts ?? new Set(["127.0.0.1", "localhost", "::1"]);
+  const taskRe = spec ? new RegExp(spec.taskPattern) : /^capture-[a-z0-9]+$/;
   if (!Number.isInteger(sender?.tab?.id) || sender?.frameId !== 0) {
     throw new Error("布防失败：请求不是来自桌面 handoff 顶层页面");
   }
   const senderUrl = parseUrl(sender.tab.url);
-  if (!isLoopbackUrl(senderUrl) || senderUrl.username || senderUrl.password) {
+  if (!isLoopbackUrl(senderUrl, loopbackHosts) || senderUrl.username || senderUrl.password) {
     throw new Error("布防失败：只接受桌面应用的本机 handoff 页面");
   }
   const queryKeys = [...senderUrl.searchParams.keys()];
-  if (!CAPTURE_TASK_RE.test(taskId)
-      || senderUrl.pathname !== "/lab/capture/"
+  if (!taskRe.test(taskId)
+      || senderUrl.pathname !== HANDOFF_PATH
       || queryKeys.length !== 1
       || queryKeys[0] !== "taskId"
       || senderUrl.searchParams.get("taskId") !== taskId) {
@@ -43,9 +64,12 @@ function validateHandoffSender(sender, taskId) {
   return senderUrl;
 }
 
-function validateUploadUrl(raw, senderUrl) {
+async function validateUploadUrl(raw, senderUrl) {
+  const spec = await loadCaptureSpec();
+  const uploadPath = spec?.uploadPath ?? "/api/lab-capture-upload";
+  const loopbackHosts = spec?.loopbackHosts ?? new Set(["127.0.0.1", "localhost", "::1"]);
   const url = parseUrl(raw);
-  if (!isLoopbackUrl(url) || url.origin !== senderUrl.origin || url.pathname !== CAPTURE_UPLOAD_PATH) {
+  if (!isLoopbackUrl(url, loopbackHosts) || url.origin !== senderUrl.origin || url.pathname !== uploadPath) {
     throw new Error("布防失败：上传地址不是当前桌面应用的捕获接口");
   }
   if (url.username || url.password || url.hash) throw new Error("布防失败：上传地址含有未授权部分");
@@ -125,8 +149,8 @@ async function handleArm(payload, sender) {
   let senderUrl;
   let uploadUrl;
   try {
-    senderUrl = validateHandoffSender(sender, taskId);
-    uploadUrl = validateUploadUrl(payload?.uploadUrl, senderUrl);
+    senderUrl = await validateHandoffSender(sender, taskId);
+    uploadUrl = await validateUploadUrl(payload?.uploadUrl, senderUrl);
   } catch (error) {
     return { ok: false, error: error.message };
   }

@@ -1,0 +1,8 @@
+{
+  "_comment": "iBM Lab 文献捕获桥共享安全 spec（单点事实源）。三处实现必须消费本文件或与本文件保持一致，防安全边界漂移：browser-extension/ibm-literature-capture/background.js（MV3 SW 异步加载扩展内副本）、browser-extension/ibm-literature-capture/native-bridge/host.py（开发回退桥）、desktop/src-tauri/resources/bridge/host.js（桌面原生宿主）。两处镜像文件必须逐字节一致：browser-extension/ibm-literature-capture/capture-spec.json 与 desktop/src-tauri/resources/bridge/capture-spec.json（tests/unit/native-bridge-host.test.mjs 断言）。",
+  "captureUploadPath": "/api/lab-capture-upload",
+  "loopbackHosts": ["127.0.0.1", "localhost", "::1"],
+  "scheme": "http",
+  "taskIdPattern": "^capture-[a-z0-9]+$",
+  "maxFileBytes": 104857600
+}

@@ -503,6 +503,50 @@ test("one session aggregates multiple literature queries into one entry and one 
 	}
 });
 
+test("search summary width counts Han characters (2–9) and reports the actual count", async () => {
+	const { handle, dir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-summary-width",
+			name: "摘要字数口径",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		tasks.executor.search = async () => [
+			{ id: "https://openalex.org/W987654321", title: "Chiral amphiphilic assemblies", doi: "10.1000/chiral", authors: ["C Author"], year: 2025, journal: "JACS", volume: "147", pages: "1-9", abstract: "Chiral-driven amphiphilic assembly morphology study", isOa: true, sources: ["openalex"] }
+		];
+		const run = await tasks.searchLiterature({ projectId: "proj-summary-width", title: "手性两亲组装形貌研究", query: "chiral amphiphilic assembly" });
+
+		// 9 个汉字：通过（注：“手性驱动两亲组装形貌”实为 10 汉字，属正确拒绝）
+		const ok9 = await tasks.updateSearchSummaries({ runId: run.id, summaries: [
+			{ paperId: "10.1000/chiral", summaryZh: "自驱动两亲组装形貌" }
+		] });
+		assert.equal(ok9.updated, 1);
+		assert.equal(ok9.rejected.length, 0);
+		assert.equal(tasks.getSearchRun(run.id).results[0].shortDescriptionZh, "自驱动两亲组装形貌");
+
+		// 10 个汉字：拒绝，报错带实际汉字数
+		const bad10 = await tasks.updateSearchSummaries({ runId: run.id, summaries: [
+			{ paperId: "10.1000/chiral", summaryZh: "手性驱动两亲组装形貌" }
+		] });
+		assert.equal(bad10.updated, 0);
+		assert.equal(bad10.rejected.length, 1);
+		assert.match(bad10.rejected[0].reason, /2–9 个汉字（实际 10 个汉字）/);
+
+		// 2 个汉字：通过（最小边界）
+		const ok2 = await tasks.updateSearchSummaries({ runId: run.id, summaries: [
+			{ paperId: "10.1000/chiral", summaryZh: "手性组装" }
+		] });
+		assert.equal(ok2.updated, 1);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
 test("WeChat metadata enters the reading queue without a PDF and later reuses the same bundle/report", async () => {
 	const { handle, dir, fxDir } = await bootTasks();
 	try {
@@ -618,6 +662,131 @@ test("WeChat DOI verification resolves a candidate and registers the DOI into th
 		assert.equal(registered.bundle.doi, "10.1000/fake.1");
 		assert.equal(registered.bundle.sourceType, "wechat");
 		assert.equal(registered.bundle.acquisitionStatus, "awaiting-pdf");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("publisher/DOI metadata registers an awaiting-pdf entry without a wechat URL and PDF attachment reuses it", async () => {
+	const { handle, dir, fxDir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-meta",
+			name: "通用元数据登记",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+
+		// 纯元数据（DOI + 题名，无 URL、无 PDF）→ 进入待上传 PDF 队列
+		const first = await tasks.registerPaperMeta({
+			projectId: "proj-meta",
+			title: "Polyprodrug amphiphiles for hierarchical drug delivery",
+			authors: ["Alice Zhang"],
+			doi: "10.1021/ja409686x",
+			journal: "JACS",
+			year: 2014
+		});
+		assert.equal(first.created, true);
+		assert.equal(first.bundle.sourceType, "publisher");
+		assert.equal(first.bundle.acquisitionStatus, "awaiting-pdf");
+		assert.equal(first.bundle.pdfPath, undefined);
+		assert.equal(first.bundle.doi, "10.1021/ja409686x");
+		assert.equal(first.bundle.year, 2014);
+		assert.equal(first.report.status, "pending");
+		assert.ok(tasks.listProvenance("proj-meta").some((row) => row.kind === "metadata-intake" && row.source === "publisher-ai-extraction"));
+
+		// 同 DOI（含 doi.org URL 形式）再登记 → 幂等更新，不新建、不改来源语义
+		const repeated = await tasks.registerPaperMeta({
+			projectId: "proj-meta",
+			sourceType: "doi",
+			doi: "https://doi.org/10.1021/ja409686x",
+			title: "Polyprodrug amphiphiles for hierarchical drug delivery",
+			issue: "2"
+		});
+		assert.equal(repeated.created, false);
+		assert.equal(repeated.bundle.id, first.bundle.id);
+		assert.equal(repeated.bundle.issue, "2");
+		assert.equal(repeated.bundle.sourceType, "publisher", "既有条目的来源语义不被覆盖");
+		assert.equal(tasks.listBundles("proj-meta").length, 1);
+
+		// 无 DOI/URL 时按题名去重（仅匹配 awaiting-pdf 占位）
+		const titled = await tasks.registerPaperMeta({ projectId: "proj-meta", title: "A second paper title unique enough" });
+		assert.equal(titled.created, true);
+		const sameTitle = await tasks.registerPaperMeta({ projectId: "proj-meta", title: "A second paper title unique enough" });
+		assert.equal(sameTitle.created, false);
+		assert.equal(sameTitle.bundle.id, titled.bundle.id);
+		assert.equal(tasks.listBundles("proj-meta").length, 2);
+
+		// 非法输入拒绝：坏 DOI / 非 http(s) URL / 缺题名 / 未知 sourceType / wechat 缺链接
+		await assert.rejects(() => tasks.registerPaperMeta({ projectId: "proj-meta", title: "x", doi: "not a doi" }), /invalid DOI/);
+		await assert.rejects(() => tasks.registerPaperMeta({ projectId: "proj-meta", title: "x", sourceUrl: "ftp://nope/x" }), /http\(s\) URL/);
+		await assert.rejects(() => tasks.registerPaperMeta({ projectId: "proj-meta" }), /title must not be empty/);
+		await assert.rejects(() => tasks.registerPaperMeta({ projectId: "proj-meta", sourceType: "blog", title: "x" }), /unsupported sourceType/);
+		await assert.rejects(() => tasks.registerPaperMeta({ projectId: "proj-meta", sourceType: "wechat", title: "x" }), /wechat 时必须提供公众号链接/);
+
+		// PDF 后补：preparePaper 复用原占位条目
+		const pdfPath = join(fxDir, "meta-paper.pdf");
+		await writeFile(pdfPath, Buffer.from("%PDF-1.7\n1 0 obj<</Type /Page>>endobj\n%%EOF"));
+		const attached = await tasks.preparePaper({
+			projectId: "proj-meta",
+			bundleId: first.bundle.id,
+			sourceMapPath: join(fxDir, "min-source-map.json"),
+			pdfPath
+		});
+		assert.equal(attached.id, first.bundle.id);
+		assert.equal(attached.acquisitionStatus, "ready");
+		assert.equal(attached.sourceType, "publisher");
+		assert.equal(tasks.getReadingReport(first.report.id).locatorMode, "structure-grounded");
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("staged reading report accepts the same template idempotently and rejects a different template", async () => {
+	const { handle, dir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		await tasks.createProject({
+			id: "proj-tpl",
+			name: "模板幂等",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+		const meta = await tasks.registerPaperMeta({ projectId: "proj-tpl", title: "Template idempotency paper", doi: "10.1000/tpl.1" });
+		const reportId = meta.report.id;
+
+		// 暂存前：显式选定模板，允许切换/覆盖版本行
+		const selected = await tasks.selectReadingReportTemplate({ reportId, noteTemplateId: "note-default", noteTemplateVersion: "1" });
+		assert.equal(selected.id, reportId);
+		assert.equal(selected.noteTemplateSnapshot?.version, "1");
+
+		// 模拟报告已暂存（paperCardPath 固化）
+		const stagedPath = join(dir, "staged.docx");
+		const row = tasks.getReadingReport(reportId);
+		await tasks.table("reports").put(reportId, { ...row, paperCardPath: stagedPath, status: "under-review", updatedAt: new Date().toISOString() });
+
+		// 已暂存 + 相同模板 → 幂等接受，不报错、不改动
+		const again = await tasks.selectReadingReportTemplate({ reportId, noteTemplateId: "note-default", noteTemplateVersion: "1" });
+		assert.equal(again.id, reportId);
+		assert.equal(again.paperCardPath, stagedPath);
+		assert.equal(again.noteTemplateSnapshot?.version, "1");
+
+		// 已暂存 + 不同模板/版本 → 有意义的报错（提示模板已固化）
+		await assert.rejects(
+			() => tasks.selectReadingReportTemplate({ reportId, noteTemplateId: "note-default", noteTemplateVersion: "99" }),
+			/template cannot change after the report artifact is staged/
+		);
+		await assert.rejects(
+			() => tasks.selectReadingReportTemplate({ reportId, noteTemplateId: "note-other", noteTemplateVersion: "1" }),
+			/template cannot change after the report artifact is staged/
+		);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

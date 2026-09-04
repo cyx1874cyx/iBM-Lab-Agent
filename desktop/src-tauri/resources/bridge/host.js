@@ -15,10 +15,24 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const BRIDGE_NAME = "com.ibm.lab.capture";
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
-const CAPTURE_UPLOAD_PATH = "/api/lab-capture-upload";
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
-const TASK_ID_RE = /^capture-[a-z0-9]+$/;
+
+// ── 捕获安全 spec（单点事实源）────────────────────────────────────────────
+// 与 browser-extension/ibm-literature-capture/capture-spec.json 保持逐字节一致
+// （tests/unit/native-bridge-host.test.mjs 断言）。三个实现（background.js /
+// host.py / host.js）从这里取值，避免安全边界各自维护而漂移。
+function loadCaptureSpec() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, "capture-spec.json"), "utf8"));
+  } catch {
+    return null; // 找不到时回退默认值；打包流程保证 sibling spec 在资源目录内
+  }
+}
+
+const _captureSpec = loadCaptureSpec() || {};
+const MAX_FILE_BYTES = _captureSpec.maxFileBytes ?? 100 * 1024 * 1024;
+const CAPTURE_UPLOAD_PATH = _captureSpec.captureUploadPath ?? "/api/lab-capture-upload";
+const LOOPBACK_HOSTS = new Set(_captureSpec.loopbackHosts ?? ["127.0.0.1", "localhost", "::1"]);
+const TASK_ID_RE = new RegExp(_captureSpec.taskIdPattern ?? "^capture-[a-z0-9]+$");
 
 function readFully(buffer) {
   let filled = 0;

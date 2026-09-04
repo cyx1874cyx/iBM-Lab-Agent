@@ -136,6 +136,34 @@ test("research preset and task tools expose the WeChat metadata intake workflow"
 	assert.match(preset, /不下载 PDF/);
 });
 
+test("generic paper metadata tool (non-wechat) registers into the reading queue", async () => {
+	const [toolsSource, preset] = await Promise.all([
+		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(presetPath, "utf8")
+	]);
+	assert.match(toolsSource, /lab_tasks_register_paper_meta/);
+	assert.match(toolsSource, /DOI\/publisher 页面/);
+	assert.match(toolsSource, /sourceType 取值：publisher/);
+	assert.match(toolsSource, /无需 PDF 即可登记/);
+	assert.match(preset, /非公众号文献元数据/);
+	assert.match(preset, /lab_tasks_register_paper_meta/);
+});
+
+test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async () => {
+	const source = await readFile(fileURLToPath(new URL("../../lib/synthesis-tool.js", import.meta.url)), "utf8");
+	assert.match(source, /lab_synth_target_create/);
+	assert.match(source, /lab_synth_target_list/);
+	assert.match(source, /lab_synth_route_create/);
+	assert.match(source, /lab_synth_route_step/);
+	assert.match(source, /lab_synth_evidence_add/);
+	assert.match(source, /lab_synth_route_status/);
+	assert.match(source, /supportsField/);
+	assert.match(source, /literature-extracted/);
+	const preset = await readFile(presetPath, "utf8");
+	assert.match(preset, /dsh-lab-agent\/synthesis-tool/);
+	assert.match(preset, /inject: \[tools, labTasks, labSynthesis\]/);
+});
+
 test("reading reports inventory PDF and SI before using note templates", async () => {
 	const [toolsSource, preset] = await Promise.all([
 		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
