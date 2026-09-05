@@ -14,7 +14,7 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
-  { ignores: ["node_modules/**", "vendor/**", "runtime/**", "desktop/**", "**/dist/**", "**/assets/**", "**/*.d.ts"] },
+  { ignores: ["node_modules/**", "vendor/**", "runtime/**", "desktop/**", "**/dist/**", "**/assets/**", "scripts/ketcher-shell/public/**", "**/*.d.ts"] },
   js.configs.recommended,
   {
     files: ["lib/**/*.js", "src/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs", "tests/**/*.js"],

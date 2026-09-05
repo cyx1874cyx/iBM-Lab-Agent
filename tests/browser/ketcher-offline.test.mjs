@@ -10,6 +10,8 @@
  * 前置：本机安装 Edge 或 Chrome（或用 LAB_BROWSER_PATH 指定可执行文件）。
  */
 
+/* global document */
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { launchKetcherPage } from "./helpers/ketcher-page.mjs";
