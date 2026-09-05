@@ -1,8 +1,8 @@
 # Release checklist
 
-1. Build from the pinned `iBM-Lab-Agent-release` source and run its unit, integration, and regression suites first.
-2. Run `build-bundled-python.ps1`, then `npm run prepare-runtime` and `npm run verify-package` before the Tauri build.
-3. Build the NSIS installer and re-run `verify-package` with its `-InstallerPath` argument.
+1. Build from a clean, pinned source commit. Use `scripts/build-windows-release.ps1` as the release entrypoint.
+2. Keep the generated `desktop/src-tauri/resources` snapshot untouched; source fixes belong in the repository root and are copied by `prepare-runtime`.
+3. Require the release script's tests, regression, preset export check, lint, runtime preparation, Web smoke, NSIS build, exact installer verification and SHA256 report to pass.
 4. On a clean Windows user profile, install the executable and start it twice. The second launch must focus the first window.
 5. Confirm the startup window changes from its progress screen to DSH without opening a browser; confirm failure view offers retry and logs.
 6. Inspect the effective profile: exactly one bare `dsh-lab-agent` bundle and one `labAgent` service must be present. No duplicate-service error is acceptable.
@@ -37,7 +37,7 @@ All must pass before shipping a desktop release build (see `docs/release-manifes
 for the pinned component versions):
 
 ### Version & components
-- [ ] iBM Lab Agent version = docs/release-manifest.json 的 ibmLabAgent（当前 0.3.0），4 处版本文件一致
+- [ ] 根 package、desktop package、Cargo.toml、tauri.conf.json 与 release-manifest 的 iBM Lab Agent 版本完全一致
 - [ ] origin-mcp = 0.1.4
 - [ ] mnova-mcp = 0.3.1
 - [ ] mcp SDK < 2 (1.29.0)
@@ -83,8 +83,14 @@ for the pinned component versions):
 - [ ] Office artifact regression
 
 ### Packaging
+- [ ] 源码 Ketcher `index.html` 引用的全部哈希资源存在
+- [ ] 工作树干净，构建报告 `publishable=true`
+- [ ] 未发现并发 `prepare-runtime` / Tauri 构建
+- [ ] 未使用清空 `bundle.resources` 的 TAURI_CONFIG 覆盖
 - [ ] `verify-package -WebSmokeTest` passes
 - [ ] NSIS installer build succeeds
+- [ ] 安装包为本轮新生成且文件名版本精确匹配
+- [ ] `release-report.json` 记录阶段耗时、安装包大小和 SHA256
 - [ ] clean Windows 10 install
 - [ ] clean Windows 11 install
 - [ ] upgrade from 0.1.x

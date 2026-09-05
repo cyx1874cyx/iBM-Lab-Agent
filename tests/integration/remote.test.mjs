@@ -42,7 +42,7 @@ async function bootRemote() {
 			{ id: "lab-convert", name: "dsh-lab-agent/convert", inject: ["storageDomain"] },
 			{ id: "lab-python-env", name: "dsh-lab-agent/python-env", inject: [] },
 			{ id: "lab-capture", name: "dsh-lab-agent/manual-capture", inject: ["storageDomain", "labTasks"] },
-			{ id: "lab-remote", name: "dsh-lab-agent/remote", inject: ["labVersions", "labGoals", "labNoteTemplates", "labTasks", "labTemplates", "labChemistry", "labNmr", "labSynthesis", "labPython", "labConvert", "labCapture"] }
+			{ id: "lab-remote", name: "dsh-lab-agent/remote", inject: ["labVersions", "labGoals", "labNoteTemplates", "labExperimentPlanTemplates", "labPlotRecords", "labTasks", "labTemplates", "labChemistry", "labNmr", "labSynthesis", "labPython", "labConvert", "labCapture"] }
 		]
 	});
 	await handle.ctx.labVersions.bootstrapFromVendor();

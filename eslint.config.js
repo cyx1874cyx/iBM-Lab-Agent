@@ -14,7 +14,7 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
-  { ignores: ["node_modules/**", "vendor/**", "runtime/**", "desktop/**", "client/dist/**", "**/*.d.ts"] },
+  { ignores: ["node_modules/**", "vendor/**", "runtime/**", "desktop/**", "**/dist/**", "**/assets/**", "**/*.d.ts"] },
   js.configs.recommended,
   {
     files: ["lib/**/*.js", "src/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs", "tests/**/*.js"],
@@ -37,6 +37,17 @@ export default [
     },
     rules: {
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }]
+    }
+  },
+  // 历史代码风格与 recommended 全集冲突的噪声规则：收敛为 off。
+  // 保留"确定性正确性"核心（no-undef / no-unused-vars / no-dupe-keys 等）。
+  {
+    rules: {
+      "no-control-regex": "off",
+      "no-useless-escape": "off",
+      "no-regex-spaces": "off",
+      "no-useless-assignment": "off",
+      "preserve-caught-error": "off"
     }
   }
 ];

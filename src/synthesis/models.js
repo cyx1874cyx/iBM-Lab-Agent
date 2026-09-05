@@ -67,7 +67,7 @@ export const EVIDENCE_RELATIONS = ["supports", "conflicts", "context"];
 
 export const EVIDENCE_EXTRACTION_METHODS = ["text", "vlm", "manual", "search", "model"];
 
-export const EVIDENCE_REVIEW_STATUSES = ["pending", "confirmed", "edited", "rejected"];
+export const EVIDENCE_REVIEW_STATUSES = ["pending", "confirmed", "corrected", "edited", "rejected"];
 
 // ── 合成目标分子（可关联化学实体） ────────────────────────────────────────
 
@@ -139,6 +139,18 @@ export const STRUCTURE_SOURCES = ["agent", "pubchem", "manual", "entity"];
 export const stepStructureSchema = z.object({
 	name: z.string().min(1),
 	smiles: z.string().optional(),
+	/** 可追溯 CAS；缺失时 UI 明确显示待确认，禁止由名称猜写。 */
+	casNumber: z.string().optional(),
+	/** 跨 PubChem / CACTUS 比对用，不作为用户主界面必显字段。 */
+	inchiKey: z.string().optional(),
+	verification: z
+		.object({
+			status: z.enum(["dual-confirmed", "single-source", "conflict", "unresolved", "manual"]).default("unresolved"),
+			sources: z.array(z.string()).default([]),
+			checkedAt: z.string().optional(),
+			notes: z.string().optional()
+		})
+		.optional(),
 	entityId: z.string().regex(PROFILE_ID_RE).optional(),
 	role: z.enum(STEP_COMPOUND_ROLES).default("unknown"),
 	source: z.enum(STRUCTURE_SOURCES).default("agent"),
@@ -170,6 +182,8 @@ export const routeStepSchema = z.object({
 	step: z.number().int().positive(),
 	id: z.string().regex(PROFILE_ID_RE).optional(), // hydrate: S{step}
 	label: z.string().optional(), // 短名，如 "RAFT 聚合"
+	/** 面板只展示一段化合物性质导向的难点说明（≤50 字）。 */
+	difficultySummary: z.string().max(50).optional(),
 
 	reaction: z.string().min(1),
 
@@ -229,6 +243,8 @@ export const synthesisEvidenceSchema = z.object({
 	/** 0.3.2：截图定位所需的已捕获原文 bundle id（documentId 自由文本保留兼容；
 	 *  两者都有时截图端点优先按 bundleId 取 PDF 渲染）。 */
 	bundleId: z.string().regex(PROFILE_ID_RE).optional(),
+	/** 原文文件种类；旧记录按 sourceType=paper-si 推断为 si，其余为 pdf。 */
+	sourceKind: z.enum(["pdf", "si"]).optional(),
 	sourceName: z.string().min(1),
 	title: z.string().optional(),
 	doi: z.string().optional(),
@@ -243,6 +259,32 @@ export const synthesisEvidenceSchema = z.object({
 	extractionMethod: z.enum(EVIDENCE_EXTRACTION_METHODS).default("manual"),
 	confidence: z.enum(CONFIDENCE_LEVELS).default("unknown"),
 	reviewStatus: z.enum(EVIDENCE_REVIEW_STATUSES).default("pending"),
+	/** 0.4.0：审核轮次（AI 回写后进入下一轮，不得视为已确认）；旧记录缺省视为第 1 轮。 */
+	reviewRound: z.number().int().min(1).default(1),
+	/** 0.4.0：AI 首次提取的原始值（与人工修正值分离保存）。 */
+	originalExtract: z.string().optional(),
+	/** 0.4.0：人工修正值；有值即 reviewStatus=corrected，后续 Agent 回写不得覆盖。 */
+	userCorrection: z.string().optional(),
+	/** 0.4.0-rc.4：可追溯截图核验状态。仅原文截图端点真实渲染成功后登记
+	 *  ready；原 PDF/页码/定位（page/bbox/bundleId）变化 → stale；渲染失败
+	 *  → failed。缺省无此对象 = 尚未经截图端点核验（pending 语义），确认/
+	 *  修正/锁定不得放行。
+	 *  rc.4 review（§4）：ready 必须携带 sourceDigest + locationDigest
+	 *  （定位快照：规范化 bundle/page/bbox + 内容摘要），门禁校验核验快照与
+	 *  Evidence 当前定位一致；旧版无 locationDigest 的 ready 为不可信数据。 */
+	shotVerification: z
+		.object({
+			status: z.enum(["pending", "ready", "failed", "stale"]).default("pending"),
+			bundleId: z.string().optional(),
+			kind: z.enum(["pdf", "si"]).optional(),
+			page: z.union([z.string(), z.number()]).optional(),
+			bbox: z.array(z.number()).optional(), // 渲染时的定位区域 [x1,y1,x2,y2]
+			sourceDigest: z.string().optional(), // 渲染所用已归档 PDF/SI 的内容摘要
+			locationDigest: z.string().optional(), // 定位快照摘要（bundleId+kind+page+bbox+sourceDigest）
+			renderedAt: z.string().optional(),
+			error: z.string().optional()
+		})
+		.optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });
@@ -303,6 +345,10 @@ export const synthesisRouteSchema = z.object({
 	origin: z.enum(ROUTE_ORIGINS).default("human-edited"),
 	parentRouteId: z.string().regex(PROFILE_ID_RE).optional(),
 	changeNotes: z.string().optional(),
+	/** 锁定是版本级写保护，独立于路线审核状态。 */
+	locked: z.boolean().default(false),
+	lockedAt: z.string().optional(),
+	lockedBy: z.string().optional(),
 
 	evidence: z
 		.array(
@@ -319,9 +365,52 @@ export const synthesisRouteSchema = z.object({
 	updatedAt: z.string()
 });
 
+// ── 事实核验批次（0.4.0 WP4） ──────────────────────────────────────────────
+
+/** 审核批次状态机：pending（人工已提交、待 Agent 处理不确定项）
+ *  → applied（Agent 已回写、待下一轮人工审核）→ completed（关闭）。
+ *  新轮次 create 会自动关闭同 step 的旧 open 批次。 */
+export const REVIEW_BATCH_STATUSES = ["pending", "applied", "completed"];
+
+export const REVIEW_BATCH_TRANSITIONS = {
+	pending: ["applied", "completed"],
+	applied: ["completed"],
+	completed: []
+};
+
+export function canTransitReviewBatch(from, to) {
+	return (REVIEW_BATCH_TRANSITIONS[from] ?? []).includes(to);
+}
+
+/**
+ * 一轮人工事实核验的提交批次：记录轮次、范围（路线/步骤）、事实集合与
+ * 需要 Agent 处理的不确定项。Agent 只能经 uncertain 路径回写这些项且不得
+ * 覆盖人工 confirmed/corrected；回写内容进入下一轮（pending）人工审核。
+ */
+export const synthesisReviewBatchSchema = z.object({
+	id: z.string().regex(PROFILE_ID_RE),
+	projectId: z.string().regex(PROFILE_ID_RE).optional(),
+	routeId: z.string().regex(PROFILE_ID_RE),
+	/** 批次范围步骤（锁定检查按 step 关联 open batch）；旧行可为 route-level。 */
+	stepId: z.string().regex(PROFILE_ID_RE).optional(),
+	/** 本轮覆盖的证据审核轮次（= 提交时该 step 证据最大 reviewRound）。 */
+	round: z.number().int().min(1).default(1),
+	status: z.enum(REVIEW_BATCH_STATUSES).default("pending"),
+	/** 本轮提交的事实集合（该 step 本轮全部已人工决定的证据 id）。 */
+	itemIds: z.array(z.string()).default([]),
+	/** 其中需要 Agent 处理/重查的项（人工标“无法确认/缺失/冲突/需重算”）。 */
+	uncertainItemIds: z.array(z.string()).default([]),
+	createdBy: z.string().default("user"),
+	notes: z.string().optional(),
+	createdAt: z.string(),
+	completedAt: z.string().optional(),
+	appliedAt: z.string().optional()
+});
+
 export const labSynthesisTables = {
 	synthesis_targets: "synthesis_targets",
 	synthesis_routes: "synthesis_routes",
 	synthesis_evidence: "synthesis_evidence",
-	synthesis_extraction_jobs: "synthesis_extraction_jobs"
+	synthesis_extraction_jobs: "synthesis_extraction_jobs",
+	synthesis_review_batches: "synthesis_review_batches"
 };

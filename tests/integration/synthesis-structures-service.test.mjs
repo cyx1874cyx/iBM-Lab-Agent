@@ -78,10 +78,15 @@ test("structure service: hydrate + route.compounds backfill + resolve + set", as
 		const finalRoute = synth.getRoute("rt-st");
 		assert.equal(finalRoute.steps[0].structures.filter((s) => s.name === "HEMA")[0].source, "entity");
 
-		// 非 draft 禁止解析/补绘
+		// 0.4.0：非 draft 未锁定仍可修改（锁定与审核状态独立）；locked 后才拒绝
 		await synth.updateRouteStatus("rt-st", "under-review");
-		await assert.rejects(() => synth.resolveStepStructures("rt-st", "s1", { lookup: stubLookup }), /only allowed in draft/);
-		await assert.rejects(() => synth.setStepStructure("rt-st", "s1", "X", "C"), /only allowed in draft/);
+		const unlockedWrite = await synth.setStepStructure("rt-st", "s1", "GMA", "CC(=C)C(=O)OCC1CO1");
+		assert.ok(unlockedWrite.steps[0].structures.some((s) => s.name === "GMA"), "under-review 未锁定版本允许写结构");
+		const unlockedResolve = await synth.resolveStepStructures("rt-st", "s1", { lookup: stubLookup });
+		assert.ok(Array.isArray(unlockedResolve.resolved));
+		await synth.lockRoute("rt-st", { by: "user" });
+		await assert.rejects(() => synth.setStepStructure("rt-st", "s1", "X", "C"), /is locked/);
+		await assert.rejects(() => synth.resolveStepStructures("rt-st", "s1", { lookup: stubLookup }), /is locked/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
@@ -124,6 +129,70 @@ test("evidence service: documentId/bundleId persist and evidenceById works", asy
 		assert.ok(byId);
 		assert.equal(byId.routeId, "rt-ev");
 		assert.equal(synth.evidenceById("does-not-exist"), null);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("structure service: dual resolve is read-only and register carries verification", async () => {
+	const { handle, dir } = await bootWorkspace();
+	try {
+		const synth = handle.ctx.labSynthesis;
+		await synth.createTarget({ id: "tgt-dual", name: "双源目标" });
+		await synth.createRoute({ id: "rt-dual", projectId: "prj-dual", targetId: "tgt-dual", name: "双源路线" });
+		await synth.addRouteStep("rt-dual", { step: 1, reaction: "共聚", reactants: ["HEMA", "PHEMA", "GMA"] });
+		const pub = {
+			HEMA: { canonicalSmiles: "C=C(C)C(=O)OCC", inchiKey: "APFVFJFRJDLVQX-UHFFFAOYSA-N", casNumber: "868-77-9" },
+			PHEMA: { canonicalSmiles: "CCC(C(=O)OCC)(C)C", inchiKey: "PHEMAHEMAHEMAH-UHFFFAOYSA-N" },
+			GMA: { canonicalSmiles: "CC(=C)C(=O)OCC1CO1", inchiKey: "GMAGMAGMAGMAGM-UHFFFAOYSA-N" }
+		};
+		// CACTUS stub 携带标准 InChIKey（0.4.0-rc.4：双源按化学身份比较，不等价
+		// 于原始字符串比较；HEMA 两源 key 一致、PHEMA key 不同、GMA 单源）。
+		const cac = {
+			HEMA: { smiles: "C=C(C)C(=O)OCC", inchiKey: "APFVFJFRJDLVQX-UHFFFAOYSA-N" },
+			PHEMA: { smiles: "C(=C)(C)C(=O)OCCC", inchiKey: "PHEMAOTHERKEYX-UHFFFAOYSA-N" }
+		};
+		const deps = {
+			pubchem: async (name) => { if (pub[name]) return pub[name]; throw new Error(`pubchem miss ${name}`); },
+			cactus: async (name) => { if (cac[name]) return cac[name]; throw new Error(`cactus miss ${name}`); }
+		};
+
+		// 双源核验：只查不写，返回四态
+		const dual = await synth.resolveStepCompoundsDual("rt-dual", "s1", deps);
+		const byName = Object.fromEntries(dual.results.map((r) => [r.name, r]));
+		assert.equal(byName.HEMA.status, "dual-confirmed", "两源一致 → dual-confirmed");
+		assert.equal(byName.HEMA.smiles, "C=C(C)C(=O)OCC");
+		assert.equal(byName.PHEMA.status, "conflict", "两源冲突 → 不选结构");
+		assert.equal(byName.PHEMA.smiles, undefined);
+		assert.equal(byName.GMA.status, "single-source", "单源成功 → 标记单源");
+		assert.equal(byName.GMA.smiles, "CC(=C)C(=O)OCC1CO1");
+		// 只查不写：路线内对应结构仍无 smiles
+		const afterRead = synth.getRoute("rt-dual");
+		const gmaEntry = afterRead.steps[0].structures.find((s) => s.name === "GMA");
+		assert.equal(gmaEntry.smiles, undefined, "核验不写入路线");
+
+		// 单源候选登记携带 verification
+		const saved = await synth.setStepStructure("rt-dual", "s1", "GMA", "CC(=C)C(=O)OCC1CO1", { status: "single-source", sources: ["pubchem"], checkedAt: "2026-09-05T00:00:00.000Z" });
+		const savedGma = saved.steps[0].structures.find((s) => s.name === "GMA");
+		assert.equal(savedGma.smiles, "CC(=C)C(=O)OCC1CO1");
+		assert.equal(savedGma.verification.status, "single-source");
+		assert.deepEqual(savedGma.verification.sources, ["pubchem"]);
+
+		// WP3：最终结构记录持久化 name/casNumber/smiles/inchiKey/source/verification
+		const savedCas = await synth.setStepStructure(
+			"rt-dual", "s1", "HEMA", "C=C(C)C(=O)OCC",
+			{ status: "manual", sources: ["manual"], checkedAt: "2026-09-05T00:00:00.000Z" },
+			{ casNumber: "868-77-9", inchiKey: "APFVFJFRJDLVQX-UHFFFAOYSA-N" }
+		);
+		const hemaSaved = savedCas.steps[0].structures.find((s) => s.name === "HEMA");
+		assert.equal(hemaSaved.casNumber, "868-77-9");
+		assert.equal(hemaSaved.inchiKey, "APFVFJFRJDLVQX-UHFFFAOYSA-N");
+		assert.equal(hemaSaved.source, "manual");
+
+		// 锁定路线的双源核验被服务端拒绝
+		await synth.lockRoute("rt-dual", { by: "user" });
+		await assert.rejects(() => synth.resolveStepCompoundsDual("rt-dual", "s1", deps), /is locked/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

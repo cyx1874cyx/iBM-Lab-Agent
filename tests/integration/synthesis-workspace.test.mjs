@@ -70,7 +70,8 @@ test("workspace: hydrate, project routes, evidence and review gate", async () =>
 		const evidence = await synth.addStepEvidence({
 			routeId: "rt-ws", stepId: "s1", supportsField: "procedure.temperature",
 			sourceType: "paper-si", sourceTier: 1, sourceName: "Supporting Information",
-			title: "Synthesis of PHEMA", doi: "10.1000/example", page: 12, excerpt: "The mixture was heated at 70 °C for 12 h.",
+			title: "Synthesis of PHEMA", doi: "10.1000/example", page: 12, bundleId: "bundle-ws-1",
+			excerpt: "The mixture was heated at 70 °C for 12 h.",
 			extractionMethod: "text", confidence: "high"
 		});
 		assert.equal(evidence.stepId, "s1");
@@ -79,19 +80,26 @@ test("workspace: hydrate, project routes, evidence and review gate", async () =>
 		const rows = synth.listStepEvidence("rt-ws", "s1");
 		assert.equal(rows.length, 1);
 		assert.equal(rows[0].relation, "supports");
+		// 0.4.0-rc.4：确认/修正前必须先经截图端点真实渲染成功（登记 shotVerification ready）
+		await synth.registerEvidenceShotVerification(evidence.id, { status: "ready", bundleId: "bundle-ws-1", page: 12, sourceDigest: "abc123" });
 		const reviewed = await synth.reviewEvidence(evidence.id, "confirmed");
 		assert.equal(reviewed.reviewStatus, "confirmed");
+		assert.equal(reviewed.shotVerification.status, "ready", "确认保留可追溯截图核验状态");
 
 		// 项目路线查询（SYN-004）
 		const projectRoutes = synth.getProjectRoutes("prj-ws");
 		assert.equal(projectRoutes.length, 1);
 		assert.equal(projectRoutes[0].id, "rt-ws");
 
-		// 编辑仅限 draft；approved 后拒绝
+		// 0.4.0：approved 未锁定仍可修改（锁定与审核状态独立）；locked 后才拒绝
 		const approved = await synth.updateRouteStatus("rt-ws", "under-review");
 		assert.equal(approved.status, "under-review");
 		await synth.updateRouteStatus("rt-ws", "approved");
-		await assert.rejects(() => synth.updateRouteStep("rt-ws", "s1", { procedure: { atmosphere: "Ar" } }), /only be edited in draft/);
+		const edited = await synth.updateRouteStep("rt-ws", "s1", { procedure: { atmosphere: "Ar" } });
+		assert.equal(edited.steps[0].procedure.atmosphere, "Ar");
+		await synth.lockRoute("rt-ws", { by: "user" });
+		await assert.rejects(() => synth.updateRouteStep("rt-ws", "s1", { procedure: { atmosphere: "N2" } }), /is locked/);
+		await assert.rejects(() => synth.reviewEvidence(evidence.id, "rejected"), /is locked/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
@@ -216,6 +224,55 @@ test("plan draft: route → experiment plan fields (PLAN-001)", async () => {
 		// 空路线 → 明确错误，不产出半成品
 		await synth.createRoute({ id: "rt-empty", projectId: "prj-plan", targetId: "tgt-plan", name: "空路线" });
 		assert.throws(() => buildPlanDraftFields(synth.getRoute("rt-empty"), null, {}), /还没有任何步骤/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("evidence rounds: human correction retained and batch overwrite rejected", async () => {
+	const { handle, dir } = await bootWorkspace();
+	try {
+		const synth = handle.ctx.labSynthesis;
+		await synth.createTarget({ id: "tgt-rd", name: "轮次目标" });
+		await synth.createRoute({ id: "rt-rd", projectId: "prj-rd", targetId: "tgt-rd", name: "轮次路线" });
+		await synth.addRouteStep("rt-rd", { step: 1, reaction: "聚合", reactants: ["HEMA"], products: ["PHEMA"] });
+
+		// AI 提取 → originalExtract 保留原始抽取值（自动提取类证据确认/修正前
+		// 必须先登记原文截图 ready —— §5 截图核验门禁）
+		const ai = await synth.addStepEvidence({
+			routeId: "rt-rd", stepId: "s1", supportsField: "procedure.temperature",
+			sourceType: "paper-si", sourceTier: 1, sourceName: "SI", extractionMethod: "text",
+			excerpt: "heated at 70 °C", confidence: "high", bundleId: "bundle-rd-1", page: "S3"
+		});
+		assert.equal(ai.originalExtract, "heated at 70 °C");
+		assert.equal(ai.reviewRound, 1);
+		await synth.registerEvidenceShotVerification(ai.id, { status: "ready", bundleId: "bundle-rd-1", page: "S3", sourceDigest: "dig-rd" });
+
+		// 人工修正 → corrected + userCorrection；人工点击不推进轮次（0.4.0 §3）
+		const fixed = await synth.reviewEvidence(ai.id, "corrected", { correction: "75 °C" });
+		assert.equal(fixed.reviewStatus, "corrected");
+		assert.equal(fixed.userCorrection, "75 °C");
+		assert.equal(fixed.reviewRound, 1, "人工修正不开启新审核轮");
+		assert.equal(fixed.originalExtract, "heated at 70 °C");
+
+		// 无修正值的 corrected 拒绝
+		await assert.rejects(() => synth.reviewEvidence(ai.id, "corrected"), /requires a human correction/);
+
+		// Agent 批量回写不允许覆盖已确认/已修正的同 id 记录
+		await assert.rejects(() => synth.addStepEvidence({
+			id: ai.id, routeId: "rt-rd", stepId: "s1", supportsField: "procedure.temperature",
+			sourceType: "paper-si", sourceTier: 1, sourceName: "SI", extractionMethod: "text", excerpt: "overwrite attempt"
+		}), /cannot be overwritten/);
+
+		// Agent 新建记录可进入下一审核轮（reviewRound 显式传入，不视为已确认）
+		const round2 = await synth.addStepEvidence({
+			routeId: "rt-rd", stepId: "s1", supportsField: "procedure.temperature",
+			sourceType: "paper-si", sourceTier: 1, sourceName: "SI", extractionMethod: "text",
+			excerpt: "50 °C", confidence: "medium", reviewRound: 2, bundleId: "bundle-rd-2", page: "S5"
+		});
+		assert.equal(round2.reviewRound, 2);
+		assert.equal(round2.reviewStatus, "pending");
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

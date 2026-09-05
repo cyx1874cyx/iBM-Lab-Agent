@@ -16,6 +16,7 @@ def main() -> int:
         import rdkit  # noqa: F401
         from rdkit import Chem
         from rdkit.Chem import Crippen, Descriptors, rdMolDescriptors
+        from rdkit.Chem.inchi import MolToInchiKey
     except ImportError:
         print(json.dumps({"ok": False, "error": "rdkit is not installed in this python"}))
         return 2
@@ -40,6 +41,7 @@ def main() -> int:
     result = {
         "ok": True,
         "canonicalSmiles": canon,
+        "inchiKey": MolToInchiKey(mol),
         "molecularWeight": round(Descriptors.MolWt(mol), 3),
         "logP": round(Crippen.MolLogP(mol), 3),
         "tpsa": round(rdMolDescriptors.CalcTPSA(mol), 3),

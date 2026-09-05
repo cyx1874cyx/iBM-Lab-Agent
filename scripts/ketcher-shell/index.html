@@ -1,4 +1,18 @@
 <!doctype html><html lang="zh"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>iBM Ketcher</title></head>
+<title>iBM Ketcher</title>
+<script src="./raphael.min.js"></script>
+<script>
+  // rc.4 review（§7 浏览器验收修复）：部分第三方预打包模块引用 Node 全局，
+  // Vite ESM 浏览器产物未提供 → 初始化崩溃：
+  //   1) require("raphael") 运行时探测（ketcher-core 遗留 raphael 渲染路径）；
+  //   2) global（ketcher-standalone/indigo 初始化链）。
+  // Raphael 必须在 module graph 求值前同步加载；main.tsx 的模块体赋值会晚于
+  // ketcher-core 顶层 require("raphael")。require 桩只放行已预载的 Raphael。
+  window.global = window;
+  window.require = function (moduleName) {
+    if (moduleName === "raphael") return window.Raphael;
+    throw new Error("require(" + moduleName + ") is unavailable in the standalone Ketcher shell");
+  };
+</script></head>
 <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>

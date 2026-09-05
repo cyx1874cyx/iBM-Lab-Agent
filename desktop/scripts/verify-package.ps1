@@ -12,20 +12,63 @@ $required = @(
   'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js',
   'plugin\vendor.lock.json',
   'plugin\dsh-lab-agent\package.json',
+  'plugin\dsh-lab-agent\node_modules\fast-xml-parser\package.json',
+  'plugin\dsh-lab-agent\node_modules\js-yaml\package.json',
+  'plugin\dsh-lab-agent\node_modules\jszip\package.json',
+  'plugin\dsh-lab-agent\node_modules\zod\package.json',
   'plugin\dsh-lab-agent\vendor\nature-skills',
   'plugin\dsh-lab-agent\python\requirements.lock',
   'python\dist\python.exe',
   'plugin\presets\lab-research\agent.cordis.yml',
-  'plugin\python\requirements.lock'
+  'plugin\python\requirements.lock',
+  'plugin\dsh-lab-agent\client\assets\ketcher-standalone\index.html',
+  'plugin\dsh-lab-agent\src\experiment-plan-template.js',
+  'plugin\dsh-lab-agent\lib\experiment-plan-templates.js'
 )
 foreach ($relativePath in $required) {
   $path = Join-Path $resourceRoot $relativePath
   if (-not (Test-Path -LiteralPath $path)) { throw "Missing packaged runtime input: $relativePath" }
 }
 
+# 0.4.0：Ketcher index.html 引用的每个哈希资源必须存在（防止清旧块时误删在用资源）。
+$ketcherIndex = Join-Path $resourceRoot 'plugin\dsh-lab-agent\client\assets\ketcher-standalone\index.html'
+$ketcherHtml = Get-Content -LiteralPath $ketcherIndex -Raw
+$ketcherRefs = [regex]::Matches($ketcherHtml, '(?:src|href)="\./assets/([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+if ($ketcherRefs.Count -eq 0) { throw 'Ketcher index.html references no assets (broken build output).' }
+foreach ($ref in $ketcherRefs) {
+  $refPath = Join-Path (Split-Path -Parent $ketcherIndex) ("assets\" + $ref)
+  if (-not (Test-Path -LiteralPath $refPath)) { throw "Ketcher index.html references missing asset: assets\$ref" }
+}
+
 $node = Join-Path $resourceRoot 'node\node.exe'
 $dshBin = Join-Path $resourceRoot 'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'
 $python = Join-Path $resourceRoot 'python\dist\python.exe'
+$pluginRoot = Join-Path $resourceRoot 'plugin\dsh-lab-agent'
+# Verify imports from the exact packaged layout.  Merely checking files exist
+# would not catch a missing transitive dependency behind a pnpm link.
+$importProbePath = Join-Path $pluginRoot '.package-import-probe.mjs'
+try {
+  [System.IO.File]::WriteAllText($importProbePath, @'
+await Promise.all([
+  import('fast-xml-parser'),
+  import('js-yaml'),
+  import('jszip'),
+  import('zod'),
+  import('./lib/remote.js'),
+  import('./lib/tasks.js'),
+  import('./lib/ppt-templates.js'),
+  import('./lib/manual-capture.js'),
+  import('./lib/experiment-plan-templates.js'),
+  import('./lib/synthesis.js'),
+  import('./lib/evidence-shot.js'),
+  import('./lib/user-action.js'),
+]);
+'@, (New-Object System.Text.UTF8Encoding($false)))
+  & $node $importProbePath | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Packaged plugin import probe failed.' }
+} finally {
+  if (Test-Path -LiteralPath $importProbePath) { Remove-Item -LiteralPath $importProbePath -Force }
+}
 $pythonCheck = & $python -I -c 'import markitdown; print(markitdown.__name__)'
 if ($LASTEXITCODE -ne 0 -or $pythonCheck -ne 'markitdown') { throw 'Bundled Python cannot import markitdown.' }
 # Origin MCP（固定 0.1.4）打包自检：版本精确 + CLI 可执行 + JSON 可解析。
@@ -161,6 +204,30 @@ try {
         throw "Bundled DSH fixed capture handoff route did not reach the plugin handler (status=$handoffStatus, body=$handoffBody)."
       }
       Write-Host "Bundled DSH Web health check passed on 127.0.0.1:$port."
+      Write-Host 'Bundled DSH fixed capture handoff route check passed.'
+
+      # 0.4.0-rc.4（§8）：Ketcher 静态资源冒烟——不仅检查首页 2xx，还遍历
+      # /api/lab-ketcher/index.html 及其引用的静态资源必须全部 2xx；资源引用
+      # 缺失/引用悬挂直接视为冒烟失败。headless 全量渲染（ready/SMILES 载入/
+      # 编辑保存/PNG/SVG 导出）需要真实浏览器，属安装后人工/受控浏览器验收，
+      # 不在无头 CLI 里声称完成。
+      $ketcherIndexUri = "http://127.0.0.1:$port/api/lab-ketcher/index.html"
+      $ketcherHtml = (Invoke-WebRequest -Uri $ketcherIndexUri -UseBasicParsing -TimeoutSec 3).Content
+      if (-not $ketcherHtml -or $ketcherHtml -notmatch '<div id="root">') {
+        throw "Ketcher smoke failed: /api/lab-ketcher/index.html did not return the shell document."
+      }
+      $ketcherAssets = [regex]::Matches($ketcherHtml, '(?:src|href)="\.\/assets\/([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+      if ($ketcherAssets.Count -eq 0) {
+        throw "Ketcher smoke failed: index.html references no static assets."
+      }
+      foreach ($asset in $ketcherAssets) {
+        $assetUri = "http://127.0.0.1:$port/api/lab-ketcher/assets/$asset"
+        $assetResponse = Invoke-WebRequest -Uri $assetUri -UseBasicParsing -TimeoutSec 15 -SkipHttpErrorCheck
+        if ([int]$assetResponse.StatusCode -ge 400) {
+          throw "Ketcher smoke failed: static asset $asset returned HTTP $([int]$assetResponse.StatusCode)."
+        }
+      }
+      Write-Host "Ketcher static smoke passed: index.html + $($ketcherAssets.Count) asset(s) served (HTTP 2xx). Browser-level render (ready/load/edit/PNG/SVG export/offline) is covered by the installed-app manual acceptance (see 0.4.0_RC3_REMEDIATION_PLAN §8)."
       Write-Host 'Bundled DSH fixed capture handoff route check passed.'
     } finally {
       if ($smokeProcess -and -not $smokeProcess.HasExited) {

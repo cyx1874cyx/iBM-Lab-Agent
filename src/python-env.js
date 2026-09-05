@@ -139,7 +139,7 @@ async function pythonVersionFrom(args, platform) {
 export async function pythonVersion(venvDir, platform = process.platform) {
 	const python = venvPythonPath(venvDir, platform);
 	if (!existsSync(python)) return null;
-	const { stdout } = await new Promise((resolve, reject) => {
+	const { stdout, stderr } = await new Promise((resolve, reject) => {
 		const child = spawn(python, ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
 		let stdout = "";
 		let stderr = "";

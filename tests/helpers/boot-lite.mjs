@@ -72,6 +72,10 @@ export async function bootLite(options) {
 			inject: ["storageDomain"],
 			config: { vendorDir, lockFile }
 		},
+		// Keep the minimal test profile aligned with the shipped bundle: remote
+		// and task services now depend on the experiment-plan template registry.
+		{ id: "lab-experiment-plan-templates", name: "dsh-lab-agent/experiment-plan-templates", inject: ["storageDomain"] },
+		{ id: "lab-plot-records", name: "dsh-lab-agent/plot-records", inject: ["storageDomain"] },
 		...extraRows
 	];
 	if (includePython) {

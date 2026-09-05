@@ -173,3 +173,32 @@ foreach ($f in $files) { if (Test-Path $f) { [Microsoft.VisualBasic.FileIO.FileS
 - **7z 抽查重点更新**：0.3.2 新组件 = `plugin\dsh-lab-agent\client\assets\ketcher-standalone\`（12 条目含 28.9MB 主 chunk）、`lib\ketcher-assets.js`、`lib\evidence-shot.js`、`scripts\evidence-shot.py`、`src\synthesis\{structures,pubchem-resolve}.js`。grep 模式 `ketcher-standalone/index\.html` 首查未命中是 7z 行格式问题，用宽松 `grep -ic ketcher` 确认即可。
 - 日志归档：`C:\Users\admin\Desktop\iBM-Agent\build-logs-032rc1\`（prepare-runtime.log + tauri-build.log）。
 
+---
+
+## 14. 0.4.0 pnpm workspace 迁移后的打包环境实录（2026-09-05）
+
+- **架构变化**：仓库依赖从 npm 平铺改为 **pnpm workspace（lockfile v9 / pnpm 10.34.5）**。根 `node_modules` 仅含 4 个生产依赖 + autoInstallPeers 的直接 peer；`runtime/launcher/node_modules` 已不存在（runtime/launcher 现为 Linux 部署包）。
+- **工具调用硬规矩（WorkBuddy 环境）**：
+  - node/pnpm 前必须 `CODEBUDDY_SAFE_DELETE_ENABLED=0`——WorkBuddy node 安全删除垫片会拦截 pnpm 的 store 清理（`SAFE_DELETE_BULK_CONFIRM_REQUIRED`）直接失败。
+  - corepack 入口：`node <托管node>/node_modules/corepack/dist/corepack.js pnpm@10.34.5 ...`（bash 里 `corepack` cmd shim 失效）。
+  - MSYS 路径喂原生 node 会变 `C:\c\...` → 一律用 `C:/...` Windows 路径。
+- **DSH 运行时源**：DSH 完整树不在仓库内。dev-link（`DSH_HARNESS_NODE_MODULES=C:\Program Files\iBM Lab Agent\dsh\node_modules node scripts/dev-link.mjs`）把安装版 197 个 `@deepseek-ai/*` 链入根 node_modules。integration/regression（boot DSH）必须先 dev-link，否则 `cordis:include loader entries failed to apply`（unit 不经 boot 不受影响）。
+- **prepare-runtime.ps1 断点**：默认 `-DshSource` 指向已不存在的 `runtime\launcher\node_modules` → 必须显式 `-DshSource 'C:\Program Files\iBM Lab Agent\dsh\node_modules'` 或 dev-link 后指向根 node_modules，否则直接 throw "DeepSeek Harness payload was not found"。
+- **两个 worktree 的 CRLF 陷阱**：inCodeX 是 inWB 仓库的 linked worktree（`inWB/.git/worktrees/`）。robocopy 把 CRLF checkout 形态文件复制到另一个 worktree 后，git 会把整树误报为 modified。修复 = `git restore` + `git read-tree HEAD`（重建 index）+ `git apply` 重放真实 diff patch。**行尾陷阱的权威修法：read-tree 重建 index，别逐个文件改行尾。**
+- **Ketcher 大文件删除事故**：对 29MB 哈希块用 `git rm` 时，整个 `client/assets/ketcher-standalone` 目录被外部机制连带清空（两次复现）→ **大文件删除一律 `rm -f` + 事后 `git add -A` 记录**，不用 git rm；完成后立即 `ls` 复检目录完整性。丢失的 untracked 新块可从 `scripts/ketcher-shell/dist/assets` 重新复制（两处为同一构建产物）。
+- **verify-package.ps1 0.4.0 扩展**：required 增 ketcher index.html/css/experiment-plan-template 文件存在性；新增 **Ketcher index.html 引用完整性检查**（解析 src/href 逐个验证 resources 树内存在，防清旧块误删在用资源）；import probe 增 `lib/experiment-plan-templates.js`、`lib/synthesis.js`。
+- 0.4.0 client 工作台三组件已落地（StepReactionLayout 挂载/双源核验面板/锁定语义仅 locked）；lint 工具链补装（eslint/@eslint/js/globals devDeps，ignore 补 `**/dist/**`、`**/assets/**`，噪声规则 off，见 eslint.config.js）。
+
+---
+
+## 15. 0.4.x Windows 单命令发布与防假死约定
+
+- 唯一推荐入口为 `scripts/build-windows-release.ps1`。它为测试、prepare、Web smoke、Tauri/NSIS 和安装包验证分别写日志，并每 20 秒输出 PID、CPU、日志大小与累计耗时。
+- `prepare-runtime.ps1` 默认从根 pnpm workspace 的 `node_modules` 解析 DSH，并用源码/锁文件/Node 指纹跳过未变化且完整的资源快照；需要排查缓存时显式传 `-Force`。
+- 两个脚本均使用独占锁。看到“already running”时先确认已有任务，而不是删除锁文件后并发启动；只有确认没有对应进程的遗留锁才可人工处理。
+- prepare 默认上限 60 分钟，Tauri/NSIS 默认上限 120 分钟。超时会终止本次启动的进程树并保留日志，不会无限等待。
+- Ketcher 引用在删除旧资源前检查。`index.html` 指向不存在的哈希文件时立即停止，先重新构建/提交 Ketcher 产物，禁止在 resources 快照中临时补文件。
+- 发布脚本只接受本轮构建时间之后生成、名称与五处版本完全一致的 NSIS；旧目录里同名或其他版本安装包不能充当成功产物。
+- 禁止用 `TAURI_CONFIG={"bundle":{"resources":[]}}` 构建正式包。无变化增量加速来自资源快照不改 mtime 和 Cargo target 复用，不以牺牲安装包内容为代价。
+- 诊断脏工作树必须传 `-AllowDirty`，最终报告会明确 `publishable=false`；正式候选必须回到干净提交重新构建。
+

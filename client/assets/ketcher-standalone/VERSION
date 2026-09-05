@@ -5,7 +5,15 @@
   3.18.0 + react 18 + vite 5，MODE=standalone），产物 index.html + assets/*。
 - 自包含: 主 chunk ~29MB 内嵌 indigo worker 与 WASM（base64），离线无需 CDN。
 - 重建: cd scripts/ketcher-shell && npm ci && npm run build，产物替换本目录。
-- postMessage 协议:
-  - 宿主 → 子: { type:'setMolecule', smiles } | { type:'render', smiles, requestId } | { type:'getImage', requestId }
+- postMessage 协议（0.4.0-rc.4）:
+  - 宿主 → 子: { type:'setMolecule', smiles }
+             | { type:'render', smiles, requestId, format:'png'|'svg', width, height, theme }（由 SMILES 直接导出）
+             | { type:'getImage', requestId, format:'png'|'svg', width, height, theme }（导出当前结构）
   - 子 → 宿主: { type:'ready' } | { type:'molecule', smiles }（保存）
-               | { type:'image', requestId, dataUrl } | { type:'cancel' }
+             | { type:'image', requestId, dataUrl, format }（PNG/SVG dataURL）
+             | { type:'image:error', requestId, message }（导出失败，明确失败不伪造）
+             | { type:'cancel' }
+- 超时: shell 侧载入结构（load 15s）与导出（20s）分别独立计时，超时发 image:error。
+- 缓存: 同一 SMILES/尺寸/主题/格式/协议版本共享宿主缓存；失败不缓存。
+- 注意: 产物 hash 与 dist/assets 同步；重建后若引用文件名变化需一并更新
+  index.html 与入库 assets（勿残留旧 hash 文件）。

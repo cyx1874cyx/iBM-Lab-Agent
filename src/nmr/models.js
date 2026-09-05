@@ -47,10 +47,19 @@ export const nmrDatasetSchema = z.object({
 	fidPath: z.string().min(1),
 	/** 结构文件路径（登记后不可变）。 */
 	structurePath: z.string().optional(),
+	/** 关联化合物身份快照；旧记录可缺省。 */
+	entityId: z.string().regex(PROFILE_ID_RE).optional(),
+	compound: z.object({
+		name: z.string().min(1),
+		casNumber: z.string().optional(),
+		smiles: z.string().optional()
+	}).optional(),
 	/** 谱类型（1H/13C/2D...）。 */
 	nucleus: z.string().default("1H"),
 	/** 溶剂。 */
 	solvent: z.string().optional(),
+	/** 新记录明确为氘代试剂/氘代溶剂；solvent 保留兼容旧数据。 */
+	deuteratedSolvent: z.string().optional(),
 	/** 待审核积分计划（under-review 阶段可修改）。 */
 	draftIntegrals: z.array(integralSchema).default([]),
 	/** 已审核积分计划（审核通过后冻结，不可覆盖）。 */

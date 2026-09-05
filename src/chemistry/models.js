@@ -110,6 +110,13 @@ export const experimentPlanSchema = z.object({
 	characterization: z.array(z.string()).default([]),
 	safety: z.array(z.string()).default([]),
 	alternatives: z.array(z.string()).default([]),
+	/** 0.4.0：生成时采用的实验计划模板版本快照（id/version/name/sections），旧记录可缺省。 */
+	templateSnapshot: z.object({
+		id: z.string(),
+		version: z.string(),
+		name: z.string(),
+		sections: z.array(z.string()).default([])
+	}).optional(),
 	requiresReview: z.literal(true).default(true),
 	status: z.enum(PLAN_STATUSES).default("draft"),
 	createdAt: z.string(),

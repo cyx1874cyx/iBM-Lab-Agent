@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.3.2-rc.1",
+  "version": "0.4.0-rc.4",
   "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
   "private": true,
   "type": "module",
@@ -21,6 +21,12 @@
     },
     "./note-templates": {
       "default": "./lib/note-templates.js"
+    },
+    "./experiment-plan-templates": {
+      "default": "./lib/experiment-plan-templates.js"
+    },
+    "./plot-records": {
+      "default": "./lib/plot-records.js"
     },
     "./ppt-templates": {
       "default": "./lib/ppt-templates.js"
@@ -48,6 +54,9 @@
     },
     "./evidence-shot": {
       "default": "./lib/evidence-shot.js"
+    },
+    "./user-action": {
+      "default": "./lib/user-action.js"
     },
     "./ketcher-assets": {
       "default": "./lib/ketcher-assets.js"
@@ -128,6 +137,7 @@
     "test": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
     "test:integration": "node --test \"tests/integration/*.test.mjs\"",
     "test:all": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
+    "test:browser": "node --test \"tests/browser/*.test.mjs\"",
     "test:bridge": "python -m unittest tests/python/test_native_bridge.py",
     "regression": "node scripts/regression/run.mjs",
     "regression:record": "node scripts/regression/run.mjs --record-pass",
@@ -211,5 +221,11 @@
   "homepage": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent",
   "bugs": {
     "url": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/issues"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "puppeteer-core": "^24.43.1"
   }
 }

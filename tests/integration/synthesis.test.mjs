@@ -64,7 +64,11 @@ test("synthesis: target, route, open-data evidence, review gate", async () => {
 		const approved = await synth.updateRouteStatus("rt-dox", "approved");
 		assert.equal(approved.status, "approved");
 		await assert.rejects(() => synth.updateRouteStatus("rt-dox", "executing"), /invalid route transition/);
-		await assert.rejects(() => synth.addRouteStep("rt-dox", { step: 2, reaction: "x", reactants: [], products: [] }), /only be edited in draft/);
+		// 0.4.0：approved 未锁定仍可添加步骤（锁定与审核状态独立）
+		const extraStep = await synth.addRouteStep("rt-dox", { step: 2, reaction: "封端", reactants: ["PHEMA"], products: ["X"] });
+		assert.equal(extraStep.steps.length, 2);
+		await synth.lockRoute("rt-dox", { by: "user" });
+		await assert.rejects(() => synth.addRouteStep("rt-dox", { step: 3, reaction: "y", reactants: [], products: [] }), /is locked/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

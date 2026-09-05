@@ -132,7 +132,7 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		assert.equal(search.results[0].isOa, true);
 		assert.deepEqual(search.results[0].sources, ["openalex", "crossref"]);
 		const exportRes = await tasks.exportSearchCitations(search.id, { format: "ris" });
-		assert.match(exportRes.text, /TY  - JOUR/);
+		assert.match(exportRes.text, /TY {2}- JOUR/);
 
 		// 步骤 3/4：论文准备（真实 prepare_paper.py，source_map 输入）
 		const sourceMapPath = join(fxDir, "min-source-map.json");
@@ -329,7 +329,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		const ris = tasks.searchRunRis(search.id);
 		assert.equal(ris.format, "ris");
 		assert.equal(ris.count, 2);
-		assert.match(ris.text, /TY  - JOUR/);
+		assert.match(ris.text, /TY {2}- JOUR/);
 		assert.match(ris.text, /Prodrug-conjugated polymers for drug delivery/);
 		assert.match(ris.text, /A\. Chemist/);
 		assert.match(ris.text, /10\.1000\/fake\.1/);
@@ -493,10 +493,10 @@ test("one session aggregates multiple literature queries into one entry and one 
 		assert.deepEqual(new Set(aliasRetry.availablePaperIds), new Set(["10.1000/sensor", "10.1000/review"]));
 		const ris = tasks.searchRunRis(first.id);
 		assert.equal(ris.count, 2);
-		assert.equal((ris.text.match(/^TY  - /gm) || []).length, 2);
-		assert.match(ris.text, /VL  - 630/);
-		assert.match(ris.text, /SP  - 84/);
-		assert.match(ris.text, /EP  - 90/);
+		assert.equal((ris.text.match(/^TY {2}- /gm) || []).length, 2);
+		assert.match(ris.text, /VL {2}- 630/);
+		assert.match(ris.text, /SP {2}- 84/);
+		assert.match(ris.text, /EP {2}- 90/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

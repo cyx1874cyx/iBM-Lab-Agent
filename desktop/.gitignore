@@ -7,4 +7,5 @@
 /src-tauri/gen/
 /dist/
 /node_modules/
+/.build/
 *.log

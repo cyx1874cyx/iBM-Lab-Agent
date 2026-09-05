@@ -10,24 +10,18 @@ The desktop shell is deliberately small: it starts a bundled Node.js and DSH pro
 > pwsh 输出捕获、后台管道阻塞、NSIS 耗时等），完整避坑记录见
 > [docs/packaging-pitfalls.md](docs/packaging-pitfalls.md)。先读再动手。
 
-On a Windows build machine with Rust stable, the Microsoft C++ build tools, Node 24, and Corepack:
+在已安装 Rust stable、Microsoft C++ Build Tools 和 Node 24 的 Windows 构建机上，推荐只使用统一发布入口：
 
 ```powershell
 Set-Location <repository-root>
-npm ci --omit=peer --legacy-peer-deps
-Push-Location runtime\launcher
-corepack pnpm install --frozen-lockfile --prod
-Pop-Location
-Set-Location desktop
-npm ci
-.\scripts\build-bundled-python.ps1 -SourceRoot ..   # self-contained Python + markitdown
-.\scripts\prepare-runtime.ps1 -SourceRoot .. -NodeExe (Get-Command node).Source
-.\scripts\verify-package.ps1 -WebSmokeTest
-npx tauri build
-.\scripts\verify-package.ps1 -InstallerPath '.\src-tauri\target\release\bundle\nsis\iBM Lab Agent_0.1.12_x64-setup.exe'
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 -SourceRoot . -NodeExe (Get-Command node).Source
 ```
 
-`prepare-runtime` copies the pinned DSH payload, a Windows `node.exe`, the iBM Lab plugin, its complete production dependency tree, locked vendor data, lab preset, and Python lock into the ignored packaging-resources directory. pnpm's redundant internal store is excluded after the flattened runtime has been materialized. Pass `-RuntimeSourceRoot` only when reusing a separately prepared `runtime\launcher\node_modules` tree, and pass `-NodeExe` when the intended Node binary is not supplied by the build environment.
+该脚本依次执行源码测试、回归、预设导出检查、lint、资源准备、Web 冒烟、Tauri/NSIS 构建和精确安装包验证。每个阶段写入独立日志并默认每 20 秒输出心跳；prepare 和 build 分别有超时，超时只终止本次启动的进程树。日志与 `release-report.json` 位于 `desktop\.build\windows-release-<时间>`。
+
+发布构建默认拒绝脏工作树并使用锁阻止并发。`-AllowDirty` 只用于诊断，产物会标记为不可发布；`-SkipBuild` 可只验证源码和资源；`-ForcePrepare` 强制忽略资源指纹做完整快照刷新。
+
+`prepare-runtime` 现在默认从根 pnpm workspace 的 `node_modules` 识别 DSH；旧 `runtime\launcher\node_modules` 仅为兼容回退。它为源码和依赖生成资源指纹，资源未变化且完整时跳过删除/复制；完整性检查包含 Ketcher `index.html` 的动态哈希引用。不要并发运行两次 `prepare-runtime`。
 
 `build-bundled-python` materializes `resources\python\dist` — a self-contained
 Python 3.11 install (interpreter + stdlib + `site-packages` with the pinned
@@ -40,21 +34,11 @@ pin the base interpreter via `pyvenv.cfg` and are not portable.
 
 `verify-package -WebSmokeTest` boots the packaged `ibm-lab` profile on an ephemeral loopback port, requires an HTTP success response, rejects duplicate `labAgent`/plugin-tree errors, and terminates the test process tree. The NSIS installer uses Tauri's `downloadBootstrapper` WebView2 mode: Windows 10/11 normally already provide WebView2, while a missing runtime is downloaded by the installer.
 
-### Note: build-script resource scan
+### 长时间构建与进度判断
 
-`tauri-build` walks every file declared in `bundle.resources` and emits one
-`rerun-if-changed` line per file. With the bundled DSH dependency tree
-(hundreds of thousands of files under `resources\dsh\`) and the bundled
-Python (tens of thousands under `resources\python\dist\`) this makes the
-build script appear frozen for 20+ minutes. Pass the config override below to
-skip that walk during compilation; the Tauri bundler still packages the full
-resources from `tauri.conf.json`, so the installer keeps Node/DSH/plugin/Python:
+首次 Rust/LTO 编译或 makensis 压缩可能持续数十分钟。统一脚本会持续打印阶段、PID、CPU、日志大小和耗时；只要心跳持续且未超过阶段上限，不要另开第二次构建。若超时或失败，先读取该阶段 stdout/stderr 尾部，再决定是否用 `-ForcePrepare` 重跑。
 
-```powershell
-$env:TAURI_CONFIG = '{"bundle":{"resources":[]}}'
-npx tauri build
-Remove-Item Env:TAURI_CONFIG
-```
+正式发布禁止设置 `TAURI_CONFIG={"bundle":{"resources":[]}}`。该做法可能缩短资源扫描，却会使安装包资源完整性无法得到保证。增量加速依赖资源指纹不触碰未变化快照以及复用默认 Cargo target。
 
 If GitHub is unreachable from the build machine, the NSIS toolchain download
 also stalls; a proxy or mirror must be available for

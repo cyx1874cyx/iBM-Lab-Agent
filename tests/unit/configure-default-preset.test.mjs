@@ -15,8 +15,8 @@ test("default-preset configurator preserves unrelated settings", async () => {
 		const result = spawnSync(process.execPath, [script, "--dsh-home", root], { encoding: "utf8" });
 		assert.equal(result.status, 0, result.stderr);
 		const source = await readFile(join(root, "settings.yaml"), "utf8");
-		assert.match(source, /llm:\n  provider: test/);
-		assert.match(source, /agent-presets:\n  default: lab-research/);
+		assert.match(source, /llm:\n {2}provider: test/);
+		assert.match(source, /agent-presets:\n {2}default: lab-research/);
 		assert.equal(spawnSync(process.execPath, [script, "--dsh-home", root]).status, 0);
 	} finally {
 		await rm(root, { recursive: true, force: true });

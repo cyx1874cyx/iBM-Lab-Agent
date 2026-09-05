@@ -92,6 +92,16 @@
       name: 'dsh-lab-agent/note-templates'
       inject: [storageDomain]
 
+    # ── Experiment plan templates (0.4.0) ──────────────────────────────────
+    - id: lab-experiment-plan-templates
+      name: 'dsh-lab-agent/experiment-plan-templates'
+      inject: [storageDomain]
+
+    # ── Plot records (0.4.0)：课题绘图登记簿（主题/日期可改，持久化） ───────
+    - id: lab-plot-records
+      name: 'dsh-lab-agent/plot-records'
+      inject: [storageDomain]
+
     # ── PPT template profiles (PptTemplateProfile) ────────────────────────────
     #
     # Host service `ctx.labTemplates`: PPTX 导入（解析母版/布局/占位符/字体/
@@ -113,7 +123,7 @@
     # complete* 登记。DOCX/PPTX 自动暂存，自查仅提示；人工审核通过后开放下载。
     - id: lab-tasks
       name: 'dsh-lab-agent/tasks'
-      inject: [storageDomain, labGoals, labNoteTemplates, labTemplates, labVersions]
+      inject: [storageDomain, labGoals, labNoteTemplates, labExperimentPlanTemplates, labTemplates, labVersions]
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
@@ -229,6 +239,18 @@
         venvDir: !!js dshHomePath('lab-agent/.venv')
         cacheDir: !!js dshHomePath('lab-agent/evidence-shots')
 
+    # ── 可信用户动作端点（labUserAction，rc.4 review §5.2）───────────────
+    #
+    # Host service `ctx.labUserAction`：路线「锁定版本」是仅真实 UI 用户动作可
+    # 执行的操作。锁定已从通用 Remote/Agent 网关移出（remote 不再暴露
+    # synth_route_lock；Agent 工具注册表无锁定方法），本端点作为唯一锁定通道：
+    # POST /api/lab-user-action/lock-route（同源校验 + x-lab-user-action 意图
+    # header + 显式 POST）→ labSynthesis.lockRoute(by:"user")；服务端要求显式
+    # actor，缺省/伪造主体拒绝；门禁被阻断返回 409 + 结构化 blockers。
+    - id: lab-user-action
+      name: 'dsh-lab-agent/user-action'
+      inject: [labSynthesis, webServer]
+
     # ── Edge capture handoff 页面（labCaptureHandoff）──────────────────────
     #
     # Windows Desktop 默认 browserMode=desktop-edge-handoff：客户端创建捕获任务
@@ -247,7 +269,7 @@
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labNoteTemplates, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
+      inject: [labVersions, labGoals, labNoteTemplates, labExperimentPlanTemplates, labPlotRecords, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。
