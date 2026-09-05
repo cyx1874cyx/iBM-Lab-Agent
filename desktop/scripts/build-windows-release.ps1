@@ -214,7 +214,7 @@ try {
     $phases.Add((Invoke-LoggedProcess -Name 'preset-exports' -FilePath $NodeExe -Arguments @('scripts/check-preset-exports.mjs') -WorkingDirectory $sourceRoot -TimeoutMinutes 5))
     # rc.4 review（§7.2）：真实浏览器 + 离线 Ketcher 验收必须进入统一发布脚本，
     # 失败阻止 Tauri 打包（驱动本机 Edge/Chrome headless，无浏览器则本阶段失败）。
-    $phases.Add((Invoke-LoggedProcess -Name 'browser-ketcher' -FilePath $NodeExe -Arguments @('--test', 'tests/browser') -WorkingDirectory $sourceRoot -TimeoutMinutes 15))
+    $phases.Add((Invoke-LoggedProcess -Name 'browser-ketcher' -FilePath $NodeExe -Arguments @('--test', 'tests/browser/*.test.mjs') -WorkingDirectory $sourceRoot -TimeoutMinutes 15))
     $eslint = Join-Path $sourceRoot 'node_modules\eslint\bin\eslint.js'
     if (-not (Test-Path -LiteralPath $eslint)) { throw "ESLint is missing: $eslint" }
     $phases.Add((Invoke-LoggedProcess -Name 'lint' -FilePath $NodeExe -Arguments @($eslint, 'lib', 'src', 'scripts', 'tests', 'client', 'browser-extension', '--max-warnings=200') -WorkingDirectory $sourceRoot -TimeoutMinutes 15))
