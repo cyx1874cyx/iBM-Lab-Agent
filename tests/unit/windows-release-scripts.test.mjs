@@ -30,6 +30,7 @@ test("prepare-runtime validates Ketcher before selective component refresh", asy
 	// rc.4 §9：git ls-files 稳定清单、流式哈希、临时目录原子切换与失败清理
 	assert.match(source, /git ls-files/);
 	assert.match(source, /CryptoStream/);
+	assert.match(source, /IsNullOrWhiteSpace\(\$_\)/, "空 dependencies 对象不得递归出空依赖名");
 	assert.match(source, /Staging refresh under temporary directory/);
 	assert.match(source, /Moving staged/);
 	assert.match(source, /Cleaning staged temporary directory/);

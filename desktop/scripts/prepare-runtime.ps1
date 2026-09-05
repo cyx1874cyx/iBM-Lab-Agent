@@ -403,7 +403,12 @@ function Copy-ProductionDependency([string]$DependencyName, [string]$SearchRoot,
   # flattened and avoids following a cyclic link back into the pnpm store.
   Copy-Tree $dependencySource (Join-Path $pluginRoot (Join-Path 'node_modules' $packageName)) -ExcludeDirectories @('node_modules') -ExcludeJunctions
   if ($null -ne $manifest.dependencies) {
-    foreach ($childName in @($manifest.dependencies.PSObject.Properties.Name)) {
+    $childNames = @(
+      $manifest.dependencies.PSObject.Properties |
+        ForEach-Object { [string]$_.Name } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    foreach ($childName in $childNames) {
       Copy-ProductionDependency $childName $dependencySource $Visited
     }
   }
