@@ -1,14 +1,25 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+
+// 0.4.1 起 client/index.js 拆分为 client/src/*.js（由 build-client.mjs 打包回单文件）。
+// 本文件锁「客户端源码契约」，故读取 src/ 下全部源文件拼接后断言（与 esbuild 产物解耦）。
+const readClientSource = async () => {
+	const dir = fileURLToPath(new URL("../../client/src", import.meta.url));
+	const names = (await readdir(dir)).filter((f) => f.endsWith(".js")).sort();
+	const parts = await Promise.all(names.map((f) => readFile(join(dir, f), "utf8")));
+	return parts.join("\n");
+};
 
 test("desktop shell routes artifact save and external URLs through Tauri", async () => {
 	const [shell, main, client, manifest] = await Promise.all([
 		read("desktop/src/index.html"),
 		read("desktop/src-tauri/src/main.rs"),
-		read("client/index.js"),
+		readClientSource(),
 		read("package.json"),
 	]);
 	assert.match(shell, /event\.source !== frame\.contentWindow/);
@@ -35,7 +46,7 @@ test("0.1.15 PDF/SI 打开链路：两个按钮都走 OPEN_ARTIFACT_IN_BROWSER �
 	const [shell, main, client] = await Promise.all([
 		read("desktop/src/index.html"),
 		read("desktop/src-tauri/src/main.rs"),
-		read("client/index.js"),
+		readClientSource(),
 	]);
 	// 精读条目：正文与 SI 按钮已登记后都进入 Edge 打开流程（openEntryInEdge → openPdfPreview → 桌面桥）
 	assert.match(client, /bundlePdfUrl \? openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);

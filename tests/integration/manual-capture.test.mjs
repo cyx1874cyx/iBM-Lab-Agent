@@ -17,7 +17,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,8 +27,15 @@ import { createCaptureUploadHandler } from "../../lib/manual-capture.js";
 import { buildEntryStem, entryFileName } from "../../lib/entry-layout.js";
 
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
-const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
+// 0.4.1 起 client/index.js 拆分为 client/src/*.js；静态契约断言读取源码拼接。
+const clientSrcDir = fileURLToPath(new URL("../../client/src", import.meta.url));
 const extensionRoot = fileURLToPath(new URL("../../browser-extension/ibm-literature-capture/", import.meta.url));
+
+async function readClientSource() {
+	const names = (await readdir(clientSrcDir)).filter((f) => f.endsWith(".js")).sort();
+	const parts = await Promise.all(names.map((f) => readFile(join(clientSrcDir, f), "utf8")));
+	return parts.join("\n");
+}
 
 /** 合法 chrome-extension:// Origin（MV3 扩展 id = 32 个 a–p 字符）。 */
 const CHROME_ORIGIN = `chrome-extension://${"a".repeat(32)}`;
@@ -516,7 +523,7 @@ test("capture: 服务重启后任务状态与 bundle 登记保持正确", async 
 });
 
 test("capture: 前端按钮状态逻辑与「不显示公众号链接」静态断言", async () => {
-	const client = await readFile(clientPath, "utf8");
+	const client = await readClientSource();
 	// 按钮始终存在：PDF/SI 两个图标按钮带 data-ready 状态
 	assert.match(client, /aria-label": "PDF 原文"/);
 	assert.match(client, /aria-label": "SI 补充材料"/);

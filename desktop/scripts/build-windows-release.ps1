@@ -245,6 +245,7 @@ try {
   }
 
   if (-not $SkipTests) {
+    $phases.Add((Invoke-LoggedProcess -Name 'client-bundle-check' -FilePath $NodeExe -Arguments @('scripts/build-client.mjs', '--check') -WorkingDirectory $sourceRoot -TimeoutMinutes 5))
     $phases.Add((Invoke-LoggedProcess -Name 'tests' -FilePath $NodeExe -Arguments @('--test', 'tests/unit/*.test.mjs', 'tests/integration/*.test.mjs') -WorkingDirectory $sourceRoot -TimeoutMinutes 20))
     $phases.Add((Invoke-LoggedProcess -Name 'regression' -FilePath $NodeExe -Arguments @('scripts/regression/run.mjs') -WorkingDirectory $sourceRoot -TimeoutMinutes 20 -Environment @{ DSH_HARNESS_NODE_MODULES = $DshSource }))
     $phases.Add((Invoke-LoggedProcess -Name 'preset-exports' -FilePath $NodeExe -Arguments @('scripts/check-preset-exports.mjs') -WorkingDirectory $sourceRoot -TimeoutMinutes 5))

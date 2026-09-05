@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.4.0-rc.4",
+  "version": "0.4.1-rc.1",
   "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
   "private": true,
   "type": "module",
@@ -152,6 +152,7 @@
     "dev:link": "node scripts/dev-link.mjs",
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "build:client": "node scripts/build-client.mjs",
+    "check:client": "node scripts/build-client.mjs --check",
     "lint": "eslint lib src scripts tests client browser-extension --max-warnings=200",
     "check:preset-exports": "node scripts/check-preset-exports.mjs"
   },
@@ -227,6 +228,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "esbuild": "0.24.0",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
     "puppeteer-core": "^24.43.1"

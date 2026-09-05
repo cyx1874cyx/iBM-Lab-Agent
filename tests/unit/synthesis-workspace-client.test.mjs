@@ -13,14 +13,23 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
+// 0.4.1 起 client/index.js 拆分为 client/src/*.js 多模块（由 build-client.mjs 打包回单文件）。
+// 本文件锁的是「客户端源码契约」，故读取 src/ 下全部源文件拼接后断言（与 esbuild 产物解耦）。
+const clientSrcDir = fileURLToPath(new URL("../../client/src", import.meta.url));
 const remotePath = fileURLToPath(new URL("../../lib/remote.js", import.meta.url));
 
+async function readClientSource() {
+	const names = (await readdir(clientSrcDir)).filter((f) => f.endsWith(".js")).sort();
+	const parts = await Promise.all(names.map((f) => readFile(join(clientSrcDir, f), "utf8")));
+	return parts.join("\n");
+}
+
 test("0.4.0 workspace: three full-width panels are genuinely rendered (no CSS-hide simulation)", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 三个主要组件：组件一（sw-graph 结构图路线）、组件二（sw04-detail）、组件三（sw04-fact）
 	assert.match(source, /className: "sw-graph"/);
 	assert.match(source, /className: "sw-sec sw04-detail"/);
@@ -43,7 +52,7 @@ test("0.4.0 workspace: three full-width panels are genuinely rendered (no CSS-hi
 });
 
 test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text cards", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 步骤卡渲染结构图流程：化合物节点（sw-step-chem-node）+ 反应箭头 + 条件摘要
 	assert.match(source, /className: "sw-step-chem"/);
 	assert.match(source, /sw-step-chem-node/);
@@ -69,7 +78,7 @@ test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text
 });
 
 test("0.4.0 workspace: two-column reaction layout with full condition coverage", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// StepReactionLayout：反应物 → 条件网格 → 产物
 	assert.match(source, /sw04-reaction/);
 	assert.match(source, /"sw04-cond-grid"/);
@@ -85,7 +94,7 @@ test("0.4.0 workspace: two-column reaction layout with full condition coverage",
 });
 
 test("0.4.0 review: three human decisions, correction keeps original+correction, submit gate", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 三项人工决定：确认 / 修正 / 无法确认（RC1：确认改称「确认通过」，迁入审核抽屉）
 	assert.match(source, /"确认通过"/);
 	assert.match(source, /"修正"/);
@@ -107,7 +116,7 @@ test("0.4.0 review: three human decisions, correction keeps original+correction,
 });
 
 test("0.4.0 review batches: remote descriptors + server apply are wired", async () => {
-	const [client, remote] = await Promise.all([readFile(clientPath, "utf8"), readFile(remotePath, "utf8")]);
+	const [client, remote] = await Promise.all([readClientSource(), readFile(remotePath, "utf8")]);
 	for (const method of ["synth_review_batch_create", "synth_review_batch_get", "synth_review_batch_complete", "synth_review_uncertain_apply"]) {
 		assert.ok(client.includes(`direct("${method}", ["request"])`), `client 需注册 ${method}`);
 		assert.ok(remote.includes(`markRemote(LabRemoteService.prototype, "${method}")`), `remote 需 markRemote ${method}`);
@@ -118,7 +127,7 @@ test("0.4.0 review batches: remote descriptors + server apply are wired", async 
 });
 
 test("0.4.0 dual-source: pubchem-only auto-write entry removed and registration persists CAS/InChIKey", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// PubChem 单源自动写入入口已从工作台删除（只能经双源候选/人工确认登记）
 	assert.doesNotMatch(source, /resolveStepSmiles/);
 	assert.doesNotMatch(source, /synth_step_resolve_smiles/);
@@ -130,7 +139,7 @@ test("0.4.0 dual-source: pubchem-only auto-write entry removed and registration 
 });
 
 test("0.4.0 ketcher: cache key covers structure/width/height/theme/protocol/format and failures retry", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 渲染协议版本常量 + 缓存键函数（规范化结构 | 宽高 | 主题 | 导出格式 | 协议版本）
 	assert.match(source, /const KETCHER_RENDER_PROTOCOL = 1/);
 	assert.match(source, /function ketcherCacheKey\(smiles, \{ width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png" \}/);
@@ -165,7 +174,7 @@ test("0.4.0 ketcher: cache key covers structure/width/height/theme/protocol/form
 });
 
 test("rc.4 review §3: EvidenceShot Object URL lifecycle — probe must not revoke/confirm early; ready gated on visible img", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 探测成功后不允许立即 revoke（同一 URL 交给实际展示 <img>）
 	assert.doesNotMatch(source, /probe\.onload = \(\) => \{ URL\.revokeObjectURL\(objectUrl\); resolve\(objectUrl\); \};/);
 	assert.match(source, /probe\.onload = \(\) => resolve\(objectUrl\);/, "probe 成功只解析 URL，不 revoke、不触发 ready");
@@ -193,7 +202,7 @@ test("rc.4 review §3: EvidenceShot Object URL lifecycle — probe must not revo
 });
 
 test("rc.4 review §5: route lock leaves the remote gateway — client locks via loopback user-action endpoint", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 描述符清单不再声明 synth_route_lock（锁定已移出 Remote/Agent 网关）
 	assert.doesNotMatch(source, /direct\("synth_route_lock"/, "client 不再经 ctx.remote.lab 调用锁定");
 	assert.doesNotMatch(source, /call\("synth_route_lock"/, "锁定动作不再走通用 remote 通道");

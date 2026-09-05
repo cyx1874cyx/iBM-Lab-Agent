@@ -11,6 +11,7 @@ test("Windows release entrypoint is observable, bounded and exact-versioned", as
 	const source = await read("desktop/scripts/build-windows-release.ps1");
 	assert.match(source, /windows-release\.lock/);
 	assert.match(source, /HEARTBEAT/);
+	assert.match(source, /client-bundle-check/, "发布前必须校验 client\/src 与运行时 bundle 一致");
 	assert.match(source, /TimeoutMinutes/);
 	assert.match(source, /process\.Kill\(\$true\)/);
 	assert.match(source, /\.cargo\\bin\\cargo\.exe/, "Windows 发布脚本自动发现用户级 Cargo");

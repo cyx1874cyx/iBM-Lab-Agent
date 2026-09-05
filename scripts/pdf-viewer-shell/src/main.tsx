@@ -8,8 +8,9 @@ import * as pdfjsLib from "pdfjs-dist";
 // 这是「合成路线工作台」审核抽屉内嵌的 PDF 定位 shell。宿主（client/index.js）
 // 通过 iframe + postMessage 与它通信：
 //
-//   宿主 → 子：{ type:"open", bundleId, page, quote }
+//   宿主 → 子：{ type:"open", bundleId, kind, page, quote }
 //               bundleId  已归档原文的 bundle id（用于 /api/lab-artifacts 取 PDF 流）
+//               kind      "pdf"（正文）或 "si"（补充材料）
 //               page      1-based 目标页码（evidence.page 归一化后的整数）
 //               quote     系统提取的原文摘录（用于文本定位，可空）
 //   子 → 宿主：{ type:"ready" }                    PDF.js 初始化完成
@@ -163,17 +164,20 @@ function App() {
   const containerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const pageRef = useRef(null);
+  const loadingTaskRef = useRef(null);
+  const renderTaskRef = useRef(null);
+  const requestSeqRef = useRef(0);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
-  const [quote, setQuote] = useState("");
   const [locateResult, setLocateResult] = useState(null); // { status, detail }
-  const busyRef = useRef(false);
 
   const post = (msg) => { try { window.parent.postMessage(msg, "*"); } catch { /* noop */ } };
 
   // 清理旧渲染
   const clearRender = () => {
+    try { renderTaskRef.current?.cancel?.(); } catch { /* noop */ }
+    renderTaskRef.current = null;
     if (textLayerRef.current) { textLayerRef.current.innerHTML = ""; }
     if (pageRef.current) { pageRef.current = null; }
     const canvas = canvasRef.current;
@@ -181,21 +185,19 @@ function App() {
   };
 
   // 渲染 PDF 某页到 canvas + 建立文本层
-  const renderPage = async (pageNumber) => {
-    const doc = pdfDocRef.current;
-    if (!doc) return;
+  const renderPage = async (doc, pageNumber, quoteText, requestSeq) => {
     clearRender();
     let page;
     try {
       page = await doc.getPage(pageNumber);
     } catch {
-      post({ type: "error", message: `页码 ${pageNumber} 超出范围（PDF 共 ${doc.numPages} 页）` });
-      return;
+      throw new Error(`页码 ${pageNumber} 超出范围（PDF 共 ${doc.numPages} 页）`);
     }
+    if (requestSeq !== requestSeqRef.current) return false;
     pageRef.current = page;
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas || !container) throw new Error("PDF 画布尚未就绪");
 
     // 自适应容器宽度缩放
     const containerWidth = Math.max(320, container.clientWidth || 600);
@@ -209,10 +211,15 @@ function App() {
     canvas.style.height = `${scaledViewport.height}px`;
 
     const context = canvas.getContext("2d");
-    await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+    const renderTask = page.render({ canvasContext: context, viewport: scaledViewport });
+    renderTaskRef.current = renderTask;
+    await renderTask.promise;
+    if (requestSeq !== requestSeqRef.current) return false;
+    renderTaskRef.current = null;
 
     // 建立文本层（用于高亮，透明度覆盖在 canvas 上）
     const textContent = await page.getTextContent();
+    if (requestSeq !== requestSeqRef.current) return false;
     const textLayer = textLayerRef.current;
     if (textLayer) {
       textLayer.innerHTML = "";
@@ -228,9 +235,13 @@ function App() {
     post({ type: "loaded", page: pageNumber });
 
     // 定位 quote
-    if (quote) {
-      locateAndHighlight(pageNumber);
+    if (quoteText) {
+      locateAndHighlight(quoteText);
+    } else {
+      setLocateResult({ status: "noquote" });
+      post({ type: "highlight", status: "noquote", detail: "" });
     }
+    return true;
   };
 
   // 渲染文本层 span（用 item 坐标放置），供高亮定位
@@ -275,10 +286,10 @@ function App() {
   };
 
   // 定位并高亮 quote
-  const locateAndHighlight = (pageNumber) => {
+  const locateAndHighlight = (quoteText) => {
     const model = window.__pageModel;
     if (!model) return;
-    const normQuote = normalizeText(quote);
+    const normQuote = normalizeText(quoteText);
     if (!normQuote) {
       setLocateResult({ status: "noquote" });
       post({ type: "highlight", status: "noquote", detail: "" });
@@ -330,40 +341,52 @@ function App() {
   // 接收宿主消息
   useEffect(() => {
     const onMsg = (e) => {
+      if (e.source !== window.parent) return;
       const d = e.data || {};
       if (d?.type === "open") {
         const bundleId = d.bundleId;
+        const kind = d.kind === "si" ? "si" : "pdf";
         const page = Number(d.page) || 1;
         const q = d.quote || "";
-        setQuote(q);
         setLocateResult(null);
         setMessage("");
-        openPdf(bundleId, page, q);
+        void openPdf(bundleId, kind, page, q);
       }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  const openPdf = async (bundleId, page, q) => {
+  const openPdf = async (bundleId, kind, page, q) => {
     if (!bundleId) {
       setStatus("error");
       setMessage("未提供 bundleId，无法加载原文");
       post({ type: "error", message: "未提供 bundleId" });
       return;
     }
+    const requestSeq = ++requestSeqRef.current;
+    clearRender();
+    try { await loadingTaskRef.current?.destroy?.(); } catch { /* noop */ }
+    loadingTaskRef.current = null;
+    try { await pdfDocRef.current?.destroy?.(); } catch { /* noop */ }
+    pdfDocRef.current = null;
     setStatus("loading");
     setMessage("正在加载原文…");
     try {
       // 复用 /api/lab-artifacts 取 PDF 流（PDF.js 可直接消费同源 URL）
-      const pdfUrl = `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundleId)}&preview=1`;
+      const pdfUrl = `/api/lab-artifacts?kind=${kind}&bundleId=${encodeURIComponent(bundleId)}&preview=1`;
       const loadingTask = pdfjsLib.getDocument({ url: pdfUrl, workerSrc: WORKER_SRC });
+      loadingTaskRef.current = loadingTask;
       const doc = await loadingTask.promise;
+      if (requestSeq !== requestSeqRef.current) { await doc.destroy().catch(() => {}); return; }
+      loadingTaskRef.current = null;
       pdfDocRef.current = doc;
       setMessage(`已加载（共 ${doc.numPages} 页）`);
-      await renderPage(page);
+      const rendered = await renderPage(doc, page, q, requestSeq);
+      if (!rendered || requestSeq !== requestSeqRef.current) return;
       setStatus("ready");
     } catch (error) {
+      if (requestSeq !== requestSeqRef.current || error?.name === "RenderingCancelledException") return;
       setStatus("error");
       const msg = error?.message || "PDF 加载失败";
       setMessage(msg);
@@ -374,6 +397,12 @@ function App() {
   // 初始化完成后发 ready
   useEffect(() => {
     post({ type: "ready" });
+    return () => {
+      requestSeqRef.current += 1;
+      clearRender();
+      try { loadingTaskRef.current?.destroy?.(); } catch { /* noop */ }
+      try { pdfDocRef.current?.destroy?.(); } catch { /* noop */ }
+    };
   }, []);
 
   return (

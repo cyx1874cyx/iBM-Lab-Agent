@@ -1,15 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { composeEntries, loadOverlayPatches } from "@deepseek-ai/dsh-app-boot";
 
 const patchPath = fileURLToPath(new URL("../../cordis.patch.yml", import.meta.url));
+// clientPath = 打包产物（vm 执行测试用）；clientSrcDir = 拆分后的源码目录（静态契约断言用）。
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
+const clientSrcDir = fileURLToPath(new URL("../../client/src", import.meta.url));
 const presetPath = fileURLToPath(new URL("../../presets/lab-research/agent.cordis.yml", import.meta.url));
 const serverUpdatePath = fileURLToPath(new URL("../../scripts/update-server.ps1", import.meta.url));
 const localServerUpdatePath = fileURLToPath(new URL("../../update-server.cmd", import.meta.url));
+
+// 0.4.1 起 client/index.js 拆分为 client/src/*.js 多模块。静态契约断言读取源码拼接，
+// 与 esbuild 产物（void 0 / 2e4 / 删注释等变换）解耦。
+async function readClientSource() {
+	const names = (await readdir(clientSrcDir)).filter((f) => f.endsWith(".js")).sort();
+	const parts = await Promise.all(names.map((f) => readFile(join(clientSrcDir, f), "utf8")));
+	return parts.join("\n");
+}
 
 test("bundle patch keeps one bare client carrier and the version registry", () => {
 	const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
@@ -79,7 +90,7 @@ test("document conversion tool is scoped to the research preset", async () => {
 });
 
 test("web client exposes the project-first research workspace shell", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	assert.doesNotMatch(source, /\bbusyTemp\b/, "client must render from the declared busy state");
 	assert.match(source, /选择一个课题继续/);
 	assert.match(source, /课题核心记忆\.md/);
@@ -101,7 +112,7 @@ test("web client exposes the project-first research workspace shell", async () =
 });
 
 test("PPT template import initializes role mappings before rendering the staged form", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	const mappingUpdate = source.indexOf("setMapping(initialMapping)");
 	const stagedUpdate = source.indexOf("setStaged({ profile, parsed, suggestions })");
 	assert.ok(mappingUpdate >= 0, "client initializes the imported template mapping");
@@ -177,7 +188,7 @@ test("reading reports inventory PDF and SI before using note templates", async (
 });
 
 test("web client auto-launches per-project workspace + research session and customizes the conversation UI", async () => {
-	const source = await readFile(clientPath, "utf8");
+	const source = await readClientSource();
 	// 自动 launch：专属工作区 + 新对话 + 科研 Agent 预设
 	assert.match(source, /ctx\.workspaces\.create\(\{ path: project\.workspacePath \}\)/);
 	assert.match(source, /ctx\.workspaces\.rename\(workspaceId, project\.name\)/);
