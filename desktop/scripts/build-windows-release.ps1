@@ -2,6 +2,7 @@
 param(
   [string]$SourceRoot,
   [string]$NodeExe = $env:CODEX_MCP_NODE_PATH,
+  [string]$CargoExe,
   [string]$DshSource,
   [switch]$AllowDirty,
   [switch]$PreflightOnly,
@@ -35,6 +36,23 @@ if (-not $NodeExe -or -not (Test-Path -LiteralPath $NodeExe)) {
   throw 'Node.js is unavailable. Pass -NodeExe with an approved Windows Node 24 executable.'
 }
 $NodeExe = (Resolve-Path -LiteralPath $NodeExe).Path
+
+if (-not $SkipBuild) {
+  if (-not $CargoExe) {
+    $cargoCommand = Get-Command cargo -ErrorAction SilentlyContinue
+    if ($cargoCommand) {
+      $CargoExe = $cargoCommand.Source
+    } else {
+      $userProfile = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+      $userCargo = Join-Path $userProfile '.cargo\bin\cargo.exe'
+      if (Test-Path -LiteralPath $userCargo) { $CargoExe = $userCargo }
+    }
+  }
+  if (-not $CargoExe -or -not (Test-Path -LiteralPath $CargoExe)) {
+    throw 'Rust Cargo is unavailable. Install the Rust MSVC toolchain or pass -CargoExe explicitly.'
+  }
+  $CargoExe = (Resolve-Path -LiteralPath $CargoExe).Path
+}
 
 if (-not $DshSource) {
   $DshSource = Join-Path $sourceRoot 'node_modules'
@@ -237,8 +255,14 @@ try {
 
   $tauriCli = Join-Path $desktopRoot 'node_modules\@tauri-apps\cli\tauri.js'
   if (-not (Test-Path -LiteralPath $tauriCli)) { throw "Tauri CLI is missing: $tauriCli" }
+  $cargoBin = Split-Path -Path $CargoExe -Parent
+  $tauriEnvironment = @{
+    CARGO = $CargoExe
+    CARGO_TERM_COLOR = 'never'
+    PATH = "$cargoBin;$env:PATH"
+  }
   $buildStartedAt = [DateTime]::UtcNow
-  $phases.Add((Invoke-LoggedProcess -Name 'tauri-nsis' -FilePath $NodeExe -Arguments @($tauriCli, 'build') -WorkingDirectory $desktopRoot -TimeoutMinutes $BuildTimeoutMinutes -Environment @{ CARGO_TERM_COLOR = 'never' }))
+  $phases.Add((Invoke-LoggedProcess -Name 'tauri-nsis' -FilePath $NodeExe -Arguments @($tauriCli, 'build') -WorkingDirectory $desktopRoot -TimeoutMinutes $BuildTimeoutMinutes -Environment $tauriEnvironment))
 
   $installerRoot = Join-Path $desktopRoot 'src-tauri\target\release\bundle\nsis'
   $installer = Get-ChildItem -LiteralPath $installerRoot -File -ErrorAction SilentlyContinue | Where-Object {

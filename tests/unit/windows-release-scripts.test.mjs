@@ -13,6 +13,8 @@ test("Windows release entrypoint is observable, bounded and exact-versioned", as
 	assert.match(source, /HEARTBEAT/);
 	assert.match(source, /TimeoutMinutes/);
 	assert.match(source, /process\.Kill\(\$true\)/);
+	assert.match(source, /\.cargo\\bin\\cargo\.exe/, "Windows 发布脚本自动发现用户级 Cargo");
+	assert.match(source, /PATH = "\$cargoBin;\$env:PATH"/, "Tauri 子进程显式继承 Cargo 工具目录");
 	assert.match(source, /publishable\s*=\s*-not/);
 	assert.match(source, /Name -eq "iBM Lab Agent_\$\{version\}_x64-setup\.exe"/);
 	assert.doesNotMatch(source, /TAURI_CONFIG/);
