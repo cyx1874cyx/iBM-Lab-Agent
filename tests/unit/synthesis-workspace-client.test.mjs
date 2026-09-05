@@ -50,7 +50,7 @@ test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text
 	// rc.4 §3.1：总览点结构图先选中该步骤再用该步骤打开编辑器；StructureCard 本体可点击
 	assert.match(source, /onClick: \(\) => openOverviewStructure\(step, entry\)/);
 	assert.match(source, /const openOverviewStructure = \(targetStep, entry\) =>/);
-	assert.match(source, /className: compact \? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-missing"/);
+	assert.match(source, /className: compact \? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-missing"/);
 	assert.match(source, /"data-clickable": onClick \? "true" : undefined/);
 	assert.match(source, /"sw-step-chem-arrow"/);
 	// rc.4 §3.1：产物结构必须挂载，不可只显示反应物或被截掉
@@ -86,8 +86,8 @@ test("0.4.0 workspace: two-column reaction layout with full condition coverage",
 
 test("0.4.0 review: three human decisions, correction keeps original+correction, submit gate", async () => {
 	const source = await readFile(clientPath, "utf8");
-	// 三项人工决定：确认 / 修正 / 无法确认
-	assert.match(source, /"确认"/);
+	// 三项人工决定：确认 / 修正 / 无法确认（RC1：确认改称「确认通过」，迁入审核抽屉）
+	assert.match(source, /"确认通过"/);
 	assert.match(source, /"修正"/);
 	assert.match(source, /"无法确认"/);
 	// 修正：保存 userCorrection 且保留 originalExtract
@@ -100,6 +100,10 @@ test("0.4.0 review: three human decisions, correction keeps original+correction,
 	// 全部事实完成前不能提交给 Agent
 	assert.match(source, /全部事实完成后才能提交/);
 	assert.match(source, /交给 Agent 更新未确定项/);
+	// RC1：审核操作迁入右侧抽屉；主页每条只有「审核/重新审核」入口
+	assert.match(source, /"重新审核"/);
+	assert.match(source, /sw04-review-drawer/);
+	assert.match(source, /openReviewDrawer/);
 });
 
 test("0.4.0 review batches: remote descriptors + server apply are wired", async () => {
