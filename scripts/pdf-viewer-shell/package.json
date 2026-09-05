@@ -1,0 +1,22 @@
+{
+  "name": "pdf-viewer-shell",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "iBM Lab Agent 合成路线工作台 Evidence 原文 PDF 定位查看器 shell（产物入库 client/assets/pdf-viewer-standalone）。",
+  "scripts": {
+    "build": "vite build",
+    "rebuild:install": "npm ci --no-audit --no-fund && npm run build"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

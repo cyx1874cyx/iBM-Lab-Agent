@@ -1,0 +1,16 @@
+# pdf-viewer standalone 构建产物（入库物化，离线可用）
+
+- PDF.js: v4.10.38（mozilla/pdf.js，Apache-2.0）
+- 构建: scripts/pdf-viewer-shell 最小 React shell（pdfjs-dist 4.10.38 + react 18 + vite 5），
+  产物 index.html + assets/* + pdf.worker*.mjs。
+- 自包含: 主 chunk 含 pdfjs 主线程库；worker 由 public/ 原样拷贝（pdf.worker.mjs /
+  pdf.worker.min.mjs），宿主通过 workerSrc 显式指定同源 worker，离线无需 CDN。
+- 重建: cd scripts/pdf-viewer-shell && pnpm install && pnpm build，产物替换本目录。
+- postMessage 协议（RC2）:
+  - 宿主 → 子: { type:'open', bundleId, page, quote }
+  - 子 → 宿主: { type:'ready' } | { type:'loaded', page } |
+               { type:'highlight', status:'matched'|'notfound'|'noquote', detail?, fuzzy? } |
+               { type:'error', message }
+- PDF 二进制: 宿主经 /api/lab-artifacts?kind=pdf&bundleId=..&preview=1 获取（同源流），
+  本 shell 只负责渲染与定位高亮，不自行访问文献归档。
+- 注意: 产物 hash 与 dist/assets 同步；重建后若引用文件名变化需一并更新 index.html 与入库 assets。

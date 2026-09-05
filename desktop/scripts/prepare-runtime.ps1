@@ -207,6 +207,24 @@ function Test-KetcherAssetReferences([string]$PluginRoot) {
   return $true
 }
 
+# RC2：pdf-viewer standalone 产物校验（与 ketcher 同构）。额外要求 worker 文件
+# 就位（PDF.js 显式 workerSrc 依赖，缺失会导致离线客户端无法渲染）。
+function Test-PdfViewerAssetReferences([string]$PluginRoot) {
+  $root = Join-Path $PluginRoot 'client\assets\pdf-viewer-standalone'
+  $indexPath = Join-Path $root 'index.html'
+  if (-not (Test-Path -LiteralPath $indexPath)) { return $false }
+  $html = Get-Content -LiteralPath $indexPath -Raw
+  $references = [regex]::Matches($html, '(?:src|href)="\.\/assets\/([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+  if ($references.Count -eq 0) { return $false }
+  foreach ($reference in $references) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root ("assets\" + $reference)))) { return $false }
+  }
+  # worker 文件必须就位（PDF.js workerSrc）
+  if (-not (Test-Path -LiteralPath (Join-Path $root 'pdf.worker.mjs'))) { return $false }
+  if (-not (Test-Path -LiteralPath (Join-Path $root 'pdf.worker.min.mjs'))) { return $false }
+  return $true
+}
+
 function Test-NodeSnapshot {
   return Test-Path -LiteralPath (Join-Path $resourceRoot 'node\node.exe')
 }
@@ -222,7 +240,8 @@ function Test-PluginSnapshot {
     (Join-Path $pluginRoot 'lib\remote.js')
   )
   if ($required | Where-Object { -not (Test-Path -LiteralPath $_) }) { return $false }
-  return Test-KetcherAssetReferences $pluginRoot
+  if (-not (Test-KetcherAssetReferences $pluginRoot)) { return $false }
+  return Test-PdfViewerAssetReferences $pluginRoot
 }
 
 try {
@@ -257,6 +276,9 @@ try {
   # deliberately checked before deleting the last known-good snapshot.
   if (-not (Test-KetcherAssetReferences $sourceRoot)) {
     throw 'Source Ketcher index.html references missing assets. Rebuild/fix client/assets/ketcher-standalone before prepare-runtime.'
+  }
+  if (-not (Test-PdfViewerAssetReferences $sourceRoot)) {
+    throw 'Source pdf-viewer index.html references missing assets or worker. Rebuild/fix client/assets/pdf-viewer-standalone before prepare-runtime.'
   }
 
   # 0.4.0-rc.4（§9.2）：先在同一磁盘的临时目录里构建全部组件，全部验证通过
@@ -432,6 +454,7 @@ function Test-StagedSnapshot {
   if ($refreshDsh -and -not (Test-Path -LiteralPath (Join-Path $tempResourceRoot 'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'))) { return $false }
   if ($refreshPlugin -and -not (Test-Path -LiteralPath (Join-Path $tempResourceRoot 'plugin\dsh-lab-agent\lib\remote.js'))) { return $false }
   if ($refreshPlugin -and -not (Test-KetcherAssetReferences (Join-Path $tempResourceRoot 'plugin\dsh-lab-agent'))) { return $false }
+  if ($refreshPlugin -and -not (Test-PdfViewerAssetReferences (Join-Path $tempResourceRoot 'plugin\dsh-lab-agent'))) { return $false }
   return $true
 }
 

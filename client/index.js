@@ -413,6 +413,8 @@ window.__ModuleLoader__.load({
 
 		// ── 0.3.2 Ketcher 基础设施（模块级单例，供工作台各步骤复用）─────────
 		const KETCHER_URL = "/api/lab-ketcher/index.html";
+		// RC2：Evidence 原文 PDF 定位查看器（审核抽屉内嵌）。
+		const PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html";
 		// rc.4 review（§10.2）阶段宽限常量：shell 内部载入 15s/导出 20s，
 		// 宿主侧宽限取阶段超时 + 通信余量；总护栏 75s 兜底阶段消息丢失。
 		const KETCHER_STAGE_LOADING_MS = 25000;
@@ -863,6 +865,68 @@ window.__ModuleLoader__.load({
 							message,
 							row.bundleId || row.documentId ? h("button", { className: "sw-mini-btn", style: { marginLeft: 8 }, onClick: openOriginal }, documentKind === "si" ? "打开 SI" : "打开原文 PDF") : null,
 							h("button", { className: "sw-mini-btn", style: { marginLeft: 6 }, onClick: load }, "重试")));
+		}
+
+		/**
+		 * RC2：Evidence 原文 PDF 定位查看器（审核抽屉内嵌）。
+		 * 同源 iframe 加载 /api/lab-pdf-viewer/index.html（pdf-viewer-shell 产物），
+		 * postMessage 协议：宿主 → 子 {type:'open', bundleId, page, quote}；
+		 * 子 → 宿主 {type:'ready'|'loaded'|'highlight'|'error'}。
+		 * 自动跳页 + 定位高亮 quote；失败仅展示 quote + 提示人工确认（不阻塞审核）。
+		 * 关键：仅当 bundleId + page 齐全时才加载；evidence 切换时重建 iframe（清旧高亮）。
+		 */
+		function PdfViewerFrame({ row, notify }) {
+			const iframeRef = useRef(null);
+			const [locateState, setLocateState] = useState("loading"); // loading | matched | notfound | noquote | error
+			const [errorMessage, setErrorMessage] = useState("");
+			const pageNumber = (() => { const m = /\d+/.exec(String(row?.page ?? "")); return m ? Number(m[0]) : undefined; })();
+			const bundleId = row?.bundleId || row?.documentId;
+			const quote = row?.excerpt || row?.userCorrection || row?.originalExtract || "";
+			const open = !!(bundleId && pageNumber);
+
+			useEffect(() => {
+				if (!open) { setLocateState("error"); setErrorMessage("未绑定已捕获原文或页码，无法定位"); return undefined; }
+				setLocateState("loading");
+				setErrorMessage("");
+				let disposed = false;
+				const onMessage = (event) => {
+					const data = event.data || {};
+					if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+					if (data?.type === "ready") {
+						// viewer 就绪后下发打开指令（避免 ready 与 open 竞态）
+						try { iframeRef.current.contentWindow.postMessage({ type: "open", bundleId, page: pageNumber, quote }, "*"); } catch { /* ignore */ }
+						return;
+					}
+					if (data?.type === "highlight") {
+						if (disposed) return;
+						setLocateState(data.status === "matched" ? "matched" : data.status === "notfound" ? "notfound" : "noquote");
+						if (data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
+						return;
+					}
+					if (data?.type === "error") {
+						if (disposed) return;
+						setLocateState("error");
+						setErrorMessage(data.message || "PDF 加载失败");
+					}
+				};
+				window.addEventListener("message", onMessage);
+				return () => {
+					disposed = true;
+					window.removeEventListener("message", onMessage);
+				};
+			}, [bundleId, pageNumber, quote]);
+
+			if (!open) {
+				return h("div", { className: "sw04-review-hint" }, "该项未绑定已捕获原文 PDF/SI（bundleId/documentId）或无页码，无法展示原文定位。可基于提取值人工确认 / 修正，或标记「无法确认」交给 Agent 复核。");
+			}
+			const label = locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
+			const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
+			return h("div", { className: "sw04-review-shot", style: { display: "flex", flexDirection: "column", gap: 8 } },
+				h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+					h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label),
+					h("span", { style: { flex: 1 } }),
+					quote ? h("span", { style: { fontSize: 9, color: "#718b82", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null),
+				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: 420, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
 		}
 
 		/**
@@ -1545,11 +1609,13 @@ return h("div", { className: "sw-plan" },
 							h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
 							activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
 							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "#fbf5e6" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
+							// RC2：PDF 定位查看器为主（自动跳页 + 定位高亮 quote）；截图核验门禁保留
+							h(PdfViewerFrame, { row: activeEvidence, notify }),
 							activeEvidence.bundleId || activeEvidence.documentId
 								? h("div", { className: "sw04-review-shot" },
 									h(EvidenceShot, { routeId, row: activeEvidence, notify, onReady: (evidenceId) => markShotReady(evidenceId, true), onFailed: (evidenceId) => markShotReady(evidenceId, false) }),
-									h("div", { className: "sw04-review-hint" }, "原文截图由服务端按已捕获原文 + 页码渲染；请在下方完成确认 / 修正 / 无法确认。可点击截图内「打开原文」在 PDF 阅读器中查看完整文献。"))
-								: h("div", { className: "sw04-review-hint" }, "该项未绑定已捕获原文 PDF/SI（bundleId/documentId）或无页码，无法展示原文截图。可基于提取值人工确认 / 修正，或标记「无法确认」交给 Agent 复核。")),
+									h("div", { className: "sw04-review-hint" }, "原文截图由服务端按已捕获原文 + 页码渲染（截图核验门禁依据）；可点击「打开原文」在 PDF 阅读器中查看完整文献。"))
+								: null),
 						h("div", { className: "sw04-review-foot" },
 							h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
 							h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),

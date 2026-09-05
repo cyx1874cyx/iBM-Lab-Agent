@@ -225,6 +225,16 @@
       name: 'dsh-lab-agent/ketcher-assets'
       inject: [webServer]
 
+    # ── Evidence 原文 PDF 定位查看器静态资源（labPdfViewerAssets，RC2）────
+    #
+    # Host service `ctx.labPdfViewerAssets`：把预构建的 pdf-viewer standalone 应用
+    # （client/assets/pdf-viewer-standalone，vite 一次构建产物，自包含 pdfjs + worker）
+    # 以 /api/lab-pdf-viewer/* 同源托管。前端审核抽屉用 iframe + postMessage 打开，
+    # 自动跳页 + 定位高亮 quote；PDF 二进制经 /api/lab-artifacts 同源流获取。
+    - id: lab-pdf-viewer-assets
+      name: 'dsh-lab-agent/pdf-viewer-assets'
+      inject: [webServer]
+
     # ── Evidence 原文截图（labEvidenceShot，0.3.2）────────────────────────
     #
     # Host service `ctx.labEvidenceShot`：合成路线工作台 Evidence 卡「文献来源

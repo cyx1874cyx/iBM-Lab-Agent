@@ -160,6 +160,23 @@ function Assert-KetcherReferences([string]$Root) {
   }
 }
 
+# RC2：pdf-viewer standalone 产物断言（与 ketcher 同构 + worker 文件校验）。
+function Assert-PdfViewerReferences([string]$Root) {
+  $viewerRoot = Join-Path $Root 'client\assets\pdf-viewer-standalone'
+  $indexPath = Join-Path $viewerRoot 'index.html'
+  if (-not (Test-Path -LiteralPath $indexPath)) { throw "pdf-viewer entry is missing: $indexPath" }
+  $html = Get-Content -LiteralPath $indexPath -Raw
+  $references = [regex]::Matches($html, '(?:src|href)="\.\/assets\/([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+  if ($references.Count -eq 0) { throw "pdf-viewer entry has no hashed asset references: $indexPath" }
+  foreach ($reference in $references) {
+    $asset = Join-Path $viewerRoot ("assets\" + $reference)
+    if (-not (Test-Path -LiteralPath $asset)) { throw "pdf-viewer entry references a missing asset: $asset" }
+  }
+  foreach ($worker in @('pdf.worker.mjs', 'pdf.worker.min.mjs')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $viewerRoot $worker))) { throw "pdf-viewer worker is missing: $worker" }
+  }
+}
+
 function Get-ReleaseVersion {
   $rootVersion = (Get-Content -LiteralPath (Join-Path $sourceRoot 'package.json') -Raw | ConvertFrom-Json).version
   $desktopVersion = (Get-Content -LiteralPath (Join-Path $desktopRoot 'package.json') -Raw | ConvertFrom-Json).version
@@ -217,6 +234,7 @@ function Assert-GitReleaseReady {
 try {
   $version = Get-ReleaseVersion
   Assert-KetcherReferences $sourceRoot
+  Assert-PdfViewerReferences $sourceRoot
   $gitState = Assert-GitReleaseReady -RepoRoot $sourceRoot -AllowDirty:$AllowDirty
   if ($gitState.dirty) { $AllowDirty = $true } # 已确认 dirty 走诊断语义
   Write-ReleaseStatus "Windows release preflight passed for $version."

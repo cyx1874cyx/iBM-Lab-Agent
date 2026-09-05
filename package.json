@@ -61,6 +61,9 @@
     "./ketcher-assets": {
       "default": "./lib/ketcher-assets.js"
     },
+    "./pdf-viewer-assets": {
+      "default": "./lib/pdf-viewer-assets.js"
+    },
     "./convert-tool": {
       "default": "./lib/convert-tool.js"
     },
