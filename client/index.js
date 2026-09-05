@@ -1007,6 +1007,16 @@ window.__ModuleLoader__.load({
 			const [alt, setAlt] = useState(null);
 			const [busy, setBusy] = useState({});
 			const [error, setError] = useState("");
+			// ── 0.4.0 事实核验/批次/新建路线/更多菜单/审核抽屉 状态（hooks 无条件执行）──
+			// 注意：这些 state 必须声明在任何引用它们的函数之前，否则触发 TDZ
+			// （Cannot access 'xxx' before initialization）。
+			const [selectedEvidenceId, setSelectedEvidenceId] = useState(null); // 组件三当前选中事实
+			const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false); // RC1-04：右侧审核抽屉开关
+			const [correctionFor, setCorrectionFor] = useState(null); // { id, value } | null 修正输入
+			const [batchList, setBatchList] = useState([]); // 当前 route 的审核批次
+			const [newRouteForm, setNewRouteForm] = useState(null); // { name, targetId } | null
+			const [moreOpen, setMoreOpen] = useState(false); // 顶部“更多”菜单
+			const [lockBlockers, setLockBlockers] = useState([]); // 锁定结构化阻断原因
 
 			useEffect(() => {
 				if (routes.length && !routes.some((row) => row.id === routeId)) setRouteId(routes[0].id);
@@ -1330,14 +1340,6 @@ window.__ModuleLoader__.load({
 					notify(reason.message || "结构式保存失败");
 				}
 			});
-			// ── 0.4.0 事实核验/批次/新建路线/更多菜单 状态（hooks 无条件执行）──
-			const [selectedEvidenceId, setSelectedEvidenceId] = useState(null); // 组件三当前选中事实
-			const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false); // RC1-04：右侧审核抽屉开关
-			const [correctionFor, setCorrectionFor] = useState(null); // { id, value } | null 修正输入
-			const [batchList, setBatchList] = useState([]); // 当前 route 的审核批次
-			const [newRouteForm, setNewRouteForm] = useState(null); // { name, targetId } | null
-			const [moreOpen, setMoreOpen] = useState(false); // 顶部“更多”菜单
-			const [lockBlockers, setLockBlockers] = useState([]); // 锁定结构化阻断原因
 			// 组件三选中事实与当前步骤同步；旧选中失效时回落到第一条
 			useEffect(() => {
 				const candidates = detail?.evidence || [];
