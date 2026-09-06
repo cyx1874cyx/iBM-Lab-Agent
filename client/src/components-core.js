@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { h } from "./h.js";
 import { STRUCTURE_SOURCE_LABEL, KETCHER_URL, PDF_VIEWER_URL, STEP_FIELD_DEFS } from "./constants.js";
-import { ketcherRenderSmiles, resolveCompoundPreview, stepIsStructured, readStepFieldValue, stepCompoundsByRole } from "./ketcher.js";
+import { ketcherRenderSmiles, resolveCompoundPreview, stepIsStructured, readStepFieldValue, stepCompoundsByRole, structurePreviewTier } from "./ketcher.js";
 import { openPdfPreview, statusOf, titleOf } from "./lib.js";
 
 // 核心组件：Artifact/NmrRegistry/PlotRegistry/StructureCard/StepReactionLayout/EvidenceShot/PdfViewerFrame/KetcherEditorModal
@@ -87,11 +87,13 @@ export function StructureCard({ entry, onClick, compact }) {
 			const [image, setImage] = useState(null);
 			const [attempt, setAttempt] = useState(0);
 			const requested = useRef(false);
+			const previewTier = structurePreviewTier(entry?.smiles);
 			useEffect(() => {
 				if (!entry?.smiles || requested.current) return undefined;
 				requested.current = true;
 				let alive = true;
-				ketcherRenderSmiles(entry.smiles, compact ? { width: 340, height: 220 } : { width: 560, height: 420 })
+				// 使用 Ketcher 自然输出，保持键长/原子字号一致；CSS 只在卡片容不下时缩小。
+				ketcherRenderSmiles(entry.smiles, { natural: true })
 					.then((dataUrl) => {
 						if (!alive) return;
 						if (dataUrl) { setImage(dataUrl); setState("loaded"); } else { setState("error"); }
@@ -103,14 +105,14 @@ export function StructureCard({ entry, onClick, compact }) {
 			const hasSmiles = !!entry?.smiles;
 			const openCard = (event) => { event?.stopPropagation?.(); onClick?.(entry); };
 			const stop = (event) => event?.stopPropagation?.();
-			return h("div", { className: compact ? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-missing": hasSmiles ? undefined : "true", "data-clickable": onClick ? "true" : undefined, title: hasSmiles ? `SMILES: ${entry.smiles}（点击在 Ketcher 中查看/编辑）` : preview.message, onClick: onClick ? openCard : undefined },
+			return h("div", { className: compact ? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-preview-tier": previewTier, "data-missing": hasSmiles ? undefined : "true", "data-clickable": onClick ? "true" : undefined, title: hasSmiles ? `SMILES: ${entry.smiles}（点击在 Ketcher 中查看/编辑）` : preview.message, onClick: onClick ? openCard : undefined },
 				hasSmiles && entry.source ? h("span", { className: "sw-struct-src" }, STRUCTURE_SOURCE_LABEL[entry.source] || entry.source) : null,
 				hasSmiles
 					? (state === "loaded"
-						? h("img", { src: image, alt: entry.name, loading: "lazy" })
-						: h("div", { className: "sw-struct-fallback", style: { height: compact ? 46 : 74, display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
+						? h("img", { src: image, alt: entry.name, loading: "lazy", decoding: "async" })
+						: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
 							state === "error" ? h("span", null, "预览渲染失败") : "渲染中…"))
-					: h("div", { className: "sw-struct-fallback", style: { height: compact ? 46 : 74, display: "grid", placeItems: "center", background: "#f2f6fa", borderRadius: 6, color: "#7d97b5", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
+					: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#f2f6fa", borderRadius: 6, color: "#7d97b5", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
 				state === "error" && !compact
 					? h("div", { className: "sw-struct-acts", onClick: stop },
 						h("button", { className: "sw-mini-btn", onClick: retry }, "重试预览"),

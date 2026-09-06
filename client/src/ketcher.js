@@ -6,8 +6,22 @@ import { normName, KETCHER_URL, KETCHER_RENDER_PROTOCOL, KETCHER_DEFAULT_THEME, 
  * 同一结构不同尺寸/主题/格式不会错误复用彼此缩略图（0.4.0 WP1/§8）；
  * 失败项不缓存（见 ketcherModule.cache 注释）。
  */
-export function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png" } = {}) {
-			return `v${KETCHER_RENDER_PROTOCOL}|${normName(smiles)}|${Number(width) || 560}x${Number(height) || 420}|${String(theme ?? KETCHER_DEFAULT_THEME).replace(/\s+/g, "").toLowerCase() || "w"}|${format === "svg" ? "svg" : "png"}`;
+export function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false } = {}) {
+			const sizeKey = natural ? "natural" : `${Number(width) || 560}x${Number(height) || 420}`;
+			return `v${KETCHER_RENDER_PROTOCOL}|${normName(smiles)}|${sizeKey}|${String(theme ?? KETCHER_DEFAULT_THEME).replace(/\s+/g, "").toLowerCase() || "w"}|${format === "svg" ? "svg" : "png"}`;
+		}
+
+/**
+ * 结构预览三档：简单分子略小、参考复杂度保持基准、复杂分子获得更大卡片。
+ * 这里只做轻量 SMILES 图元估算，不参与结构身份判断。
+ */
+export function structurePreviewTier(smiles) {
+			const text = String(smiles ?? "");
+			const atoms = text.replace(/\[[^\]]+\]/g, "C").match(/Br|Cl|Si|Na|Li|Mg|Al|Ca|Fe|Zn|[BCNOPSFIKbcnops]/g) || [];
+			const branches = (text.match(/\(/g) || []).length;
+			const rings = (text.match(/%\d{2}|\d/g) || []).length / 2;
+			const score = atoms.length + Math.min(4, branches * 0.5) + Math.min(4, rings);
+			return score <= 7 ? "simple" : score <= 11 ? "standard" : "complex";
 		}
 		// 隐藏缩略图 iframe 常驻：按需创建后只加载一次，排队逐个 render。
 export const ketcherModule = {
@@ -83,12 +97,12 @@ export function resetKetcherHiddenFrame() {
 		 *  返回（不无限"渲染中"），单项失败只 resolve(null) 不阻塞队列后续。
 		 *  队列中因 iframe 永不 ready 而超时的任务会被**彻底移除**（含 pending
 		 *  清理），不会遗留大量 cancelled job 堆积。 */
-export function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 20000 } = {}) {
-			const key = ketcherCacheKey(smiles, { width, height, theme, format });
+export function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false, timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 20000 } = {}) {
+			const key = ketcherCacheKey(smiles, { width, height, theme, format, natural });
 			if (ketcherModule.cache[key]) return Promise.resolve(ketcherModule.cache[key]);
 			ensureKetcherHiddenFrame();
 			return new Promise((resolve) => {
-				const queuedJob = { key, smiles: normName(smiles), width, height, theme, format, resolve };
+				const queuedJob = { key, smiles: normName(smiles), width: natural ? undefined : width, height: natural ? undefined : height, theme, format, resolve };
 				ketcherModule.queue.push(queuedJob);
 				const drain = () => {
 					if (ketcherModule.busy || !ketcherModule.queue.length) return;

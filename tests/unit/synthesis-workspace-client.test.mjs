@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { structurePreviewTier } from "../../client/src/ketcher.js";
 
 // 0.4.1 起 client/index.js 拆分为 client/src/*.js 多模块（由 build-client.mjs 打包回单文件）。
 // 本文件锁的是「客户端源码契约」，故读取 src/ 下全部源文件拼接后断言（与 esbuild 产物解耦）。
@@ -71,7 +72,7 @@ test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text
 	// rc.4 §3.1：总览点结构图先选中该步骤再用该步骤打开编辑器；StructureCard 本体可点击
 	assert.match(source, /onClick: \(\) => openOverviewStructure\(step, entry\)/);
 	assert.match(source, /const openOverviewStructure = \(targetStep, entry\) =>/);
-	assert.match(source, /className: compact \? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-missing"/);
+	assert.match(source, /className: compact \? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-preview-tier": previewTier, "data-missing"/);
 	assert.match(source, /"data-clickable": onClick \? "true" : undefined/);
 	assert.match(source, /"sw-step-chem-arrow"/);
 	// rc.4 §3.1：产物结构必须挂载，不可只显示反应物或被截掉
@@ -154,8 +155,9 @@ test("0.4.0 ketcher: cache key covers structure/width/height/theme/protocol/form
 	const source = await readClientSource();
 	// 渲染协议版本常量 + 缓存键函数（规范化结构 | 宽高 | 主题 | 导出格式 | 协议版本）
 	assert.match(source, /const KETCHER_RENDER_PROTOCOL = 1/);
-	assert.match(source, /function ketcherCacheKey\(smiles, \{ width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png" \}/);
-	assert.match(source, /`v\$\{KETCHER_RENDER_PROTOCOL\}\|\$\{normName\(smiles\)\}\|\$\{Number\(width\) \|\| 560\}x\$\{Number\(height\) \|\| 420\}\|\$\{String\(theme/);
+	assert.match(source, /function ketcherCacheKey\(smiles, \{ width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false \}/);
+	assert.match(source, /const sizeKey = natural \? "natural" : `\$\{Number\(width\) \|\| 560\}x\$\{Number\(height\) \|\| 420\}`/);
+	assert.match(source, /`v\$\{KETCHER_RENDER_PROTOCOL\}\|\$\{normName\(smiles\)\}\|\$\{sizeKey\}\|\$\{String\(theme/);
 	assert.match(source, /\$\{format === "svg" \? "svg" : "png"\}\`/, "缓存键必须含导出格式（§8：PNG/SVG 不混用）");
 	// ready 与渲染分别超时；失败只 resolve(null) 不阻塞队列（不伪造 ready）；
 	// rc.4 §8：ready 永不来的任务从队列彻底移除，不遗留 cancelled job 堆积
@@ -183,6 +185,28 @@ test("0.4.0 ketcher: cache key covers structure/width/height/theme/protocol/form
 	assert.match(source, /"重试预览"/);
 	// 同一结构不同尺寸/主题/格式不会错误复用缩略图
 	assert.match(source, /同一结构不同尺寸\/主题\/格式不会错误复用彼此缩略图/);
+});
+
+test("0.4.1 structure previews keep natural atom scale, grow by complexity, and route deletion is explicit", async () => {
+	const source = await readClientSource();
+	assert.match(source, /function structurePreviewTier\(smiles\)/);
+	assert.match(source, /ketcherRenderSmiles\(entry\.smiles, \{ natural: true \}\)/);
+	assert.match(source, /"data-preview-tier": previewTier/);
+	assert.match(source, /object-fit:scale-down/);
+	assert.match(source, /data-preview-tier=standard/, "参考尺寸必须保留 standard 档");
+	assert.match(source, /data-preview-tier=complex/, "复杂结构必须获得更大预览档");
+	assert.match(source, /call\("synth_route_delete", \{ request: \{ id: route\.id \} \}\)/);
+	assert.match(source, /window\.confirm\(`/);
+	assert.match(source, /"删除当前路线"/);
+	assert.match(source, /route\?\.locked \? "锁定版本不能删除"/);
+	assert.match(source, /const newRouteDialog = newRouteForm/);
+	assert.match(source, /if \(!routes\.length\)[\s\S]*newRouteDialog/, "删除最后一条路线后，空状态仍须能打开新建路线弹窗");
+});
+
+test("structure preview tiers use the supplied reference molecule as the standard size", () => {
+	assert.equal(structurePreviewTier("C=C(C(=O)Cl)C"), "simple", "简单酰氯应小于参考图");
+	assert.equal(structurePreviewTier("OCCSSCCO"), "standard", "2,2'-dithiodiethanol 是用户给定的基准尺寸");
+	assert.equal(structurePreviewTier("C=C(C)C(=O)OCCSSCCO"), "complex", "更复杂产物应得到更大卡片");
 });
 
 test("rc.4 review §3: EvidenceShot Object URL lifecycle — probe must not revoke/confirm early; ready gated on visible img", async () => {

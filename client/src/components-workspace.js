@@ -105,6 +105,25 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 						setRouteId(result.route.id);
 					});
 				}
+				if (action === "delete-route") {
+					if (!route) return;
+					if (route.locked) {
+						notify("已锁定路线不能删除；如需清理，请保留锁定版本并删除其未锁定修订版。");
+						return;
+					}
+					const confirmed = window.confirm(`确定删除路线「${route.name}」v${route.version}？\n该路线的事实证据和审核批次也会删除，操作不可撤销。`);
+					if (!confirmed) return;
+					return withBusy("delete-route", async () => {
+						const result = await call("synth_route_delete", { request: { id: route.id } });
+						const nextRouteId = routes.find((row) => row.id !== route.id)?.id ?? null;
+						setMoreOpen(false);
+						setDetail(null);
+						setSelectedStepId(null);
+						setRouteId(nextRouteId);
+						await onChanged();
+						notify(`已删除路线「${route.name}」；同步清理 ${result.result?.evidenceDeleted ?? 0} 条事实和 ${result.result?.reviewBatchesDeleted ?? 0} 个审核批次。`);
+					});
+				}
 				if (action === "lock") {
 					if (!route) return;
 					return withBusy("lock", async () => {
@@ -410,12 +429,26 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 					notify(reason.message || "登记失败");
 				}
 			});
+			const newRouteDialog = newRouteForm
+				? h("div", { className: "sw-struct-edit" }, h("div", { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
+					h("b", null, "新建路线（draft · 未锁定）"),
+					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "合成目标"),
+					h("select", { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
+						targets.map((row) => h("option", { key: row.id, value: row.id }, `${row.name}${row.smiles ? " · " + row.smiles : ""}`))),
+					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "路线名称"),
+					h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
+					h("div", { className: "sw04-form-acts" },
+						h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
+						h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"], onClick: () => void submitNewRoute(newRouteForm) }, busy["new-route"] ? "创建中…" : "创建路线"))))
+				: null;
 
 			if (!routes.length) {
-				return h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
-					h("div", { className: "sw-plan-empty" }, h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"),
-						targets.length ? "可新建路线，或让 Agent 根据文献登记路线与步骤。" : "先在课题中登记合成目标，路线出现后会在这里变成可交互工作台。"),
-					targets.length ? h("div", { className: "sw04-form-acts", style: { marginTop: 12, justifyContent: "center" } }, h("button", { className: "sw-mini-btn", "data-primary": true, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }) }, "新建路线")) : null);
+				return h("div", { className: "sw-plan" },
+					h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
+						h("div", { className: "sw-plan-empty" }, h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"),
+							targets.length ? "可新建路线，或让 Agent 根据文献登记路线与步骤。" : "先在课题中登记合成目标，路线出现后会在这里变成可交互工作台。"),
+						targets.length ? h("div", { className: "sw04-form-acts", style: { marginTop: 12, justifyContent: "center" } }, h("button", { className: "sw-mini-btn", "data-primary": true, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }) }, "新建路线")) : null),
+					newRouteDialog);
 			}
 
 			const originChip = route ? (ROUTE_ORIGIN_LABEL[route.origin] || route.origin) : "";
@@ -438,7 +471,8 @@ return h("div", { className: "sw-plan" },
 								h("button", { className: "sw-mini-btn", onClick: () => { setMoreOpen(false); runAction("revision"); } }, "复制为新版本"),
 								h("button", { className: "sw-mini-btn", disabled: !!busy.extract, onClick: () => { setMoreOpen(false); runAction("extract"); }, title: detail?.capability?.reason || "" }, "从文献提取路线"),
 								h("button", { className: "sw-mini-btn", onClick: () => { setMoreOpen(false); runAction("retro"); }, title: "需要 RetrosynthesisProvider（0.3.0 未配置）" }, "整体逆向规划"),
-								h("button", { className: "sw-mini-btn", onClick: () => { setMoreOpen(false); setTick((t) => t + 1); void onChanged(); } }, "刷新"))
+								h("button", { className: "sw-mini-btn", onClick: () => { setMoreOpen(false); setTick((t) => t + 1); void onChanged(); } }, "刷新"),
+								h("button", { className: "sw-mini-btn", "data-danger": true, disabled: !!busy["delete-route"] || route?.locked, title: route?.locked ? "锁定版本不能删除" : "删除当前路线及其事实和审核批次", onClick: () => runAction("delete-route") }, busy["delete-route"] ? "删除中…" : "删除当前路线"))
 							: null))),
 				// rc.4 §7：顶部只保留路线/版本选择 + 锁定/新建/添加/更多动作。
 				// 目标/状态/锁定态不放常驻状态墙，压缩为一行弱化路线说明。
@@ -576,18 +610,7 @@ return h("div", { className: "sw-plan" },
 						h("button", { className: "sw-mini-btn", onClick: () => setAddStepForm(null) }, "取消"),
 						h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["add-step"], onClick: () => void submitAddStep(addStepForm) }, busy["add-step"] ? "添加中…" : "添加"))))
 				: null,
-			newRouteForm
-				? h("div", { className: "sw-struct-edit" }, h("div", { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
-					h("b", null, "新建路线（draft · 未锁定）"),
-					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "合成目标"),
-					h("select", { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
-						targets.map((row) => h("option", { key: row.id, value: row.id }, `${row.name}${row.smiles ? " · " + row.smiles : ""}`))),
-					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "路线名称"),
-					h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
-					h("div", { className: "sw04-form-acts" },
-						h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
-						h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"], onClick: () => void submitNewRoute(newRouteForm) }, busy["new-route"] ? "创建中…" : "创建路线"))))
-				: null,
+			newRouteDialog,
 			// 0.4.0：PubChem/CACTUS 双源核验结果面板（四态候选，登记需人工点击）
 			dualPanel
 				? h("div", { className: "sw-struct-edit" }, h("div", { style: { width: "min(820px,96vw)", maxHeight: "84vh", overflowY: "auto", display: "grid", gap: 10, background: "#011e3f", border: "1px solid rgba(140,181,229,.42)", borderRadius: 14, padding: 16, color: "#cfe4fb", fontSize: 11, lineHeight: 1.6 } },

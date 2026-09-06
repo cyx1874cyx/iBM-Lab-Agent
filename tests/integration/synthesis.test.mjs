@@ -99,3 +99,35 @@ test("CAS boundary: prepare-only queries and authorization gate", async () => {
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test("route deletion cascades route-owned review data and protects locked/version-parent routes", async () => {
+	const { handle, dir } = await bootSynthesis();
+	try {
+		const synth = handle.ctx.labSynthesis;
+		await synth.createTarget({ id: "tgt-delete", name: "删除测试目标" });
+		await synth.createRoute({ id: "rt-delete", projectId: "prj-delete", targetId: "tgt-delete", name: "待删除路线" });
+		await synth.addRouteStep("rt-delete", { step: 1, reaction: "测试反应", reactants: ["A"], products: ["B"] });
+		const evidence = await synth.addStepEvidence({
+			routeId: "rt-delete", stepId: "s1", supportsField: "procedure.temperature",
+			sourceType: "internal", sourceTier: 3, sourceName: "人工记录", extractionMethod: "manual", excerpt: "室温"
+		});
+		await synth.reviewEvidence(evidence.id, "rejected");
+		const batch = await synth.createReviewBatch({ routeId: "rt-delete", stepId: "s1" });
+		const removed = await synth.deleteRoute("rt-delete");
+		assert.deepEqual(removed, { id: "rt-delete", deleted: true, evidenceDeleted: 1, reviewBatchesDeleted: 1 });
+		assert.throws(() => synth.getRoute("rt-delete"), /not found/);
+		assert.equal(synth.evidenceById(evidence.id), null);
+		assert.throws(() => synth.getReviewBatch(batch.id), /not found/);
+		assert.equal(synth.getTarget("tgt-delete").name, "删除测试目标", "删除路线不得删除合成目标");
+
+		await synth.createRoute({ id: "rt-parent", targetId: "tgt-delete", name: "父版本" });
+		await synth.createRoute({ id: "rt-child", targetId: "tgt-delete", name: "子版本", parentRouteId: "rt-parent", version: 2 });
+		await assert.rejects(() => synth.deleteRoute("rt-parent"), /child revision/);
+		await synth.deleteRoute("rt-child");
+		await synth.lockRoute("rt-parent", { by: "user" });
+		await assert.rejects(() => synth.deleteRoute("rt-parent"), /is locked/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});

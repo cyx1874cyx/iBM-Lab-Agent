@@ -90,6 +90,7 @@ function injectStyles() {
   ].join("");
   css += ".sw-plan{display:grid;gap:14px}.sw-graph{min-height:180px}.sw-step{min-width:300px;width:min(540px,86vw);max-width:none}.sw-struct-card{min-width:150px;max-width:210px}.sw-struct-card img{height:120px}.sw-struct-card .sw-struct-fallback{height:120px}.sw-cond-smiles{display:none}.sw04-more{position:absolute;right:0;top:calc(100% + 6px);z-index:40;display:grid;gap:6px;min-width:170px;padding:9px;border:1px solid rgba(112,157,211,.35);border-radius:12px;background:rgba(3,26,53,.97);box-shadow:0 14px 40px rgba(0,0,0,.5)}.sw04-more .sw-mini-btn{width:100%;text-align:left;justify-content:flex-start}.sw04-difficulty{margin:10px 0 0;color:#cfe4fb;font-size:12px;line-height:1.7}.sw04-difficulty b{color:#8cb5e5;margin-right:6px}.sw04-reaction{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,.62fr) minmax(0,1fr);gap:18px;align-items:center;margin-top:14px}.sw04-reaction-side{display:grid;gap:8px;min-width:0}.sw04-reaction-side>small{color:#8aa7c6;font-size:10px;letter-spacing:.08em}.sw04-arrow{display:grid;justify-items:center;gap:9px;text-align:center;color:#cfe4fb}.sw04-arrow>strong{font-size:46px;font-weight:400;line-height:1;color:#8cb5e5}.sw04-arrow>span{font-size:10px;line-height:1.6;color:#cfe4fb}.sw04-arrow>em{font-size:9px;font-style:normal;line-height:1.5;color:#8aa7c6}.sw-ev{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.85fr);column-gap:12px}.sw-ev-top,.sw-ev-quote{grid-column:1}.sw-ev-shot{grid-column:2;grid-row:1 / span 2;margin-top:0}.sw-ev-shot img{max-height:210px;object-fit:contain}.sw04-form{display:grid;gap:9px;margin-top:12px;padding:12px 13px;border:1px solid rgba(112,157,211,.28);border-radius:12px;background:rgba(2,51,115,.14)}.sw04-form input,.sw04-form textarea{width:100%;box-sizing:border-box;border:1px solid rgba(112,157,211,.3);background:#011832;color:var(--ib-text);border-radius:9px;padding:8px 10px;font:10.5px/1.6 ui-monospace,Consolas,monospace;outline:none}.sw04-form input:focus,.sw04-form textarea:focus{border-color:#6f9ed6}.sw04-form .sw04-form-acts{display:flex;gap:8px;justify-content:flex-end}@media(max-width:780px){.sw04-reaction,.sw-ev{grid-template-columns:1fr}.sw04-arrow{padding:4px 0}.sw04-arrow>strong{transform:rotate(90deg)}.sw-ev-shot{grid-column:1;grid-row:auto;margin-top:8px}}.sw-struct-compact{min-width:120px;max-width:170px;padding:5px;gap:3px;cursor:pointer}.sw-struct-compact img{height:120px}.sw-struct-compact .sw-struct-fallback{height:120px}.sw-struct-compact .sw-struct-acts{display:none}.sw04-cond-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;text-align:left;max-width:340px}.sw04-cond{display:block;font-size:9.5px;line-height:1.5;color:#cfe4fb;word-break:break-word}.sw04-cond i{display:block;color:#8aa7c6;font-size:8px;font-style:normal;letter-spacing:.06em;text-transform:uppercase}.sw-step-chem{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;background:rgba(255,255,255,.02);border:1px solid rgba(112,157,211,.14);border-radius:10px;padding:6px 7px}.sw-step-chem-reactants,.sw-step-chem-products{display:grid;min-width:0}.sw-step-chem-flow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}.sw-step-chem-mid{display:grid;justify-items:center;gap:3px;min-width:0}.sw-step-chem-node{display:grid;gap:1px;min-width:0}.sw-step-chem-node .sw-struct-card{padding:4px;min-width:96px;max-width:120px;background:#fff}.sw-step-chem-node .sw-struct-card img{height:96px;background:#fff;padding:1px}.sw-step-chem-node .sw-struct-fallback{height:96px}.sw-step-chem-node .sw-struct-name{font-size:7.5px;color:#16384c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}.sw-step-chem-node .sw-struct-name b{color:#0b2b3f}.sw-step-chem-arrow{flex:none;color:#8cb5e5;font-size:20px;line-height:1}.sw-step-chem-cond{flex:none;max-width:120px;font-size:8px;color:#8aa7c6;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.sw-step-chem-empty{color:#6d8aa6;font-size:8px;padding:6px 4px;font-style:italic}.sw04-fact-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:12px;align-items:start;margin-top:12px}.sw04-fact-list{display:grid;gap:8px;min-width:0}.sw04-fact-item{border:1px solid rgba(112,157,211,.16);border-radius:12px;background:rgba(2,29,67,.55);padding:10px 12px;cursor:pointer;text-align:left;color:inherit;transition:.15s}.sw04-fact-item:hover{border-color:rgba(111,158,214,.45)}.sw04-fact-item[data-active=true]{border-color:rgba(81,212,163,.6);background:rgba(2,51,115,.32);box-shadow:0 0 0 1px rgba(81,212,163,.4) inset}.sw04-fact-item[data-undecided=true]{border-color:rgba(242,201,109,.5)}.sw04-fact-shot{min-height:120px;border:1px solid rgba(112,157,211,.2);border-radius:12px;background:rgba(1,20,45,.5);padding:10px;position:sticky;top:8px}.sw04-fact-shot .sw-ev-shot img{max-height:300px;width:100%;object-fit:contain}.sw04-review-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.sw04-review-acts .sw-mini-btn{font-size:9px;padding:4px 9px}.sw04-batchbar{margin-top:12px;border:1px solid rgba(81,212,163,.3);border-radius:12px;background:rgba(2,51,115,.18);padding:10px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sw04-batchbar b{font-size:11px}.sw04-batchbar small{color:#8aa7c6;font-size:9px;line-height:1.5}.sw04-correction{display:grid;gap:7px;margin-top:8px}.sw04-correction textarea{width:100%;box-sizing:border-box;border:1px solid rgba(242,201,109,.45);background:#011832;color:var(--ib-text);border-radius:8px;padding:7px 9px;font:10px/1.55 ui-monospace,Consolas,monospace;outline:none;min-height:52px;resize:vertical}@media(max-width:900px){.sw04-fact-layout{grid-template-columns:1fr}.sw04-fact-shot{position:static}}.sw04-fact-compact{display:grid;gap:7px;max-height:300px;overflow-y:auto;padding-right:2px}.sw04-fact-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(112,157,211,.16);border-radius:10px;background:rgba(2,29,67,.55);padding:8px 11px;transition:.15s}.sw04-fact-row:hover{border-color:rgba(111,158,214,.45)}.sw04-fact-row-main{flex:1;min-width:0;display:grid;gap:2px}.sw04-fact-row-title{font-size:10.5px;font-weight:650;color:#e3f0ff;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-meta{font-size:8.5px;color:#8aa7c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-claim{font-size:10px;color:#cfe4fb;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-status{flex:none}.sw04-fact-review-btn{flex:none;border:1px solid rgba(115,220,230,.28);background:rgba(115,220,230,.1);color:#c3ecf1;border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-fact-review-btn:hover{border-color:rgba(115,220,230,.5);background:rgba(115,220,230,.2)}.sw04-fact-review-btn[data-done=true]{border-color:rgba(81,212,163,.42);background:rgba(81,212,163,.13);color:#c9f5e3}.sw04-review-backdrop{position:fixed;inset:0;z-index:3000;background:rgba(3,14,11,.42);backdrop-filter:blur(2px)}.sw04-review-drawer{position:fixed;z-index:3001;top:0;right:0;bottom:0;width:50vw;max-width:900px;min-width:640px;display:flex;flex-direction:column;background:#f4f7f6;color:#17382f;border-left:1px solid rgba(36,130,99,.22);box-shadow:-28px 0 70px rgba(3,25,18,.24)}.sw04-review-head{flex:none;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid rgba(45,130,101,.14)}.sw04-review-head-main{flex:1;min-width:0}.sw04-review-head-title{display:block;font-size:13px;font-weight:700;color:#17382f;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sw04-review-head-sub{display:block;margin-top:3px;font-size:9.5px;color:#718b82;line-height:1.5}.sw04-review-close{flex:none;border:1px solid #c9ddd5;background:#fff;color:#476b61;border-radius:8px;padding:5px 11px;font-size:10px;cursor:pointer}.sw04-review-close:hover{border-color:#35a97e;color:#286f58}.sw04-review-body{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}.sw04-review-field{font-size:10.5px;color:#476b61;line-height:1.6}.sw04-review-field b{color:#17382f;font-weight:700}.sw04-review-shot{border:1px solid rgba(45,130,101,.18);border-radius:12px;background:#fff;padding:10px;min-height:120px}.sw04-review-shot .sw-ev-shot{margin:0}.sw04-review-shot .sw-ev-shot img{max-height:420px;width:100%;object-fit:contain}.sw04-review-hint{margin-top:6px;border:1px solid rgba(242,201,109,.4);border-radius:9px;background:rgba(242,201,109,.08);padding:7px 10px;font-size:9.5px;color:#8a6d2f;line-height:1.5}.sw04-review-foot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px;background:#fff;border-top:1px solid rgba(45,130,101,.14);flex-wrap:wrap}.sw04-review-foot .sw-mini-btn{font-size:10px;padding:6px 12px}.sw04-review-note{flex:1;min-width:140px;border:1px solid rgba(45,130,101,.2);background:#fbfdfc;color:#17382f;border-radius:8px;padding:7px 10px;font:10.5px/1.5 ui-monospace,Consolas,monospace;outline:none}.sw04-review-note:focus{border-color:#35a97e}.sw04-review-quote{margin-top:8px;padding:8px 10px;border-left:2px solid #4d86c4;background:#eef4f9;color:#476b61;font-size:10px;line-height:1.6;border-radius:0 8px 8px 0}.sw04-review-quote b{color:#17382f}.sw04-review-next{align-self:stretch;border:1px solid rgba(115,220,230,.28);background:rgba(115,220,230,.1);color:#2b7a70;border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-review-next:disabled{opacity:.4;cursor:not-allowed}@media(max-width:1100px){.sw04-review-drawer{width:65vw;min-width:0}}@media(max-width:850px){.sw04-review-drawer{width:100vw;max-width:none;min-width:0}}";
   css += ".sw-plan{gap:10px}.sw-sec{padding:12px 13px}.sw-head h3{font-size:16px}.sw-head p{font-size:11px}.sw-chip{font-size:10.5px}.sw-graph{align-items:flex-start;gap:10px;padding:4px 0}.sw-step{align-self:flex-start;min-width:420px;width:min(660px,90vw);min-height:0;padding:10px}.sw-step-id{font-size:11px}.sw-step .sw-step-reaction{font-size:14px}.sw-step-chem{gap:10px;padding:8px}.sw-step-chem-flow{gap:7px}.sw-step-chem-node .sw-struct-card{min-width:150px;max-width:180px;padding:6px}.sw-step-chem-node .sw-struct-card img,.sw-step-chem-node .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-name{max-width:180px;font-size:10px;line-height:1.45}.sw-step-chem-arrow{font-size:25px}.sw-step-chem-cond{max-width:150px;font-size:10px;line-height:1.45}.sw-step-chem-empty{font-size:10px}.sw04-detail .sw-struct-card{min-width:190px;max-width:260px;padding:8px}.sw04-detail .sw-struct-card img,.sw04-detail .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-name{font-size:11px}.sw04-reaction{gap:14px;align-items:start;margin-top:10px}.sw04-reaction-side>small{font-size:11px}.sw04-cond{font-size:11px}.sw04-cond i{font-size:9px}.sw04-arrow>span{font-size:11px}.sw04-arrow>em{font-size:10px}.sw04-review-drawer{width:96vw;max-width:none;min-width:0}.sw04-review-head-title{font-size:15px}.sw04-review-head-sub,.sw04-review-field,.sw04-review-quote{font-size:11px}.sw04-review-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px;overflow:hidden;padding:12px 14px}.sw04-review-copy,.sw04-review-source{min-width:0;max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:3px}.sw04-review-source{height:100%}.sw04-review-source>.sw04-review-shot{min-height:100%;box-sizing:border-box}.sw04-review-source .sw-ev-shot img{width:100%;max-height:none;height:auto;object-fit:contain}.sw04-review-hint{font-size:10.5px}@media(max-width:1100px){.sw04-review-drawer{width:100vw}.sw04-review-body{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}@media(max-width:820px){.sw-step{min-width:340px}.sw04-review-body{grid-template-columns:1fr;overflow-y:auto}.sw04-review-copy,.sw04-review-source{max-height:none;overflow:visible}}";
+  css += ".sw-struct-card img{object-fit:scale-down}.sw04-detail .sw-struct-card[data-preview-tier=simple]{width:200px;min-width:200px;max-width:200px}.sw04-detail .sw-struct-card[data-preview-tier=standard]{width:260px;min-width:260px;max-width:260px}.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:320px;min-width:320px;max-width:320px}.sw04-detail .sw-struct-card[data-preview-tier=simple] img,.sw04-detail .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:140px}.sw04-detail .sw-struct-card[data-preview-tier=standard] img,.sw04-detail .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-card[data-preview-tier=complex] img,.sw04-detail .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:210px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple]{width:135px;min-width:135px;max-width:135px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard]{width:180px;min-width:180px;max-width:180px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex]{width:220px;min-width:220px;max-width:220px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:108px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:160px}.sw-mini-btn[data-danger=true]{border-color:rgba(255,137,137,.5);color:#ffc2ca;background:rgba(190,70,90,.12)}.sw-mini-btn[data-danger=true]:hover{border-color:#ff8999;background:rgba(190,70,90,.25)}@media(max-width:720px){.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:min(320px,82vw);min-width:min(320px,82vw)}}";
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
     style.dataset.pluginCss = "dsh-lab-agent";
@@ -112,7 +113,7 @@ function buildDescriptors() {
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_list"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_list"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -1285,8 +1286,17 @@ function ResearchFileUpload({ sessionId, input, inputActions, call, useSessions,
 var import_react5 = require("react");
 
 // client/src/ketcher.js
-function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png" } = {}) {
-  return `v${KETCHER_RENDER_PROTOCOL}|${normName(smiles)}|${Number(width) || 560}x${Number(height) || 420}|${String(theme ?? KETCHER_DEFAULT_THEME).replace(/\s+/g, "").toLowerCase() || "w"}|${format === "svg" ? "svg" : "png"}`;
+function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false } = {}) {
+  const sizeKey = natural ? "natural" : `${Number(width) || 560}x${Number(height) || 420}`;
+  return `v${KETCHER_RENDER_PROTOCOL}|${normName(smiles)}|${sizeKey}|${String(theme ?? KETCHER_DEFAULT_THEME).replace(/\s+/g, "").toLowerCase() || "w"}|${format === "svg" ? "svg" : "png"}`;
+}
+function structurePreviewTier(smiles) {
+  const text = String(smiles ?? "");
+  const atoms = text.replace(/\[[^\]]+\]/g, "C").match(/Br|Cl|Si|Na|Li|Mg|Al|Ca|Fe|Zn|[BCNOPSFIKbcnops]/g) || [];
+  const branches = (text.match(/\(/g) || []).length;
+  const rings = (text.match(/%\d{2}|\d/g) || []).length / 2;
+  const score = atoms.length + Math.min(4, branches * 0.5) + Math.min(4, rings);
+  return score <= 7 ? "simple" : score <= 11 ? "standard" : "complex";
 }
 var ketcherModule = {
   iframe: null,
@@ -1350,12 +1360,12 @@ function resetKetcherHiddenFrame() {
   }
   return ensureKetcherHiddenFrame();
 }
-function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 2e4 } = {}) {
-  const key = ketcherCacheKey(smiles, { width, height, theme, format });
+function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false, timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 2e4 } = {}) {
+  const key = ketcherCacheKey(smiles, { width, height, theme, format, natural });
   if (ketcherModule.cache[key]) return Promise.resolve(ketcherModule.cache[key]);
   ensureKetcherHiddenFrame();
   return new Promise((resolve) => {
-    const queuedJob = { key, smiles: normName(smiles), width, height, theme, format, resolve };
+    const queuedJob = { key, smiles: normName(smiles), width: natural ? void 0 : width, height: natural ? void 0 : height, theme, format, resolve };
     ketcherModule.queue.push(queuedJob);
     const drain = () => {
       if (ketcherModule.busy || !ketcherModule.queue.length) return;
@@ -1554,11 +1564,12 @@ function StructureCard({ entry, onClick, compact }) {
   const [image, setImage] = (0, import_react4.useState)(null);
   const [attempt, setAttempt] = (0, import_react4.useState)(0);
   const requested = (0, import_react4.useRef)(false);
+  const previewTier = structurePreviewTier(entry?.smiles);
   (0, import_react4.useEffect)(() => {
     if (!entry?.smiles || requested.current) return void 0;
     requested.current = true;
     let alive = true;
-    ketcherRenderSmiles(entry.smiles, compact ? { width: 340, height: 220 } : { width: 560, height: 420 }).then((dataUrl) => {
+    ketcherRenderSmiles(entry.smiles, { natural: true }).then((dataUrl) => {
       if (!alive) return;
       if (dataUrl) {
         setImage(dataUrl);
@@ -1588,13 +1599,13 @@ function StructureCard({ entry, onClick, compact }) {
   const stop = (event) => event?.stopPropagation?.();
   return h(
     "div",
-    { className: compact ? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-missing": hasSmiles ? void 0 : "true", "data-clickable": onClick ? "true" : void 0, title: hasSmiles ? `SMILES: ${entry.smiles}（点击在 Ketcher 中查看/编辑）` : preview.message, onClick: onClick ? openCard : void 0 },
+    { className: compact ? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state, "data-preview-tier": previewTier, "data-missing": hasSmiles ? void 0 : "true", "data-clickable": onClick ? "true" : void 0, title: hasSmiles ? `SMILES: ${entry.smiles}（点击在 Ketcher 中查看/编辑）` : preview.message, onClick: onClick ? openCard : void 0 },
     hasSmiles && entry.source ? h("span", { className: "sw-struct-src" }, STRUCTURE_SOURCE_LABEL[entry.source] || entry.source) : null,
-    hasSmiles ? state === "loaded" ? h("img", { src: image, alt: entry.name, loading: "lazy" }) : h(
+    hasSmiles ? state === "loaded" ? h("img", { src: image, alt: entry.name, loading: "lazy", decoding: "async" }) : h(
       "div",
-      { className: "sw-struct-fallback", style: { height: compact ? 46 : 74, display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
+      { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
       state === "error" ? h("span", null, "预览渲染失败") : "渲染中…"
-    ) : h("div", { className: "sw-struct-fallback", style: { height: compact ? 46 : 74, display: "grid", placeItems: "center", background: "#f2f6fa", borderRadius: 6, color: "#7d97b5", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
+    ) : h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#f2f6fa", borderRadius: 6, color: "#7d97b5", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
     state === "error" && !compact ? h(
       "div",
       { className: "sw-struct-acts", onClick: stop },
@@ -2044,6 +2055,26 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
         setRouteId(result.route.id);
       });
     }
+    if (action === "delete-route") {
+      if (!route) return;
+      if (route.locked) {
+        notify("已锁定路线不能删除；如需清理，请保留锁定版本并删除其未锁定修订版。");
+        return;
+      }
+      const confirmed = window.confirm(`确定删除路线「${route.name}」v${route.version}？
+该路线的事实证据和审核批次也会删除，操作不可撤销。`);
+      if (!confirmed) return;
+      return withBusy("delete-route", async () => {
+        const result = await call("synth_route_delete", { request: { id: route.id } });
+        const nextRouteId = routes.find((row) => row.id !== route.id)?.id ?? null;
+        setMoreOpen(false);
+        setDetail(null);
+        setSelectedStepId(null);
+        setRouteId(nextRouteId);
+        await onChanged();
+        notify(`已删除路线「${route.name}」；同步清理 ${result.result?.evidenceDeleted ?? 0} 条事实和 ${result.result?.reviewBatchesDeleted ?? 0} 个审核批次。`);
+      });
+    }
     if (action === "lock") {
       if (!route) return;
       return withBusy("lock", async () => {
@@ -2336,18 +2367,42 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       notify(reason.message || "登记失败");
     }
   });
+  const newRouteDialog = newRouteForm ? h("div", { className: "sw-struct-edit" }, h(
+    "div",
+    { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
+    h("b", null, "新建路线（draft · 未锁定）"),
+    h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "合成目标"),
+    h(
+      "select",
+      { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
+      targets.map((row) => h("option", { key: row.id, value: row.id }, `${row.name}${row.smiles ? " · " + row.smiles : ""}`))
+    ),
+    h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "路线名称"),
+    h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
+    h(
+      "div",
+      { className: "sw04-form-acts" },
+      h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
+      h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"], onClick: () => void submitNewRoute(newRouteForm) }, busy["new-route"] ? "创建中…" : "创建路线")
+    )
+  )) : null;
   if (!routes.length) {
     return h(
-      "section",
-      { className: "ib-card" },
-      h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
+      "div",
+      { className: "sw-plan" },
       h(
-        "div",
-        { className: "sw-plan-empty" },
-        h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"),
-        targets.length ? "可新建路线，或让 Agent 根据文献登记路线与步骤。" : "先在课题中登记合成目标，路线出现后会在这里变成可交互工作台。"
+        "section",
+        { className: "ib-card" },
+        h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
+        h(
+          "div",
+          { className: "sw-plan-empty" },
+          h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"),
+          targets.length ? "可新建路线，或让 Agent 根据文献登记路线与步骤。" : "先在课题中登记合成目标，路线出现后会在这里变成可交互工作台。"
+        ),
+        targets.length ? h("div", { className: "sw04-form-acts", style: { marginTop: 12, justifyContent: "center" } }, h("button", { className: "sw-mini-btn", "data-primary": true, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }) }, "新建路线")) : null
       ),
-      targets.length ? h("div", { className: "sw04-form-acts", style: { marginTop: 12, justifyContent: "center" } }, h("button", { className: "sw-mini-btn", "data-primary": true, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }) }, "新建路线")) : null
+      newRouteDialog
     );
   }
   const originChip = route ? ROUTE_ORIGIN_LABEL[route.origin] || route.origin : "";
@@ -2396,7 +2451,8 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
                 setMoreOpen(false);
                 setTick((t) => t + 1);
                 void onChanged();
-              } }, "刷新")
+              } }, "刷新"),
+              h("button", { className: "sw-mini-btn", "data-danger": true, disabled: !!busy["delete-route"] || route?.locked, title: route?.locked ? "锁定版本不能删除" : "删除当前路线及其事实和审核批次", onClick: () => runAction("delete-route") }, busy["delete-route"] ? "删除中…" : "删除当前路线")
             ) : null
           )
         )
@@ -2597,25 +2653,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
         h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["add-step"], onClick: () => void submitAddStep(addStepForm) }, busy["add-step"] ? "添加中…" : "添加")
       )
     )) : null,
-    newRouteForm ? h("div", { className: "sw-struct-edit" }, h(
-      "div",
-      { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
-      h("b", null, "新建路线（draft · 未锁定）"),
-      h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "合成目标"),
-      h(
-        "select",
-        { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
-        targets.map((row) => h("option", { key: row.id, value: row.id }, `${row.name}${row.smiles ? " · " + row.smiles : ""}`))
-      ),
-      h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "路线名称"),
-      h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
-      h(
-        "div",
-        { className: "sw04-form-acts" },
-        h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
-        h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"], onClick: () => void submitNewRoute(newRouteForm) }, busy["new-route"] ? "创建中…" : "创建路线")
-      )
-    )) : null,
+    newRouteDialog,
     // 0.4.0：PubChem/CACTUS 双源核验结果面板（四态候选，登记需人工点击）
     dualPanel ? h("div", { className: "sw-struct-edit" }, h(
       "div",

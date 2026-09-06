@@ -21,15 +21,71 @@ export function normalizeCompoundName(name) {
 		.trim();
 }
 
+/**
+ * 名称匹配键：完整名称之外，把“英文名（中文名）/简称（系统名）”末尾的
+ * 括号别名拆出基名。结构条目常由 PubChem 使用英文短名登记，而原文反应物
+ * 会保留括号别名；二者应视为同一展示项。化学名内部的括号（如
+ * 2-(hydroxyethyl)）不会被截断，因为右括号后仍有正文。
+ */
+export function compoundNameKeys(name) {
+	const normalized = normalizeCompoundName(name);
+	if (!normalized) return [];
+	const keyOf = (value) => normalizeCompoundName(value)
+		.toLowerCase()
+		.replace(/[’‘`]/g, "'")
+		.replace(/[‐‑‒–—−]/g, "-");
+	const keys = [keyOf(normalized)];
+	const opener = normalized.search(/[（(【[]/u);
+	const endsWithCloser = /[）)】\]]$/u.test(normalized);
+	if (opener > 0 && endsWithCloser) {
+		const base = normalizeCompoundName(normalized.slice(0, opener));
+		const unsafeBase = /^(?:poly|copolymer|compound|product|intermediate)$/i.test(base);
+		if (base.length >= 3 && !unsafeBase) keys.push(keyOf(base));
+	}
+	return [...new Set(keys.filter(Boolean))];
+}
+
+/** 完整名或末尾括号别名的基名一致，即视为同一化合物展示项。 */
+export function compoundNamesEquivalent(left, right) {
+	const rightKeys = new Set(compoundNameKeys(right));
+	return compoundNameKeys(left).some((key) => rightKeys.has(key));
+}
+
+/**
+ * 清理历史 structures 中的“已解析短名 + 未解析括号别名”重复项。仅在至少
+ * 一方无结构或两方 SMILES 相同时合并；两个不同结构绝不静默折叠。
+ */
+export function dedupeStepStructures(rows) {
+	const result = [];
+	for (const source of asArray(rows)) {
+		if (!source || !normalizeCompoundName(source.name)) continue;
+		const row = { ...source };
+		const index = result.findIndex((item) => compoundNamesEquivalent(item.name, row.name)
+			&& (!item.smiles || !row.smiles || item.smiles === row.smiles));
+		if (index < 0) {
+			result.push(row);
+			continue;
+		}
+		const existing = result[index];
+		const primary = row.smiles && !existing.smiles ? row : existing;
+		const secondary = primary === existing ? row : existing;
+		result[index] = {
+			...secondary,
+			...primary,
+			name: primary.name,
+			role: primary.role && primary.role !== "unknown" ? primary.role : (secondary.role ?? "unknown")
+		};
+	}
+	return result;
+}
+
 /** 从步骤各来源收集化合物名（去重、保序）。 */
 export function collectStepCompoundNames(step) {
 	const procedure = step?.procedure ?? {};
-	const seen = new Set();
 	const names = [];
 	const push = (name) => {
 		const key = normalizeCompoundName(name);
-		if (!key || seen.has(key)) return;
-		seen.add(key);
+		if (!key || names.some((item) => compoundNamesEquivalent(item.name, key))) return;
 		names.push({ name: key });
 	};
 	for (const name of asArray(step?.reactants)) push(name);
@@ -43,7 +99,9 @@ export function collectStepCompoundNames(step) {
 /** 步骤里“已知化合物名集合”（归一化后），供匹配 structures 使用。 */
 export function knownStepCompoundKeys(step) {
 	const keys = new Set();
-	for (const { name } of collectStepCompoundNames(step)) keys.add(normalizeCompoundName(name));
+	for (const { name } of collectStepCompoundNames(step)) {
+		for (const key of compoundNameKeys(name)) keys.add(key);
+	}
 	return keys;
 }
 
@@ -55,7 +113,7 @@ export function findStepStructure(step, name, { caseInsensitive = true } = {}) {
 	const target = normalizeCompoundName(name);
 	return asArray(step?.structures).find((row) => {
 		const key = normalizeCompoundName(row?.name);
-		return caseInsensitive ? key.toLowerCase() === target.toLowerCase() : key === target;
+		return caseInsensitive ? compoundNamesEquivalent(key, target) : key === target;
 	});
 }
 
@@ -65,10 +123,10 @@ export function findStepStructure(step, name, { caseInsensitive = true } = {}) {
  * 数组（不修改入参）。
  */
 export function mergeStepStructures(step, additions) {
-	const current = asArray(step?.structures).map((row) => ({ ...row }));
+	const current = dedupeStepStructures(step?.structures);
 	const push = (addition) => {
 		if (!addition || !normalizeCompoundName(addition.name)) return;
-		const index = current.findIndex((row) => normalizeCompoundName(row.name).toLowerCase() === normalizeCompoundName(addition.name).toLowerCase());
+		const index = current.findIndex((row) => compoundNamesEquivalent(row.name, addition.name));
 		if (index >= 0) {
 			current[index] = {
 				...current[index],
@@ -90,9 +148,9 @@ export function mergeStepStructures(step, additions) {
  * @returns 新 structures 数组（不写回存储）
  */
 export function hydrateStepStructures(step) {
-	const current = asArray(step?.structures).map((row) => ({ ...row }));
+	const current = dedupeStepStructures(step?.structures);
 	const has = (name) =>
-		current.some((row) => normalizeCompoundName(row.name).toLowerCase() === normalizeCompoundName(name).toLowerCase());
+		current.some((row) => compoundNamesEquivalent(row.name, name));
 	const procedure = step?.procedure ?? {};
 	// 推断角色：reactants 全部为 reactant；products 全部为 product；其余 reagent。
 	const roleFor = (bucket) => (bucket === "reactants" ? "reactant" : bucket === "products" ? "product" : "reagent");
@@ -123,9 +181,9 @@ export function stepMissingStructures(step) {
 	const missing = [];
 	const seen = new Set();
 	for (const row of hydrated) {
-		const key = normalizeCompoundName(row.name);
-		if (seen.has(key)) continue;
-		seen.add(key);
+		const keys = compoundNameKeys(row.name);
+		if (keys.some((key) => seen.has(key))) continue;
+		for (const key of keys) seen.add(key);
 		if (!row.smiles) missing.push(row.name);
 	}
 	return { missing, total: hydrated.length };
@@ -137,15 +195,19 @@ export function structureLookup(stepOrRows) {
 	const rows = Array.isArray(stepOrRows) ? stepOrRows : asArray(stepOrRows?.structures);
 	const lookup = {};
 	for (const row of rows) {
-		const key = normalizeCompoundName(row.name).toLowerCase();
-		if (!key || lookup[key]) continue;
-		lookup[key] = row;
+		for (const key of compoundNameKeys(row.name)) {
+			if (!key || lookup[key]) continue;
+			lookup[key] = row;
+		}
 	}
 	return lookup;
 }
 
 export default {
 	collectStepCompoundNames,
+	compoundNameKeys,
+	compoundNamesEquivalent,
+	dedupeStepStructures,
 	knownStepCompoundKeys,
 	findStepStructure,
 	mergeStepStructures,

@@ -8,6 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
 	collectStepCompoundNames,
+	compoundNameKeys,
+	compoundNamesEquivalent,
+	dedupeStepStructures,
 	knownStepCompoundKeys,
 	findStepStructure,
 	mergeStepStructures,
@@ -41,6 +44,36 @@ test("collectStepCompoundNames dedupes across sources", () => {
 	assert.ok(!keys.includes("DMF")); // solvents 不计入化合物结构条目（溶剂一般无 SMILES 展示需要）
 	assert.equal(new Set(keys).size, keys.length);
 	assert.ok(!keys.some((name) => name !== name.trim()));
+});
+
+test("compound aliases in trailing parentheses match an already resolved short name", () => {
+	const verbose = "2,2'-dithiodiethanol (2,2'-二硫二乙醇)";
+	assert.ok(compoundNameKeys(verbose).includes("2,2'-dithiodiethanol"));
+	assert.equal(compoundNamesEquivalent("methacryloyl chloride", "methacryloyl chloride（甲基丙烯酰氯）"), true);
+	assert.equal(compoundNamesEquivalent("2-(hydroxyethyl) disulfide", "hydroxyethyl disulfide"), false, "化学名内部括号不能误删");
+	const names = collectStepCompoundNames({ reactants: [verbose, "2,2'-dithiodiethanol"] });
+	assert.equal(names.length, 1);
+});
+
+test("hydrate removes resolved-name/alias placeholders but preserves real structure conflicts", () => {
+	const duplicate = {
+		reactants: ["2,2'-dithiodiethanol (2,2'-二硫二乙醇)"],
+		structures: [
+			{ name: "2,2'-dithiodiethanol", smiles: "OCCSSCCO", role: "reactant", source: "pubchem" },
+			{ name: "2,2'-dithiodiethanol (2,2'-二硫二乙醇)", role: "reactant", source: "agent" }
+		]
+	};
+	const hydrated = hydrateStepStructures(duplicate);
+	assert.equal(hydrated.length, 1);
+	assert.equal(hydrated[0].smiles, "OCCSSCCO");
+	assert.equal(hydrated[0].name, "2,2'-dithiodiethanol");
+	assert.equal(structureLookup(hydrated)["2,2'-dithiodiethanol"].smiles, "OCCSSCCO");
+
+	const conflicts = dedupeStepStructures([
+		{ name: "Compound X", smiles: "CC" },
+		{ name: "Compound X（候选）", smiles: "CCC" }
+	]);
+	assert.equal(conflicts.length, 2, "不同 SMILES 不得因别名规则被静默合并");
 });
 
 test("hydrateStepStructures fills placeholder entries without touching existing", () => {

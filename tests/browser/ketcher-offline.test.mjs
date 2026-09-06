@@ -74,6 +74,27 @@ test("ketcher editor: setMolecule loads and visible Save returns the edited mole
 	}
 });
 
+test("ketcher natural previews keep the reference molecule between simple and complex structures", async () => {
+	const ctx = await launchKetcherPage();
+	try {
+		await ctx.waitFor("ready", { timeout: 60000 });
+		let since = 0;
+		const widths = [];
+		for (const smiles of ["C=C(C(=O)Cl)C", "OCCSSCCO", "C=C(C)C(=O)OCCSSCCO"]) {
+			// 不传 width/height：保留 Ketcher 自然键长和原子字号。
+			await ctx.post("render", { smiles });
+			const out = await ctx.waitFor("image", { timeout: 45000, since });
+			since = out.index + 1;
+			const bytes = Buffer.from(out.message.dataUrl.split(",")[1], "base64");
+			widths.push(bytes.readUInt32BE(16));
+		}
+		assert.ok(widths[0] < widths[1], `简单结构应小于参考结构：${widths.join(" < ")}`);
+		assert.ok(widths[1] < widths[2], `复杂结构应大于参考结构：${widths.join(" < ")}`);
+	} finally {
+		await ctx.close();
+	}
+});
+
 test("ketcher offline: 10 个不同结构全部渲染成功（连续任务不互相阻塞）", async () => {
 	const ctx = await launchKetcherPage();
 	try {
