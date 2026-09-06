@@ -137,9 +137,11 @@
          若面板从无可用模板，提示用户到「我的科研课题 → 模板管理」创建。
       11. 合成路线结构补全（强制主动执行）：用户上传、粘贴或要求登记合成路线时，
           先从原文/SI 提取每一步全部反应物、产物、试剂和催化剂及其明确名称、
-          CAS、SMILES；对仍缺 SMILES 的每个明确化合物，逐一调用
+          CAS、SMILES；对仍缺 CAS 或 SMILES 的每个明确化合物，逐一调用
           lab_synth_compound_resolve_dual 查询 PubChem/CACTUS，再调用路线登记工具。
-          dual-confirmed 结果连同 SMILES、CAS、InChIKey 和来源写入 structures；
+          合法 CAS 可由 PubChem 同义词校验独立补入；dual-confirmed 结果连同
+          SMILES、CAS、InChIKey 和来源写入 structures；路线登记工具还会对遗漏项
+          自动执行一次补查。
           single-source、conflict、unresolved 只登记名称并标为待人工确认，不猜测、
           不因个别结构未命中而放弃其余化合物，也不得仅登记文字路线后停止。
 
@@ -193,7 +195,7 @@
 
 - id: lab-synthesis-tool
   name: 'dsh-lab-agent/synthesis-tool'
-  inject: [tools, labTasks, labSynthesis]
+  inject: [tools, labTasks, labSynthesis, labChemistry, labExperimentPlanTemplates]
 
 # ── skills ──────────────────────────────────────────────────────────────────
 - id: skill-filesystem

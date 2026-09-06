@@ -109,7 +109,9 @@ export function applyUi(ctx) {
 		ctx.sessions.open(sessionId);
 		const actx = ctx.sessions.scope(sessionId);
 		if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
-		const prompt = promptFor(project, opts.memory);
+		// 面板中的产物按钮可提供一个明确任务；仍复用同一课题工作区与科研
+		// Agent 预设，但在新对话输入框中优先放入该任务，而不是通用开场白。
+		const prompt = String(opts.prompt || "").trim() || promptFor(project, opts.memory);
 		ctx.conversation.input.for(actx).setDraft(prompt);
 		close();
 		if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);

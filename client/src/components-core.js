@@ -289,14 +289,14 @@ export function PdfViewerFrame({ row, notify }) {
 			const iframeRef = useRef(null);
 			const [locateState, setLocateState] = useState("loading"); // loading | matched | notfound | noquote | error
 			const [errorMessage, setErrorMessage] = useState("");
-			const pageNumber = (() => { const m = /\d+/.exec(String(row?.page ?? "")); return m ? Number(m[0]) : undefined; })();
+			const pageNumber = (() => { const m = /\d+/.exec(String(row?.page ?? "")); return m ? Number(m[0]) : 1; })();
 			const bundleId = row?.bundleId || row?.documentId;
 			const quote = row?.excerpt || row?.userCorrection || row?.originalExtract || "";
-			const open = !!(bundleId && pageNumber);
+			const open = !!bundleId;
 			const documentKind = row?.sourceKind === "si" || (!row?.sourceKind && row?.sourceType === "paper-si") ? "si" : "pdf";
 
 			useEffect(() => {
-				if (!open) { setLocateState("error"); setErrorMessage("未绑定已捕获原文或页码，无法定位"); return undefined; }
+				if (!open) { setLocateState("error"); setErrorMessage("未绑定已归档原文，无法定位"); return undefined; }
 				setLocateState("loading");
 				setErrorMessage("");
 				let disposed = false;
@@ -333,7 +333,7 @@ export function PdfViewerFrame({ row, notify }) {
 			}, [bundleId, documentKind, pageNumber, quote]);
 
 			if (!open) {
-				return h("div", { className: "sw04-review-hint" }, "该项未绑定已捕获原文 PDF/SI（bundleId/documentId）或无页码，无法展示原文定位。可基于提取值人工确认 / 修正，或标记「无法确认」交给 Agent 复核。");
+				return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
 			}
 			const label = locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
 			const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
@@ -342,7 +342,7 @@ export function PdfViewerFrame({ row, notify }) {
 					h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label),
 					h("span", { style: { flex: 1 } }),
 					quote ? h("span", { style: { fontSize: 9, color: "#718b82", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null),
-				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(54vh, 620px)", minHeight: 440, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
+				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(68vh, 760px)", minHeight: 520, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
 		}
 
 export function KetcherEditorModal({ entry, onSave, onCancel }) {

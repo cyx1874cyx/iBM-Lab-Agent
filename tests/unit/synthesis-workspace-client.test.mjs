@@ -8,7 +8,7 @@
  *  - WP1：缩略图缓存键含规范化结构/宽高/主题/渲染协议版本；失败可重试不无限渲染；
  *  - WP3：PubChem-only 自动写入口已降级删除；双源登记持久化 CAS/InChIKey；
  *  - WP4：三按钮（确认/修正/无法确认）、修正保留 userCorrection、批次远程描述符、
- *        无截图不确认、锁定三条件提示、全部完成才提交。
+ *        已归档 PDF 直接审核、未绑定原文不确认、锁定条件提示、全部完成才提交。
  */
 
 import { test } from "node:test";
@@ -52,13 +52,15 @@ test("0.4.0 workspace: three full-width panels are genuinely rendered (no CSS-hi
 	assert.doesNotMatch(source, /\.sw04-analysis[^}]*display:\s*none/);
 });
 
-test("0.4.1 workspace: review uses half-screen source column and chemistry cards are enlarged", async () => {
+test("0.4.1 workspace: review uses one large archived-PDF column and chemistry cards are enlarged", async () => {
 	const source = await readClientSource();
 	assert.match(source, /className: "sw04-review-copy"/);
-	assert.match(source, /className: "sw04-review-source"/);
+	assert.doesNotMatch(source, /className: "sw04-review-source"/);
 	assert.match(source, /\.sw04-review-drawer\{width:96vw/);
-	assert.match(source, /\.sw04-review-body\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
-	assert.match(source, /\.sw04-review-source \.sw-ev-shot img\{width:100%;max-height:none/);
+	assert.match(source, /\.sw04-review-body\{display:flex;flex-direction:column;overflow-y:auto/);
+	assert.match(source, /\.sw04-review-quote\{font-size:15px!important;line-height:1\.8/);
+	assert.match(source, /h\(PdfViewerFrame, \{ row: activeEvidence, notify \}\)/);
+	assert.doesNotMatch(source, /h\(EvidenceShot, \{ row: activeEvidence/);
 	assert.match(source, /\.sw-step-chem-node \.sw-struct-card\{min-width:150px;max-width:180px/);
 	assert.match(source, /\.sw04-detail \.sw-struct-card img,.sw04-detail \.sw-struct-fallback\{height:180px/);
 	assert.match(source, /\.sw-graph\{align-items:flex-start/);
@@ -116,9 +118,9 @@ test("0.4.0 review: three human decisions, correction keeps original+correction,
 	assert.match(source, /status: "corrected", correction/);
 	assert.match(source, /userCorrection/);
 	assert.match(source, /originalExtract/);
-	// 无截图依据不能“确认”（截图核验门禁），缺截图原因在 UI 明示
-	assert.match(source, /不能计为截图核验完成/);
-	assert.match(source, /截图核验不可用/);
+	// 已归档 PDF/SI 可直接审核；未绑定原文的自动提取项仍不能确认。
+	assert.match(source, /没有归档原文的自动提取项不能计为核验完成/);
+	assert.match(source, /尚未绑定已归档 PDF\/SI/);
 	// 全部事实完成前不能提交给 Agent
 	assert.match(source, /全部事实完成后才能提交/);
 	assert.match(source, /交给 Agent 更新未确定项/);

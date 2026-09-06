@@ -43,7 +43,8 @@ test("standalone PDF viewer ignores stale asynchronous loads and uses the curren
 	assert.match(source, /const requestSeqRef = useRef\(0\)/);
 	assert.match(source, /const requestSeq = \+\+requestSeqRef\.current/);
 	assert.match(source, /if \(requestSeq !== requestSeqRef\.current\)/);
-	assert.match(source, /renderPage\(doc, page, q, requestSeq\)/);
+	assert.match(source, /renderPage\(doc, resolvedPage, q, requestSeq\)/);
+	assert.match(source, /findPageByQuote\(doc, q, requestSeq\)/);
 	assert.match(source, /locateAndHighlight\(quoteText\)/);
 	assert.doesNotMatch(source, /const \[quote, setQuote\]/);
 });

@@ -12,7 +12,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { apply } from "../../lib/synthesis-tool.js";
+import { apply, enrichStepCompounds } from "../../lib/synthesis-tool.js";
 import { synthesisTargetSchema, synthesisEvidenceSchema, synthesisRouteSchema } from "../../src/synthesis/models.js";
 
 /** 递归检查对象树中是否存在值为 undefined 的自有可枚举属性。 */
@@ -165,6 +165,28 @@ test("lab_synth_compound_resolve_dual exposes a traceable read-only structure lo
 	assert.equal(out.result.casNumber, "64-17-5");
 	assert.equal(hasUndefinedValue(out), false);
 	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
+});
+
+test("route registration auto-fills PubChem CAS independently and only adopts dual-confirmed SMILES", async () => {
+	const calls = [];
+	const step = await enrichStepCompounds({
+		reaction: "test",
+		reactants: ["ethanol", "single source"],
+		products: ["ethyl acetate"],
+		structures: [{ name: "ethyl acetate", role: "product", smiles: "CCOC(C)=O", source: "agent" }]
+	}, async (name) => {
+		calls.push(name);
+		if (name === "ethanol") return { status: "dual-confirmed", smiles: "CCO", casNumber: "64-17-5", inchiKey: "KEY", sources: { pubchem: { cid: 702, smiles: "CCO" }, cactus: { smiles: "CCO" } } };
+		if (name === "single source") return { status: "single-source", smiles: "CCC", casNumber: "123-45-6", sources: { pubchem: { cid: 1, smiles: "CCC" }, cactus: {} } };
+		return { status: "single-source", casNumber: "141-78-6", sources: { pubchem: { cid: 8857 }, cactus: {} } };
+	});
+	assert.deepEqual(calls.sort(), ["ethanol", "ethyl acetate", "single source"]);
+	assert.equal(step.structures.find((row) => row.name === "ethanol").smiles, "CCO");
+	assert.equal(step.structures.find((row) => row.name === "ethanol").casNumber, "64-17-5");
+	assert.equal(step.structures.find((row) => row.name === "single source").casNumber, "123-45-6");
+	assert.equal(step.structures.find((row) => row.name === "single source").smiles, undefined, "single source structure must not be auto-adopted");
+	assert.equal(step.structures.find((row) => row.name === "ethyl acetate").smiles, "CCOC(C)=O", "supplied structure must be preserved");
+	assert.equal(step.structures.find((row) => row.name === "ethyl acetate").casNumber, "141-78-6");
 });
 
 test("lab_synth_route_create 对含脏字段的路线返回干净投影", async () => {

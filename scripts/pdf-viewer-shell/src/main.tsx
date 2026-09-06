@@ -180,6 +180,7 @@ function App() {
   const requestSeqRef = useRef(0);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error
   const [message, setMessage] = useState("");
+  const [pageNote, setPageNote] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [locateResult, setLocateResult] = useState(null); // { status, detail }
 
@@ -193,6 +194,24 @@ function App() {
     if (pageRef.current) { pageRef.current = null; }
     const canvas = canvasRef.current;
     if (canvas) { const ctx = canvas.getContext("2d"); ctx?.clearRect(0, 0, canvas.width, canvas.height); }
+  };
+
+  // Evidence.page 可能是期刊印刷页码（如 17619），并不是 PDF 的 1-based
+  // 物理页码。超出范围时用摘录全文检索实际页，禁止直接交给 doc.getPage。
+  const findPageByQuote = async (doc, quoteText, requestSeq) => {
+    const normQuote = normalizeText(quoteText);
+    if (!normQuote) return null;
+    for (let candidate = 1; candidate <= doc.numPages; candidate += 1) {
+      if (requestSeq !== requestSeqRef.current) return null;
+      const candidatePage = await doc.getPage(candidate);
+      const textContent = await candidatePage.getTextContent();
+      const model = buildPageTextModel(textContent);
+      const { norm } = buildNormalizationMap(model);
+      const matched = exactMatch(norm, normQuote) || fuzzyMatch(norm, normQuote);
+      if (matched) return candidate;
+      candidatePage.cleanup?.();
+    }
+    return null;
   };
 
   // 渲染 PDF 某页到 canvas + 建立文本层
@@ -383,6 +402,7 @@ function App() {
     pdfDocRef.current = null;
     setStatus("loading");
     setMessage("正在加载原文…");
+    setPageNote("");
     try {
       // 复用 /api/lab-artifacts 取 PDF 流（PDF.js 可直接消费同源 URL）
       const pdfUrl = `/api/lab-artifacts?kind=${kind}&bundleId=${encodeURIComponent(bundleId)}&preview=1`;
@@ -394,7 +414,16 @@ function App() {
       loadingTaskRef.current = null;
       pdfDocRef.current = doc;
       setMessage(`已加载（共 ${doc.numPages} 页）`);
-      const rendered = await renderPage(doc, page, q, requestSeq);
+      let resolvedPage = page;
+      if (page < 1 || page > doc.numPages) {
+        const locatedPage = await findPageByQuote(doc, q, requestSeq);
+        if (requestSeq !== requestSeqRef.current) return;
+        resolvedPage = locatedPage || 1;
+        setPageNote(locatedPage
+          ? `登记页码 ${page} 为期刊页码，已按摘录定位到 PDF 第 ${locatedPage} 页`
+          : `登记页码 ${page} 超出 PDF 范围且摘录未匹配，已回到第 1 页人工核对`);
+      }
+      const rendered = await renderPage(doc, resolvedPage, q, requestSeq);
       if (!rendered || requestSeq !== requestSeqRef.current) return;
       setStatus("ready");
     } catch (error) {
@@ -422,7 +451,7 @@ function App() {
       <div style={{ flex: "none", padding: "8px 12px", background: "#fff", borderBottom: "1px solid #dde6e2", fontSize: 12, display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontWeight: 600 }}>原文定位</span>
         <span style={{ color: "#718b82", fontSize: 11 }}>
-          {status === "loading" ? message : status === "error" ? `⚠ ${message}` : currentPage ? `第 ${currentPage} 页` : message}
+          {status === "loading" ? message : status === "error" ? `⚠ ${message}` : currentPage ? `第 ${currentPage} 页${pageNote ? ` · ${pageNote}` : ""}` : message}
         </span>
         {locateResult?.status === "notfound" && (
           <span style={{ color: "#8a6d2f", fontSize: 11 }}>未能自动定位原文，请在本页人工确认</span>

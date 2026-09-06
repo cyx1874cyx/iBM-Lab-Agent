@@ -14,4 +14,6 @@
                { type:'error', message }
 - PDF 二进制: 宿主经 /api/lab-artifacts?kind=pdf|si&bundleId=..&preview=1 获取（同源流），
   本 shell 只负责渲染与定位高亮，不自行访问文献归档。
+- 0.4.1-rc.5：登记页码若是期刊印刷页（超出 PDF 物理页数），查看器会用摘录
+  文本扫描整份 PDF，定位到真实物理页后再渲染，不再直接报“页码超出范围”。
 - 注意: 产物 hash 与 dist/assets 同步；重建后若引用文件名变化需一并更新 index.html 与入库 assets。

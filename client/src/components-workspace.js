@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { h } from "./h.js";
 import { ROUTE_ORIGIN_LABEL, ROUTE_STATUS_LABEL, EVIDENCE_SOURCE_LABEL, EVIDENCE_REVIEW_LABEL, STEP_FIELD_DEFS } from "./constants.js";
 import { stepIsStructured, readStepFieldValue, evidenceByStep, routeLevelEvidence, evidenceLocator, stepCompoundsByRole } from "./ketcher.js";
-import { EvidenceShot, PdfViewerFrame, KetcherEditorModal, StructureCard, StepReactionLayout } from "./components-core.js";
+import { PdfViewerFrame, KetcherEditorModal, StructureCard, StepReactionLayout } from "./components-core.js";
 
 // 研究设计工作台主组件（合成路线：Route → Step → Evidence → 审核抽屉）
-export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onChanged }) {
+export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onRequestPlan, onChanged }) {
 			const targetById = (id) => targets.find((row) => row.id === id) || null;
 			const [routeId, setRouteId] = useState(routes.length ? routes[0].id : null);
 			const [tick, setTick] = useState(0); // 手动刷新计数：同时重拉 detail
@@ -139,7 +139,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 						const result = await response.json().catch(() => null);
 						if (!response.ok || !result?.ok) {
 							if (result && Array.isArray(result.blockers) && result.blockers.length) {
-								// 0.4.0 WP4：结构化阻断原因（待审事实 / 运行中批次 / 缺截图核验）
+								// 结构化阻断原因（待审事实 / 运行中批次 / 缺少归档原文）
 								setLockBlockers(result.blockers);
 								notify(`路线暂不能锁定：${result.blockers.map((row) => row.message).join("；")}`);
 							} else {
@@ -152,28 +152,6 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 						notify(`路线「${result.route.name}」已锁定；如需修改请复制为新版本。`);
 						await onChanged();
 						setTick((value) => value + 1);
-					});
-				}
-				if (action === "plan") {
-					if (!route) return;
-					// 0.4.0：两次点击确认。第一次点击只进入确认态，不发送请求；4 秒内再次点击才发送一次。
-					if (!planArmed) {
-						setPlanArmed(true);
-						if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-						planArmTimerRef.current = window.setTimeout(() => {
-							planArmTimerRef.current = null;
-							setPlanArmed(false);
-						}, 4000);
-						notify("请再次点击「生成实验计划草案」确认发送（避免误触）。");
-						return;
-					}
-					if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-					planArmTimerRef.current = null;
-					setPlanArmed(false);
-					return withBusy("plan", async () => {
-						const result = await call("synth_plan_from_route", { request: { routeId } });
-						notify(`已生成实验计划草案「${result.plan.title}」（requiresReview=true，待人工审核）。`);
-						await onChanged();
 					});
 				}
 				if (action === "add-step") {
@@ -230,34 +208,26 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 				});
 			};
 
-			// 0.4.0-rc.4（§5.2）：事实列表各条的截图核验状态（由右侧 EvidenceShot
-			// 上报；仅“截图真实成功显示（ok）”才允许确认/修正该条事实）
-			const [shotReadyById, setShotReadyById] = useState({}); // { [evidenceId]: true | false }
-			const markShotReady = (evidenceId, ready) => setShotReadyById((old) => ({ ...old, [String(evidenceId)]: !!ready }));
-			/** 前端等价的“需要原文截图依据”（与服务端 evidenceRequiresShot 一致）。 */
+			/** 已归档 PDF/SI 直接在审核抽屉定位，不再要求重复生成截图。 */
 			const evidenceRequiresShotClient = (row) => {
-				if ((row?.bundleId || row?.documentId) && row?.page !== undefined && row?.page !== null && row?.page !== "") return true;
+				if (row?.bundleId || row?.documentId) return false;
 				const method = String(row?.extractionMethod ?? "");
 				return ["text", "vlm", "search", "model"].includes(method) && row?.excerpt !== undefined && row?.excerpt !== null && row?.excerpt !== "";
 			};
-			/** 该条事实能否确认：本次页面会话中原文截图必须真实显示成功。 */
+			/** 已绑定原文可直接人工确认；未绑定原文的自动提取项仍需补充依据。 */
 			const evidenceConfirmable = (row) => {
 				if (!evidenceRequiresShotClient(row)) return true;
-				return shotReadyById[String(row.id)] === true;
+				return false;
 			};
-			/** 截图门禁文案（给用户的可行动原因，与审核抽屉截图面板一致）。 */
+			/** 缺少归档原文时的可行动原因。 */
 			const evidenceShotBlockReason = (row) => {
-				const ver = row?.shotVerification;
-				if (ver?.status === "stale") return "原文截图已失效（原文/页码在核验后变化），请重新打开审核抽屉完成截图核验后再确认。";
-				if (ver?.status === "failed") return `原文截图渲染失败（${ver.error || "文件损坏或渲染器不可用"}），不能确认；修复后重试或标“无法确认”交给 Agent。`;
-				return "请先在审核抽屉内完成原文截图核验（截图成功显示后再确认/修正）；若原文不可用请标“无法确认”交给 Agent。";
+				return "该自动提取项尚未绑定已归档 PDF/SI，不能作为原文核验完成；请补充原文，或标“无法确认”交给 Agent。";
 			};
 
-			// 0.4.0-rc.4（§5.2）：确认/修正都先过“截图真实成功显示”门禁
-			// （纯人工知识/内部事实无需原文截图，与服务端 evidenceShotGate 一致）。
+			// 确认/修正以审核抽屉中的已归档 PDF 为依据，不再依赖派生截图。
 			const decideEvidence = (row, status) => withBusy(`ev:${row.id}`, async () => {
 				if (status === "confirmed" && !evidenceConfirmable(row)) {
-					notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}（截图核验完成前不得计为已核验；如原文确实不可用，请标“无法确认”交给 Agent 复核。）`);
+					notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`);
 					return;
 				}
 				await call("synth_evidence_review", { request: { id: row.id, status } });
@@ -266,10 +236,10 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 				setDetail(reload);
 			});
 			/** 修正：同时保留原始提取值与人工修正值（服务端写 originalExtract + userCorrection）。
-			 *  0.4.0-rc.4（§5.2）：需要原文依据的事实，修正也不得绕过首次截图审核。 */
+			 *  自动提取项若未绑定归档原文，修正同样不能视为完成原文核验。 */
 			const saveCorrection = (row, rawValue) => withBusy(`ev:${row.id}`, async () => {
 				if (evidenceRequiresShotClient(row) && !evidenceConfirmable(row)) {
-					notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)} 若原文确实不可用，请标“无法确认”交给 Agent 复核，而不是把无截图修正当作完成。`);
+					notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`);
 					return;
 				}
 				const correction = String(rawValue ?? "").trim();
@@ -345,19 +315,32 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 			const [ketcherModal, setKetcherModal] = useState(null); // { stepKey, name, smiles, role } | null
 			// 0.4.0：页内"添加步骤"表单（替代连续 window.prompt）
 			const [addStepForm, setAddStepForm] = useState(null); // { open, reaction, reactants, products } | null
-			// 0.4.0：产物请求两击确认（idle → 确认 → 发送；首次点击不产生请求）
-			const [planArmed, setPlanArmed] = useState(false);
-			const planArmTimerRef = useRef(null);
-			useEffect(() => {
-				setPlanArmed(false);
-				if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-				planArmTimerRef.current = null;
-				return () => {
-					if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-				};
-			}, [routeId, selectedStepId]);
 			// 0.4.0：PubChem/CACTUS 双源核验结果面板（只查不写，候选登记需人工确认）
 			const [dualPanel, setDualPanel] = useState(null); // { results: [{name,status,smiles,casNumber,inchiKey,sources}], missingAfter } | null
+			const [planPreview, setPlanPreview] = useState(null);
+			const routePlan = route ? plans.find((item) => item.routeId === route.id || item.id === `plan-${route.id}` || item.id.startsWith(`plan-${route.id}-`)) : null;
+			const requestExperimentPlan = () => {
+				if (!route || !onRequestPlan) return;
+				const prompt = `请为合成路线「${route.name}」（routeId: ${route.id}）生成实验计划。先读取路线全部步骤、已归档文献证据和当前实验计划模板；补齐可确认信息，缺失项明确标为待确认，完成后调用 lab_synth_experiment_plan_create 登记到项目面板。`;
+				onRequestPlan(prompt);
+			};
+			const planPreviewNode = !planPreview ? null : h("div", { className: "sw-struct-edit", onClick: () => setPlanPreview(null) },
+				h("div", { className: "sw04-plan-preview", role: "dialog", "aria-modal": "true", "aria-label": "实验计划", onClick: (event) => event.stopPropagation() },
+					h("div", { className: "sw04-plan-preview-head" },
+						h("div", null, h("b", null, planPreview.title), h("small", null, `${planPreview.status} · ${planPreview.templateSnapshot?.name || "实验计划模板"}`)),
+						h("button", { className: "sw-mini-btn", onClick: () => setPlanPreview(null) }, "关闭")),
+					h("section", null, h("h4", null, "实验目的"), h("p", null, planPreview.objective)),
+					h("section", null, h("h4", null, "规模"), h("p", null, planPreview.scale)),
+					h("section", null, h("h4", null, "试剂与用量"),
+						h("div", { className: "sw04-plan-grid" }, (planPreview.reagents || []).map((item, index) =>
+							h("div", { key: `${item.name}-${index}` }, h("b", null, item.name), h("span", null, `${item.amount}${item.role ? ` · ${item.role}` : ""}`))))),
+					h("section", null, h("h4", null, "操作步骤"),
+						h("ol", null, (planPreview.steps || []).map((item, index) =>
+							h("li", { key: index }, h("b", null, item.step), `：${item.description}${item.monitoring ? `（监测：${item.monitoring}）` : ""}`)))),
+					h("section", null, h("h4", null, "后处理、纯化与表征"),
+						h("p", null, [planPreview.workup, ...(planPreview.purification || []), ...(planPreview.characterization || [])].filter(Boolean).join("；") || "待确认")),
+					h("section", null, h("h4", null, "安全与废弃物"),
+						h("ul", null, (planPreview.safety || []).map((item, index) => h("li", { key: index }, item))))));
 
 			// ── 0.3.2 Ketcher 结构编辑状态 ────────────────────────────────────
 			const openStructureEditor = (entry) => {
@@ -545,7 +528,7 @@ return h("div", { className: "sw-plan" },
 							h("p", null, "横向反应式：左侧反应物 → 中间条件与注意事项 → 右侧产物。字段无来源显示“文献未提供 / 待确认”，系统不自动补默认值；缺结构可解析或 Ketcher 补绘。")),
 						h("div", { className: "sw-acts" },
 							h("button", { className: "sw-mini-btn", disabled: !!busy.dual || route?.locked, onClick: () => void runDualResolve(), title: "PubChem/CACTUS 双源核验缺结构化合物；冲突只展示候选不自动写入" }, busy.dual ? "核验中…" : "双源核验"),
-							h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.plan || !route?.steps?.length || route?.locked, onClick: () => runAction("plan") }, busy.plan ? "生成中…" : (planArmed ? "再次点击确认生成" : "生成实验计划草案")))),
+								h("button", { className: "sw-mini-btn", "data-primary": routePlan ? true : undefined, "data-ready": routePlan ? "true" : "false", disabled: !route?.steps?.length, onClick: () => routePlan ? setPlanPreview(routePlan) : requestExperimentPlan(), title: routePlan ? "查看已登记实验计划" : "在当前课题工作区新建对话并预填实验计划任务" }, routePlan ? "打开实验计划" : "生成实验计划"))),
 					h(StepReactionLayout, { step: selectedStep, onStructureClick: openStructureEditor }),
 					h("p", { className: "sw04-difficulty" }, h("b", null, "步骤难点"), selectedStep.difficultySummary || "缺少足够的结构或条件信息，需先核验。"),
 					stepIsStructured(selectedStep)
@@ -558,7 +541,7 @@ return h("div", { className: "sw-plan" },
 					h("div", { className: "sw-head" },
 						h("div", null,
 							h("h3", null, "事实核验"),
-							h("p", null, "本步事实以紧凑列表展示；点击「审核」从右侧打开原文核对抽屉，在抽屉内完成确认 / 修正 / 无法确认。无已捕获原文或无页码的事实不能计为截图核验完成。"),
+							h("p", null, "本步事实以紧凑列表展示；点击「审核」从右侧打开已归档 PDF/SI 原文定位，在抽屉内完成确认 / 修正 / 无法确认。没有归档原文的自动提取项不能计为核验完成。"),
 						h("span", { className: "sw-chip", "data-tone": stepEvidence.some((row) => row.reviewStatus === "pending") ? "warn" : "good" },
 							`待核验 ${stepEvidence.filter((row) => row.reviewStatus === "pending").length} / 已确认 ${stepEvidence.filter((row) => row.reviewStatus === "confirmed").length}`))),
 					stepEvidence.length
@@ -644,6 +627,7 @@ return h("div", { className: "sw-plan" },
 						})
 						: h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "缺结构化合物已完成双源核验或登记。")))
 				: null,
+			planPreviewNode,
 			// ── RC1-04/05：右侧审核抽屉（单例，按 activeEvidenceId 动态渲染）──
 			reviewDrawerOpen && activeEvidence
 				? h("div", { className: "sw04-review-backdrop", onClick: closeReviewDrawer },
@@ -658,20 +642,14 @@ return h("div", { className: "sw-plan" },
 							h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
 							activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
 							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "#fbf5e6" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
-							// PDF 定位器与提取内容同列，右半屏完整留给截图核验。
+							// 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
 							h(PdfViewerFrame, { row: activeEvidence, notify })),
-						h("div", { className: "sw04-review-source" },
-							activeEvidence.bundleId || activeEvidence.documentId
-								? h("div", { className: "sw04-review-shot" },
-									h(EvidenceShot, { routeId, row: activeEvidence, notify, onReady: (evidenceId) => markShotReady(evidenceId, true), onFailed: (evidenceId) => markShotReady(evidenceId, false) }),
-									h("div", { className: "sw04-review-hint" }, "原文截图由服务端按已捕获原文 + 页码渲染（截图核验门禁依据）；可点击「打开原文」在 PDF 阅读器中查看完整文献。"))
-								: h("div", { className: "sw04-review-hint" }, "该事实尚未绑定可截图的原文。"))),
 						h("div", { className: "sw04-review-foot" },
 							h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
 							h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),
 							h("button", { className: "sw-mini-btn", disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "修正"),
 							h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "确认通过"),
-							h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => { const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id); if (next) { setSelectedEvidenceId(next.id); setCorrectionFor(null); } }, title: "跳到下一条待审核事实" }, "下一条待审核"))))
+								h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => { const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id); if (next) { setSelectedEvidenceId(next.id); setCorrectionFor(null); } }, title: "跳到下一条待审核事实" }, "下一条待审核")))))
 				: null,
 			h(KetcherEditorModal, { entry: ketcherModal, onSave: (smiles) => void saveKetcherSmiles(smiles), onCancel: () => setKetcherModal(null) }));
 		}

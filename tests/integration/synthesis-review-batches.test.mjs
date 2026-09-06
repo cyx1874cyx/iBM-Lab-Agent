@@ -162,7 +162,7 @@ test("review batch lifecycle: complete closes batch; new round replaces open bat
 	}
 });
 
-test("route lock gate (rc.4): pending evidence, open batch and shot-not-ready block with structured reasons", async () => {
+test("route lock gate: archived PDF replaces derived-shot gate; pending evidence and open batch still block", async () => {
 	const { handle, dir } = await bootWorkspace();
 	try {
 		const synth = handle.ctx.labSynthesis;
@@ -174,22 +174,20 @@ test("route lock gate (rc.4): pending evidence, open batch and shot-not-ready bl
 		assert.equal(caught1?.code, "ROUTE_LOCK_BLOCKED");
 		assert.ok(caught1.blockers.some((b) => b.code === "pending-evidence" && b.evidenceIds.includes(pending.id)));
 
-		// ② 截图核验门禁：截图端点渲染失败（缺原文/文件损坏）→ 不能确认
+		// ② 已绑定归档 PDF/SI 时，派生截图失败不再阻断人工直接查看 PDF 后确认。
 		const failed = await synth.addStepEvidence({ routeId: "rt-batch", ...evidenceFields({ supportsField: "procedure.time", excerpt: "12 h", bundleId: "bundle-missing", page: "S99" }) });
 		await synth.registerEvidenceShotVerification(failed.id, { status: "failed", bundleId: "bundle-missing", page: "S99", error: "原文未归档或不可读：no pdf file" });
-		const rejectShot = await synth.reviewEvidence(failed.id, "confirmed").then(() => null, (error) => error);
-		assert.match(String(rejectShot?.message ?? ""), /cannot be confirmed/);
-		assert.match(String(rejectShot?.message ?? ""), /渲染失败|不可读/);
-		await synth.reviewEvidence(failed.id, "rejected");
+		await synth.reviewEvidence(failed.id, "confirmed");
+		assert.equal(synth.evidenceById(failed.id).reviewStatus, "confirmed");
 
-		// ③ ready 后被标记 stale（原 PDF 被替换）→ 不能确认；锁定被 shot-not-ready 阻断
+		// ③ 旧截图 stale 仍可用于缓存失效审计，但不再成为路线锁定门禁。
 		const good = await synth.addStepEvidence({ routeId: "rt-batch", ...evidenceFields({ supportsField: "procedure.solvents", excerpt: "DMF", bundleId: "bundle-stale", page: "S13" }) });
 		await markShotReady(synth, good.id, { digest: "digest-v1", bundleId: "bundle-stale", page: "S13" });
 		await synth.reviewEvidence(good.id, "confirmed");
 		await synth.registerEvidenceShotVerification(good.id, { status: "stale", bundleId: "bundle-stale", page: "S13", sourceDigest: "digest-v2", error: "原 PDF 内容已变化" });
 		const caught2 = await synth.lockRoute("rt-batch", { by: "user" }).then(() => null, (error) => error);
-		assert.ok(caught2.blockers.some((b) => b.code === "shot-not-ready" && b.evidenceIds.includes(good.id)), "stale 截图使锁定被 shot-not-ready 阻断");
-		// 重新渲染成功（新 digest ready）后才能确认 → 锁定不再被截图阻断
+		assert.equal(caught2.blockers.some((b) => b.code === "shot-not-ready"), false, "已归档 PDF 不受派生截图状态阻断");
+		// 派生截图仍允许按需刷新，兼容旧数据与旧入口。
 		await markShotReady(synth, good.id, { digest: "digest-v2", bundleId: "bundle-stale", page: "S13" });
 
 		// ④ 已确认但无 bundle/page 的旧式证据不能直接确认（reviewEvidence 拒绝）
@@ -246,7 +244,7 @@ test("route lock gate (rc.4): pending evidence, open batch and shot-not-ready bl
 	}
 });
 
-test("rc.4 review §4: location snapshot binding — page/bbox/bundle change stales ready; legacy ready migrates; digest mismatch blocks lock", async () => {
+test("review location snapshot remains auditable but archived PDF bypasses derived-shot confirmation gate", async () => {
 	const { handle, dir } = await bootWorkspace();
 	try {
 		const synth = handle.ctx.labSynthesis;
@@ -271,10 +269,9 @@ test("rc.4 review §4: location snapshot binding — page/bbox/bundle change sta
 		assert.equal(moved.page, "S14");
 		assert.equal(moved.shotVerification.status, "stale", "page 变更必须同事务把 ready 置 stale（§4.3）");
 		assert.match(moved.shotVerification.error, /定位.*变更/);
-		// stale 后不能确认（重新渲染后才恢复）
+		// stale 仅表示旧派生截图失效；已归档 PDF 可直接审核。
 		const gateAfterMove = synth.evidenceShotGate(moved);
-		assert.equal(gateAfterMove.ok, false);
-		assert.match(gateAfterMove.reason, /stale|失效|重新渲染/);
+		assert.equal(gateAfterMove.ok, true);
 		// Agent 回写后 moved 进入下一轮 pending：下一批前须人工决定（rejected 不依赖截图）
 		await synth.reviewEvidence(moved.id, "rejected");
 
@@ -296,7 +293,7 @@ test("rc.4 review §4: location snapshot binding — page/bbox/bundle change sta
 		await synth.applyUncertainBatch(batch3.id, { updates: [{ evidenceId: evBundle.id, bundleId: "bundle-new-2", excerpt: "86%（复核）" }] });
 		assert.equal(synth.evidenceById(evBundle.id).shotVerification.status, "stale", "bundleId 替换必须置 stale");
 
-		// ⑤ 旧版无 locationDigest 的 ready（模拟 legacy 数据）→ 迁移 stale、gate 拒绝、不能确认
+		// ⑤ 旧版无 locationDigest 的 ready 不再影响已归档 PDF 的直接人工审核。
 		const legacy = await synth.addStepEvidence({ routeId: "rt-batch", ...evidenceFields({ supportsField: "procedure.atmosphere", excerpt: "N2" }) });
 		const legacyRow = synth.evidenceById(legacy.id);
 		await synth.table("evidence").put(legacy.id, {
@@ -304,13 +301,8 @@ test("rc.4 review §4: location snapshot binding — page/bbox/bundle change sta
 			shotVerification: { status: "ready", bundleId: "bundle-rev-1", page: "S12", sourceDigest: "legacy-digest" } // 无 locationDigest
 		});
 		const legacyGate = synth.evidenceShotGate(synth.evidenceById(legacy.id));
-		assert.equal(legacyGate.ok, false, "旧版无 locationDigest 的 ready 不得静默放行");
-		assert.match(legacyGate.reason, /locationDigest|旧版|重新渲染/);
-		await assert.rejects(() => synth.reviewEvidence(legacy.id, "confirmed"), /locationDigest|旧版|重新渲染/);
-		// 不依赖截图的写（rejected）落库时触发旧数据迁移为 stale
-		await synth.reviewEvidence(legacy.id, "rejected");
-		const migrated = synth.evidenceById(legacy.id);
-		assert.equal(migrated.shotVerification.status, "stale", "legacy ready 写路径自动迁移为 stale");
+		assert.equal(legacyGate.ok, true);
+		await synth.reviewEvidence(legacy.id, "confirmed");
 
 		// ⑥ stale 后重新渲染成功（新 digest + 同一定位）→ ready 恢复，且 digest 一致性可锁
 		const stale = synth.evidenceById(rejected.id);
@@ -323,12 +315,11 @@ test("rc.4 review §4: location snapshot binding — page/bbox/bundle change sta
 		assert.equal(synth.evidenceById(rejected.id).shotVerification.status, "stale", "源 SI 更新应主动使关联截图失效");
 		await markShotReady(synth, rejected.id, { digest: "digest-B3", page: "S14" });
 
-		// ⑧ ready 但 Evidence 当前定位已与快照不一致 → gate 拒绝（人为改 row 定位模拟漂移）
+		// ⑧ 定位漂移仍可由 PDF 阅读器重新按引文查找，不再由旧截图快照阻断。
 		const drifted = synth.evidenceById(rejected.id);
 		await synth.table("evidence").put(rejected.id, { ...drifted, page: "S99" });
 		const driftGate = synth.evidenceShotGate(synth.evidenceById(rejected.id));
-		assert.equal(driftGate.ok, false, "定位漂移后旧 ready 快照不匹配 → 拒绝");
-		assert.match(driftGate.reason, /变化|重新渲染/);
+		assert.equal(driftGate.ok, true);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

@@ -97,6 +97,8 @@ export const PLAN_TRANSITIONS = {
 export const experimentPlanSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE).optional(),
+	/** 生成该计划的合成路线；旧计划可缺省。 */
+	routeId: z.string().regex(PROFILE_ID_RE).optional(),
 	title: z.string().min(1),
 	objective: z.string().min(1),
 	scale: z.string().min(1),

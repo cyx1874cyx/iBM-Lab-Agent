@@ -91,6 +91,7 @@ function injectStyles() {
   css += ".sw-plan{display:grid;gap:14px}.sw-graph{min-height:180px}.sw-step{min-width:300px;width:min(540px,86vw);max-width:none}.sw-struct-card{min-width:150px;max-width:210px}.sw-struct-card img{height:120px}.sw-struct-card .sw-struct-fallback{height:120px}.sw-cond-smiles{display:none}.sw04-more{position:absolute;right:0;top:calc(100% + 6px);z-index:40;display:grid;gap:6px;min-width:170px;padding:9px;border:1px solid rgba(112,157,211,.35);border-radius:12px;background:rgba(3,26,53,.97);box-shadow:0 14px 40px rgba(0,0,0,.5)}.sw04-more .sw-mini-btn{width:100%;text-align:left;justify-content:flex-start}.sw04-difficulty{margin:10px 0 0;color:#cfe4fb;font-size:12px;line-height:1.7}.sw04-difficulty b{color:#8cb5e5;margin-right:6px}.sw04-reaction{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,.62fr) minmax(0,1fr);gap:18px;align-items:center;margin-top:14px}.sw04-reaction-side{display:grid;gap:8px;min-width:0}.sw04-reaction-side>small{color:#8aa7c6;font-size:10px;letter-spacing:.08em}.sw04-arrow{display:grid;justify-items:center;gap:9px;text-align:center;color:#cfe4fb}.sw04-arrow>strong{font-size:46px;font-weight:400;line-height:1;color:#8cb5e5}.sw04-arrow>span{font-size:10px;line-height:1.6;color:#cfe4fb}.sw04-arrow>em{font-size:9px;font-style:normal;line-height:1.5;color:#8aa7c6}.sw-ev{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.85fr);column-gap:12px}.sw-ev-top,.sw-ev-quote{grid-column:1}.sw-ev-shot{grid-column:2;grid-row:1 / span 2;margin-top:0}.sw-ev-shot img{max-height:210px;object-fit:contain}.sw04-form{display:grid;gap:9px;margin-top:12px;padding:12px 13px;border:1px solid rgba(112,157,211,.28);border-radius:12px;background:rgba(2,51,115,.14)}.sw04-form input,.sw04-form textarea{width:100%;box-sizing:border-box;border:1px solid rgba(112,157,211,.3);background:#011832;color:var(--ib-text);border-radius:9px;padding:8px 10px;font:10.5px/1.6 ui-monospace,Consolas,monospace;outline:none}.sw04-form input:focus,.sw04-form textarea:focus{border-color:#6f9ed6}.sw04-form .sw04-form-acts{display:flex;gap:8px;justify-content:flex-end}@media(max-width:780px){.sw04-reaction,.sw-ev{grid-template-columns:1fr}.sw04-arrow{padding:4px 0}.sw04-arrow>strong{transform:rotate(90deg)}.sw-ev-shot{grid-column:1;grid-row:auto;margin-top:8px}}.sw-struct-compact{min-width:120px;max-width:170px;padding:5px;gap:3px;cursor:pointer}.sw-struct-compact img{height:120px}.sw-struct-compact .sw-struct-fallback{height:120px}.sw-struct-compact .sw-struct-acts{display:none}.sw04-cond-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;text-align:left;max-width:340px}.sw04-cond{display:block;font-size:9.5px;line-height:1.5;color:#cfe4fb;word-break:break-word}.sw04-cond i{display:block;color:#8aa7c6;font-size:8px;font-style:normal;letter-spacing:.06em;text-transform:uppercase}.sw-step-chem{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;background:rgba(255,255,255,.02);border:1px solid rgba(112,157,211,.14);border-radius:10px;padding:6px 7px}.sw-step-chem-reactants,.sw-step-chem-products{display:grid;min-width:0}.sw-step-chem-flow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}.sw-step-chem-mid{display:grid;justify-items:center;gap:3px;min-width:0}.sw-step-chem-node{display:grid;gap:1px;min-width:0}.sw-step-chem-node .sw-struct-card{padding:4px;min-width:96px;max-width:120px;background:#fff}.sw-step-chem-node .sw-struct-card img{height:96px;background:#fff;padding:1px}.sw-step-chem-node .sw-struct-fallback{height:96px}.sw-step-chem-node .sw-struct-name{font-size:7.5px;color:#16384c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}.sw-step-chem-node .sw-struct-name b{color:#0b2b3f}.sw-step-chem-arrow{flex:none;color:#8cb5e5;font-size:20px;line-height:1}.sw-step-chem-cond{flex:none;max-width:120px;font-size:8px;color:#8aa7c6;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.sw-step-chem-empty{color:#6d8aa6;font-size:8px;padding:6px 4px;font-style:italic}.sw04-fact-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:12px;align-items:start;margin-top:12px}.sw04-fact-list{display:grid;gap:8px;min-width:0}.sw04-fact-item{border:1px solid rgba(112,157,211,.16);border-radius:12px;background:rgba(2,29,67,.55);padding:10px 12px;cursor:pointer;text-align:left;color:inherit;transition:.15s}.sw04-fact-item:hover{border-color:rgba(111,158,214,.45)}.sw04-fact-item[data-active=true]{border-color:rgba(81,212,163,.6);background:rgba(2,51,115,.32);box-shadow:0 0 0 1px rgba(81,212,163,.4) inset}.sw04-fact-item[data-undecided=true]{border-color:rgba(242,201,109,.5)}.sw04-fact-shot{min-height:120px;border:1px solid rgba(112,157,211,.2);border-radius:12px;background:rgba(1,20,45,.5);padding:10px;position:sticky;top:8px}.sw04-fact-shot .sw-ev-shot img{max-height:300px;width:100%;object-fit:contain}.sw04-review-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.sw04-review-acts .sw-mini-btn{font-size:9px;padding:4px 9px}.sw04-batchbar{margin-top:12px;border:1px solid rgba(81,212,163,.3);border-radius:12px;background:rgba(2,51,115,.18);padding:10px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sw04-batchbar b{font-size:11px}.sw04-batchbar small{color:#8aa7c6;font-size:9px;line-height:1.5}.sw04-correction{display:grid;gap:7px;margin-top:8px}.sw04-correction textarea{width:100%;box-sizing:border-box;border:1px solid rgba(242,201,109,.45);background:#011832;color:var(--ib-text);border-radius:8px;padding:7px 9px;font:10px/1.55 ui-monospace,Consolas,monospace;outline:none;min-height:52px;resize:vertical}@media(max-width:900px){.sw04-fact-layout{grid-template-columns:1fr}.sw04-fact-shot{position:static}}.sw04-fact-compact{display:grid;gap:7px;max-height:300px;overflow-y:auto;padding-right:2px}.sw04-fact-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(112,157,211,.16);border-radius:10px;background:rgba(2,29,67,.55);padding:8px 11px;transition:.15s}.sw04-fact-row:hover{border-color:rgba(111,158,214,.45)}.sw04-fact-row-main{flex:1;min-width:0;display:grid;gap:2px}.sw04-fact-row-title{font-size:10.5px;font-weight:650;color:#e3f0ff;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-meta{font-size:8.5px;color:#8aa7c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-claim{font-size:10px;color:#cfe4fb;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-status{flex:none}.sw04-fact-review-btn{flex:none;border:1px solid rgba(115,220,230,.28);background:rgba(115,220,230,.1);color:#c3ecf1;border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-fact-review-btn:hover{border-color:rgba(115,220,230,.5);background:rgba(115,220,230,.2)}.sw04-fact-review-btn[data-done=true]{border-color:rgba(81,212,163,.42);background:rgba(81,212,163,.13);color:#c9f5e3}.sw04-review-backdrop{position:fixed;inset:0;z-index:3000;background:rgba(3,14,11,.42);backdrop-filter:blur(2px)}.sw04-review-drawer{position:fixed;z-index:3001;top:0;right:0;bottom:0;width:50vw;max-width:900px;min-width:640px;display:flex;flex-direction:column;background:#f4f7f6;color:#17382f;border-left:1px solid rgba(36,130,99,.22);box-shadow:-28px 0 70px rgba(3,25,18,.24)}.sw04-review-head{flex:none;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid rgba(45,130,101,.14)}.sw04-review-head-main{flex:1;min-width:0}.sw04-review-head-title{display:block;font-size:13px;font-weight:700;color:#17382f;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sw04-review-head-sub{display:block;margin-top:3px;font-size:9.5px;color:#718b82;line-height:1.5}.sw04-review-close{flex:none;border:1px solid #c9ddd5;background:#fff;color:#476b61;border-radius:8px;padding:5px 11px;font-size:10px;cursor:pointer}.sw04-review-close:hover{border-color:#35a97e;color:#286f58}.sw04-review-body{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}.sw04-review-field{font-size:10.5px;color:#476b61;line-height:1.6}.sw04-review-field b{color:#17382f;font-weight:700}.sw04-review-shot{border:1px solid rgba(45,130,101,.18);border-radius:12px;background:#fff;padding:10px;min-height:120px}.sw04-review-shot .sw-ev-shot{margin:0}.sw04-review-shot .sw-ev-shot img{max-height:420px;width:100%;object-fit:contain}.sw04-review-hint{margin-top:6px;border:1px solid rgba(242,201,109,.4);border-radius:9px;background:rgba(242,201,109,.08);padding:7px 10px;font-size:9.5px;color:#8a6d2f;line-height:1.5}.sw04-review-foot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px;background:#fff;border-top:1px solid rgba(45,130,101,.14);flex-wrap:wrap}.sw04-review-foot .sw-mini-btn{font-size:10px;padding:6px 12px}.sw04-review-note{flex:1;min-width:140px;border:1px solid rgba(45,130,101,.2);background:#fbfdfc;color:#17382f;border-radius:8px;padding:7px 10px;font:10.5px/1.5 ui-monospace,Consolas,monospace;outline:none}.sw04-review-note:focus{border-color:#35a97e}.sw04-review-quote{margin-top:8px;padding:8px 10px;border-left:2px solid #4d86c4;background:#eef4f9;color:#476b61;font-size:10px;line-height:1.6;border-radius:0 8px 8px 0}.sw04-review-quote b{color:#17382f}.sw04-review-next{align-self:stretch;border:1px solid rgba(115,220,230,.28);background:rgba(115,220,230,.1);color:#2b7a70;border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-review-next:disabled{opacity:.4;cursor:not-allowed}@media(max-width:1100px){.sw04-review-drawer{width:65vw;min-width:0}}@media(max-width:850px){.sw04-review-drawer{width:100vw;max-width:none;min-width:0}}";
   css += ".sw-plan{gap:10px}.sw-sec{padding:12px 13px}.sw-head h3{font-size:16px}.sw-head p{font-size:11px}.sw-chip{font-size:10.5px}.sw-graph{align-items:flex-start;gap:10px;padding:4px 0}.sw-step{align-self:flex-start;min-width:420px;width:min(660px,90vw);min-height:0;padding:10px}.sw-step-id{font-size:11px}.sw-step .sw-step-reaction{font-size:14px}.sw-step-chem{gap:10px;padding:8px}.sw-step-chem-flow{gap:7px}.sw-step-chem-node .sw-struct-card{min-width:150px;max-width:180px;padding:6px}.sw-step-chem-node .sw-struct-card img,.sw-step-chem-node .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-name{max-width:180px;font-size:10px;line-height:1.45}.sw-step-chem-arrow{font-size:25px}.sw-step-chem-cond{max-width:150px;font-size:10px;line-height:1.45}.sw-step-chem-empty{font-size:10px}.sw04-detail .sw-struct-card{min-width:190px;max-width:260px;padding:8px}.sw04-detail .sw-struct-card img,.sw04-detail .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-name{font-size:11px}.sw04-reaction{gap:14px;align-items:start;margin-top:10px}.sw04-reaction-side>small{font-size:11px}.sw04-cond{font-size:11px}.sw04-cond i{font-size:9px}.sw04-arrow>span{font-size:11px}.sw04-arrow>em{font-size:10px}.sw04-review-drawer{width:96vw;max-width:none;min-width:0}.sw04-review-head-title{font-size:15px}.sw04-review-head-sub,.sw04-review-field,.sw04-review-quote{font-size:11px}.sw04-review-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px;overflow:hidden;padding:12px 14px}.sw04-review-copy,.sw04-review-source{min-width:0;max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:3px}.sw04-review-source{height:100%}.sw04-review-source>.sw04-review-shot{min-height:100%;box-sizing:border-box}.sw04-review-source .sw-ev-shot img{width:100%;max-height:none;height:auto;object-fit:contain}.sw04-review-hint{font-size:10.5px}@media(max-width:1100px){.sw04-review-drawer{width:100vw}.sw04-review-body{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}@media(max-width:820px){.sw-step{min-width:340px}.sw04-review-body{grid-template-columns:1fr;overflow-y:auto}.sw04-review-copy,.sw04-review-source{max-height:none;overflow:visible}}";
   css += ".sw-struct-card img{object-fit:scale-down}.sw04-detail .sw-struct-card[data-preview-tier=simple]{width:200px;min-width:200px;max-width:200px}.sw04-detail .sw-struct-card[data-preview-tier=standard]{width:260px;min-width:260px;max-width:260px}.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:320px;min-width:320px;max-width:320px}.sw04-detail .sw-struct-card[data-preview-tier=simple] img,.sw04-detail .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:140px}.sw04-detail .sw-struct-card[data-preview-tier=standard] img,.sw04-detail .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-card[data-preview-tier=complex] img,.sw04-detail .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:210px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple]{width:135px;min-width:135px;max-width:135px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard]{width:180px;min-width:180px;max-width:180px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex]{width:220px;min-width:220px;max-width:220px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:108px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:160px}.sw-mini-btn[data-danger=true]{border-color:rgba(255,137,137,.5);color:#ffc2ca;background:rgba(190,70,90,.12)}.sw-mini-btn[data-danger=true]:hover{border-color:#ff8999;background:rgba(190,70,90,.25)}@media(max-width:720px){.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:min(320px,82vw);min-width:min(320px,82vw)}}";
+  css += ".ib-lit-btn[data-ready=false]{border-color:rgba(157,170,185,.28);background:rgba(135,148,163,.1);color:#91a1b5}.ib-lit-btn[data-ready=false]:hover{border-color:rgba(182,194,208,.5);background:rgba(135,148,163,.2);color:#c5d0de}.sw04-review-body{display:flex;flex-direction:column;overflow-y:auto;gap:12px}.sw04-review-copy{display:flex;flex-direction:column;gap:10px;min-width:0;max-height:none;overflow:visible;padding:0}.sw04-review-quote{font-size:15px!important;line-height:1.8;padding:14px 16px;margin-top:2px}.sw04-review-field{font-size:12px}.sw04-review-shot{padding:12px}.sw04-plan-preview{width:min(920px,94vw);max-height:88vh;overflow-y:auto;display:grid;gap:14px;padding:18px;border:1px solid rgba(140,181,229,.42);border-radius:16px;background:#011e3f;color:#cfe4fb;box-shadow:0 28px 80px rgba(0,0,0,.48)}.sw04-plan-preview-head{display:flex;align-items:flex-start;gap:12px}.sw04-plan-preview-head>div{display:grid;gap:3px;flex:1}.sw04-plan-preview-head b{font-size:16px;color:#fff}.sw04-plan-preview-head small{color:#8aa7c6}.sw04-plan-preview section{border:1px solid rgba(112,157,211,.2);border-radius:10px;padding:11px 13px}.sw04-plan-preview h4{margin:0 0 7px;color:#8cb5e5}.sw04-plan-preview p,.sw04-plan-preview li{font-size:11px;line-height:1.7;margin:0}.sw04-plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.sw04-plan-grid>div{display:grid;padding:8px;border-radius:8px;background:rgba(2,51,115,.24)}.sw04-plan-grid span{font-size:10px;color:#9db8d6}";
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
     style.dataset.pluginCss = "dsh-lab-agent";
@@ -1647,174 +1648,22 @@ function StepReactionLayout({ step, onStructureClick }) {
     renderSide("产物", products, step.products)
   );
 }
-function EvidenceShot({ routeId, row, notify, onReady, onFailed }) {
-  const localPageNumber = (value) => {
-    if (value === void 0 || value === null || value === "") return void 0;
-    const match = /\d+/.exec(String(value));
-    return match ? Number(match[0]) : void 0;
-  };
-  const shotable = (row?.bundleId || row?.documentId) && localPageNumber(row?.page) !== void 0;
-  const [state, setState] = (0, import_react4.useState)(shotable ? "loading" : "off");
-  const [src, setSrc] = (0, import_react4.useState)("");
-  const [message, setMessage] = (0, import_react4.useState)("");
-  const reported = (0, import_react4.useRef)(false);
-  const objectUrlRef = (0, import_react4.useRef)(null);
-  const abortRef = (0, import_react4.useRef)(null);
-  const loadSeqRef = (0, import_react4.useRef)(0);
-  const documentKind = row?.sourceKind === "si" || !row?.sourceKind && row?.sourceType === "paper-si" ? "si" : "pdf";
-  const bboxKey = JSON.stringify(row?.bbox ?? null);
-  const shotUrl = () => `/api/lab-evidence-shot?routeId=${encodeURIComponent(routeId)}&evidenceId=${encodeURIComponent(row.id)}&kind=${documentKind}&v=${encodeURIComponent(row.updatedAt || row.id)}`;
-  const releaseCurrentUrl = () => {
-    const current = objectUrlRef.current;
-    objectUrlRef.current = null;
-    if (current) URL.revokeObjectURL(current);
-  };
-  const abortInFlight = () => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-  };
-  const load = () => {
-    if (!shotable) {
-      loadSeqRef.current += 1;
-      abortInFlight();
-      releaseCurrentUrl();
-      setSrc("");
-      setState("off");
-      setMessage("");
-      if (!reported.current) {
-        reported.current = true;
-        onFailed?.(row.id, "未绑定已捕获原文（bundleId/documentId）且无页码，无法截图核验");
-      }
-      return;
-    }
-    const seq = ++loadSeqRef.current;
-    abortInFlight();
-    releaseCurrentUrl();
-    setSrc("");
-    setState("loading");
-    setMessage("");
-    reported.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    fetch(shotUrl(), { signal: controller.signal }).then(async (response) => {
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(text && text.trim() || `截图不可用（HTTP ${response.status}）：可能原文未捕获、页码错误或渲染服务不可用`);
-      }
-      return response.blob();
-    }).then((blob) => {
-      const objectUrl = URL.createObjectURL(blob);
-      return new Promise((resolve, reject) => {
-        const probe = new Image();
-        probe.onload = () => resolve(objectUrl);
-        probe.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          reject(new Error("服务端返回的不是有效图片，无法核验"));
-        };
-        probe.src = objectUrl;
-      });
-    }).then((objectUrl) => {
-      if (seq !== loadSeqRef.current) {
-        URL.revokeObjectURL(objectUrl);
-        return;
-      }
-      if (objectUrlRef.current && objectUrlRef.current !== objectUrl) URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = objectUrl;
-      abortRef.current = null;
-      setSrc(objectUrl);
-    }).catch((reason) => {
-      if (reason?.name === "AbortError" || seq !== loadSeqRef.current) return;
-      setState("error");
-      setMessage(reason?.message || "截图不可用：可能原文未捕获、无页码或渲染服务不可用");
-      releaseCurrentUrl();
-      setSrc("");
-      if (!reported.current) {
-        reported.current = true;
-        onFailed?.(row.id, reason?.message || "");
-      }
-    });
-  };
-  const handleImageLoad = () => {
-    setState("ok");
-    if (!reported.current) {
-      reported.current = true;
-      onReady?.(row.id);
-    }
-  };
-  const handleImageError = () => {
-    setState("error");
-    setMessage("截图实际显示失败（图片加载错误），请重试或重新渲染");
-    releaseCurrentUrl();
-    setSrc("");
-    if (!reported.current) {
-      reported.current = true;
-      onFailed?.(row.id, "截图实际显示失败：图片加载错误");
-    }
-  };
-  (0, import_react4.useEffect)(() => {
-    reported.current = false;
-    load();
-    return () => {
-      loadSeqRef.current += 1;
-      abortInFlight();
-      releaseCurrentUrl();
-    };
-  }, [routeId, row.id, row.updatedAt, row.bundleId, row.documentId, row.page, bboxKey, row.sourceKind, row.sourceType]);
-  if (state === "off") {
-    return null;
-  }
-  const openOriginal = (event) => {
-    event.stopPropagation();
-    const bundleId = row.bundleId || row.documentId;
-    if (!bundleId) {
-      notify("该证据未绑定已捕获原文（bundleId）");
-      return;
-    }
-    const url = `/api/lab-artifacts?kind=${documentKind}&bundleId=${encodeURIComponent(bundleId)}`;
-    void openPdfPreview(url).catch((reason) => notify(reason?.message || "无法打开原文"));
-  };
-  const caption = row.page !== void 0 && row.page !== "" ? `原文截图 · p.${row.page}${row.bbox ? "（定位区域）" : ""}` : "原文截图";
-  return h(
-    "div",
-    { className: "sw-ev-shot" },
-    state === "ok" || state === "loading" && src ? h(
-      import_react4.default.Fragment,
-      null,
-      h("img", { src, alt: caption, title: caption, onLoad: handleImageLoad, onError: handleImageError }),
-      state === "ok" ? h(
-        "div",
-        { className: "sw-ev-shot-bar" },
-        h("span", { className: "sw-ev-shot-note" }, caption, " · 服务端按已捕获原文渲染，供人工与摘录核对"),
-        h("button", { className: "sw-mini-btn", onClick: openOriginal, title: "在 PDF 阅读器中打开原文对应条目" }, "打开原文")
-      ) : h("div", { className: "sw-ev-shot-note" }, "正在加载截图…")
-    ) : state === "loading" ? h("div", { className: "sw-ev-shot-note" }, "正在渲染原文截图…") : h(
-      "div",
-      { className: "sw-ev-shot-fail" },
-      h("b", null, "截图核验不可用："),
-      message,
-      row.bundleId || row.documentId ? h("button", { className: "sw-mini-btn", style: { marginLeft: 8 }, onClick: openOriginal }, documentKind === "si" ? "打开 SI" : "打开原文 PDF") : null,
-      h("button", { className: "sw-mini-btn", style: { marginLeft: 6 }, onClick: load }, "重试")
-    )
-  );
-}
 function PdfViewerFrame({ row, notify }) {
   const iframeRef = (0, import_react4.useRef)(null);
   const [locateState, setLocateState] = (0, import_react4.useState)("loading");
   const [errorMessage, setErrorMessage] = (0, import_react4.useState)("");
   const pageNumber = (() => {
     const m = /\d+/.exec(String(row?.page ?? ""));
-    return m ? Number(m[0]) : void 0;
+    return m ? Number(m[0]) : 1;
   })();
   const bundleId = row?.bundleId || row?.documentId;
   const quote = row?.excerpt || row?.userCorrection || row?.originalExtract || "";
-  const open = !!(bundleId && pageNumber);
+  const open = !!bundleId;
   const documentKind = row?.sourceKind === "si" || !row?.sourceKind && row?.sourceType === "paper-si" ? "si" : "pdf";
   (0, import_react4.useEffect)(() => {
     if (!open) {
       setLocateState("error");
-      setErrorMessage("未绑定已捕获原文或页码，无法定位");
+      setErrorMessage("未绑定已归档原文，无法定位");
       return void 0;
     }
     setLocateState("loading");
@@ -1853,7 +1702,7 @@ function PdfViewerFrame({ row, notify }) {
     };
   }, [bundleId, documentKind, pageNumber, quote]);
   if (!open) {
-    return h("div", { className: "sw04-review-hint" }, "该项未绑定已捕获原文 PDF/SI（bundleId/documentId）或无页码，无法展示原文定位。可基于提取值人工确认 / 修正，或标记「无法确认」交给 Agent 复核。");
+    return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
   }
   const label = locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
   const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
@@ -1867,7 +1716,7 @@ function PdfViewerFrame({ row, notify }) {
       h("span", { style: { flex: 1 } }),
       quote ? h("span", { style: { fontSize: 9, color: "#718b82", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null
     ),
-    h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(54vh, 620px)", minHeight: 440, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } })
+    h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(68vh, 760px)", minHeight: 520, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } })
   );
 }
 function KetcherEditorModal({ entry, onSave, onCancel }) {
@@ -1944,7 +1793,7 @@ function KetcherEditorModal({ entry, onSave, onCancel }) {
 }
 
 // client/src/components-workspace.js
-function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onChanged }) {
+function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onRequestPlan, onChanged }) {
   const targetById = (id) => targets.find((row) => row.id === id) || null;
   const [routeId, setRouteId] = (0, import_react5.useState)(routes.length ? routes[0].id : null);
   const [tick, setTick] = (0, import_react5.useState)(0);
@@ -2100,27 +1949,6 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
         setTick((value) => value + 1);
       });
     }
-    if (action === "plan") {
-      if (!route) return;
-      if (!planArmed) {
-        setPlanArmed(true);
-        if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-        planArmTimerRef.current = window.setTimeout(() => {
-          planArmTimerRef.current = null;
-          setPlanArmed(false);
-        }, 4e3);
-        notify("请再次点击「生成实验计划草案」确认发送（避免误触）。");
-        return;
-      }
-      if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-      planArmTimerRef.current = null;
-      setPlanArmed(false);
-      return withBusy("plan", async () => {
-        const result = await call("synth_plan_from_route", { request: { routeId } });
-        notify(`已生成实验计划草案「${result.plan.title}」（requiresReview=true，待人工审核）。`);
-        await onChanged();
-      });
-    }
     if (action === "add-step") {
       if (!route || route.locked) {
         notify(route?.locked ? "路线已锁定；请先复制为新版本。" : "尚未选择路线。");
@@ -2176,26 +2004,21 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       setAddStepForm(null);
     });
   };
-  const [shotReadyById, setShotReadyById] = (0, import_react5.useState)({});
-  const markShotReady = (evidenceId, ready) => setShotReadyById((old) => ({ ...old, [String(evidenceId)]: !!ready }));
   const evidenceRequiresShotClient = (row) => {
-    if ((row?.bundleId || row?.documentId) && row?.page !== void 0 && row?.page !== null && row?.page !== "") return true;
+    if (row?.bundleId || row?.documentId) return false;
     const method = String(row?.extractionMethod ?? "");
     return ["text", "vlm", "search", "model"].includes(method) && row?.excerpt !== void 0 && row?.excerpt !== null && row?.excerpt !== "";
   };
   const evidenceConfirmable = (row) => {
     if (!evidenceRequiresShotClient(row)) return true;
-    return shotReadyById[String(row.id)] === true;
+    return false;
   };
   const evidenceShotBlockReason = (row) => {
-    const ver = row?.shotVerification;
-    if (ver?.status === "stale") return "原文截图已失效（原文/页码在核验后变化），请重新打开审核抽屉完成截图核验后再确认。";
-    if (ver?.status === "failed") return `原文截图渲染失败（${ver.error || "文件损坏或渲染器不可用"}），不能确认；修复后重试或标“无法确认”交给 Agent。`;
-    return "请先在审核抽屉内完成原文截图核验（截图成功显示后再确认/修正）；若原文不可用请标“无法确认”交给 Agent。";
+    return "该自动提取项尚未绑定已归档 PDF/SI，不能作为原文核验完成；请补充原文，或标“无法确认”交给 Agent。";
   };
   const decideEvidence = (row, status) => withBusy(`ev:${row.id}`, async () => {
     if (status === "confirmed" && !evidenceConfirmable(row)) {
-      notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}（截图核验完成前不得计为已核验；如原文确实不可用，请标“无法确认”交给 Agent 复核。）`);
+      notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`);
       return;
     }
     await call("synth_evidence_review", { request: { id: row.id, status } });
@@ -2205,7 +2028,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   });
   const saveCorrection = (row, rawValue) => withBusy(`ev:${row.id}`, async () => {
     if (evidenceRequiresShotClient(row) && !evidenceConfirmable(row)) {
-      notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)} 若原文确实不可用，请标“无法确认”交给 Agent 复核，而不是把无截图修正当作完成。`);
+      notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`);
       return;
     }
     const correction = String(rawValue ?? "").trim();
@@ -2286,17 +2109,54 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   const activeEvidence = detail && selectedEvidenceId ? stepEvidence.find((row) => row.id === selectedEvidenceId) || null : null;
   const [ketcherModal, setKetcherModal] = (0, import_react5.useState)(null);
   const [addStepForm, setAddStepForm] = (0, import_react5.useState)(null);
-  const [planArmed, setPlanArmed] = (0, import_react5.useState)(false);
-  const planArmTimerRef = (0, import_react5.useRef)(null);
-  (0, import_react5.useEffect)(() => {
-    setPlanArmed(false);
-    if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-    planArmTimerRef.current = null;
-    return () => {
-      if (planArmTimerRef.current) window.clearTimeout(planArmTimerRef.current);
-    };
-  }, [routeId, selectedStepId]);
   const [dualPanel, setDualPanel] = (0, import_react5.useState)(null);
+  const [planPreview, setPlanPreview] = (0, import_react5.useState)(null);
+  const routePlan = route ? plans.find((item) => item.routeId === route.id || item.id === `plan-${route.id}` || item.id.startsWith(`plan-${route.id}-`)) : null;
+  const requestExperimentPlan = () => {
+    if (!route || !onRequestPlan) return;
+    const prompt = `请为合成路线「${route.name}」（routeId: ${route.id}）生成实验计划。先读取路线全部步骤、已归档文献证据和当前实验计划模板；补齐可确认信息，缺失项明确标为待确认，完成后调用 lab_synth_experiment_plan_create 登记到项目面板。`;
+    onRequestPlan(prompt);
+  };
+  const planPreviewNode = !planPreview ? null : h(
+    "div",
+    { className: "sw-struct-edit", onClick: () => setPlanPreview(null) },
+    h(
+      "div",
+      { className: "sw04-plan-preview", role: "dialog", "aria-modal": "true", "aria-label": "实验计划", onClick: (event) => event.stopPropagation() },
+      h(
+        "div",
+        { className: "sw04-plan-preview-head" },
+        h("div", null, h("b", null, planPreview.title), h("small", null, `${planPreview.status} · ${planPreview.templateSnapshot?.name || "实验计划模板"}`)),
+        h("button", { className: "sw-mini-btn", onClick: () => setPlanPreview(null) }, "关闭")
+      ),
+      h("section", null, h("h4", null, "实验目的"), h("p", null, planPreview.objective)),
+      h("section", null, h("h4", null, "规模"), h("p", null, planPreview.scale)),
+      h(
+        "section",
+        null,
+        h("h4", null, "试剂与用量"),
+        h("div", { className: "sw04-plan-grid" }, (planPreview.reagents || []).map((item, index) => h("div", { key: `${item.name}-${index}` }, h("b", null, item.name), h("span", null, `${item.amount}${item.role ? ` · ${item.role}` : ""}`))))
+      ),
+      h(
+        "section",
+        null,
+        h("h4", null, "操作步骤"),
+        h("ol", null, (planPreview.steps || []).map((item, index) => h("li", { key: index }, h("b", null, item.step), `：${item.description}${item.monitoring ? `（监测：${item.monitoring}）` : ""}`)))
+      ),
+      h(
+        "section",
+        null,
+        h("h4", null, "后处理、纯化与表征"),
+        h("p", null, [planPreview.workup, ...planPreview.purification || [], ...planPreview.characterization || []].filter(Boolean).join("；") || "待确认")
+      ),
+      h(
+        "section",
+        null,
+        h("h4", null, "安全与废弃物"),
+        h("ul", null, (planPreview.safety || []).map((item, index) => h("li", { key: index }, item)))
+      )
+    )
+  );
   const openStructureEditor = (entry) => {
     if (route?.locked) {
       notify("当前路线已锁定；请先复制为新版本。");
@@ -2569,7 +2429,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
           "div",
           { className: "sw-acts" },
           h("button", { className: "sw-mini-btn", disabled: !!busy.dual || route?.locked, onClick: () => void runDualResolve(), title: "PubChem/CACTUS 双源核验缺结构化合物；冲突只展示候选不自动写入" }, busy.dual ? "核验中…" : "双源核验"),
-          h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.plan || !route?.steps?.length || route?.locked, onClick: () => runAction("plan") }, busy.plan ? "生成中…" : planArmed ? "再次点击确认生成" : "生成实验计划草案")
+          h("button", { className: "sw-mini-btn", "data-primary": routePlan ? true : void 0, "data-ready": routePlan ? "true" : "false", disabled: !route?.steps?.length, onClick: () => routePlan ? setPlanPreview(routePlan) : requestExperimentPlan(), title: routePlan ? "查看已登记实验计划" : "在当前课题工作区新建对话并预填实验计划任务" }, routePlan ? "打开实验计划" : "生成实验计划")
         )
       ),
       h(StepReactionLayout, { step: selectedStep, onStructureClick: openStructureEditor }),
@@ -2587,7 +2447,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
           "div",
           null,
           h("h3", null, "事实核验"),
-          h("p", null, "本步事实以紧凑列表展示；点击「审核」从右侧打开原文核对抽屉，在抽屉内完成确认 / 修正 / 无法确认。无已捕获原文或无页码的事实不能计为截图核验完成。"),
+          h("p", null, "本步事实以紧凑列表展示；点击「审核」从右侧打开已归档 PDF/SI 原文定位，在抽屉内完成确认 / 修正 / 无法确认。没有归档原文的自动提取项不能计为核验完成。"),
           h(
             "span",
             { className: "sw-chip", "data-tone": stepEvidence.some((row) => row.reviewStatus === "pending") ? "warn" : "good" },
@@ -2698,6 +2558,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
         return h("div", { key: item.name, style: rowStyle }, headFlex, smilesRow, srcRow);
       }) : h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "缺结构化合物已完成双源核验或登记。")
     )) : null,
+    planPreviewNode,
     // ── RC1-04/05：右侧审核抽屉（单例，按 activeEvidenceId 动态渲染）──
     reviewDrawerOpen && activeEvidence ? h(
       "div",
@@ -2725,34 +2586,24 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
             h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
             activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
             activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "#fbf5e6" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
-            // PDF 定位器与提取内容同列，右半屏完整留给截图核验。
+            // 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
             h(PdfViewerFrame, { row: activeEvidence, notify })
           ),
           h(
             "div",
-            { className: "sw04-review-source" },
-            activeEvidence.bundleId || activeEvidence.documentId ? h(
-              "div",
-              { className: "sw04-review-shot" },
-              h(EvidenceShot, { routeId, row: activeEvidence, notify, onReady: (evidenceId) => markShotReady(evidenceId, true), onFailed: (evidenceId) => markShotReady(evidenceId, false) }),
-              h("div", { className: "sw04-review-hint" }, "原文截图由服务端按已捕获原文 + 页码渲染（截图核验门禁依据）；可点击「打开原文」在 PDF 阅读器中查看完整文献。")
-            ) : h("div", { className: "sw04-review-hint" }, "该事实尚未绑定可截图的原文。")
+            { className: "sw04-review-foot" },
+            h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
+            h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),
+            h("button", { className: "sw-mini-btn", disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "修正"),
+            h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "确认通过"),
+            h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => {
+              const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id);
+              if (next) {
+                setSelectedEvidenceId(next.id);
+                setCorrectionFor(null);
+              }
+            }, title: "跳到下一条待审核事实" }, "下一条待审核")
           )
-        ),
-        h(
-          "div",
-          { className: "sw04-review-foot" },
-          h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
-          h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),
-          h("button", { className: "sw-mini-btn", disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "修正"),
-          h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "确认通过"),
-          h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => {
-            const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id);
-            if (next) {
-              setSelectedEvidenceId(next.id);
-              setCorrectionFor(null);
-            }
-          }, title: "跳到下一条待审核事实" }, "下一条待审核")
         )
       )
     ) : null,
@@ -2819,7 +2670,7 @@ function bundleRecordIndex(bundles = []) {
   for (const bundle of bundles) index[bundle.id] = bundle;
   return index;
 }
-function LitPanel({ searches, reports, bundles, presentations, call, notify, onOpenSearch, onChanged }) {
+function LitPanel({ searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -3246,6 +3097,9 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
             bundle.doi ? `DOI ${bundle.doi}` : null
           ].filter(Boolean).join(" · ");
           const artifactState = awaitingPdf ? `${metadata || "元数据已登记"} · 待上传 PDF` : `${metadata ? `${metadata} · ` : ""}DOCX${report.docxPath ? "已生成" : "待生成"}${presentation ? ` · PPT${presentation.pptxPath ? "已生成" : "生成中"}` : ""}`;
+          const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
+          const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
+          const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
           return h(
             "div",
             { key: report.id, onClick: report.id in overview ? () => setOverview((old) => {
@@ -3263,8 +3117,8 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
                 h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : void 0, disabled: !!opening[openKey("pdf")], title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面", onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
                 h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : void 0, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI PDF…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面", onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
                 h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起概览" : "概览"),
-                h("button", { className: "ib-lit-btn ok", disabled: !report.docxPath, onClick: () => openPreview({ kind: "report", report }), title: report.docxPath ? "保存后用本机 Office 或 WPS 打开精读报告" : "DOCX 尚未生成" }, busy[`open-report:${report.id}`] ? "打开中…" : "打开报告"),
-                h("button", { className: "ib-lit-btn ok", disabled: !presentation?.pptxPath, onClick: () => openPreview({ kind: "ppt", report, presentation }), title: presentation?.pptxPath ? "保存后用本机 Office 或 WPS 打开 PPT" : "尚未生成 PPT" }, busy[`open-ppt:${report.id}`] ? "打开中…" : "打开PPT")
+                h("button", { className: `ib-lit-btn${report.docxPath ? " ok" : ""}`, "data-ready": report.docxPath ? "true" : "false", disabled: !!busy[`open-report:${report.id}`], onClick: () => report.docxPath ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt), title: report.docxPath ? "用本机 Office 或 WPS 打开精读报告" : "在当前课题工作区新建对话并预填精读任务" }, busy[`open-report:${report.id}`] ? "打开中…" : report.docxPath ? "打开精读" : "精读文献"),
+                h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : presentation?.pptxPath ? "打开PPT" : "制作PPT")
               )
             ),
             captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : opening[openKey("pdf")] || opening[openKey("si")] ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
@@ -3324,6 +3178,16 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
       setLaunching(false);
     }
   };
+  const startTaskChat = async (prompt) => {
+    if (!state.data || launching) return;
+    setLaunching(true);
+    try {
+      await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt });
+    } catch (reason) {
+      setToast(reason.message);
+      setLaunching(false);
+    }
+  };
   const remove = async () => {
     if (!state.data) return;
     const accepted = window.confirm(`确定彻底删除课题「${state.data.project.name}」吗？
@@ -3352,7 +3216,7 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
     h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
     h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
     h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : void 0, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-    h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onChanged: load }) : null, tab === "characterization" ? h("div", null, h(NmrRegistry, { rows: characterization.nmr || [] }), h(PlotRegistry, { projectId: data.project.id, call })) : null),
+    h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h("div", null, h(NmrRegistry, { rows: characterization.nmr || [] }), h(PlotRegistry, { projectId: data.project.id, call })) : null),
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
@@ -3465,7 +3329,7 @@ function applyUi(ctx) {
     ctx.sessions.open(sessionId);
     const actx = ctx.sessions.scope(sessionId);
     if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
-    const prompt = promptFor(project, opts.memory);
+    const prompt = String(opts.prompt || "").trim() || promptFor(project, opts.memory);
     ctx.conversation.input.for(actx).setDraft(prompt);
     close();
     if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);

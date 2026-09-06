@@ -76,10 +76,12 @@ test("pdf viewer configures its offline worker and renders an archived page", as
 		const address = server.address();
 		await page.goto(`http://127.0.0.1:${address.port}/api/lab-pdf-viewer/index.html?v=worker-v2`, { waitUntil: "load" });
 		await page.waitForFunction(() => window.__pdfMessages.some((row) => row?.type === "ready"));
-		await page.evaluate(() => window.postMessage({ type: "open", bundleId: "bundle-test", kind: "pdf", page: 1, quote: "Worker ready evidence quote" }, window.location.origin));
+		// 期刊印刷页码可能远大于 PDF 物理页数；viewer 必须按摘录找到真实页。
+		await page.evaluate(() => window.postMessage({ type: "open", bundleId: "bundle-test", kind: "pdf", page: 17619, quote: "Worker ready evidence quote" }, window.location.origin));
 		await page.waitForFunction(() => window.__pdfMessages.some((row) => row?.type === "loaded"), { timeout: 30000 });
 		const messages = await page.evaluate(() => window.__pdfMessages);
 		assert.equal(messages.some((row) => row?.type === "error" && /GlobalWorkerOptions\.workerSrc/.test(row.message || "")), false);
+		assert.ok(messages.some((row) => row?.type === "loaded" && row.page === 1));
 		assert.ok(messages.some((row) => row?.type === "highlight" && row.status === "matched"));
 	} finally {
 		if (browser) await browser.close().catch(() => {});
