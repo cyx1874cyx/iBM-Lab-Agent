@@ -146,6 +146,27 @@ test("lab_synth_target_list 对含脏行的存储返回干净列表", async () =
 	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
 });
 
+test("lab_synth_compound_resolve_dual exposes a traceable read-only structure lookup", async () => {
+	const { ctx, registered } = registerTools();
+	ctx.labSynthesis = {
+		resolveCompoundDual: async (identifier) => ({
+			query: identifier,
+			status: "dual-confirmed",
+			smiles: "CCO",
+			casNumber: "64-17-5",
+			inchiKey: "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+			sources: { pubchem: { cid: 702 }, cactus: { smiles: "CCO" } }
+		})
+	};
+	const tool = findTool(registered, "lab_synth_compound_resolve_dual");
+	const out = await tool.execute({ identifier: "ethanol" }, {});
+	assert.equal(out.ok, true);
+	assert.equal(out.result.status, "dual-confirmed");
+	assert.equal(out.result.casNumber, "64-17-5");
+	assert.equal(hasUndefinedValue(out), false);
+	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
+});
+
 test("lab_synth_route_create 对含脏字段的路线返回干净投影", async () => {
 	const { ctx, registered } = registerTools();
 	ctx.labSynthesis = {

@@ -340,7 +340,7 @@ export function PdfViewerFrame({ row, notify }) {
 					h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label),
 					h("span", { style: { flex: 1 } }),
 					quote ? h("span", { style: { fontSize: 9, color: "#718b82", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null),
-				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: 420, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
+				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(54vh, 620px)", minHeight: 440, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
 		}
 
 export function KetcherEditorModal({ entry, onSave, onCancel }) {

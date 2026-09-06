@@ -630,17 +630,19 @@ return h("div", { className: "sw-plan" },
 								h("span", { className: "sw04-review-head-title" }, activeEvidence.title || activeEvidence.sourceName || "事实核验"),
 								h("span", { className: "sw04-review-head-sub" }, `${EVIDENCE_SOURCE_LABEL[activeEvidence.sourceType] || activeEvidence.sourceType}${activeEvidence.doi ? " · DOI " + activeEvidence.doi : ""}${evidenceLocator(activeEvidence) ? " · " + evidenceLocator(activeEvidence) : ""}${activeEvidence.supportsField ? " · 字段 " + activeEvidence.supportsField : ""}`)),
 							h("button", { className: "sw04-review-close", onClick: closeReviewDrawer, "aria-label": "关闭审核抽屉" }, "关闭")),
-						h("div", { className: "sw04-review-body" },
+					h("div", { className: "sw04-review-body" },
+						h("div", { className: "sw04-review-copy" },
 							h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
 							activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
 							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "#fbf5e6" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
-							// RC2：PDF 定位查看器为主（自动跳页 + 定位高亮 quote）；截图核验门禁保留
-							h(PdfViewerFrame, { row: activeEvidence, notify }),
+							// PDF 定位器与提取内容同列，右半屏完整留给截图核验。
+							h(PdfViewerFrame, { row: activeEvidence, notify })),
+						h("div", { className: "sw04-review-source" },
 							activeEvidence.bundleId || activeEvidence.documentId
 								? h("div", { className: "sw04-review-shot" },
 									h(EvidenceShot, { routeId, row: activeEvidence, notify, onReady: (evidenceId) => markShotReady(evidenceId, true), onFailed: (evidenceId) => markShotReady(evidenceId, false) }),
 									h("div", { className: "sw04-review-hint" }, "原文截图由服务端按已捕获原文 + 页码渲染（截图核验门禁依据）；可点击「打开原文」在 PDF 阅读器中查看完整文献。"))
-								: null),
+								: h("div", { className: "sw04-review-hint" }, "该事实尚未绑定可截图的原文。"))),
 						h("div", { className: "sw04-review-foot" },
 							h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
 							h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),

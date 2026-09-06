@@ -4,7 +4,8 @@
 - 构建: scripts/pdf-viewer-shell 最小 React shell（pdfjs-dist 4.10.38 + react 18 + vite 5），
   产物 index.html + assets/* + pdf.worker*.mjs。
 - 自包含: 主 chunk 含 pdfjs 主线程库；worker 由 public/ 原样拷贝（pdf.worker.mjs /
-  pdf.worker.min.mjs），宿主通过 workerSrc 显式指定同源 worker，离线无需 CDN。
+  pdf.worker.min.mjs），宿主在调用 getDocument 前通过 GlobalWorkerOptions.workerSrc
+  显式指定同源 worker 的绝对 URL，离线无需 CDN。
 - 重建: cd scripts/pdf-viewer-shell && pnpm install && pnpm build，产物替换本目录。
 - postMessage 协议（0.4.1）:
   - 宿主 → 子: { type:'open', bundleId, kind:'pdf'|'si', page, quote }

@@ -16,6 +16,9 @@ test("PDF evidence viewer switches documents after the iframe is already loaded"
 
 test("standalone PDF viewer keeps PDF and SI sources separate", async () => {
 	const source = await readFile(viewerPath, "utf8");
+	assert.match(source, /pdfjsLib\.GlobalWorkerOptions\.workerSrc = WORKER_SRC/);
+	assert.match(source, /new URL\("\.\/pdf\.worker\.mjs", window\.location\.href\)\.href/);
+	assert.doesNotMatch(source, /getDocument\(\{ url: pdfUrl, workerSrc:/);
 	assert.match(source, /const kind = d\.kind === "si" \? "si" : "pdf"/);
 	assert.match(source, /kind=\$\{kind\}&bundleId=/);
 	assert.match(source, /openPdf\(bundleId, kind, page, q\)/);

@@ -51,6 +51,18 @@ test("0.4.0 workspace: three full-width panels are genuinely rendered (no CSS-hi
 	assert.doesNotMatch(source, /\.sw04-analysis[^}]*display:\s*none/);
 });
 
+test("0.4.1 workspace: review uses half-screen source column and chemistry cards are enlarged", async () => {
+	const source = await readClientSource();
+	assert.match(source, /className: "sw04-review-copy"/);
+	assert.match(source, /className: "sw04-review-source"/);
+	assert.match(source, /\.sw04-review-drawer\{width:96vw/);
+	assert.match(source, /\.sw04-review-body\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+	assert.match(source, /\.sw04-review-source \.sw-ev-shot img\{width:100%;max-height:none/);
+	assert.match(source, /\.sw-step-chem-node \.sw-struct-card\{min-width:150px;max-width:180px/);
+	assert.match(source, /\.sw04-detail \.sw-struct-card img,.sw04-detail \.sw-struct-fallback\{height:180px/);
+	assert.match(source, /\.sw-graph\{align-items:flex-start/);
+});
+
 test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text cards", async () => {
 	const source = await readClientSource();
 	// 步骤卡渲染结构图流程：化合物节点（sw-step-chem-node）+ 反应箭头 + 条件摘要

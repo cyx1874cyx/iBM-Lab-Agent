@@ -28,7 +28,10 @@ import * as pdfjsLib from "pdfjs-dist";
 
 // PDF.js worker：显式指定同源托管的 worker，保证离线可用 + 不阻塞主线程。
 // 产物由 vite 构建入库，服务端 /api/lab-pdf-viewer/ 静态托管（见 lib/pdf-viewer-assets.js）。
-const WORKER_SRC = "./pdf.worker.mjs";
+const WORKER_SRC = new URL("./pdf.worker.mjs", window.location.href).href;
+// pdfjs-dist v4 在创建 PDFWorker 前读取全局配置；getDocument 的普通选项里传
+// workerSrc 不会生效，并会抛出 No "GlobalWorkerOptions.workerSrc" specified。
+pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 
 // 文本归一化：统一换行、断词、连字符、非标准空格、标点与大小写。
 // 用于把 page 文本和 quote 映射到同一可比形式。
@@ -375,7 +378,7 @@ function App() {
     try {
       // 复用 /api/lab-artifacts 取 PDF 流（PDF.js 可直接消费同源 URL）
       const pdfUrl = `/api/lab-artifacts?kind=${kind}&bundleId=${encodeURIComponent(bundleId)}&preview=1`;
-      const loadingTask = pdfjsLib.getDocument({ url: pdfUrl, workerSrc: WORKER_SRC });
+      const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
       loadingTaskRef.current = loadingTask;
       const doc = await loadingTask.promise;
       if (requestSeq !== requestSeqRef.current) { await doc.destroy().catch(() => {}); return; }
