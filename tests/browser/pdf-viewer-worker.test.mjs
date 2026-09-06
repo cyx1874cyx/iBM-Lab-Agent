@@ -45,6 +45,7 @@ test("pdf viewer configures its offline worker and renders an archived page", as
 				return;
 			}
 			let pathname = decodeURIComponent(url.pathname);
+			if (pathname.startsWith("/api/lab-pdf-viewer/")) pathname = pathname.slice("/api/lab-pdf-viewer".length);
 			if (pathname === "/" || pathname === "") pathname = "/index.html";
 			const file = join(viewerRoot, normalize(pathname).replace(/^([/\\])+/, ""));
 			if (!file.startsWith(viewerRoot) || !existsSync(file) || !statSync(file).isFile()) {
@@ -73,7 +74,7 @@ test("pdf viewer configures its offline worker and renders an archived page", as
 			window.addEventListener("message", (event) => window.__pdfMessages.push(event.data));
 		});
 		const address = server.address();
-		await page.goto(`http://127.0.0.1:${address.port}/index.html`, { waitUntil: "load" });
+		await page.goto(`http://127.0.0.1:${address.port}/api/lab-pdf-viewer/index.html?v=worker-v2`, { waitUntil: "load" });
 		await page.waitForFunction(() => window.__pdfMessages.some((row) => row?.type === "ready"));
 		await page.evaluate(() => window.postMessage({ type: "open", bundleId: "bundle-test", kind: "pdf", page: 1, quote: "Worker ready evidence quote" }, window.location.origin));
 		await page.waitForFunction(() => window.__pdfMessages.some((row) => row?.type === "loaded"), { timeout: 30000 });

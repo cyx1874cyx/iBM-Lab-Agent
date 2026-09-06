@@ -522,7 +522,7 @@ var STEP_FIELD_DEFS = [
   { key: "monitoring", label: "监测", hints: ["monitoring", "监测"] }
 ];
 var KETCHER_URL = "/api/lab-ketcher/index.html";
-var PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html";
+var PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html?v=worker-v2";
 var KETCHER_STAGE_LOADING_MS = 25e3;
 var KETCHER_STAGE_EXPORT_MS = 3e4;
 var KETCHER_OVERALL_MS = 75e3;

@@ -25,7 +25,8 @@ export const STEP_FIELD_DEFS = [
 		// ── 0.3.2 Ketcher 基础设施（模块级单例，供工作台各步骤复用）─────────
 export const KETCHER_URL = "/api/lab-ketcher/index.html";
 		// RC2：Evidence 原文 PDF 定位查看器（审核抽屉内嵌）。
-export const PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html";
+// 查询版本用于绕过桌面 WebView2 可能保留的旧 viewer HTML/模块缓存。
+export const PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html?v=worker-v2";
 		// rc.4 review（§10.2）阶段宽限常量：shell 内部载入 15s/导出 20s，
 		// 宿主侧宽限取阶段超时 + 通信余量；总护栏 75s 兜底阶段消息丢失。
 export const KETCHER_STAGE_LOADING_MS = 25000;
