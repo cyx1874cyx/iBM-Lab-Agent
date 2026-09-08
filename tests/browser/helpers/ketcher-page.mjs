@@ -8,9 +8,11 @@
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { statSync, existsSync } from "node:fs";
+import { statSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 
 export const KETCHER_STANDALONE = resolve(fileURLToPath(new URL("../../..", import.meta.url)), "client", "assets", "ketcher-standalone");
 
@@ -71,6 +73,41 @@ export function resolveBrowserExecutable() {
 	return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
+const wait = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+
+/** Edge 152 on Windows relaunches from a short-lived compatibility process. */
+export async function launchSystemBrowser(puppeteer, executablePath, options = {}) {
+	if (process.platform !== "win32" || !/msedge(?:webview2)?\.exe$/i.test(executablePath)) {
+		return puppeteer.launch({ executablePath, ...options });
+	}
+	const profile = mkdtempSync(join(tmpdir(), "ibm-edge-headless-"));
+	const child = spawn(executablePath, [
+		"--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
+		"--no-first-run", "--no-default-browser-check", "--no-sandbox", "--disable-gpu",
+		"--disable-features=msEdgeFirstRunExperience", "about:blank"
+	], { windowsHide: true, stdio: "ignore" });
+	child.unref();
+	const activePortFile = join(profile, "DevToolsActivePort");
+	let port;
+	for (let attempt = 0; attempt < 150; attempt += 1) {
+		if (existsSync(activePortFile)) {
+			port = Number(readFileSync(activePortFile, "utf8").split(/\r?\n/)[0]);
+			if (Number.isInteger(port) && port > 0) break;
+		}
+		await wait(100);
+	}
+	if (!port) {
+		rmSync(profile, { recursive: true, force: true });
+		throw new Error("Edge headless 未在 15 秒内建立调试端口");
+	}
+	const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}`, defaultViewport: options.defaultViewport });
+	const close = browser.close.bind(browser);
+	browser.close = async () => {
+		try { await close(); } finally { rmSync(profile, { recursive: true, force: true }); }
+	};
+	return browser;
+}
+
 /** 启动 headless 浏览器并打开 ketcher 页面。返回 { browser, page, messages }。 */
 export async function launchKetcherPage({ port = 0, headless = "new", executablePath = resolveBrowserExecutable(), timeoutMs = 30000 } = {}) {
 	if (!executablePath) {
@@ -86,8 +123,7 @@ export async function launchKetcherPage({ port = 0, headless = "new", executable
 		});
 		const address = server.address();
 		const baseUrl = `http://127.0.0.1:${address.port}`;
-		browser = await puppeteer.launch({
-			executablePath,
+		browser = await launchSystemBrowser(puppeteer, executablePath, {
 			headless,
 			args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--allow-file-access-from-files"]
 		});

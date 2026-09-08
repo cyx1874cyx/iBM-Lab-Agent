@@ -7,7 +7,7 @@ import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveBrowserExecutable } from "./helpers/ketcher-page.mjs";
+import { launchSystemBrowser, resolveBrowserExecutable } from "./helpers/ketcher-page.mjs";
 
 const viewerRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)), "client", "assets", "pdf-viewer-standalone");
 
@@ -67,7 +67,7 @@ test("pdf viewer configures its offline worker and renders an archived page", as
 			server.listen(0, "127.0.0.1", () => resolvePromise());
 		});
 		const { default: puppeteer } = await import("puppeteer-core");
-		browser = await puppeteer.launch({ executablePath, headless: "new", args: ["--no-sandbox", "--disable-gpu"] });
+		browser = await launchSystemBrowser(puppeteer, executablePath, { headless: "new", args: ["--no-sandbox", "--disable-gpu"] });
 		const page = await browser.newPage();
 		await page.evaluateOnNewDocument(() => {
 			window.__pdfMessages = [];
