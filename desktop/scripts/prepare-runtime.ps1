@@ -392,6 +392,11 @@ if (-not (Test-Path -LiteralPath $dependencyRoot)) { throw "Plugin node_modules 
 function Resolve-MaterializedPackageDirectory([string]$Path) {
   $item = Get-Item -LiteralPath $Path -Force
   if ($item.LinkType -and $item.Target) {
+    # ResolveLinkTarget(true) follows chained links. This matters in isolated
+    # release worktrees where a junction points at a pnpm symlink, which then
+    # points at the actual package directory.
+    $resolved = $item.ResolveLinkTarget($true)
+    if ($resolved) { return $resolved.FullName }
     # Windows pnpm materializes with Junctions whose Target is an absolute path,
     # while SymbolicLinks may carry a relative target. Treat absolute targets
     # directly; only join for genuinely relative ones.
