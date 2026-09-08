@@ -1,466 +1,181 @@
-# dsh-lab-agent
+# iBM Lab Agent
 
-课题组本地科研 Agent —— 基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-的独立插件包（不修改 Harness 核心），文献能力直接集成
-[nature-skills](https://github.com/Yuan1z0825/nature-skills)（固定 commit、Apache-2.0），
-本插件负责 Skill 路由、任务编排、版本登记、模板管理与回归质检。
+iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件形式运行，
+不修改 Harness 核心，并集成固定版本的
+[nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-首期面向：**聚前药与高分子材料设计**。
+当前稳定版本为 **v0.4.2**，发布分支为 `release-0.4.2`。本版本聚焦文献、合成路线、
+表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
 
-## 项目概览
+## 主要能力
 
-当前版本为 **v0.3.0**（release-0.3.0 分支；0.3.0 = 合成路线工作台）。项目已经从单一 Skill 集成发展为一套项目驱动的本地科研
-工作台：以课题为单位组织会话、长期记忆、文献、研究设计和表征结果，调用固定
-版本的 19 个 Nature Skills 完成科研工作，并通过版本快照、来源记录、自动自查和
-人工审核保证结果可追溯。
-
-| 能力 | 当前实现 |
+| 模块 | 当前实现 |
 |---|---|
-| 课题工作台 | 一个课题一个独立 workspace；自动创建科研会话；同一空间内的对话共享课题绑定和版本化核心记忆 |
-| 文献工作流 | 多源检索、去重、RIS 汇总、公众号元数据与 DOI 校验、全文获取、PDF/SI 登记、精读报告和文献 PPT |
-| 全文与附件 | 开放获取优先、机构授权后备；浏览器扩展只捕获已布防的 PDF/SI 下载，报告与 PPT 由桌面原生文件服务保存 |
-| 模板管理 | 阅读笔记模板与 PPT 模板独立版本化；任务保存模板快照，后续修改不影响历史产物 |
-| 科研计算 | 化学实体与性质来源管理、高分子指标计算、实验方案审核、NMR 积分计算、合成路线证据聚合 |
-| 质量与安全 | 产物 provenance、SHA-256 审核绑定、原始数据不可覆盖；不自动执行实验、采购或未授权 CAS 操作 |
-| 部署运维 | Ubuntu/Debian 一行安装、隔离运行时、固定版本、幂等升级、Windows 远程更新和回归检查 |
+| 课题工作台 | 一个课题对应一个独立 workspace；会话共享课题绑定、版本化核心记忆和科研产物索引 |
+| 文献工作流 | 多源检索、去重、RIS 汇总、DOI 核验、PDF/SI 捕获、精读报告、文献 PPT 与人工审核 |
+| 合成路线 | 靶标、路线、逐步条件、结构式、开放来源证据、可行性检查、版本修订与人工锁定 |
+| 化学与高分子计算 | 化学实体及来源登记、分子量与聚合物指标计算、实验方案审核、CAS 授权边界 |
+| NMR 与表征 | FID/结构文件登记、峰积分与组成计算、审核/回写/可视确认状态机、旧记录兼容 |
+| 绘图登记 | 按课题记录主题、日期、产物引用和来源，可修改、删除并检查文件状态 |
+| 模板与文档 | 阅读笔记和 PPT 模板版本化；DOCX/PPTX/XLSX/PDF 转换、预览、哈希与 provenance |
+| 桌面集成 | Windows Tauri 客户端，内置 Node、DSH、Python、Origin MCP、Mnova MCP 与离线查看器 |
+| 质量与安全 | 原始数据不可覆盖、产物 SHA-256、人工审核门禁、路径边界和回环接口校验 |
 
-核心边界：Nature Skills 负责检索、解析、精读和 PPT 等科研内容流程；本插件负责
-课题组织、Skill 路由、任务编排、模板与版本管理、产物登记、预览审核和安全门禁。
+内置的 19 个 Nature Skills 负责检索、阅读、写作、引用、绘图和学术交付等内容流程；
+本插件负责课题组织、工具路由、任务状态、模板、版本、产物登记和安全门禁。
 
-### 总体架构
+## 架构
 
 ```text
 用户
-  └─ Harness Web + iBM 课题工作台
-       ├─ lab-research 科研预设
-       │    ├─ 课题专用模型工具
-       │    └─ 19 个固定版本 Nature Skills
-       ├─ 插件服务层
-       │    ├─ 课题 / 核心记忆 / 模板 / 文献任务
-       │    ├─ 化学 / NMR / 合成路线
-       │    └─ 文档转换 / 预览 / 浏览器捕获
-       ├─ 外部执行层
-       │    ├─ MarkItDown / LibreOffice / RDKit / Mnova MCP
-       │    └─ OpenAlex / Crossref / PubChem / USPTO / 机构浏览器
-       └─ 本地持久化
-            ├─ 课题 workspace 与科研产物
-            └─ 版本快照 / SHA-256 / ArtifactProvenance
+  └─ DSH Web / Windows Desktop
+       ├─ iBM 课题工作台与 lab-research 预设
+       ├─ 19 个固定版本 Nature Skills
+       ├─ 文献、合成、表征、模板与文档服务
+       ├─ Origin / Mnova / LibreOffice / RDKit 等本地工具
+       └─ 课题 workspace、版本快照与 ArtifactProvenance
 ```
 
-### 当前验证状态（2026-08-28）
+所有课题数据默认保存在用户自己的 DSH 数据目录。浏览器扩展仅用于把用户已获授权的
+PDF/SI 下载交给本机回环服务；项目不会自动执行实验、采购，也不会绕过机构或 CAS
+授权边界。
 
-- 当前主分支单元测试与集成测试 **192/192 通过**。
-- 回归套件 **10/11 通过**：`catalog`、`chemistry`、`convert`、`goal-profile`、
-  `nmr`、`ppt-template`、`python-lock`、`registry`、`synthesis`、`task-flow` 均通过。
-- 未通过的 `harness-pin` 是因为本次检查环境未提供实际 DSH `node_modules` 或命令
-  路径；需要在目标 Ubuntu/DSH 部署环境补跑，不能据此判断固定版本已经失配。
-- 已通过自动化覆盖版本快照、课题绑定、全文资源盘点、模板优先生成、公众号 DOI
-  校验、PDF/SI 捕获安全、PDF 网页预览、Office 产物审核、高分子计算、NMR 状态机
-  与 CAS 未授权门禁。
+## Linux 安装
 
-### 待领域验收
-
-- 在目标 Ubuntu 服务器补跑环境自检和 11/11 完整回归。
-- 用 20–30 个真实检索问题和 10 篇金标准论文验证召回、证据定位、精读结论与
-  跨版本一致性。
-- 用至少 5 套课题组真实 PPT 模板和 5 组真实 NMR 数据完成领域验收；Mnova MCP
-  需要在安装了 Mnova 的课题组电脑上验证。
-- 扩大 Chrome/Edge、不同出版社、中科大机构授权和自定义下载目录的实机覆盖。
-- 在目标服务器完成真实 MarkItDown + LibreOffice 全格式转换/预览验证，并持续
-  检查 OpenAlex、PubChem、USPTO 等外部端点的限流和迁移情况。
-- CAS/SciFinder 正式集成需先获得 API 使用及 LLM 数据处理的书面授权，当前仅保留
-  查询准备和登录入口。
-
-## Linux 一行安装并启动
-
-支持 Ubuntu/Debian 的 x86_64 与 arm64。下面一条命令会安装原生渲染依赖，
-在用户目录内建立隔离的 Node.js、DSH、pnpm 与 Python 3.12 环境，安装本插件，
-完成配置自检，并在 `127.0.0.1:3080` 启动 Web 界面：
+支持 Ubuntu/Debian 的 x86_64 与 arm64。安装器默认安装当前 `main`（版本 **v0.4.2**），在用户
+目录中创建隔离的 Node、DSH、pnpm 与 Python 环境，并可直接启动 Web 界面：
 
 ```bash
 curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --start
 ```
 
-安装系统包时会正常请求 `sudo`；Node、DSH、pnpm、Python 及 Python 包都装在
-`~/.local/share/ibm-lab-agent/` 与 `~/.dsh/`，不会修改系统 Python。安装后常用命令：
+系统包安装阶段会按需请求 `sudo`；模型密钥不包含在发行包中，请在首次打开 DSH 后配置。
+常用命令：
 
 ```bash
-ibm-lab-agent status       # 服务与 HTTP 状态
-ibm-lab-agent logs -f      # 跟踪启动日志
-ibm-lab-agent doctor       # 完整环境自检
-ibm-lab-agent restart      # 重启
-ibm-lab-agent stop         # 停止
-ibm-lab-agent dsh --help   # 直接调用发行版内固定的 DSH
+ibm-lab-agent status
+ibm-lab-agent logs -f
+ibm-lab-agent doctor
+ibm-lab-agent restart
+ibm-lab-agent stop
+ibm-lab-agent dsh --help
 ```
 
-从 Windows 电脑更新服务器时，可在仓库根目录运行
-`powershell -ExecutionPolicy Bypass -File scripts/update-server.ps1`，再按提示输入
-SSH 地址、用户名和密码。脚本会停止旧服务、安装指定的 Git 分支或标签、重新启动
-并检查状态；登录密码只由系统 SSH 读取，不会写入脚本或仓库。完整参数见
+重新运行安装命令即可幂等升级；使用 `--ref <tag|branch|commit>` 可指定版本。安装器在新
+release 通过验证后才切换 `current`，不会直接覆盖上一个可运行版本。完整说明见
 [`docs/LINUX_RELEASE.md`](docs/LINUX_RELEASE.md)。
 
-不熟悉 PowerShell 命令时，也可以直接双击仓库根目录的
-[`update-server.cmd`](update-server.cmd)。本地入口固定连接
-`ubuntu@vlab.ustc.edu.cn`，自动安装 `main` 分支的最新版本，只需按 SSH 提示
-输入登录密码；需要更新系统依赖时，服务器还可能提示输入 `sudo` 密码。该文件
-可以单独复制到桌面或其他位置运行，不要求旁边保留项目目录。
+从 Windows 更新 Linux 服务器，可运行：
 
-默认锁定 Node.js 24.16.0、DSH 0.1.1-rc.2、pnpm 10.34.5、Python 3.12.11，
-同时安装 MarkItDown、PyMuPDF、python-pptx 与 RDKit。完整版本与校验值见
-[`runtime/versions.env`](runtime/versions.env)，系统包清单见
-[`runtime/apt-packages.txt`](runtime/apt-packages.txt)。模型密钥不属于发行包；
-首次打开页面后请在 DSH 设置中填写自己的模型服务配置。
-
-安装器是幂等的；再次执行会装入一个新版本目录，验证成功后再切换 `current`
-软链接。常用可选参数：`--ref <tag>`、`--dsh-home <path>`、
-`--skip-system-deps`、`--no-python-extras`、`--no-dsh-patch`、
-`--keep-default-preset`。查看全部参数：
-
-```bash
-curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --help
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update-server.ps1 -Ref main
 ```
 
-## Windows 桌面端（develop）
+也可双击仓库根目录的 `update-server.cmd`，按 SSH 提示输入凭据。脚本不会保存密码。
 
-`desktop/` 包含正在开发的 Windows Tauri 桌面壳：随包携带 Node.js、固定版
-DSH 与本插件，使用独立 `ibm-lab` profile，在回环端口启动后嵌入本地 Web UI。
-当前已完成单实例、动态端口、健康检查、启动错误/重试、日志入口、进程树清理、
-本地设置、运行时准备/校验脚本和 NSIS 构建配置；Rust 编译检查、隔离 profile
-校验以及真实 DSH Web 回环端口健康检查已通过。打包资源已排除 pnpm 冗余内部存储，
-同时补齐插件完整生产依赖树。最终 NSIS 安装包和干净 Windows 用户环境验收仍在进行中，详见
-[`desktop/README.md`](desktop/README.md) 与
+## Windows 桌面端
+
+`desktop/` 是 Tauri 2 桌面客户端。运行时与用户数据隔离，服务只监听本机回环地址；
+API Key 使用当前 Windows 用户的 DPAPI 加密保存。Origin 自动化需要已安装 Origin，
+Mnova GUI/Verify 工作流需要已安装并授权的 MestReNova；文件型 NMR 分析不依赖 Mnova GUI。
+
+发布构建统一使用：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 `
+  -SourceRoot . -NodeExe (Get-Command node).Source
+```
+
+该入口依次执行源码测试、回归、预设检查、lint、运行时准备、Web 冒烟、Tauri/NSIS
+构建和安装包验证，并输出阶段日志与 `release-report.json`。首次完整构建需要 Rust stable、
+Microsoft C++ Build Tools、Node 24 及可访问的依赖源。不要并发启动多个资源准备或发布任务。
+详细说明见 [`desktop/README.md`](desktop/README.md) 和
 [`desktop/docs/release-checklist.md`](desktop/docs/release-checklist.md)。
 
-## 源码开发与手动部署
+## 源码开发
+
+基础要求：Node.js 20 或更高版本；Windows 桌面端还需要 Rust stable 与 MSVC 工具链。
 
 ```bash
-# 依赖：Node.js >= 20、Python 3.10–3.12、pnpm、LibreOffice
-sudo bash runtime/install-ubuntu.sh
-npm ci --omit=peer --legacy-peer-deps
+corepack pnpm install --frozen-lockfile
+corepack pnpm run build:client
+corepack pnpm run check:preset-exports
+corepack pnpm test
+corepack pnpm run test:browser
+corepack pnpm run regression
+corepack pnpm run lint
+```
+
+桌面端源码测试：
+
+```powershell
+cargo test --manifest-path .\desktop\src-tauri\Cargo.toml --locked
+```
+
+Tauri 默认要求已准备完整打包资源。只做源码级 Rust 诊断时可临时覆盖资源清单；正式安装包
+必须通过统一发布脚本生成，不得清空资源清单。
+
+手动部署到已有 DSH 环境：
+
+```bash
 node scripts/dev-link.mjs
 node scripts/install.mjs --strict
 node scripts/lab-doctor.mjs
-npm run test:all
-node scripts/ensure-ibm-lab-profile.mjs
 dsh plugin --profile ibm-lab add "$PWD"
 dsh --profile ibm-lab
 ```
 
-之后新会话选择 **iBM科研Agent** preset，nature skills
-（`nature-academic-search`、`nature-reader`、`nature-paper-card`、
-`nature-paper2ppt`、`nature-shared`）即出现在 skill 目录中。
+新会话使用 `lab-research` 预设。每个课题的核心记忆同步到其 workspace 根目录下的
+`项目记忆.md`；更新通过版本化工具完成，不应直接把整份记忆重复塞入对话输入框。
 
-Web 侧边栏左上角的 **iBM Agent / based on DSH** 品牌区就是科研课题入口，
-底部不再重复显示“我的科研课题”按钮。首页只负责选择或新建课题；每个课题
-包含一份可提交新版本的核心课题 Markdown，并以它作为科研 Agent 对话的项目
-记忆。安装插件后，Harness 展开侧栏的左上角品牌区会显示人像 Logo，
-折叠侧栏与会话课题徽章继续使用实验室烧瓶 SVG，
-首页主视觉也使用人像 Logo，并将品牌标语统一为“专注源头创新”，
-原有 DeepSeek Harness wordmark 与鲸鱼图标被隐藏（不修改 Harness 核心，
-由 client 插件 CSS/DOM 覆盖）。**创建课题时插件会自动**：为课题建独立工作区目录
-（`$DSH_HOME/lab-agent/projects/<项目id>`，作为 Harness 独立 workspace，
-并按课题名重命名）、开一个新对话、自动选择 **iBM科研Agent**
-agent preset，并把当前版本核心记忆**落盘为课题工作区根目录的 `项目记忆.md`**，
-开场提示 agent 读取该文件（不把整份记忆塞进输入框）。
-绑定是**工作区级**的：一个课题一个专属 workspace，空间内所有对话共享课题
-标识与核心记忆——在该空间里手动新建的对话同样显示课题徽章、共享同一份核心
-记忆（按 cwd 自动识别课题）。进入课题后可按三个板块查询对话产物：**文献资料**
-（检索汇总、精读报告、文献 PPT）、**研究设计**（工作规划、实验方案、合成
-路线）和**表征分析**（NMR/结构结果及人工审核状态）。对话界面也做了定制：
-每个对话的会话头部都显示当前课题徽章（点击回到课题空间），输入框上方显示
-课题记忆提示条。
-整个界面通过 client 插件叠加在 Harness 上，不修改 Harness 核心。
+## 当前版本锁定
 
-科研 Agent 对话里还可直接调用 **`lab_project_memory_read` / `lab_project_memory_update`**
-模型工具读写课题核心记忆（优先按会话绑定、回退按工作目录定位课题）：总结/进展归档请用
-`lab_project_memory_update` 提交新版本（版本化数据行、带 changeNote 与哈希，
-面板可见、后续对话自动加载）——每次提交都会**同步重写课题工作区的
-`项目记忆.md`**，agent 在对话里读取的就是这份文件（不是孤立文件）。
-这两个工具连同 `lab_convert_document` **只挂在 lab-research 预设工具层**，
-standard 等其他模式看不到 lab 工具，避免误调用。
-
-**关于"模式切换"**：Harness 的 Agent 预设（模式）只在**空白新会话**上生效，
-会话一旦开始运行就固定、无法中途更换（官方约束 `agent-preset-locked`）。
-插件会把 DSH 的**默认预设设为 `lab-research`**（`$DSH_HOME/settings.yaml` 的
-`agent-presets.default`），因此**所有新会话默认就是科研 Agent 模式**，无需
-切换；课题空间的「开始科研 Agent 对话」在此基础上进课题工作区、开场提示
-读取 `项目记忆.md`。不要在已开始的会话里要求"切换模式"（会被拒绝）。
-若需恢复默认，把 `agent-presets.default` 改回 `standard` 并重启 `dsh --profile ibm-lab`。
-
-## 阶段一验证记录（2026-08-17）
-
-| 项 | 结果 |
+| 组件 | 版本 |
 |---|---|
-| nature-skills 固定 commit | `c171989db699bd601d4373912b3fb8db96ecc95b`，690 文件 / 40.4MB 完整树 |
-| 单元测试 | 21/21 通过 |
-| 集成测试（真实 boot：registry CRUD、skill 发现、preset 组合） | 4/4 通过 |
-| 回归套件 | 4/4 通过，已记录回归日期（vendor.lock.json `regression.lastPassedAt`） |
-| profile 组合 | 历史记录：`dsh --profile web --patch cordis.patch.yml --dump-config` 三行均正确插入；当前基线改为独立 `ibm-lab` profile |
-| 安装演练（临时 DSH_HOME） | vendor 物化/幂等、preset 安装、19 条 NatureSkillVersion 登记成功 |
-| golden-diff 脚手架 | `--old <sha> --new <sha>` 下载两棵树并输出结构化差异报告 |
+| iBM Lab Agent | 0.4.2 |
+| DeepSeek Harness | 0.1.1-rc.2 |
+| Windows Node | 24.16.0 |
+| Linux Python | 3.12.11 |
+| Windows bundled Python | 3.11 |
+| Origin MCP | 0.1.4 |
+| Mnova MCP | 0.3.1 |
+| Nature Skills | commit `c171989db699bd601d4373912b3fb8db96ecc95b` |
 
-## 阶段二验证记录（2026-08-17）
+精确版本、哈希和依赖清单分别记录在 `runtime/versions.env`、`harness.lock.json`、
+`vendor.lock.json` 与 `desktop/docs/release-manifest.json`。
 
-| 项 | 结果 |
-|---|---|
-| 单元测试（含 pptx 解析/目标 schema/模板映射） | 35/35 通过（合计 41/41） |
-| 集成测试（目标 CRUD/快照/删除语义、三模板导入/确认/无效拒绝） | 5/5 通过（合计 6/6） |
-| 回归套件 | 6/6 通过（新增 `goal-profile`、`ppt-template` 用例） |
-| PPTX 解析 | 三模板（16:9/4:3、三套主题色/字体、3–5 布局）比例/主题/布局/占位符识别正确 |
-| 版式角色 | 11 角色建议映射全覆盖且指向存在的布局；无效映射 `confirmMapping` 拒绝、模板保持 draft |
-| 快照语义 | update 后旧版本与任务快照不变；删除后 `resolve(id@version)` 仍可读；id 不复用 |
-| profile 组合 | `--dump-config` 含 5 个 lab 服务行（新增 lab-goal-profiles / lab-ppt-templates） |
+## 验证状态
 
-## 阶段三验证记录（2026-08-17）
+v0.4.2 在 2026-09-09 的迁移后源码验证结果：
 
-| 项 | 结果 |
-|---|---|
-| 单元测试（executor 定位/python 解析 + 真实脚本审计） | 14/14（合计 49/49） |
-| 集成测试（全流程状态机 + 门禁阻止） | 3/3（合计 9/9） |
-| 回归套件 | 7/7（新增 `task-flow` 用例，真实 audit_paper_card.py / audit_pptx_quality.py） |
-| 真实脚本门禁 | pass fixture exit 0 / 缺节 fixture exit 1（errors=1）；干净 pptx QA 0 发现 |
-| provenance | 每 run 一条（search/source-bundle/reading-report/presentation），输入哈希 + skill 版本齐全 |
-| profile 组合 | `--dump-config` 含 6 个 lab 服务行（新增 lab-tasks） |
+- 客户端构建与预设导出检查通过；
+- Node 单元/集成测试 353/353 通过；
+- 离线浏览器专项测试 7/7 通过；
+- 回归套件 11/11 通过；
+- Rust 桌面端测试 53 项通过，1 项真实注册表测试按设计忽略；
+- ESLint 0 error（保留 87 条未超过发布门限的 warning）。
 
-## 阶段四验证记录（2026-08-17）
+真实 Origin/Mnova 操作、机构授权下载和正式 NSIS 安装包仍应在目标软件、授权和完整发布
+资源均具备的机器上按 release checklist 验收。
 
-| 项 | 结果 |
-|---|---|
-| 单元测试（元素/分子式/MW、聚合物指标、模型/状态机、PubChem/RDKit 降级） | 21/21（合计 72/72） |
-| 集成测试（实体/来源性质/计算/计划门禁/人工审核-only 状态机） | 2/2（合计 11/11） |
-| 回归套件 | 8/8（新增 `chemistry` 用例） |
-| 分子式计算 | C27H29NO11（阿霉素）MW ≈ 543.52 g/mol；括号重复单元 (C6H8O2)10 正确展开 |
-| 来源区分 | db-measured（PubChem CID）/ computed（RDKit/公式）/ model-predicted 查询可同时返回 |
-| 实验计划 | 缺安全/表征创建拒绝；`executing` 状态被状态机拒绝（仅人工审核） |
-| RDKit 降级 | venv 无 rdkit 时 `rdkitProperties` 返回 `available:false` + 原因，不静默给数值 |
-| profile 组合 | `--dump-config` 含 7 个 lab 服务行（新增 lab-chemistry） |
+## 目录
 
-## 阶段五验证记录（2026-08-17）
+```text
+client/             DSH Web 客户端与离线查看器
+desktop/            Windows Tauri 客户端及发布脚本
+lib/                插件服务、远程接口和数据持久化
+src/                领域模型与计算逻辑
+presets/            lab-research 预设
+python/             固定 Python 依赖与辅助脚本
+vendor/             固定版本 Nature Skills
+runtime/            Linux 发行版版本与系统依赖
+browser-extension/  本机 PDF/SI 捕获桥
+tests/              单元、集成、浏览器、回归与 E2E 测试
+docs/               当前发布说明及历史设计/验收记录
+```
 
-| 项 | 结果 |
-|---|---|
-| 单元测试（积分公式 + 状态机/不可变模型） | 10/10（合计 84/84） |
-| 集成测试（工作流全流程 + 冻结/打回保留历史 + 计算门禁） | 2/2（合计 13/13） |
-| 回归套件 | 9/9（新增 `nmr` 用例） |
-| 积分计算 | 组成 2/3、转化率 0.9、端基 DP 50、取代度 2.5%、载药量推算均通过校验 |
-| 不可变保护 | approve 后再次 approve / 改草稿均拒绝；打回保留 approvedIntegrals 历史 |
-| mnova-mcp | 配置模板 + skill 安装脚本（GitHub raw 退避重试）；本环境无 Mnova，实际 MCP 连接为部署步骤 |
-| profile 组合 | `--dump-config` 含 8 个 lab 服务行（新增 lab-nmr） |
+## 许可证
 
-## 阶段六验证记录（2026-08-17）
-
-| 项 | 结果 |
-|---|---|
-| 单元测试（合成模型/状态机、开放数据适配器、CAS 边界） | 12/12（合计 98/98） |
-| 集成测试（路线全流程 + 证据收集 stub + CAS 未授权门禁） | 2/2（合计 15/15） |
-| 回归套件 | 10/10（新增 `synthesis` 用例） |
-| 开放数据 | PubChem/PatentsView/OpenAlex 三类证据聚合；专利源适配器可插拔（api.patentsview.org 迁移至 USPTO ODP，按端点封装） |
-| CAS 边界 | 未授权时只返回 prepared query（`executed:false`）/登录入口；`CasProvider` 全部操作被 `CasAuthorizationError` 拒绝 |
-| profile 组合 | `--dump-config` 含 9 个 lab 服务行（新增 lab-synthesis） |
-
-## 阶段七验证记录（2026-08-18：项目驱动科研工作台 + 文档转换）
-
-| 项 | 结果 |
-|---|---|
-| 单元测试（含 client 描述符/harness-surface、markitdown 探测降级） | 89/89（合计 98+89 维护基线，`npm test` 全绿） |
-| 集成测试（课题 CRUD/工作区/核心记忆/绑定、remote gateway、文档转换） | 21/21（`npm run test:all` 110/110） |
-| 回归套件 | 11/11（新增 `convert` 用例，真实 audit 脚本门禁仍通过） |
-| Web 管理界面 | 浏览器 client 插件（不修改 Harness 核心）：左上角 iBM Agent 品牌课题入口、课题首页/空间、三板块产物看板、核心记忆编辑器与版本历史、会话课题徽章 + 输入框记忆提示条 |
-| 课题自动启动 | 建课题 → 独立 workspace（`$DSH_HOME/lab-agent/projects/<id>`，按课题名重命名）+ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取 |
-| 工作区级绑定 | 空间内所有对话（含手动新建）按会话绑定/cwd 识别课题，共享同一份核心记忆 |
-| 核心记忆工具 | `lab_project_memory_read/_update` 模型工具按会话绑定或工作目录定位课题，版本化写入（changeNote + 哈希），面板可见 |
-| 工具作用域 | lab 工具只挂 lab-research 预设工具层，standard 等预设不可见；不在全局 toolOrder 引用未注册工具（修复"标准模式链接不上模型"） |
-| 文档转换 | markitdown（microsoft/markitdown）PDF/Office/图片 → Markdown + 转换登记；不可用时清晰降级（`--check` 权威探测，不用 pip list/which 误判） |
-| profile 组合 | `--dump-config` 含 11 个 lab 服务行（新增 lab-convert / lab-remote） |
-
-## 阶段八验证记录（2026-08-18：模式修复与作用域收口）
-
-| 项 | 结果 |
-|---|---|
-| 科研模式失效根因 | ① `agentPresets.select` 的 wire 返回 `{ result }` 不 throw，原代码只 catch throw 未查 `result.ok`，预设切换失败被静默吞掉；② lab 工具注册在 host 平面，standard 会话误调用触发 stream failed |
-| 修复 | client `selectResearchPreset` 检查 `result.ok`（含 `agent-preset-locked`）；lab 工具移入 lab-research 预设工具层；persona 新增第 8 条说明预设一轮后固定 |
-| 作用域收口 | 移除全局 `system-prompt.toolOrder` 对 `lab_convert_document` 的引用（未注册工具名会让 Harness 拒绝启动）；convert/memory 工具行集中在 preset |
-| 回归 | 110 单元+集成 / 11 回归全绿；部署 preset 与仓库一致 |
-
-## 阶段九验证记录（2026-08-20：主面板模板管理：阅读笔记 + PPT 模板）
-
-| 项 | 结果 |
-|---|---|
-| 主面板「模板管理」 | Home 首页新增「模板管理」入口，两标签页（阅读笔记模板 / PPT 模板）；返回原课题首页导航 |
-| 阅读笔记模板 | labNoteTemplates 服务（创建/编辑/复制/删除/生成要求，版本不可变 id@version，快照永远可读）；模板章节骨架/受众/语言/篇幅/风格规则/证据与来源/输出要求 |
-| 生成时按模板 | 精读报告登记时把所选阅读笔记模板**快照**写入 ReadingReport（`noteTemplateSnapshot` + `noteRequirements`），后续模板修改不影响旧报告；缺省用内置 `note-default`，Agent 生成阅读笔记按模板章节骨架组织 |
-| PPT 模板 | labTemplates：上传 .pptx → 解析页面比例/主题/布局/占位符 → 自动角色映射建议 → 逐角色确认 → 验证后发布；元数据编辑（名称/受众/用途/备注/最大篇幅）/ 预览 / 验证/ 归档 |
-| Agent 参考模板工具 | `lab_note_templates_list/get`、`lab_ppt_templates_list/get` 四个只读工具挂 lab-research 预设；persona 第 10 条「按模板生成」引导（先查询再生成、登记时指定模板版本）|
-
-- **插件骨架**：bundle patch 层（`cordis.patch.yml`）+ host 服务
-  （`ctx.labVersions` 版本登记、`ctx.labPython` Python 环境）+ 部署脚本。
-- **Skill 发现/路由**：`lab-skill-filesystem` host provider 把 nature skills
-  注册进 global skill layer；`presets/lab-research/` 提供课题组 agent 组合。
-- **版本登记**：`NatureSkillVersion`（repo commit、manifest 版本、license、
-  python 锁哈希、回归日期），持久化于 `lab_agent` storage domain。
-- **Python 环境**：固定 venv + `requirements.lock`（sha256 锁定），显式引导。
-- **回归框架**：`catalog / registry / harness-pin / python-lock` 用例 +
-  跨 commit `golden-diff` 脚手架。
-
-## 阶段二交付内容
-
-- **精读目标系统**（`ctx.labGoals` / `ReadingGoalProfile`）：可创建/保存/复制/
-  修改/版本化；内置 `default-prodrug-polymer` 聚前药默认配置（§三 七组内容）；
-  `toPaperCardRequirements` 转换为 nature-paper-card 重点审查要求，01–16 节
-  契约永远保留；任务引用版本快照，删除后历史仍可读。
-- **PPT 模板系统**（`ctx.labTemplates` / `PptTemplateProfile`）：PPTX 导入
-  （`src/pptx-parse.js` 解析页面比例/主题色/字体/母版/布局/占位符）→ 11 个
-  版式角色自动映射建议 → 预览/填充示例 → 用户确认；模板与映射只作格式参考，
-  兼容性检查显示提醒但不作为文献产物生成/审核门禁。`nature-default` 是由
-  `nature-paper2ppt` 负责实现的系统虚拟模板，因此不会在模板目录中出现
-  `source.pptx`；其余条目才是用户导入的实体 PPTX。模型工具会明确显示该区别，
-  并返回受众、必选页、最大页数、讲稿备注、占位符规则和完整角色映射。
-- 依赖：`jszip` / `fast-xml-parser`（纯 JS，跨平台，无需 Python）。
-
-## 阶段三交付内容
-
-- **任务编排**（`ctx.labTasks`，§六 接口）：`searchLiterature` / `preparePaper` /
-  `createReadingReport` / `validateReadingReport` / `createPresentation` /
-  `validatePresentation` + 完成/查询接口；`LabProject` 保存目标/模板版本快照。
-- **执行层**（`src/skill-executor.js`）：直接调用 nature-skills 的 stdlib 脚本
-  （OpenAlex 检索、引用导出、源包准备、精读审计、PPTX 质量审计）——系统
-  python3 即可运行，无需 venv。
-- **暂存—预览—人工审核—下载**：实际 DOCX/PPTX 自动进入课题文献条目，
-  LibreOffice 将原文件渲染为右侧 PDF 分页预览；自动自查只作提醒。人工审核
-  记录绑定源文件 SHA-256，只有审核通过且哈希未变化时才开放原文件下载。
-- **已提交 PDF 网页预览**：课题文献条目和全文获取队列中的已归档 PDF 可直接
-  使用浏览器原生阅读器预览，并保留原有的完整性校验下载；SI 等非 PDF 附件仍
-  只提供下载，避免将其他文件类型误以内嵌内容打开。
-- **微信公众号文献入口**：在科研 Agent 对话中粘贴
-  `https://mp.weixin.qq.com/s...`，Agent 读取并提取页面明确展示的论文元数据；
-  页面未展示 DOI 时，先用 `lab_tasks_resolve_wechat_doi` 把题名/作者/年份
-  提交 OpenAlex/Crossref 检索校验，取 confidence=high 的权威 DOI 补全（medium
-  需人工确认，检索不可用则省略、不猜测），再通过 `lab_tasks_register_wechat_paper`
-  将含 DOI 的元数据加入「文献精读」并标记“待上传 PDF”。此步骤不下载 PDF、
-  不把公众号导读当作全文证据；后续人工上传原文时复用原 `bundleId`/`reportId`，
-  避免生成重复条目。
-- **持久化**（`lab_tasks` domain）：LabProject / LiteratureSearchRun /
-  PaperSourceBundle / ReadingReport / PresentationRun / ArtifactProvenance
-  （输入哈希 + skill 版本 + 模型 + 时间，每条产物可追溯）。
-
-## 阶段四交付内容
-
-- **化学实体**（`ctx.labChemistry`）：小分子 / 单体 / 重复单元 / 聚合物 /
-  聚前药对象（聚合策略/骨架、连接方式/连接臂/释放机制字段）。
-- **带来源性质**：`db-measured`（PubChem 等数据库实测）/ `computed`（计算）/
-  `model-predicted`（模型预测）严格区分；`queryProperty` 返回全部来源。
-- **计算层**：分子式→分子量、Đ/DP/载药量/取代度等**纯 JS 离线可测**；RDKit
-  （venv 可选）SMILES 级 MW/logP/TPSA/HBD/HBA，不可用时明确降级；PubChem
-  开放数据查询（网络）。
-- **实验方法计划**：目标/规模/试剂/仪器/文献证据/计量表/步骤/监测/后处理/
-  纯化/表征/安全/备选方案；完整性与安全校验（缺安全/表征拒绝）；状态机仅到
-  人工审核（`draft→under-review→approved|rejected`，无 executing）——
-  **不控制仪器、不自动采购**。
-
-## 阶段五交付内容
-
-- **NMR 工作流**（`ctx.labNmr`）：NmrDataset 状态机"准备—人工审核—写回—
-  视觉质检"；原始 FID/结构与**已审核积分计划不可覆盖**（冻结/打回保留历史）。
-- **聚合物积分计算**（纯公式离线可测）：共聚组成、转化率、端基 DP、取代度、
-  由取代度推算载药量——只接受已审核积分，全部标记 computed + 公式来源。
-- **mnova-mcp 集成**：Harness MCP Client 配置模板 `presets/mcp/mnova-mcp.patch.yml`
-  （0.2.0 起为 bundled Python 模块型：`python -m mnova_mcp`，不再依赖系统
-  Python/uv/源码 checkout）；nmr-analyze-simulate skill 随 mnova-mcp vendor 化，
-  由 cordis.patch.yml 的 `lab-mnova-skill-filesystem` provider 注册到
-  `$DSH_HOME/lab-agent/vendor/mnova-mcp/skill`（桌面端由 bootstrap 自动物化，
-  无需网络安装脚本）；agent 通过 `mcp__mnova__*` 工具与 Mnova 交互
-  （需本机 Mnova 环境，部署时启用）。
-
-## 阶段六交付内容（开放数据首版）
-
-- **合成路线分析**（`ctx.labSynthesis`）：SynthesisTarget / SynthesisRoute
-  （多步：反应/反应物/产物/试剂/条件/文献与专利引用）；人工审核状态机
-  （`draft→under-review→approved|rejected`，不自动执行合成）。
-- **开放数据执行器**：PubChem 化合物（复用阶段四）、USPTO PatentsView 专利
-  （无 key 适配器，可插拔端点）、OpenAlex 文献（nature-academic-search）。
-- **CAS 安全边界**（`src/cas/boundary.js`）：未获书面授权前**不自动操作或
-  读取 SciFinder、不把 CAS 内容输入模型**——只准备结构/查询 URL 与登录入口
-  （`executed:false`）；`CasProvider` 占位接口全部经授权门禁拒绝；获得明确
-  API+LLM 授权后再启用 OAuth2 PKCE 与独立 CAS Provider。
-
-## 阶段七交付内容（项目驱动科研工作台）
-
-- **课题（LabProject）**（`lib/tasks.js` / `src/task-models.js`）：创建课题时
-  自动建独立工作区目录（`$DSH_HOME/lab-agent/projects/<id>`）→ 注册 Harness
-  workspace（按课题名重命名）→ 新会话 + lab-research 预设 + 核心记忆落盘「项目记忆.md」供 agent 读取。
-- **工作区级绑定**：`projects_bind_workspace/bind_session/binding/by_session/
-  by_workspace/by_cwd` 让空间内所有对话按会话绑定或 cwd 识别课题；绑定关系
-  持久化于 `lab_tasks` domain `project_bindings` 表。
-- **核心记忆模型工具**（`lib/memory-tool.js`）：`lab_project_memory_read` /
-  `lab_project_memory_update` 按会话绑定或工作目录定位课题，版本化写入（changeNote +
-  哈希）；persona 第 6 条强制引导走正道，禁止发明孤立记忆文件。
-- **Web 管理界面**（`client/index.js` + `lib/remote.js`）：lab Remote bridge
-  经 Typert Gateway（source-mode discovery）暴露 9 个 lab 服务；浏览器 client
-  渲染左上角 iBM Agent 品牌课题入口、课题首页/空间、三板块产物看板、核心记忆编辑器
-  与版本历史、会话课题徽章 + 输入框记忆提示条。全部叠加在 Harness 之上，
-  不修改 Harness 核心。
-- **文档转换**（`lib/convert.js` / `lib/convert-tool.js` / `src/markitdown.js`）：
-  markitdown（microsoft/markitdown）把 PDF/Office/图片转 Markdown 存
-  `lab-agent/converted/` 并登记；`lab_convert_document` 工具 + `--check`
-  权威探测 + 不可用时明确降级。
-- **手工下载文献自动捕获**（`lib/manual-capture.js` + `src/manual-capture.js` +
-  `browser-extension/`）：文献精读的灰色 PDF/SI 按钮 → 打开 DOI 出版社页面 →
-  用户手工下载 → Chrome/Edge 扩展（MV3 + Native Messaging 本地桥接）捕获该下载
-  并上传 → 服务端校验（%PDF- 头/%%EOF/大小/SHA-256、SI 扩展名白名单、100 MB
-  上限、防目录穿越）→ 登记到原 bundle 后按钮点亮。一次性令牌只存哈希、默认
-  20 分钟有效、重放返回 409；微信来源仅用 DOI 页面，无 DOI 拒绝启动，不显示
-  公众号链接。安装与排查见 `docs/MANUAL_CAPTURE.md`。
-
-## 部署环境与安全约定
-
-- 默认 Windows 10/11 本地运行，Web UI 仅监听 `127.0.0.1`；所有 PDF/报告/PPT 存本地。
-- 可调用云模型，但发送前显示数据范围。
-- 调用云端模型、写入 registry、升级锁定版本均为显式动作；启动不做任何安装。
-- **CAS/SciFinder**：未获得额外书面授权（含 API 与 LLM 使用授权）前，不自动
-  操作或读取 SciFinder 页面、不把 CAS 内容输入模型；CAS 插件仅准备结构/查询
-  并打开登录入口（见 `src/cas/boundary.js` 与 `docs/ARCHITECTURE.md` §10）。
-  授权确认后，启用独立 CAS Provider + OAuth2 PKCE，单独排期。
-
-## 文档
-
-- `docs/ARCHITECTURE.md` —— 组成模型与本插件叠加内容
-- `docs/MANUAL_CAPTURE.md` —— 手工下载文献自动捕获（扩展安装 / Ubuntu 升级 / 失败排查）
-- `docs/VERSIONING.md` —— 固定 commit 与手动升级流程
-- `docs/REGRESSION.md` —— 回归框架与用例
-- `docs/THIRD_PARTY_NOTICES.md` —— nature-skills 第三方声明
-- `harness.lock.json` / `vendor.lock.json` —— 锁文件
-
-## 阶段进度
-
-- [x] 阶段一 基础集成
-- [x] 阶段二 精读目标与 PPT 模板系统
-- [x] 阶段三 文献→PPT MVP（编排/执行层/审计门禁/provenance）
-- [x] 阶段四 化学性质与实验计划
-- [x] 阶段五 NMR 产品化（工作流/积分计算/mnova-mcp 集成）
-- [x] 阶段六 合成路线（开放数据首版）+ CAS 边界（CAS 正式集成待授权后单独排期）
-- [x] 阶段七 项目驱动科研工作台（课题空间/核心记忆/文档转换/Web 面板）
-- [x] 阶段八 模式修复与工具作用域收口（预设选择失败修复 + lab 工具移入 preset）
-- [x] 阶段九 主面板模板管理（阅读笔记模板 + PPT 模板 + 任务版本快照）
-- [x] 阶段十 文献入口完善（公众号 DOI 校验 + PDF/SI 捕获 + 全文盘点 + PDF 网页预览）
-
-## Origin / OriginPro Integration
-
-桌面版内置 `origin-mcp==0.1.4`（随捆绑 Python 3.11 分发），可让 Agent
-直接操作本机 Origin/OriginPro（建 Workbook、写 Worksheet、绘图、
-Linear Fit、导出 PNG、保存 OPJU）。**不要求系统安装 Python，
-不要求系统安装 origin-mcp。**
-
-用户流程：
-
-1. 安装 Origin/OriginPro。
-2. iBM 已内置 Origin MCP Server，不需要安装 Python。
-3. 打开 Desktop → 诊断 → Origin → 准备 Bridge。
-4. 按提示完成 Origin Bridge App 注册。
-5. 每次新的 Origin session 点击 Origin MCP Bridge Start。
-6. 在 Desktop 点击测试连接。
-7. 启用 Origin MCP。
-8. 如需要，重启 iBM Runtime。
-
-Origin 未安装/未启动、Bridge 未启动都不影响 Desktop 主功能与文献捕获
-链路；Bridge 缺失时诊断页明确显示 `bridge-missing`。真机 E2E 数据与
-期望见 `tests/e2e/origin/`（sample.csv / expected.json / README.md）。
+本项目使用 [MIT License](LICENSE)。内置 Nature Skills 使用 Apache-2.0；第三方运行时
+组件保留各自许可证与 notices。

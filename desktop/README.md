@@ -61,7 +61,7 @@ The API key is neither logged nor written to ordinary JSON. Windows DPAPI encryp
 
 See [docs/release-checklist.md](docs/release-checklist.md) for the clean-machine and regression checklist, and [docs/reference-desktop-analysis.md](docs/reference-desktop-analysis.md) for the separately reviewed reference architecture and licensing decision.
 
-## Origin / Mnova MCP Integration (0.2.0)
+## Origin / Mnova MCP Integration
 
 The desktop bundle carries both MCP adapters inside the self-contained
 Python 3.11 (`resources/python/dist`) — `origin-mcp==0.1.4` and

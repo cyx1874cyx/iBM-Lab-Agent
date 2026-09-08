@@ -22,7 +22,7 @@ Python 环境和 DSH profile 全部验证成功后，才原子切换 `current` �
 
 ```text
 ~/.local/share/ibm-lab-agent/
-├── current -> releases/0.3.0-<timestamp>/
+├── current -> releases/0.4.2-<timestamp>/
 ├── releases/                       # 插件源码快照
 └── runtime/
     ├── node -> node-v24.16.0-linux-<arch>/
@@ -49,7 +49,8 @@ SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent
 
 ## 升级、回滚与停止
 
-- 升级：重新运行一行安装命令，或用 `--ref vX.Y.Z` 固定标签。
+- 升级：重新运行一行安装命令（默认当前 `main`），或用 `--ref <tag|commit>`
+  固定已验证的发布引用。
 - 从 Windows 通过 SSH 交互式升级：在仓库根目录运行
   `powershell -ExecutionPolicy Bypass -File scripts/update-server.ps1`，按提示输入
   服务器地址、SSH 用户名和登录密码。脚本不会保存密码；它会停止旧服务、调用
