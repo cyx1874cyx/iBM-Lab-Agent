@@ -2345,8 +2345,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
             h(
               "span",
               { className: "sw-step-top" },
-              h("span", { className: "sw-step-id" }, step.id),
-              h("span", { className: "sw-chip", "data-tone": structured ? "good" : "warn" }, structured ? "结构化" : "原文摘要")
+              h("span", { className: "sw-step-id" }, step.id)
             ),
             h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
             h(
