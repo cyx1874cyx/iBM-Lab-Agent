@@ -687,3 +687,19 @@ mod tests {
         let _ = fs::remove_dir_all(sandbox);
     }
 }
+
+/// Resolve only the explicitly requested scientific application.
+pub fn scientific_application(application: &str) -> Option<PathBuf> {
+    match application {
+        "origin" => find_origin(),
+        "word" => MS_OFFICE_CANDIDATES
+            .iter()
+            .map(PathBuf::from)
+            .find(|p| p.is_file()),
+        "mnova" => MNOVA_CANDIDATES
+            .iter()
+            .map(PathBuf::from)
+            .find(|p| p.is_file()),
+        _ => None,
+    }
+}

@@ -10,6 +10,7 @@ export const plotRecordSchema = z.object({
 	/** 日期：默认本地创建日期，允许修改为实验或成图日期（YYYY-MM-DD）。 */
 	date: z.string().min(1),
 	artifactPath: z.string().optional(),
+	taskId: z.string().optional(),
 	source: z.string().default("manual"),
 	notes: z.string().optional(),
 	createdAt: z.string(),
@@ -17,5 +18,6 @@ export const plotRecordSchema = z.object({
 });
 
 export function todayLocal() {
-	return new Date().toISOString().slice(0, 10);
+	const d = new Date();
+	return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }

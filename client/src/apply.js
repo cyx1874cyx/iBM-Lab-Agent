@@ -7,6 +7,16 @@ import { OverlayBoundary, Panel } from "./components-project.js";
 import { ProjectBadge, ResearchFileUpload } from "./components-literature.js";
 
 export function applyUi(ctx) {
+ const syncDesktopTheme=()=>{if(typeof requestAnimationFrame!=="function")return;return requestAnimationFrame(()=>{
+  if(window.parent===window)return;
+  const style=getComputedStyle(document.body),tokens={};
+  for(const name of ["bg-base","bg-layer-1","bg-layer-2","border-l2","label-primary","label-secondary","brand-primary","state-error-primary"]){tokens[name]=style.getPropertyValue(`--dsw-alias-${name}`).trim();}
+  window.parent.postMessage({source:"ibm-lab-agent",type:"SYNC_THEME",requestId:"theme",payload:{tokens,dark:document.body.hasAttribute("data-ds-dark-theme")}},"*");
+ });};
+ syncDesktopTheme();
+ if(typeof MutationObserver==="function"){const themeObserver=new MutationObserver(syncDesktopTheme);themeObserver.observe(document.body,{attributes:true,attributeFilter:["style","data-ds-dark-theme"]});ctx.effect(()=>()=>themeObserver.disconnect(),"lab.theme-sync");}
+ ctx.on?.("theme/change",syncDesktopTheme);
+
 	const call = async (method, args) => {
 		const payload = args && typeof args === "object" && Object.keys(args).length === 1 && "request" in args ? args.request : args;
 		const result = payload === undefined ? await ctx.remote.lab[method]() : await ctx.remote.lab[method](payload);
@@ -112,7 +122,8 @@ export function applyUi(ctx) {
 		// 面板中的产物按钮可提供一个明确任务；仍复用同一课题工作区与科研
 		// Agent 预设，但在新对话输入框中优先放入该任务，而不是通用开场白。
 		const prompt = String(opts.prompt || "").trim() || promptFor(project, opts.memory);
-		ctx.conversation.input.for(actx).setDraft(prompt);
+		if (opts.autoSubmit) await actx.get("conversation").send(prompt);
+		else ctx.conversation.input.for(actx).setDraft(prompt);
 		close();
 		if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);
 		return { sessionId, workspaceId, openedNew, presetApplied };

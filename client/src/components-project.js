@@ -1,12 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
-import { NmrRegistry, PlotRegistry } from "./components-core.js";
+import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
 import { BookSvg, SiSvg } from "./components-templates.js";
 
@@ -453,20 +453,26 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 			const [state, setState] = useState({ loading: true, data: null, error: "" });
 			const [tab, setTab] = useState("literature");
 			const [draft, setDraft] = useState("");
+			const [memoryOpen, setMemoryOpen] = useState(false);
+			const memoryDirty = useRef(false);
 			const [note, setNote] = useState("");
 			const [saving, setSaving] = useState(false);
 			const [launching, setLaunching] = useState(false);
 			const [deleting, setDeleting] = useState(false);
 			const [toast, setToast] = useState("");
 			const load = useCallback(async () => {
-				try { const data = await call("projects_workspace", { request: { projectId: project.id } }); setState({ loading: false, data, error: "" }); setDraft(data.memory?.markdown || ""); }
+				try { const data = await call("projects_workspace", { request: { projectId: project.id } }); setState({ loading: false, data, error: "" }); setDraft((current) => memoryDirty.current ? current : (data.memory?.markdown || "")); }
 				catch (reason) { setState({ loading: false, data: null, error: reason.message }); }
 			}, [project.id]);
-			useEffect(() => { void load(); }, [load]);
+			useEffect(() => {
+                memoryDirty.current = false;
+                try { const cached = sessionStorage.getItem(`ib-memory-draft:${project.id}`); if (cached !== null) { memoryDirty.current = true; setDraft(cached); } } catch { /* storage may be disabled */ }
+                setMemoryOpen(false); void load();
+            }, [load]);
 			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 7000); return () => clearTimeout(timer); }, [toast]);
 			const save = async () => {
 				setSaving(true);
-				try { const result = await call("projects_memory_update", { request: { fields: { projectId: project.id, markdown: draft, changeNote: note } } }); setToast(`核心记忆已提交为 v${result.memory.version}`); setNote(""); await load(); }
+				try { const result = await call("projects_memory_update", { request: { fields: { projectId: project.id, markdown: draft, changeNote: note } } }); setToast(`核心记忆已提交为 v${result.memory.version}`); setNote(""); memoryDirty.current = false; try { sessionStorage.removeItem(`ib-memory-draft:${project.id}`); } catch { /* storage may be disabled */ } await load(); }
 				catch (reason) { setToast(reason.message); } finally { setSaving(false); }
 			};
 			const startChat = async () => {
@@ -475,11 +481,11 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId }); }
 				catch (reason) { setToast(reason.message); setLaunching(false); }
 			};
-			const startTaskChat = async (prompt) => {
-				if (!state.data || launching) return;
+			const startTaskChat = async (prompt, autoSubmit = false) => {
+				if (!state.data || launching) throw new Error("会话正在启动，请稍后重试");
 				setLaunching(true);
-				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt }); }
-				catch (reason) { setToast(reason.message); setLaunching(false); }
+				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt, autoSubmit }); }
+				catch (reason) { setToast(reason.message); setLaunching(false); throw reason; }
 			};
 			const remove = async () => {
 				if (!state.data) return;
@@ -502,10 +508,10 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 			const characterization = data.characterization || {};
 			const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
-				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
-				h("div", { className: "ib-memory" }, h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => setDraft(event.target.value) }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。开始科研 Agent 对话时，当前版本会自动放入 Harness 输入框。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))),
+				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
+				memoryOpen ? h("div", { className: "ib-memory-drawer", role: "dialog", "aria-label": "核心记忆" }, h("button", { className: "ib-btn ib-memory-close", onClick: () => setMemoryOpen(false) }, "收起（保留编辑）"), h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => { memoryDirty.current = true; setDraft(event.target.value); try { sessionStorage.setItem(`ib-memory-draft:${project.id}`, event.target.value); } catch { /* storage may be disabled */ } } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h("div", null, h(NmrRegistry, { rows: characterization.nmr || [] }), h(PlotRegistry, { projectId: data.project.id, call })) : null),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
 				toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
 			);
 		}
@@ -524,7 +530,7 @@ export class OverlayBoundary extends (React.Component ?? class {}) {
 			}
 			render() {
 				if (this.state.error) {
-					return h("div", { className: "ib-overlay" }, h("section", { className: "ib-card", style: { maxWidth: 620, margin: "16vh auto", padding: 24 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "面板渲染出错"), h("span", { className: "ib-chip" }, "可重试或返回")), h("pre", { style: { whiteSpace: "pre-wrap", color: "#ffb4b4", background: "#0d2822", borderRadius: 10, padding: 12, fontSize: 10.5 } }, this.state.error), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: () => this.props.onClose() }, "关闭"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => this.setState({ error: null }) }, "重试"))));
+					return h("div", { className: "ib-overlay" }, h("section", { className: "ib-card", style: { maxWidth: 620, margin: "16vh auto", padding: 24 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "面板渲染出错"), h("span", { className: "ib-chip" }, "可重试或返回")), h("pre", { style: { whiteSpace: "pre-wrap", color: "var(--ib-text)", background: "var(--ib-panel)", borderRadius: 10, padding: 12, fontSize: 10.5 } }, this.state.error), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: () => this.props.onClose() }, "关闭"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => this.setState({ error: null }) }, "重试"))));
 				}
 				return this.props.children;
 			}

@@ -5,59 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>iBM Lab Agent</title>
   <style>
-    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #101827; color: #e7edf7; }
-    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: #101827; }
+    :root { color-scheme: light dark; font-family: Arial, "Microsoft YaHei", sans-serif; background: var(--shell-panel); color: var(--shell-text); }
+    * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: var(--shell-panel); }
     .shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
-    .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: #162136; border-bottom: 1px solid #26334d; }
-    .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; } .state { color: #9fb1ca; font-size: 13px; flex: 1; }
-    button { border: 1px solid #405675; background: #203451; color: #ecf3fb; padding: 7px 11px; border-radius: 6px; cursor: pointer; }
-    button:hover { background: #29466c; } .workspace { position: relative; min-height: 0; }
+    .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: var(--shell-panel); border-bottom: 1px solid var(--shell-border); }
+    .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; } .state { color: var(--shell-text); font-size: 13px; flex: 1; }
+    button { border: 1px solid var(--shell-border); background: var(--shell-panel); color: var(--shell-text); padding: 7px 11px; border-radius: 6px; cursor: pointer; }
+    button:hover { background: var(--shell-panel); } .workspace { position: relative; min-height: 0; }
     #app { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: white; display: none; }
     #splash { max-width: 640px; margin: 13vh auto; padding: 32px; text-align: center; }
-    .spinner { margin: 0 auto 22px; width: 34px; height: 34px; border: 3px solid #344b70; border-top-color: #72b4ff; border-radius: 50%; animation: spin 1s linear infinite; }
-    .title { font-size: 21px; font-weight: 600; } .detail { margin: 12px 0 20px; color: #9fb1ca; line-height: 1.6; }
+    .spinner { margin: 0 auto 22px; width: 34px; height: 34px; border: 3px solid var(--shell-border); border-top-color: var(--shell-border); border-radius: 50%; animation: spin 1s linear infinite; }
+    .title { font-size: 21px; font-weight: 600; } .detail { margin: 12px 0 20px; color: var(--shell-text); line-height: 1.6; }
     #error-actions { display: none; }
-    label { display: block; margin: 14px 0 5px; color: #bfd0e6; font-size: 13px; }
-    input { width: 100%; padding: 9px; border-radius: 6px; border: 1px solid #3c5375; background: #0d1625; color: #eef5ff; }
-    .hint { font-size: 12px; color: #8ea2bd; margin-top: 12px; line-height: 1.55; }
+    label { display: block; margin: 14px 0 5px; color: var(--shell-text); font-size: 13px; }
+    input { width: 100%; padding: 9px; border-radius: 6px; border: 1px solid var(--shell-border); background: var(--shell-panel); color: var(--shell-text); }
+    .hint { font-size: 12px; color: var(--shell-text); margin-top: 12px; line-height: 1.55; }
     /* P1-1 runtime dependency doctor：诊断覆盖层，一屏展示 Edge/Python/Bridge/Office 状态 */
-    #diagnostics { position: absolute; inset: 0; z-index: 10; overflow: auto; background: #101827; padding: 22px 26px 40px; display: none; }
+    #diagnostics { position: absolute; inset: 0; z-index: 10; overflow: auto; background: var(--shell-panel); padding: 22px 26px 40px; display: none; }
     #diagnostics .diag-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
     #diagnostics h2 { font-size: 17px; font-weight: 650; margin: 0; }
-    #diagnostics .diag-sub { color: #8ea2bd; font-size: 13px; margin: 0 0 16px; }
-    table.deps-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #0d1625; border-radius: 8px; overflow: hidden; }
-    .deps-table th { text-align: left; color: #9fb1ca; font-weight: 600; padding: 10px 14px; border-bottom: 1px solid #26334d; background: #162136; }
-    .deps-table td { padding: 11px 14px; border-bottom: 1px solid #1c2940; vertical-align: top; line-height: 1.5; }
+    #diagnostics .diag-sub { color: var(--shell-text); font-size: 13px; margin: 0 0 16px; }
+    table.deps-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--shell-panel); border-radius: 8px; overflow: hidden; }
+    .deps-table th { text-align: left; color: var(--shell-text); font-weight: 600; padding: 10px 14px; border-bottom: 1px solid var(--shell-border); background: var(--shell-panel); }
+    .deps-table td { padding: 11px 14px; border-bottom: 1px solid var(--shell-border); vertical-align: top; line-height: 1.5; }
     .deps-table tr:last-child td { border-bottom: 0; }
-    .dep-label { font-weight: 600; color: #e7edf7; }
-    .dep-detail { color: #c6d3e6; word-break: break-all; }
-    .dep-hint { color: #8ea2bd; font-size: 12px; }
+    .dep-label { font-weight: 600; color: var(--shell-text); }
+    .dep-detail { color: var(--shell-text); word-break: break-all; }
+    .dep-hint { color: var(--shell-text); font-size: 12px; }
     .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-    .badge-ok { background: rgba(47, 158, 110, .16); color: #4fc08d; border: 1px solid rgba(47, 158, 110, .45); }
-    .badge-warning { background: rgba(217, 161, 61, .16); color: #e3b34e; border: 1px solid rgba(217, 161, 61, .45); }
-    .badge-missing { background: rgba(217, 83, 79, .16); color: #e0706c; border: 1px solid rgba(217, 83, 79, .45); }
-    #bridge-detail { margin-top: 14px; padding: 12px 14px; background: #0d1625; border: 1px solid #1c2940; border-radius: 8px; font-size: 12px; color: #8ea2bd; line-height: 1.7; }
-    #bridge-detail code { color: #c6d3e6; word-break: break-all; }
+    .badge-ok { background: rgba(47, 158, 110, .16); color: var(--shell-text); border: 1px solid rgba(47, 158, 110, .45); }
+    .badge-warning { background: rgba(217, 161, 61, .16); color: var(--shell-text); border: 1px solid rgba(217, 161, 61, .45); }
+    .badge-missing { background: rgba(217, 83, 79, .16); color: var(--shell-text); border: 1px solid rgba(217, 83, 79, .45); }
+    #bridge-detail { margin-top: 14px; padding: 12px 14px; background: var(--shell-panel); border: 1px solid var(--shell-border); border-radius: 8px; font-size: 12px; color: var(--shell-text); line-height: 1.7; }
+    #bridge-detail code { color: var(--shell-text); word-break: break-all; }
     .diag-actions { display: flex; gap: 10px; margin: 16px 0 14px; }
     .field-row { display: flex; gap: 8px; align-items: center; }
     .field-row input { flex: 1; }
-    .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; color: #d8e6f7; font-size: 13px; }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; color: var(--shell-text); font-size: 13px; }
     .check-row input { width: auto; }
-    #mcp-profile-section select { background: #0d1625; color: #c6d3e6; border: 1px solid #2a3a55; border-radius: 6px; padding: 4px 8px; font-size: 12px; margin-left: 10px; max-width: 240px; }
-    .mcp-cell { min-width: 180px; color: #9fb1ca; font-size: 12px; }
+    #mcp-profile-section select { background: var(--shell-panel); color: var(--shell-text); border: 1px solid var(--shell-border); border-radius: 6px; padding: 4px 8px; font-size: 12px; margin-left: 10px; max-width: 240px; }
+    .mcp-cell { min-width: 180px; color: var(--shell-text); font-size: 12px; }
     .mcp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .mcp-actions button { padding: 4px 8px; font-size: 12px; }
-    #mcp-editor { display: none; margin: 16px 0; padding: 16px; border: 1px solid #304768; border-radius: 9px; background: #111d30; }
+    #mcp-editor { display: none; margin: 16px 0; padding: 16px; border: 1px solid var(--shell-border); border-radius: 9px; background: var(--shell-panel); }
     #mcp-editor h3 { margin: 0; font-size: 15px; }
-    #mcp-editor-status { min-height: 36px; margin-top: 10px; padding: 9px 11px; border-radius: 7px; background: #0d1625; color: #9fb1ca; font-size: 12px; }
-    #mcp-editor-status[data-state="connected"] { color: #64d7a3; }
-    #mcp-editor-status[data-state="error"], #mcp-editor-status[data-state="invalid"], #mcp-editor-status[data-state="missing"] { color: #ef8b87; }
+    #mcp-editor-status { min-height: 36px; margin-top: 10px; padding: 9px 11px; border-radius: 7px; background: var(--shell-panel); color: var(--shell-text); font-size: 12px; }
+    #mcp-editor-status[data-state="connected"] { color: var(--shell-text); }
+    #mcp-editor-status[data-state="error"], #mcp-editor-status[data-state="invalid"], #mcp-editor-status[data-state="missing"] { color: var(--shell-text); }
     /* MCP 测试输出收纳：超长 detail 折叠为预览 + 可展开完整原文 */
-    .detail-preview { color: #9fb1ca; word-break: break-all; }
+    .detail-preview { color: var(--shell-text); word-break: break-all; }
     .detail-fold { margin-top: 6px; }
-    .detail-fold summary { cursor: pointer; color: #7fb0e8; font-size: 12px; user-select: none; }
-    .detail-fold pre { background: #0a1120; border: 1px solid #2a3a55; border-radius: 6px; padding: 10px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; margin: 8px 0 0; }
+    .detail-fold summary { cursor: pointer; color: var(--shell-text); font-size: 12px; user-select: none; }
+    .detail-fold pre { background: var(--shell-panel); border: 1px solid var(--shell-border); border-radius: 6px; padding: 10px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; margin: 8px 0 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    :root{--shell-bg:#fff;--shell-panel:#f7f7f8;--shell-border:#ddd;--shell-text:#202124;--shell-muted:#676b73;--shell-accent:#4d6bfe}
+    @media(prefers-color-scheme:dark){:root{--shell-bg:#18191b;--shell-panel:#232529;--shell-border:#45474c;--shell-text:#eceef1;--shell-muted:#b3b6bf}}
+    body,#diagnostics{background:var(--shell-bg)}button,input,select{font-family:Arial,"Microsoft YaHei",sans-serif;color:var(--shell-text);border-color:var(--shell-border)}button{transition:background-color 160ms ease,transform 120ms ease}button:hover{border-color:var(--shell-accent)}button:active{transform:translateY(1px)}:focus-visible{outline:2px solid var(--shell-accent);outline-offset:2px}.state,.hint,.detail{color:var(--shell-muted)}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   </style>
 </head>
 <body>
@@ -336,7 +341,11 @@
         try { event.source.postMessage({ source: 'ibm-lab-agent-shell', type, requestId: data.requestId, payload }, runtimeOrigin); }
         catch { /* iframe 已卸载时忽略 */ }
       };
-      if (data.type === 'OPEN_IN_EDGE') {
+      if (data.type === 'SYNC_THEME') {
+        const mapping={'bg-base':'bg','bg-layer-1':'panel','border-l2':'border','label-primary':'text','label-secondary':'muted','brand-primary':'accent'};
+        for(const [name,target] of Object.entries(mapping)){const value=data.payload?.tokens?.[name];if(typeof value==='string'&&CSS.supports('color',value))document.documentElement.style.setProperty('--shell-'+target,value);}
+        document.documentElement.style.colorScheme=data.payload?.dark?'dark':'light';
+      } else if (data.type === 'OPEN_IN_EDGE') {
         invoke('open_in_edge', { url: String(data.url || '') })
           .then(() => reply('OPEN_IN_EDGE_RESULT', { ok: true }))
           .catch((error) => reply('OPEN_IN_EDGE_RESULT', { ok: false, error: String(error) }));
@@ -370,7 +379,7 @@
           .then((saved) => reply('SAVE_TEXT_ARTIFACT_RESULT', { ok: true, saved }))
           .catch((error) => reply('SAVE_TEXT_ARTIFACT_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'OPEN_ARTIFACT') {
-        invoke('open_artifact', { url: String(data.payload?.artifactUrl || '') })
+        invoke('open_artifact', { url: String(data.payload?.artifactUrl || ''), application: data.payload?.application || null })
           .then(() => reply('OPEN_ARTIFACT_RESULT', { ok: true }))
           .catch((error) => reply('OPEN_ARTIFACT_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'OPEN_SAVED_PATH') {

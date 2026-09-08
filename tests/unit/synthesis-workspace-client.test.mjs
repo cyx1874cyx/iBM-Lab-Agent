@@ -150,7 +150,7 @@ test("0.4.0 dual-source: pubchem-only auto-write entry removed and registration 
 	assert.match(source, /casNumber: item\.casNumber \|\| undefined/);
 	assert.match(source, /inchiKey: item\.inchiKey \|\| undefined/);
 	assert.match(source, /verification: \{ status: item\.status/);
-	assert.match(source, /"双源核验 · PubChem \/ CACTUS"/);
+	assert.match(source, /"结构查询 · 单源命中即可登记"/);
 });
 
 test("0.4.0 ketcher: cache key covers structure/width/height/theme/protocol/format and failures retry", async () => {

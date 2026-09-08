@@ -21,7 +21,7 @@ test("standalone PDF viewer keeps PDF and SI sources separate", async () => {
 	assert.match(source, /function configurePdfWorker\(\)/);
 	assert.match(source, /pdfjsLib\.GlobalWorkerOptions\.workerSrc = WORKER_SRC/);
 	assert.match(source, /new URL\("\/api\/lab-pdf-viewer\/pdf\.worker\.mjs\?v=worker-v2", window\.location\.origin\)\.href/);
-	assert.match(source, /configurePdfWorker\(\);\s*const loadingTask = pdfjsLib\.getDocument/);
+	assert.match(source, /configurePdfWorker\(\);\s*const loadingTask = .*pdfjsLib\.getDocument/);
 	assert.doesNotMatch(source, /getDocument\(\{ url: pdfUrl, workerSrc:/);
 	assert.match(source, /const kind = d\.kind === "si" \? "si" : "pdf"/);
 	assert.match(source, /kind=\$\{kind\}&bundleId=/);

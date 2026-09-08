@@ -101,6 +101,12 @@
     "./package.json": "./package.json",
     "./synthesis-tool": {
       "default": "./lib/synthesis-tool.js"
+    },
+    "./characterization": {
+      "default": "./lib/characterization.js"
+    },
+    "./characterization-tool": {
+      "default": "./lib/characterization-tool.js"
     }
   },
   "files": [

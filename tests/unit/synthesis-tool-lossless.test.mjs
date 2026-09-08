@@ -146,10 +146,10 @@ test("lab_synth_target_list 对含脏行的存储返回干净列表", async () =
 	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
 });
 
-test("lab_synth_compound_resolve_dual exposes a traceable read-only structure lookup", async () => {
+test("lab_synth_compound_resolve_first exposes a traceable read-only structure lookup", async () => {
 	const { ctx, registered } = registerTools();
 	ctx.labSynthesis = {
-		resolveCompoundDual: async (identifier) => ({
+		resolveCompoundFirst: async (identifier) => ({
 			query: identifier,
 			status: "dual-confirmed",
 			smiles: "CCO",
@@ -158,7 +158,7 @@ test("lab_synth_compound_resolve_dual exposes a traceable read-only structure lo
 			sources: { pubchem: { cid: 702 }, cactus: { smiles: "CCO" } }
 		})
 	};
-	const tool = findTool(registered, "lab_synth_compound_resolve_dual");
+	const tool = findTool(registered, "lab_synth_compound_resolve_first");
 	const out = await tool.execute({ identifier: "ethanol" }, {});
 	assert.equal(out.ok, true);
 	assert.equal(out.result.status, "dual-confirmed");
@@ -167,7 +167,7 @@ test("lab_synth_compound_resolve_dual exposes a traceable read-only structure lo
 	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
 });
 
-test("route registration auto-fills PubChem CAS independently and only adopts dual-confirmed SMILES", async () => {
+test("route registration auto-fills PubChem CAS independently and adopts first-source SMILES", async () => {
 	const calls = [];
 	const step = await enrichStepCompounds({
 		reaction: "test",
@@ -184,7 +184,7 @@ test("route registration auto-fills PubChem CAS independently and only adopts du
 	assert.equal(step.structures.find((row) => row.name === "ethanol").smiles, "CCO");
 	assert.equal(step.structures.find((row) => row.name === "ethanol").casNumber, "64-17-5");
 	assert.equal(step.structures.find((row) => row.name === "single source").casNumber, "123-45-6");
-	assert.equal(step.structures.find((row) => row.name === "single source").smiles, undefined, "single source structure must not be auto-adopted");
+	assert.equal(step.structures.find((row) => row.name === "single source").smiles, "CCC", "single source structure is adopted on first submission");
 	assert.equal(step.structures.find((row) => row.name === "ethyl acetate").smiles, "CCOC(C)=O", "supplied structure must be preserved");
 	assert.equal(step.structures.find((row) => row.name === "ethyl acetate").casNumber, "141-78-6");
 });

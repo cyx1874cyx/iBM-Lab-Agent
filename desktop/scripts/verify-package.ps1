@@ -60,6 +60,8 @@ await Promise.all([
   import('./lib/manual-capture.js'),
   import('./lib/experiment-plan-templates.js'),
   import('./lib/synthesis.js'),
+  import('./lib/characterization.js'),
+  import('./lib/characterization-tool.js'),
   import('./lib/evidence-shot.js'),
   import('./lib/user-action.js'),
 ]);

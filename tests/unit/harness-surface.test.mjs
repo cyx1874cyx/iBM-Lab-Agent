@@ -164,7 +164,7 @@ test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async (
 	const source = await readFile(fileURLToPath(new URL("../../lib/synthesis-tool.js", import.meta.url)), "utf8");
 	assert.match(source, /lab_synth_target_create/);
 	assert.match(source, /lab_synth_target_list/);
-	assert.match(source, /lab_synth_compound_resolve_dual/);
+	assert.match(source, /lab_synth_compound_resolve_first/);
 	assert.match(source, /lab_synth_route_create/);
 	assert.match(source, /lab_synth_route_step/);
 	assert.match(source, /lab_synth_experiment_plan_create/);
@@ -293,11 +293,11 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
 	assert.match(source, /\.ib-rail-flask\{position:absolute;z-index:2/);
-	assert.match(source, /\.ib-rail-flask\{[^}]*background:#023373;[^}]*pointer-events:none/);
+	assert.match(source, /\.ib-rail-flask\{[^}]*background:var\(--ib-panel\);[^}]*pointer-events:none/);
 	assert.doesNotMatch(source, /bindEntry\(railEntry\)/);
 	assert.match(source, /课题界面统一主题/);
-	assert.match(source, /\.ib-overlay\{--ib-bg:#010f24;[^}]*#023373/);
-	assert.match(source, /\.ib-btn\[data-primary\][^{]*\{background:#023373/);
+	assert.match(source, /import \{ themeCss \} from "\.\/theme\.js"/);
+	assert.match(source, /css \+= themeCss/);
 	assert.match(source, /\[class\*='_brand'\] svg/);
 	assert.match(source, /\[class\*='_railMark'\]/);
 	assert.match(source, /\[class\*='_railFish'\]/);

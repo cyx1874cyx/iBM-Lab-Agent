@@ -15,7 +15,7 @@ export function NmrRegistry({ rows = [] }) {
 			return h("div", { className: "sw-struct" }, rows.map((row) => {
 				const compound = row.compound || { name: row.name, smiles: undefined };
 				return h("article", { className: "sw-struct-card", key: row.id, style: { minWidth: 190 } },
-					compound.smiles ? h(StructureCard, { entry: compound, onClick: () => {} }) : h("div", { style: { height: 84, display: "grid", placeItems: "center", color: "#8aa7c6" } }, "结构待补充"),
+					compound.smiles ? h(StructureCard, { entry: compound, onClick: () => {} }) : h("div", { style: { height: 84, display: "grid", placeItems: "center", color: "var(--ib-text)" } }, "结构待补充"),
 					h("span", { className: "sw-struct-name" }, h("b", null, compound.name || row.name)),
 					h("span", { className: "sw-struct-name" }, compound.casNumber ? `CAS ${compound.casNumber}` : "CAS 待确认"),
 					h("span", { className: "sw-struct-name" }, `氘代试剂：${row.deuteratedSolvent || row.solvent || "待补充"}`),
@@ -60,16 +60,16 @@ export function PlotRegistry({ projectId, call }) {
 				h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "绘图登记"), h("span", { className: "ib-chip" }, `${state.list.length} 条`)),
 				toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
 				h("div", { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
-					h("input", { style: { flex: "1 1 220px", background: "#fff", color: "#16384c", borderRadius: 8, padding: "6px 9px", border: "1px solid #c3d5e0" }, value: newTopic, placeholder: "绘图主题（如：GPC 重均分子量曲线）", onChange: (event) => setNewTopic(event.target.value) }),
-					h("input", { style: { background: "#fff", color: "#16384c", borderRadius: 8, padding: "6px 9px", border: "1px solid #c3d5e0" }, value: newDate, placeholder: "YYYY-MM-DD（默认今天）", onChange: (event) => setNewDate(event.target.value) }),
+					h("input", { style: { flex: "1 1 220px", background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "6px 9px", border: "1px solid var(--ib-line)" }, value: newTopic, placeholder: "绘图主题（如：GPC 重均分子量曲线）", onChange: (event) => setNewTopic(event.target.value) }),
+					h("input", { style: { background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "6px 9px", border: "1px solid var(--ib-line)" }, value: newDate, placeholder: "YYYY-MM-DD（默认今天）", onChange: (event) => setNewDate(event.target.value) }),
 					h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.add, onClick: () => void add() }, busy.add ? "添加中…" : "登记绘图")),
 				state.error ? h("div", { className: "ib-error" }, state.error) : null,
 				state.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
 				state.list.length
 					? h("div", { className: "ib-rows" }, state.list.map((row) => editId === row.id
 						? h("div", { className: "ib-row", key: row.id, style: { gap: 8 } },
-							h("input", { style: { flex: "1 1 200px", background: "#fff", color: "#16384c", borderRadius: 6, padding: "5px 8px", border: "1px solid #c3d5e0" }, value: editTopic, onChange: (event) => setEditTopic(event.target.value) }),
-							h("input", { style: { width: 130, background: "#fff", color: "#16384c", borderRadius: 6, padding: "5px 8px", border: "1px solid #c3d5e0" }, value: editDate, onChange: (event) => setEditDate(event.target.value) }),
+							h("input", { style: { flex: "1 1 200px", background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 6, padding: "5px 8px", border: "1px solid var(--ib-line)" }, value: editTopic, onChange: (event) => setEditTopic(event.target.value) }),
+							h("input", { style: { width: 130, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 6, padding: "5px 8px", border: "1px solid var(--ib-line)" }, value: editDate, onChange: (event) => setEditDate(event.target.value) }),
 							h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy[`upd:${row.id}`], onClick: () => void saveEdit(row) }, "保存"),
 							h("button", { className: "ib-btn", onClick: () => setEditId(null) }, "取消"))
 						: h("div", { className: "ib-row", key: row.id },
@@ -89,7 +89,8 @@ export function StructureCard({ entry, onClick, compact }) {
 			const requested = useRef(false);
 			const previewTier = structurePreviewTier(entry?.smiles);
 			useEffect(() => {
-				if (!entry?.smiles || requested.current) return undefined;
+				if (!entry?.smiles) { setImage(null); setState("not_found"); return undefined; }
+                setImage(null); setState("loading");
 				requested.current = true;
 				let alive = true;
 				// 使用 Ketcher 自然输出，保持键长/原子字号一致；CSS 只在卡片容不下时缩小。
@@ -110,9 +111,9 @@ export function StructureCard({ entry, onClick, compact }) {
 				hasSmiles
 					? (state === "loaded"
 						? h("img", { src: image, alt: entry.name, loading: "lazy", decoding: "async" })
-						: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#fff", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
+						: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "var(--ib-panel)", borderRadius: 6, color: state === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
 							state === "error" ? h("span", null, "预览渲染失败") : "渲染中…"))
-					: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "#f2f6fa", borderRadius: 6, color: "#7d97b5", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
+					: h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "var(--ib-panel)", borderRadius: 6, color: "var(--ib-text)", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
 				state === "error" && !compact
 					? h("div", { className: "sw-struct-acts", onClick: stop },
 						h("button", { className: "sw-mini-btn", onClick: retry }, "重试预览"),
@@ -291,7 +292,7 @@ export function PdfViewerFrame({ row, notify }) {
 			const [errorMessage, setErrorMessage] = useState("");
 			const pageNumber = (() => { const m = /\d+/.exec(String(row?.page ?? "")); return m ? Number(m[0]) : 1; })();
 			const bundleId = row?.bundleId || row?.documentId;
-			const quote = row?.excerpt || row?.userCorrection || row?.originalExtract || "";
+			const quote = row?.excerpt || row?.originalExtract || "";
 			const open = !!bundleId;
 			const documentKind = row?.sourceKind === "si" || (!row?.sourceKind && row?.sourceType === "paper-si") ? "si" : "pdf";
 
@@ -300,8 +301,9 @@ export function PdfViewerFrame({ row, notify }) {
 				setLocateState("loading");
 				setErrorMessage("");
 				let disposed = false;
+                const requestId = `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 				const postOpen = () => {
-					try { iframeRef.current?.contentWindow?.postMessage({ type: "open", bundleId, kind: documentKind, page: pageNumber, quote }, "*"); } catch { /* ignore */ }
+					try { const computed = getComputedStyle(document.body); const theme = {}; for (const key of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key] = computed.getPropertyValue(`--dsw-alias-${key}`).trim(); iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote, pageLabel: row?.page }, "*"); } catch { /* ignore */ }
 				};
 				const onMessage = (event) => {
 					const data = event.data || {};
@@ -311,9 +313,10 @@ export function PdfViewerFrame({ row, notify }) {
 						postOpen();
 						return;
 					}
+					if (data.requestId !== requestId) return;
 					if (data?.type === "highlight") {
 						if (disposed) return;
-						setLocateState(data.status === "matched" ? "matched" : data.status === "notfound" ? "notfound" : "noquote");
+						setLocateState(data.status === "matched" ? "matched" : data.status === "candidate" ? "candidate" : data.status === "notfound" ? "notfound" : "noquote");
 						if (data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
 						return;
 					}
@@ -335,14 +338,14 @@ export function PdfViewerFrame({ row, notify }) {
 			if (!open) {
 				return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
 			}
-			const label = locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
+			const label = locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
 			const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
 			return h("div", { className: "sw04-review-shot", style: { display: "flex", flexDirection: "column", gap: 8 } },
 				h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
 					h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label),
 					h("span", { style: { flex: 1 } }),
-					quote ? h("span", { style: { fontSize: 9, color: "#718b82", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null),
-				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(68vh, 760px)", minHeight: 520, border: "1px solid rgba(45,130,101,.18)", borderRadius: 8, background: "#fff" } }));
+					quote ? h("span", { style: { fontSize: 9, color: "var(--ib-text)", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null),
+				h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(68vh, 760px)", minHeight: 520, border: "1px solid var(--ib-line)", borderRadius: 8, background: "var(--ib-panel)" } }));
 		}
 
 export function KetcherEditorModal({ entry, onSave, onCancel }) {
@@ -398,10 +401,10 @@ export function KetcherEditorModal({ entry, onSave, onCancel }) {
 						h("small", null, status === "ready" ? "在下方编辑器绘制/修正结构，点 Ketcher 顶栏「保存结构」回写；Ketcher 为本地离线编辑器。" : (status === "timeout" ? "Ketcher 加载超时，可在下方直接编辑 SMILES 文本。" : "正在加载 Ketcher 离线编辑器（首次约 10–20 秒）…")),
 						h("button", { onClick: onCancel }, "关闭")),
 					status === "timeout"
-						? h("div", { style: { flex: 1, padding: 16, background: "#fff", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 } },
-							h("textarea", { value: fallbackSmiles, onChange: (event) => setFallbackSmiles(event.target.value), placeholder: "SMILES，例如 CC(=O)Oc1ccccc1C(=O)O", style: { flex: 1, minHeight: 0, fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, border: "1px solid #bcd0dc", borderRadius: 8, padding: 10, boxSizing: "border-box", resize: "none" } }),
+						? h("div", { style: { flex: 1, padding: 16, background: "var(--ib-panel)", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 } },
+							h("textarea", { value: fallbackSmiles, onChange: (event) => setFallbackSmiles(event.target.value), placeholder: "SMILES，例如 CC(=O)Oc1ccccc1C(=O)O", style: { flex: 1, minHeight: 0, fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, border: "1px solid var(--ib-line)", borderRadius: 8, padding: 10, boxSizing: "border-box", resize: "none" } }),
 							h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
-								h("button", { onClick: saveFallback, style: { border: "1px solid #0e7a4f", background: "#0e7a4f", color: "#fff", borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 12 } }, "保存 SMILES")))
+								h("button", { onClick: saveFallback, style: { border: "1px solid var(--ib-line)", background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 12 } }, "保存 SMILES")))
 						: h("iframe", { ref: iframeRef, className: "sw-struct-edit-frame", title: `Ketcher 结构编辑器：${entry.name}`, src: KETCHER_URL }))
 			);
 		}

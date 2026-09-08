@@ -43,6 +43,7 @@ export const nmrDatasetSchema = z.object({
 	/** 所属课题；旧数据可不关联。 */
 	projectId: z.string().regex(PROFILE_ID_RE).optional(),
 	name: z.string().min(1),
+	date: z.string().optional(), taskId: z.string().optional(), spectrumPath: z.string().optional(), reportPath: z.string().optional(),
 	/** 原始 FID/谱图路径（登记后不可变）。 */
 	fidPath: z.string().min(1),
 	/** 结构文件路径（登记后不可变）。 */

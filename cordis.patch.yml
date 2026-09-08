@@ -277,9 +277,13 @@
     #
     # Host service `ctx.lab` 把项目核心记忆、三类项目成果及底层能力经
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
+    - id: lab-characterization
+      name: 'dsh-lab-agent/characterization'
+      inject: [storageDomain, labTasks, labNmr, labPlotRecords]
+
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labNoteTemplates, labExperimentPlanTemplates, labPlotRecords, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
+      inject: [labVersions, labGoals, labNoteTemplates, labExperimentPlanTemplates, labPlotRecords, labCharacterization, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。

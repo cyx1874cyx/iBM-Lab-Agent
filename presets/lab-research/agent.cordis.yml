@@ -302,3 +302,7 @@
   config:
     fetch: false
     searchTimeoutMs: 60000
+
+- id: lab-characterization-tool
+  name: dsh-lab-agent/characterization-tool
+  inject: [tools, labTasks, labCharacterization]

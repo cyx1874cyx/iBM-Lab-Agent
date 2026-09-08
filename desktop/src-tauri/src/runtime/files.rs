@@ -12,7 +12,9 @@ use super::{dsh::RuntimeLayout, RuntimeError};
 
 const MAX_ARTIFACT_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_TEXT_ARTIFACT_BYTES: usize = 16 * 1024 * 1024;
-const ALLOWED_EXTENSIONS: [&str; 8] = ["docx", "pptx", "pdf", "zip", "ris", "bib", "txt", "md"];
+const ALLOWED_EXTENSIONS: [&str; 11] = [
+    "docx", "pptx", "pdf", "zip", "ris", "bib", "txt", "md", "mnova", "opju", "opj",
+];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -284,6 +286,7 @@ pub fn open_artifact(
     raw_url: &str,
     expected_port: u16,
     cache_dir: &Path,
+    application: Option<&str>,
 ) -> Result<(), RuntimeError> {
     let url = validate_artifact_url(raw_url, expected_port)?;
     let response = reqwest::blocking::Client::builder()
@@ -307,20 +310,116 @@ pub fn open_artifact(
             .and_then(|v| v.to_str().ok())
             .unwrap_or("artifact.bin"),
     )?;
-    let bytes = response
-        .bytes()
-        .map_err(|e| RuntimeError::new(format!("Artifact download was interrupted: {e}")))?;
-    if bytes.len() as u64 > MAX_ARTIFACT_BYTES {
-        return Err(RuntimeError::new(
-            "Artifact exceeds the 256 MB desktop open limit",
-        ));
+    if let Some(app) = application {
+        validate_application_extension(app, &file_name)?;
+    }
+    let expected_length = response.content_length();
+    if expected_length.is_some_and(|size| size > MAX_ARTIFACT_BYTES) {
+        return Err(RuntimeError::new("文件超过 256 MB"));
+    }
+    let expected_hash = response
+        .headers()
+        .get("x-content-sha256")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_ascii_lowercase);
+    let mut bytes = Vec::new();
+    response
+        .take(MAX_ARTIFACT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| RuntimeError::new(format!("文件下载失败: {e}")))?;
+    if bytes.is_empty()
+        || bytes.len() as u64 > MAX_ARTIFACT_BYTES
+        || expected_length.is_some_and(|n| n != bytes.len() as u64)
+    {
+        return Err(RuntimeError::new("文件下载不完整或超过限制"));
+    }
+    let hash = format!("{:x}", Sha256::digest(&bytes));
+    if expected_hash.as_deref().is_some_and(|v| v != hash) {
+        return Err(RuntimeError::new("文件校验失败，请重试"));
     }
     fs::create_dir_all(cache_dir)
-        .map_err(|e| RuntimeError::new(format!("Cannot create artifact cache: {e}")))?;
-    let target = cache_dir.join(format!("{}-{}", std::process::id(), file_name));
-    fs::write(&target, &bytes)
-        .map_err(|e| RuntimeError::new(format!("Cannot cache artifact for opening: {e}")))?;
-    open_path(&target)
+        .map_err(|e| RuntimeError::new(format!("无法建立文件缓存: {e}")))?;
+    let target = cache_dir.join(format!("{}-{}", &hash[..16], file_name));
+    if !target.is_file() {
+        let temp = atomic_target(&target);
+        fs::write(&temp, &bytes).map_err(|e| RuntimeError::new(e.to_string()))?;
+        finalize_atomic(&temp, &target)?;
+    }
+    if let Some(application) = application {
+        open_in_application(&target, application, cache_dir)
+    } else {
+        open_path(&target)
+    }
+}
+
+fn validate_application_extension(app: &str, file: &str) -> Result<(), RuntimeError> {
+    let ext = Path::new(file)
+        .extension()
+        .and_then(|v| v.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let valid = match app {
+        "word" => ext == "docx",
+        "mnova" => ext == "mnova",
+        "origin" => ext == "opju" || ext == "opj",
+        _ => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(RuntimeError::new("软件与文件类型不匹配"))
+    }
+}
+
+fn open_in_application(path: &Path, app: &str, cache_dir: &Path) -> Result<(), RuntimeError> {
+    validate_application_extension(app, path.to_str().unwrap_or(""))?;
+    let config = cache_dir.join(format!("{app}-executable.txt"));
+    let configured = fs::read_to_string(&config)
+        .ok()
+        .map(|s| PathBuf::from(s.trim()))
+        .filter(|p| p.is_file());
+    let executable =
+        if let Some(p) = configured.or_else(|| super::deps::scientific_application(app)) {
+            p
+        } else {
+            let selected = rfd::FileDialog::new()
+                .set_title(format!("请选择 {} 的程序（.exe）", app))
+                .add_filter("Application", &["exe"])
+                .pick_file()
+                .ok_or_else(|| {
+                    RuntimeError::new(format!("未找到 {app}，已取消选择程序；安装后可重试"))
+                })?;
+            let stem = selected
+                .file_stem()
+                .and_then(|v| v.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let expected = match app {
+                "word" => stem == "winword",
+                "mnova" => stem == "mest renova" || stem == "mestrenova" || stem == "mnova",
+                "origin" => ["origin", "origin64", "origin_64"].contains(&stem.as_str()),
+                _ => false,
+            };
+            if !expected
+                || selected
+                    .extension()
+                    .and_then(|v| v.to_str())
+                    .is_none_or(|v| !v.eq_ignore_ascii_case("exe"))
+            {
+                return Err(RuntimeError::new("请选择指定软件的可执行程序"));
+            }
+            fs::write(&config, selected.to_string_lossy().as_bytes())
+                .map_err(|e| RuntimeError::new(e.to_string()))?;
+            selected
+        };
+    std::process::Command::new(&executable)
+        .arg(path)
+        .spawn()
+        .map_err(|e| {
+            let _ = fs::remove_file(&config);
+            RuntimeError::new(format!("无法启动 {app}: {e}；请重试并重新选择程序"))
+        })?;
+    Ok(())
 }
 
 pub fn open_path(path: &Path) -> Result<(), RuntimeError> {
@@ -394,6 +493,16 @@ mod tests {
         assert_eq!(safe_file_name("..%2Fpaper.pdf").unwrap(), "paper.pdf");
         assert!(safe_file_name("payload.exe").is_err());
         assert!(safe_file_name("artifact.bin").is_err());
+    }
+
+    #[test]
+    fn scientific_files_require_the_matching_application() {
+        assert!(validate_application_extension("mnova", "中文 核磁.mnova").is_ok());
+        assert!(validate_application_extension("word", "报告.docx").is_ok());
+        assert!(validate_application_extension("origin", "curve.OPJU").is_ok());
+        assert!(validate_application_extension("origin", "curve.png").is_err());
+        assert!(validate_application_extension("word", "payload.exe").is_err());
+        assert!(validate_application_extension("unknown", "report.docx").is_err());
     }
 
     #[test]

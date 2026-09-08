@@ -390,7 +390,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 				const result = await call("synth_step_resolve_dual", { request: { routeId, stepId: selectedStep.id } });
 				const r = result.result || {};
 				setDualPanel({ results: r.results || [], missingAfter: r.missingAfter || [] });
-				if (!(r.results || []).length) notify("该步骤化合物均已具备结构式，无需双源核验。");
+				if (!(r.results || []).length) notify("该步骤化合物均已具备结构式，无需查询。");
 			});
 			const registerDualStructure = (item) => withBusy(`dual-save:${item.name}`, async () => {
 				if (route?.locked) {
@@ -415,10 +415,10 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 			const newRouteDialog = newRouteForm
 				? h("div", { className: "sw-struct-edit" }, h("div", { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
 					h("b", null, "新建路线（draft · 未锁定）"),
-					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "合成目标"),
+					h("label", { style: { fontSize: 10, color: "var(--ib-text)" } }, "合成目标"),
 					h("select", { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
 						targets.map((row) => h("option", { key: row.id, value: row.id }, `${row.name}${row.smiles ? " · " + row.smiles : ""}`))),
-					h("label", { style: { fontSize: 10, color: "#8aa7c6" } }, "路线名称"),
+					h("label", { style: { fontSize: 10, color: "var(--ib-text)" } }, "路线名称"),
 					h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
 					h("div", { className: "sw04-form-acts" },
 						h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
@@ -464,12 +464,12 @@ return h("div", { className: "sw-plan" },
 						routes.map((row) => h("option", { key: row.id, value: row.id }, `${row.name} · v${row.version}${row.origin ? ` · ${ROUTE_ORIGIN_LABEL[row.origin] || row.origin}` : ""}`))),
 					route ? h("span", { className: "sw-meta-note", style: { flex: 1, minWidth: 0 }, title: `${route.name} · ${ROUTE_STATUS_LABEL[route.status] || route.status}${route.locked ? " · 已锁定" : " · 未锁定"}${target ? ` · 目标 ${target.name}` : ""}` }, [target ? `目标 ${target.name}` : null, route.locked ? "已锁定 · 只读" : "未锁定", ROUTE_STATUS_LABEL[route.status] || route.status].filter(Boolean).join(" · ")) : null),
 				error ? h("div", { className: "ib-error", style: { marginTop: 10 } }, error) : null,
-				lockBlockers.length ? h("div", { className: "ib-error", style: { marginTop: 8, border: "1px solid rgba(255,137,137,.4)", padding: "10px 12px", borderRadius: 10 } },
+				lockBlockers.length ? h("div", { className: "ib-error", style: { marginTop: 8, border: "1px solid var(--ib-line)", padding: "10px 12px", borderRadius: 10 } },
 					h("b", null, "锁定被阻断："),
 					lockBlockers.map((blocker, index) => h("div", { key: `${blocker.code}-${index}`, style: { marginTop: 5, lineHeight: 1.6 } },
 						`${index + 1}. ${blocker.message}`,
-						(blocker.stepIds || []).length ? h("span", { style: { marginLeft: 6, color: "#8aa7c6" } }, `步骤：${blocker.stepIds.join("、")}`) : null,
-						(blocker.evidenceIds || []).length ? h("span", { style: { marginLeft: 6, color: "#8aa7c6" } }, `事实：${blocker.evidenceIds.join("、")}`) : null))) : null,
+						(blocker.stepIds || []).length ? h("span", { style: { marginLeft: 6, color: "var(--ib-text)" } }, `步骤：${blocker.stepIds.join("、")}`) : null,
+						(blocker.evidenceIds || []).length ? h("span", { style: { marginLeft: 6, color: "var(--ib-text)" } }, `事实：${blocker.evidenceIds.join("、")}`) : null))) : null,
 				h("div", { className: "sw-graph" },
 					!detail
 						? h("div", { className: "sw-plan-empty", style: { flex: 1 } },
@@ -482,10 +482,6 @@ return h("div", { className: "sw-plan" },
 								"使用“从文献提取路线”，或让 Agent / 人工登记步骤与结构化条件。")
 							: detail.route.steps.map((step) => {
 								const isActive = step.id === selectedStepId;
-								const structured = stepIsStructured(step);
-								const preview = structured
-									? [step.procedure.reagents?.length ? step.procedure.reagents.map((r) => r.name).join(" + ") : "", step.procedure.solvents?.length ? step.procedure.solvents.map((s) => s.name).join("/") : "", readStepFieldValue(step, STEP_FIELD_DEFS.find((row) => row.key === "temperature")), readStepFieldValue(step, STEP_FIELD_DEFS.find((row) => row.key === "time"))].filter(Boolean).join(" / ") || "条件待补全"
-									: (step.conditions ? String(step.conditions).slice(0, 80) : "仅方向，无原文条件");
 								const reactantEntries = stepCompoundsByRole(step, ["reactant"]);
 								const productEntries = stepCompoundsByRole(step, ["product"]);
 								// rc.4 §3.1：总览点结构图 → 先选中该步骤再用该步骤 id 打开
@@ -517,7 +513,7 @@ return h("div", { className: "sw-plan" },
 										h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
 										h("span", { className: "sw-step-chem-mid" },
 											h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"),
-											h("span", { className: "sw-step-chem-cond" }, preview)),
+											null),
 										h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products"))))
 							}))),
 			selectedStep && detail
@@ -527,7 +523,7 @@ return h("div", { className: "sw-plan" },
 							h("h3", null, `${selectedStep.id} · 步骤详情`),
 							h("p", null, "横向反应式：左侧反应物 → 中间条件与注意事项 → 右侧产物。字段无来源显示“文献未提供 / 待确认”，系统不自动补默认值；缺结构可解析或 Ketcher 补绘。")),
 						h("div", { className: "sw-acts" },
-							h("button", { className: "sw-mini-btn", disabled: !!busy.dual || route?.locked, onClick: () => void runDualResolve(), title: "PubChem/CACTUS 双源核验缺结构化合物；冲突只展示候选不自动写入" }, busy.dual ? "核验中…" : "双源核验"),
+							h("button", { className: "sw-mini-btn", disabled: !!busy.dual || route?.locked, onClick: () => void runDualResolve(), title: "PubChem/CACTUS 查询缺结构化合物，首个来源命中即可登记" }, busy.dual ? "查询中…" : "补充结构"),
 								h("button", { className: "sw-mini-btn", "data-primary": routePlan ? true : undefined, "data-ready": routePlan ? "true" : "false", disabled: !route?.steps?.length, onClick: () => routePlan ? setPlanPreview(routePlan) : requestExperimentPlan(), title: routePlan ? "查看已登记实验计划" : "在当前课题工作区新建对话并预填实验计划任务" }, routePlan ? "打开实验计划" : "生成实验计划"))),
 					h(StepReactionLayout, { step: selectedStep, onStructureClick: openStructureEditor }),
 					h("p", { className: "sw04-difficulty" }, h("b", null, "步骤难点"), selectedStep.difficultySummary || "缺少足够的结构或条件信息，需先核验。"),
@@ -571,7 +567,7 @@ return h("div", { className: "sw-plan" },
 							h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.batch || route?.locked || stepEvidence.some((row) => row.reviewStatus === "pending"), onClick: () => void submitReviewBatch(), title: stepEvidence.some((row) => row.reviewStatus === "pending") ? "全部事实完成后才能提交" : "提交后 Agent 只更新无法确认/缺失/冲突项" }, busy.batch ? "提交中…" : "交给 Agent 更新未确定项"))
 						: null,
 					batchList.filter((row) => row.stepId === selectedStep.id).length
-						? h("div", { className: "sw04-batchbar", style: { borderColor: "rgba(112,157,211,.3)", background: "rgba(1,20,45,.4)" } },
+						? h("div", { className: "sw04-batchbar", style: { borderColor: "rgba(112,157,211,.3)", background: "var(--ib-panel)" } },
 							h("b", null, "审核批次"),
 							h("small", null, batchList.filter((row) => row.stepId === selectedStep.id).slice(0, 3).map((row) => {
 								const tone = row.status === "pending" ? "等待 Agent 处理" : (row.status === "applied" ? "Agent 已回写 · 进入下一轮" : "已关闭");
@@ -596,36 +592,36 @@ return h("div", { className: "sw-plan" },
 			newRouteDialog,
 			// 0.4.0：PubChem/CACTUS 双源核验结果面板（四态候选，登记需人工点击）
 			dualPanel
-				? h("div", { className: "sw-struct-edit" }, h("div", { style: { width: "min(820px,96vw)", maxHeight: "84vh", overflowY: "auto", display: "grid", gap: 10, background: "#011e3f", border: "1px solid rgba(140,181,229,.42)", borderRadius: 14, padding: 16, color: "#cfe4fb", fontSize: 11, lineHeight: 1.6 } },
+				? h("div", { className: "sw-struct-edit" }, h("div", { style: { width: "min(820px,96vw)", maxHeight: "84vh", overflowY: "auto", display: "grid", gap: 10, background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 14, padding: 16, color: "var(--ib-text)", fontSize: 11, lineHeight: 1.6 } },
 					h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-						h("b", { style: { fontSize: 13, color: "#eaf4ff" } }, "双源核验 · PubChem / CACTUS"),
+						h("b", { style: { fontSize: 13, color: "var(--ib-text)" } }, "结构查询 · 单源命中即可登记"),
 						h("span", { style: { flex: 1 } }, `${dualPanel.results.length} 个化合物缺结构式`),
 						h("button", { className: "sw-mini-btn", onClick: () => setDualPanel(null) }, "关闭")),
-					h("p", { style: { margin: 0, color: "#8aa7c6" } }, "只读核验：两源一致才可直接登记；单源需确认来源；冲突与未命中不自动写入，可 Ketcher 人工补绘。"),
+					h("p", { style: { margin: 0, color: "var(--ib-text)" } }, "采用首个命中的结构与 CAS。可点击登记补充到路线；未命中时可在 Ketcher 中补绘。"),
 					dualPanel.results.length
 						? dualPanel.results.map((item) => {
 							const tone = item.status === "dual-confirmed" ? "#a5e8c6" : (item.status === "single-source" ? "#ffe1a0" : (item.status === "conflict" ? "#ffb3bd" : "#9bb3d1"));
-							const label = item.status === "dual-confirmed" ? "双源一致" : (item.status === "single-source" ? (item.sources?.pubchem?.smiles ? "单源 · PubChem" : "单源 · CACTUS") : (item.status === "conflict" ? "两源冲突" : "双源未命中"));
+							const label = item.status === "dual-confirmed" ? "双源一致" : (item.status === "single-source" ? (item.sources?.pubchem?.smiles ? "单源 · PubChem" : "单源 · CACTUS") : (item.status === "conflict" ? "两源冲突" : "未命中"));
 							const pub = item.sources?.pubchem || {};
 							const cac = item.sources?.cactus || {};
 							const pubText = pub.smiles ? "✓ " + String(pub.smiles).slice(0, 40) + (pub.cid ? " · CID " + pub.cid : "") : "✗ " + (pub.error || "未查询");
 							const cacText = cac.smiles ? "✓ " + String(cac.smiles).slice(0, 40) : "✗ " + (cac.error || "未查询");
 							const canRegister = item.status === "dual-confirmed" || item.status === "single-source";
-							const rowStyle = { border: "1px solid rgba(112,157,211,.25)", borderRadius: 11, background: "rgba(2,51,115,.16)", padding: "10px 12px", display: "grid", gap: 6 };
+							const rowStyle = { border: "1px solid var(--ib-line)", borderRadius: 11, background: "var(--ib-panel)", padding: "10px 12px", display: "grid", gap: 6 };
 							const headFlex = h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-								h("b", { style: { color: "#eaf4ff" } }, item.name),
+								h("b", { style: { color: "var(--ib-text)" } }, item.name),
 								h("span", { style: { color: tone, border: "1px solid " + tone + "55", background: tone + "14", borderRadius: 999, padding: "1px 8px", fontSize: 9 } }, label),
 								item.casNumber ? h("span", { className: "sw-chip" }, "CAS " + item.casNumber) : null,
 								h("span", { style: { flex: 1 } }),
 								canRegister ? h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["dual-save:" + item.name], onClick: () => void registerDualStructure(item) }, busy["dual-save:" + item.name] ? "登记中…" : "登记结构") : null,
 								h("button", { className: "sw-mini-btn", disabled: route?.locked, onClick: () => { setDualPanel(null); openStructureEditor({ name: item.name }); } }, "Ketcher 补绘"));
-							const smilesRow = item.smiles ? h("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 9.5, color: "#8cb5e5", wordBreak: "break-all" } }, "SMILES " + item.smiles) : null;
-							const srcRow = h("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 9.5, color: "#9db8d6" } },
+							const smilesRow = item.smiles ? h("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 9.5, color: "var(--ib-text)", wordBreak: "break-all" } }, "SMILES " + item.smiles) : null;
+							const srcRow = h("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 9.5, color: "var(--ib-text)" } },
 								h("span", null, "PubChem " + pubText),
 								h("span", null, "CACTUS " + cacText));
 							return h("div", { key: item.name, style: rowStyle }, headFlex, smilesRow, srcRow);
 						})
-						: h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "缺结构化合物已完成双源核验或登记。")))
+						: h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "缺结构化合物已完成查询或登记。")))
 				: null,
 			planPreviewNode,
 			// ── RC1-04/05：右侧审核抽屉（单例，按 activeEvidenceId 动态渲染）──
@@ -641,7 +637,7 @@ return h("div", { className: "sw-plan" },
 						h("div", { className: "sw04-review-copy" },
 							h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
 							activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
-							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "#fbf5e6" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
+							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "var(--ib-panel)" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
 							// 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
 							h(PdfViewerFrame, { row: activeEvidence, notify })),
 						h("div", { className: "sw04-review-foot" },

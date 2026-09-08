@@ -135,7 +135,7 @@ test("evidence service: documentId/bundleId persist and evidenceById works", asy
 	}
 });
 
-test("structure service: dual resolve is read-only and register carries verification", async () => {
+test("structure service: first-hit lookup is read-only and registration keeps provenance", async () => {
 	const { handle, dir } = await bootWorkspace();
 	try {
 		const synth = handle.ctx.labSynthesis;
@@ -161,10 +161,10 @@ test("structure service: dual resolve is read-only and register carries verifica
 		// 双源核验：只查不写，返回四态
 		const dual = await synth.resolveStepCompoundsDual("rt-dual", "s1", deps);
 		const byName = Object.fromEntries(dual.results.map((r) => [r.name, r]));
-		assert.equal(byName.HEMA.status, "dual-confirmed", "两源一致 → dual-confirmed");
+		assert.equal(byName.HEMA.status, "single-source");
 		assert.equal(byName.HEMA.smiles, "C=C(C)C(=O)OCC");
-		assert.equal(byName.PHEMA.status, "conflict", "两源冲突 → 不选结构");
-		assert.equal(byName.PHEMA.smiles, undefined);
+		assert.equal(byName.PHEMA.status, "single-source", "第一来源命中即采用");
+		assert.ok([pub.PHEMA.canonicalSmiles, cac.PHEMA.smiles].includes(byName.PHEMA.smiles));
 		assert.equal(byName.GMA.status, "single-source", "单源成功 → 标记单源");
 		assert.equal(byName.GMA.smiles, "CC(=C)C(=O)OCC1CO1");
 		// 只查不写：路线内对应结构仍无 smiles

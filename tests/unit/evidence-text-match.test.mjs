@@ -1,0 +1,5 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {normalizeText,normalizeWithMap,exactMatch,fuzzyMatch} from "../../scripts/pdf-viewer-shell/src/text-match.js";
+test("quote and page normalization agree for ligatures, units, punctuation and line breaks",()=>{const raw="The efﬁ-\ncient  reaction (25 ℃),  H₂O.";const {norm,normToRaw}=normalizeWithMap(raw);assert.equal(norm,normalizeText("The efficient reaction 25 °C H2O"));assert.equal(norm.length,normToRaw.length);assert.ok(normToRaw.every(i=>i>=0&&i<raw.length));assert.ok(exactMatch(norm,normalizeText("efficient reaction (25 °C)")));});
+test("a lone keyword cannot create a false match and ambiguity stays unresolved",()=>{assert.equal(fuzzyMatch("unrelated polymer", "polymer was dissolved in methanol overnight"),null);assert.equal(exactMatch("ethanol ethanol","ethanol"),null);const q="the product was purified using silica gel chromatography";assert.ok(fuzzyMatch("the product purified using silica gel chromatography",q)?.fuzzy);});

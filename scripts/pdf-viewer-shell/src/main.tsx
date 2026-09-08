@@ -1,3 +1,4 @@
+import {normalizeWithMap, normalizeText, exactMatch, fuzzyMatch} from "./text-match.js";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as pdfjsLib from "pdfjs-dist";
@@ -43,19 +44,6 @@ configurePdfWorker();
 
 // 文本归一化：统一换行、断词、连字符、非标准空格、标点与大小写。
 // 用于把 page 文本和 quote 映射到同一可比形式。
-function normalizeText(text) {
-  if (text == null) return "";
-  return String(text)
-    .replace(/\u00ad/g, "")            // 软连字符
-    .replace(/\s+/g, " ")              // 所有空白（含换行/多空格/非标准空格）→ 单空格
-    .replace(/(?<=\S)-\s(?=\S)/g, "")  // 连字符断行 "n-\nhexane" → "nhexane"（保守：仅紧邻非空）
-    .replace(/[，。、；：！？「」『』（）《》【】“”‘’·—…]/g, " ") // 全角标点 → 空格
-    .replace(/[.,;:!?"'()\[\]{}<>]/g, " ") // 半角标点 → 空格
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
 // 从 PDF.js 的 textContent.items 重建页面级文本 + 每个 item 的字符区间映射。
 // PDF.js 把文本拆成大量 span（item），每个 item 有 str 和 transform（坐标）。
 // 我们把所有 item 按阅读顺序拼成一个扁平字符序列，并记录每个字符归属哪个 item，
@@ -85,74 +73,7 @@ function buildPageTextModel(textContent) {
 //   4. 标点替换为空格；
 //   5. 字母小写。
 // 每个归一化输出字符记录其首个原始字符索引；被删除的字符不产生输出。
-function buildNormalizationMap(model) {
-  const raw = model.raw;
-  const normOut = [];
-  const normToRaw = []; // 归一化输出索引 → 原始 flat 索引
-  const isSpace = (c) => /\s/.test(c);
-  const isPunct = (c) => /[.,;:!?"'()\[\]{}<>，。、；：！？「」『』（）《》【】“”‘’·—…]/.test(c);
-  let i = 0;
-  const n = raw.length;
-  while (i < n) {
-    const c = raw[i];
-    // 软连字符：删除
-    if (c === "\u00ad") { i++; continue; }
-    // 连字符断行："x-\n y" → "xy"（仅当 - 紧跟空白，且前后非空）
-    if (c === "-" && i + 1 < n && isSpace(raw[i + 1])) {
-      let j = i + 1;
-      while (j < n && isSpace(raw[j])) j++;
-      if (i > 0 && j < n && !isSpace(raw[i - 1]) && !isSpace(raw[j])) {
-        i = j; // 删除连字符 + 后续空白
-        continue;
-      }
-    }
-    // 连续空白 → 单个空格
-    if (isSpace(c)) {
-      normOut.push(" ");
-      normToRaw.push(i);
-      while (i < n && isSpace(raw[i])) i++;
-      continue;
-    }
-    // 标点 → 空格
-    if (isPunct(c)) {
-      normOut.push(" ");
-      normToRaw.push(i);
-      i++;
-      continue;
-    }
-    // 普通字符 → 小写
-    normOut.push(c.toLowerCase());
-    normToRaw.push(i);
-    i++;
-  }
-  return { norm: normOut.join(""), normToRaw };
-}
-
-// 在归一化文本里查找 quote 的精确匹配位置，返回 { start, end }（归一化索引，半开区间）。
-function exactMatch(normText, normQuote) {
-  const idx = normText.indexOf(normQuote);
-  if (idx < 0) return null;
-  return { start: idx, end: idx + normQuote.length };
-}
-
-// 保守模糊匹配：把 quote 拆成若干「长片段」（≥ 阈值），要求这些片段在页内
-// 按顺序、且彼此距离合理。只有唯一候选时才接受；多候选或过散 → 返回 null。
-function fuzzyMatch(normText, normQuote) {
-  // 移除 quote 两端的空格后，按空白切分
-  const tokens = normQuote.split(/\s+/).filter((t) => t.length >= 3);
-  if (tokens.length === 0) return null;
-  // 用最长的 token 作为锚点
-  const anchor = tokens.reduce((a, b) => (b.length > a.length ? b : a), tokens[0]);
-  const anchorIdx = normText.indexOf(anchor);
-  if (anchorIdx < 0) return null;
-  // 检查锚点是否唯一（保守：若出现多次且不相邻，视为不唯一）
-  const secondIdx = normText.indexOf(anchor, anchorIdx + 1);
-  if (secondIdx >= 0) return null; // 多候选 → 视为失败
-  // 以锚点为中心，向前/向后扩展尽量覆盖 quote 的其余 token
-  const anchorEnd = anchorIdx + anchor.length;
-  // 简化：只高亮锚点词（保守，避免跨大范围错误高亮）
-  return { start: anchorIdx, end: anchorEnd, fuzzy: true };
-}
+function buildNormalizationMap(model) {return normalizeWithMap(model.raw);}
 
 // 把归一化索引区间 [start, end) 映射回「命中的 item 索引集合」。
 // 对区间内每个归一化字符，通过 normToRaw 回溯到原始 flat 索引，再用
@@ -178,13 +99,19 @@ function App() {
   const loadingTaskRef = useRef(null);
   const renderTaskRef = useRef(null);
   const requestSeqRef = useRef(0);
+  const hostRequestRef = useRef(null);
+  const pageTextCache = useRef(new WeakMap());
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error
   const [message, setMessage] = useState("");
   const [pageNote, setPageNote] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
+  const quoteRef=useRef("");
+  const docKeyRef=useRef("");
+  const [zoom,setZoom]=useState(1);
+  const zoomRef=useRef(1);
   const [locateResult, setLocateResult] = useState(null); // { status, detail }
 
-  const post = (msg) => { try { window.parent.postMessage(msg, "*"); } catch { /* noop */ } };
+  const post = (msg) => { try { window.parent.postMessage({ ...msg, requestId: hostRequestRef.current }, "*"); } catch { /* noop */ } };
 
   // 清理旧渲染
   const clearRender = () => {
@@ -201,17 +128,22 @@ function App() {
   const findPageByQuote = async (doc, quoteText, requestSeq) => {
     const normQuote = normalizeText(quoteText);
     if (!normQuote) return null;
+    let cache = pageTextCache.current.get(doc);
+    if (!cache) { cache = new Map(); pageTextCache.current.set(doc, cache); }
+    const exactPages = [], fuzzyPages = [];
     for (let candidate = 1; candidate <= doc.numPages; candidate += 1) {
       if (requestSeq !== requestSeqRef.current) return null;
-      const candidatePage = await doc.getPage(candidate);
-      const textContent = await candidatePage.getTextContent();
-      const model = buildPageTextModel(textContent);
-      const { norm } = buildNormalizationMap(model);
-      const matched = exactMatch(norm, normQuote) || fuzzyMatch(norm, normQuote);
-      if (matched) return candidate;
-      candidatePage.cleanup?.();
+      let norm = cache.get(candidate);
+      if (norm === undefined) {
+        const candidatePage = await doc.getPage(candidate);
+        const textContent = await candidatePage.getTextContent();
+        norm = buildNormalizationMap(buildPageTextModel(textContent)).norm;
+        cache.set(candidate, norm);
+      }
+      if (exactMatch(norm, normQuote)) exactPages.push(candidate);
+      else if (fuzzyMatch(norm, normQuote)) fuzzyPages.push(candidate);
     }
-    return null;
+    return exactPages.length === 1 ? exactPages[0] : exactPages.length === 0 && fuzzyPages.length === 1 ? fuzzyPages[0] : null;
   };
 
   // 渲染 PDF 某页到 canvas + 建立文本层
@@ -232,7 +164,7 @@ function App() {
     // 自适应容器宽度缩放
     const containerWidth = Math.max(320, container.clientWidth || 600);
     const viewport = page.getViewport({ scale: 1 });
-    const scale = containerWidth / viewport.width;
+    const scale = (containerWidth-24) / viewport.width * zoomRef.current;
     const scaledViewport = page.getViewport({ scale });
 
     canvas.width = scaledViewport.width;
@@ -301,8 +233,11 @@ function App() {
       span.textContent = item.str || "";
       span.setAttribute("data-item", String(idx));
       span.style.position = "absolute";
-      span.style.left = `${x * viewport.scale}px`;
-      span.style.top = `${(viewport.height - y * viewport.scale)}px`;
+      const [vx,vy]=viewport.convertToViewportPoint(x,y);
+      span.style.left = `${vx}px`;
+      span.style.top = `${vy-fontSize*viewport.scale}px`;
+      span.style.width = `${Math.abs(item.width||0)*viewport.scale}px`;
+      span.style.height = `${fontSize*viewport.scale}px`;
       span.style.fontSize = `${fontSize * viewport.scale}px`;
       span.style.transformOrigin = "left bottom";
       span.style.whiteSpace = "pre";
@@ -340,8 +275,8 @@ function App() {
     // 映射回 item 并高亮
     const hitItemIdx = mapToItemIndexes(model.model, model.normToRaw, match.start, match.end);
     applyHighlight(hitItemIdx);
-    setLocateResult({ status: "matched", detail: normQuote, fuzzy: match.fuzzy });
-    post({ type: "highlight", status: "matched", detail: normQuote, fuzzy: match.fuzzy });
+    setLocateResult({ status: match.fuzzy ? "candidate" : "matched", detail: normQuote, fuzzy: match.fuzzy });
+    post({ type: "highlight", status: match.fuzzy ? "candidate" : "matched", detail: normQuote, fuzzy: match.fuzzy });
   };
 
   // 应用高亮：把命中的 item span 背景设为半透明
@@ -350,7 +285,7 @@ function App() {
     const spans = window.__pageSpans || [];
     spans.forEach(({ idx, span }) => {
       if (hitItemIdx.has(idx)) {
-        span.style.color = "inherit";
+        span.style.color = "transparent";
         span.style.background = "rgba(255, 213, 79, 0.45)";
         span.style.boxShadow = "0 0 2px rgba(255, 193, 7, 0.6)";
         span.style.borderRadius = "2px";
@@ -364,7 +299,7 @@ function App() {
     const first = spans.find(({ idx }) => hitItemIdx.has(idx));
     if (first && containerRef.current) {
       const top = parseFloat(first.span.style.top) || 0;
-      containerRef.current.parentElement?.scrollTo?.({ top: Math.max(0, top - 120), behavior: "smooth" });
+      containerRef.current?.scrollTo?.({ top: Math.max(0, top - 120), behavior: "smooth" });
     }
   };
 
@@ -374,9 +309,11 @@ function App() {
       if (e.source !== window.parent) return;
       const d = e.data || {};
       if (d?.type === "open") {
+        hostRequestRef.current = d.requestId;
+        for (const [key, value] of Object.entries(d.theme || {})) { if (["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"].includes(key) && typeof value === "string" && CSS.supports("color", value)) document.documentElement.style.setProperty(`--viewer-${key}`, value); }
         const bundleId = d.bundleId;
         const kind = d.kind === "si" ? "si" : "pdf";
-        const page = Number(d.page) || 1;
+        const page = d.pageLabel || String(d.page || 1);
         const q = d.quote || "";
         setLocateResult(null);
         setMessage("");
@@ -396,10 +333,10 @@ function App() {
     }
     const requestSeq = ++requestSeqRef.current;
     clearRender();
-    try { await loadingTaskRef.current?.destroy?.(); } catch { /* noop */ }
-    loadingTaskRef.current = null;
-    try { await pdfDocRef.current?.destroy?.(); } catch { /* noop */ }
-    pdfDocRef.current = null;
+    const docKey=`${bundleId}:${kind}`;
+    const reused=docKeyRef.current===docKey ? pdfDocRef.current : null;
+    if(!reused){try { await loadingTaskRef.current?.destroy?.(); } catch {} loadingTaskRef.current=null;try {await pdfDocRef.current?.destroy?.();}catch{}pdfDocRef.current=null;}
+    quoteRef.current=q;
     setStatus("loading");
     setMessage("正在加载原文…");
     setPageNote("");
@@ -407,22 +344,20 @@ function App() {
       // 复用 /api/lab-artifacts 取 PDF 流（PDF.js 可直接消费同源 URL）
       const pdfUrl = `/api/lab-artifacts?kind=${kind}&bundleId=${encodeURIComponent(bundleId)}&preview=1`;
       configurePdfWorker();
-      const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
+      const loadingTask = reused ? {promise:Promise.resolve(reused)} : pdfjsLib.getDocument({ url: pdfUrl });
       loadingTaskRef.current = loadingTask;
       const doc = await loadingTask.promise;
       if (requestSeq !== requestSeqRef.current) { await doc.destroy().catch(() => {}); return; }
       loadingTaskRef.current = null;
       pdfDocRef.current = doc;
+      docKeyRef.current=docKey;
       setMessage(`已加载（共 ${doc.numPages} 页）`);
-      let resolvedPage = page;
-      if (page < 1 || page > doc.numPages) {
-        const locatedPage = await findPageByQuote(doc, q, requestSeq);
-        if (requestSeq !== requestSeqRef.current) return;
-        resolvedPage = locatedPage || 1;
-        setPageNote(locatedPage
-          ? `登记页码 ${page} 为期刊页码，已按摘录定位到 PDF 第 ${locatedPage} 页`
-          : `登记页码 ${page} 超出 PDF 范围且摘录未匹配，已回到第 1 页人工核对`);
-      }
+      const pageLabels=await doc.getPageLabels().catch(()=>null);
+      const labelIndex=pageLabels?.indexOf(String(page)) ?? -1;
+      let resolvedPage=labelIndex>=0?labelIndex+1:Number(page);
+      // Search even when the supplied number is in range: printed and physical pages can differ.
+      if(q){const located=await findPageByQuote(doc, q, requestSeq);if(requestSeq!==requestSeqRef.current)return;if(located){resolvedPage=located;setPageNote(`原标签 ${page} · PDF 第 ${located} 页`);}}
+      if(!Number.isInteger(resolvedPage)||resolvedPage<1||resolvedPage>doc.numPages){resolvedPage=1;setPageNote(`页标签 ${page} 未匹配，请选页核对`);}
       const rendered = await renderPage(doc, resolvedPage, q, requestSeq);
       if (!rendered || requestSeq !== requestSeqRef.current) return;
       setStatus("ready");
@@ -447,17 +382,22 @@ function App() {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "Inter, system-ui, sans-serif", background: "#f4f7f6", color: "#17382f" }}>
-      <div style={{ flex: "none", padding: "8px 12px", background: "#fff", borderBottom: "1px solid #dde6e2", fontSize: 12, display: "flex", alignItems: "center", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: 'Arial, "Microsoft YaHei", sans-serif', background: "var(--viewer-bg-base,#f7f7f8)", color: "var(--viewer-label-primary,#202124)" }}>
+      <div style={{ flex: "none", padding: "8px 12px", background: "var(--viewer-bg-layer-1,#fff)", borderBottom: "1px solid var(--viewer-border-l2,#ddd)", fontSize: 12, display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontWeight: 600 }}>原文定位</span>
-        <span style={{ color: "#718b82", fontSize: 11 }}>
+        <button disabled={!currentPage||currentPage<=1} onClick={()=>void renderPage(pdfDocRef.current,currentPage-1,quoteRef.current,++requestSeqRef.current)}>上一页</button>
+        <input aria-label="PDF 页码" type="number" min="1" max={pdfDocRef.current?.numPages||1} value={currentPage||1} style={{width:54}} onChange={e=>{const n=Number(e.target.value);if(pdfDocRef.current&&n>=1&&n<=pdfDocRef.current.numPages)void renderPage(pdfDocRef.current,n,quoteRef.current,++requestSeqRef.current);}}/>
+        <button disabled={!currentPage||currentPage>=pdfDocRef.current?.numPages} onClick={()=>void renderPage(pdfDocRef.current,currentPage+1,quoteRef.current,++requestSeqRef.current)}>下一页</button>
+        <select aria-label="缩放" value={zoom} onChange={e=>{const n=Number(e.target.value);setZoom(n);zoomRef.current=n;if(pdfDocRef.current)void renderPage(pdfDocRef.current,currentPage,quoteRef.current,++requestSeqRef.current);}}><option value={1}>适宽</option><option value={1.5}>150%</option><option value={2}>200%</option></select>
+        {locateResult?.status==="candidate"&&<span>候选段落，请人工核对</span>}
+        <span style={{ color: "var(--viewer-label-secondary,#666)", fontSize: 11 }}>
           {status === "loading" ? message : status === "error" ? `⚠ ${message}` : currentPage ? `第 ${currentPage} 页${pageNote ? ` · ${pageNote}` : ""}` : message}
         </span>
         {locateResult?.status === "notfound" && (
-          <span style={{ color: "#8a6d2f", fontSize: 11 }}>未能自动定位原文，请在本页人工确认</span>
+          <span style={{ color: "var(--viewer-state-warn-primary,#8a6d2f)", fontSize: 11 }}>未能自动定位原文，请在本页人工确认</span>
         )}
         {locateResult?.status === "matched" && (
-          <span style={{ color: "#2b7a70", fontSize: 11 }}>已定位原文{locateResult.fuzzy ? "（模糊匹配）" : ""}</span>
+          <span style={{ color: "var(--viewer-label-primary,#202124)", fontSize: 11 }}>已定位原文{locateResult.fuzzy ? "（模糊匹配）" : ""}</span>
         )}
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 12, position: "relative" }} ref={(el) => { containerRef.current = el; }}>

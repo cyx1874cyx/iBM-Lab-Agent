@@ -171,7 +171,7 @@ export async function downloadOfficeArtifact(url) {
 			return { fileName, native: false };
 		}
 		/** Desktop workflow: save the actual Office artifact, then use the Windows Office/WPS association to open it. */
-export async function openOfficeArtifact(url) {
+export async function openOfficeArtifact(url, application) {
 			if (window.parent !== window) {
 				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-open-artifact-${Date.now()}`;
 				await new Promise((resolve, reject) => {
@@ -191,7 +191,7 @@ export async function openOfficeArtifact(url) {
 					const timer = setTimeout(() => finish(reject, new Error("桌面客户端打开文件超时")), 120000);
 					window.addEventListener("message", onResult);
 					try {
-						window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_ARTIFACT", requestId, payload: { artifactUrl: new URL(url, location.origin).href } }, "*");
+						window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_ARTIFACT", requestId, payload: { artifactUrl: new URL(url, location.origin).href, application } }, "*");
 					} catch (reason) { finish(reject, reason); }
 				});
 				return { native: true };
