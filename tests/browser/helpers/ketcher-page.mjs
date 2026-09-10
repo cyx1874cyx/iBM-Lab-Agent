@@ -91,8 +91,16 @@ export async function launchSystemBrowser(puppeteer, executablePath, options = {
 	let port;
 	for (let attempt = 0; attempt < 150; attempt += 1) {
 		if (existsSync(activePortFile)) {
-			port = Number(readFileSync(activePortFile, "utf8").split(/\r?\n/)[0]);
-			if (Number.isInteger(port) && port > 0) break;
+			// Edge 写完 DevToolsActivePort 后仍会短暂持有句柄：紧接着 readFileSync 会
+			// 间歇性抛 EBUSY（也可能读到尚未写完的内容）。两者都只是"尚未就绪"，
+			// 必须重试而不是让整个浏览器阶段随机失败。
+			try {
+				const candidate = Number(readFileSync(activePortFile, "utf8").split(/\r?\n/)[0]);
+				if (Number.isInteger(candidate) && candidate > 0) { port = candidate; break; }
+			} catch (reason) {
+				const code = reason?.code;
+				if (code !== "EBUSY" && code !== "EPERM" && code !== "EACCES" && code !== "ENOENT") throw reason;
+			}
 		}
 		await wait(100);
 	}
