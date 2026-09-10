@@ -6,3 +6,6 @@ bin/ibm-lab-agent text eol=lf
 *.yaml text eol=lf
 *.env text eol=lf
 *.lock text eol=lf
+# Cargo/tauri 构建会重写 .toml（内容不变，但行尾可能落成 LF）。不声明的话
+# core.autocrlf=true 会把它判成"工作树脏"，使 desktop 发布预检直接拒绝构建。
+*.toml text eol=lf
