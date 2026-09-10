@@ -103,7 +103,7 @@ export async function launchSystemBrowser(puppeteer, executablePath, options = {
 	const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}`, defaultViewport: options.defaultViewport });
 	const close = browser.close.bind(browser);
 	browser.close = async () => {
-		try { await close(); } finally { rmSync(profile, { recursive: true, force: true }); }
+		try { await close(); } finally { rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
 	};
 	return browser;
 }

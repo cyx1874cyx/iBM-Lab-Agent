@@ -19,7 +19,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: >-
+    prefix: >-
       你是课题组本地科研 Agent（聚前药与高分子材料设计方向），运行于 {{cwd}}。
 
       工作原则：

@@ -10,7 +10,8 @@ lab-agent/
 __pycache__/
 .venv/
 .npm-cache/
-.tmp-*.json
+# 升级/排查临时产物（日志、探针脚本、临时配置）一律不入库
+.tmp-*
 .pnpm-global/
 dist/
 .dsh-filess/

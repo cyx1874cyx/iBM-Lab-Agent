@@ -551,7 +551,7 @@ $state = [ordered]@{
   backupRoot = $backupRoot
 }
 $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
-Write-Phase 'Bundled Node, DSH 0.1.1-rc.2, iBM Lab plugin, preset, bundled Python, and Python lock were prepared.'
+Write-Phase 'Bundled Node, DSH 0.1.5-rc.1, iBM Lab plugin, preset, bundled Python, and Python lock were prepared.'
 } finally {
   if ($lockStream) { $lockStream.Dispose() }
   # rc.4（§9.2）：失败/被终止时清理本次临时目录；成功后备份目录保留以便回滚

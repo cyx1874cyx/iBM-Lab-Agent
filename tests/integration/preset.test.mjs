@@ -25,6 +25,7 @@ test("lab-research preset is discoverable and composes", async () => {
 			lockFile: join(dir, "vendor.lock.json"),
 			includePython: false,
 			extraRows: [
+				{ id: "session-projection", name: "@deepseek-ai/dsh-session-projection" },
 				{
 					id: "agent-presets",
 					name: "@deepseek-ai/dsh-agent-presets",

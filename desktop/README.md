@@ -1,6 +1,6 @@
 # iBM Lab Agent Desktop
 
-Windows desktop packaging for the iBM Lab Agent plugin on DeepSeek Harness (DSH) `0.1.1-rc.2`.
+Windows desktop packaging for the iBM Lab Agent plugin on DeepSeek Harness (DSH) `0.1.5-rc.1`.
 
 The desktop shell is deliberately small: it starts a bundled Node.js and DSH process on loopback, waits for an HTTP health response, and displays the local DSH interface inside its own window. It never opens the system browser.
 

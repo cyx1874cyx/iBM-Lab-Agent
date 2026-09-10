@@ -112,11 +112,11 @@ export function applyUi(ctx) {
 			await call("projects_bind_workspace", { request: { projectId: project.id, workspaceId } });
 		}
 		// 在课题工作区开启新对话：connectWorkspace 复用该空间空白会话或新建
-		sessionId = await ctx.workspaces.connectWorkspace(workspaceId);
+		sessionId = await ctx.uiWorkspace.connectWorkspace(workspaceId);
 		openedNew = true;
 		presetApplied = await selectResearchPreset(sessionId, presetId);
 		await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
-		ctx.sessions.open(sessionId);
+		ctx.uiWorkspace.openSession(sessionId);
 		const actx = ctx.sessions.scope(sessionId);
 		if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
 		// 面板中的产物按钮可提供一个明确任务；仍复用同一课题工作区与科研
@@ -142,7 +142,7 @@ export function applyUi(ctx) {
 		root = document.createElement("div");
 		document.body.appendChild(root);
 		try {
-			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.sessions.open(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
+			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.uiWorkspace.openSession(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
 		} catch (reason) {
 			console.error("[dsh-lab-agent] overlay mount failed:", reason);
 			close(); // 重置 root，避免侧边栏点击被残留节点短路
@@ -158,5 +158,5 @@ export function applyUi(ctx) {
 
 export async function apply(ctx) {
 	await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
-	ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"], applyUi);
+	ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"], applyUi);
 }

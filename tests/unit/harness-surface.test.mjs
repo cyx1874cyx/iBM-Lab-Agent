@@ -196,7 +196,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	// 自动 launch：专属工作区 + 新对话 + 科研 Agent 预设
 	assert.match(source, /ctx\.workspaces\.create\(\{ path: project\.workspacePath \}\)/);
 	assert.match(source, /ctx\.workspaces\.rename\(workspaceId, project\.name\)/);
-	assert.match(source, /ctx\.workspaces\.connectWorkspace\(workspaceId\)/);
+	assert.match(source, /ctx\.uiWorkspace\.connectWorkspace\(workspaceId\)/);
 	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
 	assert.match(source, /projects_ensure_workspace/);
 	assert.match(source, /projects_bind_workspace/);
@@ -277,8 +277,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.doesNotMatch(source, /}, "公众号"\) : null/);
 	assert.match(source, /bundleRecordIndex/);
 	assert.match(source, /PPT/);
-	// 需要 connection（wire api）来选择预设
-	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "conversation", "connection"\]/);
+	// 需要 connection（wire api）来选择预设；DSH 0.1.5 起 connectWorkspace/openSession
+	// 由 uiWorkspace 服务提供（sessions 服务仍在，但不再承载会话切换）。
+	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"\]/);
 	// 品牌覆盖：展开侧栏使用人像 Logo；烧瓶作为原生侧栏开关图标。
 	assert.match(source, /function applyBranding/);
 	assert.match(source, /iBM Agent/);
@@ -353,7 +354,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	});
 
-	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"]);
+	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
 	for (const descriptor of contribution.descriptors) {

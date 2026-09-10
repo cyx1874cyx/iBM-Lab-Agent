@@ -39,11 +39,23 @@ function exactlyOnce(source, fragment, label) {
 	}
 }
 
+// 0.1.5 keeps retries inside step(), after durable assistant settlement.
+// Preserve firstAttempt so a correction cannot append decision.messages twice.
+const LAYOUTS = [
+	{ counter: ORIGINAL_COUNTER, patchedCounter: PATCHED_COUNTER, gate: ORIGINAL_GATE, patchedGate: PATCHED_GATE },
+	{
+		counter: "\t\tlet firstAttempt = true;\n\t\twhile (true) {",
+		patchedCounter: "\t\tlet firstAttempt = true;\n\t\tlet fakeInvokeRetries = 0;\n\t\twhile (true) {",
+		gate: ORIGINAL_GATE.replace(/^\t/gm, "\t\t"),
+		patchedGate: PATCHED_GATE.replace(/^\t/gm, "\t\t")
+	}
+];
+
 export function inspectFakeInvokePatch(source) {
 	return {
 		patched: source.includes(FAKE_INVOKE_PATCH_MARKER),
-		pristineAnchors: source.includes(ORIGINAL_COUNTER) && source.includes(ORIGINAL_GATE),
-		patchedAnchors: source.includes(PATCHED_COUNTER) && source.includes(PATCHED_GATE)
+		pristineAnchors: LAYOUTS.some(({ counter, gate }) => source.includes(counter) && source.includes(gate)),
+		patchedAnchors: LAYOUTS.some(({ patchedCounter, patchedGate }) => source.includes(patchedCounter) && source.includes(patchedGate))
 	};
 }
 
@@ -51,16 +63,18 @@ export function applyFakeInvokePatch(source) {
 	const state = inspectFakeInvokePatch(source);
 	if (state.patched && state.patchedAnchors) return source;
 	if (state.patched) throw new Error("DSH compatibility patch marker exists but the patch is incomplete");
-	exactlyOnce(source, ORIGINAL_COUNTER, "loop counter");
-	exactlyOnce(source, ORIGINAL_GATE, "tool-call gate");
-	return source.replace(ORIGINAL_COUNTER, PATCHED_COUNTER).replace(ORIGINAL_GATE, PATCHED_GATE);
+	const layout = LAYOUTS.find(({ counter }) => source.includes(counter)) ?? LAYOUTS[0];
+	exactlyOnce(source, layout.counter, "loop counter");
+	exactlyOnce(source, layout.gate, "tool-call gate");
+	return source.replace(layout.counter, layout.patchedCounter).replace(layout.gate, layout.patchedGate);
 }
 
 export function revertFakeInvokePatch(source) {
 	const state = inspectFakeInvokePatch(source);
 	if (!state.patched && state.pristineAnchors) return source;
 	if (!state.patchedAnchors) throw new Error("cannot revert an unknown or incomplete DSH patch");
-	exactlyOnce(source, PATCHED_COUNTER, "patched loop counter");
-	exactlyOnce(source, PATCHED_GATE, "patched tool-call gate");
-	return source.replace(PATCHED_COUNTER, ORIGINAL_COUNTER).replace(PATCHED_GATE, ORIGINAL_GATE);
+	const layout = LAYOUTS.find(({ patchedCounter }) => source.includes(patchedCounter));
+	exactlyOnce(source, layout.patchedCounter, "patched loop counter");
+	exactlyOnce(source, layout.patchedGate, "patched tool-call gate");
+	return source.replace(layout.patchedCounter, layout.counter).replace(layout.patchedGate, layout.gate);
 }

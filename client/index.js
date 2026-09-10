@@ -3473,11 +3473,11 @@ function applyUi(ctx) {
       }
       await call("projects_bind_workspace", { request: { projectId: project.id, workspaceId } });
     }
-    sessionId = await ctx.workspaces.connectWorkspace(workspaceId);
+    sessionId = await ctx.uiWorkspace.connectWorkspace(workspaceId);
     openedNew = true;
     presetApplied = await selectResearchPreset(sessionId, presetId);
     await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
-    ctx.sessions.open(sessionId);
+    ctx.uiWorkspace.openSession(sessionId);
     const actx = ctx.sessions.scope(sessionId);
     if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
     const prompt = String(opts.prompt || "").trim() || promptFor(project, opts.memory);
@@ -3503,7 +3503,7 @@ function applyUi(ctx) {
       import_react_dom2.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, onOpenSearch: (sessionId) => {
         close();
         try {
-          ctx.sessions.open(sessionId);
+          ctx.uiWorkspace.openSession(sessionId);
         } catch (reason) {
           toast(reason.message || "无法打开该会话");
         }
@@ -3525,7 +3525,7 @@ function applyUi(ctx) {
 }
 async function apply(ctx) {
   await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
-  ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "conversation", "connection"], applyUi);
+  ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"], applyUi);
 }
 
 // client/src/entry.js

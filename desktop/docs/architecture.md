@@ -3,7 +3,7 @@
 ```
 iBM Lab Agent.exe (Tauri, single instance)
   └─ bundled node.exe
-       └─ DSH 0.1.1-rc.2, profile `ibm-lab`, 127.0.0.1:3080–3111
+       └─ DSH 0.1.5-rc.1, profile `ibm-lab`, 127.0.0.1:3080–3111
             └─ exactly one dsh-lab-agent package mounted from the profile
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
   "private": true,
   "type": "module",
@@ -134,7 +134,8 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-workspace",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-conversation"
@@ -170,17 +171,17 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
-    "@deepseek-ai/dsh-api-gateway": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-app-boot": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-skill": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-skill-filesystem": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-storage": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-storage-domain": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-storage-json": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-typert-protocol": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-typert-registry": "0.1.1-rc.2"
+    "@deepseek-ai/dsh-api-gateway": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-app-boot": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-home-paths": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-skill": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-skill-filesystem": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-storage": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-storage-domain": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-storage-json": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-typert-registry": "0.1.5-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -237,6 +238,7 @@
     "esbuild": "0.24.0",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
-    "puppeteer-core": "^24.43.1"
+    "puppeteer-core": "^24.43.1",
+    "@deepseek-ai/dsh": "0.1.5-rc.1"
   }
 }

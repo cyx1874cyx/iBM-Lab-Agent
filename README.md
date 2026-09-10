@@ -5,7 +5,7 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.4.2**，发布分支为 `release-0.4.2`。本版本聚焦文献、合成路线、
+当前稳定版本为 **v0.4.3**。本版本聚焦文献、合成路线、
 表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
 
 ## 主要能力
@@ -43,7 +43,7 @@ PDF/SI 下载交给本机回环服务；项目不会自动执行实验、采购�
 
 ## Linux 安装
 
-支持 Ubuntu/Debian 的 x86_64 与 arm64。安装器默认安装当前 `main`（版本 **v0.4.2**），在用户
+支持 Ubuntu/Debian 的 x86_64 与 arm64。安装器默认安装当前 `main`（版本 **v0.4.3**），在用户
 目录中创建隔离的 Node、DSH、pnpm 与 Python 环境，并可直接启动 Web 界面：
 
 ```bash
@@ -133,8 +133,8 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.4.2 |
-| DeepSeek Harness | 0.1.1-rc.2 |
+| iBM Lab Agent | 0.4.3 |
+| DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
 | Windows bundled Python | 3.11 |

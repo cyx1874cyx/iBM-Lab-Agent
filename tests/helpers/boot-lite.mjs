@@ -5,7 +5,7 @@
  * dev-linked node_modules as the bare-module base.
  */
 
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -62,6 +62,12 @@ function renderYaml(rows) {
 export async function bootLite(options) {
 	const { storageRoot, vendorDir, lockFile, venvDir, requirementsLock, includePython = true, extraRows = [] } = options;
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-boot-"));
+	// DSH 0.1.5 preset discovery checks disk packages relative to the profile,
+	// independently of the loader's bare-module fallback. Model a real profile.
+	await mkdir(join(dir, "node_modules"));
+	const linkType = process.platform === "win32" ? "junction" : "dir";
+	await symlink(join(repoRoot, "node_modules", "@deepseek-ai"), join(dir, "node_modules", "@deepseek-ai"), linkType);
+	await symlink(repoRoot, join(dir, "node_modules", "dsh-lab-agent"), linkType);
 	const rows = [
 		{ id: "storage", name: "@deepseek-ai/dsh-storage" },
 		{ id: "storage-json", name: "@deepseek-ai/dsh-storage-json", config: { root: storageRoot } },
