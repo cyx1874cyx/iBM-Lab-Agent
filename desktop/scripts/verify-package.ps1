@@ -167,11 +167,36 @@ try {
       $smokeProcess = Start-Process -FilePath $node -ArgumentList @(
         $dshBin, '--profile', 'ibm-lab', '--no-open', '--host', '127.0.0.1', '--port', $port
       ) -WorkingDirectory $temporaryHome -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru
+
+      # DSH 0.1.5 起 Web 服务强制进程 token：不带 token 的 GET / 返回 401，而
+      # `dsh web` 没有关闭校验的开关（0.1.1-rc.2 之前不校验，这正是本次升级
+      # 让本冒烟阶段失效的原因）。token 只印在启动横幅（process-token URL line）
+      # 里，因此必须从 stdout 解析出来，附加到每一个冒烟请求上。
+      $token = $null
+      for ($tokenAttempt = 1; $tokenAttempt -le 60; $tokenAttempt++) {
+        if (Test-Path -LiteralPath $stdoutPath) {
+          $banner = Get-Content -LiteralPath $stdoutPath -Raw -ErrorAction SilentlyContinue
+          if ($banner -match 'token=([A-Za-z0-9._~-]+)') { $token = $Matches[1]; break }
+        }
+        if ($smokeProcess.HasExited) { break }
+        Start-Sleep -Milliseconds 500
+      }
+      if (-not $token) {
+        $bannerOut = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
+        $bannerErr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+        throw "Bundled DSH did not print its process token; the Web smoke test cannot authenticate.`nSTDOUT:`n$bannerOut`nSTDERR:`n$bannerErr"
+      }
+      function Add-SmokeToken {
+        param([string]$Uri, [string]$Token)
+        $separator = if ($Uri.Contains('?')) { '&' } else { '?' }
+        return "${Uri}${separator}token=$Token"
+      }
+
       $ready = $false
       for ($attempt = 1; $attempt -le 90; $attempt++) {
         if ($smokeProcess.HasExited) { break }
         try {
-          $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 2
+          $response = Invoke-WebRequest -Uri (Add-SmokeToken "http://127.0.0.1:$port/" $token) -UseBasicParsing -TimeoutSec 2
           if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) { $ready = $true; break }
         } catch {}
         Start-Sleep -Seconds 1
@@ -184,7 +209,7 @@ try {
       if ($stderr -match 'service\s+["'']labAgent["'']\s+has been registered|plugin tree failed to load') {
         throw "Bundled DSH Web reported a duplicate service or plugin-tree error:`n$stderr"
       }
-      $handoffUri = "http://127.0.0.1:$port/lab/capture/?taskId=capture-route-smoke"
+      $handoffUri = Add-SmokeToken "http://127.0.0.1:$port/lab/capture/?taskId=capture-route-smoke" $token
       if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')) {
         $handoffResponse = Invoke-WebRequest -Uri $handoffUri -UseBasicParsing -TimeoutSec 2 -SkipHttpErrorCheck
         $handoffStatus = [int]$handoffResponse.StatusCode
@@ -213,7 +238,7 @@ try {
       # 缺失/引用悬挂直接视为冒烟失败。headless 全量渲染（ready/SMILES 载入/
       # 编辑保存/PNG/SVG 导出）需要真实浏览器，属安装后人工/受控浏览器验收，
       # 不在无头 CLI 里声称完成。
-      $ketcherIndexUri = "http://127.0.0.1:$port/api/lab-ketcher/index.html"
+      $ketcherIndexUri = Add-SmokeToken "http://127.0.0.1:$port/api/lab-ketcher/index.html" $token
       $ketcherHtml = (Invoke-WebRequest -Uri $ketcherIndexUri -UseBasicParsing -TimeoutSec 3).Content
       if (-not $ketcherHtml -or $ketcherHtml -notmatch '<div id="root">') {
         throw "Ketcher smoke failed: /api/lab-ketcher/index.html did not return the shell document."
@@ -223,7 +248,7 @@ try {
         throw "Ketcher smoke failed: index.html references no static assets."
       }
       foreach ($asset in $ketcherAssets) {
-        $assetUri = "http://127.0.0.1:$port/api/lab-ketcher/assets/$asset"
+        $assetUri = Add-SmokeToken "http://127.0.0.1:$port/api/lab-ketcher/assets/$asset" $token
         $assetResponse = Invoke-WebRequest -Uri $assetUri -UseBasicParsing -TimeoutSec 15 -SkipHttpErrorCheck
         if ([int]$assetResponse.StatusCode -ge 400) {
           throw "Ketcher smoke failed: static asset $asset returned HTTP $([int]$assetResponse.StatusCode)."
