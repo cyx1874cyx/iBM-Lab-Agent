@@ -18,20 +18,43 @@
 
 ## 1. ⚠️ 接手前必须先处理的本机遗留状态
 
-### 1.1 残留锁文件 —— 直接阻塞 DSH 启动（必处理）
+### 1.1 孤儿写锁 —— 直接阻塞 DSH 启动（必处理）
 
 ```
 C:\Users\admin\AppData\Local\iBM-Lab-Agent\dsh\profiles\node_modules.lock
 ```
 
-- 大小 6 字节，生成于 **2026-09-11 16:28**。
-- **成因**：一次从 Agent 沙箱 shell 启动的 dev 运行中，DSH 在 `healProfilesModuleFallback` →
-  `withFileLock(node_modules.lock)` 里「持锁删锁」时被垫片打断抛异常（见 1.2），锁文件因此**没被删掉**。
+- 大小 6 字节，生成于 **2026-09-11 16:28**，**内容为 `20152`**——即崩溃时持锁的那个 DSH 进程号
+  （`app.log`：`Started DSH child process pid=20152`）。已核实 **PID 20152 现已不存在**（不是被别的进程复用而"看起来还活着"）。
 - **后果**：之后每次启动 DSH 都在等这把永不释放的锁，报
-  `Error: atomic-write: timed out waiting for the writer lock at ...\node_modules.lock`，
+  `Error: atomic-write: timed out waiting for the writer lock at ...\node_modules.lock`（默认只等 **2 秒**），
   健康检查永远不会通过（`app.log` 里会一直刷 `Waiting for DSH HTTP health check (n/90)`）。
-- **处置**：确认没有 `ibm-lab-desktop.exe` 与 DSH 的 `node.exe` 在跑之后，**删除这一个文件即可**（非递归，不要动同目录其它内容）。
-  截至交接时该文件**仍在**（未获授权清理，用户要求暂停）。
+- **完整因果链（已查实，非推测）**：
+  1. 从 Agent shell 启动 → 垫片变量注入并被应用派生的 DSH 继承（见 1.2）；
+  2. 垫片删除计数按 `scope:"turn"` **跨进程共享**，被同一轮的大量文件操作耗到上限 50；
+  3. DSH 的 `withFileLock` 正常执行完操作后，在 **`finally` 块**里删锁
+     （`dsh-atomic-write/lib/index.js:143` `await rm(lockPath, { force: true })`）；
+  4. 该 `rm` **被垫片拦下抛异常**，于是锁文件**没被删除**；
+  5. 异常冒泡成未捕获错误 → DSH 进程死亡 → 锁被孤儿化。
+- **处置：删除这一个文件即可**（非递归）。这不是权宜之计，而是该库**指定的**恢复方式——`dsh-atomic-write`
+  的 `withFileLock` 文档注释原文写明：*"The contender never removes an existing lock because file age cannot prove
+  that its owner stopped; **orphan recovery is an operator action**."*
+  即 DSH **不做陈旧锁检测、不按年龄抢占**，人工删除是唯一出路（也确认了没有可通过环境变量放宽的等待上限，
+  `waitMs` 由调用方决定而非环境变量）。
+- 截至交接时该文件**仍在**（用户要求暂停，未获授权清理）。
+
+> ⚠️ **不要按 `*.lock` 通配删除。** 应用数据目录下共有 4 个 `*.lock`，其中 **3 个是 `requirements.lock`
+> （pip 依赖锁定文件，正常内容文件，2998/299 字节）**，误删会破坏 Python 环境：
+>
+> ```
+> dsh/lab-agent/requirements.lock                                              ← 正常，勿删
+> dsh/profiles/ibm-lab/node_modules/dsh-lab-agent/python/requirements.lock      ← 正常，勿删
+> dsh/profiles/ibm-lab/node_modules/dsh-lab-agent/python/requirements-linux.lock← 正常，勿删
+> dsh/profiles/node_modules.lock                                               ← 孤儿写锁，仅删这个
+> ```
+>
+> 判别方法：`atomic-write` 的写锁是**被保护文件的同名兄弟** `<filename>.lock`，且**内容就是一行 PID**；
+> `requirements.lock` 则是有实质内容的依赖清单。
 
 ### 1.2 🔴 绝不要从 Agent / 沙箱 shell 启动桌面应用
 
@@ -198,6 +221,14 @@ node ./node_modules/@tauri-apps/cli/tauri.js dev
 填门户地址 → 打开 → 完成统一身份认证 → 依次访问 Nature / ACS / ScienceDirect 并**各点一次下载** →
 关闭再打开确认无需重复登录 → 刷新记录 → 交出 `webvpn.log`。
 
+### 5.4 孤儿写锁恢复（DSH 起不来时先查这里）
+
+1. 确认没有进程占用：`ibm-lab-desktop.exe` 与 DSH 的 `node.exe` 都不在运行，且 3080 端口空闲。
+2. 确认目标文件**内容是一行 PID**（例如 `20152`）——这是 `atomic-write` 写锁的特征；有实质内容的
+   `requirements.lock` **不是**写锁，不要删。
+3. 删除该单个文件（非递归）：`...\iBM-Lab-Agent\dsh\profiles\node_modules.lock`
+4. 重新启动应用，确认 `app.log` 出现 `DSH health check passed`（干净环境下约 9 秒内）。
+
 ---
 
 ## 6. 踩坑清单（供接手人避免重蹈）
@@ -205,7 +236,7 @@ node ./node_modules/@tauri-apps/cli/tauri.js dev
 | 坑 | 症状 | 处置 |
 |---|---|---|
 | Agent shell 环境污染 | DSH 启动即崩 + WebView2 崩溃弹窗 | 见 1.2，用户自己终端启动 |
-| 残留 `node_modules.lock` | DSH 健康检查永不通过 | 见 1.1，删除该单文件 |
+| 孤儿写锁 `node_modules.lock` | DSH 健康检查永不通过（等锁 2 秒超时） | 见 1.1 / 5.4，删除该单文件；**别按 `*.lock` 通配删**，`requirements.lock` 是正常依赖文件 |
 | `git update-ref`/`fetch` 写入丢失 | 引用值不更新，领先数算错 | 直接写文件；判断远程一律 `git ls-remote` |
 | `$USERPROFILE` 反斜杠 | `cargo: command not found` | 用 `$HOME/.cargo/bin` |
 | `node_modules/.bin/tauri` | 报 `H:\h\...` 找不到模块 | 直接 `node .../cli/tauri.js dev` |
