@@ -111,6 +111,23 @@
           <div id="mcp-checklist" style="display:none; margin-top:10px; font-size:12px; line-height:1.8; color:#c6d3e6;"></div>
           <div class="diag-actions"><button id="mcp-save" type="button">保存</button><button id="mcp-test" type="button">测试连接</button><button id="mcp-open-workspace" type="button">打开工作目录</button><button id="mcp-remove" type="button">移除配置</button><button id="mcp-cancel" type="button">收起</button></div>
         </section>
+        <!-- WebVPN 阶段 0 探测面板：只在开发构建（debug）出现，release 会整体隐藏。
+             记录只写脱敏 URL 与 host，不含 Cookie / 凭据 / 一次性令牌。 -->
+        <section id="webvpn-probe" style="display:none">
+          <div class="diag-head"><h3>WebVPN 探测（仅开发构建）</h3><span class="state" id="webvpn-state">就绪</span></div>
+          <p class="dep-hint">先用只记录不拦截的策略打开学校 WebVPN，完成统一身份认证后逐个访问目标出版社页面并各点一次下载，然后回来看记录。记录会写入日志目录的 webvpn.log。</p>
+          <div class="field-row">
+            <label style="flex:1">门户 / 目标地址<input id="webvpn-url" type="text" placeholder="https://webvpn.ustc.edu.cn/" style="width:100%"></label>
+          </div>
+          <div class="diag-actions">
+            <button id="webvpn-open" type="button">打开 WebVPN</button>
+            <button id="webvpn-hide" type="button">隐藏窗口</button>
+            <button id="webvpn-refresh" type="button">刷新记录</button>
+            <button id="webvpn-clear-events" type="button">清空记录</button>
+            <button id="webvpn-clear-session" type="button">清除登录状态</button>
+          </div>
+          <div id="webvpn-events" style="margin-top:10px; max-height:260px; overflow:auto; font-size:12px; line-height:1.7; color:#c6d3e6; font-family:ui-monospace,Consolas,monospace"></div>
+        </section>
         <table class="deps-table">
           <thead><tr><th style="width:170px">应用 / 组件</th><th style="width:88px">本机状态</th><th>详情</th><th style="width:220px">MCP 状态</th><th style="width:100px">管理</th></tr></thead>
           <tbody id="deps-body"></tbody>
@@ -329,6 +346,58 @@
       $('mcp-editor').style.display = 'none'; activeMcpApp = null; await refreshDiagnostics();
     });
     $('mcp-cancel').addEventListener('click', () => { $('mcp-editor').style.display = 'none'; activeMcpApp = null; });
+    // WebVPN 阶段 0 探测面板。命令在 release 构建里会拒绝执行，
+    // 所以先用 webvpn_probe_available 决定是否显示整个面板。
+    const webvpnState = (text) => setText('webvpn-state', text);
+    const renderWebvpnEvents = (events) => {
+      const box = $('webvpn-events');
+      if (!events.length) { box.textContent = '（暂无记录）'; return; }
+      box.textContent = '';
+      // 只渲染后端已脱敏的字段；这里绝不再拼接原始 URL。
+      for (const event of events.slice(-120)) {
+        const line = document.createElement('div');
+        line.textContent = `${event.kind}  ${event.host}  ${event.url}${event.detail ? `  ${event.detail}` : ''}`;
+        box.appendChild(line);
+      }
+      box.scrollTop = box.scrollHeight;
+    };
+    const refreshWebvpnEvents = async () => {
+      try { renderWebvpnEvents(await invoke('webvpn_probe_events')); }
+      catch (error) { webvpnState(`读取记录失败：${error}`); }
+    };
+    invoke('webvpn_probe_available').then((available) => {
+      if (!available) return;
+      $('webvpn-probe').style.display = '';
+      void refreshWebvpnEvents();
+    }).catch(() => { /* 非桌面宿主或命令缺失时静默隐藏 */ });
+    $('webvpn-open').addEventListener('click', async () => {
+      const url = $('webvpn-url').value.trim();
+      if (!url) { webvpnState('请先填写门户或目标地址'); return; }
+      webvpnState('正在打开…');
+      try {
+        await invoke('webvpn_probe_open', { url });
+        webvpnState('窗口已打开，请完成登录并访问目标页面');
+        await refreshWebvpnEvents();
+      } catch (error) { webvpnState(`打开失败：${error}`); }
+    });
+    $('webvpn-hide').addEventListener('click', async () => {
+      try { await invoke('webvpn_hide'); webvpnState('窗口已隐藏，登录态保留'); }
+      catch (error) { webvpnState(`隐藏失败：${error}`); }
+    });
+    $('webvpn-refresh').addEventListener('click', () => void refreshWebvpnEvents());
+    $('webvpn-clear-events').addEventListener('click', async () => {
+      try { await invoke('webvpn_probe_clear'); renderWebvpnEvents([]); webvpnState('记录已清空'); }
+      catch (error) { webvpnState(`清空失败：${error}`); }
+    });
+    $('webvpn-clear-session').addEventListener('click', async () => {
+      try { await invoke('webvpn_clear_session'); renderWebvpnEvents([]); webvpnState('登录状态已清除，下次需重新登录'); }
+      catch (error) { webvpnState(`清除失败：${error}`); }
+    });
+    // 探测期间窗口仍是单例；定时拉取记录，避免用户手动刷新。
+    setInterval(() => {
+      if ($('webvpn-probe').style.display === 'none') return;
+      void refreshWebvpnEvents();
+    }, 5000);
     // Desktop capability bridge. Only the active local-runtime iframe origin is
     // accepted; arbitrary nested frames cannot invoke native file or URL actions.
     window.addEventListener('message', (event) => {

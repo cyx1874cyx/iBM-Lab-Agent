@@ -270,6 +270,12 @@ impl RuntimeManager {
         &self.logger
     }
 
+    /// 应用数据根目录（`%LOCALAPPDATA%\iBM-Lab-Agent`）。WebVPN 的专属
+    /// WebView2 profile 必须落在它下面，以便清除登录状态时能做目录边界校验。
+    pub fn data_root(&self) -> &std::path::Path {
+        &self.layout.root
+    }
+
     pub fn open_workspace(&self) -> Result<(), RuntimeError> {
         let config = self.load_config()?;
         files::open_workspace(&self.layout, &config.workspace)

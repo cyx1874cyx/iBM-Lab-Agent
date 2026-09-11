@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod runtime;
+mod webvpn;
 
 use std::sync::Arc;
 use tauri::{Manager, WebviewWindow, WindowEvent};
@@ -349,8 +350,7 @@ fn open_artifact_in_browser(
     })
 }
 
-fn launch_edge(url: &str) -> Result<(), String> {
-    let candidates = [
+fn launch_edge(url: &str) -> Result<(), String> {    let candidates = [
         std::path::PathBuf::from(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
         std::path::PathBuf::from(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
         std::env::var_os("LOCALAPPDATA")
@@ -371,6 +371,77 @@ fn launch_edge(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// WebVPN 探测模式是否可用。release 构建必须为 false——探测期不拦截导航，
+/// 泄漏到正式包等于把桌面客户端变成任意网页启动器。
+#[tauri::command]
+fn webvpn_probe_available() -> bool {
+    webvpn::WebVpnState::probe_available()
+}
+
+/// 阶段 0 探测：以「只记录不拦截」的策略打开单例 WebVPN 窗口。
+///
+/// 之所以不拦截，是因为学校 SSO 的真实域名集合恰恰是本阶段要测得的东西：
+/// 提前上白名单会把登录流程自己锁死，且用户无法自救。
+#[tauri::command]
+fn webvpn_probe_open(
+    url: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if !webvpn::WebVpnState::probe_available() {
+        return Err("WebVPN 探测模式仅在开发构建中可用".to_string());
+    }
+    let target = webvpn::validate_target(&url)?;
+    let data_root = state.0.data_root().to_path_buf();
+    webvpn::open_window(&app, &data_root, &target, false, Vec::new()).map(|_| ())
+}
+
+/// 隐藏 WebVPN 窗口，保留 WebView2 会话（登录态不丢）。
+#[tauri::command]
+fn webvpn_hide(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(webvpn::WINDOW_LABEL) {
+        window.hide().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+/// 拉取当前会话的探测记录（内存中，最多 800 条）。
+#[tauri::command]
+fn webvpn_probe_events(app: tauri::AppHandle) -> Vec<webvpn::WebVpnEvent> {
+    app.try_state::<webvpn::WebVpnState>()
+        .map(|state| state.snapshot())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn webvpn_probe_clear(app: tauri::AppHandle) {
+    if let Some(state) = app.try_state::<webvpn::WebVpnState>() {
+        state.clear();
+    }
+}
+
+/// 清除登录状态：销毁窗口并删除专属 profile 目录。
+///
+/// 只删已解析且验证位于应用数据目录内的一级子目录，防止目录逃逸。
+#[tauri::command]
+fn webvpn_clear_session(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(webvpn::WINDOW_LABEL) {
+        window.destroy().map_err(|error| error.to_string())?;
+    }
+    let dir = webvpn::resolve_profile_dir(state.0.data_root())?;
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir)
+            .map_err(|error| format!("清除 WebVPN 登录状态失败: {error}"))?;
+    }
+    if let Some(events) = app.try_state::<webvpn::WebVpnState>() {
+        events.clear();
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(single_instance(|app, _, _| {
@@ -386,6 +457,7 @@ fn main() {
                     .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)?,
             );
             app.manage(AppState(Arc::clone(&runtime)));
+            app.manage(webvpn::WebVpnState::default());
             start_runtime(app.handle().clone(), runtime);
             Ok(())
         })
@@ -395,6 +467,7 @@ fn main() {
                     let _ = state.0.shutdown();
                 }
             }
+            webvpn::handle_window_event(window, event);
         })
         .invoke_handler(tauri::generate_handler![
             restart_runtime,
@@ -413,7 +486,13 @@ fn main() {
             remove_app_mcp,
             install_origin_bridge,
             open_in_edge,
-            open_artifact_in_browser
+            open_artifact_in_browser,
+            webvpn_probe_available,
+            webvpn_probe_open,
+            webvpn_hide,
+            webvpn_probe_events,
+            webvpn_probe_clear,
+            webvpn_clear_session
         ])
         .run(tauri::generate_context!())
         .expect("failed to run iBM Lab Agent");
