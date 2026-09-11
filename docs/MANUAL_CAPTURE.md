@@ -46,6 +46,41 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
 - 微信来源仅使用 DOI 出版社页面；**无 DOI 时拒绝启动捕获，绝不回退到公众号链接**。
 - 捕获只登记原始文件，不自动冒充已完成全文精读（不生成报告、不改变报告状态）。
 
+## 与 WebVPN 通道的关系（阶段 1 已落地，捕获未接）
+
+上面这条链路假设**外部浏览器能直接打开出版社页面**。若机构订阅只在校园网/VPN 内生效，
+另有「应用内 WebVPN 浏览器」通道，见
+`docs/WEBVPN_IN_APP_BROWSER_DEVELOPMENT_PLAN.md`（含落地前评审
+`docs/WEBVPN_IN_APP_BROWSER_PLAN_REVIEW.md`）。
+
+> **当前状态**：阶段 1（单例窗口 + 导航策略 + 会话状态机）已落地；
+> **阶段 0 协议探测尚未执行**，因此下载捕获归档（阶段 2）与客户端入口（阶段 3）
+> **尚未接入**——转发规则必须由实测确定，禁止按截图猜测。
+
+两条通道**共用同一套服务端契约**：一次性令牌、数据库只存 SHA-256、默认 20 分钟有效、
+`PUT /api/lab-capture-upload`、100 MB 上限、同样的 PDF/SI 校验，以及同样的
+`LabTasksService.registerCapturedFile` 登记（复用原 bundleId/reportId，provenance
+`source = manual-browser-capture`）。差别只在**下载发生在哪个浏览器里**：
+
+| | 外部通道（本文档） | WebVPN 通道（规划中） |
+|---|---|---|
+| 下载所在浏览器 | 系统 Chrome / Edge | 桌面端内置 WebView2 窗口 |
+| 捕获方式 | 扩展 + Native Messaging 本地桥接 | 桌面端自己的下载回调 |
+| 是否需要装扩展 | 需要 | **不需要** |
+| 登录态载体 | 系统浏览器自己的 profile | 专属 profile（应用数据目录下） |
+
+**WebVPN 侧的额外安全边界**：
+
+- 登录态只存在于专属 WebView2 profile（应用数据目录下的 `webvpn-webview2/`）；
+  应用**不读取其内容**，清除登录状态即整体删除该目录。
+- 配置文件只存非敏感的导航策略（门户地址 / 放行域名 / 是否启用拦截），**不存凭据**。
+- 日志只写脱敏后的 URL 与 host：去掉 fragment（一次性令牌在 `#t=` 里）、去掉用户凭据、
+  敏感与不透明参数值替换为 `REDACTED`。
+- 导航白名单可能漏域名而把登录流程锁死：被拦域名会进入待放行列表，用户确认后放行
+  并写回配置，不会让人面对一个静默空白页。
+- WebVPN 窗口**不在** `capabilities` 的 `windows` 数组内，因此没有任何 IPC 命令权限
+  ——即使它加载了恶意页面也调不动客户端命令。
+
 ## 捕获后的精读顺序
 
 1. 生成报告前调用 `lab_tasks_get_reading_inputs`，盘点该文献当前已登记的正文
@@ -140,6 +175,10 @@ python install-bridge.py --uninstall
 | 上传提示 409 | 同一令牌被重复使用（重放）；重新点击按钮创建新任务 |
 | 上传提示 413 | 文件超过 100 MB 上限 |
 | 出版社页面打不开 | 检查服务器网络；DOI 页面由浏览器直接打开，与服务器无关 |
+| WebVPN 诊断面板不显示 | 该面板**只在 debug 构建出现**：release 包里 `webvpn_probe_available` 返回 false，面板整体隐藏且相关命令拒绝执行。调试 WebVPN 窗口只能用 debug 构建（`cargo tauri dev`）；`devtools` feature 同样未启用 |
+| 提示「尚未配置 WebVPN 门户地址」 | 先在诊断面板的阶段 1 区块填写门户地址并保存。未配置时命令会明确报错，**不会猜测任何域名** |
+| WebVPN 登录页打不开或白屏 | 多半是导航白名单漏了统一认证域名：查看「被白名单拦下的域名」，点「放行」加入白名单（会写回配置）。建议先确认清单覆盖完整链路，再勾选「启用导航白名单拦截」 |
+| 点「打开门户」后无法继续跳转 | 会话仍停在 `waiting-login`：完成统一身份认证后需点「我已登录」确认。这是刻意的——把「门户页加载完成」当登录成功会把验证码/二次验证的中间态误判为可用 |
 
 ## 测试
 

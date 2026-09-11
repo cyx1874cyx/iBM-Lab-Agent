@@ -671,7 +671,7 @@ cd desktop/src-tauri && cargo tauri dev
 | `default.json` 合法但**额外多一个** `webvpn.json` | 抛错 | ✅ PASS（报出 `webvpn.json`） |
 | 仓库真实 capabilities | 通过 | ✅ PASS |
 
-### 14.4 验证结果
+### 14.4 验证结果（覆盖 §14.1–14.3）
 
 | 套件 | 结果 |
 |---|---|
@@ -682,6 +682,46 @@ cd desktop/src-tauri && cargo tauri dev
 
 **未做（需探测结果）**：`WEBVPN_*` 消息分支本身（阶段 3）、下载捕获闭环（阶段 2）、
 转发规则（阶段 0）。
+
+### 14.5 文档补齐（计划 §11 阶段 4 明确要求）
+
+两篇文档此前**完全没有 WebVPN 覆盖**（`grep -ci webvpn` 均为 **0**）。补齐内容：
+
+| 文档 | 改动 |
+|---|---|
+| `docs/ARCHITECTURE.md` | §4 执行边界新增「桌面窗口权限边界」条目（capabilities 只授 main + 由打包闸门断言）；新增 **§12「WebVPN 软件内浏览器」**，覆盖窗口隔离、登录态归属、状态机、用户确认登录的理由、导航策略与逃生阀、配置、debug-only 探测面、日志脱敏、`WebVpnStatus` 双套字段 |
+| `docs/MANUAL_CAPTURE.md` | 新增**「与 WebVPN 通道的关系」**小节：两条通道共用同一套服务端契约的对照表（下载所在浏览器 / 捕获方式 / 是否需装扩展 / 登录态载体）、WebVPN 侧额外安全边界；失败排查表新增 4 行 |
+
+失败排查新增的 4 行覆盖的都是**实际会困惑用户**的场景：面板不显示（debug-only 门控）、
+未配置门户（命令明确报错而非猜域名）、登录页被白名单拦下（逃生阀怎么用）、
+以及停在 `waiting-login`（需手动确认登录，这是刻意设计而非卡死）。
+
+两篇都**明确标注当前状态**（阶段 1 已落地、阶段 0 探测未执行、转发与捕获未接），
+避免读者以为功能已经可用。
+
+### 14.6 让发布闸门自锁
+
+§14.3 的 capabilities 检查是 PowerShell，Node 测试套件里跑不到。因此补一条源码级测试
+（`tests/unit/windows-release-scripts.test.mjs`）锁住闸门的**结构**，防止后续重构把它
+悄悄缩窄回"只看 `default.json`"：必须枚举全部 `*.json`、必须逐个文件检查、
+`windows` 必须且只能是 `[main]`、空目录也判失败；并断言正本 capability 的
+`windows` / `permissions` 现状。
+
+**变异测试**（证明该断言非空转）：
+
+| 注入的收窄 | 结果 |
+|---|---|
+| 把枚举范围缩窄成只看 `default.json` | ✅ CAUGHT |
+| 放宽窗口判定（允许任意窗口） | ✅ CAUGHT |
+| 去掉空目录判定 | ✅ CAUGHT |
+
+### 14.7 验证结果补充
+
+| 套件 | 结果 |
+|---|---|
+| `npm test` | ✅ **371 通过 / 0 失败** |
+| `tests/unit/windows-release-scripts.test.mjs` | ✅ 8/8 通过（含新增的闸门自锁断言） |
+| `verify-package.ps1` | ✅ pwsh 7.6.6 解析通过 + 5 场景行为验证通过 |
 
 ---
 

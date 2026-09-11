@@ -158,6 +158,11 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
   升级工具。模型无法静默改动锁定版本。
 - 不重写 nature skills 的检索/精读/PPT 流程；本插件只做路由、编排、登记与质检。
 - CAS/SciFinder：未获书面授权前不自动操作、不把 CAS 内容送入模型（阶段 6 范围）。
+- 桌面窗口权限边界：`capabilities/default.json` 的 `windows` **必须且只能是** `["main"]`
+  （只授 `core:default`）。WebVPN 等新窗口**不得**加入该数组——一旦加入，任意被加载的
+  网页都会拿到 IPC 命令面，等于把客户端变成任意网页启动器。该边界由
+  `desktop/scripts/verify-package.ps1` 在打包时**逐个 capability 文件**断言，
+  新增文件也绕不过去。
 
 ## 5. 目录
 
@@ -332,3 +337,45 @@ SKILL.md）实现：
   桥接只接收一次性上传地址/任务编号/下载文件相对路径。
 - **Remote**：`manual_capture_create` / `manual_capture_get` / `manual_capture_list`
   经 Typert Gateway 暴露给浏览器 client。
+
+## 12. WebVPN 软件内浏览器（阶段 1 已落地，转发与捕获未接）
+
+针对「机构订阅只能在校园网/VPN 内生效」的场景，提供**应用内 WebVPN 浏览器**通道：
+由桌面端自己承载 WebView2 会话，而不是把用户丢到外部浏览器，也不需要扩展与本地桥接。
+开发计划与落地前评审见 `docs/WEBVPN_IN_APP_BROWSER_DEVELOPMENT_PLAN.md` /
+`docs/WEBVPN_IN_APP_BROWSER_PLAN_REVIEW.md`。
+
+> **当前状态**：阶段 1（配置接入 + 会话状态机）已落地；**阶段 0 协议探测尚未执行**。
+> 因此**转发规则、下载捕获归档、客户端入口均未实现**——转发规则必须由阶段 0 实测确定，
+> 计划明确禁止按截图猜测。UI 目前只存在于 debug-only 诊断面板内。
+
+- **窗口与隔离**（`desktop/src-tauri/src/webvpn.rs`）：单例窗口 `label = "webvpn"`，
+  单例判定**只认 label**（不认标题或 URL）；专属 WebView2 profile 位于应用数据根目录下的
+  `webvpn-webview2/`，与主窗口完全隔离；关闭按钮被拦截为 `hide()`
+  ——「关窗」不退出登录，这也是保留会话的实现方式。注意 `on_window_event` 回调给的是
+  `&Window` 而非 `&WebviewWindow`。
+- **登录态**：完全由该 profile 承载。应用**不读取、不导出、不记录**其内容——代码只创建
+  目录与整体删除目录（清除登录状态）。该约束由源码级断言守住
+  （`tests/unit/webvpn-secrets-scan.test.mjs`）。
+- **会话状态机**：`WebVpnSessionState` 六态（`closed` / `opening` / `waiting-login` /
+  `ready` / `navigating` / `error`）；迁移合法性只在 `can_transition_to` 单点收口，
+  **非法迁移返回 `Err` 而不静默改写**，避免 UI 与 shell 对当前状态的理解漂移。
+  `Ready → Opening` 属非法，故重开窗口前必须先在窗口不存在时归零。
+- **登录确认由用户点击**（`webvpn_confirm_login`），不依据 URL 或 DOM 推断：把「门户页
+  加载完成」当作登录成功，会把验证码/二次验证的中间态误判为可用。
+- **导航策略**：`WebVpnPolicy` 由配置驱动，门户自身始终放行。阶段 0 `enforce = false`
+  **只记录不拦截**——白名单恰恰是要测得的东西，提前拦截会把学校 SSO 流程自己锁死，
+  且用户无法自救。被拦域名进入 `deniedHosts`，用户确认后经 `webvpn_allow_host`
+  **放行并写回配置**：这是白名单漏域名时的逃生阀，避免用户面对静默空白页。
+- **配置**（`runtime/config.rs::WebVpnConfig`）：`portal_url` / `allowed_hosts` /
+  `enforce_navigation`，三者全部 `#[serde(default)]` 且 `portal_url` **默认空串**
+  ——在阶段 0 实测确认前不写死任何域名；旧配置文件无需迁移。**配置里不得存放凭据**。
+- **探测面仅限 debug 构建**：`WebVpnState::probe_available()` 取 `cfg!(debug_assertions)`，
+  同时门控诊断面板与命令本体（命令运行时再校验一次）。release 构建下探测不可用，
+  因此**调试 WebVPN 窗口只能用 debug 构建**（`cargo tauri dev`）；`devtools` feature 同样未启用。
+- **日志**：只写脱敏后的 URL 与 host，落在 `logs/webvpn.log`。脱敏去掉 fragment
+  （现有捕获链路把一次性令牌放在 `#t=` 里）、用户凭据，并把敏感/不透明参数值替换为
+  `REDACTED`。全模块**只有一个落日志点**并强制走 `redact_for_log`。
+- **`WebVpnStatus` 分两套字段**：生效侧（`allowed_hosts` / `enforce_navigation`，
+  来自会话策略）与意图侧（`configured_allowed_hosts` / `configured_enforce_navigation`，
+  来自配置）。探测模式下二者必然不同，UI 必须能分辨，否则无法既回填表单又如实反映拦截行为。
