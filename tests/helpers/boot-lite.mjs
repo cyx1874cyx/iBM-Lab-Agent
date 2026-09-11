@@ -13,6 +13,41 @@ import { boot } from "@deepseek-ai/dsh-app-boot";
 
 export const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
+/** `bootLite` 在 profile 目录里建立的链接；清理前必须逐个解除。 */
+function profileLinks(dir) {
+	return [
+		join(dir, "node_modules", "@deepseek-ai"),
+		join(dir, "node_modules", "dsh-lab-agent")
+	];
+}
+
+/**
+ * 安全删除一个 boot profile 目录。
+ *
+ * Windows 上 `rm(dir, { recursive: true })` 会**顺着 junction 遍历到仓库的
+ * node_modules**（实测目标树有 240 个条目），既可能误删依赖树，也会触发宿主
+ * 环境的批量删除保护，使整套集成测试以「清理失败」而非「断言失败」告负。
+ *
+ * `rm(link, { recursive: false })` 只摘除链接本身，目标树不受影响——已实测确认。
+ * 因此顺序固定为：先解链接，再删剩余目录。
+ *
+ * 清理失败只告警，不向上抛：环境限制不应该让测试看起来像代码坏了。
+ */
+export async function removeBootDir(dir) {
+	for (const link of profileLinks(dir)) {
+		try {
+			await rm(link, { recursive: false, force: true });
+		} catch (error) {
+			console.warn(`boot-lite: 解除链接失败 ${link}: ${error?.code ?? error}`);
+		}
+	}
+	try {
+		await rm(dir, { recursive: true, force: true, maxRetries: 2 });
+	} catch (error) {
+		console.warn(`boot-lite: 清理临时目录失败 ${dir}: ${error?.code ?? error}`);
+	}
+}
+
 /** Tiny YAML emitter for the constrained row shapes used here. */
 function renderScalar(value, indent) {
 	if (typeof value === "string") return `'${value.replaceAll("'", "''")}'`;
@@ -100,8 +135,13 @@ export async function bootLite(options) {
 		ctx,
 		dir,
 		dispose: async () => {
-			await ctx.fiber.dispose();
-			await rm(dir, { recursive: true, force: true });
+			// fiber.dispose 的异常代表真实的插件拆除缺陷，仍然向上抛；
+			// 但目录清理放在 finally 里，保证一定执行且不覆盖原始错误。
+			try {
+				await ctx.fiber.dispose();
+			} finally {
+				await removeBootDir(dir);
+			}
 		}
 	};
 }
