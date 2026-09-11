@@ -471,7 +471,7 @@ cd desktop/src-tauri && cargo tauri dev
 3. 在弹出窗口中完成**统一身份认证**（含验证码 / 二次验证，由用户本人操作）。
 4. 依次访问 **Nature、ACS、ScienceDirect** 各一次，并在每个站点**点击一次 PDF 下载**。
 5. 关闭窗口（只会隐藏），再次点 **打开 WebVPN**，确认无需重复登录。
-6. 回到面板点 **刷新记录**，然后把日志目录里的 `webvpn.log` 一并提供。
+6. 回到面板点 **刷新记录**，然后把 `webvpn.log` 一并提供（落盘位置见 §12.5）。
 
 ### 12.3 需要从记录中读出的结论
 
@@ -489,6 +489,20 @@ cd desktop/src-tauri && cargo tauri dev
 - **阶段 0 不拦截导航**（`enforce=false`）。这是刻意的：白名单正是本阶段要测的东西，提前上拦截会把登录流程自己锁死，且用户无法自救。探测期间请勿把 debug 包当作日常浏览器使用。
 - **阶段 0 不改写下载路径**，保留 WebView2 默认落盘位置，以便判断出版社给的是附件还是内联预览。捕获归档在阶段 2 接入。
 - 记录只保留最近 **800** 条，且只写脱敏后的 URL / host / 错误类别；不含 Cookie、凭据、一次性令牌。
+
+### 12.5 日志落盘位置（易找错，务必先看这一节）
+
+`webvpn.log` 与 `app.log` 同目录，即**应用数据根目录**下的 `logs`：
+
+```
+%LOCALAPPDATA%\iBM-Lab-Agent\logs\webvpn.log
+```
+
+⚠️ **不要按 `app_local_data_dir()` 的常规认知去找。** `RuntimeManager::new`（`runtime/mod.rs:66-71`）是**优先读 `LOCALAPPDATA` 环境变量再拼 `iBM-Lab-Agent`**，读不到才回退 `app_local_data_dir()`——后者在 Tauri 2 下解析的是 `identifier`，即 `cn.ustc.ibm-lab-agent`。本机实测**两个目录都存在**（`cn.ustc.ibm-lab-agent` 是回退分支的历史残留），极易误入。
+
+最省事的拿法：点顶部工具条的 **日志** 按钮（走 `open_logs` 命令）直接打开该目录，无需手动定位。
+
+该目录当前只有 `app.log` / `dsh.log` / `stderr.log`——**`webvpn.log` 要等第一次执行 §12.2 之后才会生成**；若跑完仍不见该文件，说明探测面板没被真正触发（先确认是否 debug 构建）。
 
 ---
 
