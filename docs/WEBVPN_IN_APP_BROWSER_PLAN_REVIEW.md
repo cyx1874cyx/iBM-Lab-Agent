@@ -740,6 +740,57 @@ cd desktop/src-tauri && cargo tauri dev
 
 ---
 
+## 15. 阶段 0 实测与阶段 2/3 落地（2026-09-11）
+
+### 15.1 真实 USTC WebVPN 结论
+
+在用户已登录的 `https://wvpn.ustc.edu.cn/` 会话中完成了三站验证：
+
+| 目标站点 | 结果 |
+|---|---|
+| Nature 文章页 | 转发成功，页面显示中国科学技术大学机构访问，并出现 PDF 下载入口 |
+| ACS Publications | 直接构造转发 URL 成功，复用同一登录状态 |
+| ScienceDirect | 直接构造转发 URL 成功，复用同一登录状态 |
+
+Nature 实际转发路径与 WRD 算法逐字节吻合：AES-128-CFB 加密目标 host，key/IV 均为
+`wrdvpnisthebest!`；路径和 query 接在密文 host 后，fragment 不转发。门户快速跳转会请求
+新窗口，因此正式实现选择“把新窗口导航收敛回已有 `webvpn` 单例窗口”。点击 Nature 的
+Download PDF 后页面未导航、未新增标签，符合浏览器下载事件行为；最终下载回调与归档仍列入
+正式安装包人工验收。
+
+### 15.2 实现结果
+
+- `runtime/config.rs` 默认配置切到真实 USTC 门户；旧版空配置自动迁移。
+- `webvpn.rs` 增加 WRD 转发适配器、`waiting-download/uploading/expired` 状态、单 pending
+  捕获、20 分钟超时、受限临时路径、后台 loopback PUT 上传和失败清理。
+- `main.rs` 增加 `webvpn_open_capture` / `webvpn_cancel_capture`，上传地址固定为当前 DSH
+  loopback 端口及既有 `/api/lab-capture-upload`，token 只保存在内存 URL 中。
+- 桌面 shell 增加状态、登录、捕获、取消、清除会话的窄消息桥；只接受当前 runtime iframe。
+- 客户端数据库状态区增加 WebVPN 入口、登录确认、5 秒状态刷新和清除登录状态；缺失 PDF/SI
+  优先走 WebVPN，失败时先撤销本地布防，再复用原任务回退 Edge。
+- 下载失败、下载成功但无返回路径、路径不匹配均会清除 pending，避免 UI 永久等待。
+
+### 15.3 验证结果
+
+| 套件 | 结果 |
+|---|---|
+| `npm run build:client` | ✅ 构建成功 |
+| `npm test` | ✅ **372 通过 / 0 失败** |
+| `cargo test` | ✅ **86 通过 / 0 失败 / 1 ignored** |
+
+新增 Rust 行为测试覆盖 USTC Nature 实测代理 URL、门户自定义端口、捕获并发与旧回调隔离、
+下载失败清理、loopback 上传 URL 与 token 格式。现有 secrets scan 继续约束 profile 不被读取、
+token 不进入日志、WebVPN 窗口不获得 Tauri IPC capability。
+
+### 15.4 剩余人工验收
+
+1. 正式桌面包内登录 USTC WebVPN，下载一篇 Nature PDF，确认落到正确 bundle 并被客户端轮询识别。
+2. 分别验证 ACS 和 ScienceDirect 的 PDF 下载回调。
+3. 隐藏并重新打开窗口确认无需登录；退出应用再启动，确认专属 profile 仍保持会话。
+4. 主动取消、等待任务过期、断网和上传失败后，确认可重新发起或回退 Edge。
+
+---
+
 ## 附录 A：本次评审使用的证据文件清单
 
 | 文件 | 用途 |

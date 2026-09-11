@@ -4,6 +4,26 @@
 > 仓库：`Code/iBM-Lab-Agent`　分支：`release-0.4.3`　HEAD：`b551bed`
 > 相关计划：`docs/WEBVPN_IN_APP_BROWSER_DEVELOPMENT_PLAN.md`
 > 评审与执行记录：`docs/WEBVPN_IN_APP_BROWSER_PLAN_REVIEW.md`（§0–§14）
+> Windows 打包与安装包验收：`docs/WEBVPN_0.4.3_PACKAGING_HANDOFF.md`
+
+---
+
+## 2026-09-11 当前进展（优先于下方历史交接内容）
+
+- 阻塞 DSH 的孤儿锁 `node_modules.lock` 已核对死进程后删除；DSH 启动与鉴权已恢复。
+- 阶段 0 已用登录后的真实 USTC WebVPN 会话完成：门户为 `https://wvpn.ustc.edu.cn/`；
+  Nature、ACS、ScienceDirect 均可通过确定性 WRD 转发 URL 进入，并显示中国科大机构访问。
+- 转发规则已实测为 AES-128-CFB 加密目标 host，key/IV 均为 `wrdvpnisthebest!`；
+  USTC 快速跳转会请求新窗口，桌面端将其收敛回 `webvpn` 单例窗口。
+- 阶段 2/3 已接入：客户端创建既有 manual-capture 任务后，由 Tauri WebView2 下载回调
+  写入受限临时文件，再用一次性令牌 PUT 到原 `/api/lab-capture-upload`；失败可取消并回退 Edge。
+- 数据库状态区已提供打开、确认登录、状态轮询和清除登录状态；默认门户已设为中国科大，
+  旧版空配置会在读取时迁移。登录态仍只在专属 WebView2 profile 内。
+- 当前自动化结果：Node **372/372** 通过；Rust **86 通过 / 0 失败 / 1 ignored**。
+- 尚需正式安装包人工验收：在桌面应用内重新登录一次，实际点击出版社 PDF 下载并确认归档；
+  以及退出并重启应用后确认 WebView2 profile 的会话持续性。
+
+下方第 0–4 节保留为接手时的历史现场记录，其中“尚未执行”“仍在”等状态描述已被本节取代。
 
 ---
 

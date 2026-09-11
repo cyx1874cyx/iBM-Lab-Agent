@@ -46,28 +46,31 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
 - 微信来源仅使用 DOI 出版社页面；**无 DOI 时拒绝启动捕获，绝不回退到公众号链接**。
 - 捕获只登记原始文件，不自动冒充已完成全文精读（不生成报告、不改变报告状态）。
 
-## 与 WebVPN 通道的关系（阶段 1 已落地，捕获未接）
+## 与 WebVPN 通道的关系（已接入）
 
 上面这条链路假设**外部浏览器能直接打开出版社页面**。若机构订阅只在校园网/VPN 内生效，
 另有「应用内 WebVPN 浏览器」通道，见
 `docs/WEBVPN_IN_APP_BROWSER_DEVELOPMENT_PLAN.md`（含落地前评审
 `docs/WEBVPN_IN_APP_BROWSER_PLAN_REVIEW.md`）。
 
-> **当前状态**：阶段 1（单例窗口 + 导航策略 + 会话状态机）已落地；
-> **阶段 0 协议探测尚未执行**，因此下载捕获归档（阶段 2）与客户端入口（阶段 3）
-> **尚未接入**——转发规则必须由实测确定，禁止按截图猜测。
+> **当前状态**：真实 USTC 转发规则、单例 WebVPN 窗口、下载捕获归档和客户端入口均已接入。
+> 正式安装包仍需完成一次真实 PDF 归档与跨应用重启会话验收。
 
 两条通道**共用同一套服务端契约**：一次性令牌、数据库只存 SHA-256、默认 20 分钟有效、
 `PUT /api/lab-capture-upload`、100 MB 上限、同样的 PDF/SI 校验，以及同样的
 `LabTasksService.registerCapturedFile` 登记（复用原 bundleId/reportId，provenance
 `source = manual-browser-capture`）。差别只在**下载发生在哪个浏览器里**：
 
-| | 外部通道（本文档） | WebVPN 通道（规划中） |
+| | 外部通道（本文档） | WebVPN 通道 |
 |---|---|---|
 | 下载所在浏览器 | 系统 Chrome / Edge | 桌面端内置 WebView2 窗口 |
 | 捕获方式 | 扩展 + Native Messaging 本地桥接 | 桌面端自己的下载回调 |
 | 是否需要装扩展 | 需要 | **不需要** |
 | 登录态载体 | 系统浏览器自己的 profile | 专属 profile（应用数据目录下） |
+
+使用方法：在数据库状态区点击“打开 WebVPN”，完成学校登录后点击“我已登录”。之后点击
+尚未归档的 PDF/SI，应用会直接在同一 WebVPN 窗口打开出版社页面；在网页中点击 PDF
+下载按钮即可自动归档。若 WebVPN 打开失败，客户端会撤销本地布防并使用同一个任务回退到 Edge。
 
 **WebVPN 侧的额外安全边界**：
 
@@ -176,9 +179,10 @@ python install-bridge.py --uninstall
 | 上传提示 413 | 文件超过 100 MB 上限 |
 | 出版社页面打不开 | 检查服务器网络；DOI 页面由浏览器直接打开，与服务器无关 |
 | WebVPN 诊断面板不显示 | 该面板**只在 debug 构建出现**：release 包里 `webvpn_probe_available` 返回 false，面板整体隐藏且相关命令拒绝执行。调试 WebVPN 窗口只能用 debug 构建（`cargo tauri dev`）；`devtools` feature 同样未启用 |
-| 提示「尚未配置 WebVPN 门户地址」 | 先在诊断面板的阶段 1 区块填写门户地址并保存。未配置时命令会明确报错，**不会猜测任何域名** |
+| 提示 WebVPN 门户地址无效 | 默认已配置中国科大门户；若手动修改过策略，在诊断面板恢复 `https://wvpn.ustc.edu.cn/` |
 | WebVPN 登录页打不开或白屏 | 多半是导航白名单漏了统一认证域名：查看「被白名单拦下的域名」，点「放行」加入白名单（会写回配置）。建议先确认清单覆盖完整链路，再勾选「启用导航白名单拦截」 |
 | 点「打开门户」后无法继续跳转 | 会话仍停在 `waiting-login`：完成统一身份认证后需点「我已登录」确认。这是刻意的——把「门户页加载完成」当登录成功会把验证码/二次验证的中间态误判为可用 |
+| 下载后状态变成 `error` | 下载失败、WebView2 未返回路径或文件与当前任务不匹配；重新点击文献按钮发起新任务，也可直接使用 Edge 回退 |
 
 ## 测试
 
