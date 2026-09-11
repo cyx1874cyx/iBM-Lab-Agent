@@ -587,6 +587,10 @@ cd desktop/src-tauri && cargo tauri dev
 
 阶段 0 仍卡在用户登录，因此继续推进阶段 4 中**不依赖探测器输出**的三项。
 
+| 提交 | 内容 |
+|---|---|
+| `a454295` | `chore(hardening): seal the capabilities gate, the WebVPN secret surface, and the kill timing`（5 个文件，+303/−9） |
+
 ### 14.1 `killPythonTree` 的时序硬化（不是"修掉了一个可复现的 flake"）
 
 **问题**：`lib/evidence-shot.js::killPythonTree` 以 fire-and-forget 方式
