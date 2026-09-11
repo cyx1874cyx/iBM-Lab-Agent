@@ -1,8 +1,9 @@
 use std::ffi::OsString;
 use std::fs;
-use std::io::Read;
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[cfg(windows)]
@@ -56,6 +57,7 @@ impl Drop for JobHandle {
 
 pub struct ManagedProcess {
     child: Child,
+    startup_url: Arc<Mutex<Option<String>>>,
     #[cfg(windows)]
     job: Option<JobHandle>,
 }
@@ -67,19 +69,44 @@ impl ManagedProcess {
     pub fn try_wait(&mut self) -> std::io::Result<Option<ExitStatus>> {
         self.child.try_wait()
     }
+    pub fn startup_url(&self) -> Option<String> {
+        self.startup_url.lock().ok()?.clone()
+    }
 }
 
-fn pipe_to_log<R: Read + Send + 'static>(mut reader: R, logger: AppLogger, file: &'static str) {
+fn extract_startup_url(line: &str) -> Option<String> {
+    line.split_whitespace().find_map(|word| {
+        let candidate = word.trim_end_matches(|ch: char| matches!(ch, ',' | ';' | ')' | ']'));
+        let parsed = url::Url::parse(candidate).ok()?;
+        if parsed.scheme() != "http" || parsed.host_str() != Some("127.0.0.1") {
+            return None;
+        }
+        parsed.port()?;
+        if !parsed
+            .query_pairs()
+            .any(|(key, value)| key == "token" && !value.is_empty())
+        {
+            return None;
+        }
+        Some(candidate.to_string())
+    })
+}
+
+fn pipe_to_log<R: Read + Send + 'static>(
+    reader: R,
+    logger: AppLogger,
+    file: &'static str,
+    startup_url: Option<Arc<Mutex<Option<String>>>>,
+) {
     thread::spawn(move || {
-        let mut buffer = [0; 4096];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) | Err(_) => break,
-                Ok(size) => {
-                    let text = String::from_utf8_lossy(&buffer[..size]);
-                    let _ = logger.write(file, &text);
+        for line in BufReader::new(reader).lines() {
+            let Ok(line) = line else { break };
+            if let (Some(shared), Some(url)) = (&startup_url, extract_startup_url(&line)) {
+                if let Ok(mut slot) = shared.lock() {
+                    *slot = Some(url);
                 }
             }
+            let _ = logger.write(file, &line);
         }
     });
 }
@@ -175,11 +202,17 @@ pub fn spawn_dsh(
     let mut child = command
         .spawn()
         .map_err(|error| RuntimeError::new(format!("Cannot start bundled DSH: {error}")))?;
+    let startup_url = Arc::new(Mutex::new(None));
     if let Some(stdout) = child.stdout.take() {
-        pipe_to_log(stdout, logger.clone(), "dsh.log");
+        pipe_to_log(
+            stdout,
+            logger.clone(),
+            "dsh.log",
+            Some(Arc::clone(&startup_url)),
+        );
     }
     if let Some(stderr) = child.stderr.take() {
-        pipe_to_log(stderr, logger.clone(), "stderr.log");
+        pipe_to_log(stderr, logger.clone(), "stderr.log", None);
     }
     #[cfg(windows)]
     let job = match create_kill_on_close_job(&child) {
@@ -199,6 +232,7 @@ pub fn spawn_dsh(
     };
     Ok(ManagedProcess {
         child,
+        startup_url,
         #[cfg(windows)]
         job,
     })
@@ -538,5 +572,19 @@ mod tests {
             .iter()
             .any(|(key, _)| *key == "IBM_LAB_MNOVA_WORKSPACE"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn extracts_authenticated_dsh_startup_url() {
+        let expected = "http://127.0.0.1:3080/?token=secret-value";
+        assert_eq!(
+            extract_startup_url(&format!("dsh web: {expected}")),
+            Some(expected.to_string())
+        );
+        assert_eq!(extract_startup_url("dsh web: http://127.0.0.1:3080/"), None);
+        assert_eq!(
+            extract_startup_url("dsh web: http://localhost:3080/?token=secret-value"),
+            None
+        );
     }
 }

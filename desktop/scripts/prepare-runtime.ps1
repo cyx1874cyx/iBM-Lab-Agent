@@ -363,6 +363,22 @@ if ($refreshDsh) {
   Copy-Tree $dshSource (Join-Path $tempResourceRoot 'dsh\node_modules') `
     -ExcludeDirectories @((Join-Path $dshSource '.pnpm')) `
     -ExcludeFiles @('.modules.yaml', '.package-map.json', '.pnpm-workspace-state-v1.json')
+  # The desktop shell embeds DSH from the Tauri origin. DSH 0.1.5's Strict
+  # browser-session cookie is therefore withheld by WebView2 after the token
+  # redirect. Preserve authenticated embedding with an explicit secure
+  # cross-site cookie; DSH's Host/Origin fence remains in force for API calls.
+  $connectionPath = Join-Path $tempResourceRoot 'dsh\node_modules\@deepseek-ai\dsh-client-connection\lib\index.js'
+  $connectionText = [IO.File]::ReadAllText($connectionPath)
+  $strictCookie = 'HttpOnly; SameSite=Strict'
+  $embeddedCookie = 'HttpOnly; SameSite=None; Secure'
+  if (($connectionText.Split($strictCookie).Count - 1) -ne 1) {
+    throw "DSH embedded-auth patch anchor changed: $connectionPath"
+  }
+  [IO.File]::WriteAllText(
+    $connectionPath,
+    $connectionText.Replace($strictCookie, $embeddedCookie),
+    [Text.UTF8Encoding]::new($false)
+  )
   Write-Phase ("DSH tree copied in {0:n1}s." -f $dshCopyWatch.Elapsed.TotalSeconds)
 }
 if ($refreshPlugin) {

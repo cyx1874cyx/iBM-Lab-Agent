@@ -40,6 +40,15 @@ test("prepare-runtime validates Ketcher before selective component refresh", asy
 	assert.match(source, /\[System\.IO\.FileShare\]::None/, "独占句柄锁判断");
 });
 
+test("desktop packaging preserves DSH authentication inside the WebView iframe", async () => {
+	const prepare = await read("desktop/scripts/prepare-runtime.ps1");
+	const verify = await read("desktop/scripts/verify-package.ps1");
+	assert.match(prepare, /HttpOnly; SameSite=Strict/);
+	assert.match(prepare, /HttpOnly; SameSite=None; Secure/);
+	assert.match(prepare, /DSH embedded-auth patch anchor changed/);
+	assert.match(verify, /browser authentication is not configured for the embedded WebView/);
+});
+
 test("desktop documentation points Agents at the unified Windows release command", async () => {
 	const readme = await read("desktop/README.md");
 	assert.match(readme, /build-windows-release\.ps1/);

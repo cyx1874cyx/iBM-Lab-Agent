@@ -30,6 +30,12 @@ foreach ($relativePath in $required) {
   if (-not (Test-Path -LiteralPath $path)) { throw "Missing packaged runtime input: $relativePath" }
 }
 
+$connectionPath = Join-Path $resourceRoot 'dsh\node_modules\@deepseek-ai\dsh-client-connection\lib\index.js'
+$connectionText = [IO.File]::ReadAllText($connectionPath)
+if (-not $connectionText.Contains('HttpOnly; SameSite=None; Secure') -or $connectionText.Contains('HttpOnly; SameSite=Strict')) {
+  throw 'Bundled DSH browser authentication is not configured for the embedded WebView.'
+}
+
 # 0.4.0：Ketcher index.html 引用的每个哈希资源必须存在（防止清旧块时误删在用资源）。
 $ketcherIndex = Join-Path $resourceRoot 'plugin\dsh-lab-agent\client\assets\ketcher-standalone\index.html'
 $ketcherHtml = Get-Content -LiteralPath $ketcherIndex -Raw
@@ -193,11 +199,15 @@ try {
       }
 
       $ready = $false
+      $httpHandler = [System.Net.Http.HttpClientHandler]::new()
+      $httpHandler.AllowAutoRedirect = $false
+      $httpClient = [System.Net.Http.HttpClient]::new($httpHandler)
+      $httpClient.Timeout = [TimeSpan]::FromSeconds(2)
       for ($attempt = 1; $attempt -le 90; $attempt++) {
         if ($smokeProcess.HasExited) { break }
         try {
-          $response = Invoke-WebRequest -Uri (Add-SmokeToken "http://127.0.0.1:$port/" $token) -UseBasicParsing -TimeoutSec 2
-          if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) { $ready = $true; break }
+          $response = $httpClient.GetAsync("http://127.0.0.1:$port/").GetAwaiter().GetResult()
+          if ([int]$response.StatusCode -eq 401) { $ready = $true; break }
         } catch {}
         Start-Sleep -Seconds 1
       }
@@ -206,6 +216,19 @@ try {
         $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
         throw "Bundled DSH Web smoke test failed.`nSTDOUT:`n$stdout`nSTDERR:`n$stderr"
       }
+      $loginResponse = $httpClient.GetAsync(
+        (Add-SmokeToken "http://127.0.0.1:$port/" $token)
+      ).GetAwaiter().GetResult()
+      $setCookies = @($loginResponse.Headers.GetValues('Set-Cookie')) -join '; '
+      if ([int]$loginResponse.StatusCode -ne 303 -or
+          $loginResponse.Headers.Location.OriginalString -ne '/' -or
+          $setCookies -notmatch 'HttpOnly' -or
+          $setCookies -notmatch 'SameSite=None' -or
+          $setCookies -notmatch 'Secure') {
+        throw "Bundled DSH token exchange did not issue the embedded-WebView session cookie (status=$([int]$loginResponse.StatusCode))."
+      }
+      $httpClient.Dispose()
+      $httpHandler.Dispose()
       if ($stderr -match 'service\s+["'']labAgent["'']\s+has been registered|plugin tree failed to load') {
         throw "Bundled DSH Web reported a duplicate service or plugin-tree error:`n$stderr"
       }
