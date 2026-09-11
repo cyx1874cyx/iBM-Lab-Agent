@@ -85,3 +85,22 @@ test("导航白名单的逃生阀存在：被拒域名可诊断且可放行", as
 	// UI 必须真的把「待放行」渲染成可点击入口。
 	assert.match(shell, /deniedHosts[\s\S]{0,900}?invoke\('webvpn_allow_host'/);
 });
+
+test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
+	const [shell, main, webvpn, client] = await Promise.all([
+		shellSource(),
+		mainSource(),
+		webvpnSource(),
+		read("client/src/lib.js"),
+	]);
+	assert.match(client, /WEBVPN_STATUS/);
+	assert.match(client, /WEBVPN_OPEN_CAPTURE/);
+	assert.match(client, /WEBVPN_CLEAR_SESSION/);
+	assert.match(shell, /invoke\('webvpn_open_capture'/);
+	assert.match(shell, /invoke\('webvpn_clear_session'/);
+	assert.match(main, /fn webvpn_open_capture\(/);
+	assert.match(main, /fn webvpn_cancel_capture\(/);
+	assert.match(webvpn, /build_wrd_proxy_url/);
+	assert.match(webvpn, /download_destination/);
+	assert.match(webvpn, /upload_capture/);
+});

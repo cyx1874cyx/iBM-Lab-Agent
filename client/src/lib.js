@@ -237,6 +237,37 @@ export const openInEdgeViaShell = (url) => new Promise((resolve, reject) => {
 			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_IN_EDGE", requestId, url }, "*"); }
 			catch (reason) { finish(reject, reason); }
 		});
+
+const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise((resolve, reject) => {
+	const requestId = globalThis.crypto?.randomUUID?.() ?? `webvpn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	let settled = false;
+	const finish = (callback, value) => {
+		if (settled) return;
+		settled = true;
+		clearTimeout(timer);
+		window.removeEventListener("message", onResult);
+		callback(value);
+	};
+	const resultType = `${type}_RESULT`;
+	const onResult = (event) => {
+		if (event.source !== window.parent) return;
+		const data = event.data;
+		if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== resultType || data.requestId !== requestId) return;
+		if (data.payload?.ok) finish(resolve, data.payload.result);
+		else finish(reject, new Error(data.payload?.error || "桌面 WebVPN 操作失败"));
+	};
+	const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应 WebVPN 请求")), timeoutMs);
+	window.addEventListener("message", onResult);
+	try { window.parent.postMessage({ source: "ibm-lab-agent", type, requestId, payload }, "*"); }
+	catch (reason) { finish(reject, reason); }
+});
+
+export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+export const openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
+export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
+export const openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000);
+export const cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
+export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15000);
 		/** 只向桌面 shell 传文献标识；本地阅读地址由 Rust 按当前运行端口生成。 */
 export const openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
 			const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-browser-${Date.now()}-${Math.random().toString(36).slice(2)}`;

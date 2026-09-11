@@ -27,11 +27,12 @@ pub struct McpServerConfig {
 ///
 /// **不得存放任何凭据、Cookie、Local Storage 内容或 SSO ticket**：登录态完全由
 /// WebView2 的专属 profile 目录承载，这里只存非敏感的导航策略。
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub const DEFAULT_WEBVPN_PORTAL: &str = "https://wvpn.ustc.edu.cn/";
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebVpnConfig {
-    /// 学校 WebVPN 门户地址。**默认留空**：在阶段 0 实测确认前不写死任何域名
-    /// （计划明确禁止按截图猜测转发规则）。
+    /// 学校 WebVPN 门户地址。该地址已在真实 USTC 会话中完成阶段 0 验证。
     #[serde(default)]
     pub portal_url: String,
     /// 额外放行的域名（统一认证、二次验证、WebVPN 代理域名、出版社）。
@@ -44,6 +45,16 @@ pub struct WebVpnConfig {
     /// SSO 登录流程自己锁死，且用户无法自救。白名单由实测结果填充后再翻转。
     #[serde(default)]
     pub enforce_navigation: bool,
+}
+
+impl Default for WebVpnConfig {
+    fn default() -> Self {
+        Self {
+            portal_url: DEFAULT_WEBVPN_PORTAL.to_string(),
+            allowed_hosts: vec!["id.ustc.edu.cn".to_string()],
+            enforce_navigation: true,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -297,6 +308,13 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
             tool_profile: None,
         });
     }
+    let webvpn = if disk.webvpn.portal_url.trim().is_empty() {
+        // 阶段 0 前的开发构建曾把空配置写入磁盘。现在门户已经实测确认，
+        // 将这类旧值迁移到安全默认值，避免升级后仍提示“尚未配置”。
+        WebVpnConfig::default()
+    } else {
+        disk.webvpn
+    };
     Ok(AppConfig {
         api_key,
         base_url: disk.base_url,
@@ -305,7 +323,7 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
         mnova_mcp_enabled: disk.mnova_mcp_enabled,
         mnova_mcp_dir: disk.mnova_mcp_dir,
         mcp_servers,
-        webvpn: disk.webvpn,
+        webvpn,
     })
 }
 
@@ -511,8 +529,8 @@ mod tests {
     }
 
     #[test]
-    fn webvpn_config_is_absent_from_json_until_it_is_configured() {
-        // 默认（全默认）配置不应把空 WebVPN 段落写进磁盘。
+    fn webvpn_config_uses_safe_ustc_defaults_when_absent() {
+        // 默认配置固定到已经实测验证的 USTC 门户与统一认证域名。
         let dir = sandbox("webvpn-default");
         save(&dir, AppConfig::default()).unwrap();
         let json = fs::read_to_string(dir.join("app-config.json")).unwrap();
@@ -520,17 +538,16 @@ mod tests {
         assert_eq!(
             parsed.get("webvpn"),
             Some(&serde_json::json!({
-                "portalUrl": "",
-                "allowedHosts": [],
-                "enforceNavigation": false
+                "portalUrl": "https://wvpn.ustc.edu.cn/",
+                "allowedHosts": ["id.ustc.edu.cn"],
+                "enforceNavigation": true
             })),
             "默认 WebVPN 段落形状应稳定，便于前端读取：{json}"
         );
-        // 默认必须不含任何域名——阶段 0 未确认前不得写死门户地址。
         let webvpn = load(&dir).unwrap().webvpn;
-        assert!(webvpn.portal_url.is_empty());
-        assert!(webvpn.allowed_hosts.is_empty());
-        assert!(!webvpn.enforce_navigation, "默认不得开启拦截");
+        assert_eq!(webvpn.portal_url, DEFAULT_WEBVPN_PORTAL);
+        assert_eq!(webvpn.allowed_hosts, vec!["id.ustc.edu.cn"]);
+        assert!(webvpn.enforce_navigation);
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -543,8 +560,11 @@ mod tests {
             r#"{"baseUrl":"","model":"","workspace":"","mnovaMcpEnabled":false,"mnovaMcpDir":"","mcpServers":[]}"#,
         );
         let legacy = load(&dir).unwrap().webvpn;
-        assert!(legacy.portal_url.is_empty(), "缺失字段应落回默认值");
-        assert!(!legacy.enforce_navigation);
+        assert_eq!(
+            legacy.portal_url, DEFAULT_WEBVPN_PORTAL,
+            "缺失字段应落回默认值"
+        );
+        assert!(legacy.enforce_navigation);
 
         // 写入后回读必须逐字段一致。
         save(

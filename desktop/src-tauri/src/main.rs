@@ -350,7 +350,8 @@ fn open_artifact_in_browser(
     })
 }
 
-fn launch_edge(url: &str) -> Result<(), String> {    let candidates = [
+fn launch_edge(url: &str) -> Result<(), String> {
+    let candidates = [
         std::path::PathBuf::from(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
         std::path::PathBuf::from(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
         std::env::var_os("LOCALAPPDATA")
@@ -437,6 +438,74 @@ fn webvpn_confirm_login(app: tauri::AppHandle) -> Result<(), String> {
     state
         .transition(webvpn::WebVpnSessionState::Ready)
         .map(|_| ())
+}
+
+fn capture_upload_url(port: u16, token: &str) -> Result<url::Url, String> {
+    if !(32..=128).contains(&token.len())
+        || !token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err("一次性捕获令牌格式无效".to_string());
+    }
+    let mut url = url::Url::parse(&format!("http://127.0.0.1:{port}/api/lab-capture-upload"))
+        .map_err(|_| "无法构造捕获上传地址".to_string())?;
+    url.query_pairs_mut().append_pair("token", token);
+    Ok(url)
+}
+
+/// 在已登录的 WebVPN 单例窗口中打开文献，并把下一次 PDF 下载绑定到现有
+/// manual-capture 一次性任务。客户端必须先确认会话 ready，再创建服务端任务。
+#[tauri::command]
+fn webvpn_open_capture(
+    task_id: String,
+    kind: String,
+    target_url: String,
+    token: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<webvpn::WebVpnStatus, String> {
+    let window = app
+        .get_webview_window(webvpn::WINDOW_LABEL)
+        .ok_or_else(|| "请先打开 WebVPN 并完成登录".to_string())?;
+    let webvpn_state = app
+        .try_state::<webvpn::WebVpnState>()
+        .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
+    if webvpn_state.state() != webvpn::WebVpnSessionState::Ready {
+        return Err("请先完成 WebVPN 登录并点击“我已登录”".to_string());
+    }
+    let config = state.0.load_config().map_err(|error| error.to_string())?;
+    let target = webvpn::validate_target(&target_url)?;
+    let proxy = webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?;
+    let port = state
+        .0
+        .status()
+        .port
+        .ok_or_else(|| "本地 DSH 服务尚未就绪".to_string())?;
+    let upload_url = capture_upload_url(port, &token)?;
+    let temp_path = webvpn::capture_temp_path(state.0.data_root(), &task_id, &kind)?;
+    webvpn_state.prepare_capture(
+        &task_id,
+        &kind,
+        target.host_str().unwrap_or_default(),
+        upload_url,
+        temp_path,
+    )?;
+    if let Err(error) = window.navigate(proxy) {
+        let _ = webvpn_state.cancel_capture(&task_id);
+        return Err(format!("无法打开 WebVPN 文献页面: {error}"));
+    }
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+    Ok(webvpn::status_of(&app, &config.webvpn))
+}
+
+#[tauri::command]
+fn webvpn_cancel_capture(task_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    app.try_state::<webvpn::WebVpnState>()
+        .ok_or_else(|| "WebVPN 状态不可用".to_string())?
+        .cancel_capture(&task_id)
 }
 
 /// 放行一个此前被白名单拦下的域名，并写回配置。
@@ -624,6 +693,8 @@ fn main() {
             webvpn_probe_open,
             webvpn_open_login,
             webvpn_confirm_login,
+            webvpn_open_capture,
+            webvpn_cancel_capture,
             webvpn_allow_host,
             webvpn_set_policy,
             webvpn_status,
@@ -638,7 +709,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{artifact_read_url, preflight_pdf, validate_open_request};
+    use super::{artifact_read_url, capture_upload_url, preflight_pdf, validate_open_request};
     use std::io::{Read, Write};
 
     /// 起一个一次性 loopback HTTP 服务，返回固定响应；返回 (port, 响应生成闭包已执行)。
@@ -697,6 +768,32 @@ mod tests {
             "{url}"
         );
         assert!(!url.contains("evil.example/"), "{url}");
+    }
+
+    #[test]
+    fn capture_upload_url_is_loopback_and_rejects_unsafe_tokens() {
+        let token = "abcdefghijklmnopqrstuvwxyz0123456789ABCDE";
+        let url = capture_upload_url(3080, token).unwrap();
+        assert_eq!(url.scheme(), "http");
+        assert_eq!(url.host_str(), Some("127.0.0.1"));
+        assert_eq!(url.port(), Some(3080));
+        assert_eq!(url.path(), "/api/lab-capture-upload");
+        assert_eq!(
+            url.query_pairs()
+                .find(|(key, _)| key == "token")
+                .map(|(_, value)| value.into_owned()),
+            Some(token.to_string())
+        );
+        for bad in [
+            "short",
+            "contains+plus/",
+            "contains space and is certainly long enough to pass length",
+        ] {
+            assert!(
+                capture_upload_url(3080, bad).is_err(),
+                "应拒绝非法 token: {bad:?}"
+            );
+        }
     }
 
     #[test]

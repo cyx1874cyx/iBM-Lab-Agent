@@ -12,11 +12,16 @@
 //!     只记录不拦截——否则无法发现学校 SSO 的真实域名集合。
 //!   - 阶段 1（单例窗口）：`webvpn_open` / `webvpn_hide` / `webvpn_clear_session`，
 //!     策略为白名单拦截。
-//!   - 阶段 2（下载捕获）尚未接入：本模块只记录 `on_download`，不改写下载路径。
+//!   - 阶段 2（下载捕获）：把单个待捕获下载写入应用临时目录，再上传到现有
+//!     一次性捕获端点。认证材料始终留在 WebView2 profile 内。
 
+use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
+use aes::Aes128;
+use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
     utils::config::WebviewUrl,
@@ -43,6 +48,10 @@ const MAX_DENIED_HOSTS: usize = 50;
 
 /// 单条 URL 值允许写入日志的最大长度。
 const MAX_LOGGED_VALUE: usize = 300;
+
+const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
+const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
+const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 
 /// 出现这些参数名时一律脱敏。长度 <= 2 的按全等匹配，其余按包含匹配——
 /// 否则 "t" 会命中 "target" 之类的正常参数名，把有用的信息也一起抹掉。
@@ -97,6 +106,12 @@ pub enum WebVpnSessionState {
     Ready,
     /// 正在转发目标页。
     Navigating,
+    /// 已到目标页，等待用户点击下载。
+    WaitingDownload,
+    /// 下载完成，正在上传到本地捕获端点。
+    Uploading,
+    /// 待捕获任务已经过期。
+    Expired,
     /// 导航、加载或配置失败。
     Error,
 }
@@ -115,8 +130,12 @@ impl WebVpnSessionState {
             (WaitingLogin, Ready) => true,
             (WaitingLogin, Navigating) => true,
             (Ready, Navigating) => true,
-            // 转发结束后回到 Ready：阶段 2 会在此之后进入 waiting-download。
             (Navigating, Ready) => true,
+            (Navigating, WaitingDownload) => true,
+            (WaitingDownload, Uploading) => true,
+            (Uploading, Ready) => true,
+            (WaitingDownload, Ready) => true,
+            (Expired, Ready) => true,
             // 任何非关闭态都可能失败或需要重开。
             (_, Error) => true,
             (Error, Opening) => true,
@@ -190,6 +209,27 @@ struct Session {
     /// 的逃生阀：UI 据此提示用户是否放行，而不是让用户面对一个静默空白页。
     denied_hosts: Vec<String>,
     last_error: Option<String>,
+    pending: Option<PendingCapture>,
+    generation: u64,
+}
+
+#[derive(Debug, Clone)]
+struct PendingCapture {
+    generation: u64,
+    task_id: String,
+    kind: String,
+    upload_url: url::Url,
+    temp_path: PathBuf,
+    expires_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingUpload {
+    generation: u64,
+    pub task_id: String,
+    pub kind: String,
+    pub upload_url: url::Url,
+    pub path: PathBuf,
 }
 
 #[derive(Default)]
@@ -219,6 +259,8 @@ pub struct WebVpnStatus {
     pub target_host: Option<String>,
     pub denied_hosts: Vec<String>,
     pub last_error: Option<String>,
+    pub pending_task_id: Option<String>,
+    pub pending_kind: Option<String>,
     /// WebVPN 窗口当前是否已创建（隐藏也算已创建）。
     pub window_open: bool,
     /// 探测模式是否可用（仅 debug 构建为 true）。
@@ -291,6 +333,144 @@ impl WebVpnState {
         Ok(())
     }
 
+    pub fn prepare_capture(
+        &self,
+        task_id: &str,
+        kind: &str,
+        target_host: &str,
+        upload_url: url::Url,
+        temp_path: PathBuf,
+    ) -> Result<u64, String> {
+        let Ok(mut session) = self.session.lock() else {
+            return Err("WebVPN 状态不可用".to_string());
+        };
+        if session.state != WebVpnSessionState::Ready {
+            return Err("请先打开 WebVPN、完成登录并点击“我已登录”".to_string());
+        }
+        if let Some(active) = session.pending.as_ref() {
+            if active.expires_at > Instant::now() {
+                return Err(format!(
+                    "已有 {} 捕获任务正在进行，请先完成或取消",
+                    active.kind
+                ));
+            }
+        }
+        session.pending = None;
+        session.generation = session.generation.wrapping_add(1).max(1);
+        let generation = session.generation;
+        session.pending = Some(PendingCapture {
+            generation,
+            task_id: task_id.to_string(),
+            kind: kind.to_string(),
+            upload_url,
+            temp_path,
+            expires_at: Instant::now() + CAPTURE_TTL,
+        });
+        session.state = WebVpnSessionState::Navigating;
+        session.target_host = Some(target_host.to_ascii_lowercase());
+        session.last_error = None;
+        Ok(generation)
+    }
+
+    fn download_destination(&self) -> Option<PathBuf> {
+        let Ok(mut session) = self.session.lock() else {
+            return None;
+        };
+        let expired = session
+            .pending
+            .as_ref()
+            .map(|pending| pending.expires_at <= Instant::now())
+            .unwrap_or(false);
+        if expired {
+            let path = session.pending.take().map(|pending| pending.temp_path);
+            session.state = WebVpnSessionState::Expired;
+            session.last_error = Some("文献捕获任务已过期，请重新发起".to_string());
+            drop(session);
+            if let Some(path) = path {
+                let _ = fs::remove_file(path);
+            }
+            return None;
+        }
+        session
+            .pending
+            .as_ref()
+            .map(|pending| pending.temp_path.clone())
+    }
+
+    fn begin_upload(&self, path: &Path) -> Option<PendingUpload> {
+        let Ok(mut session) = self.session.lock() else {
+            return None;
+        };
+        let pending = session.pending.as_ref()?;
+        if pending.temp_path != path || pending.expires_at <= Instant::now() {
+            return None;
+        }
+        let upload = PendingUpload {
+            generation: pending.generation,
+            task_id: pending.task_id.clone(),
+            kind: pending.kind.clone(),
+            upload_url: pending.upload_url.clone(),
+            path: path.to_path_buf(),
+        };
+        session.state = WebVpnSessionState::Uploading;
+        session.last_error = None;
+        Some(upload)
+    }
+
+    pub fn finish_upload(&self, generation: u64, result: Result<(), String>) {
+        let Ok(mut session) = self.session.lock() else {
+            return;
+        };
+        if session.pending.as_ref().map(|pending| pending.generation) != Some(generation) {
+            return;
+        }
+        session.pending = None;
+        match result {
+            Ok(()) => {
+                session.state = WebVpnSessionState::Ready;
+                session.last_error = None;
+            }
+            Err(error) => {
+                session.state = WebVpnSessionState::Error;
+                session.last_error = Some(error);
+            }
+        }
+    }
+
+    fn fail_pending_download(&self, message: &str) {
+        let path = {
+            let Ok(mut session) = self.session.lock() else {
+                return;
+            };
+            let path = session.pending.take().map(|pending| pending.temp_path);
+            if path.is_some() {
+                session.state = WebVpnSessionState::Error;
+                session.last_error = Some(message.to_string());
+            }
+            path
+        };
+        if let Some(path) = path {
+            let _ = fs::remove_file(path);
+        }
+    }
+
+    pub fn cancel_capture(&self, task_id: &str) -> Result<(), String> {
+        let Ok(mut session) = self.session.lock() else {
+            return Err("WebVPN 状态不可用".to_string());
+        };
+        if let Some(pending) = session.pending.as_ref() {
+            if pending.task_id != task_id {
+                return Err("当前 WebVPN 捕获任务与请求不匹配".to_string());
+            }
+            let path = pending.temp_path.clone();
+            session.pending = None;
+            session.state = WebVpnSessionState::Ready;
+            session.last_error = None;
+            let _ = fs::remove_file(path);
+        }
+        Ok(())
+    }
+
     pub fn fail(&self, message: &str) {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Error;
@@ -328,6 +508,7 @@ impl WebVpnState {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Closed;
             session.target_host = None;
+            session.pending = None;
         }
     }
 
@@ -347,9 +528,7 @@ impl WebVpnState {
         let Ok(mut session) = self.session.lock() else {
             return Err("WebVPN 状态不可用".to_string());
         };
-        session
-            .denied_hosts
-            .retain(|candidate| candidate != &host);
+        session.denied_hosts.retain(|candidate| candidate != &host);
         if !session.policy.allows(&host) {
             session.policy.allowed_hosts.push(host);
             session.policy.allowed_hosts.sort();
@@ -376,9 +555,13 @@ impl WebVpnState {
             }
             return false;
         }
-        // 转发落地：从 Navigating 回到 Ready（阶段 2 会在此之后进入等待下载）。
+        // 转发落地：存在捕获任务时等待用户点击出版社下载按钮。
         if session.state == WebVpnSessionState::Navigating {
-            session.state = WebVpnSessionState::Ready;
+            session.state = if session.pending.is_some() {
+                WebVpnSessionState::WaitingDownload
+            } else {
+                WebVpnSessionState::Ready
+            };
         }
         true
     }
@@ -393,6 +576,8 @@ impl WebVpnState {
                 target_host: session.target_host.clone(),
                 denied_hosts: session.denied_hosts.clone(),
                 last_error: session.last_error.clone(),
+                pending: session.pending.clone(),
+                generation: session.generation,
             })
             .unwrap_or_default();
         WebVpnStatus {
@@ -405,6 +590,11 @@ impl WebVpnState {
             target_host: session.target_host,
             denied_hosts: session.denied_hosts,
             last_error: session.last_error,
+            pending_task_id: session
+                .pending
+                .as_ref()
+                .map(|pending| pending.task_id.clone()),
+            pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
             window_open,
             probe_available: Self::probe_available(),
         }
@@ -415,6 +605,94 @@ impl WebVpnState {
     pub fn probe_available() -> bool {
         cfg!(debug_assertions)
     }
+}
+
+type Aes128CfbEnc = cfb_mode::Encryptor<Aes128>;
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// 构造网瑞达 WebVPN 的代理 URL。阶段 0 已用 USTC Nature、ACS、ScienceDirect
+/// 实测确认：AES-128-CFB 加密目标 host，key/IV 均为 `wrdvpnisthebest!`，
+/// 路径与 query 原样附在密文 host 之后。
+pub fn build_wrd_proxy_url(portal: &str, target: &url::Url) -> Result<url::Url, String> {
+    let portal = validate_target(portal)?;
+    let host = target
+        .host_str()
+        .ok_or_else(|| "目标地址缺少主机名".to_string())?;
+    let mut encrypted = host.as_bytes().to_vec();
+    Aes128CfbEnc::new(WRD_KEY.into(), WRD_KEY.into()).encrypt(&mut encrypted);
+    let encoded_host = format!("{}{}", hex_bytes(WRD_KEY), hex_bytes(&encrypted));
+    let mut proxy = format!(
+        "{}/{}/{encoded_host}{}",
+        portal.origin().ascii_serialization(),
+        target.scheme(),
+        target.path()
+    );
+    if let Some(query) = target.query() {
+        proxy.push('?');
+        proxy.push_str(query);
+    }
+    url::Url::parse(&proxy).map_err(|_| "无法构造 WebVPN 转发地址".to_string())
+}
+
+pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<PathBuf, String> {
+    if !task_id.starts_with("capture-")
+        || !task_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        || !matches!(kind, "pdf" | "si")
+    {
+        return Err("文献捕获任务参数无效".to_string());
+    }
+    let dir = data_root.join(DOWNLOAD_DIR_NAME);
+    fs::create_dir_all(&dir).map_err(|error| format!("无法创建 WebVPN 下载临时目录: {error}"))?;
+    Ok(dir.join(format!("{task_id}-{kind}.pdf")))
+}
+
+pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
+    let body = fs::read(&upload.path).map_err(|error| format!("无法读取 WebVPN 下载文件: {error}"));
+    let result = body.and_then(|body| {
+        let response = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(120))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|error| format!("无法创建捕获上传请求: {error}"))?
+            .put(upload.upload_url.clone())
+            .header("content-type", "application/pdf")
+            .header(
+                "x-file-name",
+                format!("{}-{}.pdf", upload.task_id, upload.kind),
+            )
+            .body(body)
+            .send()
+            // reqwest 的错误显示可能包含完整请求 URL；该 URL 带一次性 token，
+            // 因此这里只返回固定文案，详细 URL 永不进入日志或 UI。
+            .map_err(|_| "WebVPN 下载已完成，但上传失败".to_string())?;
+        if !response.status().is_success() {
+            return Err(format!("捕获服务拒绝了文件（HTTP {}）", response.status()));
+        }
+        Ok(())
+    });
+    let _ = fs::remove_file(&upload.path);
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        state.finish_upload(upload.generation, result.clone());
+    }
+    let detail = result
+        .as_ref()
+        .map(|_| "归档完成")
+        .unwrap_or_else(|error| error.as_str());
+    record(
+        &app,
+        if result.is_ok() {
+            "captureCompleted"
+        } else {
+            "error"
+        },
+        "",
+        detail,
+    );
 }
 
 /// 位置脱敏：去掉 fragment 与用户凭据，并按参数名/取值特征对 query 脱敏。
@@ -445,7 +723,10 @@ pub fn redact_for_log(raw: &str) -> String {
             if is_sensitive_name(&key) || looks_like_opaque_secret(&value) {
                 serializer.append_pair(&key, "REDACTED");
             } else {
-                serializer.append_pair(&key, &value.chars().take(MAX_LOGGED_VALUE).collect::<String>());
+                serializer.append_pair(
+                    &key,
+                    &value.chars().take(MAX_LOGGED_VALUE).collect::<String>(),
+                );
             }
         }
     }
@@ -513,7 +794,10 @@ pub fn validate_target(raw: &str) -> Result<url::Url, String> {
 /// 拒绝 loopback、链路本地与私网地址。桌面客户端不能被当作访问本机
 /// 服务或内网的跳板。
 fn is_private_host(host: &str) -> bool {
-    let host = host.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
+    let host = host
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_ascii_lowercase();
     if host == "localhost" || host.ends_with(".localhost") || host == "::1" || host == "0.0.0.0" {
         return true;
     }
@@ -542,7 +826,9 @@ pub fn resolve_profile_dir(data_root: &Path) -> Result<PathBuf, String> {
 /// 词法路径包含检查，不访问文件系统（目录可能尚不存在）。
 /// 逐段比较而非字符串前缀，避免 `C:\data` 误判 `C:\data2`。
 fn ensure_strictly_inside(root: &Path, candidate: &Path) -> Result<(), String> {
-    let mut root_parts = root.components().filter(|c| matches!(c, Component::Normal(_)));
+    let mut root_parts = root
+        .components()
+        .filter(|c| matches!(c, Component::Normal(_)));
     let candidate_parts = candidate
         .components()
         .filter(|c| matches!(c, Component::Normal(_)))
@@ -639,17 +925,28 @@ pub fn open_window(
             true
         })
         .on_new_window(move |url, _features| {
-            // 阶段 0 只观察：放行并使用默认实现，以便记录真实弹窗域名。
-            // 新窗口不在 capabilities 列表内，因而没有任何 IPC 命令权限。
-            // 阶段 1 需据实测结果决定「受管从属窗口」还是「收敛回主窗口」。
-            record(&window_app, "newWindow", url.as_str(), "默认放行");
-            NewWindowResponse::Allow
+            // USTC 快速跳转和部分出版社链接会请求新窗口。统一收敛回单例窗口，
+            // 避免额外窗口脱离下载处理器与专属会话状态机。
+            record(
+                &window_app,
+                "newWindow",
+                url.as_str(),
+                "收敛到 WebVPN 单例窗口",
+            );
+            if let Some(window) = window_app.get_webview_window(WINDOW_LABEL) {
+                let _ = window.navigate(url.clone());
+            }
+            NewWindowResponse::Deny
         })
         .on_download(move |_webview, event| {
             match event {
                 DownloadEvent::Requested { url, destination } => {
-                    // 阶段 0 不改写路径：保留 WebView2 默认落盘位置，
-                    // 以便确认出版社给的是附件下载还是内联预览。
+                    if let Some(path) = download_app
+                        .try_state::<WebVpnState>()
+                        .and_then(|state| state.download_destination())
+                    {
+                        *destination = path;
+                    }
                     record(
                         &download_app,
                         "downloadRequested",
@@ -665,6 +962,24 @@ pub fn open_window(
                         None => format!("success={success} path=<unreported>"),
                     };
                     record(&download_app, "downloadFinished", url.as_str(), &detail);
+                    let state = download_app.try_state::<WebVpnState>();
+                    if !success {
+                        if let Some(state) = state {
+                            state.fail_pending_download("WebVPN 页面下载失败，请重新发起捕获");
+                        }
+                    } else if let Some(path) = path.as_deref() {
+                        if let Some(upload) = state.and_then(|state| state.begin_upload(path)) {
+                            let upload_app = download_app.clone();
+                            std::thread::spawn(move || upload_capture(upload_app, upload));
+                        } else if let Some(state) = download_app.try_state::<WebVpnState>() {
+                            state.fail_pending_download(
+                                "WebVPN 下载文件与当前捕获任务不匹配，请重试",
+                            );
+                        }
+                    } else if let Some(state) = state {
+                        state
+                            .fail_pending_download("WebVPN 下载完成，但系统未返回文件路径，请重试");
+                    }
                 }
                 _ => {}
             }
@@ -744,7 +1059,8 @@ mod tests {
     #[test]
     fn short_hints_match_exactly_so_real_params_are_not_collateral_damage() {
         // "t" 是敏感提示词，但不能因此把 "target" 也抹掉。
-        let redacted = redact_for_log("https://webvpn.example.edu/https/doi.org/x?target=nature&t=abc123");
+        let redacted =
+            redact_for_log("https://webvpn.example.edu/https/doi.org/x?target=nature&t=abc123");
         assert!(redacted.contains("t=REDACTED"), "{redacted}");
         assert!(redacted.contains("target=nature"), "{redacted}");
     }
@@ -801,7 +1117,10 @@ mod tests {
     #[test]
     fn nested_and_shallow_candidates_are_rejected() {
         let root = Path::new(r"C:\data");
-        assert!(ensure_strictly_inside(root, root).is_err(), "根目录自身不是子目录");
+        assert!(
+            ensure_strictly_inside(root, root).is_err(),
+            "根目录自身不是子目录"
+        );
         assert!(
             ensure_strictly_inside(root, Path::new(r"C:\data\a\b")).is_err(),
             "只允许一层子目录"
@@ -914,10 +1233,7 @@ mod tests {
         assert!(state.decide_navigation("unknown-idp.example.edu"));
         assert!(state.decide_navigation("doi.org"));
         let status = state.status(&WebVpnConfig::default(), false);
-        assert!(
-            status.denied_hosts.is_empty(),
-            "只记录模式不应产生被拦域名"
-        );
+        assert!(status.denied_hosts.is_empty(), "只记录模式不应产生被拦域名");
     }
 
     #[test]
@@ -929,7 +1245,10 @@ mod tests {
             true,
         ));
         assert!(!state.decide_navigation("sso.unknown.edu"));
-        assert!(!state.decide_navigation("sso.unknown.edu"), "重复拦截应去重");
+        assert!(
+            !state.decide_navigation("sso.unknown.edu"),
+            "重复拦截应去重"
+        );
         let status = state.status(&WebVpnConfig::default(), true);
         assert_eq!(status.denied_hosts, vec!["sso.unknown.edu".to_string()]);
 
@@ -1012,9 +1331,7 @@ mod tests {
             .transition(WebVpnSessionState::Opening)
             .expect("关闭态可以打开");
         // 非法迁移必须报错而不是静默改写——否则 UI 与 shell 的状态理解会漂移。
-        assert!(state
-            .transition(WebVpnSessionState::Navigating)
-            .is_err());
+        assert!(state.transition(WebVpnSessionState::Navigating).is_err());
 
         state
             .transition(WebVpnSessionState::WaitingLogin)
@@ -1022,19 +1339,14 @@ mod tests {
         state
             .transition(WebVpnSessionState::Ready)
             .expect("用户确认登录");
-        state
-            .begin_navigation("doi.org")
-            .expect("已确认后可以转发");
+        state.begin_navigation("doi.org").expect("已确认后可以转发");
         let navigating = state.status(&config, true);
         assert_eq!(navigating.state, WebVpnSessionState::Navigating);
         assert_eq!(navigating.target_host.as_deref(), Some("doi.org"));
 
         // 转发落地后回到 Ready，并清除目标。
         assert!(state.decide_navigation("doi.org"));
-        assert_eq!(
-            state.status(&config, true).state,
-            WebVpnSessionState::Ready
-        );
+        assert_eq!(state.status(&config, true).state, WebVpnSessionState::Ready);
 
         state.fail("导航失败");
         let failed = state.status(&config, true);
@@ -1076,16 +1388,16 @@ mod tests {
         };
         let status = state.status(&config, false);
         assert_eq!(status.portal_url, "https://webvpn.example.edu/");
-        assert!(
-            !status.enforce_navigation,
-            "探测模式实际生效的是只记录策略"
-        );
+        assert!(!status.enforce_navigation, "探测模式实际生效的是只记录策略");
         assert!(
             status.allowed_hosts.is_empty(),
             "只记录策略下生效白名单为空"
         );
         // 用户意图与实际生效必须同时可见。
-        assert!(status.configured_enforce_navigation, "配置里的拦截开关为 true");
+        assert!(
+            status.configured_enforce_navigation,
+            "配置里的拦截开关为 true"
+        );
         assert_eq!(
             status.configured_allowed_hosts,
             vec!["idp.example.edu".to_string()]
@@ -1124,7 +1436,10 @@ mod tests {
         state.fail("上一次导航失败");
         state.enter_reused_session();
         assert_eq!(state.state(), WebVpnSessionState::WaitingLogin);
-        assert!(state.status(&WebVpnConfig::default(), true).last_error.is_none());
+        assert!(state
+            .status(&WebVpnConfig::default(), true)
+            .last_error
+            .is_none());
     }
 
     #[test]
@@ -1132,7 +1447,17 @@ mod tests {
         use WebVpnSessionState::*;
         // open_window 的新建分支 = 「若非 Closed 则归零」+「→ Opening」。
         // 只要这两步对任意起点都合法，"重新打开"就不可能被卡死。
-        for from in [Closed, Opening, WaitingLogin, Ready, Navigating, Error] {
+        for from in [
+            Closed,
+            Opening,
+            WaitingLogin,
+            Ready,
+            Navigating,
+            WaitingDownload,
+            Uploading,
+            Expired,
+            Error,
+        ] {
             assert!(from.can_transition_to(Closed), "{from:?} 必须能归零");
         }
         assert!(Closed.can_transition_to(Opening), "归零后必须能重新打开");
@@ -1150,5 +1475,96 @@ mod tests {
         state.transition(Opening).expect("归零后重开不得被卡死");
         state.transition(WaitingLogin).expect("重新进入等待登录");
         assert_eq!(state.state(), WaitingLogin);
+    }
+
+    #[test]
+    fn ustc_proxy_url_matches_the_observed_nature_route() {
+        let target =
+            validate_target("https://www.nature.com/articles/s41551-023-01022-4?preview=1#secret")
+                .unwrap();
+        let proxy = build_wrd_proxy_url("https://wvpn.ustc.edu.cn/", &target).unwrap();
+        assert_eq!(
+            proxy.as_str(),
+            "https://wvpn.ustc.edu.cn/https/77726476706e69737468656265737421e7e056d229317c456c0dc7af9758/articles/s41551-023-01022-4?preview=1"
+        );
+    }
+
+    #[test]
+    fn proxy_url_preserves_a_configured_portal_port() {
+        let target = validate_target("https://pubs.acs.org/").unwrap();
+        let proxy = build_wrd_proxy_url("https://vpn.example.edu:8443/", &target).unwrap();
+        assert_eq!(proxy.scheme(), "https");
+        assert_eq!(proxy.host_str(), Some("vpn.example.edu"));
+        assert_eq!(proxy.port(), Some(8443));
+    }
+
+    #[test]
+    fn capture_state_rejects_overlap_and_ignores_stale_completion() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let upload = url::Url::parse(
+            "http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE",
+        )
+        .unwrap();
+        let path = std::env::temp_dir().join("capture-one.pdf");
+        let generation = state
+            .prepare_capture(
+                "capture-abc123",
+                "pdf",
+                "www.nature.com",
+                upload.clone(),
+                path.clone(),
+            )
+            .unwrap();
+        assert!(state
+            .prepare_capture(
+                "capture-other",
+                "si",
+                "pubs.acs.org",
+                upload,
+                std::env::temp_dir().join("capture-two.pdf"),
+            )
+            .is_err());
+        assert!(state.decide_navigation("wvpn.ustc.edu.cn"));
+        assert_eq!(state.state(), WebVpnSessionState::WaitingDownload);
+        assert_eq!(
+            state.download_destination().as_deref(),
+            Some(path.as_path())
+        );
+        let pending = state.begin_upload(&path).expect("匹配下载应开始上传");
+        assert_eq!(pending.generation, generation);
+        state.finish_upload(generation.wrapping_add(1), Ok(()));
+        assert_eq!(state.state(), WebVpnSessionState::Uploading);
+        state.finish_upload(generation, Ok(()));
+        assert_eq!(state.state(), WebVpnSessionState::Ready);
+        assert!(state
+            .status(&WebVpnConfig::default(), true)
+            .pending_task_id
+            .is_none());
+    }
+
+    #[test]
+    fn failed_download_clears_pending_capture_and_enters_error() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let path = std::env::temp_dir().join("ibm-webvpn-failed-download.pdf");
+        std::fs::write(&path, b"partial").unwrap();
+        state
+            .prepare_capture(
+                "capture-failed",
+                "pdf",
+                "www.nature.com",
+                url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
+                path.clone(),
+            )
+            .unwrap();
+        state.fail_pending_download("下载失败");
+        let status = state.status(&WebVpnConfig::default(), true);
+        assert_eq!(status.state, WebVpnSessionState::Error);
+        assert_eq!(status.last_error.as_deref(), Some("下载失败"));
+        assert!(status.pending_task_id.is_none());
+        assert!(!path.exists());
     }
 }

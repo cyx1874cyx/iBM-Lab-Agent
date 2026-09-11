@@ -99,13 +99,16 @@ test("WebVPN 模块不得读取或导出浏览器 profile 内容", async () => {
 	]);
 	// 登录态只由 WebView2 独占使用：我们的代码可以创建/删除这个目录，
 	// 但一旦开始读取它，就等于把 Cookie / Local Storage 纳入自己的数据面。
-	for (const forbidden of ["read_dir", "read_to_string", "read_to_end", "fs::read", "File::open"]) {
+	for (const forbidden of ["read_dir", "read_to_string", "read_to_end", "File::open"]) {
 		assert.doesNotMatch(
 			webvpn,
 			new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
 			`WebVPN 模块不得出现 ${forbidden}：profile 内容不可进入应用数据面`
 		);
 	}
+	// 下载捕获允许读取 on_download 生成的精确临时文件；不得用 profile 路径读取。
+	assert.match(webvpn, /fs::read\(&upload\.path\)/, "捕获上传应只读取下载回调确认的临时文件");
+	assert.doesNotMatch(webvpn, /fs::read\([^\n]*(profile|PROFILE_DIR_NAME)/i);
 	// 唯一允许的目录操作是整体删除（清除登录状态）。删除动作在命令层
 	// （main.rs::webvpn_clear_session），webvpn.rs 只负责解析并校验路径。
 	const clear = main.match(/fn webvpn_clear_session\([\s\S]*?\n\}/);

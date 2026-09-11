@@ -527,6 +527,38 @@
         invoke('open_in_edge', { url: String(data.url || '') })
           .then(() => reply('OPEN_IN_EDGE_RESULT', { ok: true }))
           .catch((error) => reply('OPEN_IN_EDGE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_STATUS') {
+        invoke('webvpn_status')
+          .then((result) => reply('WEBVPN_STATUS_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_STATUS_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_OPEN_LOGIN') {
+        invoke('webvpn_open_login')
+          .then(() => invoke('webvpn_status'))
+          .then((result) => reply('WEBVPN_OPEN_LOGIN_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_OPEN_LOGIN_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_CONFIRM_LOGIN') {
+        invoke('webvpn_confirm_login')
+          .then(() => invoke('webvpn_status'))
+          .then((result) => reply('WEBVPN_CONFIRM_LOGIN_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_CONFIRM_LOGIN_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_OPEN_CAPTURE') {
+        invoke('webvpn_open_capture', {
+          taskId: String(data.payload?.taskId || ''),
+          kind: String(data.payload?.kind || ''),
+          targetUrl: String(data.payload?.targetUrl || ''),
+          token: String(data.payload?.token || '')
+        })
+          .then((result) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_CANCEL_CAPTURE') {
+        invoke('webvpn_cancel_capture', { taskId: String(data.payload?.taskId || '') })
+          .then(() => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }))
+          .catch((error) => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_CLEAR_SESSION') {
+        invoke('webvpn_clear_session')
+          .then(() => invoke('webvpn_status'))
+          .then((result) => reply('WEBVPN_CLEAR_SESSION_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_CLEAR_SESSION_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'OPEN_ARTIFACT_IN_BROWSER') {
         // 0.1.15：分段留痕（收到请求 → 命令返回），便于定位失败发生在
         // 前端消息、Tauri 命令、Rust 预检还是 Edge 启动。

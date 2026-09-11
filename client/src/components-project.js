@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -109,6 +109,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 							return;
 						}
 						if (["failed", "expired", "cancelled"].includes(task?.status)) {
+							void cancelWebVpnCaptureViaShell(taskId).catch(() => {});
 							setCaptureHint(null);
 							notify(`文献捕获失败：${task?.error || "任务未完成"}`);
 							return;
@@ -143,15 +144,33 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				// WebView2 的 iframe 内，看不到 __TAURI_INTERNALS__，因此经 postMessage
 				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
 				if (desktopEdgeHandoff) {
-					void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
+					void webVpnStatusViaShell()
+						.then(async (status) => {
+							if (status?.state !== "ready") {
+								await openWebVpnLoginViaShell();
+								notify("请在 WebVPN 窗口完成登录，再在数据库状态栏点击“我已登录”，然后重新点击文献按钮");
+								return null;
+							}
+							return call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
+						})
 						.then(async (result) => {
+							if (!result) return;
 							const task = result?.task;
 							const token = task?.token;
 							if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
-							const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
-							await openInEdgeViaShell(handoffUrl);
-							setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
-							notify(`已布防捕获：将在 Microsoft Edge 中打开出版社页面，下载 ${task.kind === "pdf" ? "PDF" : "SI"} 后扩展会自动上传并点亮按钮`);
+							try {
+								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token });
+								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
+								notify(`已通过 WebVPN 打开出版社页面，请点击网页中的${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+							} catch (webvpnError) {
+								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
+								// 撤销本地待下载状态，再复用同一服务端任务切到 Edge。
+								try { await cancelWebVpnCaptureViaShell(task.id); } catch { /* 尚未布防时无需处理 */ }
+								const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
+								await openInEdgeViaShell(handoffUrl);
+								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "edge" });
+								notify(`WebVPN 打开失败，已切换到 Microsoft Edge：${webvpnError.message}`);
+							}
 						})
 						.catch((reason) => notify(reason.message || "创建捕获任务失败"));
 					return;

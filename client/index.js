@@ -502,6 +502,38 @@ var openInEdgeViaShell = (url) => new Promise((resolve, reject) => {
     finish(reject, reason);
   }
 });
+var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((resolve, reject) => {
+  const requestId = globalThis.crypto?.randomUUID?.() ?? `webvpn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let settled = false;
+  const finish = (callback, value) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    window.removeEventListener("message", onResult);
+    callback(value);
+  };
+  const resultType = `${type}_RESULT`;
+  const onResult = (event) => {
+    if (event.source !== window.parent) return;
+    const data = event.data;
+    if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== resultType || data.requestId !== requestId) return;
+    if (data.payload?.ok) finish(resolve, data.payload.result);
+    else finish(reject, new Error(data.payload?.error || "桌面 WebVPN 操作失败"));
+  };
+  const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应 WebVPN 请求")), timeoutMs);
+  window.addEventListener("message", onResult);
+  try {
+    window.parent.postMessage({ source: "ibm-lab-agent", type, requestId, payload }, "*");
+  } catch (reason) {
+    finish(reject, reason);
+  }
+});
+var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+var openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
+var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
+var openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3);
+var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
+var clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15e3);
 var openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
   const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-browser-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let settled = false;
@@ -1061,6 +1093,15 @@ function DatabaseOverview({ call, notify }) {
   const [snapshot, setSnapshot] = (0, import_react3.useState)({ loading: true, sources: [], checkedAt: "", error: "" });
   const [busy, setBusy] = (0, import_react3.useState)("");
   const [open, setOpen] = (0, import_react3.useState)(false);
+  const [webvpn, setWebvpn] = (0, import_react3.useState)(null);
+  const refreshWebvpn = (0, import_react3.useCallback)(async () => {
+    if (window.parent === window) return;
+    try {
+      setWebvpn(await webVpnStatusViaShell());
+    } catch {
+      setWebvpn(null);
+    }
+  }, []);
   const refresh = (0, import_react3.useCallback)(async (force = false) => {
     try {
       const result = await call("literature_status", { request: { force } });
@@ -1071,9 +1112,38 @@ function DatabaseOverview({ call, notify }) {
   }, [call]);
   (0, import_react3.useEffect)(() => {
     void refresh(false);
+    void refreshWebvpn();
     const timer = setInterval(() => void refresh(false), 6e4);
-    return () => clearInterval(timer);
-  }, [refresh]);
+    const webvpnTimer = setInterval(() => void refreshWebvpn(), 5e3);
+    return () => {
+      clearInterval(timer);
+      clearInterval(webvpnTimer);
+    };
+  }, [refresh, refreshWebvpn]);
+  const openWebvpn = async () => {
+    try {
+      setWebvpn(await openWebVpnLoginViaShell());
+      notify("WebVPN 已打开，请完成登录后点击“我已登录”");
+    } catch (reason) {
+      notify(reason.message);
+    }
+  };
+  const confirmWebvpn = async () => {
+    try {
+      setWebvpn(await confirmWebVpnLoginViaShell());
+      notify("WebVPN 登录状态已确认");
+    } catch (reason) {
+      notify(reason.message);
+    }
+  };
+  const clearWebvpn = async () => {
+    try {
+      setWebvpn(await clearWebVpnSessionViaShell());
+      notify("WebVPN 登录状态已清除");
+    } catch (reason) {
+      notify(reason.message);
+    }
+  };
   const run = async (kind, source, mode) => {
     if (kind === "connect" && mode === "current") {
       void openExternalUrl(source.institutionEntryUrl || source.entryUrl || "https://lib.ustc.edu.cn/");
@@ -1100,11 +1170,18 @@ function DatabaseOverview({ call, notify }) {
   return h(
     import_react3.default.Fragment,
     null,
-    h("div", { className: "ib-db-toggle-wrap" }, h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : void 0, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`))),
+    h(
+      "div",
+      { className: "ib-db-toggle-wrap" },
+      h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : void 0, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
+      window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.windowOpen ? "返回 WebVPN" : "打开 WebVPN") : null,
+      window.parent !== window && webvpn?.state === "waiting-login" ? h("button", { className: "ib-btn", "data-primary": true, onClick: () => void confirmWebvpn() }, "我已登录") : null
+    ),
     open ? h(
       "section",
       { className: "ib-db" },
       h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "文献数据库实时状态"), h("p", null, snapshot.checkedAt ? `最近验证 ${when(snapshot.checkedAt)} · 每 60 秒自动刷新` : "正在验证检索入口与全文权限状态")), h("button", { className: "ib-btn", disabled: snapshot.loading, onClick: () => void refresh(true) }, snapshot.loading ? "验证中…" : "立即验证")),
+      webvpn ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 WebVPN"), h("span", { className: "ib-db-tier" }, webvpn.state === "ready" ? "已登录" : webvpn.state)), h("p", null, webvpn.pendingTaskId ? `正在等待 ${webvpn.pendingKind === "si" ? "SI" : "PDF"} 下载` : "登录一次后，本次及后续文献可复用同一会话"), h("div", { className: "ib-db-actions" }, h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, "打开窗口"), h("button", { className: "ib-btn", onClick: () => void clearWebvpn() }, "清除登录状态"))) : null,
       snapshot.error ? h("div", { className: "ib-error" }, snapshot.error) : null,
       snapshot.sources.length ? h("div", { className: "ib-db-grid" }, snapshot.sources.map((source) => {
         const searchTone = databaseStateTone(source.search?.state);
@@ -2821,6 +2898,8 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
           return;
         }
         if (["failed", "expired", "cancelled"].includes(task?.status)) {
+          void cancelWebVpnCaptureViaShell(taskId).catch(() => {
+          });
           setCaptureHint(null);
           notify(`文献捕获失败：${task?.error || "任务未完成"}`);
           return;
@@ -2853,14 +2932,32 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
       return;
     }
     if (desktopEdgeHandoff) {
-      void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } }).then(async (result) => {
+      void webVpnStatusViaShell().then(async (status) => {
+        if (status?.state !== "ready") {
+          await openWebVpnLoginViaShell();
+          notify("请在 WebVPN 窗口完成登录，再在数据库状态栏点击“我已登录”，然后重新点击文献按钮");
+          return null;
+        }
+        return call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
+      }).then(async (result) => {
+        if (!result) return;
         const task = result?.task;
         const token = task?.token;
         if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
-        const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
-        await openInEdgeViaShell(handoffUrl);
-        setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id });
-        notify(`已布防捕获：将在 Microsoft Edge 中打开出版社页面，下载 ${task.kind === "pdf" ? "PDF" : "SI"} 后扩展会自动上传并点亮按钮`);
+        try {
+          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token });
+          setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
+          notify(`已通过 WebVPN 打开出版社页面，请点击网页中的${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+        } catch (webvpnError) {
+          try {
+            await cancelWebVpnCaptureViaShell(task.id);
+          } catch {
+          }
+          const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
+          await openInEdgeViaShell(handoffUrl);
+          setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "edge" });
+          notify(`WebVPN 打开失败，已切换到 Microsoft Edge：${webvpnError.message}`);
+        }
       }).catch((reason) => notify(reason.message || "创建捕获任务失败"));
       return;
     }

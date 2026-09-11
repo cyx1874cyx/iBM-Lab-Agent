@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { databaseState, databaseStateTone, downloadState } from "./constants.js";
-import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell } from "./lib.js";
+import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, clearWebVpnSessionViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 
 // 文献相关组件：DatabaseOverview/FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
@@ -9,6 +9,12 @@ export function DatabaseOverview({ call, notify }) {
 			const [snapshot, setSnapshot] = useState({ loading: true, sources: [], checkedAt: "", error: "" });
 			const [busy, setBusy] = useState("");
 			const [open, setOpen] = useState(false);
+			const [webvpn, setWebvpn] = useState(null);
+			const refreshWebvpn = useCallback(async () => {
+				if (window.parent === window) return;
+				try { setWebvpn(await webVpnStatusViaShell()); }
+				catch { setWebvpn(null); }
+			}, []);
 			const refresh = useCallback(async (force = false) => {
 				try {
 					const result = await call("literature_status", { request: { force } });
@@ -17,9 +23,23 @@ export function DatabaseOverview({ call, notify }) {
 			}, [call]);
 			useEffect(() => {
 				void refresh(false);
+				void refreshWebvpn();
 				const timer = setInterval(() => void refresh(false), 60000);
-				return () => clearInterval(timer);
-			}, [refresh]);
+				const webvpnTimer = setInterval(() => void refreshWebvpn(), 5000);
+				return () => { clearInterval(timer); clearInterval(webvpnTimer); };
+			}, [refresh, refreshWebvpn]);
+			const openWebvpn = async () => {
+				try { setWebvpn(await openWebVpnLoginViaShell()); notify("WebVPN 已打开，请完成登录后点击“我已登录”"); }
+				catch (reason) { notify(reason.message); }
+			};
+			const confirmWebvpn = async () => {
+				try { setWebvpn(await confirmWebVpnLoginViaShell()); notify("WebVPN 登录状态已确认"); }
+				catch (reason) { notify(reason.message); }
+			};
+			const clearWebvpn = async () => {
+				try { setWebvpn(await clearWebVpnSessionViaShell()); notify("WebVPN 登录状态已清除"); }
+				catch (reason) { notify(reason.message); }
+			};
 			const run = async (kind, source, mode) => {
 				if (kind === "connect" && mode === "current") {
 					void openExternalUrl(source.institutionEntryUrl || source.entryUrl || "https://lib.ustc.edu.cn/");
@@ -39,9 +59,14 @@ export function DatabaseOverview({ call, notify }) {
 			};
 			const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
 			return h(React.Fragment, null,
-				h("div", { className: "ib-db-toggle-wrap" }, h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : undefined, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`))),
+				h("div", { className: "ib-db-toggle-wrap" },
+					h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : undefined, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
+					window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.windowOpen ? "返回 WebVPN" : "打开 WebVPN") : null,
+					window.parent !== window && webvpn?.state === "waiting-login" ? h("button", { className: "ib-btn", "data-primary": true, onClick: () => void confirmWebvpn() }, "我已登录") : null
+				),
 				open ? h("section", { className: "ib-db" },
 				h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "文献数据库实时状态"), h("p", null, snapshot.checkedAt ? `最近验证 ${when(snapshot.checkedAt)} · 每 60 秒自动刷新` : "正在验证检索入口与全文权限状态")), h("button", { className: "ib-btn", disabled: snapshot.loading, onClick: () => void refresh(true) }, snapshot.loading ? "验证中…" : "立即验证")),
+				webvpn ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 WebVPN"), h("span", { className: "ib-db-tier" }, webvpn.state === "ready" ? "已登录" : webvpn.state)), h("p", null, webvpn.pendingTaskId ? `正在等待 ${webvpn.pendingKind === "si" ? "SI" : "PDF"} 下载` : "登录一次后，本次及后续文献可复用同一会话"), h("div", { className: "ib-db-actions" }, h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, "打开窗口"), h("button", { className: "ib-btn", onClick: () => void clearWebvpn() }, "清除登录状态"))) : null,
 				snapshot.error ? h("div", { className: "ib-error" }, snapshot.error) : null,
 				snapshot.sources.length ? h("div", { className: "ib-db-grid" }, snapshot.sources.map((source) => {
 					const searchTone = databaseStateTone(source.search?.state);
