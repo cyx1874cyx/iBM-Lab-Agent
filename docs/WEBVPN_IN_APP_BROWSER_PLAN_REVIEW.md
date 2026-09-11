@@ -396,29 +396,57 @@
 
 | 套件 | 命令 | 结果 |
 |---|---|---|
-| Rust 单元测试 | `cargo test`（在 `desktop/src-tauri`） | ✅ 56 通过 / 0 失败 / 1 ignored |
-| Node 单元测试 | `node --test "tests/unit/*.test.mjs"` | ✅ 291 通过 / 0 失败 |
-| Node 集成测试 | `node --test "tests/integration/*.test.mjs"` | ⚠️ 见 11.3 |
+| Rust 单元测试 | `cargo test`（在 `desktop/src-tauri`） | ✅ 70 通过 / 0 失败 / 1 ignored |
+| Node 单元测试 | `node --test "tests/unit/*.test.mjs"` | ✅ 294 通过 / 0 失败 |
+| Node 集成测试 | `node --test "tests/integration/*.test.mjs"` | ✅ 66/66 通过（初测 62 失败，已修复，见 11.3） |
+| 全量 | `npm test` | ✅ 360 通过（偶发 1 例既有 flaky，见 11.3 末） |
 
-### 11.3 ⚠️ 重要环境发现：集成测试在智能体沙箱内无法运行
+### 11.3 集成测试阻塞：已定位并修复
 
-集成测试全套跑会出现 62/66 失败，但**与仓库代码无关**，全部同源于一个原因：
+**初次观测**：集成测试整套跑出现 62/66 失败，一度看起来与仓库代码无关。
+
+**根因（已确认）**：62 个失败对应 62 条错误，**单一根因，无第二种错误类型**：
 
 ```
 [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]
 {"count":80,"threshold":50,"targets":["...Temp\\dsh-lab-agent-boot-XXXX\\node_modules\\@deepseek-ai"]}
 ```
 
-- 62 个失败 / 62 条 `safe-delete` 报错，**单一根因，无第二种错误类型**。
-- 机制：`tests/helpers/boot-lite.mjs` 在临时目录里建 junction 软链指向 `node_modules`，`dispose()` 用 `fs.rm(recursive)` 清理；智能体沙箱的**批量删除保护**拦截了这个递归删除。
-- 佐证：单文件运行 10/10 全过（`tests/integration/manual-capture.test.mjs`）；连跑两个文件也全过；整目录跑则级联失败。
-- 副作用：`%TEMP%` 下已堆积 **809 个** 未清理的 `dsh-lab-agent-boot-*` 目录。
+`tests/helpers/boot-lite.mjs` 为模拟真实 DSH profile，在临时目录里建 `@deepseek-ai` 与
+`dsh-lab-agent` 两个 junction 软链，然后用 `fs.rm(dir, {recursive:true})` 清理。
+Windows 上这次递归会**顺着 junction 走进仓库的 `node_modules`**——既是丢失依赖树的风险，
+删除量也足以触发宿主的批量删除保护。单文件运行正常（`manual-capture.test.mjs` 10/10）、
+两个文件一起也正常，只有整目录跑才会级联失败，这正是它难以定位的原因。
 
-**对计划的影响**：计划 §11 阶段 -1 的退出条件与 §13 第 12 条验收标准都要求"自动测试通过"。在智能体沙箱内，**集成测试的通过与否不能作为判据**。落地建议：
+**修复（提交 `a41c03a`）**：新增 `removeBootDir`，先用
+`fs.rm(link, {recursive:false, force:true})` 逐个摘除链接（实测只删链接本身，
+其后的 240 个目标条目完好），**之后**才递归删除剩余目录。同时：
 
-1. 阶段验收改用 `cargo test` + `node --test "tests/unit/*.test.mjs"` 作为自动判据；
-2. 集成测试改由**用户在普通终端**执行（沙箱外无此限制），或在沙箱内逐文件执行；
-3. 长期应修 `boot-lite.mjs`：Windows 上用 junction 时先解除链接再删目录，或改用 `rimraf` 风格的逐层清理。这本身值得单独立项。
+- 清理失败只告警、不再向上抛——环境拒绝删除不应该让通过的断言看起来像代码坏了；
+- `dispose()` 仍保留 `ctx.fiber.dispose()` 的异常（那是真实的插件拆除缺陷信号），
+  但把目录清理挪进 `finally`，保证一定执行且不覆盖原始错误；
+- 新增 `tests/unit/boot-lite-cleanup.test.mjs` 锁住「先解链接后递归」的顺序契约，
+  以及最重要的安全属性：清理 profile **绝不能删除 junction 指向的依赖树**。
+
+**修复后结果**：
+
+| 套件 | 修复前 | 修复后 |
+|---|---|---|
+| `tests/integration/*.test.mjs` | 62/66 失败 | ✅ **66/66 通过** |
+| `npm test`（unit + integration） | 42 失败 | ✅ **360 通过** |
+
+**残余现象（非阻塞）**：日志里仍有 `boot-lite: 解除链接失败` 告警。原因是该沙箱按
+**单轮累计删除量**限流（`count: 82`，`threshold: 50`，`scope: "turn"`）：一轮内删除累计超过
+50 条后，本轮后续所有删除请求都被拒绝。因此 `%TEMP%` 下的 `dsh-lab-agent-boot-*` 残留目录
+（观测到 881 个）在本环境内无法自动回收。这是环境限制，不影响测试结论。
+
+**对计划的影响（结论已更新）**：计划 §11 阶段 -1 的退出条件与 §13 第 12 条
+**可以**继续依赖完整 `npm test`。唯一需要留意的是
+`evidence-shot-handler.test.mjs` 里的 `killPythonTree` 用例——它用 3 秒硬超时判断进程树终止，
+在机器高负载时会偶发失败（实测：整轮跑偶发 1 例失败，单独跑 3/3 全过）。这属于既有的
+时序脆弱性，与本需求无关，但会影响阶段 4 的「所有自动化检查通过」判据，建议在此前把该
+超时放宽或改为轮询等待。
+
 
 ---
 
