@@ -234,8 +234,26 @@ test("rc.4 review §11: render subprocess times out and temp files cleaned", asy
 
 test("rc.4 review §11: killPythonTree terminates the whole child process", async () => {
 	const child = spawn(process.execPath, ["-e", "setTimeout(()=>{}, 60000)"], { stdio: "ignore", windowsHide: true });
+	// pid 存在 ≠ 进程已就绪：先等 spawn 事件，避免 taskkill 扑空。
+	await new Promise((resolvePromise, rejectPromise) => {
+		child.once("spawn", resolvePromise);
+		child.once("error", rejectPromise);
+	});
 	const exited = new Promise((resolvePromise) => child.on("exit", resolvePromise));
-	killPythonTree(child);
-	const outcome = await Promise.race([exited.then(() => "exited"), new Promise((resolvePromise) => setTimeout(() => resolvePromise("still-running"), 3000))]);
+	const killed = killPythonTree(child);
+	assert.equal(typeof killed?.then, "function", "killPythonTree 必须返回可 await 的句柄");
+	// 等 killer 真正结束，而不是赌固定 deadline：本机进程创建受 EDR 挂钩，
+	// 实测从调用到子进程真正退出约 0.9s，高负载时会超过原先 3s 的硬上限而误报。
+	await killed;
+	const outcome = await Promise.race([exited.then(() => "exited"), new Promise((resolvePromise) => setTimeout(() => resolvePromise("still-running"), 15000))]);
 	assert.equal(outcome, "exited", "killPythonTree 必须终止子进程");
+});
+
+test("killPythonTree 对无效入参返回可 await 的空操作（不抛异常）", async () => {
+	// 终止是"尽力而为"：调用方不应因为拿不到 pid 就被异常打断。
+	for (const invalid of [undefined, null, {}, { pid: "not-a-number" }]) {
+		const result = killPythonTree(invalid);
+		assert.equal(typeof result?.then, "function", "任何入参都必须返回可 await 的句柄");
+		await result;
+	}
 });

@@ -583,6 +583,104 @@ cd desktop/src-tauri && cargo tauri dev
 
 ---
 
+## 14. 阶段 4（无探测依赖部分）执行记录
+
+阶段 0 仍卡在用户登录，因此继续推进阶段 4 中**不依赖探测器输出**的三项。
+
+### 14.1 `killPythonTree` 的时序硬化（不是"修掉了一个可复现的 flake"）
+
+**问题**：`lib/evidence-shot.js::killPythonTree` 以 fire-and-forget 方式
+`spawn('taskkill', …)` 后**立即返回**；调用方（`renderPageToPng` 超时分支）紧接着抛出
+"已终止渲染进程并清理临时文件"，而进程彼时往往还活着。测试也只能赌一个 3 秒硬 deadline。
+
+**本机实测**：
+
+| 观测 | 数值 |
+|---|---|
+| `killPythonTree` 同步返回耗时 | **12 ms**（只是 spawn 调用的耗时） |
+| 调用后立即检查 `child.killed` | `false`（进程仍在运行） |
+| 子进程真正退出耗时 | **904 ms** |
+
+即那 3 秒要覆盖「spawn 延迟 + taskkill 枚举 + 终止 + exit 事件」全链，余量不足 2 倍。
+本机进程创建受 EDR 挂钩（§9 亦记录过 PowerShell spawn 被拦截数秒），高负载下余量会被吃光。
+
+**诚实结论**：**本轮未能复现原始失败。** 6 路 CPU 负载下连跑 8 轮新旧对照，旧写法最慢
+1.67s，仍在 3s 之内；三连全量 `npm test` 也全部通过。因此本次改动的准确定性是
+**时序硬化**——一条真实存在但未能在本环境触发的竞态——而**不是**"修复了一个可复现的 flake"。
+把它记为 flake 修复会高估证据强度。
+
+**改动**：
+
+- `killPythonTree` 改为返回可 await 的 Promise（等待 killer 结束）。调用方可 await
+  （需要确定性）或忽略返回值（只需尽力而为），向后兼容。
+- `renderPageToPng` 超时分支改为**先真正终止进程树再拒绝**，让"已终止渲染进程"成为事实，
+  同时避免残留 python/fitz 与下一次渲染抢 CPU 和临时目录。
+- 测试先等 `spawn` 事件再杀（`pid` 存在 ≠ 进程已就绪，taskkill 可能扑空），随后 await killer；
+  上限由 3s 放宽至 15s——该上限只在真实故障时才会触及。
+- 新增断言：任何入参都必须返回可 await 的句柄且不抛异常（终止是尽力而为，不该打断调用方）。
+
+### 14.2 密钥卫生扫描（R1）
+
+新增 `tests/unit/webvpn-secrets-scan.test.mjs`，4 条源码级断言——都是**编译期发现不了、
+只在泄漏那一刻才暴露**的类型：
+
+| 断言 | 兜住的风险 |
+|---|---|
+| 桌面 shell 的每个 `console.*` 实参都不得引用敏感值 | R1 原始风险：新链路要把含 token 的完整 `uploadUrl` 交给 shell，照抄现有打日志习惯就会泄进控制台 |
+| `WebVpnConfig` 不得出现凭据/存储类**字段** | 登录态只能由专属 WebView2 profile 承载，配置里不许开第二份 |
+| WebVPN 模块不得 `read_dir` / `read_to_string` / `File::open` | 一旦开始读 profile，就等于把 Cookie / Local Storage 纳入应用数据面 |
+| `webvpn.log` 只有一个写入点且强制走 `redact_for_log` | 多点写入会让脱敏约定被绕过 |
+
+两处值得记录的实现细节：
+
+- 第 1 条用 `\btoken\b` 而非 `token`：`index.html` 里的 `payload.tokens` 是**主题色**，
+  用子串匹配会误报。`\b` 恰好排除 `tokens` 而保留 `token`。
+- 第 2 条断言的是**字段声明**而非文档措辞：必须先剥掉 `///` 注释行，否则
+  "不得存放任何凭据、Cookie" 这类说明性文字会被自己的断言判为违规。
+
+**变异测试（证明断言非空转）**：逐条注入违规 → 跑测试 → 必须失败 → 立即还原。
+
+| 注入的违规 | 结果 |
+|---|---|
+| `console.log('leaked token=' + data.payload.uploadUrl)` | ✅ CAUGHT |
+| `WebVpnConfig` 增加 `pub cookie: String` | ✅ CAUGHT |
+| `resolve_profile_dir` 内调用 `std::fs::read_dir` | ✅ CAUGHT |
+| 增加第二个 `logger().write` 写入点 | ✅ CAUGHT |
+
+4/4 全部被捕获，说明这 4 条断言确实在起作用，而不是写了个恒真式。
+
+### 14.3 发布闸门：capabilities 边界（§3.5）
+
+`desktop/scripts/verify-package.ps1` 增加断言：**每一个** capability 文件的 `windows`
+必须且只能是 `["main"]`。检查全部文件而非仅 `default.json`，这样**新增 capability 文件
+也无法绕过**。WebVPN 等新窗口一旦进入 `windows` 数组就会拿到 IPC 命令面，等于把任意网页
+变成客户端入口，这条边界必须由发布闸门兜住，而不是靠人记得。
+
+**行为验证**（不是只做语法检查）：脚本语法用 pwsh 7.6.6 解析通过；并**抽出脚本里的真实检查
+代码块**，对 5 个场景实际运行：
+
+| 场景 | 期望 | 结果 |
+|---|---|---|
+| `windows: ["main"]` | 通过 | ✅ PASS |
+| `windows: ["main","webvpn"]` | 抛错 | ✅ PASS（并报出违规窗口名） |
+| `windows: ["webvpn"]` | 抛错 | ✅ PASS |
+| `default.json` 合法但**额外多一个** `webvpn.json` | 抛错 | ✅ PASS（报出 `webvpn.json`） |
+| 仓库真实 capabilities | 通过 | ✅ PASS |
+
+### 14.4 验证结果
+
+| 套件 | 结果 |
+|---|---|
+| `npm test` | ✅ **370 通过 / 0 失败**（366 + 新增 4） |
+| `npm test` 连跑 3 轮 | ✅ 3/3 全绿，`killPythonTree` 用例每次都通过 |
+| `cargo test` | ✅ 未受影响（本批无 Rust 改动，阶段 1 的 81 通过保持） |
+| `verify-package.ps1` 语法 | ✅ pwsh 7.6.6 解析通过 |
+
+**未做（需探测结果）**：`WEBVPN_*` 消息分支本身（阶段 3）、下载捕获闭环（阶段 2）、
+转发规则（阶段 0）。
+
+---
+
 ## 附录 A：本次评审使用的证据文件清单
 
 | 文件 | 用途 |
