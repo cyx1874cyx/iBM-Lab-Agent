@@ -498,6 +498,10 @@ cd desktop/src-tauri && cargo tauri dev
 阶段 1 部分：配置接入与 §4.2 状态机。**转发规则明确不做**——那正是阶段 0 要测得的东西，
 提前猜测会直接返工。
 
+| 提交 | 内容 |
+|---|---|
+| `6bafed9` | `feat(desktop): add the WebVPN navigation policy and session state machine`（7 个文件，+1133/−38） |
+
 ### 13.1 已落地内容
 
 | 项 | 位置 | 说明 |
