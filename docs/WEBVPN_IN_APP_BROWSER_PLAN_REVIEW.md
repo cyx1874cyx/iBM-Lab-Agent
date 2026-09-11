@@ -379,6 +379,91 @@
 
 ---
 
+## 11. 阶段 -1 执行记录（已完成）
+
+### 11.1 清场结果
+
+原 6 个未提交改动已提交，工作树干净。
+
+| 提交 | 内容 |
+|---|---|
+| `740c899` | `fix(desktop): complete the DSH 0.1.5 embedded-WebView auth plumbing`（5 个文件） |
+| `7501f98` | `docs(webvpn): add the in-app browser plan and its pre-implementation review` |
+
+其中 `desktop/src-tauri/src/runtime/mcp.rs` 经核实**纯属行尾假脏**：`git diff --numstat` 为空，暂存后自动从状态中消失，无内容改动。它与仓库既有的 `.gitattributes` 策略（`.toml` 已 pin 成 LF）是同类现象，但 `.rs` 未声明 `eol=lf`，因此会周期性出现这种"看起来脏但实际干净"的条目。
+
+### 11.2 基线测试结果
+
+| 套件 | 命令 | 结果 |
+|---|---|---|
+| Rust 单元测试 | `cargo test`（在 `desktop/src-tauri`） | ✅ 56 通过 / 0 失败 / 1 ignored |
+| Node 单元测试 | `node --test "tests/unit/*.test.mjs"` | ✅ 291 通过 / 0 失败 |
+| Node 集成测试 | `node --test "tests/integration/*.test.mjs"` | ⚠️ 见 11.3 |
+
+### 11.3 ⚠️ 重要环境发现：集成测试在智能体沙箱内无法运行
+
+集成测试全套跑会出现 62/66 失败，但**与仓库代码无关**，全部同源于一个原因：
+
+```
+[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]
+{"count":80,"threshold":50,"targets":["...Temp\\dsh-lab-agent-boot-XXXX\\node_modules\\@deepseek-ai"]}
+```
+
+- 62 个失败 / 62 条 `safe-delete` 报错，**单一根因，无第二种错误类型**。
+- 机制：`tests/helpers/boot-lite.mjs` 在临时目录里建 junction 软链指向 `node_modules`，`dispose()` 用 `fs.rm(recursive)` 清理；智能体沙箱的**批量删除保护**拦截了这个递归删除。
+- 佐证：单文件运行 10/10 全过（`tests/integration/manual-capture.test.mjs`）；连跑两个文件也全过；整目录跑则级联失败。
+- 副作用：`%TEMP%` 下已堆积 **809 个** 未清理的 `dsh-lab-agent-boot-*` 目录。
+
+**对计划的影响**：计划 §11 阶段 -1 的退出条件与 §13 第 12 条验收标准都要求"自动测试通过"。在智能体沙箱内，**集成测试的通过与否不能作为判据**。落地建议：
+
+1. 阶段验收改用 `cargo test` + `node --test "tests/unit/*.test.mjs"` 作为自动判据；
+2. 集成测试改由**用户在普通终端**执行（沙箱外无此限制），或在沙箱内逐文件执行；
+3. 长期应修 `boot-lite.mjs`：Windows 上用 junction 时先解除链接再删目录，或改用 `rimraf` 风格的逐层清理。这本身值得单独立项。
+
+---
+
+## 12. 阶段 0 探测操作手册
+
+阶段 0 的脚手架已于 `7a33bf2` 落地。执行方式如下。
+
+### 12.1 前置
+
+必须使用 **debug 构建**（探测面板只在 debug 出现，这与 devtools 仅在 debug 编译是同一约束）：
+
+```bash
+cd desktop/src-tauri && cargo tauri dev
+```
+
+若 `cargo tauri` 不可用，用仓库现有的一键脚本或在 `desktop/` 下走常规 Tauri dev 流程。
+
+### 12.2 操作步骤
+
+1. 打开右上角 **诊断** → 最下方出现 **「WebVPN 探测（仅开发构建）」** 面板。
+2. 在输入框填入学校 WebVPN 门户地址（默认占位 `https://webvpn.ustc.edu.cn/`），点 **打开 WebVPN**。
+3. 在弹出窗口中完成**统一身份认证**（含验证码 / 二次验证，由用户本人操作）。
+4. 依次访问 **Nature、ACS、ScienceDirect** 各一次，并在每个站点**点击一次 PDF 下载**。
+5. 关闭窗口（只会隐藏），再次点 **打开 WebVPN**，确认无需重复登录。
+6. 回到面板点 **刷新记录**，然后把日志目录里的 `webvpn.log` 一并提供。
+
+### 12.3 需要从记录中读出的结论
+
+| 待确认项 | 记录中的观察点 |
+|---|---|
+| 门户 URL | 第一条 `navigation` 事件 |
+| 转发规则 | 输入 DOI 后出现的 `navigation` 序列与**最终代理 URL 的路径结构** |
+| SSO / 二次验证域名 | 登录过程中的全部 `navigation` host |
+| 弹窗行为 | `newWindow` 事件（阶段 0 为默认放行，仅观察） |
+| PDF 是下载还是内联 | 有无 `downloadRequested`；有则看 `defaultDestination` 的文件名与类型 |
+| 跨重启会话 | 重启应用后再打开，是否仍为已登录态 |
+
+### 12.4 已知限制
+
+- **阶段 0 不拦截导航**（`enforce=false`）。这是刻意的：白名单正是本阶段要测的东西，提前上拦截会把登录流程自己锁死，且用户无法自救。探测期间请勿把 debug 包当作日常浏览器使用。
+- **阶段 0 不改写下载路径**，保留 WebView2 默认落盘位置，以便判断出版社给的是附件还是内联预览。捕获归档在阶段 2 接入。
+- 记录只保留最近 **800** 条，且只写脱敏后的 URL / host / 错误类别；不含 Cookie、凭据、一次性令牌。
+
+---
+
 ## 附录 A：本次评审使用的证据文件清单
 
 | 文件 | 用途 |
