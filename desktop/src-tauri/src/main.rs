@@ -393,7 +393,135 @@ fn webvpn_probe_open(
     }
     let target = webvpn::validate_target(&url)?;
     let data_root = state.0.data_root().to_path_buf();
-    webvpn::open_window(&app, &data_root, &target, false, Vec::new()).map(|_| ())
+    webvpn::open_window(
+        &app,
+        &data_root,
+        &target,
+        webvpn::WebVpnPolicy::record_only(),
+    )
+    .map(|_| ())
+}
+
+/// 阶段 1：按配置打开 WebVPN 单例窗口（白名单拦截由配置决定）。
+///
+/// 门户地址取自配置；未配置时拒绝并提示，不猜测任何域名。
+#[tauri::command]
+fn webvpn_open_login(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let config = state.0.load_config().map_err(|error| error.to_string())?;
+    let portal = config.webvpn.portal_url.trim();
+    if portal.is_empty() {
+        return Err("尚未配置 WebVPN 门户地址，请先在设置中填写".to_string());
+    }
+    let target = webvpn::validate_target(portal)?;
+    let policy = webvpn::WebVpnPolicy::from_config(
+        portal,
+        &config.webvpn.allowed_hosts,
+        config.webvpn.enforce_navigation,
+    );
+    let data_root = state.0.data_root().to_path_buf();
+    webvpn::open_window(&app, &data_root, &target, policy).map(|_| ())
+}
+
+/// 用户确认已完成登录：`waiting-login` → `ready`。
+///
+/// MVP 由用户点击确认，URL 或 DOM 只作辅助提示——把"门户页面加载完成"
+/// 当作登录成功会把验证码/二次验证的中间态误判为可用。
+#[tauri::command]
+fn webvpn_confirm_login(app: tauri::AppHandle) -> Result<(), String> {
+    let state = app
+        .try_state::<webvpn::WebVpnState>()
+        .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
+    state
+        .transition(webvpn::WebVpnSessionState::Ready)
+        .map(|_| ())
+}
+
+/// 放行一个此前被白名单拦下的域名，并写回配置。
+///
+/// 这是「白名单漏域名导致登录被静默锁死」的逃生阀：被拦域名会出现在
+/// `webvpn_status` 的 `deniedHosts` 里，由用户确认后再放行。
+#[tauri::command]
+fn webvpn_allow_host(
+    host: String,
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<Vec<String>, String> {
+    let webvpn_state = app
+        .try_state::<webvpn::WebVpnState>()
+        .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
+    let allowed = webvpn_state.allow_host(&host)?;
+    let mut config = state.0.load_config().map_err(|error| error.to_string())?;
+    config.webvpn.allowed_hosts = allowed.clone();
+    state
+        .0
+        .save_webvpn_config(config.webvpn)
+        .map_err(|error| error.to_string())?;
+    Ok(allowed)
+}
+
+/// 保存 WebVPN 导航策略。门户地址与每个额外域名都必须是公网 https。
+///
+/// 命名刻意避开 `*_save_config` 形态：`tests/unit/desktop-native.test.mjs` 有一条
+/// 架构护栏，禁止本文件出现把 `load_config` 或 `save_config` 加逗号写进注册表的
+/// 条目——模型配置必须由 DSH 托管，桌面壳不得自建配置命令。那条护栏是对的，
+/// 这里改名而不是放宽它（连带本注释也不能照抄那两个字面量）。
+#[tauri::command]
+fn webvpn_set_policy(
+    portal_url: String,
+    allowed_hosts: Vec<String>,
+    enforce_navigation: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<webvpn::WebVpnStatus, String> {
+    let trimmed = portal_url.trim();
+    if !trimmed.is_empty() {
+        // 门户地址必须通过与目标地址同样的校验：https、无凭据、非内网。
+        webvpn::validate_target(trimmed)?;
+    }
+    let mut hosts = Vec::new();
+    for host in allowed_hosts {
+        let host = host.trim().trim_start_matches('.').to_ascii_lowercase();
+        if host.is_empty() {
+            continue;
+        }
+        if host.contains('/') || host.contains(' ') {
+            return Err(format!("域名格式无效：{host}"));
+        }
+        if !hosts.contains(&host) {
+            hosts.push(host);
+        }
+    }
+    state
+        .0
+        .save_webvpn_config(runtime::WebVpnConfig {
+            portal_url: trimmed.to_string(),
+            allowed_hosts: hosts,
+            enforce_navigation,
+        })
+        .map_err(|error| error.to_string())?;
+    // 配置已变：立刻把新策略应用到运行中的会话。
+    let config = state.0.load_config().map_err(|error| error.to_string())?;
+    if let Some(webvpn_state) = app.try_state::<webvpn::WebVpnState>() {
+        webvpn_state.apply_policy(webvpn::WebVpnPolicy::from_config(
+            &config.webvpn.portal_url,
+            &config.webvpn.allowed_hosts,
+            config.webvpn.enforce_navigation,
+        ));
+    }
+    Ok(webvpn::status_of(&app, &config.webvpn))
+}
+
+/// 查询 WebVPN 状态：配置 + 会话状态 + 待放行域名。
+#[tauri::command]
+fn webvpn_status(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<webvpn::WebVpnStatus, String> {
+    let config = state.0.load_config().map_err(|error| error.to_string())?;
+    Ok(webvpn::status_of(&app, &config.webvpn))
 }
 
 /// 隐藏 WebVPN 窗口，保留 WebView2 会话（登录态不丢）。
@@ -438,6 +566,11 @@ fn webvpn_clear_session(
     }
     if let Some(events) = app.try_state::<webvpn::WebVpnState>() {
         events.clear();
+    }
+    // 窗口已销毁：会话状态必须同步归位，否则 `webvpn_status` 会报出
+    // "state=ready 但 windowOpen=false" 这种自相矛盾的状态。
+    if let Some(session) = app.try_state::<webvpn::WebVpnState>() {
+        session.mark_closed();
     }
     Ok(())
 }
@@ -489,6 +622,11 @@ fn main() {
             open_artifact_in_browser,
             webvpn_probe_available,
             webvpn_probe_open,
+            webvpn_open_login,
+            webvpn_confirm_login,
+            webvpn_allow_host,
+            webvpn_set_policy,
+            webvpn_status,
             webvpn_hide,
             webvpn_probe_events,
             webvpn_probe_clear,

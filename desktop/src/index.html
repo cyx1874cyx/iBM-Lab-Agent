@@ -120,13 +120,34 @@
             <label style="flex:1">门户 / 目标地址<input id="webvpn-url" type="text" placeholder="https://webvpn.ustc.edu.cn/" style="width:100%"></label>
           </div>
           <div class="diag-actions">
-            <button id="webvpn-open" type="button">打开 WebVPN</button>
+            <button id="webvpn-open" type="button">打开 WebVPN（只记录）</button>
             <button id="webvpn-hide" type="button">隐藏窗口</button>
             <button id="webvpn-refresh" type="button">刷新记录</button>
             <button id="webvpn-clear-events" type="button">清空记录</button>
             <button id="webvpn-clear-session" type="button">清除登录状态</button>
           </div>
           <div id="webvpn-events" style="margin-top:10px; max-height:260px; overflow:auto; font-size:12px; line-height:1.7; color:#c6d3e6; font-family:ui-monospace,Consolas,monospace"></div>
+
+          <!-- 阶段 1：导航白名单与会话状态。仍留在开发构建面板内——门户地址与域名
+               清单要等阶段 0 实测确认，在此之前不进正式界面，避免把未验证域名写进发布包。 -->
+          <div class="diag-head" style="margin-top:18px"><h3>阶段 1 · 导航白名单</h3><span class="state" id="webvpn-phase1-state">未配置</span></div>
+          <p class="dep-hint">阶段 0 拿到真实域名清单后再填这里。门户自身始终放行，无需重复填写；「额外放行域名」只填统一认证、二次验证与出版社域名。启用拦截前请确认清单已覆盖登录链路，否则登录页会被自己拦下——被拦域名会出现在下方「待放行」里，点一下即可放行。</p>
+          <div class="field-row">
+            <label style="flex:1">门户地址<input id="webvpn-portal" type="text" placeholder="https://webvpn.ustc.edu.cn/" style="width:100%"></label>
+          </div>
+          <div class="field-row">
+            <label style="flex:1">额外放行域名（逗号分隔）<input id="webvpn-hosts" type="text" placeholder="idp.ustc.edu.cn, www.nature.com" style="width:100%"></label>
+          </div>
+          <div class="field-row">
+            <label style="display:flex; align-items:center; gap:6px"><input id="webvpn-enforce" type="checkbox">启用导航白名单拦截（不勾选＝只记录不拦截）</label>
+          </div>
+          <div class="diag-actions">
+            <button id="webvpn-save-config" type="button">保存配置</button>
+            <button id="webvpn-open-login" type="button">按配置打开门户</button>
+            <button id="webvpn-confirm-login" type="button">我已登录</button>
+          </div>
+          <div id="webvpn-status" style="margin-top:10px; font-size:12px; line-height:1.8; color:#c6d3e6; white-space:pre-wrap; font-family:ui-monospace,Consolas,monospace"></div>
+          <div id="webvpn-denied" style="margin-top:8px; font-size:12px; line-height:2; color:#c6d3e6"></div>
         </section>
         <table class="deps-table">
           <thead><tr><th style="width:170px">应用 / 组件</th><th style="width:88px">本机状态</th><th>详情</th><th style="width:220px">MCP 状态</th><th style="width:100px">管理</th></tr></thead>
@@ -369,6 +390,8 @@
       if (!available) return;
       $('webvpn-probe').style.display = '';
       void refreshWebvpnEvents();
+      // 面板展开时同步一次配置/会话状态，避免首屏显示「未配置」而后台其实已有配置。
+      void refreshWebvpnStatus();
     }).catch(() => { /* 非桌面宿主或命令缺失时静默隐藏 */ });
     $('webvpn-open').addEventListener('click', async () => {
       const url = $('webvpn-url').value.trim();
@@ -390,13 +413,99 @@
       catch (error) { webvpnState(`清空失败：${error}`); }
     });
     $('webvpn-clear-session').addEventListener('click', async () => {
-      try { await invoke('webvpn_clear_session'); renderWebvpnEvents([]); webvpnState('登录状态已清除，下次需重新登录'); }
+      try { await invoke('webvpn_clear_session'); renderWebvpnEvents([]); webvpnState('登录状态已清除，下次需重新登录'); await refreshWebvpnStatus(); }
       catch (error) { webvpnState(`清除失败：${error}`); }
     });
-    // 探测期间窗口仍是单例；定时拉取记录，避免用户手动刷新。
+
+    // 阶段 1：配置 + 会话状态。会话状态由 shell 的状态机负责，
+    // 这里**不按 URL 文案猜测登录是否成功**，只渲染后端给的枚举。
+    const webvpnPhase1 = (text) => setText('webvpn-phase1-state', text);
+    const renderWebvpnStatus = (status) => {
+      const effective = Array.isArray(status.allowedHosts) ? status.allowedHosts : [];
+      const configured = Array.isArray(status.configuredAllowedHosts) ? status.configuredAllowedHosts : [];
+      const lines = [
+        `会话：${status.state}　窗口：${status.windowOpen ? '已创建' : '未创建'}`,
+        `实际生效：${status.enforceNavigation ? '白名单拦截' : '只记录不拦截'}　白名单（含门户）：${effective.length ? effective.join(', ') : '（空）'}`,
+        `配置意图：${status.configuredEnforceNavigation ? '拦截' : '只记录'}　额外放行：${configured.length ? configured.join(', ') : '（空）'}`,
+      ];
+      if (status.targetHost) lines.push(`最近转发：${status.targetHost}`);
+      if (status.lastError) lines.push(`错误：${status.lastError}`);
+      setText('webvpn-status', lines.join('\n'));
+
+      // 待放行域名：白名单漏域名导致登录被锁死时的逃生阀。
+      const box = $('webvpn-denied');
+      box.textContent = '';
+      const denied = Array.isArray(status.deniedHosts) ? status.deniedHosts : [];
+      if (!denied.length) return;
+      const caption = document.createElement('div');
+      caption.textContent = '被白名单拦下的域名（点「放行」加入白名单并写回配置）：';
+      box.appendChild(caption);
+      for (const host of denied) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `放行 ${host}`;
+        button.addEventListener('click', async () => {
+          try {
+            await invoke('webvpn_allow_host', { host });
+            webvpnPhase1(`已放行 ${host}`);
+            await refreshWebvpnStatus();
+            await refreshWebvpnEvents();
+          } catch (error) { webvpnPhase1(`放行失败：${error}`); }
+        });
+        box.appendChild(button);
+      }
+    };
+    const refreshWebvpnStatus = async () => {
+      try {
+        const status = await invoke('webvpn_status');
+        renderWebvpnStatus(status);
+        // 回填表单，但不覆盖用户正在输入的内容。
+        if (document.activeElement !== $('webvpn-portal')) $('webvpn-portal').value = status.portalUrl || '';
+        if (document.activeElement !== $('webvpn-hosts')) {
+          const configured = Array.isArray(status.configuredAllowedHosts) ? status.configuredAllowedHosts : [];
+          $('webvpn-hosts').value = configured.join(', ');
+        }
+        $('webvpn-enforce').checked = Boolean(status.configuredEnforceNavigation);
+        webvpnPhase1(status.windowOpen ? `窗口已创建（${status.state}）` : '窗口未创建');
+      } catch (error) { webvpnPhase1(`读取状态失败：${error}`); }
+    };
+    $('webvpn-save-config').addEventListener('click', async () => {
+      const portalUrl = $('webvpn-portal').value.trim();
+      // 逗号（含中文逗号）与空白都当分隔符，省得用户为格式反复试。
+      const allowedHosts = $('webvpn-hosts').value
+        .split(/[\s,，]+/).map((host) => host.trim()).filter(Boolean);
+      webvpnPhase1('正在保存…');
+      try {
+        const status = await invoke('webvpn_set_policy', {
+          portalUrl,
+          allowedHosts,
+          enforceNavigation: $('webvpn-enforce').checked,
+        });
+        renderWebvpnStatus(status);
+        webvpnPhase1('配置已保存');
+      } catch (error) { webvpnPhase1(`保存失败：${error}`); }
+    });
+    $('webvpn-open-login').addEventListener('click', async () => {
+      webvpnPhase1('正在打开门户…');
+      try {
+        await invoke('webvpn_open_login');
+        webvpnPhase1('门户已打开，请完成统一身份认证后点「我已登录」');
+        await refreshWebvpnStatus();
+        await refreshWebvpnEvents();
+      } catch (error) { webvpnPhase1(`打开失败：${error}`); }
+    });
+    $('webvpn-confirm-login').addEventListener('click', async () => {
+      try {
+        await invoke('webvpn_confirm_login');
+        webvpnPhase1('已确认登录，可以发起跳转');
+        await refreshWebvpnStatus();
+      } catch (error) { webvpnPhase1(`确认失败：${error}`); }
+    });
+    // 探测期间窗口仍是单例；定时拉取记录与状态，避免用户手动刷新。
     setInterval(() => {
       if ($('webvpn-probe').style.display === 'none') return;
       void refreshWebvpnEvents();
+      void refreshWebvpnStatus();
     }, 5000);
     // Desktop capability bridge. Only the active local-runtime iframe origin is
     // accepted; arbitrary nested frames cannot invoke native file or URL actions.

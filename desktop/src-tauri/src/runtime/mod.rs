@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-pub use config::{AppConfig, McpServerConfig};
+pub use config::{AppConfig, McpServerConfig, WebVpnConfig};
 pub use deps::RuntimeDeps;
 use dsh::{bootstrap_user_data, RuntimeLayout};
 pub use files::SavedArtifact;
@@ -355,6 +355,19 @@ impl RuntimeManager {
 
     pub fn load_config(&self) -> Result<AppConfig, RuntimeError> {
         config::load(&self.layout.config_dir)
+    }
+
+    /// 保存 WebVPN 导航策略。
+    ///
+    /// 只落盘非敏感字段（门户地址、允许域名、是否启用拦截）。**登录态一律不进
+    /// 配置**——它完全由专属 WebView2 profile 目录承载，删目录即退出登录。
+    ///
+    /// 门户地址允许为空：那表示"尚未配置"，由命令层在真正打开时拒绝，
+    /// 而不是在这里强行塞一个猜测出来的域名。
+    pub fn save_webvpn_config(&self, webvpn: WebVpnConfig) -> Result<(), RuntimeError> {
+        let mut config = self.load_config()?;
+        config.webvpn = webvpn;
+        config::save(&self.layout.config_dir, config)
     }
     pub fn app_mcp_status(
         &self,

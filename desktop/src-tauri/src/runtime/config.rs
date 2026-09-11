@@ -23,6 +23,29 @@ pub struct McpServerConfig {
     pub tool_profile: Option<String>,
 }
 
+/// WebVPN 配置。
+///
+/// **不得存放任何凭据、Cookie、Local Storage 内容或 SSO ticket**：登录态完全由
+/// WebView2 的专属 profile 目录承载，这里只存非敏感的导航策略。
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebVpnConfig {
+    /// 学校 WebVPN 门户地址。**默认留空**：在阶段 0 实测确认前不写死任何域名
+    /// （计划明确禁止按截图猜测转发规则）。
+    #[serde(default)]
+    pub portal_url: String,
+    /// 额外放行的域名（统一认证、二次验证、WebVPN 代理域名、出版社）。
+    /// 门户自身的 host 由 `portal_url` 推导，无需在此重复。
+    #[serde(default)]
+    pub allowed_hosts: Vec<String>,
+    /// 是否启用导航白名单拦截。
+    ///
+    /// 阶段 0 探测期必须为 `false`：白名单正是要测得的东西，提前拦截会把学校
+    /// SSO 登录流程自己锁死，且用户无法自救。白名单由实测结果填充后再翻转。
+    #[serde(default)]
+    pub enforce_navigation: bool,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -40,6 +63,8 @@ pub struct AppConfig {
     pub mnova_mcp_dir: String,
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+    #[serde(default)]
+    pub webvpn: WebVpnConfig,
 }
 
 impl Default for AppConfig {
@@ -52,6 +77,7 @@ impl Default for AppConfig {
             mnova_mcp_enabled: false,
             mnova_mcp_dir: String::new(),
             mcp_servers: Vec::new(),
+            webvpn: WebVpnConfig::default(),
         }
     }
 }
@@ -75,6 +101,8 @@ struct DiskConfig {
     mnova_mcp_dir: String,
     #[serde(default)]
     mcp_servers: Vec<McpServerConfig>,
+    #[serde(default)]
+    webvpn: WebVpnConfig,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     credential_ref: Option<String>,
 }
@@ -249,6 +277,7 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
                 mnova_mcp_enabled: disk.mnova_mcp_enabled,
                 mnova_mcp_dir: disk.mnova_mcp_dir.clone(),
                 mcp_servers: disk.mcp_servers.clone(),
+                webvpn: disk.webvpn.clone(),
             },
         )?;
     }
@@ -276,6 +305,7 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
         mnova_mcp_enabled: disk.mnova_mcp_enabled,
         mnova_mcp_dir: disk.mnova_mcp_dir,
         mcp_servers,
+        webvpn: disk.webvpn,
     })
 }
 
@@ -313,6 +343,7 @@ pub fn save(config_dir: &Path, config: AppConfig) -> Result<(), RuntimeError> {
         mnova_mcp_enabled: mnova_enabled,
         mnova_mcp_dir: mnova_dir,
         mcp_servers: config.mcp_servers,
+        webvpn: config.webvpn,
         credential_ref,
     };
     let body = serde_json::to_vec_pretty(&disk).map_err(|error| {
@@ -350,6 +381,7 @@ mod tests {
                 mnova_mcp_enabled: true,
                 mnova_mcp_dir: r"C:\tools\mnova-mcp".into(),
                 mcp_servers: Vec::new(),
+                webvpn: WebVpnConfig::default(),
             },
         )
         .unwrap();
@@ -457,6 +489,7 @@ mod tests {
                     directory: r"C:\tools\mnova-mcp".into(),
                     tool_profile: None,
                 }],
+                webvpn: WebVpnConfig::default(),
             },
         )
         .unwrap();
@@ -474,6 +507,74 @@ mod tests {
             1
         );
         assert!(config.mcp_servers[0].enabled);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn webvpn_config_is_absent_from_json_until_it_is_configured() {
+        // 默认（全默认）配置不应把空 WebVPN 段落写进磁盘。
+        let dir = sandbox("webvpn-default");
+        save(&dir, AppConfig::default()).unwrap();
+        let json = fs::read_to_string(dir.join("app-config.json")).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            parsed.get("webvpn"),
+            Some(&serde_json::json!({
+                "portalUrl": "",
+                "allowedHosts": [],
+                "enforceNavigation": false
+            })),
+            "默认 WebVPN 段落形状应稳定，便于前端读取：{json}"
+        );
+        // 默认必须不含任何域名——阶段 0 未确认前不得写死门户地址。
+        let webvpn = load(&dir).unwrap().webvpn;
+        assert!(webvpn.portal_url.is_empty());
+        assert!(webvpn.allowed_hosts.is_empty());
+        assert!(!webvpn.enforce_navigation, "默认不得开启拦截");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn webvpn_config_roundtrips_and_accepts_configs_that_predate_it() {
+        let dir = sandbox("webvpn-roundtrip");
+        // 旧版本配置（完全没有 webvpn 字段）必须能读，不报错。
+        write_disk_config(
+            &dir,
+            r#"{"baseUrl":"","model":"","workspace":"","mnovaMcpEnabled":false,"mnovaMcpDir":"","mcpServers":[]}"#,
+        );
+        let legacy = load(&dir).unwrap().webvpn;
+        assert!(legacy.portal_url.is_empty(), "缺失字段应落回默认值");
+        assert!(!legacy.enforce_navigation);
+
+        // 写入后回读必须逐字段一致。
+        save(
+            &dir,
+            AppConfig {
+                webvpn: WebVpnConfig {
+                    portal_url: "https://webvpn.example.edu/".into(),
+                    allowed_hosts: vec!["idp.example.edu".into(), "doi.org".into()],
+                    enforce_navigation: true,
+                },
+                ..AppConfig::default()
+            },
+        )
+        .unwrap();
+        let restored = load(&dir).unwrap().webvpn;
+        assert_eq!(restored.portal_url, "https://webvpn.example.edu/");
+        assert_eq!(
+            restored.allowed_hosts,
+            vec!["idp.example.edu".to_string(), "doi.org".to_string()]
+        );
+        assert!(restored.enforce_navigation);
+
+        // 配置里不允许出现凭据类字段名——WebVPN 登录态只能由 WebView2 profile 承载。
+        let json = fs::read_to_string(dir.join("app-config.json")).unwrap();
+        for forbidden in ["cookie", "Cookie", "password", "ticket", "credential"] {
+            assert!(
+                !json.contains(forbidden),
+                "WebVPN 配置不得包含 {forbidden}：{json}"
+            );
+        }
         let _ = fs::remove_dir_all(dir);
     }
 }

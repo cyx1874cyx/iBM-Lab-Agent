@@ -24,6 +24,8 @@ use tauri::{
     AppHandle, Manager, WebviewWindow, WindowEvent,
 };
 
+use crate::runtime::WebVpnConfig;
+
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
 pub const WINDOW_LABEL: &str = "webvpn";
 
@@ -35,6 +37,9 @@ const LOG_FILE: &str = "webvpn.log";
 
 /// 内存中保留的最大事件数，防止长时间探测把内存吃满。
 const MAX_EVENTS: usize = 800;
+
+/// 被拦截域名最多记住多少个，供 UI 提供"放行"入口。
+const MAX_DENIED_HOSTS: usize = 50;
 
 /// 单条 URL 值允许写入日志的最大长度。
 const MAX_LOGGED_VALUE: usize = 300;
@@ -74,7 +79,55 @@ pub struct WebVpnEvent {
     pub detail: String,
 }
 
-/// 导航策略。阶段 0 探测用 `enforce: false`，阶段 1 起用白名单拦截。
+/// 会话状态（计划 §4.2）。UI 只依据这个枚举决策，**不根据 URL 文案猜测**登录是否成功。
+///
+/// 阶段 2 的捕获相关状态（waiting-download / uploading / expired）届时再补，
+/// 现在定义会让它们处于"永不构造"状态。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WebVpnSessionState {
+    /// 尚未创建窗口。
+    #[default]
+    Closed,
+    /// 正在创建或加载门户。
+    Opening,
+    /// 门户已打开，等待用户完成统一身份认证。
+    WaitingLogin,
+    /// 用户已确认可用，允许发起跳转。
+    Ready,
+    /// 正在转发目标页。
+    Navigating,
+    /// 导航、加载或配置失败。
+    Error,
+}
+
+impl WebVpnSessionState {
+    /// 状态机允许的迁移。把所有迁移收在一处，避免 UI 与 shell 各自猜测合法顺序。
+    pub fn can_transition_to(self, next: Self) -> bool {
+        use WebVpnSessionState::*;
+        match (self, next) {
+            // 同态自转（例如重复点"打开"）总是允许，幂等。
+            (a, b) if a == b => true,
+            (Closed, Opening) => true,
+            (Opening, WaitingLogin) => true,
+            // 门户加载过程中用户可能直接点了"我已登录"。
+            (Opening, Ready) => true,
+            (WaitingLogin, Ready) => true,
+            (WaitingLogin, Navigating) => true,
+            (Ready, Navigating) => true,
+            // 转发结束后回到 Ready：阶段 2 会在此之后进入 waiting-download。
+            (Navigating, Ready) => true,
+            // 任何非关闭态都可能失败或需要重开。
+            (_, Error) => true,
+            (Error, Opening) => true,
+            (Error, Closed) => true,
+            (_, Closed) => true,
+            _ => false,
+        }
+    }
+}
+
+/// 导航策略。阶段 0 探测 `enforce = false`；阶段 1 起由配置决定。
 #[derive(Debug, Clone, Default)]
 pub struct WebVpnPolicy {
     pub enforce: bool,
@@ -94,12 +147,82 @@ impl WebVpnPolicy {
             !rule.is_empty() && (host == rule || host.ends_with(&format!(".{rule}")))
         })
     }
+
+    /// 由配置构造策略。**门户自身的 host 始终放行**——它是用户配置的入口，
+    /// 不放行就连登录页都进不去。
+    pub fn from_config(portal_url: &str, extra_hosts: &[String], enforce: bool) -> Self {
+        let mut allowed: Vec<String> = url::Url::parse(portal_url.trim())
+            .ok()
+            .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
+            .into_iter()
+            .collect();
+        allowed.extend(
+            extra_hosts
+                .iter()
+                .map(|host| host.trim().trim_start_matches('.').to_ascii_lowercase())
+                .filter(|host| !host.is_empty()),
+        );
+        allowed.sort();
+        allowed.dedup();
+        Self {
+            enforce,
+            allowed_hosts: allowed,
+        }
+    }
+
+    /// 探测专用策略：只记录不拦截。
+    pub fn record_only() -> Self {
+        Self {
+            enforce: false,
+            allowed_hosts: Vec::new(),
+        }
+    }
+}
+
+/// 会话内部状态。所有字段共用一个 Mutex，避免多锁的加锁顺序问题。
+#[derive(Debug, Default)]
+struct Session {
+    state: WebVpnSessionState,
+    policy: WebVpnPolicy,
+    /// 最近一次由应用主动转发的目标 host。
+    target_host: Option<String>,
+    /// 被白名单拦下、尚未放行的 host。这是「白名单漏域名导致登录被锁死」
+    /// 的逃生阀：UI 据此提示用户是否放行，而不是让用户面对一个静默空白页。
+    denied_hosts: Vec<String>,
+    last_error: Option<String>,
 }
 
 #[derive(Default)]
 pub struct WebVpnState {
     events: Mutex<Vec<WebVpnEvent>>,
-    policy: Mutex<WebVpnPolicy>,
+    session: Mutex<Session>,
+}
+
+/// 供 UI 渲染的完整状态。配置与窗口存在性由命令层补进来。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebVpnStatus {
+    pub state: WebVpnSessionState,
+    pub portal_url: String,
+    /// **当前会话实际生效**的白名单（含门户自身；探测模式下为空）。
+    pub allowed_hosts: Vec<String>,
+    /// **当前会话实际生效**的拦截开关（探测模式下恒为 `false`）。
+    pub enforce_navigation: bool,
+    /// 配置里保存的额外放行域名（**用户意图**，不含门户自身）。
+    ///
+    /// 与 `allowed_hosts` 必须分开：探测模式下生效策略只记录不拦截，而配置
+    /// 里的意图可能是"已启用"。UI 若把两者混为一谈，就无法既回填表单又如实
+    /// 反映实际拦截行为。
+    pub configured_allowed_hosts: Vec<String>,
+    /// 配置里保存的拦截开关（**用户意图**）。
+    pub configured_enforce_navigation: bool,
+    pub target_host: Option<String>,
+    pub denied_hosts: Vec<String>,
+    pub last_error: Option<String>,
+    /// WebVPN 窗口当前是否已创建（隐藏也算已创建）。
+    pub window_open: bool,
+    /// 探测模式是否可用（仅 debug 构建为 true）。
+    pub probe_available: bool,
 }
 
 impl WebVpnState {
@@ -127,17 +250,163 @@ impl WebVpnState {
         }
     }
 
-    pub fn enforce(&self) -> bool {
-        self.policy
-            .lock()
-            .map(|policy| policy.enforce)
-            .unwrap_or(true)
+    /// 状态迁移。非法迁移返回 `Err` 而不静默改写，避免 UI 与 shell 对当前
+    /// 状态的理解漂移。
+    pub fn transition(&self, next: WebVpnSessionState) -> Result<WebVpnSessionState, String> {
+        let Ok(mut session) = self.session.lock() else {
+            return Err("WebVPN 状态不可用".to_string());
+        };
+        if !session.state.can_transition_to(next) {
+            return Err(format!(
+                "WebVPN 状态不允许从 {:?} 变为 {:?}",
+                session.state, next
+            ));
+        }
+        session.state = next;
+        if next != WebVpnSessionState::Error {
+            session.last_error = None;
+        }
+        Ok(next)
     }
 
-    pub fn set_policy(&self, enforce: bool, allowed_hosts: Vec<String>) {
-        if let Ok(mut policy) = self.policy.lock() {
-            policy.enforce = enforce;
-            policy.allowed_hosts = allowed_hosts;
+    /// 记录一次由应用主动发起的转发，并进入 `Navigating`。
+    ///
+    /// 阶段 1 尚无调用方：**转发规则正是阶段 0 要测得的东西**（计划明确禁止
+    /// "按截图猜测转发规则"），在此之前不允许把目标 URL 拼成 WebVPN 链接。
+    /// 阶段 2/3 由 `webvpn_open_target` 接入；此处保留并有单测覆盖。
+    #[allow(dead_code)]
+    pub fn begin_navigation(&self, target_host: &str) -> Result<(), String> {
+        let Ok(mut session) = self.session.lock() else {
+            return Err("WebVPN 状态不可用".to_string());
+        };
+        if !session
+            .state
+            .can_transition_to(WebVpnSessionState::Navigating)
+        {
+            return Err(format!("当前状态 {:?} 不允许发起转发", session.state));
+        }
+        session.state = WebVpnSessionState::Navigating;
+        session.target_host = Some(target_host.to_ascii_lowercase());
+        session.last_error = None;
+        Ok(())
+    }
+
+    pub fn fail(&self, message: &str) {
+        if let Ok(mut session) = self.session.lock() {
+            session.state = WebVpnSessionState::Error;
+            session.last_error = Some(message.to_string());
+        }
+    }
+
+    /// 当前会话状态。窗口存在性等外部事实不在这里判断。
+    pub fn state(&self) -> WebVpnSessionState {
+        self.session
+            .lock()
+            .map(|session| session.state)
+            .unwrap_or_default()
+    }
+
+    /// 复用已有窗口时的状态归位。
+    ///
+    /// 已经确认过登录（Ready / Navigating）就保持不动：无条件回到
+    /// `WaitingLogin` 会把用户已确认的会话降级，逼他每点一次"打开"就再确认一次。
+    pub fn enter_reused_session(&self) {
+        let Ok(mut session) = self.session.lock() else {
+            return;
+        };
+        if matches!(
+            session.state,
+            WebVpnSessionState::Ready | WebVpnSessionState::Navigating
+        ) {
+            return;
+        }
+        session.state = WebVpnSessionState::WaitingLogin;
+        session.last_error = None;
+    }
+
+    pub fn mark_closed(&self) {
+        if let Ok(mut session) = self.session.lock() {
+            session.state = WebVpnSessionState::Closed;
+            session.target_host = None;
+        }
+    }
+
+    pub fn apply_policy(&self, policy: WebVpnPolicy) {
+        if let Ok(mut session) = self.session.lock() {
+            session.policy = policy;
+        }
+    }
+
+    /// 放行一个此前被拦下的域名（用户确认后调用），并写回配置。
+    /// 返回更新后的完整白名单。
+    pub fn allow_host(&self, host: &str) -> Result<Vec<String>, String> {
+        let host = host.trim().trim_start_matches('.').to_ascii_lowercase();
+        if host.is_empty() || host.contains('/') || host.contains(' ') {
+            return Err("域名格式无效".to_string());
+        }
+        let Ok(mut session) = self.session.lock() else {
+            return Err("WebVPN 状态不可用".to_string());
+        };
+        session
+            .denied_hosts
+            .retain(|candidate| candidate != &host);
+        if !session.policy.allows(&host) {
+            session.policy.allowed_hosts.push(host);
+            session.policy.allowed_hosts.sort();
+            session.policy.allowed_hosts.dedup();
+        }
+        Ok(session.policy.allowed_hosts.clone())
+    }
+
+    /// 导航判定 + 记录被拦域名。之所以合成一个方法：`on_navigation` 是同步闭包，
+    /// 分两次加锁既啰嗦又容易让状态与记录不一致。
+    ///
+    /// 加锁失败时返回 `false`（拦截）：导航策略要 fail-closed。
+    pub fn decide_navigation(&self, host: &str) -> bool {
+        let Ok(mut session) = self.session.lock() else {
+            return false;
+        };
+        let host_lower = host.to_ascii_lowercase();
+        if session.policy.enforce && !session.policy.allows(&host_lower) {
+            if !session.denied_hosts.iter().any(|item| item == &host_lower) {
+                session.denied_hosts.push(host_lower);
+                if session.denied_hosts.len() > MAX_DENIED_HOSTS {
+                    session.denied_hosts.remove(0);
+                }
+            }
+            return false;
+        }
+        // 转发落地：从 Navigating 回到 Ready（阶段 2 会在此之后进入等待下载）。
+        if session.state == WebVpnSessionState::Navigating {
+            session.state = WebVpnSessionState::Ready;
+        }
+        true
+    }
+
+    pub fn status(&self, config: &WebVpnConfig, window_open: bool) -> WebVpnStatus {
+        let session = self
+            .session
+            .lock()
+            .map(|session| Session {
+                state: session.state,
+                policy: session.policy.clone(),
+                target_host: session.target_host.clone(),
+                denied_hosts: session.denied_hosts.clone(),
+                last_error: session.last_error.clone(),
+            })
+            .unwrap_or_default();
+        WebVpnStatus {
+            state: session.state,
+            portal_url: config.portal_url.clone(),
+            allowed_hosts: session.policy.allowed_hosts.clone(),
+            enforce_navigation: session.policy.enforce,
+            configured_allowed_hosts: config.allowed_hosts.clone(),
+            configured_enforce_navigation: config.enforce_navigation,
+            target_host: session.target_host,
+            denied_hosts: session.denied_hosts,
+            last_error: session.last_error,
+            window_open,
+            probe_available: Self::probe_available(),
         }
     }
 
@@ -316,18 +585,25 @@ pub fn open_window(
     app: &AppHandle,
     data_root: &Path,
     target: &url::Url,
-    enforce: bool,
-    allowed_hosts: Vec<String>,
+    policy: WebVpnPolicy,
 ) -> Result<WebviewWindow, String> {
     let profile_dir = resolve_profile_dir(data_root)?;
+    // 策略最先应用：复用与新建两条路径的导航判定都必须按最新配置执行。
     if let Some(state) = app.try_state::<WebVpnState>() {
-        state.set_policy(enforce, allowed_hosts);
+        state.apply_policy(policy);
     }
+
     if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-        window.navigate(target.clone()).map_err(|error| error.to_string())?;
+        window
+            .navigate(target.clone())
+            .map_err(|error| error.to_string())?;
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+        if let Some(state) = app.try_state::<WebVpnState>() {
+            // 复用已有会话：登录态在 WebView2 profile 里，已确认过的会话不重置。
+            state.enter_reused_session();
+        }
         return Ok(window);
     }
 
@@ -335,31 +611,29 @@ pub fn open_window(
     let window_app = app.clone();
     let download_app = app.clone();
 
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        // 窗口不存在 ⇒ 会话不可能处于打开态（例如 WebView2 进程崩溃后重建）。
+        // 先归零再走合法的 Opening 路径，否则 `Ready → Opening` 这类非法迁移
+        // 会把"重新打开"永久卡死。
+        if state.state() != WebVpnSessionState::Closed {
+            state.mark_closed();
+        }
+        state.transition(WebVpnSessionState::Opening)?;
+    }
+
     let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::External(target.clone()))
         .title("WebVPN")
         .inner_size(1200.0, 860.0)
         .data_directory(profile_dir)
         .on_navigation(move |url| {
             let host = host_of(url.as_str());
-            let enforce = navigation_app
+            let allowed = navigation_app
                 .try_state::<WebVpnState>()
-                .map(|state| state.enforce())
-                .unwrap_or(true);
-            if enforce {
-                let allowed = navigation_app
-                    .try_state::<WebVpnState>()
-                    .map(|state| {
-                        state
-                            .policy
-                            .lock()
-                            .map(|policy| policy.allows(&host))
-                            .unwrap_or(false)
-                    })
-                    .unwrap_or(false);
-                if !allowed {
-                    record(&navigation_app, "denied", url.as_str(), "不在导航白名单内");
-                    return false;
-                }
+                .map(|state| state.decide_navigation(&host))
+                .unwrap_or(false);
+            if !allowed {
+                record(&navigation_app, "denied", url.as_str(), "不在导航白名单内");
+                return false;
             }
             record(&navigation_app, "navigation", url.as_str(), "");
             true
@@ -397,10 +671,31 @@ pub fn open_window(
             true
         })
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            if let Some(state) = app.try_state::<WebVpnState>() {
+                state.fail(&format!("无法创建 WebVPN 窗口: {error}"));
+            }
+            error.to_string()
+        })?;
 
     record(app, "windowCreated", target.as_str(), "单例窗口已创建");
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        // 门户正在加载，等待用户完成统一身份认证。
+        let _ = state.transition(WebVpnSessionState::WaitingLogin);
+    }
     Ok(window)
+}
+
+/// 由命令层调用的状态组装：补上"窗口是否存在"与配置。
+///
+/// 窗口隐藏也算存在——隐藏正是"保留会话"的实现方式，UI 需要区分
+/// "已创建但隐藏"与"从未创建"。
+pub fn status_of(app: &AppHandle, config: &WebVpnConfig) -> WebVpnStatus {
+    let window_open = app.get_webview_window(WINDOW_LABEL).is_some();
+    match app.try_state::<WebVpnState>() {
+        Some(state) => state.status(config, window_open),
+        None => WebVpnState::default().status(config, window_open),
+    }
 }
 
 /// 关闭按钮只隐藏窗口，保留 WebView2 会话。
@@ -590,5 +885,270 @@ mod tests {
         }
         // 公网域名照常放行；不做 DNS 解析，避免引入网络依赖。
         assert!(validate_target("https://webvpn.ustc.edu.cn/").is_ok());
+    }
+
+    #[test]
+    fn policy_from_config_always_admits_the_portal_itself() {
+        // 门户是用户配置的入口：不放行它就连登录页都进不去。
+        let policy = WebVpnPolicy::from_config(
+            "https://webvpn.example.edu/portal",
+            &["idp.example.edu".to_string()],
+            true,
+        );
+        assert!(policy.allows("webvpn.example.edu"));
+        assert!(policy.allows("idp.example.edu"));
+        assert!(!policy.allows("doi.org"), "未列举的域名不得放行");
+
+        // 空配置 + 空门户：什么都进不去，这是期望的 fail-closed 行为。
+        let empty = WebVpnPolicy::from_config("", &[], true);
+        assert!(empty.allowed_hosts.is_empty());
+        assert!(!empty.allows("webvpn.example.edu"));
+    }
+
+    #[test]
+    fn probe_policy_records_without_blocking() {
+        let policy = WebVpnPolicy::record_only();
+        assert!(!policy.enforce, "阶段 0 必须只记录不拦截");
+        let state = WebVpnState::default();
+        state.apply_policy(policy);
+        assert!(state.decide_navigation("unknown-idp.example.edu"));
+        assert!(state.decide_navigation("doi.org"));
+        let status = state.status(&WebVpnConfig::default(), false);
+        assert!(
+            status.denied_hosts.is_empty(),
+            "只记录模式不应产生被拦域名"
+        );
+    }
+
+    #[test]
+    fn denied_hosts_are_remembered_so_the_ui_can_offer_to_allow_them() {
+        let state = WebVpnState::default();
+        state.apply_policy(WebVpnPolicy::from_config(
+            "https://webvpn.example.edu/",
+            &[],
+            true,
+        ));
+        assert!(!state.decide_navigation("sso.unknown.edu"));
+        assert!(!state.decide_navigation("sso.unknown.edu"), "重复拦截应去重");
+        let status = state.status(&WebVpnConfig::default(), true);
+        assert_eq!(status.denied_hosts, vec!["sso.unknown.edu".to_string()]);
+
+        // 用户放行后该域名离开待放行列表，并进入白名单。
+        let allowed = state.allow_host("sso.unknown.edu").expect("放行应成功");
+        assert!(allowed.contains(&"sso.unknown.edu".to_string()));
+        assert!(state.decide_navigation("sso.unknown.edu"));
+        assert!(state
+            .status(&WebVpnConfig::default(), true)
+            .denied_hosts
+            .is_empty());
+    }
+
+    #[test]
+    fn allow_host_rejects_malformed_domains() {
+        let state = WebVpnState::default();
+        for bad in ["", "   ", "https://doi.org", "doi.org/path", "a b.com"] {
+            assert!(state.allow_host(bad).is_err(), "应拒绝: {bad:?}");
+        }
+        // 前导点代表"含子域"，应被规范化掉后接受。
+        assert_eq!(
+            state.allow_host(".doi.org").expect("应接受"),
+            vec!["doi.org".to_string()]
+        );
+    }
+
+    #[test]
+    fn session_state_machine_rejects_illegal_transitions() {
+        use WebVpnSessionState::*;
+        // 合法路径：关闭 → 打开门户 → 等待登录 → 已确认 → 转发 → 回到已确认。
+        for (from, to) in [
+            (Closed, Opening),
+            (Opening, WaitingLogin),
+            (WaitingLogin, Ready),
+            (Ready, Navigating),
+            (Navigating, Ready),
+            (Ready, Error),
+            (Error, Opening),
+            (Navigating, Closed),
+        ] {
+            assert!(from.can_transition_to(to), "{from:?} → {to:?} 应允许");
+        }
+        // 非法：尚未打开就要求已确认/转发，门户还在加载就转发，或从已确认退回等待登录。
+        for (from, to) in [
+            (Closed, Ready),
+            (Closed, Navigating),
+            (Closed, WaitingLogin),
+            (Opening, Navigating),
+            (Ready, WaitingLogin),
+        ] {
+            assert!(!from.can_transition_to(to), "{from:?} → {to:?} 应被拒绝");
+        }
+        // 销毁窗口（清除登录状态）从任何状态都可能发生。
+        for state in [Closed, Opening, WaitingLogin, Ready, Navigating, Error] {
+            assert!(
+                state.can_transition_to(Closed),
+                "{state:?} → Closed 应允许（销毁窗口路径）"
+            );
+        }
+        // 同态自转必须幂等允许（重复点"打开"很常见）。
+        for state in [Closed, Opening, WaitingLogin, Ready, Navigating, Error] {
+            assert!(state.can_transition_to(state), "{state:?} 自转应允许");
+        }
+    }
+
+    #[test]
+    fn state_transitions_and_failures_are_observable_through_status() {
+        let state = WebVpnState::default();
+        let config = WebVpnConfig {
+            portal_url: "https://webvpn.example.edu/".to_string(),
+            allowed_hosts: Vec::new(),
+            enforce_navigation: true,
+        };
+        assert_eq!(
+            state.status(&config, false).state,
+            WebVpnSessionState::Closed
+        );
+
+        state
+            .transition(WebVpnSessionState::Opening)
+            .expect("关闭态可以打开");
+        // 非法迁移必须报错而不是静默改写——否则 UI 与 shell 的状态理解会漂移。
+        assert!(state
+            .transition(WebVpnSessionState::Navigating)
+            .is_err());
+
+        state
+            .transition(WebVpnSessionState::WaitingLogin)
+            .expect("加载完成进入等待登录");
+        state
+            .transition(WebVpnSessionState::Ready)
+            .expect("用户确认登录");
+        state
+            .begin_navigation("doi.org")
+            .expect("已确认后可以转发");
+        let navigating = state.status(&config, true);
+        assert_eq!(navigating.state, WebVpnSessionState::Navigating);
+        assert_eq!(navigating.target_host.as_deref(), Some("doi.org"));
+
+        // 转发落地后回到 Ready，并清除目标。
+        assert!(state.decide_navigation("doi.org"));
+        assert_eq!(
+            state.status(&config, true).state,
+            WebVpnSessionState::Ready
+        );
+
+        state.fail("导航失败");
+        let failed = state.status(&config, true);
+        assert_eq!(failed.state, WebVpnSessionState::Error);
+        assert_eq!(failed.last_error.as_deref(), Some("导航失败"));
+        // 成功的迁移应清掉上一次的错误，避免 UI 残留旧报错。
+        state
+            .transition(WebVpnSessionState::Opening)
+            .expect("错误态可以重开");
+        assert!(state.status(&config, true).last_error.is_none());
+
+        state.mark_closed();
+        let closed = state.status(&config, false);
+        assert_eq!(closed.state, WebVpnSessionState::Closed);
+        assert!(closed.target_host.is_none());
+        // 配置始终如实透出，便于 UI 判断"未配置门户"。
+        assert_eq!(closed.portal_url, "https://webvpn.example.edu/");
+        assert!(
+            closed.configured_enforce_navigation,
+            "配置里的拦截意图必须如实透出"
+        );
+        // 本用例从未 apply_policy，因此**生效**策略仍是默认的只记录。
+        assert!(
+            !closed.enforce_navigation,
+            "未 apply_policy 时生效策略应为默认的只记录"
+        );
+    }
+
+    #[test]
+    fn status_reports_config_separately_from_session_state() {
+        // 配置是权威来源；探测模式下策略只记录，但 UI 仍需看到配置里的 enforce 意图。
+        // 两者混为一谈会导致 UI 无法既回填表单又如实反映实际拦截行为。
+        let state = WebVpnState::default();
+        state.apply_policy(WebVpnPolicy::record_only());
+        let config = WebVpnConfig {
+            portal_url: "https://webvpn.example.edu/".to_string(),
+            allowed_hosts: vec!["idp.example.edu".to_string()],
+            enforce_navigation: true,
+        };
+        let status = state.status(&config, false);
+        assert_eq!(status.portal_url, "https://webvpn.example.edu/");
+        assert!(
+            !status.enforce_navigation,
+            "探测模式实际生效的是只记录策略"
+        );
+        assert!(
+            status.allowed_hosts.is_empty(),
+            "只记录策略下生效白名单为空"
+        );
+        // 用户意图与实际生效必须同时可见。
+        assert!(status.configured_enforce_navigation, "配置里的拦截开关为 true");
+        assert_eq!(
+            status.configured_allowed_hosts,
+            vec!["idp.example.edu".to_string()]
+        );
+        assert_eq!(
+            status.probe_available,
+            cfg!(debug_assertions),
+            "探测可用性必须与构建类型一致"
+        );
+    }
+
+    #[test]
+    fn reused_session_keeps_a_confirmed_login() {
+        let state = WebVpnState::default();
+        // 尚未确认时复用窗口：应落在等待登录。
+        state
+            .transition(WebVpnSessionState::Opening)
+            .expect("关闭态可打开");
+        state.enter_reused_session();
+        assert_eq!(state.state(), WebVpnSessionState::WaitingLogin);
+
+        // 用户确认后再次复用：不能把已确认的会话打回等待登录，
+        // 否则每点一次"打开"都要重新确认一次。
+        state
+            .transition(WebVpnSessionState::Ready)
+            .expect("确认登录");
+        state.enter_reused_session();
+        assert_eq!(state.state(), WebVpnSessionState::Ready);
+
+        // 转发进行中复用同理，不应被重置。
+        state.begin_navigation("doi.org").expect("已确认可转发");
+        state.enter_reused_session();
+        assert_eq!(state.state(), WebVpnSessionState::Navigating);
+
+        // 错误态复用：应回到等待登录并清掉旧报错，让用户能继续操作。
+        state.fail("上一次导航失败");
+        state.enter_reused_session();
+        assert_eq!(state.state(), WebVpnSessionState::WaitingLogin);
+        assert!(state.status(&WebVpnConfig::default(), true).last_error.is_none());
+    }
+
+    #[test]
+    fn any_state_can_be_reset_and_reopened() {
+        use WebVpnSessionState::*;
+        // open_window 的新建分支 = 「若非 Closed 则归零」+「→ Opening」。
+        // 只要这两步对任意起点都合法，"重新打开"就不可能被卡死。
+        for from in [Closed, Opening, WaitingLogin, Ready, Navigating, Error] {
+            assert!(from.can_transition_to(Closed), "{from:?} 必须能归零");
+        }
+        assert!(Closed.can_transition_to(Opening), "归零后必须能重新打开");
+
+        // 具体走一遍用户最可能遇到的路径：已确认登录 → 窗口被销毁 → 重新打开。
+        let state = WebVpnState::default();
+        state.transition(Opening).expect("打开");
+        state.transition(WaitingLogin).expect("加载完成");
+        state.transition(Ready).expect("确认登录");
+        // 直接 Ready → Opening 是非法的（防止 UI 与 shell 的状态理解漂移）……
+        assert!(state.transition(Opening).is_err());
+        // ……所以必须走归零路径，这一步正是 open_window 新建分支所做的。
+        state.mark_closed();
+        assert_eq!(state.state(), Closed);
+        state.transition(Opening).expect("归零后重开不得被卡死");
+        state.transition(WaitingLogin).expect("重新进入等待登录");
+        assert_eq!(state.state(), WaitingLogin);
     }
 }

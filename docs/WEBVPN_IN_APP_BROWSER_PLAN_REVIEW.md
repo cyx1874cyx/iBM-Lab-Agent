@@ -492,6 +492,93 @@ cd desktop/src-tauri && cargo tauri dev
 
 ---
 
+## 13. 阶段 1 执行记录（配置接入 + 状态机，已完成；转发未接）
+
+阶段 0 依赖用户亲自登录，无法由开发 Agent 独立完成。因此先推进**不依赖探测结果**的
+阶段 1 部分：配置接入与 §4.2 状态机。**转发规则明确不做**——那正是阶段 0 要测得的东西，
+提前猜测会直接返工。
+
+### 13.1 已落地内容
+
+| 项 | 位置 | 说明 |
+|---|---|---|
+| 配置结构 | `runtime/config.rs::WebVpnConfig` | `portal_url` / `allowed_hosts` / `enforce_navigation` 三者全部 `#[serde(default)]`；`portal_url` **默认为空串**，不写死任何未验证域名 |
+| 配置兼容 | 同上 | 旧 `config.json` 无需迁移：字段缺省即回填默认值，新增测试锁定该行为 |
+| 会话状态机 | `webvpn.rs::WebVpnSessionState` | 6 态（`closed`/`opening`/`waiting-login`/`ready`/`navigating`/`error`），迁移合法性集中在 `can_transition_to` 单点收口；非法迁移**返回 `Err` 而不静默改写** |
+| 导航策略 | `webvpn.rs::WebVpnPolicy` | `from_config`（门户自身始终放行）/ `record_only`（阶段 0 只记录）；后缀安全匹配，`notdoi.org` 不命中 `doi.org` |
+| 逃生阀 | `denied_hosts` + `webvpn_allow_host` | 被拦域名进入 `deniedHosts`，用户确认后放行**并写回配置**（对应 R4） |
+| 命令 | `main.rs` | `webvpn_open_login` / `webvpn_confirm_login` / `webvpn_allow_host` / `webvpn_set_policy` / `webvpn_status`，全部已注册进 `generate_handler!` |
+| 调试面板 | `desktop/src/index.html` | 在既有 debug-only 面板内扩展「阶段 1 · 导航白名单」区块 |
+
+**UI 仍留在 debug-only 面板内**，不进正式界面：门户地址与域名清单要等阶段 0 实测确认，
+在此之前把未验证域名写进发布包正是计划明令禁止的。正式界面属阶段 3。
+
+### 13.2 实施中发现并修正的缺陷
+
+| # | 缺陷 | 性质 | 修正 |
+|---|---|---|---|
+| 1 | `crate::runtime::config::WebVpnConfig` —— `config` 是私有模块 | 🔴 编译失败（2 处） | 把 `WebVpnConfig` 加入 `runtime` 的公开再导出，改 `runtime::WebVpnConfig` |
+| 2 | `RuntimeManager::save_webvpn_config` 被调用但从未定义 | 🔴 编译失败 | 在 `runtime/mod.rs` 补齐，并注明**登录态一律不进配置** |
+| 3 | 5 条阶段 1 命令漏注册 `generate_handler!` | 🔴 命令不可达（编译期无法发现） | 全部补注册 |
+| 4 | `open_window` 复用分支无条件走 `Opening` | 🔴 逻辑缺陷 | `Ready → Opening` 本就非法（防状态漂移），复用已有窗口时会把"重新打开"直接**报错**；改为「窗口不存在则先归零再 Opening」，并新增 `enter_reused_session` |
+| 5 | 复用窗口会强制回到 `waiting-login` | 🟡 体验缺陷 | 已确认的会话被降级，用户每点一次"打开"就要重新确认一次；`enter_reused_session` 对 `ready`/`navigating` 保持不变 |
+| 6 | `webvpn_clear_session` 销毁窗口但未归零会话状态 | 🟡 状态自相矛盾 | 补 `mark_closed()`，否则 `webvpn_status` 会报出 `state=ready` 且 `windowOpen=false` |
+| 7 | `status` 把「用户配置意图」与「实际生效策略」混为一谈 | 🟡 信息缺失 | 新增 `configured_allowed_hosts` / `configured_enforce_navigation`；探测模式下二者必然不同，UI 必须能分辨 |
+| 8 | 测试 `assert!(closed.enforce_navigation)` 实际会失败 | 🟡 错误断言 | 该用例从未 `apply_policy`，生效策略是默认只记录；改断言 `configured_enforce_navigation`，并补断言生效侧为 `false` |
+| 9 | 命令名 `webvpn_save_config` 触发既有架构护栏 | 🟡 与仓库既定不变量冲突 | `desktop-native.test.mjs` 断言桌面壳不得注册 `*_config` 形态命令（模型配置由 DSH 托管）；**改名 `webvpn_set_policy`，不放宽护栏** |
+| 10 | 新写的护栏测试抓错了函数 | 🟡 测试自身缺陷 | 文件里有两个 `fn record(`（`WebVpnState::record` 方法与模块级落日志入口），改为按完整签名定位 |
+
+其中 #4/#5/#6/#7 是**纯逻辑缺陷**，编译不会报错、也不会被基线测试捕获，属于本阶段新增测试
+才把它逼出来的类型。#9 说明仓库既有的架构护栏**确实在起作用**：它拦下的不是我的设计错误，
+而是命名碰撞，正确反应是改名而不是改护栏。#10 则是"测试自己写错"的典型，若不深究就会
+误以为实现有 bug。
+
+### 13.3 测试结果
+
+| 套件 | 命令 | 结果 |
+|---|---|---|
+| Rust 单元测试 | `cargo test`（`desktop/src-tauri`） | ✅ **81 通过 / 0 失败 / 1 ignored**（基线 70；`webvpn` 模块 23 条） |
+| 编译警告 | `cargo check --all-targets` | ✅ 0 条新增警告（`origin_mcp_package_dir` 为既有存量） |
+| 新增护栏测试 | `tests/unit/webvpn-commands.test.mjs` | ✅ 5/5 通过 |
+| Node 全量 | `npm test` | ✅ **365 通过 / 0 失败**（基线 360 + 新增 5） |
+| 内联脚本语法 | 自建检查 | ✅ `index.html` 内联 JS 语法通过 + 新增 9 个 UI id 全部存在 |
+
+新增的 `tests/unit/webvpn-commands.test.mjs` 锁住 5 条不变量，全部是**编译期无法发现、
+只在运行时或安全边界上才暴露**的类型：
+
+1. `index.html` 里 `invoke('…')` 的每个命令都必须在 `generate_handler!` 中注册
+   ——漏注册不报编译错误，只在用户点下去的那一刻失败；
+2. 阶段 0 探测无法从 release 构建抵达：`probe_available()` 必须只看 `cfg!(debug_assertions)`，
+   且唯一以「只记录不拦截」策略开窗的命令必须显式拒绝 release，面板默认隐藏；
+3. WebVPN 日志只写脱敏结果：模块级落日志入口必须先 `redact_for_log`，日志行不得引用 `raw_url`；
+4. 窗口与主窗口隔离（专属 `data_directory`）、单例判定只认 label、关闭即隐藏（`prevent_close`）；
+5. 逃生阀存在：被拒域名可诊断、可放行、并写回配置，且 UI 真的把它渲染成可点击入口。
+
+`begin_navigation` 目前无调用方，标注 `#[allow(dead_code)]` 并注明原因：转发规则须待阶段 0
+实测确认，阶段 2/3 由 `webvpn_open_target` 接入；该方法**有单测覆盖**，不是死代码。
+
+### 13.4 阶段 1 退出条件对照
+
+计划 §11 的阶段 1 退出条件为「登录一次后隐藏/显示三次，仍能访问三个目标站点、不重复登录、
+不产生第二窗口」。当前状态：
+
+| 子条件 | 状态 |
+|---|---|
+| 单例窗口、隐藏/显示保留会话 | ⏳ 代码就绪，待阶段 0 后实机验证 |
+| 白名单拦截 + 被拒域名可诊断 + 逃生阀 | ⏳ 代码就绪，域名清单待阶段 0 填充 |
+| 不重复登录（跨隐藏/显示） | ⏳ 待实机验证（依赖 R3 的 TTL 结论） |
+| 不产生第二窗口 | ⏳ 待实机验证（依赖 §12.3「弹窗」结论） |
+| 转发到三个目标站点 | ❌ **刻意未做**——转发规则须由阶段 0 实测确定 |
+
+### 13.5 下一步
+
+1. **阶段 0 探测**（需用户亲自登录）：按 §12 操作手册执行，产出域名清单与转发规则。
+2. 据实测结论**回填白名单**并把 `enforce_navigation` 翻转为 `true`。
+3. 用实测转发规则实现 `webvpn_open_target`，接上 `begin_navigation`。
+4. 收尾开放问题 Q3–Q5（跨重启会话保留 / 弹窗策略 / 版本号归属），见 §10。
+
+---
+
 ## 附录 A：本次评审使用的证据文件清单
 
 | 文件 | 用途 |
