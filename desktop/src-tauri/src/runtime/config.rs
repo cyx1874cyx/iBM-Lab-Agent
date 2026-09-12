@@ -29,6 +29,17 @@ pub struct McpServerConfig {
 /// WebView2 的专属 profile 目录承载，这里只存非敏感的导航策略。
 pub const DEFAULT_WEBVPN_PORTAL: &str = "https://wvpn.ustc.edu.cn/";
 
+/// USTC 统一身份认证链路上实测出现的额外放行域名（门户自身由 `portal_url` 推导）。
+///
+/// 2026-09-11 用浏览器 UA 跟完整跳转链实测：
+/// `wvpn.ustc.edu.cn/` →302 `/login` →302 **`passport.ustc.edu.cn/login?service=…`**
+/// →302 `id.ustc.edu.cn/cas/login` →200。
+///
+/// 少了 `passport.ustc.edu.cn` 时，第一跳（服务器端 302）就会被导航白名单拦掉，
+/// 用户看到的正是「一片白、看不见东西」。该域名在 `src/literature/data-sources.js`
+/// 的 `loginHosts` 里早已被认定为 USTC SSO 域名，这里补齐。
+pub const USTC_SSO_HOSTS: &[&str] = &["id.ustc.edu.cn", "passport.ustc.edu.cn"];
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebVpnConfig {
@@ -51,10 +62,40 @@ impl Default for WebVpnConfig {
     fn default() -> Self {
         Self {
             portal_url: DEFAULT_WEBVPN_PORTAL.to_string(),
-            allowed_hosts: vec!["id.ustc.edu.cn".to_string()],
+            allowed_hosts: USTC_SSO_HOSTS.iter().map(|host| host.to_string()).collect(),
             enforce_navigation: true,
         }
     }
+}
+
+/// 门户是否属于学校自有域。只有学校门户才需要、也才允许自动补齐 USTC 的认证域名。
+fn is_ustc_portal(portal_url: &str) -> bool {
+    url::Url::parse(portal_url.trim())
+        .ok()
+        .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
+        .map(|host| host == "ustc.edu.cn" || host.ends_with(".ustc.edu.cn"))
+        .unwrap_or(false)
+}
+
+/// 学校门户下保证统一认证链路上的域名都在白名单里。
+///
+/// 只对 USTC 门户生效：其它学校的门户不该被塞进 USTC 域名；指向自定义门户、
+/// 自定义域名集合的配置（例如 `webvpn.example.edu` + `idp.example.edu`）保持原样。
+///
+/// 之所以要在**读取时**补齐而不是只改默认值：升级前已经落盘过旧默认白名单
+/// （只含 `id.ustc.edu.cn`）的安装，光改 `Default` 是救不回来的——它会一直卡在
+/// 被拦成白页的状态，且 release 构建下用户看不到任何诊断。
+fn ensure_ustc_sso_hosts(config: &mut WebVpnConfig) {
+    if !is_ustc_portal(&config.portal_url) {
+        return;
+    }
+    for host in USTC_SSO_HOSTS {
+        if !config.allowed_hosts.iter().any(|existing| existing == host) {
+            config.allowed_hosts.push((*host).to_string());
+        }
+    }
+    config.allowed_hosts.sort();
+    config.allowed_hosts.dedup();
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -308,13 +349,15 @@ pub fn load(config_dir: &Path) -> Result<AppConfig, RuntimeError> {
             tool_profile: None,
         });
     }
-    let webvpn = if disk.webvpn.portal_url.trim().is_empty() {
+    let mut webvpn = if disk.webvpn.portal_url.trim().is_empty() {
         // 阶段 0 前的开发构建曾把空配置写入磁盘。现在门户已经实测确认，
         // 将这类旧值迁移到安全默认值，避免升级后仍提示“尚未配置”。
         WebVpnConfig::default()
     } else {
         disk.webvpn
     };
+    // 旧默认白名单只含 id.ustc.edu.cn，缺 passport.ustc.edu.cn 会在首跳被拦成白页。
+    ensure_ustc_sso_hosts(&mut webvpn);
     Ok(AppConfig {
         api_key,
         base_url: disk.base_url,
@@ -539,15 +582,49 @@ mod tests {
             parsed.get("webvpn"),
             Some(&serde_json::json!({
                 "portalUrl": "https://wvpn.ustc.edu.cn/",
-                "allowedHosts": ["id.ustc.edu.cn"],
+                "allowedHosts": ["id.ustc.edu.cn", "passport.ustc.edu.cn"],
                 "enforceNavigation": true
             })),
             "默认 WebVPN 段落形状应稳定，便于前端读取：{json}"
         );
         let webvpn = load(&dir).unwrap().webvpn;
         assert_eq!(webvpn.portal_url, DEFAULT_WEBVPN_PORTAL);
-        assert_eq!(webvpn.allowed_hosts, vec!["id.ustc.edu.cn"]);
+        assert_eq!(
+            webvpn.allowed_hosts,
+            vec!["id.ustc.edu.cn".to_string(), "passport.ustc.edu.cn".to_string()]
+        );
         assert!(webvpn.enforce_navigation);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn ustc_portal_backfills_the_measured_sso_hosts() {
+        // 2026-09-11 实测缺陷：门户 302 到 passport.ustc.edu.cn，旧默认白名单没有它，
+        // 首跳就被导航策略拦掉，用户只看到一片白。已落盘的旧配置必须在读取时被补齐。
+        let dir = sandbox("webvpn-ustc-backfill");
+        write_disk_config(
+            &dir,
+            r#"{"baseUrl":"","model":"","workspace":"","mnovaMcpEnabled":false,"mnovaMcpDir":"","mcpServers":[],"webvpn":{"portalUrl":"https://wvpn.ustc.edu.cn/","allowedHosts":["id.ustc.edu.cn"],"enforceNavigation":true}}"#,
+        );
+        let webvpn = load(&dir).unwrap().webvpn;
+        assert!(
+            webvpn.allowed_hosts.iter().any(|host| host == "passport.ustc.edu.cn"),
+            "USTC 门户必须补齐 passport.ustc.edu.cn，实际：{:?}",
+            webvpn.allowed_hosts
+        );
+        assert!(webvpn.allowed_hosts.iter().any(|host| host == "id.ustc.edu.cn"));
+
+        // 非 USTC 门户：自定义域名集合必须原样保留，不得被塞进 USTC 域名。
+        write_disk_config(
+            &dir,
+            r#"{"baseUrl":"","model":"","workspace":"","mnovaMcpEnabled":false,"mnovaMcpDir":"","mcpServers":[],"webvpn":{"portalUrl":"https://webvpn.example.edu/","allowedHosts":["idp.example.edu"],"enforceNavigation":true}}"#,
+        );
+        let other = load(&dir).unwrap().webvpn;
+        assert_eq!(
+            other.allowed_hosts,
+            vec!["idp.example.edu".to_string()],
+            "自定义门户的白名单不得被改写"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
