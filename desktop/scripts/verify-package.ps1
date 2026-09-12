@@ -45,8 +45,10 @@ $capabilityFiles = @(Get-ChildItem -LiteralPath $capabilityDir -Filter '*.json' 
 if ($capabilityFiles.Count -eq 0) { throw 'No capability files found: the desktop shell would ship with no permissions at all.' }
 foreach ($capabilityFile in $capabilityFiles) {
   $capability = Get-Content -LiteralPath $capabilityFile.FullName -Raw | ConvertFrom-Json
-  $grantedWindows = @($capability.windows)
-  $grantedWebviews = @($capability.webviews)
+  # PowerShell 的 @($null) 长度为 1；先过滤空值，否则“未声明 windows”会被
+  # 误判为含一个窗口授权，导致正确的 webview-only capability 无法发布。
+  $grantedWindows = @($capability.windows | Where-Object { $null -ne $_ })
+  $grantedWebviews = @($capability.webviews | Where-Object { $null -ne $_ })
   if ($grantedWindows.Count -ne 0 -or $grantedWebviews.Count -ne 1 -or $grantedWebviews[0] -ne 'main') {
     throw "Capability '$($capabilityFile.Name)' must grant the main webview only; windows=[$($grantedWindows -join ', ')], webviews=[$($grantedWebviews -join ', ')]"
   }

@@ -113,8 +113,8 @@ test("package verification enforces the main-webview-only capability boundary fo
 	// 主窗口承载 main 与 WebVPN 两个 WebView，按 windows 授权会让外部网页也拿到 IPC。
 	assert.match(source, /\$capabilityDir -Filter '\*\.json'/, "必须枚举全部 capability 文件");
 	assert.match(source, /foreach \(\$capabilityFile in \$capabilityFiles\)/, "必须逐个文件检查");
-	assert.match(source, /\$grantedWindows = @\(\$capability\.windows\)/, "必须拒绝窗口级授权");
-	assert.match(source, /\$grantedWebviews = @\(\$capability\.webviews\)/, "必须读取 webviews 数组");
+	assert.match(source, /\$grantedWindows = @\(\$capability\.windows \| Where-Object \{ \$null -ne \$_ \}\)/, "必须过滤缺失 windows 字段产生的 null");
+	assert.match(source, /\$grantedWebviews = @\(\$capability\.webviews \| Where-Object \{ \$null -ne \$_ \}\)/, "必须读取并过滤 webviews 数组");
 	assert.match(source, /\$grantedWindows\.Count -ne 0/, "windows 必须为空");
 	assert.match(source, /\$grantedWebviews\.Count -ne 1 -or \$grantedWebviews\[0\] -ne 'main'/, "webviews 必须且只能是 [main]");
 	assert.match(source, /must grant the main webview only/, "违规必须终止打包");
