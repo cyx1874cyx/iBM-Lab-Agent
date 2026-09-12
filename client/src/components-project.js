@@ -10,6 +10,24 @@ import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
 import { BookSvg, SiSvg } from "./components-templates.js";
 
+// WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
+// （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
+// 用户能看懂的过程提示，避免一直停在「已布防」这种没有阶段感的文案。
+const capturePhaseOf = (state, lastError) => {
+	switch (state) {
+		case "opening": return { text: "正在打开 WebVPN 窗口…", tone: "busy" };
+		case "waiting-login": return { text: "请在 WebVPN 窗口完成登录，再点击「我已登录」", tone: "waiting" };
+		case "ready": return { text: "正在打开出版社页面…", tone: "busy" };
+		case "navigating": return { text: "正在加载出版社页面…", tone: "busy" };
+		case "waiting-download": return { text: "出版社页面已打开，请点击「下载 PDF / SI」按钮", tone: "waiting" };
+		case "downloading": return { text: "正在下载文件…", tone: "busy" };
+		case "uploading": return { text: "文件已下载，正在归档到课题…", tone: "busy" };
+		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
+		case "error": return { text: lastError ? `捕获失败：${lastError}` : "捕获失败，请重试", tone: "error" };
+		default: return { text: "正在准备捕获…", tone: "busy" };
+	}
+};
+
 // 项目/文献/面板组件：CreateProject/Home/bundleIndex/bundleRecordIndex/LitPanel/Project/OverlayBoundary/Panel
 export function CreateProject({ call, defaults, onCancel, onCreated }) {
 			const [form, setForm] = useState({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
@@ -120,6 +138,27 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				void poll();
 				return () => { disposed = true; clearTimeout(timer); };
 			}, [captureHint?.taskId, call, onChanged]);
+			// 捕获期间轮询 WebVPN 会话状态，把「加载出版社页 / 等待下载 / 归档中」的
+			// 过程提示反映到捕获提示条上。服务端任务状态只在完成/失败时才变化，中间
+			// 阶段必须靠这条轮询补上，否则用户点完按钮后没有任何进度反馈。
+			useEffect(() => {
+				const taskId = captureHint?.taskId;
+				if (!taskId || captureHint?.route !== "webvpn") return undefined;
+				let disposed = false;
+				let timer;
+				const poll = async () => {
+					try {
+						const status = await webVpnStatusViaShell();
+						if (disposed || !status) return;
+						setCaptureHint((current) => current?.taskId === taskId
+							? { ...current, phase: capturePhaseOf(status.state, status.lastError) }
+							: current);
+					} catch { /* shell 暂不可达时静默，下一轮重试 */ }
+					timer = setTimeout(() => void poll(), 1200);
+				};
+				void poll();
+				return () => { disposed = true; clearTimeout(timer); };
+			}, [captureHint?.taskId, captureHint?.route]);
 			/**
 			 * 点击未获取的 PDF/SI：Windows 桌面应用创建一次性任务，把本机 handoff
 			 * 页面交给外部 Edge；扩展只在 handoff 页面完成布防。普通 Web 宿主不再
@@ -459,7 +498,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 									h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : (presentation?.pptxPath ? "打开PPT" : "制作PPT"))
 								)
 							),
-							captureActive ? h("div", { className: "ib-capture-hint" }, `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
+							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
 						);
 					})

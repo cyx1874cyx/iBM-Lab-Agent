@@ -61,7 +61,7 @@ export function DatabaseOverview({ call, notify }) {
 			return h(React.Fragment, null,
 				h("div", { className: "ib-db-toggle-wrap" },
 					h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : undefined, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
-					window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.windowOpen ? "返回 WebVPN" : "打开 WebVPN") : null,
+					window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null,
 					window.parent !== window && webvpn?.state === "waiting-login" ? h("button", { className: "ib-btn", "data-primary": true, onClick: () => void confirmWebvpn() }, "我已登录") : null
 				),
 				open ? h("section", { className: "ib-db" },

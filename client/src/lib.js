@@ -268,6 +268,13 @@ export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFI
 export const openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000);
 export const cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15000);
+/**
+ * 放行一个被导航白名单拦下的域名（逃生阀）。
+ *
+ * 白名单漏域名会让登录被静默锁死成白页；`webvpn_status` 的 `deniedHosts` 是唯一
+ * 的线索来源，用户确认后由这里补进白名单并写回配置。
+ */
+export const allowWebVpnHostViaShell = (host) => webVpnShellRequest("WEBVPN_ALLOW_HOST", { host }, 15000);
 		/** 只向桌面 shell 传文献标识；本地阅读地址由 Rust 按当前运行端口生成。 */
 export const openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
 			const requestId = globalThis.crypto?.randomUUID?.() ?? `artifact-browser-${Date.now()}-${Math.random().toString(36).slice(2)}`;
