@@ -63,16 +63,16 @@ test("WebVPN 日志只写脱敏后的 URL", async () => {
 	assert.doesNotMatch(body, /logger\(\)\.write[\s\S]*?raw_url/, "日志行不得引用未脱敏的 raw_url");
 });
 
-test("WebVPN 窗口与主窗口隔离，且关闭即隐藏", async () => {
+test("WebVPN 使用同窗子 WebView，登录 profile 隔离且可隐藏复用", async () => {
 	const webvpn = await webvpnSource();
 	// 专属 WebView2 profile：登录态不能和主窗口共用。
 	assert.match(webvpn, /const PROFILE_DIR_NAME: &str = "webvpn-webview2"/);
 	assert.match(webvpn, /\.data_directory\(profile_dir\)/);
 	// 单例判定只认 label，不认标题或 URL。
 	assert.match(webvpn, /pub const WINDOW_LABEL: &str = "webvpn"/);
-	assert.match(webvpn, /app\.get_webview_window\(WINDOW_LABEL\)/);
-	// 关闭按钮必须变成隐藏，否则每次关窗都要重新登录。
-	assert.match(webvpn, /WindowEvent::CloseRequested \{ api, \.\. \}[\s\S]*?api\.prevent_close\(\);[\s\S]*?window\.hide\(\)/);
+	assert.match(webvpn, /main_window[\s\S]*?\.add_child\(/, "必须通过官方 add_child 创建同窗侧栏");
+	assert.match(webvpn, /app\.get_webview\(WINDOW_LABEL\)/);
+	assert.match(webvpn, /pub fn hide_sidebar\([\s\S]*?webview\.hide\(\)[\s\S]*?main\.set_bounds\(/, "收起后保留 WebView 并恢复主界面全宽");
 });
 
 test("导航白名单的逃生阀存在：被拒域名可诊断且可放行", async () => {
@@ -103,4 +103,48 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /build_wrd_proxy_url/);
 	assert.match(webvpn, /download_destination/);
 	assert.match(webvpn, /upload_capture/);
+});
+
+/**
+ * 2026-09-11 实测缺陷：点「打开 WebVPN」跳出一个**纯白、看不到任何 UI** 的窗口。
+ *
+ * 根因是 Tauri 2.11.5 `WebviewWindowBuilder::new` 的 Windows 已知问题——
+ * 在**同步命令**里建 WebView 窗口会死锁（wry#583）。窗口先建出来，WebView 挂不上，
+ * 于是只剩一个白框；同时 `build()` 永不返回，`record()` 也到不了，webvpn.log 里
+ * 一行都没有——"只出白窗、日志空白"正是这个缺陷的指纹。
+ *
+ * 编译期、命令注册表检查、既有全部测试都抓不到它，只能由下面两条断言兜住。
+ */
+test("建窗与操作窗口的 WebVPN 命令必须是 async", async () => {
+	const main = await mainSource();
+	// 覆盖全部会回到主线程操作窗口/WebView 的命令；`webvpn_status` 这类只读内存状态的
+	// 命令不在其列，保持同步。
+	for (const name of [
+		"webvpn_probe_open",
+		"webvpn_open_login",
+		"webvpn_open_capture",
+		"webvpn_hide",
+		"webvpn_clear_session",
+	]) {
+		const signature = main.match(new RegExp(`(async\\s+)?fn ${name}\\(`));
+		assert.ok(signature, `必须存在命令 ${name}`);
+		assert.ok(
+			signature[1],
+			`${name} 必须是 async 命令：Windows 上同步命令里建窗/操作窗口会死锁，表现为纯白空窗（Tauri 2.11.5 已知问题）`,
+		);
+	}
+});
+
+test("子 WebView 创建失败会清理残留并记录可诊断错误", async () => {
+	const webvpn = await webvpnSource();
+	const openWindow = webvpn.match(/pub fn open_window\([\s\S]*?\n\}/);
+	assert.ok(openWindow, "必须存在 open_window");
+	const body = openWindow[0];
+	assert.match(body, /main_window[\s\S]*?\.add_child\(/, "必须使用同窗子 WebView API");
+	assert.match(body, /show_sidebar\(app, &webview\)/, "创建成功后必须应用同窗布局并显示");
+	assert.ok(
+		body.indexOf("destroy_orphan_webview(app)") !== -1 &&
+			/record\(\s*app,\s*"error"/.test(body),
+		"创建失败必须回收残留 WebView 并把原因落进 webvpn.log",
+	);
 });

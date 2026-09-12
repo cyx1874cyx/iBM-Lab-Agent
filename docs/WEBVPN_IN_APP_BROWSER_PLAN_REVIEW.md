@@ -791,6 +791,73 @@ token 不进入日志、WebVPN 窗口不获得 Tauri IPC capability。
 
 ---
 
+## 15. 修复记录：点「打开 WebVPN」跳出纯白空窗（2026-09-11）
+
+### 现象
+
+点击 WebVPN（客户端入口「打开 WebVPN」，或诊断面板的「按配置打开门户」/「打开 WebVPN（只记录）」）
+后跳出一个窗口，**纯白、看不到任何 UI**；`webvpn.log` 一行都没有。
+
+### 根因（源码级证据，非推测）
+
+`WebviewWindowBuilder::new` 在**锁定的** Tauri 2.11.5 里写明了 Windows 已知问题：
+
+> **# Known issues** — On Windows, this function **deadlocks when used in a synchronous
+> command** and event handlers, see [the Webview2 issue]. You should use `async` commands
+> and separate threads when creating windows.
+
+证据位置：`~/.cargo/.../tauri-2.11.5/src/webview/webview_window.rs:56-59`（`new`）、
+`:113-116`（`from_config`）、`src/webview/mod.rs:287-290`（`WebviewBuilder::new`）。
+
+而本模块的建窗命令当时**全是同步命令**（`fn webvpn_probe_open` / `fn webvpn_open_login`），于是踩中：
+窗口先被建出来 → WebView2 控制器创建在主线程上卡住 → `build()` 永不返回 →
+用户看到的是一个没有内容的白框，同时 `record()` 也到不了（所以日志全空）。
+
+### 现场证据链（互相独立、结论一致）
+
+| 证据 | 观测值 | 说明 |
+|---|---|---|
+| `%LOCALAPPDATA%\iBM-Lab-Agent\webvpn-webview2\EBWebView` | 存在，31 MB，含完整 `Default` 骨架 | WebView2 **环境**建成功了，所以专属 profile 被创建 |
+| `.../Default/History` → `urls` / `visits` | **均为 0** | 从未发生任何导航（对照：主窗口 profile 有 2 条历史，证明该库确实记录历史，不是"没记"） |
+| `.../Default/Cache` | **0 字节** | 没有任何资源被下载 |
+| `logs/webvpn.log` | **不存在**，且 `logs/` 目录 mtime 仍是 9-01 | `record()` 一次都没执行 → `build()` 没返回过 |
+| `.../Default/Preferences` | `exit_type: "Normal"` | 不是崩溃，是卡住后清理退出 |
+
+> 关键判别：若导航是被白名单拦下的，`on_navigation` 会写 `denied` 记录 —— 日志就不会是空的。
+> "只出白窗、日志全空"恰好排除了白名单，指向 `build()` 本身没返回。
+
+### 修复
+
+1. `main.rs`：`webvpn_probe_open` / `webvpn_open_login` / `webvpn_open_capture` /
+   `webvpn_hide` / `webvpn_clear_session` 改为 **`async fn`**
+   （窗口/WebView 操作都要回到主线程执行并等待结果，同步命令里会死锁）。
+2. `webvpn.rs::open_window`：
+   - `.visible(false)` 建窗、`build()` 成功后才 `show()` —— 建窗失败不再留下纯白空窗；
+   - 失败分支 `destroy_orphan_window(app)` 回收残留窗口，并 `record(app, "error", …)`
+     把原因写进 `webvpn.log`（此前失败时日志全空，排查等于从零猜）。
+
+### 回归锁
+
+`tests/unit/webvpn-commands.test.mjs` 新增 2 条断言（该缺陷编译期、命令注册表检查、
+既有全部测试都抓不到）：5 个命令必须 `async`；建窗顺序必须
+「先 `.visible(false)` → `.build()` → 成功后 `show()`」，且失败分支必须同时具备
+`destroy_orphan_window` 与 `record(app, "error", …)`。
+
+变异测试：**3/3 CAUGHT**（去掉 `async` / 去掉 `.visible(false)` / 去掉失败记录，断言均失败）。
+
+### 验证
+
+| 套件 | 结果 |
+|---|---|
+| `cargo check --all-targets` | ✅ 0 条新增警告 |
+| `cargo test` | ✅ 86 通过 / 0 失败 / 1 忽略 |
+| Node 全量（unit + integration） | ✅ **374 通过 / 0 失败**（基线 372 + 新增 2） |
+
+⚠️ 尚需**用户在自己的终端**跑一次真机验收：点开 WebVPN 应能正常看到 USTC 门户登录页
+（Agent shell 会注入垫片变量，不能由 Agent 侧启动应用）。
+
+---
+
 ## 附录 A：本次评审使用的证据文件清单
 
 | 文件 | 用途 |

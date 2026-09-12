@@ -8,6 +8,19 @@
 
 ---
 
+## 2026-09-12 同窗侧边栏更新（最新）
+
+- 已将 WebVPN 载体从独立 `WebviewWindow` 改为主窗口内的 Tauri 官方子 WebView：
+  `Window::add_child(WebviewBuilder, position, size)`。
+- 打开时主 WebView 自动收窄，WebVPN 占据右侧 320–560 逻辑像素；收起后主界面恢复全宽，
+  WebVPN 子 WebView 与专属 profile 保留，因此登录态不丢。
+- capability 已从窗口级 `windows: ["main"]` 收紧为 `webviews: ["main"]`，外部 WebVPN 页面不继承主界面 IPC 权限。
+- 当前验证：Rust 89 通过 / 1 ignored；Node 单元测试 308/308 通过。
+- Windows 实机已确认打开与收起正常：主 WebView 宽度实测 1280→720→1280，
+  收起后 `webvpn` 子 WebView 仍存在且 `sidebarVisible=false`，会话载体未销毁。
+
+---
+
 ## 2026-09-11 当前进展（优先于下方历史交接内容）
 
 - 阻塞 DSH 的孤儿锁 `node_modules.lock` 已核对死进程后删除；DSH 启动与鉴权已恢复。
@@ -19,7 +32,12 @@
   写入受限临时文件，再用一次性令牌 PUT 到原 `/api/lab-capture-upload`；失败可取消并回退 Edge。
 - 数据库状态区已提供打开、确认登录、状态轮询和清除登录状态；默认门户已设为中国科大，
   旧版空配置会在读取时迁移。登录态仍只在专属 WebView2 profile 内。
-- 当前自动化结果：Node **372/372** 通过；Rust **86 通过 / 0 失败 / 1 ignored**。
+- 🔴 **已修复：点「打开 WebVPN」跳出纯白空窗**。根因是 Tauri 2.11.5 在 Windows 上的已知问题——
+  `WebviewWindowBuilder::new` **在同步命令里会死锁**（窗口先建出来、WebView 挂不上，于是只剩白框；
+  且 `build()` 不返回，`webvpn.log` 一行都没有）。5 个操作窗口的命令已改 `async`，
+  建窗改为「先隐藏 → 成功后才 show」，失败时回收残留窗口并把原因写进 `webvpn.log`。
+  详见 `docs/WEBVPN_IN_APP_BROWSER_PLAN_REVIEW.md` **§15**（含现场证据链与 3/3 变异测试）。
+- 当前自动化结果：Node **374/374** 通过（新增 2 条建窗回归断言）；Rust **86 通过 / 0 失败 / 1 ignored**。
 - 尚需正式安装包人工验收：在桌面应用内重新登录一次，实际点击出版社 PDF 下载并确认归档；
   以及退出并重启应用后确认 WebView2 profile 的会话持续性。
 
@@ -162,7 +180,7 @@ C:\Users\admin\AppData\Local\iBM-Lab-Agent\dsh\profiles\node_modules.lock
 - `desktop/src/index.html`：debug-only 的探测面板 + 「阶段 1 · 导航白名单」块（含状态、被拒域名可点击放行）。
 - 测试：`tests/unit/webvpn-commands.test.mjs`(5)、`tests/unit/webvpn-secrets-scan.test.mjs`(4)、
   `tests/unit/windows-release-scripts.test.mjs`(8/8)。
-- `desktop/scripts/verify-package.ps1`：断言**每一个** `capabilities/*.json` 的 `windows` 必须且只能是 `["main"]`。
+- `desktop/scripts/verify-package.ps1`：断言**每一个** capability 不含窗口级授权，且 `webviews` 必须且只能是 `["main"]`。
 
 ### 2.3 文档交付物
 
@@ -255,6 +273,7 @@ node ./node_modules/@tauri-apps/cli/tauri.js dev
 
 | 坑 | 症状 | 处置 |
 |---|---|---|
+| **同步命令里建 WebView 窗口** | 点开 WebVPN 跳出**纯白空窗**、`webvpn.log` 全空 | Tauri 2.11.5 的 Windows 已知问题（见 PLAN_REVIEW §15）：建窗/操作窗口的命令必须 `async`；`tests/unit/webvpn-commands.test.mjs` 已锁住 |
 | Agent shell 环境污染 | DSH 启动即崩 + WebView2 崩溃弹窗 | 见 1.2，用户自己终端启动 |
 | 孤儿写锁 `node_modules.lock` | DSH 健康检查永不通过（等锁 2 秒超时） | 见 1.1 / 5.4，删除该单文件；**别按 `*.lock` 通配删**，`requirements.lock` 是正常依赖文件 |
 | `git update-ref`/`fetch` 写入丢失 | 引用值不更新，领先数算错 | 直接写文件；判断远程一律 `git ls-remote` |

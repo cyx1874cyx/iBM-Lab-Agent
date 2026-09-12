@@ -158,7 +158,9 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
   升级工具。模型无法静默改动锁定版本。
 - 不重写 nature skills 的检索/精读/PPT 流程；本插件只做路由、编排、登记与质检。
 - CAS/SciFinder：未获书面授权前不自动操作、不把 CAS 内容送入模型（阶段 6 范围）。
-- 桌面窗口权限边界：`capabilities/default.json` 的 `windows` **必须且只能是** `["main"]`
+- 桌面权限边界：主窗口同时承载本地主界面和外部 WebVPN 子 WebView，
+  `capabilities/default.json` 因此必须使用 `webviews: ["main"]` 精确授权本地主 WebView，
+  不得使用窗口级 `windows` 授权。
   （只授 `core:default`）。WebVPN 等新窗口**不得**加入该数组——一旦加入，任意被加载的
   网页都会拿到 IPC 命令面，等于把客户端变成任意网页启动器。该边界由
   `desktop/scripts/verify-package.ps1` 在打包时**逐个 capability 文件**断言，

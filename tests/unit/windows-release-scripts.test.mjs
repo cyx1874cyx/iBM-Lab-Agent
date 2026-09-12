@@ -107,20 +107,23 @@ test("rc.4 review §7: real-browser Ketcher acceptance is wired into the unified
 	assert.match(pkg, /"test:browser": "node --test \\"tests\/browser\/\*\.test\.mjs\\""/, "根 scripts 提供 test:browser");
 });
 
-test("package verification enforces the main-only capability boundary for every capability file", async () => {
+test("package verification enforces the main-webview-only capability boundary for every capability file", async () => {
 	const source = await read("desktop/scripts/verify-package.ps1");
 	// 逐个 capability 文件检查。只查 default.json 的话，新增一个文件就能绕过这条边界，
-	// 而 WebVPN 窗口一旦进入 windows 数组就会拿到 IPC 命令面。
+	// 主窗口承载 main 与 WebVPN 两个 WebView，按 windows 授权会让外部网页也拿到 IPC。
 	assert.match(source, /\$capabilityDir -Filter '\*\.json'/, "必须枚举全部 capability 文件");
 	assert.match(source, /foreach \(\$capabilityFile in \$capabilityFiles\)/, "必须逐个文件检查");
-	assert.match(source, /\$grantedWindows = @\(\$capability\.windows\)/, "必须读取该文件的 windows 数组");
-	assert.match(source, /\$grantedWindows\.Count -ne 1 -or \$grantedWindows\[0\] -ne 'main'/, "windows 必须且只能是 [main]");
-	assert.match(source, /must grant the main window only/, "违规必须终止打包");
+	assert.match(source, /\$grantedWindows = @\(\$capability\.windows\)/, "必须拒绝窗口级授权");
+	assert.match(source, /\$grantedWebviews = @\(\$capability\.webviews\)/, "必须读取 webviews 数组");
+	assert.match(source, /\$grantedWindows\.Count -ne 0/, "windows 必须为空");
+	assert.match(source, /\$grantedWebviews\.Count -ne 1 -or \$grantedWebviews\[0\] -ne 'main'/, "webviews 必须且只能是 [main]");
+	assert.match(source, /must grant the main webview only/, "违规必须终止打包");
 	// 空目录同样判失败：没有 capability 意味着壳没有任何权限，属打包损坏而非"更安全"。
 	assert.match(source, /No capability files found/, "capability 目录为空必须判失败");
 
 	// 正本 capability 现状必须与脚本断言一致。
 	const capability = JSON.parse(await read("desktop/src-tauri/capabilities/default.json"));
-	assert.deepEqual(capability.windows, ["main"], "capabilities 只授权 main 窗口");
+	assert.equal(capability.windows, undefined, "不得使用窗口级授权");
+	assert.deepEqual(capability.webviews, ["main"], "capabilities 只授权 main WebView");
 	assert.deepEqual(capability.permissions, ["core:default"], "只授 core:default");
 });
