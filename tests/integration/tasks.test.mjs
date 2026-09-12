@@ -494,6 +494,10 @@ test("one session aggregates multiple literature queries into one entry and one 
 		const ris = tasks.searchRunRis(first.id);
 		assert.equal(ris.count, 2);
 		assert.equal((ris.text.match(/^TY {2}- /gm) || []).length, 2);
+		const deleted = await tasks.deleteSearchRun(first.id, "proj-session-search");
+		assert.equal(deleted.deleted, 1);
+		assert.equal(tasks.listSearchRuns("proj-session-search").length, 0);
+		await assert.rejects(() => tasks.deleteSearchRun(first.id, "proj-session-search"), /not found/);
 		assert.match(ris.text, /VL {2}- 630/);
 		assert.match(ris.text, /SP {2}- 84/);
 		assert.match(ris.text, /EP {2}- 90/);

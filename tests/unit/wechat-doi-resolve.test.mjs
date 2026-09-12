@@ -63,4 +63,7 @@ test("rankDoiCandidates skips candidates without DOI and tolerates missing autho
 	assert.equal(candidates.length, 1);
 	assert.equal(candidates[0].confidence, "high");
 	assert.equal(candidates[0].doi, "10.1000/prodrug.1");
+	assert.equal(Object.values(candidates[0]).includes(undefined), false);
+	assert.equal(Object.hasOwn(candidates[0], "volume"), false);
+	assert.equal(Object.hasOwn(candidates[0], "yearMatch"), false);
 });

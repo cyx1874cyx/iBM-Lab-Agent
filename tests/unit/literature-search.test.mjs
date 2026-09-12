@@ -94,3 +94,37 @@ test("exact DOI lookup ranks the canonical match first even when it is closed", 
 	assert.equal(results[0].isOa, false);
 	assert.ok(results[0].score >= 1000);
 });
+
+test("short drug-code lookup bypasses OA filtering and rejects unrelated provider noise", async () => {
+	const fetchImpl = async (url) => {
+		const value = String(url);
+		if (value.includes("api.openalex.org")) return json({ results: [
+			{ id: "https://openalex.org/W-noise", display_name: "Performance of the ATLAS detector", publication_year: 2025, open_access: { is_oa: true }, authorships: [] }
+		] });
+		if (value.includes("api.crossref.org")) return json({ message: { items: [
+			{ title: ["TRI-611, a selective, brain-penetrant molecular glue degrader of ALK"], DOI: "10.1038/s41586-026-10998-3", "container-title": ["Nature"], URL: "https://doi.org/10.1038/s41586-026-10998-3", issued: { "date-parts": [[2026, 9, 9]] } },
+			{ title: ["Stability of ternary algebra homomorphisms"], DOI: "10.1000/noise", issued: { "date-parts": [[2024]] } }
+		] } });
+		if (value.includes("eutils.ncbi.nlm.nih.gov") && value.includes("esearch")) return json({ esearchresult: { idlist: [] } });
+		if (value.includes("export.arxiv.org")) return { ok: true, status: 200, async text() { return "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"></feed>"; } };
+		throw new Error(`unexpected URL ${value}`);
+	};
+	const results = await searchAcademicLiterature("TRI-611", { oaOnly: true, limit: 10, fetchImpl });
+	assert.equal(results.length, 1);
+	assert.equal(results[0].doi, "10.1038/s41586-026-10998-3");
+	assert.equal(results[0].isOa, undefined);
+	assert.equal(results.meta.precisionMode, "code");
+});
+
+test("topic search drops results with no lexical relevance evidence", async () => {
+	const fetchImpl = async (url) => {
+		const value = String(url);
+		if (value.includes("api.crossref.org")) return json({ message: { items: [
+			{ title: ["Unrelated gravitational-wave catalog"], DOI: "10.1000/noise", issued: { "date-parts": [[2026]] } },
+			{ title: ["Targeted polymer drug delivery"], DOI: "10.1000/relevant", issued: { "date-parts": [[2025]] } }
+		] } });
+		throw new Error(`unexpected URL ${value}`);
+	};
+	const results = await searchAcademicLiterature("polymer drug delivery", { sources: ["crossref"], oaOnly: false, limit: 10, fetchImpl });
+	assert.deepEqual(results.map((paper) => paper.doi), ["10.1000/relevant"]);
+});

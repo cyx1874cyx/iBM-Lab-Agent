@@ -136,21 +136,21 @@ export function rankDoiCandidates(results, { title, authors = [], year } = {}) {
 		let confidence = "low";
 		if ((match.titleScore ?? 0) >= 0.9 && (authorBacked || yearBacked || normalizedAuthors.length === 0)) confidence = "high";
 		else if ((match.titleScore ?? 0) >= 0.7 && (authorBacked || yearBacked || match.yearMatch === 1)) confidence = "medium";
-		candidates.push({
+		const candidate = {
 			doi: paper.doi,
 			title: paper.title,
 			authors: paper.authors ?? [],
-			journal: paper.journal,
-			year: paper.year,
-			volume: paper.volume,
-			issue: paper.issue,
-			pages: paper.pages,
-			publicationDate: paper.publicationDate,
 			confidence,
 			titleScore: Math.round((match.titleScore ?? 0) * 1000) / 1000,
-			matchedAuthors: match.matchedAuthors,
-			yearMatch: match.yearMatch
-		});
+			matchedAuthors: match.matchedAuthors
+		};
+		// DSH 的工具边界要求对象是无损 JSON；可选元数据缺失时不要写入
+		// undefined 自有属性，否则整个成功结果会被判为 invalid output。
+		for (const key of ["journal", "year", "volume", "issue", "pages", "publicationDate"]) {
+			if (paper[key] !== undefined) candidate[key] = paper[key];
+		}
+		if (match.yearMatch !== undefined) candidate.yearMatch = match.yearMatch;
+		candidates.push(candidate);
 	}
 	const rank = { high: 3, medium: 2, low: 1 };
 	candidates.sort((a, b) => rank[b.confidence] - rank[a.confidence] || b.titleScore - a.titleScore);
@@ -316,9 +316,11 @@ export function deduplicatePapers(records) {
 function rankPapers(records, query, sort, identifier) {
 	const normalizedQuery = normalizeTitle(query), queryTokens = normalizedQuery.split(" ").filter(Boolean);
 	for (const paper of records) {
-		const title = normalizeTitle(paper.title), haystack = `${title} ${normalizeTitle(paper.abstract)}`;
-		const coverage = queryTokens.length ? queryTokens.filter((token) => haystack.includes(token)).length / queryTokens.length : 0;
-		const titleCoverage = queryTokens.length ? queryTokens.filter((token) => title.includes(token)).length / queryTokens.length : 0;
+		const title = normalizeTitle(paper.title);
+		const titleTokens = new Set(title.split(" ").filter(Boolean));
+		const haystackTokens = new Set(`${title} ${normalizeTitle(paper.abstract)}`.split(" ").filter(Boolean));
+		const coverage = queryTokens.length ? queryTokens.filter((token) => haystackTokens.has(token)).length / queryTokens.length : 0;
+		const titleCoverage = queryTokens.length ? queryTokens.filter((token) => titleTokens.has(token)).length / queryTokens.length : 0;
 		const idMatch = identifier.kind === "doi" ? normalizeDoi(paper.doi) === identifier.value :
 			identifier.kind === "pmid" ? paper.pmid === identifier.value :
 			identifier.kind === "arxiv" ? paper.arxivId?.replace(/v\d+$/i, "") === identifier.value.replace(/v\d+$/i, "") : false;
@@ -326,8 +328,18 @@ function rankPapers(records, query, sort, identifier) {
 	}
 	const compare = sort === "cited_by_count" ? (a, b) => (b.citations ?? 0) - (a.citations ?? 0) || b.score - a.score :
 		["publication_date", "recent", "newest"].includes(sort) ? (a, b) => String(b.publicationDate ?? b.year ?? "").localeCompare(String(a.publicationDate ?? a.year ?? "")) || b.score - a.score :
-		(a, b) => b.score - a.score || (b.citations ?? 0) - (a.citations ?? 0);
+		(a, b) => b.score - a.score || (b.year ?? 0) - (a.year ?? 0) || (b.citations ?? 0) - (a.citations ?? 0);
 	return records.sort(compare).map(({ _providerRank, ...paper }) => paper);
+}
+
+function isCodeLikeQuery(value) {
+	return /^[\p{L}]{2,12}[\s\-‐‑‒–—]?\d+[\p{L}\p{N}\-‐‑‒–—]*$/u.test(String(value ?? "").trim());
+}
+
+function hasCodeQueryTokens(paper, query) {
+	const expected = normalizeTitle(query).split(" ").filter(Boolean);
+	const titleTokens = new Set(normalizeTitle(paper.title).split(" ").filter(Boolean));
+	return expected.length > 0 && expected.every((token) => titleTokens.has(token));
 }
 
 async function response(fetchImpl, url, accept = "application/json") {
@@ -426,9 +438,18 @@ export async function searchAcademicLiterature(query, { sources = DEFAULT_SOURCE
 		else failures.push({ source: selected[i], message: item.reason?.message ?? String(item.reason) });
 	}
 	let results = deduplicatePapers(raw);
+	const codeQuery = identifier.kind === "query" && isCodeLikeQuery(identifier.value);
 	// Exact identifiers remain visible even when closed; keyword OA mode is strict.
-	if (oaOnly && identifier.kind === "query") results = results.filter((paper) => paper.isOa === true);
-	results = rankPapers(results, identifier.value, sort, identifier).slice(0, limit);
-	Object.defineProperty(results, "meta", { value: { identifier, sources: selected, failures, oaOnly }, enumerable: false });
+	// A short drug/material code such as TRI-611 is also an explicit-paper lookup:
+	// require every code token in the title and do not discard a subscription paper.
+	if (codeQuery) results = results.filter((paper) => hasCodeQueryTokens(paper, identifier.value));
+	else if (oaOnly && identifier.kind === "query") results = results.filter((paper) => paper.isOa === true);
+	results = rankPapers(results, identifier.value, sort, identifier);
+	// Generic provider searches can return records with zero lexical overlap. Their
+	// provider-rank component is at most 20, so only persist results with evidence
+	// beyond that baseline. Identifier and code lookups already have stricter rules.
+	if (identifier.kind === "query" && !codeQuery) results = results.filter((paper) => paper.score > 20);
+	results = results.slice(0, limit);
+	Object.defineProperty(results, "meta", { value: { identifier, sources: selected, failures, oaOnly, precisionMode: codeQuery ? "code" : "topic" }, enumerable: false });
 	return results;
 }

@@ -230,6 +230,15 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				if (saved.cancelled) { notify("已取消保存 RIS"); return; }
 				notify(`${saved.native ? "已保存" : "已开始下载"} ${result.ris.fileName}（${result.ris.count} 条文献）`);
 			});
+			const deleteSearch = (search) => {
+				if (!window.confirm(`确定删除检索记录“${search.title || search.query || search.id}”吗？`)) return;
+				void run(`delete-search:${search.id}`, async () => {
+					await call("tasks_search_delete", { request: { runId: search.id, projectId: search.projectId } });
+					if (expandedSearch === search.id) setExpandedSearch(null);
+					notify("检索记录已删除");
+					await onChanged();
+				});
+			};
 			const openOverview = (report) => run(`ov:${report.id}`, async () => {
 				if (!(report.id in overview)) {
 					const result = await call("tasks_overview", { request: { reportId: report.id } });
@@ -435,7 +444,8 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 							h("div", { className: "ib-lit-main" }, h("b", null, search.title || search.query || search.id), h("small", null, `${(search.results || []).length} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
 							h("div", { className: "ib-lit-acts" },
 								h("button", { className: "ib-lit-btn ok", disabled: !(search.results || []).length, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); } }, expandedSearch === search.id ? "收起" : "检索"),
-								h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void risFor(search); } }, busy[`ris:${search.id}`] ? "…" : ".ris")
+								h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void risFor(search); } }, busy[`ris:${search.id}`] ? "…" : ".ris"),
+								h("button", { className: "ib-lit-btn", "data-danger": true, disabled: busy[`delete-search:${search.id}`], onClick: (event) => { event.stopPropagation(); deleteSearch(search); } }, busy[`delete-search:${search.id}`] ? "…" : "删除")
 							)
 						),
 						expandedSearch === search.id ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
