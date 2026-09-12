@@ -86,8 +86,18 @@ impl RuntimeManager {
         } else {
             resource_dir
         };
-        let development_resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
-        let resources = if resource_dir.join("node").exists() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let development_resources = manifest_dir.join("resources");
+        // `cargo build --release` 会在 target/release 留下一份资源副本，但增量
+        // 构建不保证它随资源内容更新。工程预览必须直接读取 src-tauri/resources；
+        // 安装版仍读取 exe 旁的打包资源。
+        let running_from_cargo_target = std::env::current_exe()
+            .ok()
+            .is_some_and(|exe| exe.starts_with(manifest_dir.join("target")));
+        let resources = if running_from_cargo_target && development_resources.join("node").exists()
+        {
+            development_resources
+        } else if resource_dir.join("node").exists() {
             resource_dir
         } else {
             development_resources

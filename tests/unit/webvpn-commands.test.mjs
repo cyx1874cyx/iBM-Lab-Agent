@@ -107,6 +107,9 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /downloaded_bytes/);
 	assert.match(webvpn, /download_elapsed_ms/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
+	assert.match(webvpn, /WEBVPN_CHROME_SCRIPT/);
+	assert.match(webvpn, /关闭 WebVPN 侧栏/);
+	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /openWebVpnLoginViaShell/, "正文按钮不得要求用户先手动确认登录");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);

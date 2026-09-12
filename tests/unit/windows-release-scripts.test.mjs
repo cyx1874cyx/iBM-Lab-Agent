@@ -23,11 +23,16 @@ test("Windows release entrypoint is observable, bounded and exact-versioned", as
 
 test("prepare-runtime validates Ketcher before selective component refresh", async () => {
 	const source = await read("desktop/scripts/prepare-runtime.ps1");
+	const bootstrap = await read("desktop/src-tauri/src/runtime/dsh.rs");
+	const runtime = await read("desktop/src-tauri/src/runtime/mod.rs");
 	assert.match(source, /prepare-runtime\.lock/);
 	assert.match(source, /Get-PluginFingerprint/);
 	assert.match(source, /nodeFingerprint/);
 	assert.match(source, /dshFingerprint/);
 	assert.match(source, /pluginFingerprint/);
+	assert.match(source, /\.plugin-fingerprint/, "资源快照必须携带插件内容指纹");
+	assert.match(bootstrap, /\.plugin-fingerprint/, "AppData 缓存刷新必须比较插件内容指纹");
+	assert.match(runtime, /running_from_cargo_target/, "工程预览必须绕过 target 目录中的陈旧资源副本");
 	assert.match(source, /Test-KetcherAssetReferences/);
 	assert.ok(source.indexOf("Source Ketcher index.html references missing assets") < source.indexOf("Staging refresh under temporary directory"), "Ketcher 校验必须先于任何 staged/正式快照动作");
 	// rc.4 §9：git ls-files 稳定清单、流式哈希、临时目录原子切换与失败清理

@@ -154,6 +154,8 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
         })?;
     let vendor_lock = fs::read_to_string(plugin.join("vendor.lock.json"))
         .map_err(|error| RuntimeError::new(format!("Cannot read bundled vendor lock: {error}")))?;
+    let plugin_fingerprint =
+        fs::read_to_string(plugin.join(".plugin-fingerprint")).unwrap_or_default();
     let requirements = fs::read_to_string(bundled_plugin.join("python").join("requirements.lock"))
         .map_err(|error| RuntimeError::new(format!("Cannot read bundled Python lock: {error}")))?;
     // 0.2.0：mnova-mcp（含 nmr-analyze-simulate skill）独立 component lock。
@@ -164,8 +166,9 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
             RuntimeError::new(format!("Cannot read bundled mnova-mcp lock: {error}"))
         })?;
     let desired_state = format!(
-        "desktop={}\nmanifest={}\nvendor={}\nrequirements={}\nmnova={}\n",
+        "desktop={}\nplugin={}\nmanifest={}\nvendor={}\nrequirements={}\nmnova={}\n",
         env!("CARGO_PKG_VERSION"),
+        plugin_fingerprint,
         package_manifest,
         vendor_lock,
         requirements,

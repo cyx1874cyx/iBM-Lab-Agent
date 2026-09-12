@@ -56,6 +56,29 @@ const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 /// WebVPN 窗口作为主窗口右侧「侧边面板」时的固定宽度（逻辑像素）。
 const SIDE_PANEL_WIDTH: f64 = 560.0;
 
+/// 注入到 WebVPN 子 WebView 的轻量浏览器壳。按钮位于侧栏自身右上角，页面
+/// 每次导航后都会重新注入；点击后走受控自定义导航，由 Rust 隐藏侧栏。
+const WEBVPN_CHROME_SCRIPT: &str = r#"
+(() => {
+  const mount = () => {
+    if (document.getElementById('__ibm_webvpn_chrome')) return;
+    const host = document.createElement('div');
+    host.id = '__ibm_webvpn_chrome';
+    host.style.cssText = 'all:initial;position:fixed;top:8px;right:10px;z-index:2147483647;width:34px;height:30px;';
+    const root = host.attachShadow({ mode: 'closed' });
+    root.innerHTML = `<style>
+      button{all:initial;box-sizing:border-box;width:34px;height:30px;border:1px solid rgba(15,23,42,.22);border-radius:7px;background:rgba(255,255,255,.94);color:#334155;font:22px/27px "Segoe UI",sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.18);user-select:none}
+      button:hover{background:#e81123;color:#fff;border-color:#e81123}
+      button:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    </style><button type="button" title="关闭 WebVPN 侧栏" aria-label="关闭 WebVPN 侧栏">×</button>`;
+    root.querySelector('button').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
+    (document.documentElement || document.body).appendChild(host);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
+  else mount();
+})();
+"#;
+
 /// 主窗口的 label（由 `tauri.conf.json` 的 `app.windows[0]` 定义）。
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -1151,7 +1174,20 @@ pub fn open_window(
     let (_, (x, y, width, height)) = sidebar_layout(window_width, window_height);
     let builder = WebviewBuilder::new(WINDOW_LABEL, WebviewUrl::External(target.clone()))
         .data_directory(profile_dir)
+        .initialization_script(WEBVPN_CHROME_SCRIPT)
         .on_navigation(move |url| {
+            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("close") {
+                // 避免在 WebView 导航回调栈中直接隐藏自身；调度到主线程的下一拍。
+                let scheduled_app = navigation_app.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(10));
+                    let action_app = scheduled_app.clone();
+                    let _ = scheduled_app.run_on_main_thread(move || {
+                        let _ = hide_sidebar(&action_app);
+                    });
+                });
+                return false;
+            }
             let host = host_of(url.as_str());
             let allowed = navigation_app
                 .try_state::<WebVpnState>()

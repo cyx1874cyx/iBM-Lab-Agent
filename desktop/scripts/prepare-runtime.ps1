@@ -463,6 +463,7 @@ foreach ($dependencyName in $productionDependencies) {
 New-Item -ItemType Directory -Force -Path (Join-Path $tempResourceRoot 'plugin\presets') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'presets\lab-research') -Destination (Join-Path $tempResourceRoot 'plugin\presets\lab-research') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'vendor.lock.json') -Destination (Join-Path $tempResourceRoot 'plugin\vendor.lock.json') -Force
+Set-Content -LiteralPath (Join-Path $tempResourceRoot 'plugin\.plugin-fingerprint') -Value $pluginFingerprint -Encoding utf8NoBOM
 New-Item -ItemType Directory -Force -Path (Join-Path $tempResourceRoot 'plugin\python') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'python\requirements.lock') -Destination (Join-Path $tempResourceRoot 'plugin\python\requirements.lock') -Force
   Write-Phase ("Plugin staged in {0:n1}s." -f $pluginCopyWatch.Elapsed.TotalSeconds)
