@@ -13,18 +13,30 @@ import { BookSvg, SiSvg } from "./components-templates.js";
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
 // 用户能看懂的过程提示，避免一直停在「已布防」这种没有阶段感的文案。
-const capturePhaseOf = (state, lastError) => {
+const formatCaptureBytes = (bytes) => {
+	if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
+	if (bytes < 1024) return `${Math.round(bytes)} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+};
+
+const formatCaptureElapsed = (milliseconds) => {
+	const seconds = Math.max(0, Math.floor(Number(milliseconds) / 1000) || 0);
+	return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+};
+
+export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
 	switch (state) {
-		case "opening": return { text: "正在打开 WebVPN 窗口…", tone: "busy" };
+		case "opening": return { text: "正在打开 WebVPN 窗口…", tone: "busy", progress: true };
 		case "waiting-login": return { text: "请在 WebVPN 窗口完成登录，再点击「我已登录」", tone: "waiting" };
-		case "ready": return { text: "正在打开出版社页面…", tone: "busy" };
-		case "navigating": return { text: "正在加载出版社页面…", tone: "busy" };
+		case "ready": return { text: "正在打开出版社页面…", tone: "busy", progress: true };
+		case "navigating": return { text: "正在加载出版社页面…", tone: "busy", progress: true };
 		case "waiting-download": return { text: "出版社页面已打开，请点击「下载 PDF / SI」按钮", tone: "waiting" };
-		case "downloading": return { text: "正在下载文件…", tone: "busy" };
-		case "uploading": return { text: "文件已下载，正在归档到课题…", tone: "busy" };
+		case "downloading": return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
+		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
 		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
 		case "error": return { text: lastError ? `捕获失败：${lastError}` : "捕获失败，请重试", tone: "error" };
-		default: return { text: "正在准备捕获…", tone: "busy" };
+		default: return { text: "正在准备捕获…", tone: "busy", progress: true };
 	}
 };
 
@@ -151,7 +163,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 						const status = await webVpnStatusViaShell();
 						if (disposed || !status) return;
 						setCaptureHint((current) => current?.taskId === taskId
-							? { ...current, phase: capturePhaseOf(status.state, status.lastError) }
+							? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs) }
 							: current);
 					} catch { /* shell 暂不可达时静默，下一轮重试 */ }
 					timer = setTimeout(() => void poll(), 1200);
@@ -508,7 +520,10 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 									h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : (presentation?.pptxPath ? "打开PPT" : "制作PPT"))
 								)
 							),
-							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
+							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
+								h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", role: "progressbar", "aria-label": "文献下载进度", "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
+							) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
 						);
 					})

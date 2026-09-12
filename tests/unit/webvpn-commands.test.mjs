@@ -87,11 +87,12 @@ test("导航白名单的逃生阀存在：被拒域名可诊断且可放行", as
 });
 
 test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
-	const [shell, main, webvpn, client] = await Promise.all([
+	const [shell, main, webvpn, client, projectPanel] = await Promise.all([
 		shellSource(),
 		mainSource(),
 		webvpnSource(),
 		read("client/src/lib.js"),
+		read("client/src/components-project.js"),
 	]);
 	assert.match(client, /WEBVPN_STATUS/);
 	assert.match(client, /WEBVPN_OPEN_CAPTURE/);
@@ -103,6 +104,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /build_wrd_proxy_url/);
 	assert.match(webvpn, /download_destination/);
 	assert.match(webvpn, /upload_capture/);
+	assert.match(webvpn, /downloaded_bytes/);
+	assert.match(webvpn, /download_elapsed_ms/);
+	assert.match(projectPanel, /ib-capture-progress/);
+	assert.match(projectPanel, /status\.downloadedBytes/);
 });
 
 /**

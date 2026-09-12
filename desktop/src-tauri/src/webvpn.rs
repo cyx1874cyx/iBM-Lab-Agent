@@ -234,6 +234,7 @@ struct PendingCapture {
     upload_url: url::Url,
     temp_path: PathBuf,
     expires_at: Instant,
+    download_started_at: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -274,6 +275,11 @@ pub struct WebVpnStatus {
     pub last_error: Option<String>,
     pub pending_task_id: Option<String>,
     pub pending_kind: Option<String>,
+    /// 当前下载目标文件已经写入的字节数。WebView2 不提供总大小，因此该值
+    /// 用于显示真实接收量与不确定进度条，不伪造百分比。
+    pub downloaded_bytes: Option<u64>,
+    /// 自 DownloadEvent::Requested 起经过的毫秒数。
+    pub download_elapsed_ms: Option<u64>,
     /// WebVPN 窗口当前是否已创建（隐藏也算已创建）。
     pub window_open: bool,
     /// WebVPN 子 WebView 当前是否在主窗口右侧可见。
@@ -379,6 +385,7 @@ impl WebVpnState {
             upload_url,
             temp_path,
             expires_at: Instant::now() + CAPTURE_TTL,
+            download_started_at: None,
         });
         session.state = WebVpnSessionState::Navigating;
         session.target_host = Some(target_host.to_ascii_lowercase());
@@ -413,6 +420,9 @@ impl WebVpnState {
         // 「正在下载」的阶段提示，而不是一直停在「请点击下载」。
         if destination.is_some() && session.state == WebVpnSessionState::WaitingDownload {
             session.state = WebVpnSessionState::Downloading;
+            if let Some(pending) = session.pending.as_mut() {
+                pending.download_started_at = Some(Instant::now());
+            }
         }
         destination
     }
@@ -615,6 +625,16 @@ impl WebVpnState {
                 generation: session.generation,
             })
             .unwrap_or_default();
+        let downloaded_bytes = session.pending.as_ref().and_then(|pending| {
+            pending
+                .download_started_at
+                .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()))
+        });
+        let download_elapsed_ms = session.pending.as_ref().and_then(|pending| {
+            pending
+                .download_started_at
+                .map(|started| started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64)
+        });
         WebVpnStatus {
             state: session.state,
             portal_url: config.portal_url.clone(),
@@ -630,6 +650,8 @@ impl WebVpnState {
                 .as_ref()
                 .map(|pending| pending.task_id.clone()),
             pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
+            downloaded_bytes,
+            download_elapsed_ms,
             window_open,
             sidebar_visible: window_open && session.sidebar_visible,
             probe_available: Self::probe_available(),
@@ -1732,6 +1754,10 @@ mod tests {
             WebVpnSessionState::Downloading,
             "点击下载后应从「等待下载」进入「下载中」"
         );
+        std::fs::write(&second, vec![0_u8; 1_234]).unwrap();
+        let download_status = state.status(&WebVpnConfig::default(), true);
+        assert_eq!(download_status.downloaded_bytes, Some(1_234));
+        assert!(download_status.download_elapsed_ms.is_some());
         let pending = state.begin_upload(&second).expect("匹配下载应开始上传");
         assert_eq!(pending.generation, second_generation);
         state.finish_upload(second_generation.wrapping_add(1), Ok(()));
@@ -1742,6 +1768,7 @@ mod tests {
             .status(&WebVpnConfig::default(), true)
             .pending_task_id
             .is_none());
+        let _ = std::fs::remove_file(&second);
     }
 
     #[test]
