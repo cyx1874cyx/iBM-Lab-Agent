@@ -217,7 +217,8 @@ pub fn is_direct_nature_si(kind: &str, target: &url::Url) -> bool {
         return false;
     }
     let host = target.host_str().unwrap_or_default().to_ascii_lowercase();
-    (host == "doi.org" && target.path().to_ascii_lowercase().starts_with("/10.1038/"))
+    let path = target.path().to_ascii_lowercase();
+    (host == "doi.org" && (path.starts_with("/10.1038/") || path.starts_with("/10.1038%2f")))
         || host == "nature.com"
         || host.ends_with(".nature.com")
 }
@@ -1354,9 +1355,11 @@ mod tests {
     #[test]
     fn direct_access_is_limited_to_nature_supporting_information() {
         let doi = validate_target("https://doi.org/10.1038/s41551-023-01022-4").unwrap();
+        let encoded_doi = validate_target("https://doi.org/10.1038%2Fs41551-023-01022-4").unwrap();
         let nature = validate_target("https://www.nature.com/articles/s41551-023-01022-4").unwrap();
         let unrelated = validate_target("https://example.com/10.1038/fake").unwrap();
         assert!(is_direct_nature_si("si", &doi));
+        assert!(is_direct_nature_si("si", &encoded_doi));
         assert!(is_direct_nature_si("si", &nature));
         assert!(!is_direct_nature_si("pdf", &doi));
         assert!(!is_direct_nature_si("si", &unrelated));

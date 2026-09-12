@@ -487,14 +487,21 @@ async fn webvpn_open_capture(
     if direct_nature_si {
         webvpn::allow_direct_nature_si_hosts(&mut policy);
     }
-    let webview = match app.get_webview(webvpn::WINDOW_LABEL) {
+    let (webview, opened_at_destination) = match app.get_webview(webvpn::WINDOW_LABEL) {
         Some(webview) => {
             if let Some(webvpn_state) = app.try_state::<webvpn::WebVpnState>() {
                 webvpn_state.apply_policy(policy);
             }
-            webview
+            (webview, false)
         }
-        None => webvpn::open_window(&app, state.0.data_root(), &portal, policy)?,
+        None if direct_nature_si => (
+            webvpn::open_window(&app, state.0.data_root(), &target, policy)?,
+            true,
+        ),
+        None => (
+            webvpn::open_window(&app, state.0.data_root(), &portal, policy)?,
+            false,
+        ),
     };
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
@@ -518,9 +525,13 @@ async fn webvpn_open_capture(
         upload_url,
         temp_path,
     )?;
-    if let Err(error) = webview.navigate(destination) {
+    if opened_at_destination {
+        // 新建的直连侧栏已经位于 DOI/Nature 页面。布防发生在建窗后，手动补到
+        // WaitingDownload；用户随后点击 SI 时仍由同一个下载处理器捕获。
+        webvpn_state.transition(webvpn::WebVpnSessionState::WaitingDownload)?;
+    } else if let Err(error) = webview.navigate(destination) {
         let _ = webvpn_state.cancel_capture(&task_id);
-        return Err(format!("无法打开 WebVPN 文献页面: {error}"));
+        return Err(format!("无法打开文献页面: {error}"));
     }
     webvpn::show_sidebar(&app, &webview)?;
     Ok(webvpn::status_of(&app, &config.webvpn))
