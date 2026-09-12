@@ -102,12 +102,18 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(main, /fn webvpn_open_capture\(/);
 	assert.match(main, /fn webvpn_cancel_capture\(/);
 	assert.match(webvpn, /build_wrd_proxy_url/);
-	assert.match(webvpn, /download_destination/);
+	assert.match(webvpn, /claim_download_destination/);
 	assert.match(webvpn, /upload_capture/);
 	assert.match(webvpn, /downloaded_bytes/);
 	assert.match(webvpn, /download_elapsed_ms/);
+	assert.match(webvpn, /DownloadDecision::Duplicate/);
+	assert.match(main, /None => webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
+	assert.doesNotMatch(projectPanel, /openWebVpnLoginViaShell/, "正文按钮不得要求用户先手动确认登录");
+	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	assert.match(projectPanel, /ib-capture-progress/);
 	assert.match(projectPanel, /status\.downloadedBytes/);
+	assert.match(projectPanel, /下载并归档完成/);
+	assert.match(projectPanel, /task\.size/);
 });
 
 /**

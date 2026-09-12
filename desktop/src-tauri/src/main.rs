@@ -459,8 +459,9 @@ fn capture_upload_url(port: u16, token: &str) -> Result<url::Url, String> {
     Ok(url)
 }
 
-/// 在已登录的 WebVPN 单例窗口中打开文献，并把下一次 PDF 下载绑定到现有
-/// manual-capture 一次性任务。客户端必须先确认会话 ready，再创建服务端任务。
+/// 自动创建或复用 WebVPN 单例窗口，随后打开文献并把下一次 PDF 下载绑定到
+/// manual-capture 一次性任务。登录态由持久 WebView2 profile 自行验证；若已失效，
+/// WebVPN 会在同一侧栏进入学校登录流程，无需额外的“我已登录”确认。
 ///
 /// **必须是 `async`**：`navigate` / `show` 等窗口操作同样要回到主线程执行并等待结果，
 /// 放进同步命令会踩到与建窗相同的死锁（见 `webvpn_probe_open` 的说明）。
@@ -473,16 +474,25 @@ async fn webvpn_open_capture(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
-    let webview = app
-        .get_webview(webvpn::WINDOW_LABEL)
-        .ok_or_else(|| "请先打开 WebVPN 并完成登录".to_string())?;
+    let config = state.0.load_config().map_err(|error| error.to_string())?;
+    let portal = webvpn::validate_target(config.webvpn.portal_url.trim())?;
+    let policy = webvpn::WebVpnPolicy::from_config(
+        config.webvpn.portal_url.trim(),
+        &config.webvpn.allowed_hosts,
+        config.webvpn.enforce_navigation,
+    );
+    let webview = match app.get_webview(webvpn::WINDOW_LABEL) {
+        Some(webview) => {
+            if let Some(webvpn_state) = app.try_state::<webvpn::WebVpnState>() {
+                webvpn_state.apply_policy(policy);
+            }
+            webview
+        }
+        None => webvpn::open_window(&app, state.0.data_root(), &portal, policy)?,
+    };
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
         .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
-    if webvpn_state.state() != webvpn::WebVpnSessionState::Ready {
-        return Err("请先完成 WebVPN 登录并点击“我已登录”".to_string());
-    }
-    let config = state.0.load_config().map_err(|error| error.to_string())?;
     let target = webvpn::validate_target(&target_url)?;
     let proxy = webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?;
     let port = state

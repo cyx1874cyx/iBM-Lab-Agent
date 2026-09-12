@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -27,16 +27,17 @@ const formatCaptureElapsed = (milliseconds) => {
 
 export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
 	switch (state) {
-		case "opening": return { text: "正在打开 WebVPN 窗口…", tone: "busy", progress: true };
-		case "waiting-login": return { text: "请在 WebVPN 窗口完成登录，再点击「我已登录」", tone: "waiting" };
-		case "ready": return { text: "正在打开出版社页面…", tone: "busy", progress: true };
-		case "navigating": return { text: "正在加载出版社页面…", tone: "busy", progress: true };
+		case "opening": return { text: "正在打开 WebVPN 侧栏…", tone: "waiting" };
+		case "waiting-login": return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
+		case "ready": return { text: "WebVPN 会话可用，正在打开出版社页面…", tone: "waiting" };
+		case "navigating": return { text: "正在打开出版社页面…", tone: "waiting" };
 		case "waiting-download": return { text: "出版社页面已打开，请点击「下载 PDF / SI」按钮", tone: "waiting" };
 		case "downloading": return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
 		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
 		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
 		case "error": return { text: lastError ? `捕获失败：${lastError}` : "捕获失败，请重试", tone: "error" };
-		default: return { text: "正在准备捕获…", tone: "busy", progress: true };
+		case "completed": return { text: `下载并归档完成 · ${formatCaptureBytes(downloadedBytes)}`, tone: "complete", progress: true, complete: true };
+		default: return { text: "正在准备捕获…", tone: "waiting" };
 	}
 };
 
@@ -133,9 +134,12 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 						if (disposed) return;
 						const task = result?.task;
 						if (task?.status === "completed") {
-							setCaptureHint(null);
+							setCaptureHint((current) => current?.taskId === taskId
+								? { ...current, route: "complete", phase: capturePhaseOf("completed", null, task.size, 0) }
+								: current);
 							notify("文献捕获完成，文件已归档到课题，按钮已点亮");
 							void onChanged();
+							timer = setTimeout(() => setCaptureHint((current) => current?.taskId === taskId ? null : current), 5000);
 							return;
 						}
 						if (["failed", "expired", "cancelled"].includes(task?.status)) {
@@ -195,15 +199,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				// WebView2 的 iframe 内，看不到 __TAURI_INTERNALS__，因此经 postMessage
 				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
 				if (desktopEdgeHandoff) {
-					void webVpnStatusViaShell()
-						.then(async (status) => {
-							if (status?.state !== "ready") {
-								await openWebVpnLoginViaShell();
-								notify("请在 WebVPN 窗口完成登录，再在数据库状态栏点击“我已登录”，然后重新点击文献按钮");
-								return null;
-							}
-							return call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
-						})
+					void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
 						.then(async (result) => {
 							if (!result) return;
 							const task = result?.task;
@@ -212,7 +208,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 							try {
 								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token });
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-								notify(`已通过 WebVPN 打开出版社页面，请点击网页中的${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+								notify(`正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
 								// 撤销本地待下载状态，再复用同一服务端任务切到 Edge。
@@ -522,7 +518,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
 								h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
-								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", role: "progressbar", "aria-label": "文献下载进度", "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
+								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : undefined, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : undefined, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
 							) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
 						);

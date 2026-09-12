@@ -235,6 +235,19 @@ struct PendingCapture {
     temp_path: PathBuf,
     expires_at: Instant,
     download_started_at: Option<Instant>,
+    /// WebView2 可能为同一次点击连续发出多个 Requested。只允许第一个请求
+    /// 占用捕获目标，后续请求直接取消，避免多个下载同时写同一个文件。
+    download_claimed: bool,
+    /// 取消重复 Requested 后，WebView2 仍可能补发 success=false 的 Finished。
+    /// 这些回调不能误伤仍在进行的首个下载。
+    duplicate_failures_to_ignore: u32,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum DownloadDecision {
+    Capture(PathBuf),
+    Duplicate,
+    PassThrough,
 }
 
 #[derive(Debug, Clone)]
@@ -365,8 +378,17 @@ impl WebVpnState {
         let Ok(mut session) = self.session.lock() else {
             return Err("WebVPN 状态不可用".to_string());
         };
-        if session.state != WebVpnSessionState::Ready {
-            return Err("请先打开 WebVPN、完成登录并点击“我已登录”".to_string());
+        if matches!(
+            session.state,
+            WebVpnSessionState::Downloading | WebVpnSessionState::Uploading
+        ) {
+            return Err("已有文献正在下载或归档，请完成后再试".to_string());
+        }
+        if matches!(
+            session.state,
+            WebVpnSessionState::Closed | WebVpnSessionState::Opening
+        ) {
+            return Err("WebVPN 侧栏尚未准备好，请稍后重试".to_string());
         }
         // 新捕获总是替换旧 pending：客户端在发起新捕获前已通过 createCaptureTask
         // 作废旧任务（服务端旧令牌立即失效）。旧 pending 若不替换，会留下一个
@@ -386,6 +408,8 @@ impl WebVpnState {
             temp_path,
             expires_at: Instant::now() + CAPTURE_TTL,
             download_started_at: None,
+            download_claimed: false,
+            duplicate_failures_to_ignore: 0,
         });
         session.state = WebVpnSessionState::Navigating;
         session.target_host = Some(target_host.to_ascii_lowercase());
@@ -393,9 +417,9 @@ impl WebVpnState {
         Ok(generation)
     }
 
-    fn download_destination(&self) -> Option<PathBuf> {
+    fn claim_download_destination(&self) -> DownloadDecision {
         let Ok(mut session) = self.session.lock() else {
-            return None;
+            return DownloadDecision::PassThrough;
         };
         let expired = session
             .pending
@@ -410,21 +434,37 @@ impl WebVpnState {
             if let Some(path) = path {
                 let _ = fs::remove_file(path);
             }
-            return None;
+            return DownloadDecision::PassThrough;
         }
-        let destination = session
-            .pending
-            .as_ref()
-            .map(|pending| pending.temp_path.clone());
+        let Some(pending) = session.pending.as_mut() else {
+            return DownloadDecision::PassThrough;
+        };
+        if pending.download_claimed {
+            pending.duplicate_failures_to_ignore =
+                pending.duplicate_failures_to_ignore.saturating_add(1);
+            return DownloadDecision::Duplicate;
+        }
+        pending.download_claimed = true;
+        pending.download_started_at = Some(Instant::now());
+        let destination = pending.temp_path.clone();
         // 用户已点击下载：从「等待下载」进入「下载中」，让 UI 能给出
         // 「正在下载」的阶段提示，而不是一直停在「请点击下载」。
-        if destination.is_some() && session.state == WebVpnSessionState::WaitingDownload {
-            session.state = WebVpnSessionState::Downloading;
-            if let Some(pending) = session.pending.as_mut() {
-                pending.download_started_at = Some(Instant::now());
-            }
+        session.state = WebVpnSessionState::Downloading;
+        DownloadDecision::Capture(destination)
+    }
+
+    fn should_ignore_failed_finish(&self) -> bool {
+        let Ok(mut session) = self.session.lock() else {
+            return false;
+        };
+        let Some(pending) = session.pending.as_mut() else {
+            return false;
+        };
+        if pending.duplicate_failures_to_ignore == 0 {
+            return false;
         }
-        destination
+        pending.duplicate_failures_to_ignore -= 1;
+        true
     }
 
     fn begin_upload(&self, path: &Path) -> Option<PendingUpload> {
@@ -741,8 +781,7 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
             "归档完成".to_string()
         }
         Err(error) => {
-            let preserved =
-                preserve_failed_download(&upload.path, &upload.task_id, &upload.kind);
+            let preserved = preserve_failed_download(&upload.path, &upload.task_id, &upload.kind);
             format!("{error}；文件已保留在 {}", preserved.display())
         }
     };
@@ -1115,13 +1154,17 @@ pub fn open_window(
             NewWindowResponse::Deny
         })
         .on_download(move |_webview, event| {
+            let mut allow = true;
             match event {
                 DownloadEvent::Requested { url, destination } => {
-                    if let Some(path) = download_app
+                    match download_app
                         .try_state::<WebVpnState>()
-                        .and_then(|state| state.download_destination())
+                        .map(|state| state.claim_download_destination())
+                        .unwrap_or(DownloadDecision::PassThrough)
                     {
-                        *destination = path;
+                        DownloadDecision::Capture(path) => *destination = path,
+                        DownloadDecision::Duplicate => allow = false,
+                        DownloadDecision::PassThrough => {}
                     }
                     record(
                         &download_app,
@@ -1141,7 +1184,9 @@ pub fn open_window(
                     let state = download_app.try_state::<WebVpnState>();
                     if !success {
                         if let Some(state) = state {
-                            state.fail_pending_download("WebVPN 页面下载失败，请重新发起捕获");
+                            if !state.should_ignore_failed_finish() {
+                                state.fail_pending_download("WebVPN 页面下载失败，请重新发起捕获");
+                            }
                         }
                     } else if let Some(path) = path.as_deref() {
                         if let Some(upload) = state.and_then(|state| state.begin_upload(path)) {
@@ -1159,7 +1204,7 @@ pub fn open_window(
                 }
                 _ => {}
             }
-            true
+            allow
         });
     let webview = main_window
         .add_child(
@@ -1729,7 +1774,7 @@ mod tests {
         // WaitingDownload，但 pending 仍挂着。
         assert!(state.decide_navigation("wvpn.ustc.edu.cn"));
         assert_eq!(state.state(), WebVpnSessionState::WaitingDownload);
-        // 用户点「我已登录」回到 Ready，然后重新发起捕获。
+        // 用户重新点击另一篇文献时，新任务可以直接替换等待中的旧任务。
         state.transition(WebVpnSessionState::Ready).unwrap();
         // 新的捕获意图必须替换旧 pending（客户端会先作废旧任务），否则旧僵尸
         // pending 会挡住重试，并在稍后手动下载时用已作废令牌上传 → 409。
@@ -1746,8 +1791,8 @@ mod tests {
         assert!(state.decide_navigation("wvpn.ustc.edu.cn"));
         assert_eq!(state.state(), WebVpnSessionState::WaitingDownload);
         assert_eq!(
-            state.download_destination().as_deref(),
-            Some(second.as_path())
+            state.claim_download_destination(),
+            DownloadDecision::Capture(second.clone())
         );
         assert_eq!(
             state.state(),
@@ -1758,6 +1803,12 @@ mod tests {
         let download_status = state.status(&WebVpnConfig::default(), true);
         assert_eq!(download_status.downloaded_bytes, Some(1_234));
         assert!(download_status.download_elapsed_ms.is_some());
+        assert_eq!(
+            state.claim_download_destination(),
+            DownloadDecision::Duplicate,
+            "重复下载请求不能再次占用同一个目标文件"
+        );
+        assert!(state.should_ignore_failed_finish());
         let pending = state.begin_upload(&second).expect("匹配下载应开始上传");
         assert_eq!(pending.generation, second_generation);
         state.finish_upload(second_generation.wrapping_add(1), Ok(()));
