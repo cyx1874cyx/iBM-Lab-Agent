@@ -2963,6 +2963,7 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
   }, [captureHint?.taskId, captureHint?.route]);
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
+    const directNatureSi = kind === "si" && /^10\.1038\//i.test(String(bundle.doi || "").trim());
     const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : void 0;
     const sourcePublisherUrl = (() => {
       if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return void 0;
@@ -2985,9 +2986,9 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
         const token = task?.token;
         if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
         try {
-          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token });
+          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directNatureSi });
           setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-          notify(`正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+          notify(directNatureSi ? "Nature SI 为公开附件，已在软件侧栏中直连打开；请点击 SI 下载按钮" : `正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
         } catch (webvpnError) {
           try {
             await cancelWebVpnCaptureViaShell(task.id);

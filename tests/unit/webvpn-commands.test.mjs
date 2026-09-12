@@ -114,6 +114,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /status\.downloadedBytes/);
 	assert.match(projectPanel, /下载并归档完成/);
 	assert.match(projectPanel, /task\.size/);
+	assert.match(projectPanel, /directNatureSi/);
+	assert.match(shell, /directAccess:\s*data\.payload\?\.directAccess === true/);
+	assert.match(main, /direct_access:\s*bool/);
+	assert.match(webvpn, /is_direct_nature_si/);
 });
 
 /**

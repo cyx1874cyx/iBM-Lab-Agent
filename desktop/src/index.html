@@ -565,7 +565,8 @@
           taskId: String(data.payload?.taskId || ''),
           kind: String(data.payload?.kind || ''),
           targetUrl: String(data.payload?.targetUrl || ''),
-          token: String(data.payload?.token || '')
+          token: String(data.payload?.token || ''),
+          directAccess: data.payload?.directAccess === true
         })
           .then((result) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }))
           .catch((error) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: false, error: String(error) }));

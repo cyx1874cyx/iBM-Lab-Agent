@@ -209,6 +209,30 @@ impl WebVpnPolicy {
     }
 }
 
+/// Nature Portfolio 的补充材料通常由公开的 Springer Nature 静态域名提供。
+/// 这里只接受明确的 SI + 10.1038 DOI/Nature 页面组合，避免客户端借 directAccess
+/// 把受控侧栏变成任意网页浏览器。
+pub fn is_direct_nature_si(kind: &str, target: &url::Url) -> bool {
+    if kind != "si" {
+        return false;
+    }
+    let host = target.host_str().unwrap_or_default().to_ascii_lowercase();
+    (host == "doi.org" && target.path().to_ascii_lowercase().starts_with("/10.1038/"))
+        || host == "nature.com"
+        || host.ends_with(".nature.com")
+}
+
+pub fn allow_direct_nature_si_hosts(policy: &mut WebVpnPolicy) {
+    policy.allowed_hosts.extend([
+        "doi.org".to_string(),
+        "nature.com".to_string(),
+        "springernature.com".to_string(),
+        "static-content.springer.com".to_string(),
+    ]);
+    policy.allowed_hosts.sort();
+    policy.allowed_hosts.dedup();
+}
+
 /// 会话内部状态。所有字段共用一个 Mutex，避免多锁的加锁顺序问题。
 #[derive(Debug, Default)]
 struct Session {
@@ -1325,6 +1349,23 @@ mod tests {
         assert!(!policy.allows("evildoi.org"));
         assert!(!policy.allows(""));
         assert!(!policy.allows("example.edu"));
+    }
+
+    #[test]
+    fn direct_access_is_limited_to_nature_supporting_information() {
+        let doi = validate_target("https://doi.org/10.1038/s41551-023-01022-4").unwrap();
+        let nature = validate_target("https://www.nature.com/articles/s41551-023-01022-4").unwrap();
+        let unrelated = validate_target("https://example.com/10.1038/fake").unwrap();
+        assert!(is_direct_nature_si("si", &doi));
+        assert!(is_direct_nature_si("si", &nature));
+        assert!(!is_direct_nature_si("pdf", &doi));
+        assert!(!is_direct_nature_si("si", &unrelated));
+
+        let mut policy = WebVpnPolicy::from_config("https://wvpn.ustc.edu.cn/", &[], true);
+        allow_direct_nature_si_hosts(&mut policy);
+        assert!(policy.allows("media.springernature.com"));
+        assert!(policy.allows("www.nature.com"));
+        assert!(!policy.allows("example.com"));
     }
 
     #[test]

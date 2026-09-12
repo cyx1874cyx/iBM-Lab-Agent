@@ -471,16 +471,22 @@ async fn webvpn_open_capture(
     kind: String,
     target_url: String,
     token: String,
+    direct_access: bool,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
     let config = state.0.load_config().map_err(|error| error.to_string())?;
     let portal = webvpn::validate_target(config.webvpn.portal_url.trim())?;
-    let policy = webvpn::WebVpnPolicy::from_config(
+    let target = webvpn::validate_target(&target_url)?;
+    let direct_nature_si = direct_access && webvpn::is_direct_nature_si(&kind, &target);
+    let mut policy = webvpn::WebVpnPolicy::from_config(
         config.webvpn.portal_url.trim(),
         &config.webvpn.allowed_hosts,
         config.webvpn.enforce_navigation,
     );
+    if direct_nature_si {
+        webvpn::allow_direct_nature_si_hosts(&mut policy);
+    }
     let webview = match app.get_webview(webvpn::WINDOW_LABEL) {
         Some(webview) => {
             if let Some(webvpn_state) = app.try_state::<webvpn::WebVpnState>() {
@@ -493,8 +499,11 @@ async fn webvpn_open_capture(
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
         .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
-    let target = webvpn::validate_target(&target_url)?;
-    let proxy = webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?;
+    let destination = if direct_nature_si {
+        target.clone()
+    } else {
+        webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?
+    };
     let port = state
         .0
         .status()
@@ -509,7 +518,7 @@ async fn webvpn_open_capture(
         upload_url,
         temp_path,
     )?;
-    if let Err(error) = webview.navigate(proxy) {
+    if let Err(error) = webview.navigate(destination) {
         let _ = webvpn_state.cancel_capture(&task_id);
         return Err(format!("无法打开 WebVPN 文献页面: {error}"));
     }

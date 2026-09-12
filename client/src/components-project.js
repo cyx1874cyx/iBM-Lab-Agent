@@ -182,6 +182,10 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 			 */
 			const armCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
+				// Nature Portfolio 的 SI 托管在公开的 Springer Nature 静态附件域名。
+				// 经学校 WebVPN 转发该大文件会返回 502，因此 10.1038 DOI 的 SI
+				// 在同一个受控侧栏里走直连；正文仍使用 WebVPN 授权链路。
+				const directNatureSi = kind === "si" && /^10\.1038\//i.test(String(bundle.doi || "").trim());
 				const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
 				const sourcePublisherUrl = (() => {
 					if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return undefined;
@@ -206,9 +210,11 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 							const token = task?.token;
 							if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
 							try {
-								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token });
+								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directNatureSi });
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-								notify(`正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+								notify(directNatureSi
+									? "Nature SI 为公开附件，已在软件侧栏中直连打开；请点击 SI 下载按钮"
+									: `正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
 								// 撤销本地待下载状态，再复用同一服务端任务切到 Edge。
