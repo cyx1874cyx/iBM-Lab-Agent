@@ -36,10 +36,9 @@ if (-not $connectionText.Contains('HttpOnly; SameSite=None; Secure') -or $connec
   throw 'Bundled DSH browser authentication is not configured for the embedded WebView.'
 }
 
-# §3.5：能力（capabilities）必须只授权 main 窗口。WebVPN 等新窗口一旦被加进
-# windows 数组就会拿到 IPC 命令面，等于把任意网页变成客户端入口——这条边界
-# 必须由发布闸门兜住，而不是靠人记得。对**每一个** capability 文件都要求
-# windows 必须且只能是 ["main"]，这样新增文件也不会绕过检查。
+# §3.5：能力（capabilities）必须只授权主界面 WebView。主窗口现在同时承载
+# main 与 WebVPN 子 WebView；若按 windows 授权，同窗内的外部网页也会继承 IPC
+# 权限。发布闸门因此要求每个 capability 精确使用 webviews: ["main"]。
 $capabilityDir = Join-Path $projectRoot 'src-tauri\capabilities'
 if (-not (Test-Path -LiteralPath $capabilityDir)) { throw "Missing capabilities directory: $capabilityDir" }
 $capabilityFiles = @(Get-ChildItem -LiteralPath $capabilityDir -Filter '*.json' -File)
@@ -47,8 +46,9 @@ if ($capabilityFiles.Count -eq 0) { throw 'No capability files found: the deskto
 foreach ($capabilityFile in $capabilityFiles) {
   $capability = Get-Content -LiteralPath $capabilityFile.FullName -Raw | ConvertFrom-Json
   $grantedWindows = @($capability.windows)
-  if ($grantedWindows.Count -ne 1 -or $grantedWindows[0] -ne 'main') {
-    throw "Capability '$($capabilityFile.Name)' must grant the main window only, found: $($grantedWindows -join ', ')"
+  $grantedWebviews = @($capability.webviews)
+  if ($grantedWindows.Count -ne 0 -or $grantedWebviews.Count -ne 1 -or $grantedWebviews[0] -ne 'main') {
+    throw "Capability '$($capabilityFile.Name)' must grant the main webview only; windows=[$($grantedWindows -join ', ')], webviews=[$($grantedWebviews -join ', ')]"
   }
 }
 

@@ -25,8 +25,8 @@ use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
     utils::config::WebviewUrl,
-    webview::{DownloadEvent, NewWindowResponse, WebviewWindowBuilder},
-    AppHandle, Manager, WebviewWindow, WindowEvent,
+    webview::{DownloadEvent, NewWindowResponse, WebviewBuilder},
+    AppHandle, LogicalPosition, LogicalSize, Manager, Position, Rect, Size, Webview,
 };
 
 use crate::runtime::WebVpnConfig;
@@ -52,6 +52,12 @@ const MAX_LOGGED_VALUE: usize = 300;
 const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
 const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
+
+/// WebVPN 窗口作为主窗口右侧「侧边面板」时的固定宽度（逻辑像素）。
+const SIDE_PANEL_WIDTH: f64 = 560.0;
+
+/// 主窗口的 label（由 `tauri.conf.json` 的 `app.windows[0]` 定义）。
+const MAIN_WINDOW_LABEL: &str = "main";
 
 /// 出现这些参数名时一律脱敏。长度 <= 2 的按全等匹配，其余按包含匹配——
 /// 否则 "t" 会命中 "target" 之类的正常参数名，把有用的信息也一起抹掉。
@@ -108,6 +114,8 @@ pub enum WebVpnSessionState {
     Navigating,
     /// 已到目标页，等待用户点击下载。
     WaitingDownload,
+    /// 用户已点击下载，WebView2 正在下载文件。
+    Downloading,
     /// 下载完成，正在上传到本地捕获端点。
     Uploading,
     /// 待捕获任务已经过期。
@@ -132,9 +140,12 @@ impl WebVpnSessionState {
             (Ready, Navigating) => true,
             (Navigating, Ready) => true,
             (Navigating, WaitingDownload) => true,
+            (WaitingDownload, Downloading) => true,
+            (Downloading, Uploading) => true,
             (WaitingDownload, Uploading) => true,
             (Uploading, Ready) => true,
             (WaitingDownload, Ready) => true,
+            (Downloading, Ready) => true,
             (Expired, Ready) => true,
             // 任何非关闭态都可能失败或需要重开。
             (_, Error) => true,
@@ -202,6 +213,8 @@ impl WebVpnPolicy {
 #[derive(Debug, Default)]
 struct Session {
     state: WebVpnSessionState,
+    /// 子 WebView 是否正在主窗口右侧显示。隐藏时 WebView 仍存在，以保留登录态。
+    sidebar_visible: bool,
     policy: WebVpnPolicy,
     /// 最近一次由应用主动转发的目标 host。
     target_host: Option<String>,
@@ -263,6 +276,8 @@ pub struct WebVpnStatus {
     pub pending_kind: Option<String>,
     /// WebVPN 窗口当前是否已创建（隐藏也算已创建）。
     pub window_open: bool,
+    /// WebVPN 子 WebView 当前是否在主窗口右侧可见。
+    pub sidebar_visible: bool,
     /// 探测模式是否可用（仅 debug 构建为 true）。
     pub probe_available: bool,
 }
@@ -347,15 +362,14 @@ impl WebVpnState {
         if session.state != WebVpnSessionState::Ready {
             return Err("请先打开 WebVPN、完成登录并点击“我已登录”".to_string());
         }
-        if let Some(active) = session.pending.as_ref() {
-            if active.expires_at > Instant::now() {
-                return Err(format!(
-                    "已有 {} 捕获任务正在进行，请先完成或取消",
-                    active.kind
-                ));
-            }
+        // 新捕获总是替换旧 pending：客户端在发起新捕获前已通过 createCaptureTask
+        // 作废旧任务（服务端旧令牌立即失效）。旧 pending 若不替换，会留下一个
+        // 「导航被弹回、永远等不到下载」的僵尸捕获——它既挡住重试，又会在用户
+        // 稍后手动下载时用已作废的令牌上传 → 409 → 文件被静默删除
+        // （本次「点下载没反应」的根因）。
+        if let Some(active) = session.pending.take() {
+            let _ = fs::remove_file(&active.temp_path);
         }
-        session.pending = None;
         session.generation = session.generation.wrapping_add(1).max(1);
         let generation = session.generation;
         session.pending = Some(PendingCapture {
@@ -391,10 +405,16 @@ impl WebVpnState {
             }
             return None;
         }
-        session
+        let destination = session
             .pending
             .as_ref()
-            .map(|pending| pending.temp_path.clone())
+            .map(|pending| pending.temp_path.clone());
+        // 用户已点击下载：从「等待下载」进入「下载中」，让 UI 能给出
+        // 「正在下载」的阶段提示，而不是一直停在「请点击下载」。
+        if destination.is_some() && session.state == WebVpnSessionState::WaitingDownload {
+            session.state = WebVpnSessionState::Downloading;
+        }
+        destination
     }
 
     fn begin_upload(&self, path: &Path) -> Option<PendingUpload> {
@@ -507,9 +527,23 @@ impl WebVpnState {
     pub fn mark_closed(&self) {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Closed;
+            session.sidebar_visible = false;
             session.target_host = None;
             session.pending = None;
         }
+    }
+
+    pub fn set_sidebar_visible(&self, visible: bool) {
+        if let Ok(mut session) = self.session.lock() {
+            session.sidebar_visible = visible;
+        }
+    }
+
+    pub fn sidebar_visible(&self) -> bool {
+        self.session
+            .lock()
+            .map(|session| session.sidebar_visible)
+            .unwrap_or(false)
     }
 
     pub fn apply_policy(&self, policy: WebVpnPolicy) {
@@ -572,6 +606,7 @@ impl WebVpnState {
             .lock()
             .map(|session| Session {
                 state: session.state,
+                sidebar_visible: session.sidebar_visible,
                 policy: session.policy.clone(),
                 target_host: session.target_host.clone(),
                 denied_hosts: session.denied_hosts.clone(),
@@ -596,6 +631,7 @@ impl WebVpnState {
                 .map(|pending| pending.task_id.clone()),
             pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
             window_open,
+            sidebar_visible: window_open && session.sidebar_visible,
             probe_available: Self::probe_available(),
         }
     }
@@ -675,24 +711,46 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
         }
         Ok(())
     });
-    let _ = fs::remove_file(&upload.path);
+    // 上传失败时不要把用户的 PDF 静默删除：改名保留在下载目录，并把保留路径写进
+    // 错误信息——否则用户只会看到「点下载没反应」，文件却凭空消失。
+    let detail = match &result {
+        Ok(()) => {
+            let _ = fs::remove_file(&upload.path);
+            "归档完成".to_string()
+        }
+        Err(error) => {
+            let preserved =
+                preserve_failed_download(&upload.path, &upload.task_id, &upload.kind);
+            format!("{error}；文件已保留在 {}", preserved.display())
+        }
+    };
+    let outcome = result.map(|_| ()).map_err(|_| detail.clone());
     if let Some(state) = app.try_state::<WebVpnState>() {
-        state.finish_upload(upload.generation, result.clone());
+        state.finish_upload(upload.generation, outcome);
     }
-    let detail = result
-        .as_ref()
-        .map(|_| "归档完成")
-        .unwrap_or_else(|error| error.as_str());
     record(
         &app,
-        if result.is_ok() {
+        if detail == "归档完成" {
             "captureCompleted"
         } else {
             "error"
         },
         "",
-        detail,
+        &detail,
     );
+}
+
+/// 上传失败时把已下载的 PDF 改名保留（而非删除），返回保留后的路径。
+///
+/// 改名失败时退回原路径（文件仍在原地，只是没改成带标记的名字），
+/// 无论如何都不主动删除用户的下载。
+fn preserve_failed_download(path: &Path, task_id: &str, kind: &str) -> PathBuf {
+    let preserved = path.with_file_name(format!("{task_id}-{kind}-未归档.pdf"));
+    if fs::rename(path, &preserved).is_ok() {
+        preserved
+    } else {
+        path.to_path_buf()
+    }
 }
 
 /// 位置脱敏：去掉 fragment 与用户凭据，并按参数名/取值特征对 query 脱敏。
@@ -866,31 +924,124 @@ fn record(app: &AppHandle, kind: &str, raw_url: &str, detail: &str) {
     }
 }
 
-/// 创建（或复用）WebVPN 单例窗口。
+/// 回收创建失败后残留的 WebVPN 子 WebView（能拿到就关闭）。
+fn destroy_orphan_webview(app: &AppHandle) {
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        let _ = webview.close();
+    }
+}
+
+/// 为主 WebView 与右侧 WebVPN 子 WebView 计算同窗布局。
+/// 小窗口下压缩侧栏，始终给主界面保留至少 640 逻辑像素。
+fn sidebar_layout(width: f64, height: f64) -> ((f64, f64), (f64, f64, f64, f64)) {
+    const MIN_MAIN_WIDTH: f64 = 640.0;
+    const MIN_SIDEBAR_WIDTH: f64 = 320.0;
+    let available = (width - MIN_MAIN_WIDTH).max(0.0);
+    let sidebar_width = SIDE_PANEL_WIDTH
+        .min(available)
+        .max(MIN_SIDEBAR_WIDTH.min(width));
+    let main_width = (width - sidebar_width).max(0.0);
+    (
+        (main_width, height),
+        (main_width, 0.0, sidebar_width, height),
+    )
+}
+
+fn main_inner_logical(app: &AppHandle) -> Result<(f64, f64), String> {
+    let main = app
+        .get_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "主窗口不可用".to_string())?;
+    let scale = main.scale_factor().map_err(|error| error.to_string())?;
+    let size = main.inner_size().map_err(|error| error.to_string())?;
+    Ok((size.width as f64 / scale, size.height as f64 / scale))
+}
+
+fn bounds(x: f64, y: f64, width: f64, height: f64) -> Rect {
+    Rect {
+        position: Position::Logical(LogicalPosition::new(x, y)),
+        size: Size::Logical(LogicalSize::new(width, height)),
+    }
+}
+
+/// 把主 WebView 与 WebVPN 子 WebView 排成同一原生窗口内的左右两栏。
+pub fn layout_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
+    let (width, height) = main_inner_logical(app)?;
+    let ((main_width, main_height), (x, y, sidebar_width, sidebar_height)) =
+        sidebar_layout(width, height);
+    let main = app
+        .get_webview(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "主界面 WebView 不可用".to_string())?;
+    main.set_bounds(bounds(0.0, 0.0, main_width, main_height))
+        .map_err(|error| error.to_string())?;
+    if let Err(error) = webview.set_bounds(bounds(x, y, sidebar_width, sidebar_height)) {
+        let _ = main.set_bounds(bounds(0.0, 0.0, width, height));
+        return Err(error.to_string());
+    }
+    Ok(())
+}
+
+pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
+    layout_sidebar(app, webview)?;
+    webview.show().map_err(|error| error.to_string())?;
+    webview.set_focus().map_err(|error| error.to_string())?;
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        state.set_sidebar_visible(true);
+    }
+    Ok(())
+}
+
+/// 收起侧栏并让主 WebView 恢复全宽。子 WebView 不销毁，因此登录态仍在。
+pub fn hide_sidebar(app: &AppHandle) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        webview.hide().map_err(|error| error.to_string())?;
+    }
+    let (width, height) = main_inner_logical(app)?;
+    if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
+        main.set_bounds(bounds(0.0, 0.0, width, height))
+            .map_err(|error| error.to_string())?;
+    }
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        state.set_sidebar_visible(false);
+    }
+    Ok(())
+}
+
+/// 主窗口缩放时更新当前可见侧栏；隐藏状态不改变。
+pub fn resize_sidebar(app: &AppHandle) {
+    let visible = app
+        .try_state::<WebVpnState>()
+        .map(|state| state.sidebar_visible())
+        .unwrap_or(false);
+    if visible {
+        if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+            let _ = layout_sidebar(app, &webview);
+        }
+    }
+}
+
+/// 创建（或复用）WebVPN 单例子 WebView。
 pub fn open_window(
     app: &AppHandle,
     data_root: &Path,
     target: &url::Url,
     policy: WebVpnPolicy,
-) -> Result<WebviewWindow, String> {
+) -> Result<Webview, String> {
     let profile_dir = resolve_profile_dir(data_root)?;
     // 策略最先应用：复用与新建两条路径的导航判定都必须按最新配置执行。
     if let Some(state) = app.try_state::<WebVpnState>() {
         state.apply_policy(policy);
     }
 
-    if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-        window
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        webview
             .navigate(target.clone())
             .map_err(|error| error.to_string())?;
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+        show_sidebar(app, &webview)?;
         if let Some(state) = app.try_state::<WebVpnState>() {
             // 复用已有会话：登录态在 WebView2 profile 里，已确认过的会话不重置。
             state.enter_reused_session();
         }
-        return Ok(window);
+        return Ok(webview);
     }
 
     let navigation_app = app.clone();
@@ -907,9 +1058,12 @@ pub fn open_window(
         state.transition(WebVpnSessionState::Opening)?;
     }
 
-    let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::External(target.clone()))
-        .title("WebVPN")
-        .inner_size(1200.0, 860.0)
+    let main_window = app
+        .get_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "主窗口不可用".to_string())?;
+    let (window_width, window_height) = main_inner_logical(app)?;
+    let (_, (x, y, width, height)) = sidebar_layout(window_width, window_height);
+    let builder = WebviewBuilder::new(WINDOW_LABEL, WebviewUrl::External(target.clone()))
         .data_directory(profile_dir)
         .on_navigation(move |url| {
             let host = host_of(url.as_str());
@@ -933,8 +1087,8 @@ pub fn open_window(
                 url.as_str(),
                 "收敛到 WebVPN 单例窗口",
             );
-            if let Some(window) = window_app.get_webview_window(WINDOW_LABEL) {
-                let _ = window.navigate(url.clone());
+            if let Some(webview) = window_app.get_webview(WINDOW_LABEL) {
+                let _ = webview.navigate(url.clone());
             }
             NewWindowResponse::Deny
         })
@@ -984,21 +1138,47 @@ pub fn open_window(
                 _ => {}
             }
             true
-        })
-        .build()
+        });
+    let webview = main_window
+        .add_child(
+            builder,
+            LogicalPosition::new(x, y),
+            LogicalSize::new(width, height),
+        )
         .map_err(|error| {
+            destroy_orphan_webview(app);
+            record(
+                app,
+                "error",
+                target.as_str(),
+                &format!("侧栏创建失败: {error}"),
+            );
             if let Some(state) = app.try_state::<WebVpnState>() {
-                state.fail(&format!("无法创建 WebVPN 窗口: {error}"));
+                state.fail(&format!("无法创建 WebVPN 侧栏: {error}"));
             }
             error.to_string()
         })?;
 
-    record(app, "windowCreated", target.as_str(), "单例窗口已创建");
+    if let Err(error) = show_sidebar(app, &webview) {
+        let _ = webview.close();
+        let _ = hide_sidebar(app);
+        record(
+            app,
+            "error",
+            target.as_str(),
+            &format!("侧栏布局失败: {error}"),
+        );
+        if let Some(state) = app.try_state::<WebVpnState>() {
+            state.fail(&format!("无法显示 WebVPN 侧栏: {error}"));
+        }
+        return Err(error);
+    }
+    record(app, "webviewCreated", target.as_str(), "同窗侧栏已创建");
     if let Some(state) = app.try_state::<WebVpnState>() {
         // 门户正在加载，等待用户完成统一身份认证。
         let _ = state.transition(WebVpnSessionState::WaitingLogin);
     }
-    Ok(window)
+    Ok(webview)
 }
 
 /// 由命令层调用的状态组装：补上"窗口是否存在"与配置。
@@ -1006,23 +1186,10 @@ pub fn open_window(
 /// 窗口隐藏也算存在——隐藏正是"保留会话"的实现方式，UI 需要区分
 /// "已创建但隐藏"与"从未创建"。
 pub fn status_of(app: &AppHandle, config: &WebVpnConfig) -> WebVpnStatus {
-    let window_open = app.get_webview_window(WINDOW_LABEL).is_some();
+    let window_open = app.get_webview(WINDOW_LABEL).is_some();
     match app.try_state::<WebVpnState>() {
         Some(state) => state.status(config, window_open),
         None => WebVpnState::default().status(config, window_open),
-    }
-}
-
-/// 关闭按钮只隐藏窗口，保留 WebView2 会话。
-///
-/// 入参是 `Window`（`on_window_event` 回调给的类型），不是 `WebviewWindow`。
-pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
-    if window.label() != WINDOW_LABEL {
-        return;
-    }
-    if let WindowEvent::CloseRequested { api, .. } = event {
-        api.prevent_close();
-        let _ = window.hide();
     }
 }
 
@@ -1288,6 +1455,8 @@ mod tests {
             (Ready, Error),
             (Error, Opening),
             (Navigating, Closed),
+            (WaitingDownload, Downloading),
+            (Downloading, Uploading),
         ] {
             assert!(from.can_transition_to(to), "{from:?} → {to:?} 应允许");
         }
@@ -1499,7 +1668,23 @@ mod tests {
     }
 
     #[test]
-    fn capture_state_rejects_overlap_and_ignores_stale_completion() {
+    fn sidebar_layout_shares_one_window_and_preserves_main_width() {
+        let ((main_width, main_height), (x, y, sidebar_width, sidebar_height)) =
+            sidebar_layout(1_200.0, 720.0);
+        assert_eq!((main_width, main_height), (640.0, 720.0));
+        assert_eq!(
+            (x, y, sidebar_width, sidebar_height),
+            (640.0, 0.0, 560.0, 720.0)
+        );
+
+        // 最小窗口宽 960 时，侧栏收缩到 320，主界面仍保留 640。
+        let ((main_width, _), (_, _, sidebar_width, _)) = sidebar_layout(960.0, 640.0);
+        assert_eq!(main_width, 640.0);
+        assert_eq!(sidebar_width, 320.0);
+    }
+
+    #[test]
+    fn capture_state_replaces_previous_capture_and_ignores_stale_completion() {
         let state = WebVpnState::default();
         state.transition(WebVpnSessionState::Opening).unwrap();
         state.transition(WebVpnSessionState::Ready).unwrap();
@@ -1507,41 +1692,73 @@ mod tests {
             "http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE",
         )
         .unwrap();
-        let path = std::env::temp_dir().join("capture-one.pdf");
+        let first = std::env::temp_dir().join("capture-one.pdf");
+        let second = std::env::temp_dir().join("capture-two.pdf");
         let generation = state
             .prepare_capture(
                 "capture-abc123",
                 "pdf",
                 "www.nature.com",
                 upload.clone(),
-                path.clone(),
+                first.clone(),
             )
             .unwrap();
-        assert!(state
+        // 模拟第一次捕获的导航被弹回（Nature 授权失败回门户首页）：进入
+        // WaitingDownload，但 pending 仍挂着。
+        assert!(state.decide_navigation("wvpn.ustc.edu.cn"));
+        assert_eq!(state.state(), WebVpnSessionState::WaitingDownload);
+        // 用户点「我已登录」回到 Ready，然后重新发起捕获。
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        // 新的捕获意图必须替换旧 pending（客户端会先作废旧任务），否则旧僵尸
+        // pending 会挡住重试，并在稍后手动下载时用已作废令牌上传 → 409。
+        let second_generation = state
             .prepare_capture(
                 "capture-other",
                 "si",
                 "pubs.acs.org",
                 upload,
-                std::env::temp_dir().join("capture-two.pdf"),
+                second.clone(),
             )
-            .is_err());
+            .expect("新捕获应替换旧 pending 而不是被拒绝");
+        assert_ne!(second_generation, generation);
         assert!(state.decide_navigation("wvpn.ustc.edu.cn"));
         assert_eq!(state.state(), WebVpnSessionState::WaitingDownload);
         assert_eq!(
             state.download_destination().as_deref(),
-            Some(path.as_path())
+            Some(second.as_path())
         );
-        let pending = state.begin_upload(&path).expect("匹配下载应开始上传");
-        assert_eq!(pending.generation, generation);
-        state.finish_upload(generation.wrapping_add(1), Ok(()));
+        assert_eq!(
+            state.state(),
+            WebVpnSessionState::Downloading,
+            "点击下载后应从「等待下载」进入「下载中」"
+        );
+        let pending = state.begin_upload(&second).expect("匹配下载应开始上传");
+        assert_eq!(pending.generation, second_generation);
+        state.finish_upload(second_generation.wrapping_add(1), Ok(()));
         assert_eq!(state.state(), WebVpnSessionState::Uploading);
-        state.finish_upload(generation, Ok(()));
+        state.finish_upload(second_generation, Ok(()));
         assert_eq!(state.state(), WebVpnSessionState::Ready);
         assert!(state
             .status(&WebVpnConfig::default(), true)
             .pending_task_id
             .is_none());
+    }
+
+    #[test]
+    fn failed_upload_preserves_the_pdf_instead_of_deleting_it() {
+        let dir = std::env::temp_dir().join("ibm-webvpn-preserve-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("capture-xyz-pdf.pdf");
+        std::fs::write(&path, b"%PDF-1.4 fake").unwrap();
+        let preserved = preserve_failed_download(&path, "capture-xyz", "pdf");
+        assert!(!path.exists(), "原临时文件不应残留");
+        assert!(preserved.exists(), "下载文件应被保留而非删除");
+        assert_eq!(
+            preserved.file_name().unwrap().to_str().unwrap(),
+            "capture-xyz-pdf-未归档.pdf"
+        );
+        std::fs::remove_file(&preserved).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

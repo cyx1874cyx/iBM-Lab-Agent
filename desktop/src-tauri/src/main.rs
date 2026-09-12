@@ -383,8 +383,11 @@ fn webvpn_probe_available() -> bool {
 ///
 /// 之所以不拦截，是因为学校 SSO 的真实域名集合恰恰是本阶段要测得的东西：
 /// 提前上白名单会把登录流程自己锁死，且用户无法自救。
+///
+/// **必须是 `async`**：`Window::add_child` 会把 WebView2 控制器创建工作派回主线程
+/// 并等待结果；异步命令不能占住主线程，否则可能形成互相等待。
 #[tauri::command]
-fn webvpn_probe_open(
+async fn webvpn_probe_open(
     url: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
@@ -406,8 +409,10 @@ fn webvpn_probe_open(
 /// 阶段 1：按配置打开 WebVPN 单例窗口（白名单拦截由配置决定）。
 ///
 /// 门户地址取自配置；未配置时拒绝并提示，不猜测任何域名。
+///
+/// **必须是 `async`**，理由同 `webvpn_probe_open`：同步命令里建窗在 Windows 上会死锁。
 #[tauri::command]
-fn webvpn_open_login(
+async fn webvpn_open_login(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -456,8 +461,11 @@ fn capture_upload_url(port: u16, token: &str) -> Result<url::Url, String> {
 
 /// 在已登录的 WebVPN 单例窗口中打开文献，并把下一次 PDF 下载绑定到现有
 /// manual-capture 一次性任务。客户端必须先确认会话 ready，再创建服务端任务。
+///
+/// **必须是 `async`**：`navigate` / `show` 等窗口操作同样要回到主线程执行并等待结果，
+/// 放进同步命令会踩到与建窗相同的死锁（见 `webvpn_probe_open` 的说明）。
 #[tauri::command]
-fn webvpn_open_capture(
+async fn webvpn_open_capture(
     task_id: String,
     kind: String,
     target_url: String,
@@ -465,8 +473,8 @@ fn webvpn_open_capture(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
-    let window = app
-        .get_webview_window(webvpn::WINDOW_LABEL)
+    let webview = app
+        .get_webview(webvpn::WINDOW_LABEL)
         .ok_or_else(|| "请先打开 WebVPN 并完成登录".to_string())?;
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
@@ -491,13 +499,11 @@ fn webvpn_open_capture(
         upload_url,
         temp_path,
     )?;
-    if let Err(error) = window.navigate(proxy) {
+    if let Err(error) = webview.navigate(proxy) {
         let _ = webvpn_state.cancel_capture(&task_id);
         return Err(format!("无法打开 WebVPN 文献页面: {error}"));
     }
-    let _ = window.show();
-    let _ = window.unminimize();
-    let _ = window.set_focus();
+    webvpn::show_sidebar(&app, &webview)?;
     Ok(webvpn::status_of(&app, &config.webvpn))
 }
 
@@ -594,12 +600,11 @@ fn webvpn_status(
 }
 
 /// 隐藏 WebVPN 窗口，保留 WebView2 会话（登录态不丢）。
+///
+/// **必须是 `async`**：窗口操作要回到主线程执行并等待结果，同步命令里会死锁。
 #[tauri::command]
-fn webvpn_hide(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window(webvpn::WINDOW_LABEL) {
-        window.hide().map_err(|error| error.to_string())?;
-    }
-    Ok(())
+async fn webvpn_hide(app: tauri::AppHandle) -> Result<(), String> {
+    webvpn::hide_sidebar(&app)
 }
 
 /// 拉取当前会话的探测记录（内存中，最多 800 条）。
@@ -620,14 +625,18 @@ fn webvpn_probe_clear(app: tauri::AppHandle) {
 /// 清除登录状态：销毁窗口并删除专属 profile 目录。
 ///
 /// 只删已解析且验证位于应用数据目录内的一级子目录，防止目录逃逸。
+///
+/// **必须是 `async`**：`destroy` 同样要回到主线程执行并等待结果，同步命令里会死锁。
 #[tauri::command]
-fn webvpn_clear_session(
+async fn webvpn_clear_session(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window(webvpn::WINDOW_LABEL) {
-        window.destroy().map_err(|error| error.to_string())?;
+    if let Some(webview) = app.get_webview(webvpn::WINDOW_LABEL) {
+        webview.close().map_err(|error| error.to_string())?;
     }
+    // 子 WebView 已销毁，主界面立即恢复全宽。
+    webvpn::hide_sidebar(&app)?;
     let dir = webvpn::resolve_profile_dir(state.0.data_root())?;
     if dir.exists() {
         std::fs::remove_dir_all(&dir)
@@ -664,12 +673,15 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == "main" && matches!(event, WindowEvent::CloseRequested { .. }) {
-                if let Some(state) = window.app_handle().try_state::<AppState>() {
-                    let _ = state.0.shutdown();
+            if window.label() == "main" {
+                if matches!(event, WindowEvent::CloseRequested { .. }) {
+                    if let Some(state) = window.app_handle().try_state::<AppState>() {
+                        let _ = state.0.shutdown();
+                    }
+                } else if matches!(event, WindowEvent::Resized(_)) {
+                    webvpn::resize_sidebar(&window.app_handle());
                 }
             }
-            webvpn::handle_window_event(window, event);
         })
         .invoke_handler(tauri::generate_handler![
             restart_runtime,
