@@ -107,7 +107,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /downloaded_bytes/);
 	assert.match(webvpn, /download_elapsed_ms/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
-	assert.match(main, /None => webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
+	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /openWebVpnLoginViaShell/, "正文按钮不得要求用户先手动确认登录");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	assert.match(projectPanel, /ib-capture-progress/);
@@ -115,6 +115,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /下载并归档完成/);
 	assert.match(projectPanel, /task\.size/);
 	assert.match(projectPanel, /directNatureSi/);
+	assert.match(projectPanel, /isNatureArticle/);
+	assert.match(projectPanel, /Nature 路由固定在软件内/);
+	assert.match(projectPanel, /tasks_report_delete/);
+	assert.match(shell, /关闭侧栏 ×/);
 	assert.match(shell, /directAccess:\s*data\.payload\?\.directAccess === true/);
 	assert.match(main, /direct_access:\s*bool/);
 	assert.match(webvpn, /is_direct_nature_si/);

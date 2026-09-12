@@ -69,7 +69,7 @@
   <main class="shell">
     <nav class="topbar">
       <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
-      <button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button><button id="webvpn-toggle" type="button" title="打开或收起 WebVPN 侧边栏">WebVPN</button>
+      <button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button><button id="webvpn-toggle" type="button" title="打开 WebVPN 侧边栏">WebVPN</button>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
@@ -174,7 +174,10 @@
         if (open !== webvpnOpen) {
           webvpnOpen = open;
           const btn = $('webvpn-toggle');
-          if (btn) btn.textContent = open ? '收起 WebVPN' : 'WebVPN';
+          if (btn) {
+            btn.textContent = open ? '关闭侧栏 ×' : 'WebVPN';
+            btn.title = open ? '关闭 WebVPN 侧边栏（保留本次登录状态）' : '打开 WebVPN 侧边栏';
+          }
         }
       } catch { /* 运行环境未就绪时下轮再试 */ }
       setTimeout(syncWebvpnSidebar, 900);

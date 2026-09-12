@@ -185,7 +185,8 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				// Nature Portfolio 的 SI 托管在公开的 Springer Nature 静态附件域名。
 				// 经学校 WebVPN 转发该大文件会返回 502，因此 10.1038 DOI 的 SI
 				// 在同一个受控侧栏里走直连；正文仍使用 WebVPN 授权链路。
-				const directNatureSi = kind === "si" && /^10\.1038\//i.test(String(bundle.doi || "").trim());
+				const isNatureArticle = /^10\.1038\//i.test(String(bundle.doi || "").trim());
+				const directNatureSi = kind === "si" && isNatureArticle;
 				const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
 				const sourcePublisherUrl = (() => {
 					if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return undefined;
@@ -217,8 +218,12 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 									: `正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
-								// 撤销本地待下载状态，再复用同一服务端任务切到 Edge。
+								// 撤销本地待下载状态。Nature 路由固定在软件内，失败时不再切到 Edge。
 								try { await cancelWebVpnCaptureViaShell(task.id); } catch { /* 尚未布防时无需处理 */ }
+								if (isNatureArticle) {
+									setCaptureHint(null);
+									throw new Error(`${kind === "si" ? "Nature SI 直连" : "Nature 正文 WebVPN"}打开失败：${webvpnError.message}`);
+								}
 								const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
 								await openInEdgeViaShell(handoffUrl);
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "edge" });
@@ -250,6 +255,21 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 					await call("tasks_search_delete", { request: { runId: search.id, projectId: search.projectId } });
 					if (expandedSearch === search.id) setExpandedSearch(null);
 					notify("检索记录已删除");
+					await onChanged();
+				});
+			};
+			const deleteReport = (report, bundle) => {
+				const name = report.titleZh || bundle.title || report.shortCitation || report.id;
+				if (!window.confirm(`确定删除精读条目“${name}”吗？关联的精读报告、PPT 和本地文献归档也会一并删除。`)) return;
+				void run(`delete-report:${report.id}`, async () => {
+					if (captureHint?.bundleId === bundle.id) {
+						if (captureHint.taskId) await cancelWebVpnCaptureViaShell(captureHint.taskId).catch(() => {});
+						setCaptureHint(null);
+					}
+					if (preview?.report?.id === report.id) setPreview(null);
+					await call("tasks_report_delete", { request: { reportId: report.id, projectId: report.projectId } });
+					setOverview((old) => { const next = { ...old }; delete next[report.id]; return next; });
+					notify("精读条目已删除");
 					await onChanged();
 				});
 			};
@@ -519,7 +539,8 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI PDF…" : (bundleSiUrl ? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")), onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
 									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
 									h("button", { className: `ib-lit-btn${report.docxPath ? " ok" : ""}`, "data-ready": report.docxPath ? "true" : "false", disabled: !!busy[`open-report:${report.id}`], onClick: () => report.docxPath ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt), title: report.docxPath ? "用本机 Office 或 WPS 打开精读报告" : "在当前课题工作区新建对话并预填精读任务" }, busy[`open-report:${report.id}`] ? "打开中…" : (report.docxPath ? "打开精读" : "精读文献")),
-									h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : (presentation?.pptxPath ? "打开PPT" : "制作PPT"))
+									h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : (presentation?.pptxPath ? "打开PPT" : "制作PPT")),
+									h("button", { className: "ib-lit-btn", "data-danger": true, disabled: !!busy[`delete-report:${report.id}`], onClick: (event) => { event.stopPropagation(); deleteReport(report, bundle); } }, busy[`delete-report:${report.id}`] ? "…" : "删除")
 								)
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },

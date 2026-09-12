@@ -257,6 +257,23 @@ test("full flow: search → prepare → report → audit gate → presentation �
 			assert.ok(p.inputsSha256.length === 64, "inputs hash recorded");
 			assert.ok(p.skillVersions.length >= 1, `skill version recorded for ${p.kind}`);
 		}
+
+		// 精读条目删除：先级联报告/PPT；共用 bundle 时保留文献归档，最后一个报告
+		// 删除后再移除 bundle 与其课题内目录。
+		await assert.rejects(() => tasks.deleteReadingReport(report.id, "another-project"), /belongs to another project/);
+		const firstDelete = await tasks.deleteReadingReport(report.id, "proj-1");
+		assert.deepEqual(firstDelete.deleted.reports, 1);
+		assert.deepEqual(firstDelete.deleted.presentations, 1);
+		assert.deepEqual(firstDelete.deleted.bundles, 0);
+		assert.equal(tasks.getReadingReport(report.id), undefined);
+		assert.equal(tasks.getPresentationRun(pres.id), undefined);
+		assert.ok(tasks.getBundle(bundle.id), "共用 bundle 仍有报告时必须保留");
+		const entryDir = tasks.getBundle(bundle.id).entryDir;
+		const finalDelete = await tasks.deleteReadingReport(reportCustom.id, "proj-1");
+		assert.deepEqual(finalDelete.deleted.bundles, 1);
+		assert.equal(tasks.getBundle(bundle.id), undefined);
+		assert.equal(existsSync(entryDir), false, "最后一个精读条目删除后清理本地归档目录");
+		await assert.rejects(() => tasks.deleteReadingReport(reportCustom.id, "proj-1"), /not found/);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });
