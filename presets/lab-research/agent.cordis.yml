@@ -187,7 +187,7 @@
 
 - id: lab-tasks-tool
   name: 'dsh-lab-agent/tasks-tool'
-  inject: [tools, labTasks]
+  inject: [tools, labTasks, labCapture]
 
 - id: lab-templates-tool
   name: 'dsh-lab-agent/templates-tool'

@@ -16,6 +16,7 @@
 //!     一次性捕获端点。认证材料始终留在 WebView2 profile 内。
 
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -52,6 +53,7 @@ const MAX_LOGGED_VALUE: usize = 300;
 const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
 const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
+const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 
 /// WebVPN 窗口作为主窗口右侧「侧边面板」时的固定宽度（逻辑像素）。
 const SIDE_PANEL_WIDTH: f64 = 560.0;
@@ -572,6 +574,19 @@ impl WebVpnState {
             })
     }
 
+    fn should_capture_nature_si_preview(&self, target: &url::Url) -> bool {
+        let Ok(session) = self.session.lock() else {
+            return false;
+        };
+        let Some(pending) = session.pending.as_ref() else {
+            return false;
+        };
+        pending.nature_automation
+            && pending.kind == "si"
+            && !pending.download_claimed
+            && is_nature_si_pdf_url(target)
+    }
+
     fn claim_download_destination(&self) -> DownloadDecision {
         let Ok(mut session) = self.session.lock() else {
             return DownloadDecision::PassThrough;
@@ -902,6 +917,101 @@ pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<
     let dir = data_root.join(DOWNLOAD_DIR_NAME);
     fs::create_dir_all(&dir).map_err(|error| format!("无法创建 WebVPN 下载临时目录: {error}"))?;
     Ok(dir.join(format!("{task_id}-{kind}.pdf")))
+}
+
+fn is_nature_si_pdf_url(target: &url::Url) -> bool {
+    if target.scheme() != "https" {
+        return false;
+    }
+    let host = target.host_str().unwrap_or_default().to_ascii_lowercase();
+    let path = target.path().to_ascii_lowercase();
+    let trusted_host = host == "nature.com"
+        || host.ends_with(".nature.com")
+        || host == "springer.com"
+        || host.ends_with(".springer.com")
+        || host == "springernature.com"
+        || host.ends_with(".springernature.com");
+    trusted_host && (path.ends_with(".pdf") || path.contains("/mediaobjects/"))
+}
+
+/// Nature SI 链接常以内嵌 PDF 预览方式打开。这里在预览导航发生前拦截该公开
+/// PDF 地址，直接写入当前捕获任务的唯一临时文件；归档成功后 upload_capture
+/// 会删除临时文件，因此不会在系统下载目录留下第二份副本。
+fn download_nature_si_direct(app: AppHandle, target: url::Url, destination: PathBuf) {
+    let outcome = (|| -> Result<(), String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(120))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 5 || !is_nature_si_pdf_url(attempt.url()) {
+                    attempt.stop()
+                } else {
+                    attempt.follow()
+                }
+            }))
+            .build()
+            .map_err(|error| format!("无法创建 Nature SI 下载请求: {error}"))?;
+        let mut response = client
+            .get(target)
+            .header(
+                reqwest::header::USER_AGENT,
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 iBM-Lab-Agent/0.4.4",
+            )
+            .header(
+                reqwest::header::ACCEPT,
+                "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+            )
+            .send()
+            .map_err(|_| "Nature SI 直连下载失败".to_string())?;
+        if !response.status().is_success() {
+            return Err(format!("Nature SI 下载失败（HTTP {}）", response.status()));
+        }
+        if response
+            .content_length()
+            .is_some_and(|size| size > CAPTURE_MAX_BYTES)
+        {
+            return Err("Nature SI 超过 100 MB 捕获上限".to_string());
+        }
+        let mut file = fs::File::create(&destination)
+            .map_err(|error| format!("无法创建 Nature SI 临时文件: {error}"))?;
+        let mut received = 0_u64;
+        let mut buffer = [0_u8; 64 * 1024];
+        loop {
+            let count = response
+                .read(&mut buffer)
+                .map_err(|_| "Nature SI 下载过程中连接中断".to_string())?;
+            if count == 0 {
+                break;
+            }
+            received = received.saturating_add(count as u64);
+            if received > CAPTURE_MAX_BYTES {
+                return Err("Nature SI 超过 100 MB 捕获上限".to_string());
+            }
+            file.write_all(&buffer[..count])
+                .map_err(|error| format!("无法写入 Nature SI 临时文件: {error}"))?;
+        }
+        file.flush()
+            .map_err(|error| format!("无法完成 Nature SI 临时文件: {error}"))?;
+        Ok(())
+    })();
+
+    match outcome {
+        Ok(()) => {
+            let upload = app
+                .try_state::<WebVpnState>()
+                .and_then(|state| state.begin_upload(&destination));
+            if let Some(upload) = upload {
+                upload_capture(app, upload);
+            } else if let Some(state) = app.try_state::<WebVpnState>() {
+                state.fail_pending_download("Nature SI 下载与当前捕获任务不匹配，请重试");
+            }
+        }
+        Err(message) => {
+            if let Some(state) = app.try_state::<WebVpnState>() {
+                state.fail_pending_download(&message);
+            }
+            record(&app, "error", "", &message);
+        }
+    }
 }
 
 pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
@@ -1301,6 +1411,30 @@ pub fn open_window(
                 });
                 return false;
             }
+            let direct_si = navigation_app
+                .try_state::<WebVpnState>()
+                .map(|state| state.should_capture_nature_si_preview(url))
+                .unwrap_or(false);
+            if direct_si {
+                let decision = navigation_app
+                    .try_state::<WebVpnState>()
+                    .map(|state| state.claim_download_destination())
+                    .unwrap_or(DownloadDecision::PassThrough);
+                if let DownloadDecision::Capture(destination) = decision {
+                    let download_app = navigation_app.clone();
+                    let target = url.clone();
+                    std::thread::spawn(move || {
+                        download_nature_si_direct(download_app, target, destination)
+                    });
+                    record(
+                        &navigation_app,
+                        "automation",
+                        url.as_str(),
+                        "已拦截 SI 预览导航并直接捕获 PDF",
+                    );
+                    return false;
+                }
+            }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
                 let result = url.path().trim_matches('/');
                 let message = match result {
@@ -1356,7 +1490,10 @@ pub fn open_window(
                     {
                         DownloadDecision::Capture(path) => *destination = path,
                         DownloadDecision::Duplicate => allow = false,
-                        DownloadDecision::PassThrough => {}
+                        // WebVPN 子 WebView 是受控捕获面板，不向系统下载目录放行
+                        // 非当前任务的下载。这样自动点击产生的迟到/重复请求也不会
+                        // 在“课题归档文件”之外留下第二份浏览器下载副本。
+                        DownloadDecision::PassThrough => allow = false,
                     }
                     record(
                         &download_app,
@@ -1556,6 +1693,23 @@ mod tests {
         assert!(policy.allows("media.springernature.com"));
         assert!(policy.allows("www.nature.com"));
         assert!(!policy.allows("example.com"));
+    }
+
+    #[test]
+    fn nature_si_preview_capture_accepts_only_trusted_pdf_hosts() {
+        for accepted in [
+            "https://static-content.springer.com/esm/art%3A10.1038/file/MediaObjects/test.pdf",
+            "https://www.nature.com/articles/example/supplementary.pdf",
+        ] {
+            assert!(is_nature_si_pdf_url(&url::Url::parse(accepted).unwrap()));
+        }
+        for rejected in [
+            "https://evil.example/supplementary.pdf",
+            "http://static-content.springer.com/MediaObjects/test.pdf",
+            "https://www.nature.com/articles/example",
+        ] {
+            assert!(!is_nature_si_pdf_url(&url::Url::parse(rejected).unwrap()));
+        }
     }
 
     #[test]

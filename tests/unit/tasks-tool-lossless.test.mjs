@@ -51,3 +51,27 @@ test("lab_tasks_resolve_wechat_doi reports an empty-candidate error as normal JS
 	const output = await tool.execute({ projectId: "proj-test", title: "TRI-611" }, {});
 	assert.deepEqual(output, { ok: false, error: "no DOI candidate passed verification for TRI-611" });
 });
+
+test("lab_nature_browser_download queues an existing Nature bundle without exposing a token", async () => {
+	const registered = [];
+	let request;
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: {
+			getProject: () => ({ id: "proj-test" }),
+			getBundle: (id) => id === "bundle-nature" ? { id, projectId: "proj-test", doi: "10.1038/s41551-023-01022-4" } : undefined
+		},
+		labCapture: {
+			createAgentCaptureTask: async (value) => {
+				request = value;
+				return { id: "capture-agent123", bundleId: value.bundleId, kind: value.kind, token: "must-not-leak" };
+			}
+		}
+	});
+	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
+	assert.ok(tool);
+	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "si" }, {});
+	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "si" });
+	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", status: "queued" });
+	assert.equal(JSON.stringify(output).includes("must-not-leak"), false);
+});

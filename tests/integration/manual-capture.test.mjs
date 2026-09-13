@@ -494,6 +494,28 @@ test("capture: Remote 接口可从浏览器侧调用（create/get/cancel/list）
 	}
 });
 
+test("capture: AI 下载请求的令牌只允许桌面界面领取一次", async () => {
+	const boot = await bootCapture();
+	try {
+		const ctx = boot.ctx;
+		const task = await ctx.labCapture.createAgentCaptureTask({
+			projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si"
+		});
+		assert.equal(task.requestedBy, "agent");
+		assert.equal(Object.hasOwn(task, "token"), false, "持久化任务不得包含明文令牌");
+		const claimed = await invoke(ctx, "manual_capture_claim_agent", { request: { taskId: task.id } });
+		assert.match(claimed.task.token, /^[A-Za-z0-9_-]{20,}$/);
+		assert.equal(Object.hasOwn(claimed.task, "tokenSha256"), false, "桌面领取响应不暴露哈希");
+		await assert.rejects(
+			() => invoke(ctx, "manual_capture_claim_agent", { request: { taskId: task.id } }),
+			/已失效/
+		);
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
 test("capture: 服务重启后任务状态与 bundle 登记保持正确", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-capture-restart-"));
 	const storageRoot = join(dir, "storages");

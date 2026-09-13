@@ -151,7 +151,7 @@ export function applyUi(ctx) {
 	};
 	const openWorkspace = (project) => open(project);
 	const disposeBranding = applyBranding(() => open());
-	ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace })), "dsh-lab-agent: project badge");
+	ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast })), "dsh-lab-agent: project badge");
 	ctx.slots.inject("conversation.input.left", () => ctx.slots.register({ name: "conversation.input.left", id: "lab-project-file-upload", order: 40 }, (props) => h(ResearchFileUpload, { ...props, call, toast })), "dsh-lab-agent: research file upload");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }

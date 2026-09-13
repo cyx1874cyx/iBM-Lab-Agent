@@ -146,7 +146,7 @@ function buildDescriptors() {
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_list"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_list"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -1225,7 +1225,7 @@ function useBoundProject(sessionId, call, useSessions) {
   }, [sessionId, cwd, call]);
   return bound;
 }
-function ProjectBadge({ sessionId, call, openWorkspace, useSessions }) {
+function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
   (0, import_react3.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
@@ -1238,6 +1238,49 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions }) {
       }
     };
   }, [bound?.project?.id]);
+  (0, import_react3.useEffect)(() => {
+    const projectId = bound?.project?.id;
+    if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
+    let disposed = false;
+    let timer;
+    let starting = false;
+    const poll = async () => {
+      if (disposed || starting) return;
+      let claimedTask;
+      starting = true;
+      try {
+        const listed = await call("manual_capture_list", { request: { projectId } });
+        const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
+        if (task && !disposed) {
+          const claimed = await call("manual_capture_claim_agent", { request: { taskId: task.id } });
+          claimedTask = claimed?.task;
+          if (!claimedTask?.token || !claimedTask.publisherUrl) throw new Error("AI 文献下载请求缺少有效的捕获入口");
+          await openWebVpnCaptureViaShell({
+            taskId: claimedTask.id,
+            kind: claimedTask.kind,
+            targetUrl: claimedTask.publisherUrl,
+            token: claimedTask.token,
+            directAccess: claimedTask.kind === "si" && /(?:doi\.org\/)?10\.1038(?:%2F|\/)/i.test(claimedTask.publisherUrl)
+          });
+          toast?.(`AI 已发起 Nature ${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+        }
+      } catch (error) {
+        if (claimedTask?.id) {
+          await call("manual_capture_cancel", { request: { taskId: claimedTask.id, reason: error.message || "AI 文献下载请求启动失败" } }).catch(() => {
+          });
+          toast?.(error.message || "AI 文献下载请求启动失败");
+        }
+      } finally {
+        starting = false;
+        if (!disposed) timer = setTimeout(() => void poll(), 1800);
+      }
+    };
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [bound?.project?.id, call, toast]);
   if (!bound?.project) return null;
   return h(
     "button",
@@ -2879,7 +2922,22 @@ function bundleRecordIndex(bundles = []) {
   for (const bundle of bundles) index[bundle.id] = bundle;
   return index;
 }
-function LitPanel({ searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
+function captureRouteForBundle(bundle, kind) {
+  const isNatureArticle = /^10\.1038\//i.test(String(bundle?.doi || "").trim());
+  const directNatureSi = kind === "si" && isNatureArticle;
+  const doiUrl = bundle?.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : void 0;
+  const sourcePublisherUrl = (() => {
+    if (bundle?.sourceType === "wechat" || !bundle?.sourceUrl) return void 0;
+    try {
+      const url = new URL(bundle.sourceUrl);
+      return url.protocol === "https:" ? url.href : void 0;
+    } catch {
+      return void 0;
+    }
+  })();
+  return { isNatureArticle, directNatureSi, publisherUrl: doiUrl || sourcePublisherUrl };
+}
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -2972,19 +3030,7 @@ function LitPanel({ searches, reports, bundles, presentations, call, notify, onO
   }, [captureHint?.taskId, captureHint?.route]);
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
-    const isNatureArticle = /^10\.1038\//i.test(String(bundle.doi || "").trim());
-    const directNatureSi = kind === "si" && isNatureArticle;
-    const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : void 0;
-    const sourcePublisherUrl = (() => {
-      if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return void 0;
-      try {
-        const url = new URL(bundle.sourceUrl);
-        return url.protocol === "https:" ? url.href : void 0;
-      } catch {
-        return void 0;
-      }
-    })();
-    const publisherUrl = doiUrl || sourcePublisherUrl;
+    const { isNatureArticle, directNatureSi, publisherUrl } = captureRouteForBundle(bundle, kind);
     if (!publisherUrl) {
       notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
       return;
@@ -3543,7 +3589,7 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
       }
     } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
     h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : void 0, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-    h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
+    h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
@@ -3710,7 +3756,7 @@ function applyUi(ctx) {
   };
   const openWorkspace = (project) => open(project);
   const disposeBranding = applyBranding(() => open());
-  ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace })), "dsh-lab-agent: project badge");
+  ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast })), "dsh-lab-agent: project badge");
   ctx.slots.inject("conversation.input.left", () => ctx.slots.register({ name: "conversation.input.left", id: "lab-project-file-upload", order: 40 }, (props) => h(ResearchFileUpload, { ...props, call, toast })), "dsh-lab-agent: research file upload");
   ctx.on("dispose", () => {
     if (disposeBranding) disposeBranding();

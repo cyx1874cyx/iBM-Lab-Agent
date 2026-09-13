@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { databaseState, databaseStateTone, downloadState } from "./constants.js";
-import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, clearWebVpnSessionViaShell } from "./lib.js";
+import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 
 // 文献相关组件：DatabaseOverview/FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
@@ -148,7 +148,7 @@ export function useBoundProject(sessionId, call, useSessions) {
 			return bound;
 		}
 
-export function ProjectBadge({ sessionId, call, openWorkspace, useSessions }) {
+export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
 			const bound = useBoundProject(sessionId, call, useSessions);
 			useEffect(() => {
 				if (typeof document === "undefined" || !bound?.project?.id) return undefined;
@@ -161,6 +161,49 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions }) {
 					}
 				};
 			}, [bound?.project?.id]);
+			// AI Tool 在当前对话中排入下载任务后，由始终挂载的课题标识领取。
+			// 明文一次性令牌只从本地服务交给桌面 WebVPN 壳，不进入模型上下文。
+			useEffect(() => {
+				const projectId = bound?.project?.id;
+				if (!projectId || typeof window === "undefined" || window.parent === window) return undefined;
+				let disposed = false;
+				let timer;
+				let starting = false;
+				const poll = async () => {
+					if (disposed || starting) return;
+					let claimedTask;
+					starting = true;
+					try {
+						const listed = await call("manual_capture_list", { request: { projectId } });
+						const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
+						if (task && !disposed) {
+							const claimed = await call("manual_capture_claim_agent", { request: { taskId: task.id } });
+							claimedTask = claimed?.task;
+							if (!claimedTask?.token || !claimedTask.publisherUrl) throw new Error("AI 文献下载请求缺少有效的捕获入口");
+							await openWebVpnCaptureViaShell({
+								taskId: claimedTask.id,
+								kind: claimedTask.kind,
+								targetUrl: claimedTask.publisherUrl,
+								token: claimedTask.token,
+								directAccess: claimedTask.kind === "si" && /(?:doi\.org\/)?10\.1038(?:%2F|\/)/i.test(claimedTask.publisherUrl)
+							});
+							toast?.(`AI 已发起 Nature ${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+						}
+					} catch (error) {
+						// 只有已经成功领取令牌、但桌面壳启动失败时才取消任务；并发领取失败
+						// 可能表示另一个已挂载界面已经接管，不能误取消它。
+						if (claimedTask?.id) {
+							await call("manual_capture_cancel", { request: { taskId: claimedTask.id, reason: error.message || "AI 文献下载请求启动失败" } }).catch(() => {});
+							toast?.(error.message || "AI 文献下载请求启动失败");
+						}
+					} finally {
+						starting = false;
+						if (!disposed) timer = setTimeout(() => void poll(), 1800);
+					}
+				};
+				void poll();
+				return () => { disposed = true; clearTimeout(timer); };
+			}, [bound?.project?.id, call, toast]);
 			if (!bound?.project) return null;
 			return h("button", { className: "ib-research-badge", title: "打开课题空间", "aria-label": `打开课题空间：${bound.project.name}`, onClick: () => openWorkspace(bound.project) },
 				h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),

@@ -160,6 +160,21 @@ test("generic paper metadata tool (non-wechat) registers into the reading queue"
 	assert.match(preset, /lab_tasks_register_paper_meta/);
 });
 
+test("Nature browser download is exposed as an AI tool without returning capture tokens", async () => {
+	const [toolsSource, preset, clientSource] = await Promise.all([
+		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(presetPath, "utf8"),
+		readClientSource()
+	]);
+	assert.match(toolsSource, /lab_nature_browser_download/);
+	assert.match(toolsSource, /createAgentCaptureTask/);
+	assert.doesNotMatch(toolsSource, /return \{ ok: true, token:/, "工具返回值不得把一次性令牌暴露给模型");
+	assert.match(preset, /inject: \[tools, labTasks, labCapture\]/);
+	assert.match(clientSource, /function ProjectBadge[\s\S]*manual_capture_claim_agent/,
+		"AI 下载队列必须由对话中始终挂载的课题标识领取，不能依赖已关闭的项目面板");
+	assert.match(clientSource, /manual_capture_claim_agent[\s\S]*openWebVpnCaptureViaShell/);
+});
+
 test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async () => {
 	const source = await readFile(fileURLToPath(new URL("../../lib/synthesis-tool.js", import.meta.url)), "utf8");
 	assert.match(source, /lab_synth_target_create/);

@@ -91,8 +91,22 @@ export function bundleRecordIndex(bundles = []) {
 			return index;
 		}
 
+function captureRouteForBundle(bundle, kind) {
+	const isNatureArticle = /^10\.1038\//i.test(String(bundle?.doi || "").trim());
+	const directNatureSi = kind === "si" && isNatureArticle;
+	const doiUrl = bundle?.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
+	const sourcePublisherUrl = (() => {
+		if (bundle?.sourceType === "wechat" || !bundle?.sourceUrl) return undefined;
+		try {
+			const url = new URL(bundle.sourceUrl);
+			return url.protocol === "https:" ? url.href : undefined;
+		} catch { return undefined; }
+	})();
+	return { isNatureArticle, directNatureSi, publisherUrl: doiUrl || sourcePublisherUrl };
+}
+
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
-export function LitPanel({ searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};
@@ -193,17 +207,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 				// Nature Portfolio 的 SI 托管在公开的 Springer Nature 静态附件域名。
 				// 经学校 WebVPN 转发该大文件会返回 502，因此 10.1038 DOI 的 SI
 				// 在同一个受控侧栏里走直连；正文仍使用 WebVPN 授权链路。
-				const isNatureArticle = /^10\.1038\//i.test(String(bundle.doi || "").trim());
-				const directNatureSi = kind === "si" && isNatureArticle;
-				const doiUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : undefined;
-				const sourcePublisherUrl = (() => {
-					if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return undefined;
-					try {
-						const url = new URL(bundle.sourceUrl);
-						return url.protocol === "https:" ? url.href : undefined;
-					} catch { return undefined; }
-				})();
-				const publisherUrl = doiUrl || sourcePublisherUrl;
+				const { isNatureArticle, directNatureSi, publisherUrl } = captureRouteForBundle(bundle, kind);
 				if (!publisherUrl) {
 					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
 					return;
@@ -625,7 +629,7 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", "data-primary": true, disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark" }, "✦"), launching ? "正在启动…" : "开始科研 Agent 对话")),
 				memoryOpen ? h("div", { className: "ib-memory-drawer", role: "dialog", "aria-label": "核心记忆" }, h("button", { className: "ib-btn ib-memory-close", onClick: () => setMemoryOpen(false) }, "收起（保留编辑）"), h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => { memoryDirty.current = true; setDraft(event.target.value); try { sessionStorage.setItem(`ib-memory-draft:${project.id}`, event.target.value); } catch { /* storage may be disabled */ } } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
 				toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
 			);
 		}
