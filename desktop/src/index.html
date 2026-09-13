@@ -569,7 +569,8 @@
           kind: String(data.payload?.kind || ''),
           targetUrl: String(data.payload?.targetUrl || ''),
           token: String(data.payload?.token || ''),
-          directAccess: data.payload?.directAccess === true
+          directAccess: data.payload?.directAccess === true,
+          automate: data.payload?.automate === true
         })
           .then((result) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }))
           .catch((error) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: false, error: String(error) }));

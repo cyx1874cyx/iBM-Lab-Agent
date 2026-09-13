@@ -72,8 +72,38 @@ test("lab_nature_browser_download queues an existing Nature bundle without expos
 	assert.ok(tool);
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "si" }, {});
 	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "si" });
-	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", status: "queued" });
+	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", publisher: "Nature Portfolio", status: "queued" });
 	assert.equal(JSON.stringify(output).includes("must-not-leak"), false);
+});
+
+test("generic publisher download applies VPN and direct-SI rules", async () => {
+	const registered = [];
+	let bundle = { id: "bundle-publisher", projectId: "proj-test", doi: "10.1016/j.example.2026.1" };
+	let loginRequested = false;
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: { getProject: () => ({ id: "proj-test" }), getBundle: () => bundle },
+		labCapture: {
+			getDesktopWebVpnStatus: () => ({ state: "closed", ready: false, stale: false }),
+			requestDesktopWebVpnLogin: () => { loginRequested = true; },
+			createAgentCaptureTask: async (value) => ({ id: "capture-generic", ...value })
+		}
+	});
+	const tool = registered.find((item) => item.name === "lab_publisher_browser_download");
+	assert.ok(tool);
+	assert.ok(registered.find((item) => item.name === "lab_publisher_browser_download_status"));
+	const elsevierSi = await tool.execute({ projectId: "proj-test", bundleId: bundle.id, kind: "si" }, {});
+	assert.equal(elsevierSi.requiresUserAction, true);
+	assert.equal(elsevierSi.publisher, "Elsevier");
+	assert.equal(loginRequested, true);
+	bundle = { ...bundle, doi: "10.1007/s00125-026-01234-5" };
+	const springerSi = await tool.execute({ projectId: "proj-test", bundleId: bundle.id, kind: "si" }, {});
+	assert.equal(springerSi.status, "queued");
+	assert.equal(springerSi.publisher, "SpringerLink");
+	bundle = { ...bundle, doi: "10.1002/example.1" };
+	const wiley = await tool.execute({ projectId: "proj-test", bundleId: bundle.id, kind: "pdf" }, {});
+	assert.equal(wiley.ok, false);
+	assert.match(wiley.error, /Wiley.*暂停/);
 });
 
 test("Nature main PDF is not queued until the desktop WebVPN session is ready", async () => {

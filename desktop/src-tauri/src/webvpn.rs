@@ -56,7 +56,7 @@ const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 
 /// WebVPN 窗口作为主窗口右侧「侧边面板」时的固定宽度（逻辑像素）。
-const SIDE_PANEL_WIDTH: f64 = 560.0;
+const SIDE_PANEL_WIDTH: f64 = 720.0;
 
 /// 注入到 WebVPN 子 WebView 的轻量浏览器壳。按钮位于侧栏自身右上角，页面
 /// 每次导航后都会重新注入；点击后走受控自定义导航，由 Rust 隐藏侧栏。
@@ -103,13 +103,14 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
 })();
 "#;
 
-/// Nature 页面内自动寻找下载入口。脚本只在页面能由 citation DOI 或站点域名
-/// 确认为 Nature 文章时运行；只把固定结果码送回 Rust，不读取或传出正文、
-/// Cookie、登录信息。正文与 SI 使用分开的高置信度评分，避免互相误点。
-const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
+/// 已适配出版社页面内自动寻找下载入口。脚本只在页面能由 DOI 或站点域名
+/// 确认出版社时运行；只把固定结果码送回 Rust，不读取或传出正文、Cookie、
+/// 登录信息。每次导航都会重新执行，因此可覆盖“文章页 → PDF 预览器 → 保存”。
+const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
 (() => {
   const kind = '__IBM_CAPTURE_KIND__';
-  const runKey = `__ibm_nature_download_${kind}`;
+  const publisher = '__IBM_PUBLISHER__';
+  const runKey = `__ibm_publisher_download_${publisher}_${kind}`;
   if (window[runKey]) return;
   window[runKey] = true;
   let attempts = 0;
@@ -131,11 +132,22 @@ const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
   };
   const clickTarget = (element) => element.closest?.('a[href],button,[role="button"]') || element;
   const signal = (result) => { location.href = `ibm-webvpn://automation/${result}`; };
-  const confirmedNatureArticle = () => {
+  const confirmedPublisherPage = () => {
     const host = clean(location.hostname);
     const doi = clean(document.querySelector('meta[name="citation_doi"],meta[name="dc.identifier"]')?.content);
     const canonical = clean(document.querySelector('link[rel="canonical"]')?.href);
-    return host === 'nature.com' || host.endsWith('.nature.com') || doi.startsWith('10.1038/') || canonical.includes('nature.com/articles/');
+    const evidence = `${host} ${doi} ${canonical}`;
+    const forwarded = /^\/https?\/[0-9a-f]{16,}(?:\/|$)/i.test(location.pathname);
+    const patterns = {
+      nature: /nature\.com|10\.1038\//,
+      springer: /springer(?:link)?\.com|10\.1007\//,
+      science: /science\.org|10\.1126\//,
+      elsevier: /sciencedirect\.com|elsevier\.com|10\.1016\//,
+      acs: /pubs\.acs\.org|10\.1021\//,
+      rsc: /pubs\.rsc\.org|10\.1039\//,
+      ieee: /ieeexplore\.ieee\.org|10\.1109\//
+    };
+    return forwarded || patterns[publisher]?.test(evidence) === true;
   };
   const challengePresent = () => {
     const sample = clean(`${document.title} ${(document.body?.innerText || '').slice(0, 5000)}`);
@@ -148,6 +160,8 @@ const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
     if (/supplement|supporting|supp[\s._-]|additional file|source data|methods?|moesm|mediaobjects/.test(`${text} ${href}`)) return -100;
     let score = 0;
     if (/download pdf|view pdf|article pdf|全文\s*pdf|下载\s*pdf/.test(text)) score += 10;
+    if (/open pdf|read pdf|pdf full text/.test(text)) score += 10;
+    if (/download|save|保存|下载/.test(text) && /pdf|viewer|epdf|pdfft/.test(clean(location.href))) score += 12;
     if (/\bpdf\b/.test(text)) score += 3;
     if (/\/articles?\/[^?#/]+\.pdf(?:[?#]|$)|\/content\/pdf\/|articlepdf|downloadpdf/.test(href)) score += 9;
     if (/\.pdf(?:[?#]|$)/.test(href)) score += 5;
@@ -163,12 +177,12 @@ const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
     if (/supplement|suppl|moesm|mediaobjects|additional[-_ ]file|static-content\.springer/.test(href)) score += 8;
     if (/download|下载/.test(text)) score += 3;
     if (/\.pdf(?:[?#]|$)|\bpdf\b/.test(`${href} ${text}`)) score += 5;
-    if (/\.zip(?:[?#]|$)/.test(href)) return -100;
+    if (/\.(?:docx?|zip)(?:[?#]|$)/.test(href)) score += 7;
     return score;
   };
   const scan = () => {
     attempts += 1;
-    if (!confirmedNatureArticle()) return;
+    if (!confirmedPublisherPage()) return;
     if (challengePresent()) { clearInterval(timer); signal('challenge'); return; }
     const items = candidates();
     const scored = items.map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
@@ -177,6 +191,8 @@ const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
     if (scored[0]?.score >= threshold) {
       clearInterval(timer);
       window[`${runKey}_clicked`] = true;
+      const anchor = scored[0].element.closest?.('a[href]') || (scored[0].element.matches?.('a[href]') ? scored[0].element : null);
+      if (anchor) anchor.setAttribute('download', kind === 'pdf' ? 'article.pdf' : 'supporting-information');
       scored[0].element.click();
       return;
     }
@@ -357,8 +373,77 @@ pub fn is_nature_article(target: &url::Url) -> bool {
         || host.ends_with(".nature.com")
 }
 
-pub fn is_direct_nature_si(kind: &str, target: &url::Url) -> bool {
-    kind == "si" && is_nature_article(target)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PublisherAdapter {
+    Nature,
+    Springer,
+    Science,
+    Elsevier,
+    Acs,
+    Rsc,
+    Ieee,
+    WileyPaused,
+    Other,
+}
+
+impl PublisherAdapter {
+    pub fn from_target(target: &url::Url) -> Self {
+        let host = target.host_str().unwrap_or_default().to_ascii_lowercase();
+        let path = target.path().to_ascii_lowercase();
+        let matches_doi = |prefix: &str| {
+            host == "doi.org"
+                && (path.starts_with(&format!("/{prefix}/"))
+                    || path.starts_with(&format!("/{}%2f", prefix)))
+        };
+        if is_nature_article(target) {
+            Self::Nature
+        } else if matches_doi("10.1007") || host.contains("springer.com") {
+            Self::Springer
+        } else if matches_doi("10.1126") || host.ends_with("science.org") {
+            Self::Science
+        } else if matches_doi("10.1016")
+            || host.ends_with("sciencedirect.com")
+            || host.ends_with("elsevier.com")
+        {
+            Self::Elsevier
+        } else if matches_doi("10.1021") || host.ends_with("acs.org") {
+            Self::Acs
+        } else if matches_doi("10.1039") || host.ends_with("rsc.org") {
+            Self::Rsc
+        } else if matches_doi("10.1109") || host.ends_with("ieee.org") {
+            Self::Ieee
+        } else if matches_doi("10.1002") || matches_doi("10.1111") || host.ends_with("wiley.com") {
+            Self::WileyPaused
+        } else {
+            Self::Other
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::Nature => "nature",
+            Self::Springer => "springer",
+            Self::Science => "science",
+            Self::Elsevier => "elsevier",
+            Self::Acs => "acs",
+            Self::Rsc => "rsc",
+            Self::Ieee => "ieee",
+            Self::WileyPaused => "wiley",
+            Self::Other => "other",
+        }
+    }
+
+    fn supports_automation(self) -> bool {
+        !matches!(self, Self::WileyPaused | Self::Other)
+    }
+
+    pub fn direct_si(self, kind: &str) -> bool {
+        kind == "si" && matches!(self, Self::Nature | Self::Springer)
+    }
+}
+
+pub fn is_direct_springer_family_si(kind: &str, target: &url::Url) -> bool {
+    PublisherAdapter::from_target(target).direct_si(kind)
 }
 
 pub fn allow_direct_nature_si_hosts(policy: &mut WebVpnPolicy) {
@@ -396,8 +481,9 @@ struct PendingCapture {
     generation: u64,
     task_id: String,
     kind: String,
-    /// 仅 10.1038 / Nature 文章启用页面内自动点击；其他出版社保持人工操作。
-    nature_automation: bool,
+    publisher: PublisherAdapter,
+    /// Agent 任务自动点击；面板任务只布防捕获并交给用户手动操作。
+    automate: bool,
     upload_url: url::Url,
     temp_path: PathBuf,
     expires_at: Instant,
@@ -551,7 +637,8 @@ impl WebVpnState {
         task_id: &str,
         kind: &str,
         target_host: &str,
-        nature_automation: bool,
+        publisher: PublisherAdapter,
+        automate: bool,
         upload_url: url::Url,
         temp_path: PathBuf,
     ) -> Result<u64, String> {
@@ -584,7 +671,8 @@ impl WebVpnState {
             generation,
             task_id: task_id.to_string(),
             kind: kind.to_string(),
-            nature_automation,
+            publisher,
+            automate,
             upload_url,
             temp_path,
             expires_at: Instant::now() + CAPTURE_TTL,
@@ -598,29 +686,31 @@ impl WebVpnState {
         Ok(generation)
     }
 
-    fn pending_nature_kind(&self) -> Option<String> {
+    fn pending_automation(&self) -> Option<(String, PublisherAdapter)> {
         self.session
             .lock()
             .ok()?
             .pending
             .as_ref()
             .and_then(|pending| {
-                (pending.nature_automation && !pending.download_claimed)
-                    .then(|| pending.kind.clone())
+                (pending.automate
+                    && pending.publisher.supports_automation()
+                    && !pending.download_claimed)
+                    .then(|| (pending.kind.clone(), pending.publisher))
             })
     }
 
-    fn should_capture_nature_si_preview(&self, target: &url::Url) -> bool {
+    fn should_capture_direct_si_preview(&self, target: &url::Url) -> bool {
         let Ok(session) = self.session.lock() else {
             return false;
         };
         let Some(pending) = session.pending.as_ref() else {
             return false;
         };
-        pending.nature_automation
-            && pending.kind == "si"
+        pending.automate
+            && pending.publisher.direct_si(&pending.kind)
             && !pending.download_claimed
-            && is_nature_si_pdf_url(target)
+            && is_springer_family_si_url(target)
     }
 
     fn claim_download_destination(&self) -> DownloadDecision {
@@ -980,7 +1070,7 @@ pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<
     Ok(dir.join(format!("{task_id}-{kind}.pdf")))
 }
 
-fn is_nature_si_pdf_url(target: &url::Url) -> bool {
+fn is_springer_family_si_url(target: &url::Url) -> bool {
     if target.scheme() != "https" {
         return false;
     }
@@ -992,25 +1082,29 @@ fn is_nature_si_pdf_url(target: &url::Url) -> bool {
         || host.ends_with(".springer.com")
         || host == "springernature.com"
         || host.ends_with(".springernature.com");
-    trusted_host && (path.ends_with(".pdf") || path.contains("/mediaobjects/"))
+    trusted_host
+        && (path.ends_with(".pdf")
+            || path.ends_with(".docx")
+            || path.ends_with(".zip")
+            || path.contains("/mediaobjects/"))
 }
 
-/// Nature SI 链接常以内嵌 PDF 预览方式打开。这里在预览导航发生前拦截该公开
-/// PDF 地址，直接写入当前捕获任务的唯一临时文件；归档成功后 upload_capture
+/// Nature/Springer SI 链接可能以内嵌预览方式打开。这里在预览导航发生前拦截
+/// 公开附件地址，直接写入当前捕获任务的唯一临时文件；归档成功后 upload_capture
 /// 会删除临时文件，因此不会在系统下载目录留下第二份副本。
-fn download_nature_si_direct(app: AppHandle, target: url::Url, destination: PathBuf) {
+fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destination: PathBuf) {
     let outcome = (|| -> Result<(), String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(120))
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.previous().len() >= 5 || !is_nature_si_pdf_url(attempt.url()) {
+                if attempt.previous().len() >= 5 || !is_springer_family_si_url(attempt.url()) {
                     attempt.stop()
                 } else {
                     attempt.follow()
                 }
             }))
             .build()
-            .map_err(|error| format!("无法创建 Nature SI 下载请求: {error}"))?;
+            .map_err(|error| format!("无法创建 Springer 系 SI 下载请求: {error}"))?;
         let mut response = client
             .get(target)
             .header(
@@ -1019,39 +1113,42 @@ fn download_nature_si_direct(app: AppHandle, target: url::Url, destination: Path
             )
             .header(
                 reqwest::header::ACCEPT,
-                "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+                "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip,application/octet-stream;q=0.9,*/*;q=0.1",
             )
             .send()
-            .map_err(|_| "Nature SI 直连下载失败".to_string())?;
+            .map_err(|_| "Springer 系 SI 直连下载失败".to_string())?;
         if !response.status().is_success() {
-            return Err(format!("Nature SI 下载失败（HTTP {}）", response.status()));
+            return Err(format!(
+                "Springer 系 SI 下载失败（HTTP {}）",
+                response.status()
+            ));
         }
         if response
             .content_length()
             .is_some_and(|size| size > CAPTURE_MAX_BYTES)
         {
-            return Err("Nature SI 超过 100 MB 捕获上限".to_string());
+            return Err("Springer 系 SI 超过 100 MB 捕获上限".to_string());
         }
         let mut file = fs::File::create(&destination)
-            .map_err(|error| format!("无法创建 Nature SI 临时文件: {error}"))?;
+            .map_err(|error| format!("无法创建 Springer 系 SI 临时文件: {error}"))?;
         let mut received = 0_u64;
         let mut buffer = [0_u8; 64 * 1024];
         loop {
             let count = response
                 .read(&mut buffer)
-                .map_err(|_| "Nature SI 下载过程中连接中断".to_string())?;
+                .map_err(|_| "Springer 系 SI 下载过程中连接中断".to_string())?;
             if count == 0 {
                 break;
             }
             received = received.saturating_add(count as u64);
             if received > CAPTURE_MAX_BYTES {
-                return Err("Nature SI 超过 100 MB 捕获上限".to_string());
+                return Err("Springer 系 SI 超过 100 MB 捕获上限".to_string());
             }
             file.write_all(&buffer[..count])
-                .map_err(|error| format!("无法写入 Nature SI 临时文件: {error}"))?;
+                .map_err(|error| format!("无法写入 Springer 系 SI 临时文件: {error}"))?;
         }
         file.flush()
-            .map_err(|error| format!("无法完成 Nature SI 临时文件: {error}"))?;
+            .map_err(|error| format!("无法完成 Springer 系 SI 临时文件: {error}"))?;
         Ok(())
     })();
 
@@ -1063,7 +1160,7 @@ fn download_nature_si_direct(app: AppHandle, target: url::Url, destination: Path
             if let Some(upload) = upload {
                 upload_capture(app, upload);
             } else if let Some(state) = app.try_state::<WebVpnState>() {
-                state.fail_pending_download("Nature SI 下载与当前捕获任务不匹配，请重试");
+                state.fail_pending_download("Springer 系 SI 下载与当前捕获任务不匹配，请重试");
             }
         }
         Err(message) => {
@@ -1078,16 +1175,37 @@ fn download_nature_si_direct(app: AppHandle, target: url::Url, destination: Path
 pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
     let body = fs::read(&upload.path).map_err(|error| format!("无法读取 WebVPN 下载文件: {error}"));
     let result = body.and_then(|body| {
+        let extension = if body.starts_with(b"%PDF-") {
+            "pdf"
+        } else if upload.kind == "si" && body.starts_with(b"PK") {
+            let is_docx = body.windows(5).any(|window| window == b"word/")
+                && body
+                    .windows(19)
+                    .any(|window| window == b"[Content_Types].xml");
+            if is_docx {
+                "docx"
+            } else {
+                "zip"
+            }
+        } else {
+            "bin"
+        };
+        let content_type = match extension {
+            "pdf" => "application/pdf",
+            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "zip" => "application/zip",
+            _ => "application/octet-stream",
+        };
         let response = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(120))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| format!("无法创建捕获上传请求: {error}"))?
             .put(upload.upload_url.clone())
-            .header("content-type", "application/pdf")
+            .header("content-type", content_type)
             .header(
                 "x-file-name",
-                format!("{}-{}.pdf", upload.task_id, upload.kind),
+                format!("{}-{}.{}", upload.task_id, upload.kind, extension),
             )
             .body(body)
             .send()
@@ -1321,8 +1439,8 @@ fn destroy_orphan_webview(app: &AppHandle) {
 /// 为主 WebView 与右侧 WebVPN 子 WebView 计算同窗布局。
 /// 小窗口下压缩侧栏，始终给主界面保留至少 640 逻辑像素。
 fn sidebar_layout(width: f64, height: f64) -> ((f64, f64), (f64, f64, f64, f64)) {
-    const MIN_MAIN_WIDTH: f64 = 640.0;
-    const MIN_SIDEBAR_WIDTH: f64 = 320.0;
+    const MIN_MAIN_WIDTH: f64 = 480.0;
+    const MIN_SIDEBAR_WIDTH: f64 = 420.0;
     let available = (width - MIN_MAIN_WIDTH).max(0.0);
     let sidebar_width = SIDE_PANEL_WIDTH
         .min(available)
@@ -1456,7 +1574,7 @@ pub fn open_window(
         .initialization_script(WEBVPN_CHROME_SCRIPT)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
-                start_pending_nature_automation(&page_app, &webview);
+                start_pending_publisher_automation(&page_app, &webview);
             }
         })
         .on_navigation(move |url| {
@@ -1484,7 +1602,7 @@ pub fn open_window(
             }
             let direct_si = navigation_app
                 .try_state::<WebVpnState>()
-                .map(|state| state.should_capture_nature_si_preview(url))
+                .map(|state| state.should_capture_direct_si_preview(url))
                 .unwrap_or(false);
             if direct_si {
                 let decision = navigation_app
@@ -1495,13 +1613,13 @@ pub fn open_window(
                     let download_app = navigation_app.clone();
                     let target = url.clone();
                     std::thread::spawn(move || {
-                        download_nature_si_direct(download_app, target, destination)
+                        download_springer_family_si_direct(download_app, target, destination)
                     });
                     record(
                         &navigation_app,
                         "automation",
                         url.as_str(),
-                        "已拦截 SI 预览导航并直接捕获 PDF",
+                        "已拦截 SI 预览导航并直接捕获附件",
                     );
                     return false;
                 }
@@ -1650,14 +1768,16 @@ pub fn open_window(
 
 /// 在当前文档中启动 Nature 下载入口扫描。页面脚本自身还会检查 citation DOI，
 /// 因而 DOI 跳转页、WebVPN 门户和登录页都不会被误点。
-pub fn start_pending_nature_automation(app: &AppHandle, webview: &Webview) {
-    let kind = app
+pub fn start_pending_publisher_automation(app: &AppHandle, webview: &Webview) {
+    let pending = app
         .try_state::<WebVpnState>()
-        .and_then(|state| state.pending_nature_kind());
-    let Some(kind) = kind.filter(|kind| kind == "pdf" || kind == "si") else {
+        .and_then(|state| state.pending_automation());
+    let Some((kind, publisher)) = pending.filter(|(kind, _)| kind == "pdf" || kind == "si") else {
         return;
     };
-    let script = NATURE_DOWNLOAD_AUTOMATION.replace("__IBM_CAPTURE_KIND__", &kind);
+    let script = PUBLISHER_DOWNLOAD_AUTOMATION
+        .replace("__IBM_CAPTURE_KIND__", &kind)
+        .replace("__IBM_PUBLISHER__", publisher.key());
     if let Err(error) = webview.eval(script) {
         record(
             app,
@@ -1748,16 +1868,18 @@ mod tests {
     }
 
     #[test]
-    fn direct_access_is_limited_to_nature_supporting_information() {
+    fn direct_access_is_limited_to_nature_and_springer_supporting_information() {
         let doi = validate_target("https://doi.org/10.1038/s41551-023-01022-4").unwrap();
         let encoded_doi = validate_target("https://doi.org/10.1038%2Fs41551-023-01022-4").unwrap();
         let nature = validate_target("https://www.nature.com/articles/s41551-023-01022-4").unwrap();
+        let springer = validate_target("https://doi.org/10.1007/s00125-026-01234-5").unwrap();
         let unrelated = validate_target("https://example.com/10.1038/fake").unwrap();
-        assert!(is_direct_nature_si("si", &doi));
-        assert!(is_direct_nature_si("si", &encoded_doi));
-        assert!(is_direct_nature_si("si", &nature));
-        assert!(!is_direct_nature_si("pdf", &doi));
-        assert!(!is_direct_nature_si("si", &unrelated));
+        assert!(is_direct_springer_family_si("si", &doi));
+        assert!(is_direct_springer_family_si("si", &encoded_doi));
+        assert!(is_direct_springer_family_si("si", &nature));
+        assert!(is_direct_springer_family_si("si", &springer));
+        assert!(!is_direct_springer_family_si("pdf", &doi));
+        assert!(!is_direct_springer_family_si("si", &unrelated));
 
         let mut policy = WebVpnPolicy::from_config("https://wvpn.ustc.edu.cn/", &[], true);
         allow_direct_nature_si_hosts(&mut policy);
@@ -1767,19 +1889,42 @@ mod tests {
     }
 
     #[test]
-    fn nature_si_preview_capture_accepts_only_trusted_pdf_hosts() {
+    fn publisher_adapter_classifies_supported_doi_prefixes() {
+        for (doi, expected) in [
+            ("10.1038/example", PublisherAdapter::Nature),
+            ("10.1007/example", PublisherAdapter::Springer),
+            ("10.1126/example", PublisherAdapter::Science),
+            ("10.1016/example", PublisherAdapter::Elsevier),
+            ("10.1021/example", PublisherAdapter::Acs),
+            ("10.1039/example", PublisherAdapter::Rsc),
+            ("10.1109/example", PublisherAdapter::Ieee),
+            ("10.1002/example", PublisherAdapter::WileyPaused),
+        ] {
+            let target = validate_target(&format!("https://doi.org/{doi}")).unwrap();
+            assert_eq!(PublisherAdapter::from_target(&target), expected, "{doi}");
+        }
+    }
+
+    #[test]
+    fn springer_family_si_capture_accepts_only_trusted_attachment_hosts() {
         for accepted in [
             "https://static-content.springer.com/esm/art%3A10.1038/file/MediaObjects/test.pdf",
             "https://www.nature.com/articles/example/supplementary.pdf",
+            "https://static-content.springer.com/esm/test/supplement.docx",
+            "https://static-content.springer.com/esm/test/resources.zip",
         ] {
-            assert!(is_nature_si_pdf_url(&url::Url::parse(accepted).unwrap()));
+            assert!(is_springer_family_si_url(
+                &url::Url::parse(accepted).unwrap()
+            ));
         }
         for rejected in [
             "https://evil.example/supplementary.pdf",
             "http://static-content.springer.com/MediaObjects/test.pdf",
             "https://www.nature.com/articles/example",
         ] {
-            assert!(!is_nature_si_pdf_url(&url::Url::parse(rejected).unwrap()));
+            assert!(!is_springer_family_si_url(
+                &url::Url::parse(rejected).unwrap()
+            ));
         }
     }
 
@@ -2213,16 +2358,16 @@ mod tests {
     fn sidebar_layout_shares_one_window_and_preserves_main_width() {
         let ((main_width, main_height), (x, y, sidebar_width, sidebar_height)) =
             sidebar_layout(1_200.0, 720.0);
-        assert_eq!((main_width, main_height), (640.0, 720.0));
+        assert_eq!((main_width, main_height), (480.0, 720.0));
         assert_eq!(
             (x, y, sidebar_width, sidebar_height),
-            (640.0, 0.0, 560.0, 720.0)
+            (480.0, 0.0, 720.0, 720.0)
         );
 
-        // 最小窗口宽 960 时，侧栏收缩到 320，主界面仍保留 640。
+        // 最小窗口宽 960 时，侧栏收缩到 480，主界面仍保留 480。
         let ((main_width, _), (_, _, sidebar_width, _)) = sidebar_layout(960.0, 640.0);
-        assert_eq!(main_width, 640.0);
-        assert_eq!(sidebar_width, 320.0);
+        assert_eq!(main_width, 480.0);
+        assert_eq!(sidebar_width, 480.0);
     }
 
     #[test]
@@ -2241,6 +2386,7 @@ mod tests {
                 "capture-abc123",
                 "pdf",
                 "www.nature.com",
+                PublisherAdapter::Nature,
                 true,
                 upload.clone(),
                 first.clone(),
@@ -2259,6 +2405,7 @@ mod tests {
                 "capture-other",
                 "si",
                 "pubs.acs.org",
+                PublisherAdapter::Acs,
                 false,
                 upload,
                 second.clone(),
@@ -2328,6 +2475,7 @@ mod tests {
                 "capture-failed",
                 "pdf",
                 "www.nature.com",
+                PublisherAdapter::Nature,
                 true,
                 url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
                 path.clone(),

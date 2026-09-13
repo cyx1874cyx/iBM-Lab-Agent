@@ -167,6 +167,8 @@ test("Nature browser download is exposed as an AI tool without returning capture
 		readClientSource()
 	]);
 	assert.match(toolsSource, /lab_nature_browser_download/);
+	assert.match(toolsSource, /lab_publisher_browser_download/);
+	assert.match(toolsSource, /lab_publisher_browser_download_status/);
 	assert.match(toolsSource, /lab_nature_browser_download_status/);
 	assert.match(toolsSource, /getDesktopWebVpnStatus/);
 	assert.match(toolsSource, /createAgentCaptureTask/);

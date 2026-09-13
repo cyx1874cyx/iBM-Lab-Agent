@@ -202,9 +202,10 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 						const listed = await call("manual_capture_list", { request: { projectId } });
 						const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
 						if (task && !disposed) {
-							// 正文必须在领取一次性令牌前再次核验真实桌面状态。SI 为公开
-							// 附件直连，不依赖 WebVPN 登录，可在 closed 状态继续。
-							if (task.kind === "pdf" && (!shellStatus?.windowOpen || shellStatus.state !== "ready")) {
+							const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
+							const taskNeedsVpn = task.kind === "pdf" || !directSpringerSi;
+							// 需要 WebVPN 的任务在领取一次性令牌前再次核验真实桌面状态。
+							if (taskNeedsVpn && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
 								if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
 								shellStatus = await confirmWebVpnLoginViaShell();
 								await call("manual_capture_desktop_status_update", { request: {
@@ -224,9 +225,10 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 								kind: claimedTask.kind,
 								targetUrl: claimedTask.publisherUrl,
 								token: claimedTask.token,
-								directAccess: claimedTask.kind === "si" && /(?:doi\.org\/)?10\.1038(?:%2F|\/)/i.test(claimedTask.publisherUrl)
+								directAccess: directSpringerSi,
+								automate: true
 							});
-							toast?.(`AI 已发起 Nature ${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+							toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
 						}
 					} catch (error) {
 						// 只有已经成功领取令牌、但桌面壳启动失败时才取消任务；并发领取失败

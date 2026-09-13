@@ -410,6 +410,33 @@ function saveArtifactViaDesktop(url) {
     }
   });
 }
+function revealSavedPathViaDesktop(path) {
+  return new Promise((resolve, reject) => {
+    const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-reveal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      window.removeEventListener("message", onResult);
+      callback(value);
+    };
+    const onResult = (event) => {
+      if (event.source !== window.parent) return;
+      const data = event.data;
+      if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "REVEAL_SAVED_PATH_RESULT" || data.requestId !== requestId) return;
+      if (data.payload?.ok) finish(resolve, data.payload);
+      else finish(reject, new Error(data.payload?.error || "桌面客户端未能定位文件"));
+    };
+    const timer = setTimeout(() => finish(reject, new Error("桌面客户端定位文件超时")), 1e4);
+    window.addEventListener("message", onResult);
+    try {
+      window.parent.postMessage({ source: "ibm-lab-agent", type: "REVEAL_SAVED_PATH", requestId, path }, "*");
+    } catch (reason) {
+      finish(reject, reason);
+    }
+  });
+}
 async function downloadVerifiedBinary(url) {
   if (window.parent !== window) {
     try {
@@ -1279,7 +1306,9 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
         const listed = await call("manual_capture_list", { request: { projectId } });
         const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
         if (task && !disposed) {
-          if (task.kind === "pdf" && (!shellStatus?.windowOpen || shellStatus.state !== "ready")) {
+          const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
+          const taskNeedsVpn = task.kind === "pdf" || !directSpringerSi;
+          if (taskNeedsVpn && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
             if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
             shellStatus = await confirmWebVpnLoginViaShell();
             await call("manual_capture_desktop_status_update", { request: {
@@ -1299,9 +1328,10 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
             kind: claimedTask.kind,
             targetUrl: claimedTask.publisherUrl,
             token: claimedTask.token,
-            directAccess: claimedTask.kind === "si" && /(?:doi\.org\/)?10\.1038(?:%2F|\/)/i.test(claimedTask.publisherUrl)
+            directAccess: directSpringerSi,
+            automate: true
           });
-          toast?.(`AI 已发起 Nature ${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
         }
       } catch (error) {
         if (claimedTask?.id) {
@@ -2962,8 +2992,9 @@ function bundleRecordIndex(bundles = []) {
   return index;
 }
 function captureRouteForBundle(bundle, kind) {
-  const isNatureArticle = /^10\.1038\//i.test(String(bundle?.doi || "").trim());
-  const directNatureSi = kind === "si" && isNatureArticle;
+  const doi = String(bundle?.doi || "").trim();
+  const publisher = /^10\.1038\//i.test(doi) ? "nature" : /^10\.1007\//i.test(doi) ? "springer" : /^10\.1126\//i.test(doi) ? "science" : /^10\.1016\//i.test(doi) ? "elsevier" : /^10\.1021\//i.test(doi) ? "acs" : /^10\.1039\//i.test(doi) ? "rsc" : /^10\.1109\//i.test(doi) ? "ieee" : /^10\.(?:1002|1111)\//i.test(doi) ? "wiley" : "other";
+  const directSpringerSi = kind === "si" && ["nature", "springer"].includes(publisher);
   const doiUrl = bundle?.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : void 0;
   const sourcePublisherUrl = (() => {
     if (bundle?.sourceType === "wechat" || !bundle?.sourceUrl) return void 0;
@@ -2974,7 +3005,7 @@ function captureRouteForBundle(bundle, kind) {
       return void 0;
     }
   })();
-  return { isNatureArticle, directNatureSi, publisherUrl: doiUrl || sourcePublisherUrl };
+  return { publisher, directSpringerSi, publisherUrl: doiUrl || sourcePublisherUrl };
 }
 function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
   const titleByBundle = bundleIndex(bundles);
@@ -3069,9 +3100,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   }, [captureHint?.taskId, captureHint?.route]);
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
-    const { isNatureArticle, directNatureSi, publisherUrl } = captureRouteForBundle(bundle, kind);
+    const { publisher, directSpringerSi, publisherUrl } = captureRouteForBundle(bundle, kind);
     if (!publisherUrl) {
       notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
+      return;
+    }
+    if (publisher === "wiley") {
+      notify("Wiley Online Library 的学校 WebVPN 访问暂不可用，本版本暂停下载适配");
       return;
     }
     if (desktopEdgeHandoff) {
@@ -3082,17 +3117,17 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         const token = task?.token;
         if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
         try {
-          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directNatureSi });
+          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi, automate: false });
           setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-          notify(directNatureSi ? "Nature SI 为公开附件，正在软件侧栏中直连查找并下载" : isNatureArticle ? `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}` : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文" : "补充材料"}下载入口`);
+          notify(directSpringerSi ? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口" : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
         } catch (webvpnError) {
           try {
             await cancelWebVpnCaptureViaShell(task.id);
           } catch {
           }
-          if (isNatureArticle) {
+          if (["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee"].includes(publisher)) {
             setCaptureHint(null);
-            throw new Error(`${kind === "si" ? "Nature SI 直连" : "Nature 正文 WebVPN"}打开失败：${webvpnError.message}`);
+            throw new Error(`${publisher} ${kind === "si" && directSpringerSi ? "SI 直连" : "WebVPN"}打开失败：${webvpnError.message}`);
           }
           const handoffUrl = `${location.origin}/lab/capture/?taskId=${encodeURIComponent(task.id)}#t=${encodeURIComponent(token)}`;
           await openInEdgeViaShell(handoffUrl);
@@ -3450,7 +3485,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           })();
           const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
           const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
-          const bundleSiIsPdf = !!bundle.siPath;
+          const bundleSiIsPdf = /\.pdf$/i.test(bundle.siPath || "");
+          const bundleSiIsZip = /\.zip$/i.test(bundle.siPath || "");
           const openKey = (kind) => `${kind}:${report.id}`;
           const openEntryInEdge = (event, kind, url) => {
             event.stopPropagation();
@@ -3465,6 +3501,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           const downloadBundleFile = (event, url) => {
             event.stopPropagation();
             void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message));
+          };
+          const revealBundleFile = (event, path) => {
+            event.stopPropagation();
+            void revealSavedPathViaDesktop(path).catch((reason) => notify(reason.message));
           };
           const captureActive = captureHint?.bundleId === bundle.id;
           const metadata = [
@@ -3492,7 +3532,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 "div",
                 { className: "ib-lit-acts" },
                 h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : void 0, disabled: !!opening[openKey("pdf")], title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面", onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-                h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : void 0, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI PDF…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面", onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
+                h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : void 0, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面", onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
                 h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起概览" : "概览"),
                 h("button", { className: `ib-lit-btn${report.docxPath ? " ok" : ""}`, "data-ready": report.docxPath ? "true" : "false", disabled: !!busy[`open-report:${report.id}`], onClick: () => report.docxPath ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt), title: report.docxPath ? "用本机 Office 或 WPS 打开精读报告" : "在当前课题工作区新建对话并预填精读任务" }, busy[`open-report:${report.id}`] ? "打开中…" : report.docxPath ? "打开精读" : "精读文献"),
                 h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : presentation?.pptxPath ? "打开PPT" : "制作PPT"),

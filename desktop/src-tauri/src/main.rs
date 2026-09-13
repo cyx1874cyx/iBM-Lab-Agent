@@ -472,20 +472,26 @@ async fn webvpn_open_capture(
     target_url: String,
     token: String,
     direct_access: bool,
+    automate: bool,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
     let config = state.0.load_config().map_err(|error| error.to_string())?;
     let portal = webvpn::validate_target(config.webvpn.portal_url.trim())?;
     let target = webvpn::validate_target(&target_url)?;
-    let nature_article = webvpn::is_nature_article(&target);
-    let direct_nature_si = direct_access && webvpn::is_direct_nature_si(&kind, &target);
+    let publisher = webvpn::PublisherAdapter::from_target(&target);
+    if automate && publisher == webvpn::PublisherAdapter::WileyPaused {
+        return Err(
+            "Wiley Online Library 的学校 WebVPN 访问暂不可用，本版本暂停自动下载".to_string(),
+        );
+    }
+    let direct_springer_si = direct_access && webvpn::is_direct_springer_family_si(&kind, &target);
     let mut policy = webvpn::WebVpnPolicy::from_config(
         config.webvpn.portal_url.trim(),
         &config.webvpn.allowed_hosts,
         config.webvpn.enforce_navigation,
     );
-    if direct_nature_si {
+    if direct_springer_si {
         webvpn::allow_direct_nature_si_hosts(&mut policy);
     }
     let (webview, opened_at_destination) = match app.get_webview(webvpn::WINDOW_LABEL) {
@@ -495,7 +501,7 @@ async fn webvpn_open_capture(
             }
             (webview, false)
         }
-        None if direct_nature_si => (
+        None if direct_springer_si => (
             webvpn::open_window(&app, state.0.data_root(), &target, policy)?,
             true,
         ),
@@ -507,7 +513,7 @@ async fn webvpn_open_capture(
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
         .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
-    let destination = if direct_nature_si {
+    let destination = if direct_springer_si {
         target.clone()
     } else {
         webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?
@@ -523,7 +529,8 @@ async fn webvpn_open_capture(
         &task_id,
         &kind,
         target.host_str().unwrap_or_default(),
-        nature_article,
+        publisher,
+        automate,
         upload_url,
         temp_path,
     )?;
@@ -538,7 +545,7 @@ async fn webvpn_open_capture(
     webvpn::show_sidebar(&app, &webview)?;
     // 新建直连 WebView 可能在布防前就完成首屏加载；这里补启动一次。后续导航
     // 仍由 on_page_load 自动重启扫描。
-    webvpn::start_pending_nature_automation(&app, &webview);
+    webvpn::start_pending_publisher_automation(&app, &webview);
     Ok(webvpn::status_of(&app, &config.webvpn))
 }
 

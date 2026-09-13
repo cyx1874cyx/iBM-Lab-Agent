@@ -143,6 +143,31 @@ export function openSavedPathViaDesktop(path) {
 				catch (reason) { finish(reject, reason); }
 			});
 		}
+		/** Ask the desktop shell to reveal an already archived file in Explorer. */
+export function revealSavedPathViaDesktop(path) {
+	return new Promise((resolve, reject) => {
+		const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-reveal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		let settled = false;
+		const finish = (callback, value) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			window.removeEventListener("message", onResult);
+			callback(value);
+		};
+		const onResult = (event) => {
+			if (event.source !== window.parent) return;
+			const data = event.data;
+			if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "REVEAL_SAVED_PATH_RESULT" || data.requestId !== requestId) return;
+			if (data.payload?.ok) finish(resolve, data.payload);
+			else finish(reject, new Error(data.payload?.error || "桌面客户端未能定位文件"));
+		};
+		const timer = setTimeout(() => finish(reject, new Error("桌面客户端定位文件超时")), 10000);
+		window.addEventListener("message", onResult);
+		try { window.parent.postMessage({ source: "ibm-lab-agent", type: "REVEAL_SAVED_PATH", requestId, path }, "*"); }
+		catch (reason) { finish(reject, reason); }
+	});
+}
 		/** 桌面优先走 Tauri 原生保存；Web 宿主保留浏览器校验下载。 */
 export async function downloadVerifiedBinary(url) {
 			if (window.parent !== window) {

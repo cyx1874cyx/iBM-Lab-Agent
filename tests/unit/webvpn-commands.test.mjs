@@ -113,15 +113,16 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /ibm-webvpn:\/\/session\/ready/);
 	assert.match(webvpn, /isForwardedPage/);
 	assert.match(webvpn, /state\.mark_authenticated\(\)/);
-	assert.match(webvpn, /NATURE_DOWNLOAD_AUTOMATION/);
+	assert.match(webvpn, /PUBLISHER_DOWNLOAD_AUTOMATION/);
+	for (const publisher of ["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee"]) assert.match(webvpn, new RegExp(`${publisher}:`));
 	assert.match(webvpn, /PageLoadEvent::Finished/);
 	assert.match(webvpn, /supplementary methods\?/i);
 	assert.match(webvpn, /supplyment methods\?/i);
 	assert.match(webvpn, /si-not-found/);
 	assert.match(webvpn, /challenge/);
-	assert.match(webvpn, /should_capture_nature_si_preview/);
-	assert.match(webvpn, /download_nature_si_direct/);
-	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获 PDF/);
+	assert.match(webvpn, /should_capture_direct_si_preview/);
+	assert.match(webvpn, /download_springer_family_si_direct/);
+	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获附件/);
 	assert.match(webvpn, /fs::remove_file\(&upload\.path\)/, "归档成功后必须删除唯一临时文件");
 	assert.match(webvpn, /DownloadDecision::PassThrough => allow = false/, "侧栏不得把非捕获下载写进系统下载目录");
 	assert.match(webvpn, /关闭 WebVPN 侧栏/);
@@ -138,16 +139,18 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /status\.downloadedBytes/);
 	assert.match(projectPanel, /下载并归档完成/);
 	assert.match(projectPanel, /task\.size/);
-	assert.match(projectPanel, /directNatureSi/);
+	assert.match(projectPanel, /directSpringerSi/);
 	assert.match(projectPanel, /manual_capture_cancel/);
 	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
-	assert.match(projectPanel, /isNatureArticle/);
-	assert.match(projectPanel, /Nature 路由固定在软件内/);
+	assert.match(projectPanel, /publisher === "wiley"/);
+	assert.match(projectPanel, /已适配出版社固定在软件内/);
 	assert.match(projectPanel, /tasks_report_delete/);
 	assert.match(shell, /关闭侧栏 ×/);
 	assert.match(shell, /directAccess:\s*data\.payload\?\.directAccess === true/);
 	assert.match(main, /direct_access:\s*bool/);
-	assert.match(webvpn, /is_direct_nature_si/);
+	assert.match(webvpn, /is_direct_springer_family_si/);
+	assert.match(shell, /automate:\s*data\.payload\?\.automate === true/);
+	assert.match(main, /automate:\s*bool/);
 });
 
 /**

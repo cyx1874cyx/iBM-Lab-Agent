@@ -190,7 +190,7 @@ test("capture: 捕获失败后能重新捕获（扩展侧失败时服务端任�
 		const second = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
 		assert.notEqual(second.task.id, first.task.id);
 		assert.equal(ctx.labCapture.getTask(first.task.id).status, "cancelled");
-		// 新任务可正常完成上传（SI 同样必须是 PDF，ZIP/TXT 一律拒绝）
+		// 新任务可正常完成上传
 		const si = minimalPdf("recovered");
 		const res = await boot.upload(uploadRequest({ token: second.token, fileName: "recover.pdf", body: si }));
 		assert.equal(res.status, 200, JSON.stringify(res.payload));
@@ -381,6 +381,24 @@ test("capture: 上传接口 — 100MB 上限 / 非 PDF / 头与 EOF 错误 / SI 
 		const exe = await boot.upload(uploadRequest({ token: createdSi.token, fileName: "malware.exe", body: Buffer.from("MZ") }));
 		assert.equal(exe.status, 400);
 		assert.match(exe.payload.error, /不匹配文件名|SI 只支持/);
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
+test("capture: SI 接受并按真实扩展名归档 ZIP", async () => {
+	const boot = await bootCapture();
+	try {
+		const body = Buffer.concat([Buffer.from("PK\x03\x04", "latin1"), Buffer.alloc(64, 1), Buffer.from("PK\x05\x06", "latin1"), Buffer.alloc(18)]);
+		const created = await boot.ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		const result = await boot.upload(uploadRequest({ token: created.token, fileName: "supporting-resources.zip", body }));
+		assert.equal(result.status, 200, JSON.stringify(result.payload));
+		const bundle = boot.ctx.labTasks.getBundle("bundle-cap-1");
+		assert.match(bundle.siPath, / SI\.zip$/);
+		const file = await boot.ctx.labTasks.bundleFile(bundle.id, "si");
+		assert.equal(file.mime, "application/zip");
+		assert.deepEqual(file.buffer, body);
 	} finally {
 		await boot.handle.dispose();
 		await rm(boot.dir, { recursive: true, force: true });
