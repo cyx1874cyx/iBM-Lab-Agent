@@ -461,7 +461,7 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 	}
 });
 
-test("capture: Remote 接口可从浏览器侧调用（create/get/list）", async () => {
+test("capture: Remote 接口可从浏览器侧调用（create/get/cancel/list）", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
@@ -478,6 +478,12 @@ test("capture: Remote 接口可从浏览器侧调用（create/get/list）", asyn
 		assert.equal(got.task.id, task.id);
 		assert.equal(Object.hasOwn(got.task, "token"), false, "get 不返回明文 token");
 		assert.match(got.task.tokenSha256, /^[0-9a-f]{64}$/);
+
+		const cancelled = await invoke(ctx, "manual_capture_cancel", {
+			request: { taskId: task.id, reason: "该 Nature 文章页面未发现补充材料" }
+		});
+		assert.equal(cancelled.task.status, "cancelled");
+		assert.equal(cancelled.task.error, "该 Nature 文章页面未发现补充材料");
 
 		const listed = await invoke(ctx, "manual_capture_list", { request: { projectId: "capture-project" } });
 		assert.ok(listed.tasks.some((row) => row.id === task.id));

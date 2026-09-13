@@ -108,6 +108,12 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /download_elapsed_ms/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
 	assert.match(webvpn, /WEBVPN_CHROME_SCRIPT/);
+	assert.match(webvpn, /NATURE_DOWNLOAD_AUTOMATION/);
+	assert.match(webvpn, /PageLoadEvent::Finished/);
+	assert.match(webvpn, /supplementary methods\?/i);
+	assert.match(webvpn, /supplyment methods\?/i);
+	assert.match(webvpn, /si-not-found/);
+	assert.match(webvpn, /challenge/);
 	assert.match(webvpn, /关闭 WebVPN 侧栏/);
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
@@ -118,6 +124,8 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /下载并归档完成/);
 	assert.match(projectPanel, /task\.size/);
 	assert.match(projectPanel, /directNatureSi/);
+	assert.match(projectPanel, /manual_capture_cancel/);
+	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
 	assert.match(projectPanel, /isNatureArticle/);
 	assert.match(projectPanel, /Nature 路由固定在软件内/);
 	assert.match(projectPanel, /tasks_report_delete/);

@@ -478,6 +478,7 @@ async fn webvpn_open_capture(
     let config = state.0.load_config().map_err(|error| error.to_string())?;
     let portal = webvpn::validate_target(config.webvpn.portal_url.trim())?;
     let target = webvpn::validate_target(&target_url)?;
+    let nature_article = webvpn::is_nature_article(&target);
     let direct_nature_si = direct_access && webvpn::is_direct_nature_si(&kind, &target);
     let mut policy = webvpn::WebVpnPolicy::from_config(
         config.webvpn.portal_url.trim(),
@@ -522,6 +523,7 @@ async fn webvpn_open_capture(
         &task_id,
         &kind,
         target.host_str().unwrap_or_default(),
+        nature_article,
         upload_url,
         temp_path,
     )?;
@@ -534,6 +536,9 @@ async fn webvpn_open_capture(
         return Err(format!("无法打开文献页面: {error}"));
     }
     webvpn::show_sidebar(&app, &webview)?;
+    // 新建直连 WebView 可能在布防前就完成首屏加载；这里补启动一次。后续导航
+    // 仍由 on_page_load 自动重启扫描。
+    webvpn::start_pending_nature_automation(&app, &webview);
     Ok(webvpn::status_of(&app, &config.webvpn))
 }
 

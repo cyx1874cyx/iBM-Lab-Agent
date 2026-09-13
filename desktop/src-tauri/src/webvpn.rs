@@ -25,7 +25,7 @@ use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
     utils::config::WebviewUrl,
-    webview::{DownloadEvent, NewWindowResponse, WebviewBuilder},
+    webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder},
     AppHandle, LogicalPosition, LogicalSize, Manager, Position, Rect, Size, Webview,
 };
 
@@ -76,6 +76,96 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
   else mount();
+})();
+"#;
+
+/// Nature 页面内自动寻找下载入口。脚本只在页面能由 citation DOI 或站点域名
+/// 确认为 Nature 文章时运行；只把固定结果码送回 Rust，不读取或传出正文、
+/// Cookie、登录信息。正文与 SI 使用分开的高置信度评分，避免互相误点。
+const NATURE_DOWNLOAD_AUTOMATION: &str = r#"
+(() => {
+  const kind = '__IBM_CAPTURE_KIND__';
+  const runKey = `__ibm_nature_download_${kind}`;
+  if (window[runKey]) return;
+  window[runKey] = true;
+  let attempts = 0;
+  let expanded = false;
+  const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const visible = (element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+  };
+  const description = (element) => clean([
+    element.innerText, element.textContent, element.getAttribute('aria-label'),
+    element.getAttribute('title'), element.getAttribute('data-track-action')
+  ].filter(Boolean).join(' '));
+  const hrefOf = (element) => {
+    const owner = element.closest?.('a[href]') || (element.matches?.('a[href]') ? element : null);
+    return clean(owner?.href || element.getAttribute?.('href'));
+  };
+  const clickTarget = (element) => element.closest?.('a[href],button,[role="button"]') || element;
+  const signal = (result) => { location.href = `ibm-webvpn://automation/${result}`; };
+  const confirmedNatureArticle = () => {
+    const host = clean(location.hostname);
+    const doi = clean(document.querySelector('meta[name="citation_doi"],meta[name="dc.identifier"]')?.content);
+    const canonical = clean(document.querySelector('link[rel="canonical"]')?.href);
+    return host === 'nature.com' || host.endsWith('.nature.com') || doi.startsWith('10.1038/') || canonical.includes('nature.com/articles/');
+  };
+  const challengePresent = () => {
+    const sample = clean(`${document.title} ${(document.body?.innerText || '').slice(0, 5000)}`);
+    return /captcha|verify you are human|security check|unusual traffic|机器人验证|安全验证|访问验证/.test(sample);
+  };
+  const candidates = () => [...document.querySelectorAll('a[href],button,[role="button"]')]
+    .filter(visible)
+    .map((element) => ({ element: clickTarget(element), text: description(element), href: hrefOf(element) }));
+  const pdfScore = ({ text, href }) => {
+    if (/supplement|supporting|supp[\s._-]|additional file|source data|methods?|moesm|mediaobjects/.test(`${text} ${href}`)) return -100;
+    let score = 0;
+    if (/download pdf|view pdf|article pdf|全文\s*pdf|下载\s*pdf/.test(text)) score += 10;
+    if (/\bpdf\b/.test(text)) score += 3;
+    if (/\/articles?\/[^?#/]+\.pdf(?:[?#]|$)|\/content\/pdf\/|articlepdf|downloadpdf/.test(href)) score += 9;
+    if (/\.pdf(?:[?#]|$)/.test(href)) score += 5;
+    return score;
+  };
+  const siScore = ({ text, href }) => {
+    const combined = `${text} ${href}`;
+    if (/source data/.test(combined)) return -20;
+    let score = 0;
+    if (/supplementary methods?|supplemental methods?|supplyment methods?/.test(text)) score += 14;
+    if (/supplementary information|supporting information|supplementary material|supporting material/.test(text)) score += 12;
+    if (/supplement|supporting|supp[\s._-]|additional file|\besm\b/.test(text)) score += 6;
+    if (/supplement|suppl|moesm|mediaobjects|additional[-_ ]file|static-content\.springer/.test(href)) score += 8;
+    if (/download|下载/.test(text)) score += 3;
+    if (/\.pdf(?:[?#]|$)|\bpdf\b/.test(`${href} ${text}`)) score += 5;
+    if (/\.zip(?:[?#]|$)/.test(href)) return -100;
+    return score;
+  };
+  const scan = () => {
+    attempts += 1;
+    if (!confirmedNatureArticle()) return;
+    if (challengePresent()) { clearInterval(timer); signal('challenge'); return; }
+    const items = candidates();
+    const scored = items.map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
+      .sort((a, b) => b.score - a.score);
+    const threshold = kind === 'pdf' ? 8 : 10;
+    if (scored[0]?.score >= threshold) {
+      clearInterval(timer);
+      window[`${runKey}_clicked`] = true;
+      scored[0].element.click();
+      return;
+    }
+    if (kind === 'si' && !expanded) {
+      const expander = items.find(({ element, text }) =>
+        /supplementary information|supporting information|supplementary methods?|supplyment methods?/.test(text)
+        && (element.matches('button,[role="button"]') || element.getAttribute('aria-expanded') === 'false'));
+      if (expander) { expanded = true; expander.element.click(); return; }
+    }
+    if (attempts >= 16) { clearInterval(timer); signal(kind === 'si' ? 'si-not-found' : 'pdf-not-found'); }
+  };
+  const timer = setInterval(scan, 750);
+  scan();
 })();
 "#;
 
@@ -135,7 +225,7 @@ pub enum WebVpnSessionState {
     Ready,
     /// 正在转发目标页。
     Navigating,
-    /// 已到目标页，等待用户点击下载。
+    /// 已到目标页；Nature 自动查找下载入口，其他出版社等待用户点击。
     WaitingDownload,
     /// 用户已点击下载，WebView2 正在下载文件。
     Downloading,
@@ -235,15 +325,16 @@ impl WebVpnPolicy {
 /// Nature Portfolio 的补充材料通常由公开的 Springer Nature 静态域名提供。
 /// 这里只接受明确的 SI + 10.1038 DOI/Nature 页面组合，避免客户端借 directAccess
 /// 把受控侧栏变成任意网页浏览器。
-pub fn is_direct_nature_si(kind: &str, target: &url::Url) -> bool {
-    if kind != "si" {
-        return false;
-    }
+pub fn is_nature_article(target: &url::Url) -> bool {
     let host = target.host_str().unwrap_or_default().to_ascii_lowercase();
     let path = target.path().to_ascii_lowercase();
     (host == "doi.org" && (path.starts_with("/10.1038/") || path.starts_with("/10.1038%2f")))
         || host == "nature.com"
         || host.ends_with(".nature.com")
+}
+
+pub fn is_direct_nature_si(kind: &str, target: &url::Url) -> bool {
+    kind == "si" && is_nature_article(target)
 }
 
 pub fn allow_direct_nature_si_hosts(policy: &mut WebVpnPolicy) {
@@ -279,6 +370,8 @@ struct PendingCapture {
     generation: u64,
     task_id: String,
     kind: String,
+    /// 仅 10.1038 / Nature 文章启用页面内自动点击；其他出版社保持人工操作。
+    nature_automation: bool,
     upload_url: url::Url,
     temp_path: PathBuf,
     expires_at: Instant,
@@ -420,6 +513,7 @@ impl WebVpnState {
         task_id: &str,
         kind: &str,
         target_host: &str,
+        nature_automation: bool,
         upload_url: url::Url,
         temp_path: PathBuf,
     ) -> Result<u64, String> {
@@ -452,6 +546,7 @@ impl WebVpnState {
             generation,
             task_id: task_id.to_string(),
             kind: kind.to_string(),
+            nature_automation,
             upload_url,
             temp_path,
             expires_at: Instant::now() + CAPTURE_TTL,
@@ -463,6 +558,18 @@ impl WebVpnState {
         session.target_host = Some(target_host.to_ascii_lowercase());
         session.last_error = None;
         Ok(generation)
+    }
+
+    fn pending_nature_kind(&self) -> Option<String> {
+        self.session
+            .lock()
+            .ok()?
+            .pending
+            .as_ref()
+            .and_then(|pending| {
+                (pending.nature_automation && !pending.download_claimed)
+                    .then(|| pending.kind.clone())
+            })
     }
 
     fn claim_download_destination(&self) -> DownloadDecision {
@@ -687,7 +794,7 @@ impl WebVpnState {
             }
             return false;
         }
-        // 转发落地：存在捕获任务时等待用户点击出版社下载按钮。
+        // 转发落地：存在捕获任务时进入下载入口查找/等待阶段。
         if session.state == WebVpnSessionState::Navigating {
             session.state = if session.pending.is_some() {
                 WebVpnSessionState::WaitingDownload
@@ -1156,6 +1263,7 @@ pub fn open_window(
     let navigation_app = app.clone();
     let window_app = app.clone();
     let download_app = app.clone();
+    let page_app = app.clone();
 
     if let Some(state) = app.try_state::<WebVpnState>() {
         // 窗口不存在 ⇒ 会话不可能处于打开态（例如 WebView2 进程崩溃后重建）。
@@ -1175,6 +1283,11 @@ pub fn open_window(
     let builder = WebviewBuilder::new(WINDOW_LABEL, WebviewUrl::External(target.clone()))
         .data_directory(profile_dir)
         .initialization_script(WEBVPN_CHROME_SCRIPT)
+        .on_page_load(move |webview, payload| {
+            if payload.event() == PageLoadEvent::Finished {
+                start_pending_nature_automation(&page_app, &webview);
+            }
+        })
         .on_navigation(move |url| {
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("close") {
                 // 避免在 WebView 导航回调栈中直接隐藏自身；调度到主线程的下一拍。
@@ -1186,6 +1299,24 @@ pub fn open_window(
                         let _ = hide_sidebar(&action_app);
                     });
                 });
+                return false;
+            }
+            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
+                let result = url.path().trim_matches('/');
+                let message = match result {
+                    "si-not-found" => Some("该 Nature 文章页面未发现可下载的补充材料或补充方法"),
+                    "pdf-not-found" => Some("该 Nature 文章页面未发现正文 PDF 下载入口"),
+                    "challenge" => {
+                        Some("Nature 页面出现验证码或安全检查，请在侧栏完成后重新点击下载")
+                    }
+                    _ => None,
+                };
+                if let Some(message) = message {
+                    if let Some(state) = navigation_app.try_state::<WebVpnState>() {
+                        state.fail_pending_download(message);
+                    }
+                    record(&navigation_app, "automation", "", message);
+                }
                 return false;
             }
             let host = host_of(url.as_str());
@@ -1307,6 +1438,26 @@ pub fn open_window(
         let _ = state.transition(WebVpnSessionState::WaitingLogin);
     }
     Ok(webview)
+}
+
+/// 在当前文档中启动 Nature 下载入口扫描。页面脚本自身还会检查 citation DOI，
+/// 因而 DOI 跳转页、WebVPN 门户和登录页都不会被误点。
+pub fn start_pending_nature_automation(app: &AppHandle, webview: &Webview) {
+    let kind = app
+        .try_state::<WebVpnState>()
+        .and_then(|state| state.pending_nature_kind());
+    let Some(kind) = kind.filter(|kind| kind == "pdf" || kind == "si") else {
+        return;
+    };
+    let script = NATURE_DOWNLOAD_AUTOMATION.replace("__IBM_CAPTURE_KIND__", &kind);
+    if let Err(error) = webview.eval(script) {
+        record(
+            app,
+            "automation",
+            "",
+            &format!("页面下载入口扫描启动失败: {error}"),
+        );
+    }
 }
 
 /// 由命令层调用的状态组装：补上"窗口是否存在"与配置。
@@ -1846,6 +1997,7 @@ mod tests {
                 "capture-abc123",
                 "pdf",
                 "www.nature.com",
+                true,
                 upload.clone(),
                 first.clone(),
             )
@@ -1863,6 +2015,7 @@ mod tests {
                 "capture-other",
                 "si",
                 "pubs.acs.org",
+                false,
                 upload,
                 second.clone(),
             )
@@ -1931,6 +2084,7 @@ mod tests {
                 "capture-failed",
                 "pdf",
                 "www.nature.com",
+                true,
                 url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
                 path.clone(),
             )

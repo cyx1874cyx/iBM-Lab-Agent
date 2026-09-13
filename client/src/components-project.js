@@ -31,7 +31,7 @@ export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapse
 		case "waiting-login": return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
 		case "ready": return { text: "WebVPN 会话可用，正在打开出版社页面…", tone: "waiting" };
 		case "navigating": return { text: "正在打开出版社页面…", tone: "waiting" };
-		case "waiting-download": return { text: "出版社页面已打开，请点击「下载 PDF / SI」按钮", tone: "waiting" };
+		case "waiting-download": return { text: "出版社页面已打开，正在自动查找并点击对应下载入口…", tone: "waiting" };
 		case "downloading": return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
 		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
 		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
@@ -106,7 +106,7 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [reviewVisible, setReviewVisible] = useState(false);
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
-			// 手工下载文献捕获：{ bundleId, kind, taskId } —— 布防后显示"等待下载"提示。
+			// 文献捕获：{ bundleId, kind, taskId } —— Nature 自动点击，其他出版社等待人工点击。
 			const [captureHint, setCaptureHint] = useState(null);
 			// 浏览器模式（web-current / managed-edge / desktop-edge-handoff）：
 			// desktop 下 WebView2 不是扩展宿主，捕获必须经外部 Edge handoff。
@@ -166,6 +166,14 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 					try {
 						const status = await webVpnStatusViaShell();
 						if (disposed || !status) return;
+						if (status.state === "error") {
+							const message = status.lastError || "页面自动下载失败，请重试";
+							await call("manual_capture_cancel", { request: { taskId, reason: message } }).catch(() => {});
+							if (disposed) return;
+							setCaptureHint(null);
+							notify(message);
+							return;
+						}
 						setCaptureHint((current) => current?.taskId === taskId
 							? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs) }
 							: current);
@@ -214,8 +222,8 @@ export function LitPanel({ searches, reports, bundles, presentations, call, noti
 								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directNatureSi });
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
 								notify(directNatureSi
-									? "Nature SI 为公开附件，已在软件侧栏中直连打开；请点击 SI 下载按钮"
-									: `正在通过 WebVPN 自动核验会话并打开出版社页面；页面出现后请点击${task.kind === "pdf" ? "正文 PDF" : "SI PDF"}下载按钮`);
+									? "Nature SI 为公开附件，正在软件侧栏中直连查找并下载"
+									: `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
 								// 撤销本地待下载状态。Nature 路由固定在软件内，失败时不再切到 Edge。
