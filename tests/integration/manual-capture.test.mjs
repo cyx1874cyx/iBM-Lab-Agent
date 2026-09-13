@@ -503,6 +503,12 @@ test("capture: AI 下载请求的令牌只允许桌面界面领取一次", async
 		});
 		assert.equal(task.requestedBy, "agent");
 		assert.equal(Object.hasOwn(task, "token"), false, "持久化任务不得包含明文令牌");
+		const desktop = await invoke(ctx, "manual_capture_desktop_status_update", { request: {
+			state: "ready", windowOpen: true, sidebarVisible: false
+		} });
+		assert.equal(desktop.status.state, "ready");
+		assert.equal(ctx.labCapture.getDesktopWebVpnStatus().ready, true);
+		assert.equal(ctx.labCapture.getDesktopWebVpnStatus(Date.parse(desktop.status.observedAt) + 10_001).stale, true);
 		const claimed = await invoke(ctx, "manual_capture_claim_agent", { request: { taskId: task.id } });
 		assert.match(claimed.task.token, /^[A-Za-z0-9_-]{20,}$/);
 		assert.equal(Object.hasOwn(claimed.task, "tokenSha256"), false, "桌面领取响应不暴露哈希");
@@ -545,6 +551,27 @@ test("capture: 服务重启后任务状态与 bundle 登记保持正确", async 
 		assert.ok(bundle.pdfPath && existsSync(bundle.pdfPath), "bundle.pdfPath 重启后仍指向已归档文件");
 		assert.equal(bundle.acquisitionStatus, "ready");
 	} finally {
+		if (second) await second.handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("capture: 服务重启后取消失去内存令牌的 AI 排队任务", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-agent-capture-restart-"));
+	const storageRoot = join(dir, "storages");
+	let first;
+	let second;
+	try {
+		first = await bootCapture({ storageRoot });
+		const task = await first.ctx.labCapture.createAgentCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
+		await first.handle.dispose();
+		first = undefined;
+		second = await bootCapture({ storageRoot });
+		const restored = second.ctx.labCapture.getTask(task.id);
+		assert.equal(restored.status, "cancelled");
+		assert.match(restored.error, /应用已重启.*一次性令牌已失效/);
+	} finally {
+		if (first) await first.handle.dispose();
 		if (second) await second.handle.dispose();
 		await rm(dir, { recursive: true, force: true });
 	}

@@ -75,3 +75,46 @@ test("lab_nature_browser_download queues an existing Nature bundle without expos
 	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", status: "queued" });
 	assert.equal(JSON.stringify(output).includes("must-not-leak"), false);
 });
+
+test("Nature main PDF is not queued until the desktop WebVPN session is ready", async () => {
+	const registered = [];
+	let createCalls = 0;
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: {
+			getProject: () => ({ id: "proj-test" }),
+			getBundle: () => ({ id: "bundle-nature", projectId: "proj-test", doi: "10.1038/s41551-023-01022-4" })
+		},
+		labCapture: {
+			getDesktopWebVpnStatus: () => ({ state: "closed", ready: false, stale: false }),
+			createAgentCaptureTask: async () => { createCalls += 1; }
+		}
+	});
+	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
+	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf" }, {});
+	assert.equal(output.ok, false);
+	assert.equal(output.status, "webvpn-login-required");
+	assert.match(output.error, /尚未排队.*WebVPN/);
+	assert.equal(createCalls, 0);
+});
+
+test("Nature browser download status exposes progress without raw storage access", async () => {
+	const registered = [];
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: { getProject: () => ({ id: "proj-test" }) },
+		labCapture: {
+			sweepExpired: async () => {},
+			getTask: () => ({ id: "capture-agent123", projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", status: "armed", updatedAt: "2026-09-13T00:00:00.000Z" }),
+			getDesktopWebVpnStatus: () => ({ state: "downloading", stale: false, pendingTaskId: "capture-agent123", downloadedBytes: 4096 })
+		}
+	});
+	const tool = registered.find((item) => item.name === "lab_nature_browser_download_status");
+	assert.ok(tool);
+	const output = await tool.execute({ projectId: "proj-test", taskId: "capture-agent123" }, {});
+	assert.equal(output.ok, true);
+	assert.equal(output.phase, "downloading");
+	assert.equal(output.downloadedBytes, 4096);
+	assert.match(output.message, /正在下载/);
+	assert.equal(Object.hasOwn(output, "tokenSha256"), false);
+});

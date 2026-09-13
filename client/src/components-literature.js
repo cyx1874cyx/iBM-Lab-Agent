@@ -174,9 +174,24 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 					let claimedTask;
 					starting = true;
 					try {
+						let shellStatus;
+						try {
+							shellStatus = await webVpnStatusViaShell();
+							await call("manual_capture_desktop_status_update", { request: {
+								state: shellStatus?.state,
+								windowOpen: shellStatus?.windowOpen,
+								sidebarVisible: shellStatus?.sidebarVisible,
+								pendingTaskId: shellStatus?.pendingTaskId,
+								downloadedBytes: shellStatus?.downloadedBytes,
+								downloadElapsedMs: shellStatus?.downloadElapsedMs
+							} });
+						} catch { /* 桌面壳暂不可达；SI 队列仍可继续尝试领取 */ }
 						const listed = await call("manual_capture_list", { request: { projectId } });
 						const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
 						if (task && !disposed) {
+							// 正文必须在领取一次性令牌前再次核验真实桌面状态。SI 为公开
+							// 附件直连，不依赖 WebVPN 登录，可在 closed 状态继续。
+							if (task.kind === "pdf" && (!shellStatus?.windowOpen || shellStatus.state !== "ready")) return;
 							const claimed = await call("manual_capture_claim_agent", { request: { taskId: task.id } });
 							claimedTask = claimed?.task;
 							if (!claimedTask?.token || !claimedTask.publisherUrl) throw new Error("AI 文献下载请求缺少有效的捕获入口");

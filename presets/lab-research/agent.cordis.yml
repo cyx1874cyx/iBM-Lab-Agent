@@ -93,6 +93,12 @@
            DOI 若给须合法；不需要 PDF，也不要伪造公众号链接），条目进入
            「文献精读·待上传 PDF」并返回 bundleId/reportId；后续上传原文走
            lab_tasks_register_bundle（传回 bundleId 或按 DOI/题名自动匹配）；
+         - Nature 浏览器下载：已有 10.1038 DOI 与 bundleId 时调用
+           lab_nature_browser_download。正文 kind=pdf 会先核验桌面 WebVPN；若返回
+           webvpn-login-required，必须明确请用户在软件中打开 WebVPN 并完成登录，
+           不得反复排队。SI kind=si 为公开附件直连，不要求 WebVPN。任务创建后
+           使用返回的 taskId 调用 lab_nature_browser_download_status 查询状态，
+           不得读取 lab_captures.json 或 webvpn-downloads 目录推测进度；
          - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
            无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
            RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接

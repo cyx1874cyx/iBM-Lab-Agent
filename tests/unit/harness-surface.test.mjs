@@ -167,12 +167,15 @@ test("Nature browser download is exposed as an AI tool without returning capture
 		readClientSource()
 	]);
 	assert.match(toolsSource, /lab_nature_browser_download/);
+	assert.match(toolsSource, /lab_nature_browser_download_status/);
+	assert.match(toolsSource, /getDesktopWebVpnStatus/);
 	assert.match(toolsSource, /createAgentCaptureTask/);
 	assert.doesNotMatch(toolsSource, /return \{ ok: true, token:/, "工具返回值不得把一次性令牌暴露给模型");
 	assert.match(preset, /inject: \[tools, labTasks, labCapture\]/);
 	assert.match(clientSource, /function ProjectBadge[\s\S]*manual_capture_claim_agent/,
 		"AI 下载队列必须由对话中始终挂载的课题标识领取，不能依赖已关闭的项目面板");
 	assert.match(clientSource, /manual_capture_claim_agent[\s\S]*openWebVpnCaptureViaShell/);
+	assert.match(clientSource, /manual_capture_desktop_status_update/);
 });
 
 test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async () => {

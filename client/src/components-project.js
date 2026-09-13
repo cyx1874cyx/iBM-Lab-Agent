@@ -216,8 +216,34 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				// WebView2 的 iframe 内，看不到 __TAURI_INTERNALS__，因此经 postMessage
 				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
 				if (desktopEdgeHandoff) {
-					void call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } })
-						.then(async (result) => {
+					void (async () => {
+						if (!directNatureSi) {
+							let status = await webVpnStatusViaShell();
+							await call("manual_capture_desktop_status_update", { request: {
+								state: status?.state,
+								windowOpen: status?.windowOpen,
+								sidebarVisible: status?.sidebarVisible,
+								pendingTaskId: status?.pendingTaskId
+							} });
+							if (!status?.windowOpen || status.state !== "ready") {
+								await openWebVpnLoginViaShell();
+								notify("正文需要 WebVPN：请在侧栏完成登录，系统核验成功后会自动继续下载");
+								const deadline = Date.now() + 5 * 60 * 1000;
+								while (Date.now() < deadline) {
+									await new Promise((resolve) => setTimeout(resolve, 1000));
+									status = await webVpnStatusViaShell();
+									await call("manual_capture_desktop_status_update", { request: {
+										state: status?.state,
+										windowOpen: status?.windowOpen,
+										sidebarVisible: status?.sidebarVisible,
+										pendingTaskId: status?.pendingTaskId
+									} });
+									if (status?.windowOpen && status.state === "ready") break;
+								}
+								if (!status?.windowOpen || status.state !== "ready") throw new Error("等待 WebVPN 登录超时，未创建正文下载任务");
+							}
+						}
+						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
 							if (!result) return;
 							const task = result?.task;
 							const token = task?.token;
@@ -241,7 +267,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "edge" });
 								notify(`WebVPN 打开失败，已切换到 Microsoft Edge：${webvpnError.message}`);
 							}
-						})
+						})()
 						.catch((reason) => notify(reason.message || "创建捕获任务失败"));
 					return;
 				}
