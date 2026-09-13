@@ -81,7 +81,7 @@ function injectStyles() {
     ".ib-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.ib-tab{border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:13px;padding:13px;text-align:left;cursor:pointer}.ib-tab[data-active=true]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-tab strong{display:block;font-size:12px;margin-bottom:4px}.ib-tab span{font-size:9.5px;color:var(--ib-text)}",
     ".ib-board{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:16px;padding:17px}.ib-board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.ib-board-head h2{font-size:14px;margin:0}.ib-board-head p{font-size:9.5px;color:var(--ib-text);margin:3px 0 0}.ib-artifacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ib-artifact{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:12px;padding:13px;min-height:112px}.ib-artifact-top{display:flex;justify-content:space-between;align-items:center}.ib-artifact h3{font-size:11.5px;margin:0}.ib-count{font-size:19px;font-weight:720;color:var(--ib-green)}.ib-rows{display:grid;gap:6px;margin-top:10px}.ib-row{display:flex;justify-content:space-between;gap:9px;font-size:9.5px;color:var(--ib-text)}.ib-row b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ib-text);font-weight:520}.ib-row span{flex:none;color:var(--ib-text)}.ib-artifact-empty{margin-top:15px;color:var(--ib-text);font-size:9.5px;line-height:1.55}.ib-toast{position:fixed;z-index:1100;right:24px;bottom:24px;box-sizing:border-box;max-width:min(520px,calc(100vw - 32px));border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:8px;padding:13px 16px;color:var(--ib-text);font-size:13px;font-weight:650;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere;box-shadow:0 12px 35px var(--ib-line)}",
     ".ib-db{margin-bottom:14px;border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:15px;padding:14px}.ib-db-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.ib-db-head h3{font-size:13px;margin:0 0 3px}.ib-db-head p{font-size:9.5px;color:var(--ib-text);margin:0}.ib-db-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ib-db-card{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:11px;padding:10px;min-width:0}.ib-db-name{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}.ib-db-name b{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-db-tier{font-size:8px;color:var(--ib-text);white-space:nowrap}.ib-db-state{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:8px}.ib-db-pill{border-radius:7px;padding:5px 6px;background:var(--ib-panel);color:var(--ib-text);font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-db-pill[data-ok=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-db-pill[data-warn=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-db-actions{display:flex;gap:5px}.ib-db-actions .ib-btn{flex:1;padding:6px 7px;font-size:9px}.ib-db-empty{padding:12px;text-align:center;color:var(--ib-text);font-size:10px}@media(max-width:900px){.ib-db-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.ib-db-grid{grid-template-columns:1fr}}",
-    ".ib-db-toggle-wrap{display:flex;justify-content:flex-end;margin-bottom:10px}.ib-db-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:10px}.ib-db-toggle:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-db-toggle i{width:7px;height:7px;border-radius:50%;background:var(--ib-panel)}.ib-db-toggle[data-warn=true] i{background:var(--ib-panel)}.ib-db-toggle small{color:var(--ib-text);font-size:8.5px}",
+    ".ib-db-toggle-wrap{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px}.ib-db-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:10px}.ib-db-toggle:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-db-toggle i{width:7px;height:7px;border-radius:50%;background:var(--ib-panel)}.ib-db-toggle[data-warn=true] i{background:var(--ib-panel)}.ib-db-toggle small{color:var(--ib-text);font-size:8.5px}.ib-webvpn-monitor{display:inline-flex;align-items:center;gap:7px}.ib-webvpn-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.14)}.ib-webvpn-dot[data-online=true]{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.14)}",
     ".ib-fulltext{margin-bottom:14px;border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:15px;padding:14px}.ib-fulltext-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.ib-fulltext input{min-width:0;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:10px 11px;font:11px inherit;outline:none}.ib-fulltext input:focus{border-color:var(--ib-line)}.ib-fulltext-note{margin:8px 0 0;color:var(--ib-text);font-size:9px;line-height:1.55}.ib-dl-list{display:grid;gap:6px;margin-top:10px}.ib-dl-row{display:flex;align-items:center;gap:9px;border-top:1px solid var(--ib-line);padding-top:8px}.ib-dl-main{flex:1;min-width:0}.ib-dl-main b,.ib-dl-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-dl-main b{font-size:10px;color:var(--ib-text)}.ib-dl-main small{font-size:8.5px;color:var(--ib-text);margin-top:2px}.ib-dl-state{flex:none;border-radius:999px;padding:4px 7px;background:var(--ib-panel);font-size:8.5px;color:var(--ib-text)}.ib-dl-state[data-ok=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-dl-state[data-warn=true]{color:var(--ib-text);background:var(--ib-panel)}",
     // ── 文献管理两栏：左检索记录，右精读档案 ─────────────────────────────
     ".ib-lit{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}",
@@ -1114,7 +1114,7 @@ function DatabaseOverview({ call, notify }) {
     void refresh(false);
     void refreshWebvpn();
     const timer = setInterval(() => void refresh(false), 6e4);
-    const webvpnTimer = setInterval(() => void refreshWebvpn(), 5e3);
+    const webvpnTimer = setInterval(() => void refreshWebvpn(), 2e3);
     return () => {
       clearInterval(timer);
       clearInterval(webvpnTimer);
@@ -1159,6 +1159,8 @@ function DatabaseOverview({ call, notify }) {
     }
   };
   const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
+  const webvpnLoggedIn = Boolean(webvpn?.windowOpen) && ["ready", "navigating", "waiting-download", "downloading", "uploading"].includes(webvpn?.state);
+  const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
   return h(
     import_react3.default.Fragment,
     null,
@@ -1166,7 +1168,12 @@ function DatabaseOverview({ call, notify }) {
       "div",
       { className: "ib-db-toggle-wrap" },
       h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : void 0, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
-      window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
+      window.parent !== window ? h("button", {
+        className: "ib-btn ib-webvpn-monitor",
+        title: webvpnStatusText,
+        "aria-label": `${webvpnStatusText}，${webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN"}`,
+        onClick: () => void openWebvpn()
+      }, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
     ),
     open ? h(
       "section",
@@ -3077,7 +3084,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           } });
           if (!status?.windowOpen || status.state !== "ready") {
             await openWebVpnLoginViaShell();
-            notify("正文尚未创建下载任务：请先完成 WebVPN 登录并确认“我已登录”");
+            notify("正文尚未创建下载任务：请完成右侧 WebVPN 登录，然后回到对话回复“我已登录”");
             return;
           }
         }

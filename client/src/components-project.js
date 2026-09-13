@@ -227,7 +227,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							} });
 							if (!status?.windowOpen || status.state !== "ready") {
 								await openWebVpnLoginViaShell();
-								notify("正文尚未创建下载任务：请先完成 WebVPN 登录并确认“我已登录”");
+								notify("正文尚未创建下载任务：请完成右侧 WebVPN 登录，然后回到对话回复“我已登录”");
 								return;
 							}
 						}

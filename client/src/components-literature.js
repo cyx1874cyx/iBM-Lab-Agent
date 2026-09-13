@@ -25,7 +25,7 @@ export function DatabaseOverview({ call, notify }) {
 				void refresh(false);
 				void refreshWebvpn();
 				const timer = setInterval(() => void refresh(false), 60000);
-				const webvpnTimer = setInterval(() => void refreshWebvpn(), 5000);
+				const webvpnTimer = setInterval(() => void refreshWebvpn(), 2000);
 				return () => { clearInterval(timer); clearInterval(webvpnTimer); };
 			}, [refresh, refreshWebvpn]);
 			const openWebvpn = async () => {
@@ -54,10 +54,17 @@ export function DatabaseOverview({ call, notify }) {
 				} catch (reason) { notify(reason.message); } finally { setBusy(""); }
 			};
 			const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
+			const webvpnLoggedIn = Boolean(webvpn?.windowOpen) && ["ready", "navigating", "waiting-download", "downloading", "uploading"].includes(webvpn?.state);
+			const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
 			return h(React.Fragment, null,
 				h("div", { className: "ib-db-toggle-wrap" },
 					h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : undefined, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
-					window.parent !== window ? h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
+					window.parent !== window ? h("button", {
+						className: "ib-btn ib-webvpn-monitor",
+						title: webvpnStatusText,
+						"aria-label": `${webvpnStatusText}，${webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN"}`,
+						onClick: () => void openWebvpn()
+					}, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
 				),
 				open ? h("section", { className: "ib-db" },
 				h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "文献数据库实时状态"), h("p", null, snapshot.checkedAt ? `最近验证 ${when(snapshot.checkedAt)} · 每 60 秒自动刷新` : "正在验证检索入口与全文权限状态")), h("button", { className: "ib-btn", disabled: snapshot.loading, onClick: () => void refresh(true) }, snapshot.loading ? "验证中…" : "立即验证")),
