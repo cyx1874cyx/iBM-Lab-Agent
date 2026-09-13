@@ -48,6 +48,8 @@ export const labCaptureTaskSchema = z.object({
 	kind: z.enum(["pdf", "si"]),
 	/** user：界面点击；agent：由 AI Tool 排队，等待桌面界面一次性领取令牌。 */
 	requestedBy: z.enum(["user", "agent"]).default("user"),
+	/** AI 仅在用户明确回复“我已登录”后置 true；桌面端据此执行确认并继续。 */
+	loginConfirmedByUser: z.boolean().default(false),
 	/** 用户手工下载前同步打开的出版社页面（DOI 存在时为 https://doi.org/<doi>）。 */
 	publisherUrl: z.string().url().optional(),
 	status: z.enum(CAPTURE_STATUSES).default("armed"),

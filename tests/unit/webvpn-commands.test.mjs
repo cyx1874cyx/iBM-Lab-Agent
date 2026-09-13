@@ -75,14 +75,6 @@ test("WebVPN 使用同窗子 WebView，登录 profile 隔离且可隐藏复用",
 	assert.match(webvpn, /pub fn hide_sidebar\([\s\S]*?webview\.hide\(\)[\s\S]*?main\.set_bounds\(/, "收起后保留 WebView 并恢复主界面全宽");
 });
 
-test("WebVPN 登录完成后由页面特征自动核验，无需手动确认", async () => {
-	const webvpn = await webvpnSource();
-	assert.match(webvpn, /WEBVPN_SESSION_DETECT_SCRIPT/);
-	assert.match(webvpn, /ibm-webvpn:\/\/session\/ready/);
-	assert.match(webvpn, /mark_login_detected/);
-	assert.match(webvpn, /input\[type=\\?"password\\?"\]/);
-});
-
 test("导航白名单的逃生阀存在：被拒域名可诊断且可放行", async () => {
 	const [shell, webvpn, main] = await Promise.all([shellSource(), webvpnSource(), mainSource()]);
 	// 被拦域名必须被记住，否则用户只会看到静默空白页，无从自救。
@@ -131,7 +123,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.match(projectPanel, /openWebVpnLoginViaShell/, "正文按钮应在会话未就绪时自动打开登录侧栏");
-	assert.match(projectPanel, /系统核验成功后会自动继续下载/);
+	assert.match(projectPanel, /正文尚未创建下载任务.*我已登录/);
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	assert.match(projectPanel, /ib-capture-progress/);
 	assert.match(projectPanel, /status\.downloadedBytes/);

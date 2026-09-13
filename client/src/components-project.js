@@ -227,20 +227,8 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							} });
 							if (!status?.windowOpen || status.state !== "ready") {
 								await openWebVpnLoginViaShell();
-								notify("正文需要 WebVPN：请在侧栏完成登录，系统核验成功后会自动继续下载");
-								const deadline = Date.now() + 5 * 60 * 1000;
-								while (Date.now() < deadline) {
-									await new Promise((resolve) => setTimeout(resolve, 1000));
-									status = await webVpnStatusViaShell();
-									await call("manual_capture_desktop_status_update", { request: {
-										state: status?.state,
-										windowOpen: status?.windowOpen,
-										sidebarVisible: status?.sidebarVisible,
-										pendingTaskId: status?.pendingTaskId
-									} });
-									if (status?.windowOpen && status.state === "ready") break;
-								}
-								if (!status?.windowOpen || status.state !== "ready") throw new Error("等待 WebVPN 登录超时，未创建正文下载任务");
+								notify("正文尚未创建下载任务：请先完成 WebVPN 登录并确认“我已登录”");
+								return;
 							}
 						}
 						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });

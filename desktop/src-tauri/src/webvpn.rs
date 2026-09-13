@@ -81,36 +81,6 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
 })();
 "#;
 
-/// 只在页面本地判断“已出现 WebVPN 转发入口”或“已抵达出版社页面”，不读取、
-/// 不传出 Cookie/账号/正文。命中后仅发送固定 ready 信号，免去额外的手动确认。
-const WEBVPN_SESSION_DETECT_SCRIPT: &str = r#"
-(() => {
-  if (window.__ibm_webvpn_session_detector) return;
-  window.__ibm_webvpn_session_detector = true;
-  let attempts = 0;
-  const detect = () => {
-    attempts += 1;
-    const password = document.querySelector('input[type="password"]');
-    const doi = document.querySelector('meta[name="citation_doi"],meta[name="dc.identifier"]')?.content || '';
-    const canonical = document.querySelector('link[rel="canonical"]')?.href || '';
-    const body = (document.body?.innerText || '').slice(0, 3000);
-    const inputs = [...document.querySelectorAll('input')];
-    const forwardingInput = inputs.some((input) => {
-      const hint = `${input.type} ${input.name} ${input.id} ${input.placeholder} ${input.value}`.toLowerCase();
-      return input.type === 'url' || /网址|address|target|url|https?:\/\//.test(hint);
-    });
-    const publisherReached = /^10\.1038\//i.test(String(doi).trim()) || /nature\.com\/articles\//i.test(canonical);
-    const portalReady = !password && /webvpn|中国科学技术大学/i.test(body) && forwardingInput;
-    if (publisherReached || portalReady) {
-      clearInterval(timer);
-      location.href = 'ibm-webvpn://session/ready';
-    } else if (attempts >= 30) clearInterval(timer);
-  };
-  const timer = setInterval(detect, 500);
-  detect();
-})();
-"#;
-
 /// Nature 页面内自动寻找下载入口。脚本只在页面能由 citation DOI 或站点域名
 /// 确认为 Nature 文章时运行；只把固定结果码送回 Rust，不读取或传出正文、
 /// Cookie、登录信息。正文与 SI 使用分开的高置信度评分，避免互相误点。
@@ -774,23 +744,6 @@ impl WebVpnState {
         session.last_error = None;
     }
 
-    pub fn mark_login_detected(&self) -> bool {
-        let Ok(mut session) = self.session.lock() else {
-            return false;
-        };
-        if session.pending.is_none()
-            && matches!(
-                session.state,
-                WebVpnSessionState::Opening | WebVpnSessionState::WaitingLogin
-            )
-        {
-            session.state = WebVpnSessionState::Ready;
-            session.last_error = None;
-            return true;
-        }
-        false
-    }
-
     pub fn mark_closed(&self) {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Closed;
@@ -1442,7 +1395,6 @@ pub fn open_window(
         .initialization_script(WEBVPN_CHROME_SCRIPT)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
-                let _ = webview.eval(WEBVPN_SESSION_DETECT_SCRIPT);
                 start_pending_nature_automation(&page_app, &webview);
             }
         })
@@ -1457,18 +1409,6 @@ pub fn open_window(
                         let _ = hide_sidebar(&action_app);
                     });
                 });
-                return false;
-            }
-            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("session") {
-                if url.path().trim_matches('/') == "ready" {
-                    let detected = navigation_app
-                        .try_state::<WebVpnState>()
-                        .map(|state| state.mark_login_detected())
-                        .unwrap_or(false);
-                    if detected {
-                        record(&navigation_app, "session", "", "已自动核验 WebVPN 会话可用");
-                    }
-                }
                 return false;
             }
             let direct_si = navigation_app
@@ -2121,16 +2061,6 @@ mod tests {
             .status(&WebVpnConfig::default(), true)
             .last_error
             .is_none());
-    }
-
-    #[test]
-    fn detected_portal_session_becomes_ready_without_manual_confirmation() {
-        let state = WebVpnState::default();
-        state.transition(WebVpnSessionState::Opening).unwrap();
-        state.transition(WebVpnSessionState::WaitingLogin).unwrap();
-        assert!(state.mark_login_detected());
-        assert_eq!(state.state(), WebVpnSessionState::Ready);
-        assert!(!state.mark_login_detected());
     }
 
     #[test]

@@ -95,8 +95,10 @@
            lab_tasks_register_bundle（传回 bundleId 或按 DOI/题名自动匹配）；
          - Nature 浏览器下载：已有 10.1038 DOI 与 bundleId 时调用
            lab_nature_browser_download。正文 kind=pdf 会先核验桌面 WebVPN；若返回
-           webvpn-login-required，必须明确请用户在软件中打开 WebVPN 并完成登录，
-           不得反复排队。SI kind=si 为公开附件直连，不要求 WebVPN。任务创建后
+           webvpn-login-required，右侧登录窗口会自动打开；把工具返回的 question
+           原样询问用户并停止，不能创建或假称已创建下载任务。只有用户明确选择
+           或回复“我已登录”后，才用同一 bundleId 再次调用本工具并传
+           loginConfirmed=true，随后继续访问正文。SI kind=si 为公开附件直连，不要求 WebVPN。任务创建后
            使用返回的 taskId 调用 lab_nature_browser_download_status 查询状态，
            不得读取 lab_captures.json 或 webvpn-downloads 目录推测进度；
          - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话

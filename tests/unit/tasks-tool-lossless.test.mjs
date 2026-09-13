@@ -79,6 +79,7 @@ test("lab_nature_browser_download queues an existing Nature bundle without expos
 test("Nature main PDF is not queued until the desktop WebVPN session is ready", async () => {
 	const registered = [];
 	let createCalls = 0;
+	let loginRequest;
 	apply({
 		tools: { register: (tool) => registered.push(tool) },
 		labTasks: {
@@ -87,15 +88,41 @@ test("Nature main PDF is not queued until the desktop WebVPN session is ready", 
 		},
 		labCapture: {
 			getDesktopWebVpnStatus: () => ({ state: "closed", ready: false, stale: false }),
+			requestDesktopWebVpnLogin: (projectId) => { loginRequest = projectId; },
 			createAgentCaptureTask: async () => { createCalls += 1; }
 		}
 	});
 	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf" }, {});
-	assert.equal(output.ok, false);
+	assert.equal(output.ok, true);
 	assert.equal(output.status, "webvpn-login-required");
-	assert.match(output.error, /尚未排队.*WebVPN/);
+	assert.equal(output.requiresUserAction, true);
+	assert.match(output.question, /右侧.*WebVPN.*我已登录/);
+	assert.equal(loginRequest, "proj-test");
 	assert.equal(createCalls, 0);
+});
+
+test("Nature main PDF continues only after the user confirms WebVPN login", async () => {
+	const registered = [];
+	let request;
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: {
+			getProject: () => ({ id: "proj-test" }),
+			getBundle: () => ({ id: "bundle-nature", projectId: "proj-test", doi: "10.1038/s41551-023-01022-4" })
+		},
+		labCapture: {
+			getDesktopWebVpnStatus: () => ({ state: "waiting-login", ready: false, stale: false, windowOpen: true }),
+			createAgentCaptureTask: async (value) => {
+				request = value;
+				return { id: "capture-confirmed", bundleId: value.bundleId, kind: value.kind };
+			}
+		}
+	});
+	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
+	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", loginConfirmed: true }, {});
+	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", loginConfirmedByUser: true });
+	assert.equal(output.taskId, "capture-confirmed");
 });
 
 test("Nature browser download status exposes progress without raw storage access", async () => {

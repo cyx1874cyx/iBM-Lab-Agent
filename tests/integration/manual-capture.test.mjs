@@ -509,6 +509,11 @@ test("capture: AI 下载请求的令牌只允许桌面界面领取一次", async
 		assert.equal(desktop.status.state, "ready");
 		assert.equal(ctx.labCapture.getDesktopWebVpnStatus().ready, true);
 		assert.equal(ctx.labCapture.getDesktopWebVpnStatus(Date.parse(desktop.status.observedAt) + 10_001).stale, true);
+		ctx.labCapture.requestDesktopWebVpnLogin("capture-project");
+		const action = await invoke(ctx, "manual_capture_desktop_action_claim", { request: { projectId: "capture-project" } });
+		assert.equal(action.action.type, "open-login");
+		const consumed = await invoke(ctx, "manual_capture_desktop_action_claim", { request: { projectId: "capture-project" } });
+		assert.equal(consumed.action, null, "右侧打开登录窗口的动作只消费一次");
 		const claimed = await invoke(ctx, "manual_capture_claim_agent", { request: { taskId: task.id } });
 		assert.match(claimed.task.token, /^[A-Za-z0-9_-]{20,}$/);
 		assert.equal(Object.hasOwn(claimed.task, "tokenSha256"), false, "桌面领取响应不暴露哈希");
