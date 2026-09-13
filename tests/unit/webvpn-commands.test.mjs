@@ -8,6 +8,16 @@ const shellSource = () => read("desktop/src/index.html");
 const mainSource = () => read("desktop/src-tauri/src/main.rs");
 const webvpnSource = () => read("desktop/src-tauri/src/webvpn.rs");
 
+test("出版社页面自动化脚本保持可执行", async () => {
+	const source = await webvpnSource();
+	const match = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/);
+	assert.ok(match, "必须能提取出版社下载自动化脚本");
+	const script = match[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "ieee");
+	assert.doesNotThrow(() => new Function(script));
+});
+
 /** `invoke('name', ...)` 里的命令名。辅助函数本身是 `invoke(command, args)`，不含引号，不会被收录。 */
 const invokedCommands = (shell) =>
 	[...new Set([...shell.matchAll(/invoke\('([^']+)'/g)].map((match) => match[1]))];
@@ -118,7 +128,12 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /PageLoadEvent::Finished/);
 	assert.match(webvpn, /supplementary methods\?/i);
 	assert.match(webvpn, /supplyment methods\?/i);
-	assert.match(webvpn, /si-not-found/);
+	assert.match(webvpn, /si-manual/);
+	assert.match(webvpn, /pdf-manual/);
+	assert.match(webvpn, /stampPDF\/getPDF/);
+	assert.match(webvpn, /\/doi\/pdf\//);
+	assert.match(webvpn, /\/pdfft/);
+	assert.match(webvpn, /捕获任务保持有效/);
 	assert.match(webvpn, /challenge/);
 	assert.match(webvpn, /should_capture_direct_si_preview/);
 	assert.match(webvpn, /download_springer_family_si_direct/);

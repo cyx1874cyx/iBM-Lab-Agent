@@ -117,10 +117,10 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
   let expanded = false;
   const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const visible = (element) => {
-    if (!(element instanceof HTMLElement)) return false;
-    const style = getComputedStyle(element);
+    if (!element || element.nodeType !== 1) return false;
+    const style = element.ownerDocument?.defaultView?.getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    return style && style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
   };
   const description = (element) => clean([
     element.innerText, element.textContent, element.getAttribute('aria-label'),
@@ -153,9 +153,68 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     const sample = clean(`${document.title} ${(document.body?.innerText || '').slice(0, 5000)}`);
     return /captcha|verify you are human|security check|unusual traffic|机器人验证|安全验证|访问验证/.test(sample);
   };
-  const candidates = () => [...document.querySelectorAll('a[href],button,[role="button"]')]
+  const automationRoots = () => {
+    const roots = [document];
+    const visit = (root) => {
+      for (const element of root.querySelectorAll?.('*') || []) {
+        if (element.shadowRoot) { roots.push(element.shadowRoot); visit(element.shadowRoot); }
+        if (element.matches?.('iframe,frame')) {
+          try {
+            if (element.contentDocument) { roots.push(element.contentDocument); visit(element.contentDocument); }
+          } catch { /* WebVPN 转发后的跨源 frame 由其自己的页面加载回调处理。 */ }
+        }
+      }
+    };
+    visit(document);
+    return roots;
+  };
+  const candidates = () => automationRoots()
+    .flatMap((root) => [...(root.querySelectorAll?.('a[href],button,[role="button"]') || [])])
     .filter(visible)
     .map((element) => ({ element: clickTarget(element), text: description(element), href: hrefOf(element) }));
+  const forceDownload = (href) => {
+    if (!href || window[`${runKey}_forced`]) return false;
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = 'article.pdf';
+    anchor.style.display = 'none';
+    document.documentElement.appendChild(anchor);
+    window[`${runKey}_forced`] = true;
+    anchor.click();
+    setTimeout(() => anchor.remove(), 1000);
+    return true;
+  };
+  const previewDownloadUrl = () => {
+    if (kind !== 'pdf') return '';
+    const current = new URL(location.href);
+    const path = current.pathname;
+    for (const root of automationRoots()) {
+      for (const element of root.querySelectorAll?.('iframe[src],embed[src],object[data]') || []) {
+        const raw = element.getAttribute('src') || element.getAttribute('data');
+        if (!raw) continue;
+        const resolved = new URL(raw, location.href);
+        if (/\/stampPDF\/getPDF\.jsp|\/doi\/pdf\/|\/pdfft(?:[/?#]|$)|\/content\/pdf\/|\.pdf(?:[?#]|$)/i.test(resolved.href)) {
+          if (/\/pdfft(?:[/?#]|$)/i.test(resolved.pathname)) resolved.searchParams.set('download', 'true');
+          return resolved.href;
+        }
+      }
+    }
+    if (publisher === 'ieee' && /\/stamp\/stamp\.jsp$/i.test(path)) {
+      current.pathname = path.replace(/\/stamp\/stamp\.jsp$/i, '/stampPDF/getPDF.jsp');
+      return current.href;
+    }
+    if ((publisher === 'science' || publisher === 'acs') && /\/doi\/(?:reader|epdf)\//i.test(path)) {
+      current.pathname = path.replace(/\/doi\/(?:reader|epdf)\//i, '/doi/pdf/');
+      current.searchParams.set('download', 'true');
+      return current.href;
+    }
+    if (publisher === 'elsevier' && /\/pdfft(?:\/|$)/i.test(path)) {
+      current.searchParams.set('download', 'true');
+      current.searchParams.set('isDTMRedir', 'true');
+      return current.href;
+    }
+    return '';
+  };
   const pdfScore = ({ text, href }) => {
     if (/supplement|supporting|supp[\s._-]|additional file|source data|methods?|moesm|mediaobjects/.test(`${text} ${href}`)) return -100;
     let score = 0;
@@ -184,6 +243,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     attempts += 1;
     if (!confirmedPublisherPage()) return;
     if (challengePresent()) { clearInterval(timer); signal('challenge'); return; }
+    if (attempts >= 2 && forceDownload(previewDownloadUrl())) { clearInterval(timer); return; }
     const items = candidates();
     const scored = items.map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
       .sort((a, b) => b.score - a.score);
@@ -202,7 +262,9 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
         && (element.matches('button,[role="button"]') || element.getAttribute('aria-expanded') === 'false'));
       if (expander) { expanded = true; expander.element.click(); return; }
     }
-    if (attempts >= 16) { clearInterval(timer); signal(kind === 'si' ? 'si-not-found' : 'pdf-not-found'); }
+    // 原生 PDF 查看器的工具栏不属于网页 DOM，脚本无法替用户点击。此时只上报
+    // “等待人工保存”，不能清除捕获任务；用户随后点击保存仍由 on_download 接管。
+    if (attempts >= 16) { clearInterval(timer); signal(kind === 'si' ? 'si-manual' : 'pdf-manual'); }
   };
   const timer = setInterval(scan, 750);
   scan();
@@ -1626,15 +1688,19 @@ pub fn open_window(
             }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
                 let result = url.path().trim_matches('/');
-                let message = match result {
-                    "si-not-found" => Some("该 Nature 文章页面未发现可下载的补充材料或补充方法"),
-                    "pdf-not-found" => Some("该 Nature 文章页面未发现正文 PDF 下载入口"),
-                    "challenge" => {
-                        Some("Nature 页面出现验证码或安全检查，请在侧栏完成后重新点击下载")
+                let waiting_message = match result {
+                    "si-manual" => {
+                        Some("自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料")
                     }
+                    "pdf-manual" => Some("已进入 PDF 预览器并保持捕获；可手动点击右上角保存"),
                     _ => None,
                 };
-                if let Some(message) = message {
+                if let Some(message) = waiting_message {
+                    record(&navigation_app, "automation", "", message);
+                    return false;
+                }
+                if result == "challenge" {
+                    let message = "出版社页面出现验证码或安全检查，请在侧栏完成后重新点击下载";
                     if let Some(state) = navigation_app.try_state::<WebVpnState>() {
                         state.fail_pending_download(message);
                     }
