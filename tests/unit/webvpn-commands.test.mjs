@@ -123,6 +123,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.match(projectPanel, /openWebVpnLoginViaShell/, "正文按钮应在会话未就绪时自动打开登录侧栏");
+	assert.match(projectPanel, /import \{[^}]*openWebVpnLoginViaShell[^}]*\} from "\.\/lib\.js"/, "正文预检使用的 WebVPN 登录桥必须显式导入");
 	assert.match(projectPanel, /正文尚未创建下载任务.*我已登录/);
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	assert.match(projectPanel, /ib-capture-progress/);

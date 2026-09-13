@@ -529,7 +529,7 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
   }
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
-var openWebVpnLoginViaShell2 = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
+var openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 var openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3);
 var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
@@ -1122,7 +1122,7 @@ function DatabaseOverview({ call, notify }) {
   }, [refresh, refreshWebvpn]);
   const openWebvpn = async () => {
     try {
-      setWebvpn(await openWebVpnLoginViaShell2());
+      setWebvpn(await openWebVpnLoginViaShell());
       notify("WebVPN 已打开；登录状态会在访问文献时自动核验");
     } catch (reason) {
       notify(reason.message);
@@ -1263,7 +1263,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
           } });
           const claimedAction = await call("manual_capture_desktop_action_claim", { request: { projectId } });
           if (claimedAction?.action?.type === "open-login") {
-            shellStatus = await openWebVpnLoginViaShell2();
+            shellStatus = await openWebVpnLoginViaShell();
             toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
           }
         } catch {
