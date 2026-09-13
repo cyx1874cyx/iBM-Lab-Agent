@@ -62,6 +62,23 @@ const SIDE_PANEL_WIDTH: f64 = 560.0;
 /// 每次导航后都会重新注入；点击后走受控自定义导航，由 Rust 隐藏侧栏。
 const WEBVPN_CHROME_SCRIPT: &str = r#"
 (() => {
+  const reportAuthenticatedPortal = () => {
+    if (window.__ibmWebVpnAuthenticated) return;
+    const inputs = Array.from(document.querySelectorAll('input'));
+    const hasPassword = inputs.some((input) => input.type === 'password' && input.getClientRects().length > 0);
+    const hasAddressInput = inputs.some((input) => {
+      if (input.type === 'password' || input.getClientRects().length === 0) return false;
+      const hint = [input.placeholder, input.getAttribute('aria-label'), input.value].filter(Boolean).join(' ');
+      return /https?:\/\/|网址|网站|地址|url/i.test(hint);
+    });
+    const pageText = String(document.body?.innerText || '').slice(0, 2500);
+    const isForwardedPage = /^\/https?\/[0-9a-f]{16,}(?:\/|$)/i.test(location.pathname);
+    const isPortalHome = hasAddressInput && /webvpn/i.test(pageText);
+    if (!hasPassword && (isPortalHome || isForwardedPage)) {
+      window.__ibmWebVpnAuthenticated = true;
+      location.href = 'ibm-webvpn://session/ready';
+    }
+  };
   const mount = () => {
     if (document.getElementById('__ibm_webvpn_chrome')) return;
     const host = document.createElement('div');
@@ -75,6 +92,11 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     </style><button type="button" title="关闭 WebVPN 侧栏" aria-label="关闭 WebVPN 侧栏">×</button>`;
     root.querySelector('button').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
     (document.documentElement || document.body).appendChild(host);
+    reportAuthenticatedPortal();
+    const observer = new MutationObserver(reportAuthenticatedPortal);
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+    setTimeout(reportAuthenticatedPortal, 800);
+    setTimeout(() => observer.disconnect(), 30000);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
   else mount();
@@ -354,6 +376,8 @@ pub fn allow_direct_nature_si_hosts(policy: &mut WebVpnPolicy) {
 #[derive(Debug, Default)]
 struct Session {
     state: WebVpnSessionState,
+    /// WebVPN 门户是否已显示登录后的网址转发界面。与下载生命周期分开记录。
+    authenticated: bool,
     /// 子 WebView 是否正在主窗口右侧显示。隐藏时 WebView 仍存在，以保留登录态。
     sidebar_visible: bool,
     policy: WebVpnPolicy,
@@ -413,6 +437,7 @@ pub struct WebVpnState {
 #[serde(rename_all = "camelCase")]
 pub struct WebVpnStatus {
     pub state: WebVpnSessionState,
+    pub authenticated: bool,
     pub portal_url: String,
     /// **当前会话实际生效**的白名单（含门户自身；探测模式下为空）。
     pub allowed_hosts: Vec<String>,
@@ -481,7 +506,18 @@ impl WebVpnState {
                 session.state, next
             ));
         }
+        let previous = session.state;
         session.state = next;
+        if next == WebVpnSessionState::Ready
+            && matches!(
+                previous,
+                WebVpnSessionState::Opening | WebVpnSessionState::WaitingLogin
+            )
+        {
+            session.authenticated = true;
+        } else if next == WebVpnSessionState::Closed {
+            session.authenticated = false;
+        }
         if next != WebVpnSessionState::Error {
             session.last_error = None;
         }
@@ -734,10 +770,17 @@ impl WebVpnState {
         let Ok(mut session) = self.session.lock() else {
             return;
         };
-        if matches!(
-            session.state,
-            WebVpnSessionState::Ready | WebVpnSessionState::Navigating
-        ) {
+        if session.authenticated {
+            session.last_error = None;
+            if matches!(
+                session.state,
+                WebVpnSessionState::Ready | WebVpnSessionState::Navigating
+            ) {
+                return;
+            }
+            if session.pending.is_none() {
+                session.state = WebVpnSessionState::Ready;
+            }
             return;
         }
         session.state = WebVpnSessionState::WaitingLogin;
@@ -747,9 +790,25 @@ impl WebVpnState {
     pub fn mark_closed(&self) {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Closed;
+            session.authenticated = false;
             session.sidebar_visible = false;
             session.target_host = None;
             session.pending = None;
+        }
+    }
+
+    /// 登录后的门户首页包含网址转发输入框。注入脚本只上报这一布尔事实，
+    /// 不读取账号、Cookie 或页面内容；下载状态保持不变。
+    pub fn mark_authenticated(&self) {
+        if let Ok(mut session) = self.session.lock() {
+            session.authenticated = true;
+            if matches!(
+                session.state,
+                WebVpnSessionState::Opening | WebVpnSessionState::WaitingLogin
+            ) {
+                session.state = WebVpnSessionState::Ready;
+            }
+            session.last_error = None;
         }
     }
 
@@ -826,6 +885,7 @@ impl WebVpnState {
             .lock()
             .map(|session| Session {
                 state: session.state,
+                authenticated: session.authenticated,
                 sidebar_visible: session.sidebar_visible,
                 policy: session.policy.clone(),
                 target_host: session.target_host.clone(),
@@ -847,6 +907,7 @@ impl WebVpnState {
         });
         WebVpnStatus {
             state: session.state,
+            authenticated: window_open && session.authenticated,
             portal_url: config.portal_url.clone(),
             allowed_hosts: session.policy.allowed_hosts.clone(),
             enforce_navigation: session.policy.enforce,
@@ -1399,6 +1460,16 @@ pub fn open_window(
             }
         })
         .on_navigation(move |url| {
+            if url.scheme() == "ibm-webvpn"
+                && url.host_str() == Some("session")
+                && url.path() == "/ready"
+            {
+                if let Some(state) = navigation_app.try_state::<WebVpnState>() {
+                    state.mark_authenticated();
+                }
+                record(&navigation_app, "session", "", "已识别登录后的 WebVPN 门户");
+                return false;
+            }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("close") {
                 // 避免在 WebView 导航回调栈中直接隐藏自身；调度到主线程的下一拍。
                 let scheduled_app = navigation_app.clone();
@@ -1960,6 +2031,7 @@ mod tests {
         state
             .transition(WebVpnSessionState::Ready)
             .expect("用户确认登录");
+        assert!(state.status(&config, true).authenticated);
         state.begin_navigation("doi.org").expect("已确认后可以转发");
         let navigating = state.status(&config, true);
         assert_eq!(navigating.state, WebVpnSessionState::Navigating);
@@ -1982,6 +2054,7 @@ mod tests {
         state.mark_closed();
         let closed = state.status(&config, false);
         assert_eq!(closed.state, WebVpnSessionState::Closed);
+        assert!(!closed.authenticated);
         assert!(closed.target_host.is_none());
         // 配置始终如实透出，便于 UI 判断"未配置门户"。
         assert_eq!(closed.portal_url, "https://webvpn.example.edu/");
@@ -2053,14 +2126,31 @@ mod tests {
         state.enter_reused_session();
         assert_eq!(state.state(), WebVpnSessionState::Navigating);
 
-        // 错误态复用：应回到等待登录并清掉旧报错，让用户能继续操作。
+        // 下载/导航错误不等于登录失效；复用时恢复为已登录可用态。
         state.fail("上一次导航失败");
         state.enter_reused_session();
-        assert_eq!(state.state(), WebVpnSessionState::WaitingLogin);
+        assert_eq!(state.state(), WebVpnSessionState::Ready);
+        assert!(state.status(&WebVpnConfig::default(), true).authenticated);
         assert!(state
             .status(&WebVpnConfig::default(), true)
             .last_error
             .is_none());
+    }
+
+    #[test]
+    fn portal_detection_marks_authenticated_session_ready() {
+        let state = WebVpnState::default();
+        let config = WebVpnConfig::default();
+        state
+            .transition(WebVpnSessionState::Opening)
+            .expect("关闭态可打开");
+        state
+            .transition(WebVpnSessionState::WaitingLogin)
+            .expect("进入登录页");
+        state.mark_authenticated();
+        let ready = state.status(&config, true);
+        assert!(ready.authenticated);
+        assert_eq!(ready.state, WebVpnSessionState::Ready);
     }
 
     #[test]

@@ -1159,7 +1159,7 @@ function DatabaseOverview({ call, notify }) {
     }
   };
   const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
-  const webvpnLoggedIn = Boolean(webvpn?.windowOpen) && ["ready", "navigating", "waiting-download", "downloading", "uploading"].includes(webvpn?.state);
+  const webvpnLoggedIn = Boolean(webvpn?.windowOpen && webvpn?.authenticated);
   const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
   return h(
     import_react3.default.Fragment,
@@ -1262,6 +1262,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
           shellStatus = await webVpnStatusViaShell();
           await call("manual_capture_desktop_status_update", { request: {
             state: shellStatus?.state,
+            authenticated: shellStatus?.authenticated,
             windowOpen: shellStatus?.windowOpen,
             sidebarVisible: shellStatus?.sidebarVisible,
             pendingTaskId: shellStatus?.pendingTaskId,
@@ -1283,6 +1284,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
             shellStatus = await confirmWebVpnLoginViaShell();
             await call("manual_capture_desktop_status_update", { request: {
               state: shellStatus?.state,
+              authenticated: shellStatus?.authenticated,
               windowOpen: shellStatus?.windowOpen,
               sidebarVisible: shellStatus?.sidebarVisible,
               pendingTaskId: shellStatus?.pendingTaskId
@@ -3074,20 +3076,6 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
     if (desktopEdgeHandoff) {
       void (async () => {
-        if (!directNatureSi) {
-          let status = await webVpnStatusViaShell();
-          await call("manual_capture_desktop_status_update", { request: {
-            state: status?.state,
-            windowOpen: status?.windowOpen,
-            sidebarVisible: status?.sidebarVisible,
-            pendingTaskId: status?.pendingTaskId
-          } });
-          if (!status?.windowOpen || status.state !== "ready") {
-            await openWebVpnLoginViaShell();
-            notify("正文尚未创建下载任务：请完成右侧 WebVPN 登录，然后回到对话回复“我已登录”");
-            return;
-          }
-        }
         const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
         if (!result) return;
         const task = result?.task;
@@ -3096,7 +3084,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         try {
           await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directNatureSi });
           setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-          notify(directNatureSi ? "Nature SI 为公开附件，正在软件侧栏中直连查找并下载" : `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}`);
+          notify(directNatureSi ? "Nature SI 为公开附件，正在软件侧栏中直连查找并下载" : isNatureArticle ? `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}` : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文" : "补充材料"}下载入口`);
         } catch (webvpnError) {
           try {
             await cancelWebVpnCaptureViaShell(task.id);

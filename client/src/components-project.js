@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -217,20 +217,6 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
 				if (desktopEdgeHandoff) {
 					void (async () => {
-						if (!directNatureSi) {
-							let status = await webVpnStatusViaShell();
-							await call("manual_capture_desktop_status_update", { request: {
-								state: status?.state,
-								windowOpen: status?.windowOpen,
-								sidebarVisible: status?.sidebarVisible,
-								pendingTaskId: status?.pendingTaskId
-							} });
-							if (!status?.windowOpen || status.state !== "ready") {
-								await openWebVpnLoginViaShell();
-								notify("正文尚未创建下载任务：请完成右侧 WebVPN 登录，然后回到对话回复“我已登录”");
-								return;
-							}
-						}
 						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
 							if (!result) return;
 							const task = result?.task;
@@ -241,7 +227,9 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
 								notify(directNatureSi
 									? "Nature SI 为公开附件，正在软件侧栏中直连查找并下载"
-									: `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}`);
+									: isNatureArticle
+										? `正在通过 WebVPN 打开 Nature 页面并自动下载${task.kind === "pdf" ? "正文 PDF" : "补充材料"}`
+										: `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文" : "补充材料"}下载入口`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
 								// 撤销本地待下载状态。Nature 路由固定在软件内，失败时不再切到 Edge。

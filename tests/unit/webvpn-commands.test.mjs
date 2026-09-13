@@ -110,6 +110,9 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /download_elapsed_ms/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
 	assert.match(webvpn, /WEBVPN_CHROME_SCRIPT/);
+	assert.match(webvpn, /ibm-webvpn:\/\/session\/ready/);
+	assert.match(webvpn, /isForwardedPage/);
+	assert.match(webvpn, /state\.mark_authenticated\(\)/);
 	assert.match(webvpn, /NATURE_DOWNLOAD_AUTOMATION/);
 	assert.match(webvpn, /PageLoadEvent::Finished/);
 	assert.match(webvpn, /supplementary methods\?/i);
@@ -124,12 +127,11 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /关闭 WebVPN 侧栏/);
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
-	assert.match(projectPanel, /openWebVpnLoginViaShell/, "正文按钮应在会话未就绪时自动打开登录侧栏");
-	assert.match(projectPanel, /import \{[^}]*openWebVpnLoginViaShell[^}]*\} from "\.\/lib\.js"/, "正文预检使用的 WebVPN 登录桥必须显式导入");
-	assert.match(projectPanel, /正文尚未创建下载任务.*回到对话回复“我已登录”/);
+	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	assert.match(literaturePanel, /ib-webvpn-dot/);
-	assert.match(literaturePanel, /\["ready", "navigating", "waiting-download", "downloading", "uploading"\]\.includes\(webvpn\?\.state\)/);
+	assert.match(literaturePanel, /webvpn\?\.windowOpen && webvpn\?\.authenticated/);
+	assert.match(projectPanel, /已在 WebVPN 侧栏打开出版社页面，请手动点击/);
 	assert.match(styles, /\.ib-webvpn-dot\{[^}]*background:#ef4444/);
 	assert.match(styles, /\.ib-webvpn-dot\[data-online=true\]\{[^}]*background:#22c55e/);
 	assert.match(projectPanel, /ib-capture-progress/);

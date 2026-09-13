@@ -54,7 +54,7 @@ export function DatabaseOverview({ call, notify }) {
 				} catch (reason) { notify(reason.message); } finally { setBusy(""); }
 			};
 			const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
-			const webvpnLoggedIn = Boolean(webvpn?.windowOpen) && ["ready", "navigating", "waiting-download", "downloading", "uploading"].includes(webvpn?.state);
+			const webvpnLoggedIn = Boolean(webvpn?.windowOpen && webvpn?.authenticated);
 			const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
 			return h(React.Fragment, null,
 				h("div", { className: "ib-db-toggle-wrap" },
@@ -186,6 +186,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 							shellStatus = await webVpnStatusViaShell();
 							await call("manual_capture_desktop_status_update", { request: {
 								state: shellStatus?.state,
+								authenticated: shellStatus?.authenticated,
 								windowOpen: shellStatus?.windowOpen,
 								sidebarVisible: shellStatus?.sidebarVisible,
 								pendingTaskId: shellStatus?.pendingTaskId,
@@ -208,6 +209,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 								shellStatus = await confirmWebVpnLoginViaShell();
 								await call("manual_capture_desktop_status_update", { request: {
 									state: shellStatus?.state,
+									authenticated: shellStatus?.authenticated,
 									windowOpen: shellStatus?.windowOpen,
 									sidebarVisible: shellStatus?.sidebarVisible,
 									pendingTaskId: shellStatus?.pendingTaskId

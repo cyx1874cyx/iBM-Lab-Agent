@@ -504,7 +504,7 @@ test("capture: AI 下载请求的令牌只允许桌面界面领取一次", async
 		assert.equal(task.requestedBy, "agent");
 		assert.equal(Object.hasOwn(task, "token"), false, "持久化任务不得包含明文令牌");
 		const desktop = await invoke(ctx, "manual_capture_desktop_status_update", { request: {
-			state: "ready", windowOpen: true, sidebarVisible: false
+			state: "ready", authenticated: true, windowOpen: true, sidebarVisible: false
 		} });
 		assert.equal(desktop.status.state, "ready");
 		assert.equal(ctx.labCapture.getDesktopWebVpnStatus().ready, true);
