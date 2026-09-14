@@ -288,6 +288,7 @@ const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise
 });
 
 export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 export const openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 export const openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000);

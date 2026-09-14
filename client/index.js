@@ -81,7 +81,7 @@ function injectStyles() {
     ".ib-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.ib-tab{border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:13px;padding:13px;text-align:left;cursor:pointer}.ib-tab[data-active=true]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-tab strong{display:block;font-size:12px;margin-bottom:4px}.ib-tab span{font-size:9.5px;color:var(--ib-text)}",
     ".ib-board{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:16px;padding:17px}.ib-board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.ib-board-head h2{font-size:14px;margin:0}.ib-board-head p{font-size:9.5px;color:var(--ib-text);margin:3px 0 0}.ib-artifacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ib-artifact{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:12px;padding:13px;min-height:112px}.ib-artifact-top{display:flex;justify-content:space-between;align-items:center}.ib-artifact h3{font-size:11.5px;margin:0}.ib-count{font-size:19px;font-weight:720;color:var(--ib-green)}.ib-rows{display:grid;gap:6px;margin-top:10px}.ib-row{display:flex;justify-content:space-between;gap:9px;font-size:9.5px;color:var(--ib-text)}.ib-row b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ib-text);font-weight:520}.ib-row span{flex:none;color:var(--ib-text)}.ib-artifact-empty{margin-top:15px;color:var(--ib-text);font-size:9.5px;line-height:1.55}.ib-toast{position:fixed;z-index:1100;right:24px;bottom:24px;box-sizing:border-box;max-width:min(520px,calc(100vw - 32px));border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:8px;padding:13px 16px;color:var(--ib-text);font-size:13px;font-weight:650;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere;box-shadow:0 12px 35px var(--ib-line)}",
     ".ib-db{margin-bottom:14px;border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:15px;padding:14px}.ib-db-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.ib-db-head h3{font-size:13px;margin:0 0 3px}.ib-db-head p{font-size:9.5px;color:var(--ib-text);margin:0}.ib-db-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ib-db-card{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:11px;padding:10px;min-width:0}.ib-db-name{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}.ib-db-name b{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-db-tier{font-size:8px;color:var(--ib-text);white-space:nowrap}.ib-db-state{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:8px}.ib-db-pill{border-radius:7px;padding:5px 6px;background:var(--ib-panel);color:var(--ib-text);font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-db-pill[data-ok=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-db-pill[data-warn=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-db-actions{display:flex;gap:5px}.ib-db-actions .ib-btn{flex:1;padding:6px 7px;font-size:9px}.ib-db-empty{padding:12px;text-align:center;color:var(--ib-text);font-size:10px}@media(max-width:900px){.ib-db-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.ib-db-grid{grid-template-columns:1fr}}",
-    ".ib-db-toggle-wrap{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px}.ib-db-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:10px}.ib-db-toggle:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-db-toggle i{width:7px;height:7px;border-radius:50%;background:var(--ib-panel)}.ib-db-toggle[data-warn=true] i{background:var(--ib-panel)}.ib-db-toggle small{color:var(--ib-text);font-size:8.5px}.ib-webvpn-monitor{display:inline-flex;align-items:center;gap:7px}.ib-webvpn-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.14)}.ib-webvpn-dot[data-online=true]{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.14)}",
+    ".ib-db-toggle-wrap{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap}.ib-db-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:10px}.ib-db-toggle:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-db-toggle i{width:7px;height:7px;border-radius:50%;background:var(--ib-panel)}.ib-db-toggle[data-warn=true] i{background:var(--ib-panel)}.ib-db-toggle small{color:var(--ib-text);font-size:8.5px}.ib-webvpn-monitor{display:inline-flex;align-items:center;gap:7px}.ib-webvpn-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.14)}.ib-webvpn-dot[data-partial=true]{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.14)}.ib-webvpn-dot[data-online=true]{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.14)}",
     ".ib-fulltext{margin-bottom:14px;border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:15px;padding:14px}.ib-fulltext-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.ib-fulltext input{min-width:0;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:10px;padding:10px 11px;font:11px inherit;outline:none}.ib-fulltext input:focus{border-color:var(--ib-line)}.ib-fulltext-note{margin:8px 0 0;color:var(--ib-text);font-size:9px;line-height:1.55}.ib-dl-list{display:grid;gap:6px;margin-top:10px}.ib-dl-row{display:flex;align-items:center;gap:9px;border-top:1px solid var(--ib-line);padding-top:8px}.ib-dl-main{flex:1;min-width:0}.ib-dl-main b,.ib-dl-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-dl-main b{font-size:10px;color:var(--ib-text)}.ib-dl-main small{font-size:8.5px;color:var(--ib-text);margin-top:2px}.ib-dl-state{flex:none;border-radius:999px;padding:4px 7px;background:var(--ib-panel);font-size:8.5px;color:var(--ib-text)}.ib-dl-state[data-ok=true]{color:var(--ib-text);background:var(--ib-panel)}.ib-dl-state[data-warn=true]{color:var(--ib-text);background:var(--ib-panel)}",
     // ── 文献管理两栏：左检索记录，右精读档案 ─────────────────────────────
     ".ib-lit{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}",
@@ -556,6 +556,7 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
   }
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 var openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 var openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3);
@@ -1121,12 +1122,21 @@ function DatabaseOverview({ call, notify }) {
   const [busy, setBusy] = (0, import_react3.useState)("");
   const [open, setOpen] = (0, import_react3.useState)(false);
   const [webvpn, setWebvpn] = (0, import_react3.useState)(null);
+  const [iwan, setIwan] = (0, import_react3.useState)(null);
   const refreshWebvpn = (0, import_react3.useCallback)(async () => {
     if (window.parent === window) return;
     try {
       setWebvpn(await webVpnStatusViaShell());
     } catch {
       setWebvpn(null);
+    }
+  }, []);
+  const refreshIwan = (0, import_react3.useCallback)(async () => {
+    if (window.parent === window) return;
+    try {
+      setIwan(await iwanStatusViaShell());
+    } catch {
+      setIwan(null);
     }
   }, []);
   const refresh = (0, import_react3.useCallback)(async (force = false) => {
@@ -1140,13 +1150,16 @@ function DatabaseOverview({ call, notify }) {
   (0, import_react3.useEffect)(() => {
     void refresh(false);
     void refreshWebvpn();
+    void refreshIwan();
     const timer = setInterval(() => void refresh(false), 6e4);
     const webvpnTimer = setInterval(() => void refreshWebvpn(), 2e3);
+    const iwanTimer = setInterval(() => void refreshIwan(), 2e3);
     return () => {
       clearInterval(timer);
       clearInterval(webvpnTimer);
+      clearInterval(iwanTimer);
     };
-  }, [refresh, refreshWebvpn]);
+  }, [refresh, refreshWebvpn, refreshIwan]);
   const openWebvpn = async () => {
     try {
       setWebvpn(await openWebVpnLoginViaShell());
@@ -1188,6 +1201,7 @@ function DatabaseOverview({ call, notify }) {
   const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
   const webvpnLoggedIn = Boolean(webvpn?.windowOpen && webvpn?.authenticated);
   const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
+  const iwanStatusText = iwan?.usable ? "iWAN 全局模式可用" : iwan?.connected ? "iWAN 已连接但未启用全部路由" : iwan?.installed ? "iWAN 未连接" : "未安装 iWAN";
   return h(
     import_react3.default.Fragment,
     null,
@@ -1200,13 +1214,15 @@ function DatabaseOverview({ call, notify }) {
         title: webvpnStatusText,
         "aria-label": `${webvpnStatusText}，${webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN"}`,
         onClick: () => void openWebvpn()
-      }, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
+      }, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null,
+      window.parent !== window ? h("span", { className: "ib-btn ib-webvpn-monitor", title: iwan?.message || iwanStatusText, "aria-label": iwanStatusText }, h("span", { className: "ib-webvpn-dot", "data-online": iwan?.usable ? "true" : "false", "data-partial": iwan?.connected && !iwan?.usable ? "true" : void 0, "aria-hidden": "true" }), iwanStatusText) : null
     ),
     open ? h(
       "section",
       { className: "ib-db" },
       h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "文献数据库实时状态"), h("p", null, snapshot.checkedAt ? `最近验证 ${when(snapshot.checkedAt)} · 每 60 秒自动刷新` : "正在验证检索入口与全文权限状态")), h("button", { className: "ib-btn", disabled: snapshot.loading, onClick: () => void refresh(true) }, snapshot.loading ? "验证中…" : "立即验证")),
       webvpn ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 WebVPN"), h("span", { className: "ib-db-tier" }, webvpn.windowOpen ? "会话已保留" : "尚未打开")), h("p", null, webvpn.pendingTaskId ? `正在等待 ${webvpn.pendingKind === "si" ? "SI" : "PDF"} 下载` : "点击正文时自动核验会话；登录失效会在侧栏显示登录页"), h("div", { className: "ib-db-actions" }, h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, "打开窗口"), h("button", { className: "ib-btn", onClick: () => void clearWebvpn() }, "清除登录状态"))) : null,
+      iwan ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 iWAN"), h("span", { className: "ib-db-tier" }, iwan.usable ? "全部路由可用" : iwan.connected ? "部分路由" : iwan.installed ? "未连接" : "未安装")), h("p", null, iwan.message || iwanStatusText), iwan.adapterName ? h("small", null, `网络适配器：${iwan.adapterName}`) : null) : null,
       snapshot.error ? h("div", { className: "ib-error" }, snapshot.error) : null,
       snapshot.sources.length ? h("div", { className: "ib-db-grid" }, snapshot.sources.map((source) => {
         const searchTone = databaseStateTone(source.search?.state);
@@ -1285,8 +1301,9 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
       starting = true;
       try {
         let shellStatus;
+        let iwanStatus;
         try {
-          shellStatus = await webVpnStatusViaShell();
+          [shellStatus, iwanStatus] = await Promise.all([webVpnStatusViaShell(), iwanStatusViaShell()]);
           await call("manual_capture_desktop_status_update", { request: {
             state: shellStatus?.state,
             authenticated: shellStatus?.authenticated,
@@ -1294,10 +1311,14 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
             sidebarVisible: shellStatus?.sidebarVisible,
             pendingTaskId: shellStatus?.pendingTaskId,
             downloadedBytes: shellStatus?.downloadedBytes,
-            downloadElapsedMs: shellStatus?.downloadElapsedMs
+            downloadElapsedMs: shellStatus?.downloadElapsedMs,
+            iwanInstalled: iwanStatus?.installed,
+            iwanConnected: iwanStatus?.connected,
+            iwanUsable: iwanStatus?.usable,
+            iwanGlobalRoute: iwanStatus?.globalRoute
           } });
           const claimedAction = await call("manual_capture_desktop_action_claim", { request: { projectId } });
-          if (claimedAction?.action?.type === "open-login") {
+          if (claimedAction?.action?.type === "open-login" && !iwanStatus?.usable) {
             shellStatus = await openWebVpnLoginViaShell();
             toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
           }
@@ -1308,7 +1329,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
         if (task && !disposed) {
           const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
           const taskNeedsVpn = task.kind === "pdf" || !directSpringerSi;
-          if (taskNeedsVpn && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
+          if (taskNeedsVpn && !iwanStatus?.usable && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
             if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
             shellStatus = await confirmWebVpnLoginViaShell();
             await call("manual_capture_desktop_status_update", { request: {
@@ -1331,7 +1352,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
             directAccess: directSpringerSi,
             automate: true
           });
-          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在通过${iwanStatus?.usable ? " iWAN 直访" : "软件侧栏"}自动处理`);
         }
       } catch (error) {
         if (claimedTask?.id) {
@@ -2910,11 +2931,11 @@ var formatCaptureElapsed = (milliseconds) => {
 var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
   switch (state) {
     case "opening":
-      return { text: "正在打开 WebVPN 侧栏…", tone: "waiting" };
+      return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
     case "waiting-login":
       return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
     case "ready":
-      return { text: "WebVPN 会话可用，正在打开出版社页面…", tone: "waiting" };
+      return { text: "机构访问通道可用，正在打开出版社页面…", tone: "waiting" };
     case "navigating":
       return { text: "正在打开出版社页面…", tone: "waiting" };
     case "waiting-download":
@@ -3105,12 +3126,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
       return;
     }
-    if (publisher === "wiley") {
-      notify("Wiley Online Library 的学校 WebVPN 访问暂不可用，本版本暂停下载适配");
-      return;
-    }
     if (desktopEdgeHandoff) {
       void (async () => {
+        const iwan = await iwanStatusViaShell().catch(() => null);
         const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
         if (!result) return;
         const task = result?.task;
@@ -3119,13 +3137,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         try {
           await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi, automate: false });
           setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-          notify(directSpringerSi ? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口" : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
+          notify(iwan?.usable ? `iWAN 全部路由可用，已直访出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口` : directSpringerSi ? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口" : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
         } catch (webvpnError) {
           try {
             await cancelWebVpnCaptureViaShell(task.id);
           } catch {
           }
-          if (["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee"].includes(publisher)) {
+          if (["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee", "wiley"].includes(publisher)) {
             setCaptureHint(null);
             throw new Error(`${publisher} ${kind === "si" && directSpringerSi ? "SI 直连" : "WebVPN"}打开失败：${webvpnError.message}`);
           }

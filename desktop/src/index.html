@@ -553,6 +553,10 @@
         invoke('webvpn_status')
           .then((result) => reply('WEBVPN_STATUS_RESULT', { ok: true, result }))
           .catch((error) => reply('WEBVPN_STATUS_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'IWAN_STATUS') {
+        invoke('iwan_status')
+          .then((result) => reply('IWAN_STATUS_RESULT', { ok: true, result }))
+          .catch((error) => reply('IWAN_STATUS_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_OPEN_LOGIN') {
         invoke('webvpn_open_login')
           .then(() => invoke('webvpn_status'))

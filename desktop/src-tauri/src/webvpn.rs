@@ -89,7 +89,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       button{all:initial;box-sizing:border-box;width:34px;height:30px;border:1px solid rgba(15,23,42,.22);border-radius:7px;background:rgba(255,255,255,.94);color:#334155;font:22px/27px "Segoe UI",sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.18);user-select:none}
       button:hover{background:#e81123;color:#fff;border-color:#e81123}
       button:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
-    </style><button type="button" title="关闭 WebVPN 侧栏" aria-label="关闭 WebVPN 侧栏">×</button>`;
+    </style><button type="button" title="关闭文献侧栏" aria-label="关闭文献侧栏">×</button>`;
     root.querySelector('button').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
     (document.documentElement || document.body).appendChild(host);
     reportAuthenticatedPortal();
@@ -496,7 +496,7 @@ impl PublisherAdapter {
     }
 
     fn supports_automation(self) -> bool {
-        !matches!(self, Self::WileyPaused | Self::Other)
+        !matches!(self, Self::Other)
     }
 
     pub fn direct_si(self, kind: &str) -> bool {

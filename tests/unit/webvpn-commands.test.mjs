@@ -140,7 +140,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获附件/);
 	assert.match(webvpn, /fs::remove_file\(&upload\.path\)/, "归档成功后必须删除唯一临时文件");
 	assert.match(webvpn, /DownloadDecision::PassThrough => allow = false/, "侧栏不得把非捕获下载写进系统下载目录");
-	assert.match(webvpn, /关闭 WebVPN 侧栏/);
+	assert.match(webvpn, /关闭文献侧栏/);
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
@@ -157,7 +157,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /directSpringerSi/);
 	assert.match(projectPanel, /manual_capture_cancel/);
 	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
-	assert.match(projectPanel, /publisher === "wiley"/);
+	assert.match(projectPanel, /"wiley"\]\.includes\(publisher\)/);
 	assert.match(projectPanel, /已适配出版社固定在软件内/);
 	assert.match(projectPanel, /tasks_report_delete/);
 	assert.match(shell, /关闭侧栏 ×/);
@@ -166,6 +166,12 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /is_direct_springer_family_si/);
 	assert.match(shell, /automate:\s*data\.payload\?\.automate === true/);
 	assert.match(main, /automate:\s*bool/);
+	assert.match(shell, /IWAN_STATUS/);
+	assert.match(main, /fn iwan_status/);
+	assert.match(main, /let use_iwan = iwan\.usable/);
+	assert.match(main, /use_iwan \|\| direct_springer_si/);
+	assert.match(literaturePanel, /iWAN 全局模式可用/);
+	assert.match(literaturePanel, /iwanUsable/);
 });
 
 /**

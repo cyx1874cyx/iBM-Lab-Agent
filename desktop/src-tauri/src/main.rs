@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod iwan;
 mod runtime;
 mod webvpn;
 
@@ -10,6 +11,11 @@ use tauri_plugin_single_instance::init as single_instance;
 use runtime::{AppMcpStatus, RuntimeDeps, RuntimeManager, RuntimeStatus, SavedArtifact};
 
 struct AppState(Arc<RuntimeManager>);
+
+#[tauri::command]
+fn iwan_status() -> iwan::IwanStatus {
+    iwan::status()
+}
 
 fn show_runtime_error(window: &WebviewWindow, message: &str) {
     let payload =
@@ -477,20 +483,32 @@ async fn webvpn_open_capture(
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
     let config = state.0.load_config().map_err(|error| error.to_string())?;
-    let portal = webvpn::validate_target(config.webvpn.portal_url.trim())?;
     let target = webvpn::validate_target(&target_url)?;
     let publisher = webvpn::PublisherAdapter::from_target(&target);
-    if automate && publisher == webvpn::PublisherAdapter::WileyPaused {
+    let iwan = iwan::status();
+    let use_iwan = iwan.usable;
+    // iWAN 是独立访问通道：全部路由可用时不得因为 WebVPN 未配置而阻断直访。
+    let portal = if use_iwan {
+        None
+    } else {
+        Some(webvpn::validate_target(config.webvpn.portal_url.trim())?)
+    };
+    if publisher == webvpn::PublisherAdapter::WileyPaused && !use_iwan {
         return Err(
-            "Wiley Online Library 的学校 WebVPN 访问暂不可用，本版本暂停自动下载".to_string(),
+            "Wiley Online Library 的 WebVPN 访问暂不可用；请连接 iWAN 并启用“全部路由”后重试"
+                .to_string(),
         );
     }
     let direct_springer_si = direct_access && webvpn::is_direct_springer_family_si(&kind, &target);
-    let mut policy = webvpn::WebVpnPolicy::from_config(
-        config.webvpn.portal_url.trim(),
-        &config.webvpn.allowed_hosts,
-        config.webvpn.enforce_navigation,
-    );
+    let mut policy = if use_iwan {
+        webvpn::WebVpnPolicy::record_only()
+    } else {
+        webvpn::WebVpnPolicy::from_config(
+            config.webvpn.portal_url.trim(),
+            &config.webvpn.allowed_hosts,
+            config.webvpn.enforce_navigation,
+        )
+    };
     if direct_springer_si {
         webvpn::allow_direct_nature_si_hosts(&mut policy);
     }
@@ -501,19 +519,24 @@ async fn webvpn_open_capture(
             }
             (webview, false)
         }
-        None if direct_springer_si => (
+        None if use_iwan || direct_springer_si => (
             webvpn::open_window(&app, state.0.data_root(), &target, policy)?,
             true,
         ),
         None => (
-            webvpn::open_window(&app, state.0.data_root(), &portal, policy)?,
+            webvpn::open_window(
+                &app,
+                state.0.data_root(),
+                portal.as_ref().ok_or("WebVPN 门户未配置")?,
+                policy,
+            )?,
             false,
         ),
     };
     let webvpn_state = app
         .try_state::<webvpn::WebVpnState>()
         .ok_or_else(|| "WebVPN 状态不可用".to_string())?;
-    let destination = if direct_springer_si {
+    let destination = if use_iwan || direct_springer_si {
         target.clone()
     } else {
         webvpn::build_wrd_proxy_url(&config.webvpn.portal_url, &target)?
@@ -743,6 +766,7 @@ fn main() {
             install_origin_bridge,
             open_in_edge,
             open_artifact_in_browser,
+            iwan_status,
             webvpn_probe_available,
             webvpn_probe_open,
             webvpn_open_login,

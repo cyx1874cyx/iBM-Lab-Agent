@@ -178,6 +178,7 @@ test("Nature browser download is exposed as an AI tool without returning capture
 		"AI 下载队列必须由对话中始终挂载的课题标识领取，不能依赖已关闭的项目面板");
 	assert.match(clientSource, /manual_capture_claim_agent[\s\S]*openWebVpnCaptureViaShell/);
 	assert.match(clientSource, /manual_capture_desktop_status_update/);
+	assert.match(clientSource, /iwanStatusViaShell/);
 	assert.match(clientSource, /manual_capture_desktop_action_claim/);
 	assert.match(clientSource, /confirmWebVpnLoginViaShell/);
 	assert.match(toolsSource, /requiresUserAction/);

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -27,9 +27,9 @@ const formatCaptureElapsed = (milliseconds) => {
 
 export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
 	switch (state) {
-		case "opening": return { text: "正在打开 WebVPN 侧栏…", tone: "waiting" };
+		case "opening": return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
 		case "waiting-login": return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
-		case "ready": return { text: "WebVPN 会话可用，正在打开出版社页面…", tone: "waiting" };
+		case "ready": return { text: "机构访问通道可用，正在打开出版社页面…", tone: "waiting" };
 		case "navigating": return { text: "正在打开出版社页面…", tone: "waiting" };
 		case "waiting-download": return { text: "出版社页面已打开，正在自动查找并点击对应下载入口…", tone: "waiting" };
 		case "downloading": return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
@@ -220,15 +220,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
 					return;
 				}
-				if (publisher === "wiley") {
-					notify("Wiley Online Library 的学校 WebVPN 访问暂不可用，本版本暂停下载适配");
-					return;
-				}
 				// Desktop（desktop-edge-handoff）：任务在外部 Edge 中完成。本页面运行在
 				// WebView2 的 iframe 内，看不到 __TAURI_INTERNALS__，因此经 postMessage
 				// 请求桌面 shell 调起 open_in_edge；shell 校验 loopback 后打开 handoff 页。
 				if (desktopEdgeHandoff) {
 					void (async () => {
+						const iwan = await iwanStatusViaShell().catch(() => null);
 						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
 							if (!result) return;
 							const task = result?.task;
@@ -237,14 +234,16 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							try {
 								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi, automate: false });
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
-								notify(directSpringerSi
-									? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口"
-									: `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
+								notify(iwan?.usable
+									? `iWAN 全部路由可用，已直访出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`
+									: directSpringerSi
+										? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口"
+										: `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
 							} catch (webvpnError) {
 								// 命令响应丢失时，Rust 侧可能已经布防成功。先按任务 ID
 								// 撤销本地待下载状态。已适配出版社固定在软件内，失败时不再切到 Edge。
 								try { await cancelWebVpnCaptureViaShell(task.id); } catch { /* 尚未布防时无需处理 */ }
-								if (["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee"].includes(publisher)) {
+								if (["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee", "wiley"].includes(publisher)) {
 									setCaptureHint(null);
 									throw new Error(`${publisher} ${kind === "si" && directSpringerSi ? "SI 直连" : "WebVPN"}打开失败：${webvpnError.message}`);
 								}

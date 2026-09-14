@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { databaseState, databaseStateTone, downloadState } from "./constants.js";
-import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
+import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 
 // 文献相关组件：DatabaseOverview/FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
@@ -10,10 +10,16 @@ export function DatabaseOverview({ call, notify }) {
 			const [busy, setBusy] = useState("");
 			const [open, setOpen] = useState(false);
 			const [webvpn, setWebvpn] = useState(null);
+			const [iwan, setIwan] = useState(null);
 			const refreshWebvpn = useCallback(async () => {
 				if (window.parent === window) return;
 				try { setWebvpn(await webVpnStatusViaShell()); }
 				catch { setWebvpn(null); }
+			}, []);
+			const refreshIwan = useCallback(async () => {
+				if (window.parent === window) return;
+				try { setIwan(await iwanStatusViaShell()); }
+				catch { setIwan(null); }
 			}, []);
 			const refresh = useCallback(async (force = false) => {
 				try {
@@ -24,10 +30,12 @@ export function DatabaseOverview({ call, notify }) {
 			useEffect(() => {
 				void refresh(false);
 				void refreshWebvpn();
+				void refreshIwan();
 				const timer = setInterval(() => void refresh(false), 60000);
 				const webvpnTimer = setInterval(() => void refreshWebvpn(), 2000);
-				return () => { clearInterval(timer); clearInterval(webvpnTimer); };
-			}, [refresh, refreshWebvpn]);
+				const iwanTimer = setInterval(() => void refreshIwan(), 2000);
+				return () => { clearInterval(timer); clearInterval(webvpnTimer); clearInterval(iwanTimer); };
+			}, [refresh, refreshWebvpn, refreshIwan]);
 			const openWebvpn = async () => {
 				try { setWebvpn(await openWebVpnLoginViaShell()); notify("WebVPN 已打开；登录状态会在访问文献时自动核验"); }
 				catch (reason) { notify(reason.message); }
@@ -56,6 +64,7 @@ export function DatabaseOverview({ call, notify }) {
 			const attention = snapshot.sources.filter((source) => [source.search?.state, source.download?.state, source.connection?.state].some((state) => ["degraded", "auth-required", "waiting-user", "agreement-required", "verification-required", "expired", "error", "unavailable"].includes(state))).length;
 			const webvpnLoggedIn = Boolean(webvpn?.windowOpen && webvpn?.authenticated);
 			const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
+			const iwanStatusText = iwan?.usable ? "iWAN 全局模式可用" : iwan?.connected ? "iWAN 已连接但未启用全部路由" : iwan?.installed ? "iWAN 未连接" : "未安装 iWAN";
 			return h(React.Fragment, null,
 				h("div", { className: "ib-db-toggle-wrap" },
 					h("button", { className: "ib-db-toggle", "data-warn": attention > 0 ? "true" : undefined, onClick: () => setOpen((value) => !value), "aria-expanded": open ? "true" : "false" }, h("i", { "aria-hidden": "true" }), open ? "收起数据库状态" : "数据库状态", h("small", null, snapshot.loading ? "验证中" : `${snapshot.sources.length} 个库${attention ? ` · ${attention} 个需处理` : ""}`)),
@@ -64,11 +73,13 @@ export function DatabaseOverview({ call, notify }) {
 						title: webvpnStatusText,
 						"aria-label": `${webvpnStatusText}，${webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN"}`,
 						onClick: () => void openWebvpn()
-					}, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null
+					}, h("span", { className: "ib-webvpn-dot", "data-online": webvpnLoggedIn ? "true" : "false", "aria-hidden": "true" }), webvpn?.sidebarVisible ? "返回 WebVPN" : "打开 WebVPN") : null,
+					window.parent !== window ? h("span", { className: "ib-btn ib-webvpn-monitor", title: iwan?.message || iwanStatusText, "aria-label": iwanStatusText }, h("span", { className: "ib-webvpn-dot", "data-online": iwan?.usable ? "true" : "false", "data-partial": iwan?.connected && !iwan?.usable ? "true" : undefined, "aria-hidden": "true" }), iwanStatusText) : null
 				),
 				open ? h("section", { className: "ib-db" },
 				h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "文献数据库实时状态"), h("p", null, snapshot.checkedAt ? `最近验证 ${when(snapshot.checkedAt)} · 每 60 秒自动刷新` : "正在验证检索入口与全文权限状态")), h("button", { className: "ib-btn", disabled: snapshot.loading, onClick: () => void refresh(true) }, snapshot.loading ? "验证中…" : "立即验证")),
 				webvpn ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 WebVPN"), h("span", { className: "ib-db-tier" }, webvpn.windowOpen ? "会话已保留" : "尚未打开")), h("p", null, webvpn.pendingTaskId ? `正在等待 ${webvpn.pendingKind === "si" ? "SI" : "PDF"} 下载` : "点击正文时自动核验会话；登录失效会在侧栏显示登录页"), h("div", { className: "ib-db-actions" }, h("button", { className: "ib-btn", onClick: () => void openWebvpn() }, "打开窗口"), h("button", { className: "ib-btn", onClick: () => void clearWebvpn() }, "清除登录状态"))) : null,
+				iwan ? h("article", { className: "ib-db-card" }, h("div", { className: "ib-db-name" }, h("b", null, "中国科大 iWAN"), h("span", { className: "ib-db-tier" }, iwan.usable ? "全部路由可用" : iwan.connected ? "部分路由" : iwan.installed ? "未连接" : "未安装")), h("p", null, iwan.message || iwanStatusText), iwan.adapterName ? h("small", null, `网络适配器：${iwan.adapterName}`) : null) : null,
 				snapshot.error ? h("div", { className: "ib-error" }, snapshot.error) : null,
 				snapshot.sources.length ? h("div", { className: "ib-db-grid" }, snapshot.sources.map((source) => {
 					const searchTone = databaseStateTone(source.search?.state);
@@ -182,8 +193,9 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 					starting = true;
 					try {
 						let shellStatus;
+						let iwanStatus;
 						try {
-							shellStatus = await webVpnStatusViaShell();
+							[shellStatus, iwanStatus] = await Promise.all([webVpnStatusViaShell(), iwanStatusViaShell()]);
 							await call("manual_capture_desktop_status_update", { request: {
 								state: shellStatus?.state,
 								authenticated: shellStatus?.authenticated,
@@ -191,10 +203,14 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 								sidebarVisible: shellStatus?.sidebarVisible,
 								pendingTaskId: shellStatus?.pendingTaskId,
 								downloadedBytes: shellStatus?.downloadedBytes,
-								downloadElapsedMs: shellStatus?.downloadElapsedMs
+								downloadElapsedMs: shellStatus?.downloadElapsedMs,
+								iwanInstalled: iwanStatus?.installed,
+								iwanConnected: iwanStatus?.connected,
+								iwanUsable: iwanStatus?.usable,
+								iwanGlobalRoute: iwanStatus?.globalRoute
 							} });
 							const claimedAction = await call("manual_capture_desktop_action_claim", { request: { projectId } });
-							if (claimedAction?.action?.type === "open-login") {
+							if (claimedAction?.action?.type === "open-login" && !iwanStatus?.usable) {
 								shellStatus = await openWebVpnLoginViaShell();
 								toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
 							}
@@ -205,7 +221,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 							const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
 							const taskNeedsVpn = task.kind === "pdf" || !directSpringerSi;
 							// 需要 WebVPN 的任务在领取一次性令牌前再次核验真实桌面状态。
-							if (taskNeedsVpn && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
+							if (taskNeedsVpn && !iwanStatus?.usable && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
 								if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
 								shellStatus = await confirmWebVpnLoginViaShell();
 								await call("manual_capture_desktop_status_update", { request: {
@@ -228,7 +244,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 								directAccess: directSpringerSi,
 								automate: true
 							});
-							toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在软件侧栏中自动处理`);
+							toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在通过${iwanStatus?.usable ? " iWAN 直访" : "软件侧栏"}自动处理`);
 						}
 					} catch (error) {
 						// 只有已经成功领取令牌、但桌面壳启动失败时才取消任务；并发领取失败

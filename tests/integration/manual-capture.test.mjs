@@ -522,10 +522,12 @@ test("capture: AI 下载请求的令牌只允许桌面界面领取一次", async
 		assert.equal(task.requestedBy, "agent");
 		assert.equal(Object.hasOwn(task, "token"), false, "持久化任务不得包含明文令牌");
 		const desktop = await invoke(ctx, "manual_capture_desktop_status_update", { request: {
-			state: "ready", authenticated: true, windowOpen: true, sidebarVisible: false
+			state: "ready", authenticated: true, windowOpen: true, sidebarVisible: false,
+			iwanInstalled: true, iwanConnected: true, iwanUsable: true, iwanGlobalRoute: true
 		} });
 		assert.equal(desktop.status.state, "ready");
 		assert.equal(ctx.labCapture.getDesktopWebVpnStatus().ready, true);
+		assert.equal(ctx.labCapture.getDesktopWebVpnStatus().iwanReady, true);
 		assert.equal(ctx.labCapture.getDesktopWebVpnStatus(Date.parse(desktop.status.observedAt) + 10_001).stale, true);
 		ctx.labCapture.requestDesktopWebVpnLogin("capture-project");
 		const action = await invoke(ctx, "manual_capture_desktop_action_claim", { request: { projectId: "capture-project" } });
