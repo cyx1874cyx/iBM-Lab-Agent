@@ -160,7 +160,8 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /"wiley"\]\.includes\(publisher\)/);
 	assert.match(projectPanel, /已适配出版社固定在软件内/);
 	assert.match(projectPanel, /tasks_report_delete/);
-	assert.match(shell, /关闭侧栏 ×/);
+	assert.doesNotMatch(shell, /id="webvpn-toggle"/);
+	assert.doesNotMatch(shell, /关闭侧栏 ×/);
 	assert.match(shell, /directAccess:\s*data\.payload\?\.directAccess === true/);
 	assert.match(main, /direct_access:\s*bool/);
 	assert.match(webvpn, /is_direct_springer_family_si/);
@@ -169,6 +170,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(shell, /IWAN_STATUS/);
 	assert.match(main, /fn iwan_status/);
 	assert.match(main, /let use_iwan = iwan\.usable/);
+	assert.match(main, /!use_iwan && direct_access/, "iWAN 下不得启用 Springer SI 的后端拦截直取");
 	assert.match(main, /use_iwan \|\| direct_springer_si/);
 	assert.match(literaturePanel, /iWAN 全局模式可用/);
 	assert.match(literaturePanel, /iwanUsable/);

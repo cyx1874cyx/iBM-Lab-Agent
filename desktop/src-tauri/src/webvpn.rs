@@ -546,6 +546,10 @@ struct PendingCapture {
     publisher: PublisherAdapter,
     /// Agent 任务自动点击；面板任务只布防捕获并交给用户手动操作。
     automate: bool,
+    /// 仅在未启用 iWAN 时，对公开的 Nature/Springer SI 预览链接使用后端直取。
+    /// iWAN 全部路由模式必须让 WebView2 自己直连并触发下载，避免 reqwest 与
+    /// 系统代理/认证路径不一致造成“页面能开、附件直取失败”。
+    intercept_direct_si: bool,
     upload_url: url::Url,
     temp_path: PathBuf,
     expires_at: Instant,
@@ -701,6 +705,7 @@ impl WebVpnState {
         target_host: &str,
         publisher: PublisherAdapter,
         automate: bool,
+        intercept_direct_si: bool,
         upload_url: url::Url,
         temp_path: PathBuf,
     ) -> Result<u64, String> {
@@ -735,6 +740,7 @@ impl WebVpnState {
             kind: kind.to_string(),
             publisher,
             automate,
+            intercept_direct_si,
             upload_url,
             temp_path,
             expires_at: Instant::now() + CAPTURE_TTL,
@@ -770,6 +776,7 @@ impl WebVpnState {
             return false;
         };
         pending.automate
+            && pending.intercept_direct_si
             && pending.publisher.direct_si(&pending.kind)
             && !pending.download_claimed
             && is_springer_family_si_url(target)
@@ -1995,6 +2002,37 @@ mod tests {
     }
 
     #[test]
+    fn iwan_style_capture_does_not_intercept_direct_si_navigation() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let upload = url::Url::parse(
+            "http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE",
+        )
+        .unwrap();
+        let target = url::Url::parse(
+            "https://static-content.springer.com/esm/art%3A10.1038/file/MediaObjects/test.pdf",
+        )
+        .unwrap();
+        state
+            .prepare_capture(
+                "capture-iwan-si",
+                "si",
+                "doi.org",
+                PublisherAdapter::Nature,
+                true,
+                false,
+                upload,
+                std::env::temp_dir().join("capture-iwan-si.pdf"),
+            )
+            .unwrap();
+        assert!(
+            !state.should_capture_direct_si_preview(&target),
+            "iWAN 模式应让 WebView2 原生直连 SI，不得交给 reqwest 拦截器"
+        );
+    }
+
+    #[test]
     fn empty_policy_allows_nothing_when_enforced() {
         let policy = policy(&[]);
         assert!(!policy.allows("doi.org"));
@@ -2454,6 +2492,7 @@ mod tests {
                 "www.nature.com",
                 PublisherAdapter::Nature,
                 true,
+                false,
                 upload.clone(),
                 first.clone(),
             )
@@ -2472,6 +2511,7 @@ mod tests {
                 "si",
                 "pubs.acs.org",
                 PublisherAdapter::Acs,
+                false,
                 false,
                 upload,
                 second.clone(),
@@ -2543,6 +2583,7 @@ mod tests {
                 "www.nature.com",
                 PublisherAdapter::Nature,
                 true,
+                false,
                 url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
                 path.clone(),
             )

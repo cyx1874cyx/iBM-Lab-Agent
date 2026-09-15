@@ -318,8 +318,10 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /function FlaskSvg/);
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
-	assert.match(source, /\.ib-rail-flask\{position:absolute;z-index:2/);
-	assert.match(source, /\.ib-rail-flask\{[^}]*background:var\(--ib-panel\);[^}]*pointer-events:none/);
+	assert.match(source, /\.ib-rail-flask\{position:absolute!important;z-index:3/);
+	assert.match(source, /\.ib-rail-flask\{[^}]*background:#023373;[^}]*pointer-events:none/);
+	assert.match(source, /class\*='_titleGroup'/, "应兼容 DSH 0.1.5 新版首页标题结构");
+	assert.match(source, /h\(FlaskSvg, \{ width: 15, height: 15 \}\)/, "科研 Agent 按钮应使用可见烧瓶图标");
 	assert.doesNotMatch(source, /bindEntry\(railEntry\)/);
 	assert.match(source, /课题界面统一主题/);
 	assert.match(source, /import \{ themeCss \} from "\.\/theme\.js"/);

@@ -499,7 +499,10 @@ async fn webvpn_open_capture(
                 .to_string(),
         );
     }
-    let direct_springer_si = direct_access && webvpn::is_direct_springer_family_si(&kind, &target);
+    // iWAN 全部路由模式下所有出版社页面与附件都由 WebView2 原生直连。
+    // Springer 系 SI 的 reqwest 直取只作为“无 iWAN、绕过 WebVPN 502”的后备。
+    let direct_springer_si =
+        !use_iwan && direct_access && webvpn::is_direct_springer_family_si(&kind, &target);
     let mut policy = if use_iwan {
         webvpn::WebVpnPolicy::record_only()
     } else {
@@ -554,6 +557,7 @@ async fn webvpn_open_capture(
         target.host_str().unwrap_or_default(),
         publisher,
         automate,
+        direct_springer_si,
         upload_url,
         temp_path,
     )?;

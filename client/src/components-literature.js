@@ -215,11 +215,23 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 								toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
 							}
 						} catch { /* 桌面壳暂不可达；SI 队列仍可继续尝试领取 */ }
+						// 单个软件内浏览器只处理一个捕获。上一个任务仍在导航、下载或归档时
+						// 不领取下一枚一次性令牌，避免新任务被 busy 错误取消并留在僵尸队列。
+						const shellBusy = Boolean(shellStatus?.pendingTaskId)
+							|| ["navigating", "waiting-download", "downloading", "uploading"].includes(shellStatus?.state);
+						if (shellBusy) return;
 						const listed = await call("manual_capture_list", { request: { projectId } });
-						const task = listed?.tasks?.find((item) => item.requestedBy === "agent" && item.status === "armed");
+						const queued = (listed?.tasks || [])
+							.filter((item) => item.requestedBy === "agent" && item.status === "armed")
+							.sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+						const routeNeedsVpn = (item) => item.kind === "pdf"
+							|| !(item.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(item.publisherUrl || ""));
+						// WebVPN 未就绪时允许公开 SI 先行；其余场景保持严格 FIFO。
+						const task = queued.find((item) => iwanStatus?.usable || !routeNeedsVpn(item) || (shellStatus?.windowOpen && shellStatus?.authenticated))
+							|| queued[0];
 						if (task && !disposed) {
 							const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
-							const taskNeedsVpn = task.kind === "pdf" || !directSpringerSi;
+							const taskNeedsVpn = routeNeedsVpn(task);
 							// 需要 WebVPN 的任务在领取一次性令牌前再次核验真实桌面状态。
 							if (taskNeedsVpn && !iwanStatus?.usable && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
 								if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;

@@ -178,6 +178,10 @@ test("Nature browser download status exposes progress without raw storage access
 		labCapture: {
 			sweepExpired: async () => {},
 			getTask: () => ({ id: "capture-agent123", projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", status: "armed", updatedAt: "2026-09-13T00:00:00.000Z" }),
+			listTasks: () => [
+				{ id: "capture-older", projectId: "proj-test", requestedBy: "agent", status: "armed", createdAt: "2026-09-12T00:00:00.000Z" },
+				{ id: "capture-agent123", projectId: "proj-test", requestedBy: "agent", status: "armed", createdAt: "2026-09-13T00:00:00.000Z" }
+			],
 			getDesktopWebVpnStatus: () => ({ state: "downloading", stale: false, pendingTaskId: "capture-agent123", downloadedBytes: 4096 })
 		}
 	});
@@ -187,6 +191,7 @@ test("Nature browser download status exposes progress without raw storage access
 	assert.equal(output.ok, true);
 	assert.equal(output.phase, "downloading");
 	assert.equal(output.downloadedBytes, 4096);
+	assert.equal(output.queuePosition, 2);
 	assert.match(output.message, /正在下载/);
 	assert.equal(Object.hasOwn(output, "tokenSha256"), false);
 });

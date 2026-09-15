@@ -34,8 +34,13 @@ export function applyBranding(onOpen) {
 	const inject = () => {
 		hideNative();
 		let touched = false;
-		const heroHeadline = document.querySelector("[class*='_headlineText']");
-		if (heroHeadline && heroHeadline.textContent !== "专注源头创新") {
+		// DSH 0.1.5 把 headlineText 改成 headline + titleGroup。优先按结构取标题，
+		// 再以原文兜底，避免后续 CSS module 哈希或类名微调让品牌覆盖失效。
+		const titleGroup = document.querySelector("[class*='_titleGroup']");
+		const heroHeadline = titleGroup?.firstElementChild
+			|| document.querySelector("[class*='_headlineText']")
+			|| [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
+		if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
 			heroHeadline.textContent = "专注源头创新";
 			touched = true;
 		}
@@ -45,7 +50,8 @@ export function applyBranding(onOpen) {
 				touched = true;
 			}
 		});
-		const heroMarkHost = heroHeadline?.parentElement?.querySelector("[class*='_fishHitbox']");
+		const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']")
+			|| heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
 		if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
 			const avatar = document.createElement("img");
 			avatar.src = BRAND_ICON;
