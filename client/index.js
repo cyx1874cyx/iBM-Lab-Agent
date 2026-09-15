@@ -1089,7 +1089,7 @@ function MetaEditor({ call, initial, onCancel, onSaved }) {
     h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
   );
 }
-function FlaskSvg2({ width = 18, height = 18 }) {
+function FlaskSvg({ width = 18, height = 18 }) {
   return h(
     "svg",
     { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
@@ -1380,7 +1380,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toast }) {
   return h(
     "button",
     { className: "ib-research-badge", title: "打开课题空间", "aria-label": `打开课题空间：${bound.project.name}`, onClick: () => openWorkspace(bound.project) },
-    h("span", { className: "ib-badge-icon" }, h(FlaskSvg2, { width: 14, height: 14 })),
+    h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
     h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
     h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
   );

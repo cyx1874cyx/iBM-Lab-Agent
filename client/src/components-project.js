@@ -8,7 +8,7 @@ import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
-import { BookSvg, SiSvg } from "./components-templates.js";
+import { BookSvg, FlaskSvg, SiSvg } from "./components-templates.js";
 
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
