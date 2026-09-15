@@ -340,13 +340,13 @@ export function MetaEditor({ call, initial, onCancel, onSaved }) {
 			);
 		}
 
-		/** 实验室烧瓶 SVG（配色与课题面板一致：#023373 主题主体 + 浅蓝气泡）。 */
+		/** 实验室烧瓶 SVG：跟随所在按钮的文字颜色，兼容 DSH 黑白主题。 */
 export function FlaskSvg({ width = 18, height = 18 }) {
 			return h("svg", { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
-				h("path", { d: "M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3", stroke: "#fff", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }),
-				h("path", { d: "M7 16h10l-2.4-3.4h-5.2L7 16Z", fill: "#eafff6", opacity: 0.9 }),
-				h("circle", { cx: 12, cy: 13.2, r: 0.55, fill: "#73dce6" }),
-				h("circle", { cx: 13.6, cy: 15, r: 0.4, fill: "#73dce6" })
+				h("path", { d: "M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }),
+				h("path", { d: "M7 16h10l-2.4-3.4h-5.2L7 16Z", fill: "currentColor", opacity: 0.24 }),
+				h("circle", { cx: 12, cy: 13.2, r: 0.55, fill: "currentColor" }),
+				h("circle", { cx: 13.6, cy: 15, r: 0.4, fill: "currentColor" })
 			);
 		}
 
