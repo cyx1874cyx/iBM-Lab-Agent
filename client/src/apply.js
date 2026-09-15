@@ -4,7 +4,7 @@ import { h } from "./h.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel } from "./components-project.js";
-import { ProjectBadge, ResearchFileUpload } from "./components-literature.js";
+import { ProjectBadge } from "./components-literature.js";
 
 export function applyUi(ctx) {
  const syncDesktopTheme=()=>{if(typeof requestAnimationFrame!=="function")return;return requestAnimationFrame(()=>{
@@ -152,7 +152,6 @@ export function applyUi(ctx) {
 	const openWorkspace = (project) => open(project);
 	const disposeBranding = applyBranding(() => open());
 	ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast })), "dsh-lab-agent: project badge");
-	ctx.slots.inject("conversation.input.left", () => ctx.slots.register({ name: "conversation.input.left", id: "lab-project-file-upload", order: 40 }, (props) => h(ResearchFileUpload, { ...props, call, toast })), "dsh-lab-agent: research file upload");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }
 

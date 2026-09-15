@@ -242,21 +242,8 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /conversation\.session\.header\.utilities/);
 	assert.doesNotMatch(source, /conversation\.input\.dock/);
 	assert.match(source, /课题背景/);
-	// 科研文件上传：输入区新增普通文件按钮，并在捕获阶段接管非图片拖拽；
-	// 原生四种图片 MIME 不被拦截，上传后把课题内路径追加到当前草稿。
-	assert.match(source, /conversation\.input\.left/);
-	assert.match(source, /lab-project-file-upload/);
-	assert.match(source, /project_file_upload/);
-	assert.match(source, /document\.addEventListener\("drop", onDrop, true\)/);
-	assert.match(source, /image\/png/);
-	assert.match(source, /image\/jpeg/);
-	assert.match(source, /image\/webp/);
-	assert.match(source, /image\/gif/);
-	assert.match(source, /inputActions\.setDraft/);
-	assert.match(source, /单个不超过 25 MB/);
-	assert.match(source, /Array\.from\(event\.currentTarget\.files/);
-	assert.match(source, /正在读取并上传/);
-	assert.match(source, /当前会话尚未关联课题/);
+	// 新版 DSH 自带文件上传入口，插件不再向输入区注入重复按钮或接管拖拽。
+	assert.doesNotMatch(source, /lab-project-file-upload/);
 	// 深度科研对话皮肤仍只在绑定课题的会话启用
 	assert.match(source, /ib-research-chat/);
 	assert.doesNotMatch(source, /ib-context-flow/);
@@ -319,9 +306,11 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
 	assert.match(source, /\.ib-rail-flask\{position:absolute!important;z-index:3/);
-	assert.match(source, /\.ib-rail-flask\{[^}]*background:#023373;[^}]*pointer-events:none/);
+	assert.match(source, /\.ib-rail-flask\{[^}]*background:#51d4a3;[^}]*pointer-events:none/);
 	assert.match(source, /class\*='_titleGroup'/, "应兼容 DSH 0.1.5 新版首页标题结构");
 	assert.match(source, /h\(FlaskSvg, \{ width: 15, height: 15 \}\)/, "科研 Agent 按钮应使用可见烧瓶图标");
+	assert.match(source, /\.ib-agent\{[^}]*background:var\(--ib-bg\)!important;[^}]*color:var\(--ib-text\)!important/,
+		"科研 Agent 按钮应跟随 DSH 黑白主题底色");
 	assert.doesNotMatch(source, /bindEntry\(railEntry\)/);
 	assert.match(source, /课题界面统一主题/);
 	assert.match(source, /import \{ themeCss \} from "\.\/theme\.js"/);
