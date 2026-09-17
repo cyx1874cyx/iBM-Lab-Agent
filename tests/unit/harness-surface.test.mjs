@@ -193,6 +193,7 @@ test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async (
 	assert.match(source, /lab_synth_route_create/);
 	assert.match(source, /lab_synth_route_step/);
 	assert.match(source, /lab_synth_experiment_plan_create/);
+	assert.match(source, /lab_synth_structure_candidate_add/);
 	assert.match(source, /lab_synth_evidence_add/);
 	assert.match(source, /lab_synth_route_status/);
 	assert.match(source, /supportsField/);
@@ -202,6 +203,8 @@ test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async (
 	assert.match(preset, /inject: \[tools, labTasks, labSynthesis, labChemistry, labExperimentPlanTemplates\]/);
 	assert.match(preset, /合成路线结构补全（强制主动执行）/);
 	assert.match(preset, /dual-confirmed/);
+	assert.match(preset, /visual-extraction/);
+	assert.match(preset, /literature-inference/);
 });
 
 test("reading reports inventory PDF and SI before using note templates", async () => {

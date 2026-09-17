@@ -42,7 +42,7 @@ test("desktop shell 调用的每个命令都已在 Rust 端注册", async () => 
 	assert.deepEqual(missing, [], `以下命令被 shell 调用但未注册进 generate_handler!: ${missing.join(", ")}`);
 });
 
-test("阶段 0 探测无法从 release 构建抵达", async () => {
+test("开发探测后端无法从 release 构建抵达，且诊断页不再暴露探测界面", async () => {
 	const [shell, main, webvpn] = await Promise.all([shellSource(), mainSource(), webvpnSource()]);
 	// 探测模式判定的唯一来源必须是构建类型，不得由配置或运行时开关决定。
 	assert.match(webvpn, /pub fn probe_available\(\) -> bool \{\s*cfg!\(debug_assertions\)\s*\}/);
@@ -54,9 +54,9 @@ test("阶段 0 探测无法从 release 构建抵达", async () => {
 		/if !webvpn::WebVpnState::probe_available\(\)\s*\{\s*return Err\(/,
 		"打开探测窗口前必须校验 probe_available() 并拒绝",
 	);
-	// 面板默认隐藏，只在探测可用时才展开。
-	assert.match(shell, /id="webvpn-probe"\s+style="display:none"/);
-	assert.match(shell, /invoke\('webvpn_probe_available'\)[\s\S]{0,220}?\$\('webvpn-probe'\)\.style\.display = ''/);
+	// 已完成开发探测后，正式诊断页不再暴露实验面板或其命令入口。
+	assert.doesNotMatch(shell, /id="webvpn-probe"|WebVPN 探测（仅开发构建）/);
+	assert.doesNotMatch(shell, /invoke\('webvpn_probe_available'\)|invoke\('webvpn_probe_open'/);
 });
 
 test("WebVPN 日志只写脱敏后的 URL", async () => {
@@ -85,15 +85,15 @@ test("WebVPN 使用同窗子 WebView，登录 profile 隔离且可隐藏复用",
 	assert.match(webvpn, /pub fn hide_sidebar\([\s\S]*?webview\.hide\(\)[\s\S]*?main\.set_bounds\(/, "收起后保留 WebView 并恢复主界面全宽");
 });
 
-test("导航白名单的逃生阀存在：被拒域名可诊断且可放行", async () => {
+test("导航白名单仍保留后端放行能力，但不再占用诊断页", async () => {
 	const [shell, webvpn, main] = await Promise.all([shellSource(), webvpnSource(), mainSource()]);
 	// 被拦域名必须被记住，否则用户只会看到静默空白页，无从自救。
 	assert.match(webvpn, /denied_hosts/);
 	assert.match(webvpn, /pub fn allow_host\(/);
 	// 放行要写回配置，否则重启后又被拦一次。
 	assert.match(main, /webvpn_allow_host[\s\S]*?save_webvpn_config\(/);
-	// UI 必须真的把「待放行」渲染成可点击入口。
-	assert.match(shell, /deniedHosts[\s\S]{0,900}?invoke\('webvpn_allow_host'/);
+	// 开发探测 UI 已移除，正式用户流程由文献页的 WebVPN 状态入口负责。
+	assert.doesNotMatch(shell, /deniedHosts|invoke\('webvpn_allow_host'/);
 });
 
 test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {

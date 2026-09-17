@@ -222,6 +222,38 @@ test("lab_synth_evidence_add 成功路径返回干净 evidence", async () => {
 	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
 });
 
+test("lab_synth_structure_candidate_add forwards provenance and returns clean JSON", async () => {
+	const { ctx, registered } = registerTools();
+	let received;
+	ctx.labSynthesis = {
+		addStructureCandidate: async (args) => {
+			received = args;
+			return {
+				route: makeDirtyRoute(),
+				evidence: dirtyParse(synthesisEvidenceSchema, {
+					id: "ev-structure-1", routeId: "route-dirty1", stepId: "s1",
+					supportsField: "structure.product.new-product", sourceType: "paper-main", sourceTier: 2,
+					sourceName: "Scheme 2", bundleId: "bundle-1", page: "5", excerpt: "visual basis",
+					extractionMethod: "vlm", relation: "supports", confidence: "medium", reviewStatus: "pending",
+					originalExtract: "CCO", structureCandidate: { name: "new-product", smiles: "CCO", role: "product", method: "visual-extraction" },
+					createdAt: now, updatedAt: now
+				})
+			};
+		}
+	};
+	const tool = findTool(registered, "lab_synth_structure_candidate_add");
+	const out = await tool.execute({
+		routeId: "route-dirty1", stepId: "s1", name: "new-product", smiles: "CCO",
+		method: "visual-extraction", sourceName: "Scheme 2", bundleId: "bundle-1", page: "5", basis: "visual basis"
+	}, {});
+	assert.equal(out.ok, true);
+	assert.equal(received.method, "visual-extraction");
+	assert.equal(received.excerpt, "visual basis");
+	assert.equal(out.evidence.structureCandidate.smiles, "CCO");
+	assert.equal(hasUndefinedValue(out), false);
+	assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
+});
+
 test("lab_synth_route_status 成功路径返回干净对象", async () => {
 	const { ctx, registered } = registerTools();
 	ctx.labSynthesis = {

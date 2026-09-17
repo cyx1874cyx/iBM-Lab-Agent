@@ -57,6 +57,7 @@ var themeCss = `
 .ib-memory-drawer{position:fixed;right:20px;top:90px;bottom:24px;width:min(600px,calc(100vw - 40px));z-index:1100;overflow:auto;background:var(--ib-panel);border:1px solid var(--ib-line);border-radius:14px;padding:16px;box-sizing:border-box;box-shadow:0 16px 50px #0003;animation:ib-panel-enter 160ms ease}
 .ib-memory-drawer textarea{box-sizing:border-box;width:100%;min-height:42vh;border:1px solid var(--ib-line);border-radius:10px;padding:14px}.ib-memory-close{float:right;margin-bottom:12px}
 .ib-characterization{display:grid;gap:16px}.ib-characterization h3{margin:0;font-size:16px}.ib-characterization-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--ib-line);flex-wrap:wrap}.ib-characterization-title{display:grid;gap:5px;flex:1;min-width:160px}.ib-characterization-title b{font-size:14px}.ib-characterization-title time{font-size:12px}.ib-nmr-structure{width:130px}.ib-nmr-structure .sw-struct-card{min-width:0;max-width:130px;border:0;padding:0}.ib-nmr-structure .sw-struct-card img{height:80px}.ib-nmr-structure .sw-struct-name{display:none}.ib-entry-details{font-size:12px}.ib-entry-edit{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0}.ib-task-form{animation:ib-panel-enter 160ms ease}.ib-task-form textarea{width:100%;min-height:90px;box-sizing:border-box}.ib-task-form label{margin:10px 0}
+.ib-nmr-confidence{width:max-content;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#eef2f7;color:#556070}.ib-nmr-confidence[data-level="high"]{background:#dff5e8;color:#167044}.ib-nmr-confidence[data-level="medium"]{background:#fff0c9;color:#8a5a00}.ib-nmr-confidence[data-level="low"]{background:#ffe1df;color:#a22b24}.ib-nmr-confidence[data-level="pending"]{background:#eef2f7;color:#687386}
 .ib-overlay .ib-tab{background:var(--ib-bg);padding:14px 16px}.ib-overlay .ib-tab strong{font-size:14px}.ib-overlay .ib-tab span{font-size:12px;color:var(--ib-muted)}
 .ib-overlay .ib-tab[data-active=true],.ib-overlay .ib-tm-tab[data-active=true]{background:var(--dsw-alias-button-ghost-active-fill,var(--ib-panel2));border-color:var(--dsw-alias-button-ghost-active-border,var(--ib-green));box-shadow:inset 0 -2px var(--ib-green)}
 .ib-overlay .ib-project-copy p,.ib-overlay .ib-board-head p{font-size:12px;color:var(--ib-muted)}.ib-overlay .ib-board-head h2{font-size:16px}.ib-overlay .ib-btn{background:var(--ib-bg);box-shadow:none}
@@ -121,7 +122,11 @@ function injectStyles() {
   css += ".sw-plan{display:grid;gap:14px}.sw-graph{min-height:180px}.sw-step{min-width:300px;width:min(540px,86vw);max-width:none}.sw-struct-card{min-width:150px;max-width:210px}.sw-struct-card img{height:120px}.sw-struct-card .sw-struct-fallback{height:120px}.sw-cond-smiles{display:none}.sw04-more{position:absolute;right:0;top:calc(100% + 6px);z-index:40;display:grid;gap:6px;min-width:170px;padding:9px;border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);box-shadow:0 14px 40px var(--ib-line)}.sw04-more .sw-mini-btn{width:100%;text-align:left;justify-content:flex-start}.sw04-difficulty{margin:10px 0 0;color:var(--ib-text);font-size:12px;line-height:1.7}.sw04-difficulty b{color:var(--ib-text);margin-right:6px}.sw04-reaction{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,.62fr) minmax(0,1fr);gap:18px;align-items:center;margin-top:14px}.sw04-reaction-side{display:grid;gap:8px;min-width:0}.sw04-reaction-side>small{color:var(--ib-text);font-size:10px;letter-spacing:.08em}.sw04-arrow{display:grid;justify-items:center;gap:9px;text-align:center;color:var(--ib-text)}.sw04-arrow>strong{font-size:46px;font-weight:400;line-height:1;color:var(--ib-text)}.sw04-arrow>span{font-size:10px;line-height:1.6;color:var(--ib-text)}.sw04-arrow>em{font-size:9px;font-style:normal;line-height:1.5;color:var(--ib-text)}.sw-ev{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.85fr);column-gap:12px}.sw-ev-top,.sw-ev-quote{grid-column:1}.sw-ev-shot{grid-column:2;grid-row:1 / span 2;margin-top:0}.sw-ev-shot img{max-height:210px;object-fit:contain}.sw04-form{display:grid;gap:9px;margin-top:12px;padding:12px 13px;border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel)}.sw04-form input,.sw04-form textarea{width:100%;box-sizing:border-box;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:9px;padding:8px 10px;font:10.5px/1.6 ui-monospace,Consolas,monospace;outline:none}.sw04-form input:focus,.sw04-form textarea:focus{border-color:var(--ib-line)}.sw04-form .sw04-form-acts{display:flex;gap:8px;justify-content:flex-end}@media(max-width:780px){.sw04-reaction,.sw-ev{grid-template-columns:1fr}.sw04-arrow{padding:4px 0}.sw04-arrow>strong{transform:rotate(90deg)}.sw-ev-shot{grid-column:1;grid-row:auto;margin-top:8px}}.sw-struct-compact{min-width:120px;max-width:170px;padding:5px;gap:3px;cursor:pointer}.sw-struct-compact img{height:120px}.sw-struct-compact .sw-struct-fallback{height:120px}.sw-struct-compact .sw-struct-acts{display:none}.sw04-cond-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;text-align:left;max-width:340px}.sw04-cond{display:block;font-size:9.5px;line-height:1.5;color:var(--ib-text);word-break:break-word}.sw04-cond i{display:block;color:var(--ib-text);font-size:8px;font-style:normal;letter-spacing:.06em;text-transform:uppercase}.sw-step-chem{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;background:var(--ib-panel);border:1px solid var(--ib-line);border-radius:10px;padding:6px 7px}.sw-step-chem-reactants,.sw-step-chem-products{display:grid;min-width:0}.sw-step-chem-flow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}.sw-step-chem-mid{display:grid;justify-items:center;gap:3px;min-width:0}.sw-step-chem-node{display:grid;gap:1px;min-width:0}.sw-step-chem-node .sw-struct-card{padding:4px;min-width:96px;max-width:120px;background:var(--ib-panel)}.sw-step-chem-node .sw-struct-card img{height:96px;background:var(--ib-panel);padding:1px}.sw-step-chem-node .sw-struct-fallback{height:96px}.sw-step-chem-node .sw-struct-name{font-size:7.5px;color:var(--ib-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}.sw-step-chem-node .sw-struct-name b{color:var(--ib-text)}.sw-step-chem-arrow{flex:none;color:var(--ib-text);font-size:20px;line-height:1}.sw-step-chem-cond{flex:none;max-width:120px;font-size:8px;color:var(--ib-text);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.sw-step-chem-empty{color:var(--ib-text);font-size:8px;padding:6px 4px;font-style:italic}.sw04-fact-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:12px;align-items:start;margin-top:12px}.sw04-fact-list{display:grid;gap:8px;min-width:0}.sw04-fact-item{border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);padding:10px 12px;cursor:pointer;text-align:left;color:inherit;transition:.15s}.sw04-fact-item:hover{border-color:var(--ib-line)}.sw04-fact-item[data-active=true]{border-color:var(--ib-line);background:var(--ib-panel);box-shadow:0 0 0 1px var(--ib-line) inset}.sw04-fact-item[data-undecided=true]{border-color:var(--ib-line)}.sw04-fact-shot{min-height:120px;border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);padding:10px;position:sticky;top:8px}.sw04-fact-shot .sw-ev-shot img{max-height:300px;width:100%;object-fit:contain}.sw04-review-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.sw04-review-acts .sw-mini-btn{font-size:9px;padding:4px 9px}.sw04-batchbar{margin-top:12px;border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);padding:10px 13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sw04-batchbar b{font-size:11px}.sw04-batchbar small{color:var(--ib-text);font-size:9px;line-height:1.5}.sw04-correction{display:grid;gap:7px;margin-top:8px}.sw04-correction textarea{width:100%;box-sizing:border-box;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:8px;padding:7px 9px;font:10px/1.55 ui-monospace,Consolas,monospace;outline:none;min-height:52px;resize:vertical}@media(max-width:900px){.sw04-fact-layout{grid-template-columns:1fr}.sw04-fact-shot{position:static}}.sw04-fact-compact{display:grid;gap:7px;max-height:300px;overflow-y:auto;padding-right:2px}.sw04-fact-row{display:flex;align-items:center;gap:10px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);padding:8px 11px;transition:.15s}.sw04-fact-row:hover{border-color:var(--ib-line)}.sw04-fact-row-main{flex:1;min-width:0;display:grid;gap:2px}.sw04-fact-row-title{font-size:10.5px;font-weight:650;color:var(--ib-text);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-meta{font-size:8.5px;color:var(--ib-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-claim{font-size:10px;color:var(--ib-text);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sw04-fact-row-status{flex:none}.sw04-fact-review-btn{flex:none;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-fact-review-btn:hover{border-color:var(--ib-line);background:var(--ib-panel)}.sw04-fact-review-btn[data-done=true]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.sw04-review-backdrop{position:fixed;inset:0;z-index:3000;background:var(--ib-panel);backdrop-filter:blur(2px)}.sw04-review-drawer{position:fixed;z-index:3001;top:0;right:0;bottom:0;width:50vw;max-width:900px;min-width:640px;display:flex;flex-direction:column;background:var(--ib-panel);color:var(--ib-text);border-left:1px solid var(--ib-line);box-shadow:-28px 0 70px var(--ib-line)}.sw04-review-head{flex:none;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--ib-panel);border-bottom:1px solid var(--ib-line)}.sw04-review-head-main{flex:1;min-width:0}.sw04-review-head-title{display:block;font-size:13px;font-weight:700;color:var(--ib-text);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sw04-review-head-sub{display:block;margin-top:3px;font-size:9.5px;color:var(--ib-text);line-height:1.5}.sw04-review-close{flex:none;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:8px;padding:5px 11px;font-size:10px;cursor:pointer}.sw04-review-close:hover{border-color:var(--ib-line);color:var(--ib-text)}.sw04-review-body{flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}.sw04-review-field{font-size:10.5px;color:var(--ib-text);line-height:1.6}.sw04-review-field b{color:var(--ib-text);font-weight:700}.sw04-review-shot{border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);padding:10px;min-height:120px}.sw04-review-shot .sw-ev-shot{margin:0}.sw04-review-shot .sw-ev-shot img{max-height:420px;width:100%;object-fit:contain}.sw04-review-hint{margin-top:6px;border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);padding:7px 10px;font-size:9.5px;color:var(--ib-text);line-height:1.5}.sw04-review-foot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px;background:var(--ib-panel);border-top:1px solid var(--ib-line);flex-wrap:wrap}.sw04-review-foot .sw-mini-btn{font-size:10px;padding:6px 12px}.sw04-review-note{flex:1;min-width:140px;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:8px;padding:7px 10px;font:10.5px/1.5 ui-monospace,Consolas,monospace;outline:none}.sw04-review-note:focus{border-color:var(--ib-line)}.sw04-review-quote{margin-top:8px;padding:8px 10px;border-left:2px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);font-size:10px;line-height:1.6;border-radius:0 8px 8px 0}.sw04-review-quote b{color:var(--ib-text)}.sw04-review-next{align-self:stretch;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:8px;padding:6px 12px;font-size:10px;cursor:pointer;white-space:nowrap}.sw04-review-next:disabled{opacity:.4;cursor:not-allowed}@media(max-width:1100px){.sw04-review-drawer{width:65vw;min-width:0}}@media(max-width:850px){.sw04-review-drawer{width:100vw;max-width:none;min-width:0}}";
   css += ".sw-plan{gap:10px}.sw-sec{padding:12px 13px}.sw-head h3{font-size:16px}.sw-head p{font-size:11px}.sw-chip{font-size:10.5px}.sw-graph{align-items:flex-start;gap:10px;padding:4px 0}.sw-step{align-self:flex-start;min-width:420px;width:min(660px,90vw);min-height:0;padding:10px}.sw-step-id{font-size:11px}.sw-step .sw-step-reaction{font-size:14px}.sw-step-chem{gap:10px;padding:8px}.sw-step-chem-flow{gap:7px}.sw-step-chem-node .sw-struct-card{min-width:150px;max-width:180px;padding:6px}.sw-step-chem-node .sw-struct-card img,.sw-step-chem-node .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-name{max-width:180px;font-size:10px;line-height:1.45}.sw-step-chem-arrow{font-size:25px}.sw-step-chem-cond{max-width:150px;font-size:10px;line-height:1.45}.sw-step-chem-empty{font-size:10px}.sw04-detail .sw-struct-card{min-width:190px;max-width:260px;padding:8px}.sw04-detail .sw-struct-card img,.sw04-detail .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-name{font-size:11px}.sw04-reaction{gap:14px;align-items:start;margin-top:10px}.sw04-reaction-side>small{font-size:11px}.sw04-cond{font-size:11px}.sw04-cond i{font-size:9px}.sw04-arrow>span{font-size:11px}.sw04-arrow>em{font-size:10px}.sw04-review-drawer{width:96vw;max-width:none;min-width:0}.sw04-review-head-title{font-size:15px}.sw04-review-head-sub,.sw04-review-field,.sw04-review-quote{font-size:11px}.sw04-review-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px;overflow:hidden;padding:12px 14px}.sw04-review-copy,.sw04-review-source{min-width:0;max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:3px}.sw04-review-source{height:100%}.sw04-review-source>.sw04-review-shot{min-height:100%;box-sizing:border-box}.sw04-review-source .sw-ev-shot img{width:100%;max-height:none;height:auto;object-fit:contain}.sw04-review-hint{font-size:10.5px}@media(max-width:1100px){.sw04-review-drawer{width:100vw}.sw04-review-body{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}@media(max-width:820px){.sw-step{min-width:340px}.sw04-review-body{grid-template-columns:1fr;overflow-y:auto}.sw04-review-copy,.sw04-review-source{max-height:none;overflow:visible}}";
   css += ".sw-struct-card img{object-fit:scale-down}.sw04-detail .sw-struct-card[data-preview-tier=simple]{width:200px;min-width:200px;max-width:200px}.sw04-detail .sw-struct-card[data-preview-tier=standard]{width:260px;min-width:260px;max-width:260px}.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:320px;min-width:320px;max-width:320px}.sw04-detail .sw-struct-card[data-preview-tier=simple] img,.sw04-detail .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:140px}.sw04-detail .sw-struct-card[data-preview-tier=standard] img,.sw04-detail .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:180px}.sw04-detail .sw-struct-card[data-preview-tier=complex] img,.sw04-detail .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:210px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple]{width:135px;min-width:135px;max-width:135px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard]{width:180px;min-width:180px;max-width:180px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex]{width:220px;min-width:220px;max-width:220px}.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=simple] .sw-struct-fallback{height:108px}.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=standard] .sw-struct-fallback{height:138px}.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] img,.sw-step-chem-node .sw-struct-card[data-preview-tier=complex] .sw-struct-fallback{height:160px}.sw-mini-btn[data-danger=true]{border-color:var(--ib-line);color:var(--ib-text);background:var(--ib-panel)}.sw-mini-btn[data-danger=true]:hover{border-color:var(--ib-line);background:var(--ib-panel)}@media(max-width:720px){.sw04-detail .sw-struct-card[data-preview-tier=complex]{width:min(320px,82vw);min-width:min(320px,82vw)}}";
+  css += ".sw-graph{display:block;overflow:visible;padding:8px 0 10px}.sw-step-carousel{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:10px;width:100%}.sw-step-page-btn{display:grid;place-items:center;width:42px;height:64px;padding:0;border:1px solid var(--ib-line);border-radius:12px;background:var(--ib-panel);color:var(--ib-text);font-size:30px;line-height:1;cursor:pointer;transition:.16s}.sw-step-page-btn:hover:not(:disabled){border-color:#51a987;background:rgba(81,212,163,.08);transform:translateY(-1px)}.sw-step-page-btn:disabled{opacity:.24;cursor:default}.sw-step-page-count{font-size:10px;font-weight:700;color:var(--ib-muted);font-variant-numeric:tabular-nums}.sw-route-scheme-shell{width:100%;overflow:hidden;border:1px solid var(--ib-line);border-radius:10px;background:#fff}.sw-route-scheme{display:block;width:100%;max-width:100%;height:auto;min-height:180px;margin:0 auto;background:#fff}.sw-route-scheme-shell[data-state=loading] .sw-route-scheme{opacity:.78}.sw-route-scheme-node[role=button]{cursor:pointer;outline:none}.sw-route-scheme-node[role=button]:hover .sw-route-scheme-hit,.sw-route-scheme-node[role=button]:focus .sw-route-scheme-hit{stroke:#51a987;stroke-width:2;fill:rgba(81,212,163,.06)}.sw-step-scheme{width:100%;max-width:none;min-width:0;box-sizing:border-box;cursor:default}.sw-step-scheme:hover{transform:none}@media(max-width:720px){.sw-step-carousel{grid-template-columns:32px minmax(0,1fr) 32px;gap:6px}.sw-step-page-btn{width:32px;height:54px;font-size:25px}.sw-route-scheme{min-height:0}.sw-step-scheme{width:100%;min-width:0}}";
   css += ".ib-lit-btn[data-ready=false]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-lit-btn[data-ready=false]:hover{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.sw04-review-body{display:flex;flex-direction:column;overflow-y:auto;gap:12px}.sw04-review-copy{display:flex;flex-direction:column;gap:10px;min-width:0;max-height:none;overflow:visible;padding:0}.sw04-review-quote{font-size:15px!important;line-height:1.8;padding:14px 16px;margin-top:2px}.sw04-review-field{font-size:12px}.sw04-review-shot{padding:12px}.sw04-plan-preview{width:min(920px,94vw);max-height:88vh;overflow-y:auto;display:grid;gap:14px;padding:18px;border:1px solid var(--ib-line);border-radius:16px;background:var(--ib-panel);color:var(--ib-text);box-shadow:0 28px 80px var(--ib-line)}.sw04-plan-preview-head{display:flex;align-items:flex-start;gap:12px}.sw04-plan-preview-head>div{display:grid;gap:3px;flex:1}.sw04-plan-preview-head b{font-size:16px;color:var(--ib-text)}.sw04-plan-preview-head small{color:var(--ib-text)}.sw04-plan-preview section{border:1px solid var(--ib-line);border-radius:10px;padding:11px 13px}.sw04-plan-preview h4{margin:0 0 7px;color:var(--ib-text)}.sw04-plan-preview p,.sw04-plan-preview li{font-size:11px;line-height:1.7;margin:0}.sw04-plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.sw04-plan-grid>div{display:grid;padding:8px;border-radius:8px;background:var(--ib-panel)}.sw04-plan-grid span{font-size:10px;color:var(--ib-text)}";
+  css += ".sw-struct-edit[data-layer=ketcher]{z-index:3200}.sw04-structure-candidate{display:grid;gap:10px;padding:12px;border:1px solid rgba(81,212,163,.42);border-radius:12px;background:rgba(81,212,163,.07)}.sw04-structure-candidate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.sw04-structure-candidate-head>div{display:grid;gap:3px}.sw04-structure-candidate-head b{font-size:12px;color:var(--ib-text)}.sw04-structure-candidate-head small{font-size:9.5px;color:var(--ib-muted);line-height:1.5}.sw04-structure-candidate>.sw-struct-card{width:min(280px,100%);max-width:280px}.sw04-structure-candidate>.sw-struct-card img,.sw04-structure-candidate>.sw-struct-card .sw-struct-fallback{height:190px}.sw04-review-feedback{padding:9px 12px;border:1px solid var(--ib-line);border-radius:9px;font-size:10.5px;font-weight:650;line-height:1.5}.sw04-review-feedback[data-state=saving]{border-color:#6da8df;background:rgba(80,148,211,.12);color:#baddff;animation:sw04-pulse 1.1s ease-in-out infinite}.sw04-review-feedback[data-state=saved]{border-color:#51d4a3;background:rgba(81,212,163,.13);color:#b7f4d8}.sw04-review-feedback[data-state=error]{border-color:#ef7282;background:rgba(239,114,130,.12);color:#ffd0d6}.sw04-review-foot .sw-mini-btn[data-selected=true]{border-color:#51d4a3;background:#17684e;color:#fff;box-shadow:0 0 0 2px rgba(81,212,163,.16)}@keyframes sw04-pulse{50%{opacity:.62}}@media(max-width:640px){.sw04-structure-candidate-head{align-items:flex-start;flex-direction:column}.sw04-structure-candidate-head .sw-mini-btn{width:100%}}";
+  css += "body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden],body.ib-research-chat [class*='_flowItem'][hidden]{margin-block:0!important;padding:0!important;border:0!important;min-height:0!important}body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden]+[class*='_flowItem']{margin-top:0!important}";
+  css += "body.ib-research-chat [class*='_markdown']{min-width:0!important;max-width:100%!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'],body.ib-research-chat [class*='_markdown'] [class*='_tableFill']{display:block!important;position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:100%!important;margin:14px 0!important;overflow-x:auto!important;overflow-y:hidden!important;padding-bottom:0!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] table,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] table{box-sizing:border-box!important;width:100%!important;min-width:100%!important;max-width:100%!important;margin:0!important;table-layout:auto!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] td,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] td{min-width:72px!important;max-width:min(30vw,320px)!important;border-bottom-width:1px!important;padding-inline:12px!important;white-space:normal!important;overflow-wrap:break-word!important;word-break:normal!important}";
   css += themeCss;
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
@@ -623,7 +628,7 @@ var KETCHER_OVERALL_MS = 75e3;
 var KETCHER_RENDER_PROTOCOL = 1;
 var KETCHER_DEFAULT_THEME = "#ffffff";
 var normName = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
-var STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库" };
+var STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库", "literature-inference": "文献推测 · 待核验", "visual-extraction": "图片提取 · 待核验" };
 var databaseState = (state) => ({ available: "可用", connected: "已连接", degraded: "受限", "auth-required": "需登录", "waiting-user": "等待登录", "agreement-required": "待勾选协议", "verification-required": "待验证", unavailable: "不可用", "not-supported": "不适用", idle: "未连接", "browser-open": "浏览器已打开", expired: "已过期", error: "异常", unknown: "未知" })[state] || state || "未知";
 var databaseStateTone = (state) => ({ "data-ok": ["available", "connected"].includes(state) ? "true" : void 0, "data-warn": ["auth-required", "waiting-user", "agreement-required", "verification-required", "degraded", "browser-open", "idle"].includes(state) ? "true" : void 0 });
 
@@ -1524,7 +1529,7 @@ function readStepFieldValue(step, def) {
       if (def.key === "reagents") return [row.name, row.equivalent ? `(${row.equivalent})` : "", row.amount ? row.amount : ""].filter(Boolean).join(" ");
       if (def.key === "catalysts") return [row.name, row.loading ? `(${row.loading})` : ""].filter(Boolean).join(" ");
       if (def.key === "solvents") return [row.name, row.ratio ? `(${row.ratio})` : "", row.volume ? row.volume : ""].filter(Boolean).join(" ");
-      if (def.key === "temperature") return [row.value, row.stage ? `(${row.stage})` : ""].filter(Boolean).join(" ");
+      if (def.key === "temperature") return [row.value, row.unit, row.stage ? `(${row.stage})` : ""].filter(Boolean).join(" ");
       return Object.values(row).filter((v) => v !== void 0 && v !== "").join(" ");
     });
     return items.filter(Boolean).join("；");
@@ -1574,6 +1579,73 @@ function stepCompoundsByRole(step, roles) {
 
 // client/src/components-core.js
 var import_react4 = __toESM(require("react"), 1);
+
+// client/src/reaction-scheme.js
+function textWeight(value) {
+  return [...String(value || "")].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/.test(char) ? 1.7 : 1), 0);
+}
+function clipText(value, maxWeight = 48) {
+  const input = String(value || "").replace(/\s+/g, " ").trim();
+  if (!input || textWeight(input) <= maxWeight) return input;
+  let output = "";
+  for (const char of input) {
+    if (textWeight(output + char + "…") > maxWeight) break;
+    output += char;
+  }
+  return `${output.trim()}…`;
+}
+function nodeWidth(entry) {
+  const nameWeight = Math.min(30, textWeight(entry?.name || "结构待补绘"));
+  return Math.max(146, Math.round(118 + nameWeight * 2.1));
+}
+function buildGroup(entries, fallbackNames, role) {
+  const source = entries.length ? entries : [{ name: (fallbackNames || []).join("、") || (role === "reactant" ? "反应物待补" : "产物待补"), role, placeholder: true }];
+  return source.map((entry, index) => ({
+    entry,
+    key: `${role}-${entry?.id || entry?.name || index}-${index}`,
+    width: nodeWidth(entry),
+    height: 112
+  }));
+}
+function buildReactionSchemeLayout({ reactants = [], products = [], reactantNames = [], productNames = [], conditions = { above: [], below: "" } } = {}) {
+  const paddingX = 22;
+  const structureY = 70;
+  const labelY = 197;
+  const arrowY = 126;
+  const itemGap = 28;
+  const sideGap = 22;
+  const left = buildGroup(reactants, reactantNames, "reactant");
+  const right = buildGroup(products, productNames, "product");
+  const place = (items, startX) => {
+    let x = startX;
+    const nodes = items.map((item, index) => {
+      const node = { ...item, x, y: structureY, labelY };
+      x += item.width;
+      if (index < items.length - 1) x += itemGap;
+      return node;
+    });
+    return { nodes, endX: x };
+  };
+  const leftPlaced = place(left, paddingX);
+  const longestCondition = Math.max(0, ...(conditions.above || []).map(textWeight), textWeight(conditions.below));
+  const arrowWidth = Math.max(75, Math.min(142, Math.round(52 + longestCondition * 1.55)));
+  const arrowStart = leftPlaced.endX + sideGap;
+  const arrowEnd = arrowStart + arrowWidth;
+  const rightPlaced = place(right, arrowEnd + sideGap);
+  return {
+    width: rightPlaced.endX + paddingX,
+    height: 222,
+    arrow: { x1: arrowStart, x2: arrowEnd, y: arrowY, centerX: (arrowStart + arrowEnd) / 2 },
+    conditions,
+    nodes: [...leftPlaced.nodes, ...rightPlaced.nodes],
+    plusSigns: [...leftPlaced.nodes.slice(0, -1), ...rightPlaced.nodes.slice(0, -1)].map((node, index) => ({ key: `plus-${index}-${node.key}`, x: node.x + node.width + itemGap / 2, y: arrowY }))
+  };
+}
+function reactionSchemeLabel(value, maxWeight = 30) {
+  return clipText(value, maxWeight);
+}
+
+// client/src/components-core.js
 function StructureCard({ entry, onClick, compact }) {
   const preview = resolveCompoundPreview(entry);
   const [state, setState] = (0, import_react4.useState)(preview.state === "resolvable" ? "loading" : "not_found");
@@ -1644,6 +1716,78 @@ function StructureCard({ entry, onClick, compact }) {
     )
   );
 }
+function ReactionSchemePreview({ step, reactants = [], products = [], onStructureClick, fallback }) {
+  const renderable = [...reactants, ...products].filter((entry) => entry?.smiles);
+  const renderKey = renderable.map((entry) => `${entry.id || entry.name}:${entry.smiles}`).join("|");
+  const [previewState, setPreviewState] = (0, import_react4.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
+  (0, import_react4.useEffect)(() => {
+    let alive = true;
+    if (!renderable.length) {
+      setPreviewState({ state: "ready", images: {} });
+      return () => {
+        alive = false;
+      };
+    }
+    setPreviewState((current) => ({ state: "loading", images: current.images || {} }));
+    Promise.all(renderable.map(async (entry, index) => ({
+      key: `${entry.id || entry.name || index}-${index}`,
+      dataUrl: await ketcherRenderSmiles(entry.smiles, { width: 260, height: 190, format: "svg", theme: "#ffffff" })
+    }))).then((rows) => {
+      if (!alive) return;
+      if (rows.some((row) => !row.dataUrl)) {
+        setPreviewState({ state: "error", images: {} });
+        return;
+      }
+      setPreviewState({ state: "ready", images: Object.fromEntries(rows.map((row) => [row.key, row.dataUrl])) });
+    }).catch(() => {
+      if (alive) setPreviewState({ state: "error", images: {} });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [renderKey]);
+  if (previewState.state === "error") return fallback;
+  const conditions = { above: [], below: "" };
+  const layout = buildReactionSchemeLayout({ reactants, products, reactantNames: step?.reactants, productNames: step?.products, conditions });
+  const openStructure = (event, entry) => {
+    event?.stopPropagation?.();
+    onStructureClick?.(entry);
+  };
+  const imageForNode = (node) => {
+    const index = renderable.indexOf(node.entry);
+    return index >= 0 ? previewState.images[`${node.entry.id || node.entry.name || index}-${index}`] : null;
+  };
+  return h(
+    "div",
+    { className: "sw-route-scheme-shell", "data-state": previewState.state },
+    h(
+      "svg",
+      { className: "sw-route-scheme", viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: "img", "aria-label": `${step?.label || step?.reaction || "反应步骤"}：反应物与产物` },
+      h("rect", { x: 0, y: 0, width: layout.width, height: layout.height, rx: 10, fill: "#ffffff" }),
+      layout.plusSigns.map((plus) => h("text", { key: plus.key, x: plus.x, y: plus.y + 6, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 23, fill: "#18352d" }, "+")),
+      h("line", { x1: layout.arrow.x1, y1: layout.arrow.y, x2: layout.arrow.x2 - 12, y2: layout.arrow.y, stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round" }),
+      h("path", { d: `M ${layout.arrow.x2 - 13} ${layout.arrow.y - 6} L ${layout.arrow.x2} ${layout.arrow.y} L ${layout.arrow.x2 - 13} ${layout.arrow.y + 6}`, fill: "none", stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" }),
+      layout.nodes.map((node) => {
+        const image = imageForNode(node);
+        const clickable = !!onStructureClick && !node.entry?.placeholder;
+        return h(
+          "g",
+          { key: node.key, className: "sw-route-scheme-node", role: clickable ? "button" : void 0, tabIndex: clickable ? 0 : void 0, "aria-label": clickable ? `${node.entry.name || "结构"}，打开 Ketcher 编辑` : void 0, onClick: clickable ? (event) => openStructure(event, node.entry) : void 0, onKeyDown: clickable ? (event) => {
+            if (["Enter", " "].includes(event.key)) {
+              event.preventDefault();
+              openStructure(event, node.entry);
+            }
+          } : void 0 },
+          h("rect", { x: node.x, y: node.y, width: node.width, height: node.height, rx: 7, fill: "#ffffff", stroke: image ? "transparent" : "#b8c8c2", strokeDasharray: image ? void 0 : "5 4" }),
+          image ? h("image", { href: image, x: node.x + 3, y: node.y + 3, width: node.width - 6, height: node.height - 6, preserveAspectRatio: "xMidYMid meet", pointerEvents: "none" }) : h("text", { x: node.x + node.width / 2, y: node.y + node.height / 2 + 4, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11, fill: "#789087" }, previewState.state === "loading" && node.entry?.smiles ? "结构渲染中…" : "结构待补绘"),
+          h("text", { x: node.x + node.width / 2, y: node.labelY, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11.5, fontWeight: 650, fill: "#18352d" }, reactionSchemeLabel(node.entry?.name || "未命名结构")),
+          node.entry?.casNumber ? h("text", { x: node.x + node.width / 2, y: node.labelY + 15, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 9.5, fill: "#6a8179" }, `CAS ${reactionSchemeLabel(node.entry.casNumber, 24)}`) : null,
+          clickable ? h("rect", { className: "sw-route-scheme-hit", x: node.x, y: node.y, width: node.width, height: layout.height - node.y - 6, rx: 7, fill: "transparent" }) : null
+        );
+      })
+    )
+  );
+}
 function StepReactionLayout({ step, onStructureClick }) {
   const reactants = stepCompoundsByRole(step, ["reactant"]);
   const products = stepCompoundsByRole(step, ["product"]);
@@ -1673,12 +1817,13 @@ function PdfViewerFrame({ row, notify }) {
   const iframeRef = (0, import_react4.useRef)(null);
   const [locateState, setLocateState] = (0, import_react4.useState)("loading");
   const [errorMessage, setErrorMessage] = (0, import_react4.useState)("");
-  const pageNumber = (() => {
-    const m = /\d+/.exec(String(row?.page ?? ""));
-    return m ? Number(m[0]) : 1;
-  })();
+  const rawPage = String(row?.page ?? "").trim();
+  const pageMatch = /^(?:S)?([1-9]\d*)$/i.exec(rawPage);
+  const pageIsValid = !!pageMatch;
+  const pageNumber = pageMatch ? Number(pageMatch[1]) : 1;
   const bundleId = row?.bundleId || row?.documentId;
   const quote = row?.excerpt || row?.originalExtract || "";
+  const locatorQuote = pageIsValid ? quote : "";
   const open = !!bundleId;
   const documentKind = row?.sourceKind === "si" || !row?.sourceKind && row?.sourceType === "paper-si" ? "si" : "pdf";
   (0, import_react4.useEffect)(() => {
@@ -1696,7 +1841,7 @@ function PdfViewerFrame({ row, notify }) {
         const computed = getComputedStyle(document.body);
         const theme = {};
         for (const key of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key] = computed.getPropertyValue(`--dsw-alias-${key}`).trim();
-        iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote, pageLabel: row?.page }, "*");
+        iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote: locatorQuote, pageLabel: rawPage }, "*");
       } catch {
       }
     };
@@ -1711,7 +1856,7 @@ function PdfViewerFrame({ row, notify }) {
       if (data?.type === "highlight") {
         if (disposed) return;
         setLocateState(data.status === "matched" ? "matched" : data.status === "candidate" ? "candidate" : data.status === "notfound" ? "notfound" : "noquote");
-        if (data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
+        if (pageIsValid && data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
         return;
       }
       if (data?.type === "error") {
@@ -1726,12 +1871,12 @@ function PdfViewerFrame({ row, notify }) {
       disposed = true;
       window.removeEventListener("message", onMessage);
     };
-  }, [bundleId, documentKind, pageNumber, quote]);
+  }, [bundleId, documentKind, pageNumber, pageIsValid, locatorQuote, rawPage]);
   if (!open) {
     return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
   }
-  const label = locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
-  const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
+  const label = !pageIsValid ? "未提供有效页码，已停在首页" : locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
+  const tone = !pageIsValid ? "#b34a45" : locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
   return h(
     "div",
     { className: "sw04-review-shot", style: { display: "flex", flexDirection: "column", gap: 8 } },
@@ -1793,7 +1938,7 @@ function KetcherEditorModal({ entry, onSave, onCancel }) {
   };
   return h(
     "div",
-    { className: "sw-struct-edit", role: "dialog", "aria-modal": "true", "aria-label": `编辑 ${entry.name} 结构式` },
+    { className: "sw-struct-edit", "data-layer": "ketcher", role: "dialog", "aria-modal": "true", "aria-label": `编辑 ${entry.name} 结构式` },
     h(
       "div",
       { className: "sw-struct-edit-box" },
@@ -1832,6 +1977,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react5.useState)(null);
   const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react5.useState)(false);
   const [correctionFor, setCorrectionFor] = (0, import_react5.useState)(null);
+  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react5.useState)(null);
   const [batchList, setBatchList] = (0, import_react5.useState)([]);
   const [newRouteForm, setNewRouteForm] = (0, import_react5.useState)(null);
   const [moreOpen, setMoreOpen] = (0, import_react5.useState)(false);
@@ -2043,30 +2189,51 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
     return "该自动提取项尚未绑定已归档 PDF/SI，不能作为原文核验完成；请补充原文，或标“无法确认”交给 Agent。";
   };
   const decideEvidence = (row, status) => withBusy(`ev:${row.id}`, async () => {
+    const action = status === "confirmed" ? "confirm" : "reject";
+    setEvidenceFeedback({ id: row.id, action, state: "saving", message: status === "confirmed" ? "正在确认…" : "正在标记为无法确认…" });
     if (status === "confirmed" && !evidenceConfirmable(row)) {
-      notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`);
+      const message = `Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`;
+      setEvidenceFeedback({ id: row.id, action, state: "error", message });
+      notify(message);
       return;
     }
-    await call("synth_evidence_review", { request: { id: row.id, status } });
-    notify(`Evidence ${row.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
-    const reload = await call("synth_route_detail", { request: { id: routeId } });
-    setDetail(reload);
+    try {
+      await call("synth_evidence_review", { request: { id: row.id, status } });
+      const message = status === "confirmed" ? "已确认通过，结果已保存。" : "已标记为无法确认，结果已保存。";
+      setEvidenceFeedback({ id: row.id, action, state: "saved", message });
+      notify(`Evidence ${row.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
+      const reload = await call("synth_route_detail", { request: { id: routeId } });
+      setDetail(reload);
+    } catch (reason) {
+      setEvidenceFeedback({ id: row.id, action, state: "error", message: reason.message || "审核保存失败，请重试。" });
+      throw reason;
+    }
   });
   const saveCorrection = (row, rawValue) => withBusy(`ev:${row.id}`, async () => {
+    setEvidenceFeedback({ id: row.id, action: "correct", state: "saving", message: "正在保存修正…" });
     if (evidenceRequiresShotClient(row) && !evidenceConfirmable(row)) {
-      notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`);
+      const message = `Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`;
+      setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message });
+      notify(message);
       return;
     }
     const correction = String(rawValue ?? "").trim();
     if (!correction) {
+      setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message: "请先填写修正值。" });
       notify("修正值不能为空。");
       return;
     }
-    await call("synth_evidence_review", { request: { id: row.id, status: "corrected", correction } });
-    notify(row.originalExtract ? `已保存人工修正（原始提取值“${row.originalExtract}”保留在 originalExtract）。` : "已保存人工修正。");
-    const reload = await call("synth_route_detail", { request: { id: routeId } });
-    setDetail(reload);
-    setCorrectionFor(null);
+    try {
+      await call("synth_evidence_review", { request: { id: row.id, status: "corrected", correction } });
+      setEvidenceFeedback({ id: row.id, action: "correct", state: "saved", message: "人工修正已保存。" });
+      notify(row.originalExtract ? `已保存人工修正（原始提取值“${row.originalExtract}”保留在 originalExtract）。` : "已保存人工修正。");
+      const reload = await call("synth_route_detail", { request: { id: routeId } });
+      setDetail(reload);
+      setCorrectionFor(null);
+    } catch (reason) {
+      setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message: reason.message || "修正保存失败，请重试。" });
+      throw reason;
+    }
   });
   const loadReviewBatches = (0, import_react5.useCallback)(() => {
     if (!routeId) return Promise.resolve([]);
@@ -2116,6 +2283,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   });
   const openReviewDrawer = (evidenceId) => {
     setSelectedEvidenceId(evidenceId);
+    setEvidenceFeedback(null);
     const row = detail?.evidence?.find((item) => item.id === evidenceId);
     setCorrectionFor(row?.userCorrection ? { id: evidenceId, value: row.userCorrection } : null);
     setReviewDrawerOpen(true);
@@ -2123,6 +2291,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   const closeReviewDrawer = () => {
     setReviewDrawerOpen(false);
     setCorrectionFor(null);
+    setEvidenceFeedback(null);
   };
   (0, import_react5.useEffect)(() => {
     if (!reviewDrawerOpen) return void 0;
@@ -2199,12 +2368,24 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       return;
     }
     try {
+      if (modal.evidenceId) {
+        setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saving", message: "正在保存补绘结构…" });
+        await call("synth_evidence_review", { request: { id: modal.evidenceId, status: "corrected", correction: clean } });
+        const reload2 = await call("synth_route_detail", { request: { id: routeId } });
+        setDetail(reload2);
+        setCorrectionFor(null);
+        setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saved", message: "补绘结构已保存并更新到路线。" });
+        setKetcherModal(null);
+        notify(`已补绘并保存「${modal.name}」结构。`);
+        return;
+      }
       await call("synth_step_set_structure", { request: { routeId, stepId: modal.stepKey, name: modal.name, smiles: clean } });
       notify(`已用 Ketcher 结果更新「${modal.name}」结构式（source=manual）。`);
       const reload = await call("synth_route_detail", { request: { id: routeId } });
       setDetail(reload);
       setKetcherModal(null);
     } catch (reason) {
+      if (modal?.evidenceId) setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "error", message: reason.message || "补绘结构保存失败，请重试。" });
       notify(reason.message || "结构式保存失败");
     }
   });
@@ -2382,10 +2563,19 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
           { className: "sw-plan-empty", style: { flex: 1 } },
           h("b", null, "该路线还没有任何步骤"),
           "使用“从文献提取路线”，或让 Agent / 人工登记步骤与结构化条件。"
-        ) : detail.route.steps.map((step) => {
-          const isActive = step.id === selectedStepId;
+        ) : (() => {
+          const steps = detail.route.steps;
+          const foundIndex = steps.findIndex((item) => (item.id ?? `s${item.step}`) === selectedStepId);
+          const stepIndex = foundIndex >= 0 ? foundIndex : 0;
+          const step = steps[stepIndex];
           const reactantEntries = stepCompoundsByRole(step, ["reactant"]);
           const productEntries = stepCompoundsByRole(step, ["product"]);
+          const selectStepAt = (index) => {
+            const next = steps[index];
+            if (!next) return;
+            setSelectedStepId(next.id ?? `s${next.step}`);
+            setMoreOpen(false);
+          };
           const openOverviewStructure = (targetStep, entry) => {
             if (route?.locked) {
               notify("当前路线已锁定；请先复制为新版本。");
@@ -2402,38 +2592,32 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
             h(StructureCard, { entry, onClick: () => openOverviewStructure(step, entry), compact: true })
           );
           const structureRow = (entries, fallbackNames, dataRole) => entries.length ? h("span", { className: "sw-step-chem-flow", "data-role": dataRole }, entries.map(structureNode)) : h("span", { className: "sw-step-chem-empty", "data-role": dataRole }, (fallbackNames || []).join("、") || "结构待补");
+          const legacyScheme = h(
+            "span",
+            { className: "sw-step-chem" },
+            h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
+            h("span", { className: "sw-step-chem-mid" }, h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"), null),
+            h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products"))
+          );
           return h(
             "div",
-            { key: step.id, className: "sw-step", "data-active": isActive ? "true" : void 0, role: "button", tabIndex: 0, "aria-label": `${step.id}：${step.label || step.reaction || `Step ${step.step}`}，点击查看步骤详情`, onClick: (event) => {
-              setSelectedStepId(step.id);
-              setMoreOpen(false);
-            }, onKeyDown: (event) => {
-              if (["Enter", " "].includes(event.key)) {
-                event.preventDefault();
-                setSelectedStepId(step.id);
-                setMoreOpen(false);
-              }
-            } },
+            { className: "sw-step-carousel", "aria-label": "合成步骤分页预览" },
+            h("button", { className: "sw-step-page-btn", disabled: stepIndex === 0, onClick: () => selectStepAt(stepIndex - 1), "aria-label": "上一个合成步骤", title: "上一个合成步骤" }, "‹"),
             h(
-              "span",
-              { className: "sw-step-top" },
-              h("span", { className: "sw-step-id" }, step.id)
-            ),
-            h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
-            h(
-              "span",
-              { className: "sw-step-chem" },
-              h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
+              "div",
+              { key: step.id ?? step.step, className: "sw-step sw-step-scheme", "data-active": "true", "aria-label": `${step.id ?? `s${step.step}`}：${step.label || step.reaction || `Step ${step.step}`}` },
               h(
                 "span",
-                { className: "sw-step-chem-mid" },
-                h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"),
-                null
+                { className: "sw-step-top" },
+                h("span", { className: "sw-step-id" }, step.id ?? `s${step.step}`),
+                h("span", { className: "sw-step-page-count" }, `${stepIndex + 1} / ${steps.length}`)
               ),
-              h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products"))
-            )
+              h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
+              h(ReactionSchemePreview, { step, reactants: reactantEntries, products: productEntries, onStructureClick: (entry) => openOverviewStructure(step, entry), fallback: legacyScheme })
+            ),
+            h("button", { className: "sw-step-page-btn", disabled: stepIndex === steps.length - 1, onClick: () => selectStepAt(stepIndex + 1), "aria-label": "下一个合成步骤", title: "下一个合成步骤" }, "›")
           );
-        })
+        })()
       )
     ),
     selectedStep && detail ? h(
@@ -2482,7 +2666,8 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
         const locked = !!route?.locked;
         const reviewLabel = { pending: "待核验", confirmed: "已确认", corrected: "已修正", rejected: "无法确认", edited: "已修订" }[row.reviewStatus] || row.reviewStatus;
         const reviewTone = row.reviewStatus === "pending" ? "warn" : row.reviewStatus === "rejected" ? "bad" : "good";
-        const claim = row.excerpt || row.userCorrection || row.title || row.sourceName || "";
+        const candidateMethod = row.structureCandidate?.method === "visual-extraction" ? "图片提取" : "文献推测";
+        const claim = row.structureCandidate ? `${candidateMethod}候选 · SMILES ${row.userCorrection || row.structureCandidate.smiles}` : row.userCorrection || row.excerpt || row.title || row.sourceName || "";
         const fieldLabel = row.supportsField ? String(row.supportsField) : row.title || "核验项";
         return h(
           "div",
@@ -2609,21 +2794,39 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
             h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
             activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
             activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "var(--ib-panel)" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
+            activeEvidence.structureCandidate ? h(
+              "div",
+              { className: "sw04-structure-candidate" },
+              h(
+                "div",
+                { className: "sw04-structure-candidate-head" },
+                h(
+                  "div",
+                  null,
+                  h("b", null, activeEvidence.structureCandidate.method === "visual-extraction" ? "图片提取结构候选" : "文献推测结构候选"),
+                  h("small", null, "候选已显示在合成路线中，需在此人工核验后固化。")
+                ),
+                h("button", { className: "sw-mini-btn", disabled: !!route?.locked || !!busy[`ev:${activeEvidence.id}`], onClick: () => setKetcherModal({ stepKey: activeEvidence.stepId || selectedStep?.id, name: activeEvidence.structureCandidate.name, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, role: activeEvidence.structureCandidate.role, evidenceId: activeEvidence.id }) }, "Ketcher 补绘 / 修正")
+              ),
+              h(StructureCard, { entry: { ...activeEvidence.structureCandidate, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, source: activeEvidence.userCorrection ? "manual" : activeEvidence.structureCandidate.method }, compact: false })
+            ) : null,
             // 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
-            h(PdfViewerFrame, { row: activeEvidence, notify })
+            h(PdfViewerFrame, { row: activeEvidence, notify }),
+            evidenceFeedback?.id === activeEvidence.id ? h("div", { className: "sw04-review-feedback", "data-state": evidenceFeedback.state, role: "status", "aria-live": "polite" }, evidenceFeedback.state === "saving" ? "◌" : evidenceFeedback.state === "saved" ? "✓" : "!", " ", evidenceFeedback.message) : null
           ),
           h(
             "div",
             { className: "sw04-review-foot" },
-            h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
-            h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),
-            h("button", { className: "sw-mini-btn", disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "修正"),
-            h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "确认通过"),
+            h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: activeEvidence.structureCandidate ? "输入修正后的 SMILES，或使用 Ketcher 补绘" : "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
+            h("button", { className: "sw-mini-btn", "data-no": true, "data-selected": activeEvidence.reviewStatus === "rejected" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "reject" ? "标记中…" : activeEvidence.reviewStatus === "rejected" ? "✓ 已标无法确认" : "无法确认"),
+            h("button", { className: "sw-mini-btn", "data-selected": activeEvidence.reviewStatus === "corrected" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "correct" ? "保存中…" : activeEvidence.reviewStatus === "corrected" ? "✓ 已修正" : "修正"),
+            h("button", { className: "sw-mini-btn", "data-primary": true, "data-selected": activeEvidence.reviewStatus === "confirmed" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "confirm" ? "确认中…" : activeEvidence.reviewStatus === "confirmed" ? "✓ 已确认" : "确认通过"),
             h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => {
               const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id);
               if (next) {
                 setSelectedEvidenceId(next.id);
                 setCorrectionFor(null);
+                setEvidenceFeedback(null);
               }
             }, title: "跳到下一条待审核事实" }, "下一条待审核")
           )
@@ -2637,6 +2840,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
 // client/src/components-characterization.js
 var import_react6 = __toESM(require("react"), 1);
 var labels = { queued: "排队中", running: "处理中", completed: "已完成", failed: "失败" };
+var verdictLabels = { match: "吻合", mismatch: "不吻合", inconclusive: "暂无法判断" };
 var localDate = () => {
   const d = /* @__PURE__ */ new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -2672,15 +2876,15 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
   }, [projectId, call]);
   const start = (kind) => {
     setError("");
-    setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", instructions: "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
+    setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", structurePath: "", instructions: kind === "nmr" ? "根据所附分子结构处理一维核磁原始数据，在 Mnova 中完成峰归属和字母标注，保存可编辑谱图及核磁报告并自动归档。" : "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
   };
   const change = (key) => (e) => setForm((old) => ({ ...old, [key]: e.target.value }));
-  const upload = async (e) => {
+  const upload = (field2, label) => async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
     try {
-      if (file.size > 40 * 1024 * 1024) throw new Error("文件超过 40 MB，请先放入课题目录再填写路径");
+      if (file.size > 25 * 1024 * 1024) throw new Error(`${label}超过 25 MB，请先放入课题目录再填写路径`);
       const base64 = await new Promise((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1]);
@@ -2690,7 +2894,7 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
       const result = await call("project_file_upload", { request: { projectId, name: file.name, base64 } });
       const path = result.file?.sourcePath || result.file?.path;
       if (!path) throw new Error("上传结果未返回文件路径");
-      setForm((old) => ({ ...old, inputPath: path }));
+      setForm((old) => ({ ...old, [field2]: path }));
     } catch (e2) {
       setError(e2.message);
     } finally {
@@ -2750,14 +2954,20 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     }
   };
   const fileButton = (row, slot, text, app) => h("button", { className: "ib-btn", disabled: !row.artifacts?.[slot], title: row.artifacts?.[slot] ? `使用 ${app} 打开` : "任务完成后可打开", onClick: () => void open(row, slot, app) }, text);
+  const assessmentBadge = (row) => {
+    if (row.status !== "completed") return null;
+    if (!row.assessment) return h("span", { className: "ib-nmr-confidence", "data-level": "pending", title: "旧记录尚未登记结构判断" }, "判断待补充");
+    const level = row.assessment.confidence;
+    return h("span", { className: "ib-nmr-confidence", "data-level": level, title: row.assessment.summary }, `${verdictLabels[row.assessment.verdict] || row.assessment.verdict} · ${level[0].toUpperCase()}${level.slice(1)}`);
+  };
   const renderRow = (row, kind) => h(
     "article",
     { className: "ib-characterization-row", key: row.id },
     kind === "nmr" ? h("div", { className: "ib-nmr-structure" }, row.compound?.smiles ? h(StructureCard, { entry: row.compound, compact: true }) : h("span", null, "结构待补充")) : null,
-    h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
+    h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row) : null, row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
     kind === "nmr" ? h(import_react6.default.Fragment, null, fileButton(row, "spectrum", "核磁图", "mnova"), fileButton(row, "report", "报告", "word")) : fileButton(row, "origin", "绘图文件", "origin"),
     row.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row) }, "重试") : null,
-    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
+    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h(import_react6.default.Fragment, null, h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`), row.assessment ? h("p", null, `结构判断：${verdictLabels[row.assessment.verdict]}；置信度 ${row.assessment.confidence.toUpperCase()}。${row.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
   return h(
@@ -2773,7 +2983,7 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
       const legacy = (kind === "nmr" ? nmrRows : plots).filter((r) => !tasks.some((t) => t.id === r.id)).map((r) => ({ ...r, artifacts: kind === "nmr" ? { spectrum: r.spectrumPath, report: r.reportPath } : { origin: r.artifactPath } }));
       return h("section", { className: "ib-card", key: kind }, h("div", { className: "ib-card-head" }, h("h3", null, kind === "nmr" ? "核磁分析" : "科研绘图"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => start(kind) }, kind === "nmr" ? "提交核磁任务" : "提交绘图任务")), rows.length || legacy.length ? h("div", null, ...rows.map((r) => renderRow(r, kind)), ...legacy.map((r) => renderRow(r, kind))) : h("p", { className: "ib-muted" }, "任务完成后，文件会自动回填到这里。"));
     }),
-    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, "上传数据文件（FID 目录请先压缩）", h("input", { type: "file", disabled: busy, onChange: upload })), field("inputPath", "课题目录内文件 / FID 目录路径"), form.kind === "nmr" ? h(import_react6.default.Fragment, null, field("compoundName", "化合物名称"), field("smiles", "结构 SMILES"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
+    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(import_react6.default.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
   );
 }
 function PlotEdit({ row, call, onChanged, onError }) {
@@ -3595,6 +3805,19 @@ function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, init
 
 // client/src/apply.js
 function applyUi(ctx) {
+  const normalizeMarkdownTables = () => {
+    if (typeof document?.querySelectorAll !== "function") return;
+    for (const wrapper of document.querySelectorAll(".md-table-wide")) {
+      wrapper.classList.remove("md-table-wide");
+      wrapper.scrollLeft = 0;
+    }
+  };
+  normalizeMarkdownTables();
+  if (typeof MutationObserver === "function" && document?.body) {
+    const tableObserver = new MutationObserver(normalizeMarkdownTables);
+    tableObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    ctx.effect(() => () => tableObserver.disconnect(), "lab.markdown-table-layout");
+  }
   const syncDesktopTheme = () => {
     if (typeof requestAnimationFrame !== "function") return;
     return requestAnimationFrame(() => {

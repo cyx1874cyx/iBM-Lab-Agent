@@ -27,6 +27,15 @@ test("lookupPubChem parses the PUG property response", async () => {
 	assert.equal(data.formula, "C27H29NO11");
 });
 
+test("lookupPubChem accepts PubChem's current ConnectivitySMILES field", async () => {
+	const fetchImpl = async () => ({
+		ok: true,
+		json: async () => ({ PropertyTable: { Properties: [{ CID: 2244, MolecularFormula: "C9H8O4", MolecularWeight: "180.16", ConnectivitySMILES: "CC(=O)OC1=CC=CC=C1C(=O)O", InChIKey: "BSYNRYMUTXBXSQ-UHFFFAOYSA-N" }] } })
+	});
+	const row = await lookupPubChem("aspirin", { fetchImpl });
+	assert.equal(row.canonicalSmiles, "CC(=O)OC1=CC=CC=C1C(=O)O");
+});
+
 test("lookupPubChem surfaces HTTP errors", async () => {
 	const fetchImpl = async () => ({ ok: false, status: 404 });
 	await assert.rejects(() => lookupPubChem("definitely-not-a-molecule-xyz", { fetchImpl }), /404/);

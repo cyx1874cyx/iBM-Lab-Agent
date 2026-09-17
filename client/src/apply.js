@@ -7,6 +7,23 @@ import { OverlayBoundary, Panel } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
 
 export function applyUi(ctx) {
+ // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
+ // 该分类不看实际内容宽度，会让同为四列的短表和长表走同一套横向布局，
+ // 并在重新布局后保留错误的横向滚动位置。科研界面统一交给 CSS 的实际
+ // 内容宽度与 overflow 判断；移除列数分类，并确保初始视口从左侧开始。
+ const normalizeMarkdownTables=()=>{
+  if(typeof document?.querySelectorAll!=="function")return;
+  for(const wrapper of document.querySelectorAll(".md-table-wide")){
+   wrapper.classList.remove("md-table-wide");
+   wrapper.scrollLeft=0;
+  }
+ };
+ normalizeMarkdownTables();
+ if(typeof MutationObserver==="function"&&document?.body){
+  const tableObserver=new MutationObserver(normalizeMarkdownTables);
+  tableObserver.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
+  ctx.effect(()=>()=>tableObserver.disconnect(),"lab.markdown-table-layout");
+ }
  const syncDesktopTheme=()=>{if(typeof requestAnimationFrame!=="function")return;return requestAnimationFrame(()=>{
   if(window.parent===window)return;
   const style=getComputedStyle(document.body),tokens={};

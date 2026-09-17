@@ -39,7 +39,7 @@ export const KETCHER_DEFAULT_THEME = "#ffffff";
 		// 名称归一化：结构与服务端 hydrate 一致（去空白）。
 export const normName = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
-export const STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库" };
+export const STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库", "literature-inference": "文献推测 · 待核验", "visual-extraction": "图片提取 · 待核验" };
 export const databaseState = (state) => ({ available: "可用", connected: "已连接", degraded: "受限", "auth-required": "需登录", "waiting-user": "等待登录", "agreement-required": "待勾选协议", "verification-required": "待验证", unavailable: "不可用", "not-supported": "不适用", idle: "未连接", "browser-open": "浏览器已打开", expired: "已过期", error: "异常", unknown: "未知" })[state] || state || "未知";
 export const databaseStateTone = (state) => ({ "data-ok": ["available", "connected"].includes(state) ? "true" : undefined, "data-warn": ["auth-required", "waiting-user", "agreement-required", "verification-required", "degraded", "browser-open", "idle"].includes(state) ? "true" : undefined });
 export const downloadState = (state) => ({ queued: "排队中", "resolving-oa": "查找 OA", "waiting-login": "等待登录", "opening-publisher": "打开出版商", "locating-pdf": "定位 PDF", downloading: "校验中", completed: "已完成", "no-access": "无订阅权限", "verification-required": "需人工验证", failed: "失败" })[state] || state;

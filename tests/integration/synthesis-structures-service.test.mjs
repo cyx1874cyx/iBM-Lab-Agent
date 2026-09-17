@@ -124,6 +124,10 @@ test("evidence service: documentId/bundleId persist and evidenceById works", asy
 		assert.equal(evidence.bundleId, "bundle-abc");
 		assert.equal(evidence.documentId, "legacy-doc-1");
 		assert.equal(evidence.page, "S12");
+		await assert.rejects(() => synth.addStepEvidence({
+			routeId: "rt-ev", stepId: "s1", supportsField: "procedure.time",
+			sourceType: "paper-si", sourceName: "SI", page: "SI Figure S1", excerpt: "12 h"
+		}), /invalid evidence page/);
 
 		const byId = synth.evidenceById(evidence.id);
 		assert.ok(byId);
@@ -193,6 +197,65 @@ test("structure service: first-hit lookup is read-only and registration keeps pr
 		// 锁定路线的双源核验被服务端拒绝
 		await synth.lockRoute("rt-dual", { by: "user" });
 		await assert.rejects(() => synth.resolveStepCompoundsDual("rt-dual", "s1", deps), /is locked/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("new product candidates render immediately and follow human review decisions", async () => {
+	const { handle, dir } = await bootWorkspace();
+	try {
+		const synth = handle.ctx.labSynthesis;
+		await synth.createTarget({ id: "tgt-candidate", name: "新产物" });
+		await synth.createRoute({ id: "rt-candidate", projectId: "prj-candidate", targetId: "tgt-candidate", name: "候选结构路线" });
+		await synth.addRouteStep("rt-candidate", { step: 1, reaction: "成键反应", reactants: ["底物 A"], products: ["新产物 1", "新产物 2", "新产物 3"] });
+
+		const visual = await synth.addStructureCandidate({
+			routeId: "rt-candidate", stepId: "s1", name: "新产物 1", smiles: "CCOC(=O)C",
+			method: "visual-extraction", sourceName: "Scheme 2", bundleId: "bundle-paper", page: "5",
+			figure: "Scheme 2", excerpt: "从 Scheme 2 逐键读取"
+		});
+		assert.equal(visual.evidence.reviewStatus, "pending");
+		assert.equal(visual.evidence.structureCandidate.method, "visual-extraction");
+		let structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 1");
+		assert.equal(structure.smiles, "CCOC(=O)C", "待核验候选应立即进入路线渲染");
+		assert.equal(structure.source, "visual-extraction");
+		assert.equal(structure.evidenceId, visual.evidence.id);
+
+		await synth.reviewEvidence(visual.evidence.id, "confirmed");
+		structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 1");
+		assert.equal(structure.smiles, "CCOC(=O)C");
+		assert.equal(structure.verification.status, "manual");
+		assert.ok(structure.verification.sources.includes("human"));
+
+		const inferred = await synth.addStructureCandidate({
+			routeId: "rt-candidate", stepId: "s1", name: "新产物 2", smiles: "CCN",
+			method: "literature-inference", sourceName: "正文反应描述", bundleId: "bundle-paper", page: "7",
+			excerpt: "底物 A 的离去基被胺取代", confidence: "low"
+		});
+		await synth.reviewEvidence(inferred.evidence.id, "rejected");
+		structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 2");
+		assert.equal(structure.smiles, undefined, "无法确认应撤下当前候选结构");
+		assert.equal(structure.verification.status, "unresolved");
+
+		const corrected = await synth.addStructureCandidate({
+			routeId: "rt-candidate", stepId: "s1", name: "新产物 3", smiles: "CCC",
+			method: "visual-extraction", sourceName: "Figure 3", bundleId: "bundle-paper", page: "9",
+			excerpt: "图片候选"
+		});
+		await synth.reviewEvidence(corrected.evidence.id, "corrected", { correction: "CCCO" });
+		structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 3");
+		assert.equal(structure.smiles, "CCCO", "Ketcher/SMILES 修正应替换候选");
+		assert.equal(structure.source, "manual");
+		assert.equal(synth.evidenceById(corrected.evidence.id).userCorrection, "CCCO");
+		await synth.reviewEvidence(corrected.evidence.id, "confirmed");
+		structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 3");
+		assert.equal(structure.smiles, "CCCO", "已修正候选重新确认时不得退回原始 Agent 候选");
+		assert.equal(structure.source, "manual");
+		await synth.reviewEvidence(corrected.evidence.id, "rejected");
+		structure = synth.getRoute("rt-candidate").steps[0].structures.find((row) => row.name === "新产物 3");
+		assert.equal(structure.smiles, undefined, "同一证据的人工修正改判无法确认时应撤下");
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

@@ -27,6 +27,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--p1", type=float, default=0.0, help="Manual first-order phase, degrees")
     parser.add_argument("--reference-ppm", type=float, help="Chemical shift assigned to picked reference")
     parser.add_argument(
+        "--axis-calibration", type=Path,
+        help="JSON from calibrate_axis.py for this exact processed point array",
+    )
+    parser.add_argument(
         "--reference-window", type=float, nargs=2, metavar=("LOW", "HIGH"),
         help="Search window on the initial ppm axis",
     )
@@ -164,6 +168,8 @@ def main() -> int:
         fid = ng.bruker.remove_digital_filter(dic, fid)
         sw_hz = bruker_value(dic, "SW_h")
         obs_mhz = bruker_value(dic, "SFO1")
+        delays = np.ravel(dic.get("acqus", {}).get("D", [np.nan]))
+        d1_s = float(delays[1] if len(delays) > 1 else delays[0])
         acquisition = {
             "nucleus": str(dic.get("acqus", {}).get("NUC1", "unknown")),
             "solvent": str(dic.get("acqus", {}).get("SOLVENT", "unknown")),
@@ -198,6 +204,16 @@ def main() -> int:
     else:
         udic = ng.bruker.guess_udic(dic, spectrum)
         ppm = np.asarray(ng.fileiobase.uc_from_udic(udic).ppm_scale(), dtype=float)
+    axis_calibration = None
+    if args.axis_calibration is not None:
+        axis_calibration = json.loads(args.axis_calibration.read_text(encoding="utf-8"))
+        if not axis_calibration.get("ok", True):
+            raise ValueError("Axis calibration is marked unsuccessful")
+        if axis_calibration.get("pair_count", 0) < 3:
+            raise ValueError("Axis calibration requires at least three matched peaks")
+        slope = float(axis_calibration["slope_ppm_per_point"])
+        intercept = float(axis_calibration["intercept_ppm"])
+        ppm = intercept + slope * np.arange(final_points, dtype=float)
     real = np.real(spectrum).astype(float)
     imag = np.imag(spectrum).astype(float)
     reference = None
@@ -264,6 +280,7 @@ def main() -> int:
         "observation_frequency_mhz": obs_mhz, "line_broadening_hz": args.lb_hz,
         "phase_mode": args.phase, "manual_p0_deg": args.p0 if args.phase == "manual" else None,
         "manual_p1_deg": args.p1 if args.phase == "manual" else None,
+        "axis_calibration": axis_calibration,
         "reference": reference, "baseline": "iterative first-order polynomial",
         "noise_mad": noise, "noise_estimation": noise_details,
         "peak_threshold_snr": args.peak_snr,
@@ -275,6 +292,8 @@ def main() -> int:
     )
 
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
         plt = None

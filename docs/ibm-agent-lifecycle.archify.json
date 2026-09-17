@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "NMR 数据集审核生命周期",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1060, 620],
+    "views": [
+      { "id": "main-lifecycle", "label": "主审核链", "focus": ["prepared", "underReview", "approvedWritten", "visualCheck", "verified"], "note": "从原始数据登记到写回后的视觉确认。" },
+      { "id": "immutable-boundary", "label": "不可变边界", "focus": ["prepared", "approvedWritten"], "note": "FID、结构路径和已审核积分计划不可被覆盖。" },
+      { "id": "rework-loop", "label": "返工闭环", "focus": ["underReview", "visualCheck", "rework", "prepared"], "note": "审核或复核发现问题时返回准备阶段重新拟定。" }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "主状态" },
+    { "id": "recovery", "label": "人工打回与修正" },
+    { "id": "terminal", "label": "完成状态" }
+  ],
+  "states": [
+    { "id": "prepared", "type": "start", "label": "Prepared", "sublabel": "登记 FID 与结构", "lane": "main", "col": 0, "step": "01", "tag": "raw immutable" },
+    { "id": "underReview", "type": "waiting", "label": "Under Review", "sublabel": "草稿积分待审核", "lane": "main", "col": 1, "step": "02", "tag": "editable draft" },
+    { "id": "approvedWritten", "type": "active", "label": "Approved + Written", "sublabel": "冻结积分并写回 Mnova", "lane": "main", "col": 2, "step": "03", "tag": "frozen plan" },
+    { "id": "visualCheck", "type": "decision", "label": "视觉质检", "sublabel": "人工检查写回结果", "lane": "main", "col": 3, "step": "04", "tag": "human gate" },
+    { "id": "verified", "type": "success", "label": "Visually Verified", "sublabel": "完成可追溯确认", "lane": "main", "col": 4, "step": "05", "tag": "done" },
+    { "id": "rework", "type": "failure", "label": "重新积分", "sublabel": "保留既有审核记录", "lane": "recovery", "col": 0, "yOffset": 72, "tag": "recoverable" }
+  ],
+  "transitions": [
+    { "id": "prepared-review", "from": "prepared", "to": "underReview", "route": "straight", "fromSide": "right", "toSide": "left", "variant": "emphasis" },
+    { "id": "review-approved", "from": "underReview", "to": "approvedWritten", "route": "straight", "fromSide": "right", "toSide": "left", "variant": "security" },
+    { "id": "written-check", "from": "approvedWritten", "to": "visualCheck", "route": "straight", "fromSide": "right", "toSide": "left" },
+    { "id": "check-verified", "from": "visualCheck", "to": "verified", "route": "straight", "fromSide": "right", "toSide": "left", "variant": "emphasis" },
+    { "id": "review-rework", "from": "underReview", "to": "rework", "label": "打回重积分", "variant": "security" },
+    { "id": "check-rework", "from": "visualCheck", "to": "rework", "label": "视觉检查失败", "variant": "security" },
+    { "id": "rework-prepared", "from": "rework", "to": "prepared", "label": "reopenReview", "variant": "emphasis", "route": "left-channel", "fromSide": "left", "toSide": "left", "channelX": 18 },
+    { "id": "verified-rework", "from": "verified", "to": "rework", "label": "复核后重开", "variant": "dashed", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom", "channelY": 520 }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "状态约束", "items": ["主状态为 prepared → under-review → approved-written → visually-verified", "相邻主状态由显式迁移表约束"] },
+    { "dot": "rose", "title": "不可变与返工", "items": ["FID 与结构路径登记后不可修改", "审核通过的积分计划被冻结", "任何返工都通过 reopenReview 回到 prepared"] }
+  ]
+}

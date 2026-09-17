@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "文献到科研交付工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "main-flow", "label": "主交付链", "focus": ["scope", "search", "prepare", "generate", "stage", "review"], "note": "从课题目标到人工审核后的可下载产物。" },
+      { "id": "evidence-gap", "label": "缺失原文处理", "focus": ["prepare", "capture", "generate"], "note": "PDF 或 SI 缺失时进入授权捕获支线。" },
+      { "id": "revision-loop", "label": "修订闭环", "focus": ["stage", "review", "revise", "generate"], "note": "自动自检只提示，人工拒绝会回到生成阶段。" }
+    ]
+  },
+  "lanes": [
+    { "id": "human", "label": "研究人员" },
+    { "id": "ui", "label": "科研工作台" },
+    { "id": "agent", "label": "科研 Agent" },
+    { "id": "service", "label": "宿主服务与证据", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "课题与检索", "fromCol": 0, "toCol": 1 },
+    { "id": "research", "label": "取证与生成", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "delivery", "label": "质检与交付", "fromCol": 4, "toCol": 5, "variant": "security" }
+  ],
+  "groups": [
+    { "id": "evidence", "label": "证据准备", "lane": "service", "fromCol": 2, "toCol": 3, "variant": "dashed" },
+    { "id": "gate", "label": "不可跳过的人工门禁", "lane": "human", "fromCol": 4, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["scope", "search", "prepare", "generate", "stage", "review"],
+  "semanticChecks": {
+    "allowedRoots": ["scope"],
+    "allowedTerminals": ["review"],
+    "requiredPaths": [
+      { "from": "scope", "to": "review" },
+      { "from": "capture", "to": "generate" },
+      { "from": "revise", "to": "generate" }
+    ]
+  },
+  "nodes": [
+    { "id": "scope", "lane": "human", "col": 0, "type": "external", "label": "确定课题目标", "sublabel": "目标、模板与约束", "width": 136 },
+    { "id": "search", "lane": "ui", "col": 1, "type": "frontend", "label": "检索并选择文献", "sublabel": "去重、DOI 与 OA 筛选", "width": 136 },
+    { "id": "prepare", "lane": "service", "col": 2, "type": "backend", "label": "准备来源包", "sublabel": "PDF / source map / SI", "width": 136 },
+    { "id": "capture", "lane": "service", "col": 3, "type": "security", "label": "授权捕获缺失原文", "sublabel": "一次性令牌与人工登录", "width": 144 },
+    { "id": "generate", "lane": "agent", "col": 3, "type": "backend", "label": "生成精读与 PPT", "sublabel": "Nature Skills + 模型", "width": 136 },
+    { "id": "stage", "lane": "service", "col": 4, "type": "database", "label": "暂存并自动自检", "sublabel": "哈希、provenance、风险提示", "width": 148 },
+    { "id": "review", "lane": "human", "col": 5, "type": "security", "label": "预览、审核与下载", "sublabel": "批准哈希后开放原文件", "width": 148 },
+    { "id": "revise", "lane": "agent", "col": 5, "type": "messagebus", "label": "按意见修订", "sublabel": "保留历史版本", "width": 132 }
+  ],
+  "edges": [
+    { "id": "scope-search", "from": "scope", "to": "search", "label": "课题上下文", "role": "main", "variant": "emphasis" },
+    { "id": "search-prepare", "from": "search", "to": "prepare", "label": "选中文献元数据", "role": "main" },
+    { "id": "prepare-generate", "from": "prepare", "to": "generate", "label": "可追溯来源包", "role": "main", "variant": "emphasis" },
+    { "id": "prepare-capture", "from": "prepare", "to": "capture", "label": "PDF 或 SI 缺失", "role": "branch", "variant": "security" },
+    { "id": "capture-generate", "from": "capture", "to": "generate", "label": "校验后的文件", "role": "return" },
+    { "id": "generate-stage", "from": "generate", "to": "stage", "label": "DOCX / PPTX", "role": "main", "variant": "emphasis" },
+    { "id": "stage-review", "from": "stage", "to": "review", "label": "预览与自检结果", "role": "main", "variant": "security" },
+    { "id": "review-revise", "from": "review", "to": "revise", "label": "拒绝并给出意见", "role": "error", "variant": "security" },
+    { "id": "revise-generate", "from": "revise", "to": "generate", "label": "重新生成", "role": "return", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "可信交付原则", "items": ["机器步骤检索、规范化和自检；LLM 步骤负责精读与内容生成", "机构内容只在用户授权会话中获取，自检不替代人工判断", "审核绑定当前文件哈希；拒绝后保留历史并进入修订闭环"] }
+  ]
+}

@@ -6,6 +6,7 @@
 - Two-stage workflow
 - Assignment-plan schema
 - Letter-label style
+- Selective integration
 - Assignment logic
 - Verification interpretation
 - Failure handling
@@ -54,6 +55,7 @@ The apply operation must:
 - link assignments by Mnova multiplet UUID rather than by rounded ppm alone;
 - save the approved assignments after Verify has run;
 - preserve unresolved items in the audit result.
+- remove displayed integrals only for evidence-classified unresolved regions whose `integration_policy` is `exclude`, and report every removal in `integration_cleanup`.
 
 Compare the returned `assignments` and `display_labels` with the plan. The count alone is insufficient: verify display label, atom index, proton site, multiplet UUID, range, and the actual visual placement.
 
@@ -63,7 +65,7 @@ Use UTF-8 JSON:
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source_job_id": "preparation job id",
   "source_analysis_path": "C:\\project\\mnova-mcp-output\\...\\analysis.json",
   "assignments": [
@@ -83,7 +85,11 @@ Use UTF-8 JSON:
     {
       "multiplet_uuid": "{another-real-uuid}",
       "ppm": 1.56,
-      "reason": "overlaps water/impurity; no unique atom assignment"
+      "range_min_ppm": 1.52,
+      "range_max_ppm": 1.60,
+      "classification": "unrelated_impurity",
+      "integration_policy": "exclude",
+      "reason": "not part of the target; consistent with a known work-up impurity"
     }
   ]
 }
@@ -101,6 +107,10 @@ Rules:
 - State evidence, not a circular claim such as "matches target".
 - Do not reuse the same atom/h target for two assignments unless the chemistry genuinely requires multiple observed environments and the plan explicitly explains it. The default validator rejects duplicate targets.
 - Multiple equivalent/symmetric atoms may point to one multiplet when justified; list each atom target explicitly and explain the symmetry.
+- Every `unresolved` item requires a real `multiplet_uuid`, observed ppm/range, `classification`, `integration_policy`, and non-empty `reason`.
+- Allowed classifications are `solvent`, `water`, `reference`, `unrelated_impurity`, `starting_material`, `byproduct`, `unknown`, and `overlap`. Allowed integration policies are `exclude`, `retain_for_quantitation`, and `review`.
+- `unrelated_impurity` must use `exclude`. `unknown` must use `review`; lack of an assignment is not evidence that a peak is irrelevant.
+- A multiplet must not appear in both `assignments` and `unresolved`.
 
 ## Letter-label style
 
@@ -115,11 +125,23 @@ The final Mnova view follows one shared label language on structure and spectrum
 
 If labels collide, first move the text vertically by the smallest amount that restores legibility while keeping it immediately above the peak. Combine labels only when the assignments truly share the same multiplet; never combine chemically separate nearby signals merely to reduce clutter.
 
+## Selective integration
+
+The clean assigned Mnova view uses a target-focused integration policy:
+
+- Integrate signals assigned to the target product.
+- Keep a non-product integral only when it is explicitly required for a stated quantitative calculation. Typical examples are residual starting material for conversion, a validated internal standard for qNMR, or a defined component signal for composition; mark these `retain_for_quantitation` and state the formula/response assumptions.
+- Mark residual solvent, water, a reference peak not used for qNMR, known unrelated additives, and evidence-classified product-unrelated impurities as `exclude`. Their ordinary and multiplet-derived integral displays are removed from the saved clean Mnova document, while the raw peaks and unresolved audit remain; they must not enter target-signal normalization.
+- Mark unexplained peaks `unknown` + `review`. Keep them visible and report them; never suppress an integral merely to make the spectrum look cleaner.
+- When an impurity overlaps a target signal inside one inseparable integral region, remove/exclude the whole contaminated integral and report `contaminated_target_region`. Do not quote that region as a clean target integral unless validated deconvolution or orthogonal evidence separates the contributions.
+
+After applying a plan, audit `integration_cleanup.before_count`, `after_count`, `excluded_regions`, `removed_integrals`, and `removed_multiplet_integrals`. An excluded region with no ordinary integral can mean the region was never integrated; it is not automatically an error, but the final visual view must still show no integral curve or value for it.
+
 ## Assignment logic
 
 Evaluate assignments in this order:
 
-1. Exclude reference, residual solvent, water, known additives, and obvious impurities.
+1. Classify reference, residual solvent, water, known additives, starting material, byproducts, unknown peaks, overlaps, and product-unrelated impurities before deciding their integration policy.
 2. Check target atom/proton counts and molecular symmetry.
 3. Check integration after defensible normalization.
 4. Check multiplicity and resolved J values.
@@ -151,6 +173,7 @@ If Verify is unavailable, unlicensed, or fails, preserve that status and continu
 
 ## Failure handling
 
+- Mnova executable is not found: do not assume `C:` or ask the user to reinstall. Inspect `mnova_status.mcp_version` and `mnova_status.mnova_discovery`; the MCP already checks its configured path, Windows registry, `PATH`, Program Files variables, and common directories on every local fixed drive. If a custom installation is still absent, obtain the full path to `MestReNova.exe`, set `MNOVA_EXE` in the MCP server's launch environment, restart that server/host, and rerun `mnova_status`. A variable set in an unrelated terminal cannot change an already running managed MCP process.
 - Structure import fails: request the original `.cdx/.cdxml`; try `.mol`/`.sdf` only as an explicit conversion fallback.
 - No multiplet UUIDs: correct processing/peak picking before assigning; do not create ppm-only pseudo-links.
 - Reference or phase/baseline is wrong: reprocess into a new preparation job and discard the stale plan.
@@ -168,6 +191,8 @@ If Verify is unavailable, unlicensed, or fails, preserve that status and continu
 - peak labels are horizontal and directly above their assigned peaks; coincident labels use comma joining without spaces;
 - verbose multiplet boxes do not obscure the clean label view;
 - unresolved/excluded signals are listed;
+- product-unrelated impurity regions have no displayed integral and do not enter target normalization; the `integration_cleanup` audit matches the plan;
+- unknown peaks remain visible for review and have not been relabeled as impurities merely to suppress them;
 - the verdict is `supported`, `contradicted`, or `inconclusive`, with reasons;
 - Verify metrics are separated from the manual evidence conclusion;
 - no synthetic or predicted signal is presented as measured evidence.

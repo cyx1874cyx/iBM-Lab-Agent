@@ -10,10 +10,12 @@ const assetsServicePath = fileURLToPath(new URL("../../lib/pdf-viewer-assets.js"
 
 test("PDF evidence viewer switches documents after the iframe is already loaded", async () => {
 	const source = await readFile(componentPath, "utf8");
-	assert.match(source, /kind: documentKind, page: pageNumber, quote/);
+	assert.match(source, /kind: documentKind, page: pageNumber, quote: locatorQuote/);
+	assert.match(source, /\^\(\?:S\)\?\(\[1-9\]\\d\*\)\$/);
+	assert.match(source, /未提供有效页码，已停在首页/);
 	assert.match(source, /\/\/ 已加载的 iframe 不会再次发送 ready；属性切换时主动下发/);
 	assert.match(source, /postOpen\(\);\s*return \(\) =>/s);
-	assert.match(source, /\[bundleId, documentKind, pageNumber, quote\]/);
+	assert.match(source, /\[bundleId, documentKind, pageNumber, pageIsValid, locatorQuote, rawPage\]/);
 });
 
 test("standalone PDF viewer keeps PDF and SI sources separate", async () => {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { h } from "./h.js";
 import { ROUTE_ORIGIN_LABEL, ROUTE_STATUS_LABEL, EVIDENCE_SOURCE_LABEL, EVIDENCE_REVIEW_LABEL, STEP_FIELD_DEFS } from "./constants.js";
 import { stepIsStructured, readStepFieldValue, evidenceByStep, routeLevelEvidence, evidenceLocator, stepCompoundsByRole } from "./ketcher.js";
-import { PdfViewerFrame, KetcherEditorModal, StructureCard, StepReactionLayout } from "./components-core.js";
+import { PdfViewerFrame, KetcherEditorModal, StructureCard, StepReactionLayout, ReactionSchemePreview } from "./components-core.js";
 
 // 研究设计工作台主组件（合成路线：Route → Step → Evidence → 审核抽屉）
 export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onRequestPlan, onChanged }) {
@@ -21,6 +21,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 			const [selectedEvidenceId, setSelectedEvidenceId] = useState(null); // 组件三当前选中事实
 			const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false); // RC1-04：右侧审核抽屉开关
 			const [correctionFor, setCorrectionFor] = useState(null); // { id, value } | null 修正输入
+			const [evidenceFeedback, setEvidenceFeedback] = useState(null); // { id, action, state, message }
 			const [batchList, setBatchList] = useState([]); // 当前 route 的审核批次
 			const [newRouteForm, setNewRouteForm] = useState(null); // { name, targetId } | null
 			const [moreOpen, setMoreOpen] = useState(false); // 顶部“更多”菜单
@@ -226,29 +227,53 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 
 			// 确认/修正以审核抽屉中的已归档 PDF 为依据，不再依赖派生截图。
 			const decideEvidence = (row, status) => withBusy(`ev:${row.id}`, async () => {
+				const action = status === "confirmed" ? "confirm" : "reject";
+				setEvidenceFeedback({ id: row.id, action, state: "saving", message: status === "confirmed" ? "正在确认…" : "正在标记为无法确认…" });
 				if (status === "confirmed" && !evidenceConfirmable(row)) {
-					notify(`Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`);
+					const message = `Evidence ${row.id} 暂不能确认：${evidenceShotBlockReason(row)}`;
+					setEvidenceFeedback({ id: row.id, action, state: "error", message });
+					notify(message);
 					return;
 				}
-				await call("synth_evidence_review", { request: { id: row.id, status } });
-				notify(`Evidence ${row.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
-				const reload = await call("synth_route_detail", { request: { id: routeId } });
-				setDetail(reload);
+				try {
+					await call("synth_evidence_review", { request: { id: row.id, status } });
+					const message = status === "confirmed" ? "已确认通过，结果已保存。" : "已标记为无法确认，结果已保存。";
+					setEvidenceFeedback({ id: row.id, action, state: "saved", message });
+					notify(`Evidence ${row.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
+					const reload = await call("synth_route_detail", { request: { id: routeId } });
+					setDetail(reload);
+				} catch (reason) {
+					setEvidenceFeedback({ id: row.id, action, state: "error", message: reason.message || "审核保存失败，请重试。" });
+					throw reason;
+				}
 			});
 			/** 修正：同时保留原始提取值与人工修正值（服务端写 originalExtract + userCorrection）。
 			 *  自动提取项若未绑定归档原文，修正同样不能视为完成原文核验。 */
 			const saveCorrection = (row, rawValue) => withBusy(`ev:${row.id}`, async () => {
+				setEvidenceFeedback({ id: row.id, action: "correct", state: "saving", message: "正在保存修正…" });
 				if (evidenceRequiresShotClient(row) && !evidenceConfirmable(row)) {
-					notify(`Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`);
+					const message = `Evidence ${row.id} 暂不能修正：${evidenceShotBlockReason(row)}`;
+					setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message });
+					notify(message);
 					return;
 				}
 				const correction = String(rawValue ?? "").trim();
-				if (!correction) { notify("修正值不能为空。"); return; }
-				await call("synth_evidence_review", { request: { id: row.id, status: "corrected", correction } });
-				notify(row.originalExtract ? `已保存人工修正（原始提取值“${row.originalExtract}”保留在 originalExtract）。` : "已保存人工修正。");
-				const reload = await call("synth_route_detail", { request: { id: routeId } });
-				setDetail(reload);
-				setCorrectionFor(null);
+				if (!correction) {
+					setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message: "请先填写修正值。" });
+					notify("修正值不能为空。");
+					return;
+				}
+				try {
+					await call("synth_evidence_review", { request: { id: row.id, status: "corrected", correction } });
+					setEvidenceFeedback({ id: row.id, action: "correct", state: "saved", message: "人工修正已保存。" });
+					notify(row.originalExtract ? `已保存人工修正（原始提取值“${row.originalExtract}”保留在 originalExtract）。` : "已保存人工修正。");
+					const reload = await call("synth_route_detail", { request: { id: routeId } });
+					setDetail(reload);
+					setCorrectionFor(null);
+				} catch (reason) {
+					setEvidenceFeedback({ id: row.id, action: "correct", state: "error", message: reason.message || "修正保存失败，请重试。" });
+					throw reason;
+				}
 			});
 			/** 提交本轮事实核验批次：全部事实完成人工选择后，Agent 才能处理无法确认项。 */
 			const loadReviewBatches = useCallback(() => {
@@ -291,6 +316,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 			// 关闭不清除 activeEvidenceId（selectedEvidenceId），未提交的主页状态不丢失。
 			const openReviewDrawer = (evidenceId) => {
 				setSelectedEvidenceId(evidenceId);
+				setEvidenceFeedback(null);
 				// 预填历史修正值（已审核项重新打开时可见 userCorrection，便于续改）
 				const row = detail?.evidence?.find((item) => item.id === evidenceId);
 				setCorrectionFor(row?.userCorrection ? { id: evidenceId, value: row.userCorrection } : null);
@@ -299,6 +325,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 			const closeReviewDrawer = () => {
 				setReviewDrawerOpen(false);
 				setCorrectionFor(null);
+				setEvidenceFeedback(null);
 			};
 			useEffect(() => {
 				if (!reviewDrawerOpen) return undefined;
@@ -312,7 +339,7 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 				: null;
 
 			// 0.3.2：Ketcher 编辑弹层状态（hooks 必须无条件调用）
-			const [ketcherModal, setKetcherModal] = useState(null); // { stepKey, name, smiles, role } | null
+			const [ketcherModal, setKetcherModal] = useState(null); // { stepKey, name, smiles, role, evidenceId? } | null
 			// 0.4.0：页内"添加步骤"表单（替代连续 window.prompt）
 			const [addStepForm, setAddStepForm] = useState(null); // { open, reaction, reactants, products } | null
 			// 0.4.0：PubChem/CACTUS 双源核验结果面板（只查不写，候选登记需人工确认）
@@ -356,12 +383,24 @@ export function ResearchDesignWorkspace({ projectId, routes = [], targets = [], 
 				const clean = String(smiles ?? "").trim();
 				if (!modal || !clean) { notify(clean ? "结构式为空，未保存" : "保存失败：未收到结构式"); return; }
 				try {
+					if (modal.evidenceId) {
+						setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saving", message: "正在保存补绘结构…" });
+						await call("synth_evidence_review", { request: { id: modal.evidenceId, status: "corrected", correction: clean } });
+						const reload = await call("synth_route_detail", { request: { id: routeId } });
+						setDetail(reload);
+						setCorrectionFor(null);
+						setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saved", message: "补绘结构已保存并更新到路线。" });
+						setKetcherModal(null);
+						notify(`已补绘并保存「${modal.name}」结构。`);
+						return;
+					}
 					await call("synth_step_set_structure", { request: { routeId, stepId: modal.stepKey, name: modal.name, smiles: clean } });
 					notify(`已用 Ketcher 结果更新「${modal.name}」结构式（source=manual）。`);
 					const reload = await call("synth_route_detail", { request: { id: routeId } });
 					setDetail(reload);
 					setKetcherModal(null);
 				} catch (reason) {
+					if (modal?.evidenceId) setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "error", message: reason.message || "补绘结构保存失败，请重试。" });
 					notify(reason.message || "结构式保存失败");
 				}
 			});
@@ -480,10 +519,19 @@ return h("div", { className: "sw-plan" },
 							? h("div", { className: "sw-plan-empty", style: { flex: 1 } },
 								h("b", null, "该路线还没有任何步骤"),
 								"使用“从文献提取路线”，或让 Agent / 人工登记步骤与结构化条件。")
-							: detail.route.steps.map((step) => {
-								const isActive = step.id === selectedStepId;
+							: (() => {
+								const steps = detail.route.steps;
+								const foundIndex = steps.findIndex((item) => (item.id ?? `s${item.step}`) === selectedStepId);
+								const stepIndex = foundIndex >= 0 ? foundIndex : 0;
+								const step = steps[stepIndex];
 								const reactantEntries = stepCompoundsByRole(step, ["reactant"]);
 								const productEntries = stepCompoundsByRole(step, ["product"]);
+								const selectStepAt = (index) => {
+									const next = steps[index];
+									if (!next) return;
+									setSelectedStepId(next.id ?? `s${next.step}`);
+									setMoreOpen(false);
+								};
 								// rc.4 §3.1：总览点结构图 → 先选中该步骤再用该步骤 id 打开
 								// 对应化合物（避免把结构写进错误步骤）；卡片空白区才负责切换。
 								const openOverviewStructure = (targetStep, entry) => {
@@ -502,19 +550,20 @@ return h("div", { className: "sw-plan" },
 								const structureRow = (entries, fallbackNames, dataRole) => (entries.length
 									? h("span", { className: "sw-step-chem-flow", "data-role": dataRole }, entries.map(structureNode))
 									: h("span", { className: "sw-step-chem-empty", "data-role": dataRole }, (fallbackNames || []).join("、") || "结构待补"));
-								// rc.4：卡片本身为可聚焦 div（避免 button 内嵌可点击结构节点）；
-								// 点击卡片空白/标题区域切换步骤，点击结构图打开对应化合物。
-								return h("div", { key: step.id, className: "sw-step", "data-active": isActive ? "true" : undefined, role: "button", tabIndex: 0, "aria-label": `${step.id}：${step.label || step.reaction || `Step ${step.step}`}，点击查看步骤详情`, onClick: (event) => { setSelectedStepId(step.id); setMoreOpen(false); }, onKeyDown: (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); setSelectedStepId(step.id); setMoreOpen(false); } } },
-									h("span", { className: "sw-step-top" },
-										h("span", { className: "sw-step-id" }, step.id)),
-									h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
-									h("span", { className: "sw-step-chem" },
-										h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
-										h("span", { className: "sw-step-chem-mid" },
-											h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"),
-											null),
-										h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products"))))
-							}))),
+								const legacyScheme = h("span", { className: "sw-step-chem" },
+									h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
+									h("span", { className: "sw-step-chem-mid" }, h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"), null),
+									h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products")));
+								return h("div", { className: "sw-step-carousel", "aria-label": "合成步骤分页预览" },
+									h("button", { className: "sw-step-page-btn", disabled: stepIndex === 0, onClick: () => selectStepAt(stepIndex - 1), "aria-label": "上一个合成步骤", title: "上一个合成步骤" }, "‹"),
+									h("div", { key: step.id ?? step.step, className: "sw-step sw-step-scheme", "data-active": "true", "aria-label": `${step.id ?? `s${step.step}`}：${step.label || step.reaction || `Step ${step.step}`}` },
+										h("span", { className: "sw-step-top" },
+											h("span", { className: "sw-step-id" }, step.id ?? `s${step.step}`),
+											h("span", { className: "sw-step-page-count" }, `${stepIndex + 1} / ${steps.length}`)),
+										h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
+										h(ReactionSchemePreview, { step, reactants: reactantEntries, products: productEntries, onStructureClick: (entry) => openOverviewStructure(step, entry), fallback: legacyScheme })),
+									h("button", { className: "sw-step-page-btn", disabled: stepIndex === steps.length - 1, onClick: () => selectStepAt(stepIndex + 1), "aria-label": "下一个合成步骤", title: "下一个合成步骤" }, "›"));
+							})())),
 			selectedStep && detail
 				? h("section", { className: "sw-sec sw04-detail" },
 					h("div", { className: "sw-head" },
@@ -544,7 +593,10 @@ return h("div", { className: "sw-plan" },
 							const locked = !!route?.locked;
 							const reviewLabel = ({ pending: "待核验", confirmed: "已确认", corrected: "已修正", rejected: "无法确认", edited: "已修订" })[row.reviewStatus] || row.reviewStatus;
 							const reviewTone = row.reviewStatus === "pending" ? "warn" : (row.reviewStatus === "rejected" ? "bad" : "good");
-							const claim = row.excerpt || row.userCorrection || row.title || row.sourceName || "";
+							const candidateMethod = row.structureCandidate?.method === "visual-extraction" ? "图片提取" : "文献推测";
+							const claim = row.structureCandidate
+								? `${candidateMethod}候选 · SMILES ${row.userCorrection || row.structureCandidate.smiles}`
+								: (row.userCorrection || row.excerpt || row.title || row.sourceName || "");
 							const fieldLabel = row.supportsField ? String(row.supportsField) : (row.title || "核验项");
 							return h("div", { key: row.id, className: "sw04-fact-row" },
 								h("div", { className: "sw04-fact-row-main" },
@@ -632,19 +684,31 @@ return h("div", { className: "sw-plan" },
 								h("span", { className: "sw04-review-head-title" }, activeEvidence.title || activeEvidence.sourceName || "事实核验"),
 								h("span", { className: "sw04-review-head-sub" }, `${EVIDENCE_SOURCE_LABEL[activeEvidence.sourceType] || activeEvidence.sourceType}${activeEvidence.doi ? " · DOI " + activeEvidence.doi : ""}${evidenceLocator(activeEvidence) ? " · " + evidenceLocator(activeEvidence) : ""}${activeEvidence.supportsField ? " · 字段 " + activeEvidence.supportsField : ""}`)),
 							h("button", { className: "sw04-review-close", onClick: closeReviewDrawer, "aria-label": "关闭审核抽屉" }, "关闭")),
-					h("div", { className: "sw04-review-body" },
-						h("div", { className: "sw04-review-copy" },
-							h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
-							activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
-							activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "var(--ib-panel)" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
-							// 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
-							h(PdfViewerFrame, { row: activeEvidence, notify })),
-						h("div", { className: "sw04-review-foot" },
-							h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
-							h("button", { className: "sw-mini-btn", "data-no": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "无法确认"),
-							h("button", { className: "sw-mini-btn", disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "修正"),
-							h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] ? "提交中…" : "确认通过"),
-								h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => { const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id); if (next) { setSelectedEvidenceId(next.id); setCorrectionFor(null); } }, title: "跳到下一条待审核事实" }, "下一条待审核")))))
+						h("div", { className: "sw04-review-body" },
+							h("div", { className: "sw04-review-copy" },
+								h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
+								activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
+								activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "var(--ib-panel)" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
+								activeEvidence.structureCandidate
+									? h("div", { className: "sw04-structure-candidate" },
+										h("div", { className: "sw04-structure-candidate-head" },
+											h("div", null,
+												h("b", null, activeEvidence.structureCandidate.method === "visual-extraction" ? "图片提取结构候选" : "文献推测结构候选"),
+												h("small", null, "候选已显示在合成路线中，需在此人工核验后固化。")),
+											h("button", { className: "sw-mini-btn", disabled: !!route?.locked || !!busy[`ev:${activeEvidence.id}`], onClick: () => setKetcherModal({ stepKey: activeEvidence.stepId || selectedStep?.id, name: activeEvidence.structureCandidate.name, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, role: activeEvidence.structureCandidate.role, evidenceId: activeEvidence.id }) }, "Ketcher 补绘 / 修正")),
+										h(StructureCard, { entry: { ...activeEvidence.structureCandidate, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, source: activeEvidence.userCorrection ? "manual" : activeEvidence.structureCandidate.method }, compact: false }))
+									: null,
+								// 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
+								h(PdfViewerFrame, { row: activeEvidence, notify }),
+								evidenceFeedback?.id === activeEvidence.id
+									? h("div", { className: "sw04-review-feedback", "data-state": evidenceFeedback.state, role: "status", "aria-live": "polite" }, evidenceFeedback.state === "saving" ? "◌" : (evidenceFeedback.state === "saved" ? "✓" : "!"), " ", evidenceFeedback.message)
+									: null),
+							h("div", { className: "sw04-review-foot" },
+								h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: activeEvidence.structureCandidate ? "输入修正后的 SMILES，或使用 Ketcher 补绘" : "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
+								h("button", { className: "sw-mini-btn", "data-no": true, "data-selected": activeEvidence.reviewStatus === "rejected" ? "true" : undefined, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "reject" ? "标记中…" : (activeEvidence.reviewStatus === "rejected" ? "✓ 已标无法确认" : "无法确认")),
+								h("button", { className: "sw-mini-btn", "data-selected": activeEvidence.reviewStatus === "corrected" ? "true" : undefined, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "correct" ? "保存中…" : (activeEvidence.reviewStatus === "corrected" ? "✓ 已修正" : "修正")),
+								h("button", { className: "sw-mini-btn", "data-primary": true, "data-selected": activeEvidence.reviewStatus === "confirmed" ? "true" : undefined, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "confirm" ? "确认中…" : (activeEvidence.reviewStatus === "confirmed" ? "✓ 已确认" : "确认通过")),
+									h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id), onClick: () => { const next = stepEvidence.find((row) => row.reviewStatus === "pending" && row.id !== activeEvidence.id); if (next) { setSelectedEvidenceId(next.id); setCorrectionFor(null); setEvidenceFeedback(null); } }, title: "跳到下一条待审核事实" }, "下一条待审核")))))
 				: null,
 			h(KetcherEditorModal, { entry: ketcherModal, onSave: (smiles) => void saveKetcherSmiles(smiles), onCancel: () => setKetcherModal(null) }));
 		}

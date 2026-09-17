@@ -242,14 +242,19 @@ pub fn spawn_dsh(
 /// 抽成纯函数以便单测断言（WORKSPACE / OUTPUT_ROOT / BRIDGE_SCRIPT 的
 /// 取值与 RUNTIME_ROOT 的存在性）。
 fn mnova_child_env(
-    working_directory: &Path,
+    _working_directory: &Path,
     layout: &RuntimeLayout,
 ) -> Vec<(&'static str, PathBuf)> {
     let mut envs = vec![
-        ("IBM_LAB_MNOVA_WORKSPACE", working_directory.to_path_buf()),
+        // Lab project workspaces live below <app-root>/dsh/lab-agent/projects,
+        // while the generic DSH workspace is <app-root>/workspace.  Mnova MCP
+        // accepts one project root, so use their common app-owned parent.  This
+        // keeps access inside iBM Lab Agent data and removes the need to copy
+        // FIDs / MOL files into a magic sibling directory before every task.
+        ("IBM_LAB_MNOVA_WORKSPACE", layout.root.clone()),
         (
             "IBM_LAB_MNOVA_OUTPUT_ROOT",
-            working_directory.join("mnova-output"),
+            layout.root.join("mnova-output"),
         ),
         ("IBM_LAB_MNOVA_RUNTIME_ROOT", mnova_runtime_root()),
     ];
@@ -531,10 +536,10 @@ mod tests {
                 .1
                 .clone()
         };
-        assert_eq!(find("IBM_LAB_MNOVA_WORKSPACE"), workspace);
+        assert_eq!(find("IBM_LAB_MNOVA_WORKSPACE"), layout.root);
         assert_eq!(
             find("IBM_LAB_MNOVA_OUTPUT_ROOT"),
-            workspace.join("mnova-output")
+            layout.root.join("mnova-output")
         );
         assert!(find("IBM_LAB_MNOVA_RUNTIME_ROOT")
             .to_string_lossy()

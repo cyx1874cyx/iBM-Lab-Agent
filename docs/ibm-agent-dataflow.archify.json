@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "科研数据与证据依赖关系",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1068, 600],
+    "views": [
+      { "id": "evidence-lineage", "label": "外部证据链", "focus": ["sources", "ingest", "processing", "artifacts", "review"], "note": "文献与实验文件经过校验、处理、存储和人工审核。" },
+      { "id": "project-context", "label": "课题上下文", "focus": ["userinput", "memory", "processing", "records"], "note": "版本化记忆和目标快照约束每次科研任务。" },
+      { "id": "trusted-delivery", "label": "可信交付", "focus": ["processing", "artifacts", "provenance", "review"], "note": "文件、状态和 provenance 在审核端汇合。" }
+    ]
+  },
+  "stages": [
+    { "label": "数据来源" },
+    { "label": "接入与上下文" },
+    { "label": "Agent 与工具处理" },
+    { "label": "版本化存储" },
+    { "label": "审核与交付" }
+  ],
+  "nodes": [
+    { "id": "sources", "type": "cloud", "label": "外部科研来源", "sublabel": "API、出版社、机构库", "stage": 0, "row": 0, "tag": "授权或开放" },
+    { "id": "userinput", "type": "external", "label": "研究人员输入", "sublabel": "目标、文件与决策", "stage": 0, "row": 2, "tag": "human" },
+    { "id": "ingest", "type": "security", "label": "校验与规范化", "sublabel": "PDF、DOI 与 source map", "stage": 1, "row": 0, "tag": "hash + canonical" },
+    { "id": "memory", "type": "database", "label": "课题记忆与快照", "sublabel": "目标、模板、版本", "stage": 1, "row": 2, "tag": "immutable version" },
+    { "id": "processing", "type": "backend", "label": "Agent 与本地工具", "sublabel": "Skills、MCP 与 Python", "stage": 2, "row": 1, "tag": "structured boundary", "width": 136 },
+    { "id": "records", "type": "database", "label": "领域记录", "sublabel": "项目、任务、状态、结果", "stage": 3, "row": 0, "tag": "JSON domain" },
+    { "id": "artifacts", "type": "database", "label": "科研产物", "sublabel": "DOCX、PPTX、PDF、谱图", "stage": 3, "row": 2, "tag": "workspace files" },
+    { "id": "provenance", "type": "security", "label": "ArtifactProvenance", "sublabel": "哈希、技能、模型、时间", "stage": 3, "row": 2, "yOffset": 96, "tag": "lineage", "width": 136 },
+    { "id": "review", "type": "frontend", "label": "人工审核与交付", "sublabel": "预览、批准、下载或退回", "stage": 4, "row": 2, "tag": "hash-bound" }
+  ],
+  "flows": [
+    { "id": "sources-ingest", "from": "sources", "to": "ingest", "label": "原文、SI 与元数据", "classification": "外部证据", "variant": "security" },
+    { "id": "user-memory", "from": "userinput", "to": "memory", "label": "核心记忆与任务约束", "classification": "版本化上下文" },
+    { "id": "ingest-processing", "from": "ingest", "to": "processing", "label": "可定位的规范化证据包", "classification": "validated input", "variant": "emphasis" },
+    { "id": "memory-processing", "from": "memory", "to": "processing", "label": "目标与模板快照", "classification": "immutable reference", "variant": "emphasis" },
+    { "id": "processing-records", "from": "processing", "to": "records", "label": "状态与领域结果", "classification": "validated JSON" },
+    { "id": "processing-artifacts", "from": "processing", "to": "artifacts", "label": "生成或分析文件", "classification": "binary artifact", "variant": "emphasis", "labelAt": [700, 322] },
+    { "id": "processing-provenance", "from": "processing", "to": "provenance", "label": "输入、技能、模型与时间", "classification": "lineage", "variant": "security", "labelAt": [620, 425] },
+    { "id": "records-review", "from": "records", "to": "review", "label": "任务状态与看板数据", "classification": "read model", "route": "top-channel", "channelY": 92 },
+    { "id": "artifacts-review", "from": "artifacts", "to": "review", "label": "预览文件与当前哈希", "classification": "under-review", "variant": "emphasis", "route": "straight", "labelAt": [845, 338] },
+    { "id": "provenance-review", "from": "provenance", "to": "review", "label": "可追溯审核证据", "classification": "audit context", "variant": "security" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "静态依赖", "items": ["领域记录引用版本快照和 workspace 文件", "产物与 provenance 分开存储，通过哈希建立关联"] },
+    { "dot": "cyan", "title": "动态数据流", "items": ["外部证据先校验与规范化，再进入 Agent 和工具处理", "领域状态、文件和来源链在审核端汇合"] },
+    { "dot": "rose", "title": "可信交付", "items": ["人工审核读取当前文件和来源上下文", "批准只对审核时的 SHA-256 生效"] }
+  ]
+}

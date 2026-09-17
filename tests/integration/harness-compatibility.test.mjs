@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { applyFakeInvokePatch, inspectFakeInvokePatch, revertFakeInvokePatch } from "../../src/dsh-runtime-patch.js";
+import { applyDshWebFrontendPatch, inspectDshWebFrontendPatch, revertDshWebFrontendPatch } from "../../src/dsh-web-frontend-patch.js";
 
 const require = createRequire(import.meta.url);
 const read = (file) => readFile(new URL(`../../${file}`, import.meta.url), "utf8");
@@ -30,4 +32,19 @@ test("fake-invoke patch matches the pristine locked DSH and reverses without cha
 	assert.equal(applyFakeInvokePatch(patched), patched);
 	assert.equal(revertFakeInvokePatch(patched), source);
 	assert.match(patched, /let firstAttempt = true;\n\t\tlet fakeInvokeRetries = 0;/);
+});
+
+test("clipboard fallback patch matches the pinned DSH web frontend and is reversible", async () => {
+	const packageRoot = dirname(require.resolve("@deepseek-ai/dsh-web-frontend/package.json"));
+	const assetsRoot = join(packageRoot, "dist", "assets");
+	let source;
+	for (const name of await readdir(assetsRoot)) {
+		if (!/^index-[\w-]+\.js$/.test(name)) continue;
+		const candidate = await readFile(join(assetsRoot, name), "utf8");
+		if (inspectDshWebFrontendPatch(candidate).pristineAnchors) { source = candidate; break; }
+	}
+	assert.ok(source, "pinned DSH web frontend clipboard anchors found");
+	const patched = applyDshWebFrontendPatch(source);
+	assert.equal(inspectDshWebFrontendPatch(patched).patchedAnchors, true);
+	assert.equal(revertDshWebFrontendPatch(patched), source);
 });

@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "iBM Lab Agent 软件架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@git.ustc.edu.cn:qbdeng2025/iBM-Lab-Agent.git",
+      "revision": "489dbaf30f4c4bb06d747da6027c56c5bd97608b",
+      "link_mode": "local-only"
+    },
+    "views": [
+      {
+        "id": "request-path",
+        "label": "交互主链",
+        "focus": ["researcher", "desktop", "webui", "dshhost", "labservices", "storage"],
+        "note": "从研究人员操作到宿主编排、领域服务和持久化。"
+      },
+      {
+        "id": "agent-path",
+        "label": "Agent 执行面",
+        "focus": ["dshhost", "agentplane", "labservices", "localtools"],
+        "note": "预设把模型、技能和工具组合成可执行科研流程。"
+      },
+      {
+        "id": "evidence-path",
+        "label": "科研证据链",
+        "focus": ["sources", "labservices", "storage", "localtools"],
+        "note": "外部来源、本地科学软件与可追溯产物共同形成证据闭环。"
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [50, 86],
+    "cols": 5,
+    "gapX": 39,
+    "gapY": 76,
+    "cellW": 156,
+    "cellH": 78
+  },
+  "components": [
+    {
+      "id": "researcher",
+      "type": "external",
+      "label": "研究人员",
+      "sublabel": "课题、文献与实验任务",
+      "row": 1,
+      "col": 0,
+      "sources": [{ "path": "README.md", "line": 1, "end_line": 20, "label": "产品定位与能力" }]
+    },
+    {
+      "id": "desktop",
+      "type": "frontend",
+      "label": "Tauri 桌面端",
+      "sublabel": "Windows 壳与运行时管理",
+      "tag": "Rust / WebView",
+      "row": 0,
+      "col": 1,
+      "sources": [{ "path": "desktop/src-tauri/src/main.rs", "line": 26, "end_line": 46, "label": "桌面启动入口" }]
+    },
+    {
+      "id": "webui",
+      "type": "frontend",
+      "label": "科研工作台 UI",
+      "sublabel": "课题、文献、设计、表征",
+      "tag": "DSH Client",
+      "row": 2,
+      "col": 1,
+      "sources": [{ "path": "client/src/apply.js", "line": 98, "end_line": 130, "label": "课题空间启动" }]
+    },
+    {
+      "id": "dshhost",
+      "type": "backend",
+      "label": "DeepSeek Harness",
+      "sublabel": "Cordis 宿主与会话运行时",
+      "tag": "ibm-lab profile",
+      "row": 1,
+      "col": 2,
+      "sources": [{ "path": "desktop/src-tauri/src/runtime/dsh.rs", "line": 128, "end_line": 150, "label": "Profile 装配" }]
+    },
+    {
+      "id": "labservices",
+      "type": "backend",
+      "label": "iBM 领域服务",
+      "sublabel": "任务、化学、合成、NMR、模板",
+      "tag": "Cordis Services",
+      "row": 1,
+      "col": 3,
+      "sources": [{ "path": "cordis.patch.yml", "line": 111, "end_line": 205, "label": "核心服务注册" }]
+    },
+    {
+      "id": "agentplane",
+      "type": "backend",
+      "label": "Agent 工具与技能",
+      "sublabel": "lab-research + Nature Skills",
+      "tag": "模型可见执行面",
+      "row": 0,
+      "col": 3,
+      "sources": [{ "path": "presets/lab-research/agent.cordis.yml", "line": 1, "end_line": 90, "label": "科研预设" }]
+    },
+    {
+      "id": "remoteapi",
+      "type": "backend",
+      "label": "Remote / HTTP 网关",
+      "sublabel": "UI 调用与产物下载",
+      "tag": "Typert + Loopback",
+      "row": 2,
+      "col": 3,
+      "sources": [{ "path": "lib/remote.js", "line": 40, "end_line": 65, "label": "Remote 服务" }]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "版本化科研数据",
+      "sublabel": "JSON domain + workspace 文件",
+      "tag": "只增版本 / SHA-256",
+      "row": 1,
+      "col": 4,
+      "sources": [{ "path": "lib/tasks.js", "line": 380, "end_line": 430, "label": "任务域持久化" }]
+    },
+    {
+      "id": "localtools",
+      "type": "external",
+      "label": "本地科学软件",
+      "sublabel": "Origin / Mnova / Python",
+      "tag": "MCP / 子进程",
+      "row": 0,
+      "col": 4,
+      "sources": [{ "path": "desktop/src-tauri/src/runtime/mcp.rs", "line": 20, "end_line": 50, "label": "内置 MCP 配置" }]
+    },
+    {
+      "id": "sources",
+      "type": "cloud",
+      "label": "外部科研来源",
+      "sublabel": "开放 API / 机构授权页面",
+      "tag": "显式授权边界",
+      "row": 2,
+      "col": 4,
+      "sources": [{ "path": "lib/literature-sources.js", "line": 1, "end_line": 40, "label": "文献来源服务" }]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "本机受控运行边界",
+      "wraps": ["desktop", "webui", "dshhost", "labservices", "agentplane", "remoteapi", "storage", "localtools"]
+    },
+    {
+      "kind": "security-group",
+      "label": "回环地址与用户数据边界",
+      "wraps": ["dshhost", "remoteapi", "labservices", "storage"]
+    }
+  ],
+  "connections": [
+    { "id": "researcher-desktop", "from": "researcher", "to": "desktop", "label": "桌面操作", "variant": "emphasis" },
+    { "id": "researcher-web", "from": "researcher", "to": "webui", "label": "课题交互", "variant": "emphasis" },
+    { "id": "desktop-host", "from": "desktop", "to": "dshhost", "label": "启动并健康检查", "variant": "security" },
+    { "id": "web-remote", "from": "webui", "to": "remoteapi", "label": "ctx.remote.lab.*" },
+    { "id": "host-services", "from": "dshhost", "to": "labservices", "label": "Cordis 注入与编排", "variant": "emphasis", "labelAt": [600, 314] },
+    { "id": "host-agent", "from": "dshhost", "to": "agentplane", "label": "预设与会话工具" },
+    { "id": "remote-services", "from": "remoteapi", "to": "labservices", "label": "方法分派" },
+    { "id": "agent-services", "from": "agentplane", "to": "labservices", "label": "模型工具调用", "labelAt": [698, 160] },
+    { "id": "services-store", "from": "labservices", "to": "storage", "label": "版本行、文件与 provenance", "variant": "emphasis", "labelAt": [796, 220] },
+    { "id": "agent-tools", "from": "agentplane", "to": "localtools", "label": "MCP stdio / Python", "labelAt": [796, 160] },
+    { "id": "sources-services", "from": "sources", "to": "labservices", "label": "元数据、PDF 与 SI", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "架构核心",
+      "items": [
+        "iBM Lab Agent 是 Harness bundle，不替换 Harness 核心",
+        "宿主服务与模型可见工具分层，避免服务重复注册"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "数据与证据",
+      "items": [
+        "课题 workspace、版本快照和产物哈希形成可追溯链",
+        "原始科研数据与已审核记录受不可覆盖约束"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "安全边界",
+      "items": [
+        "桌面服务只监听 127.0.0.1，外部授权操作由用户完成",
+        "高风险产物下载和路线锁定经过显式人工门禁"
+      ]
+    }
+  ]
+}

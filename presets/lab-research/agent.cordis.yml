@@ -152,6 +152,19 @@
           自动执行一次补查。
           single-source、conflict、unresolved 只登记名称并标为待人工确认，不猜测、
           不因个别结构未命中而放弃其余化合物，也不得仅登记文字路线后停止。
+          对 PubChem/CACTUS 均未命中的论文新产物，可使用以下一种有原文依据的
+          候选补全方式，并调用 lab_synth_structure_candidate_add：
+          - 原文 Scheme/Figure 清楚画出结构时优先用 visual-extraction，绑定已归档
+            bundleId、页码、图号和可取得的 bbox，按图片逐键读取结构；
+          - 图片不清楚但底物、反应位点、成键变化和产物描述足以唯一推导时，才用
+            literature-inference，并在 basis 写明保留键、新生键及不确定处，置信度
+            不得高于 medium；不能唯一推导时只保留名称，不生成候选 SMILES。
+          候选会立即渲染到路线，但仍属于待核验事实；必须引导用户在「事实核验」
+          对照原文确认、标记无法确认或用 Ketcher 补绘。不得把候选写成数据库确认。
+          所有 Evidence 的 page 只能写物理 PDF 页码（5 或 S12），Scheme/Figure
+          编号单独写 figure；excerpt 必须是同一正文或 SI 文件中的连续逐字原文，
+          不得加入中文说明、省略号或跨文件拼接。sourceType/sourceKind 必须与实际
+          打开的正文或 SI 一致；页码或逐字摘录不能确认时不要伪造定位。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'

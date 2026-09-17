@@ -110,3 +110,22 @@ test("desktop delegates model configuration to DSH and manages MCP per applicati
 	assert.match(main, /save_app_mcp/);
 	assert.match(config, /Vec<McpServerConfig>/);
 });
+
+test("diagnostics removes the development WebVPN probe and checks real research sources", async () => {
+	const [shell, main, deps] = await Promise.all([
+		read("desktop/src/index.html"),
+		read("desktop/src-tauri/src/main.rs"),
+		read("desktop/src-tauri/src/runtime/deps.rs"),
+	]);
+	assert.doesNotMatch(shell, /WebVPN 探测（仅开发构建）|阶段 1 · 导航白名单|id="webvpn-probe"/);
+	assert.match(shell, /invoke\('research_source_diagnostics'\)/);
+	assert.match(main, /async fn research_source_diagnostics/);
+	assert.match(deps, /DOI 检索 · OpenAlex/);
+	assert.match(deps, /DOI 检索 · Crossref/);
+	assert.match(deps, /结构式检索 · PubChem/);
+	assert.match(deps, /结构式检索 · CACTUS/);
+	assert.match(deps, /api\.openalex\.org\/works/);
+	assert.match(deps, /api\.crossref\.org\/works/);
+	assert.match(deps, /pubchem\.ncbi\.nlm\.nih\.gov\/rest\/pug/);
+	assert.match(deps, /cactus\.nci\.nih\.gov\/chemical\/structure/);
+});

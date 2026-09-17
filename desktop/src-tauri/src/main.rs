@@ -121,6 +121,14 @@ fn runtime_deps(state: tauri::State<'_, AppState>) -> RuntimeDeps {
     state.0.deps()
 }
 
+/// 使用业务真实端点检查 DOI 与结构式检索源，不阻塞桌面 UI 线程。
+#[tauri::command]
+async fn research_source_diagnostics() -> Result<Vec<runtime::deps::DependencyStatus>, String> {
+    tauri::async_runtime::spawn_blocking(runtime::deps::probe_research_sources)
+        .await
+        .map_err(|error| format!("Research source diagnostics task failed: {error}"))
+}
+
 #[tauri::command]
 fn pick_mcp_dir() -> Option<String> {
     rfd::FileDialog::new()
@@ -763,6 +771,7 @@ fn main() {
             reveal_path,
             runtime_status,
             runtime_deps,
+            research_source_diagnostics,
             pick_mcp_dir,
             app_mcp_status,
             save_app_mcp,

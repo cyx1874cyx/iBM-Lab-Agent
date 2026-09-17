@@ -132,8 +132,8 @@ export const stepYieldSchema = z.object({
 /** 化合物在步骤中的角色（展示用；旧 reactants/products 字符串仍是 quick display）。 */
 export const STEP_COMPOUND_ROLES = ["reactant", "product", "reagent", "catalyst", "unknown"];
 
-/** 结构式来源：登记自带 / PubChem 名称解析 / Ketcher 人工补绘或修正 / 关联化学实体。 */
-export const STRUCTURE_SOURCES = ["agent", "pubchem", "manual", "entity"];
+/** 结构式来源：登记/PubChem/Ketcher/实体，以及尚待人工核验的两类 Agent 候选。 */
+export const STRUCTURE_SOURCES = ["agent", "pubchem", "manual", "entity", "literature-inference", "visual-extraction"];
 
 /** 一个化合物名 → 结构式条目。smiles 缺失 = 待补绘（UI 显示占位并允许 Ketcher 补）。 */
 export const stepStructureSchema = z.object({
@@ -152,6 +152,8 @@ export const stepStructureSchema = z.object({
 		})
 		.optional(),
 	entityId: z.string().regex(PROFILE_ID_RE).optional(),
+	/** Agent 候选对应的事实核验记录；确认/修正后仍保留用于溯源。 */
+	evidenceId: z.string().regex(PROFILE_ID_RE).optional(),
 	role: z.enum(STEP_COMPOUND_ROLES).default("unknown"),
 	source: z.enum(STRUCTURE_SOURCES).default("agent"),
 	updatedAt: z.string().optional()
@@ -254,6 +256,15 @@ export const synthesisEvidenceSchema = z.object({
 	table: z.string().optional(),
 	bbox: z.array(z.number()).optional(), // [x1,y1,x2,y2]，首版可选
 	excerpt: z.string().optional(),
+	/** 新产物结构候选：路线先渲染候选，事实核验确认后才成为人工决定。 */
+	structureCandidate: z
+		.object({
+			name: z.string().min(1),
+			smiles: z.string().min(1),
+			role: z.enum(STEP_COMPOUND_ROLES).default("product"),
+			method: z.enum(["literature-inference", "visual-extraction"])
+		})
+		.optional(),
 
 	relation: z.enum(EVIDENCE_RELATIONS).default("supports"),
 	extractionMethod: z.enum(EVIDENCE_EXTRACTION_METHODS).default("manual"),

@@ -11,6 +11,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
@@ -42,6 +43,125 @@ pub struct DependencyStatus {
 pub struct RuntimeDeps {
     pub items: Vec<DependencyStatus>,
     pub bridge: bridge::BridgeStatus,
+}
+
+/// 科研数据源连接诊断。端点与 Node 侧真实检索实现保持一致，避免出现
+/// “诊断正常、实际检索不可用”的假阳性。
+const RESEARCH_SOURCE_PROBES: [(&str, &str, &str, &str); 4] = [
+    (
+        "openalex",
+        "DOI 检索 · OpenAlex",
+        "https://api.openalex.org/works?search=polymer&per-page=1",
+        "results",
+    ),
+    (
+        "crossref",
+        "DOI 检索 · Crossref",
+        "https://api.crossref.org/works?query=polymer&rows=1",
+        "message",
+    ),
+    (
+        "pubchem",
+        "结构式检索 · PubChem",
+        "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/aspirin/property/CanonicalSMILES,InChIKey/JSON",
+        "PropertyTable",
+    ),
+    (
+        "cactus",
+        "结构式检索 · CACTUS",
+        "https://cactus.nci.nih.gov/chemical/structure/aspirin/stdinchikey",
+        "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",
+    ),
+];
+
+fn probe_research_source(key: &str, label: &str, url: &str, marker: &str) -> DependencyStatus {
+    let started = Instant::now();
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .user_agent("iBM-Lab-Agent/diagnostics")
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => {
+            return missing(
+                key,
+                label,
+                format!("无法创建连接：{error}"),
+                "请检查系统网络与 TLS 配置。",
+            )
+        }
+    };
+    match client.get(url).send() {
+        Ok(response) => {
+            let status = response.status();
+            let elapsed = started.elapsed().as_millis();
+            if !status.is_success() {
+                return missing(
+                    key,
+                    label,
+                    format!("连接失败 · HTTP {} · {} ms", status.as_u16(), elapsed),
+                    "请检查当前网络、代理或学校网络策略后重新检测。",
+                );
+            }
+            match response.text() {
+                Ok(body) if body.contains(marker) => ok(
+                    key,
+                    label,
+                    format!("已连接 · HTTP {} · {} ms", status.as_u16(), elapsed),
+                    url,
+                ),
+                Ok(_) => warning(
+                    key,
+                    label,
+                    format!(
+                        "端点可达，但返回内容异常 · HTTP {} · {} ms",
+                        status.as_u16(),
+                        elapsed
+                    ),
+                    "服务可能处于限流、验证或维护状态，请稍后重新检测。",
+                ),
+                Err(error) => warning(
+                    key,
+                    label,
+                    format!("端点可达，但响应读取失败 · {} ms：{error}", elapsed),
+                    "请稍后重新检测。",
+                ),
+            }
+        }
+        Err(error) => missing(
+            key,
+            label,
+            format!("连接失败 · {} ms：{error}", started.elapsed().as_millis()),
+            "请检查当前网络、代理、DNS 或防火墙后重新检测。",
+        ),
+    }
+}
+
+/// 四个来源并发探测，单个来源失败不会拖住或覆盖其他来源的结果。
+pub fn probe_research_sources() -> Vec<DependencyStatus> {
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = RESEARCH_SOURCE_PROBES
+            .iter()
+            .map(|(key, label, url, marker)| {
+                scope.spawn(move || probe_research_source(key, label, url, marker))
+            })
+            .collect();
+        handles
+            .into_iter()
+            .enumerate()
+            .map(|(index, handle)| {
+                handle.join().unwrap_or_else(|_| {
+                    let (key, label, _, _) = RESEARCH_SOURCE_PROBES[index];
+                    missing(
+                        key,
+                        label,
+                        "诊断线程异常退出",
+                        "请重新检测；若持续出现请查看应用日志。",
+                    )
+                })
+            })
+            .collect()
+    })
 }
 
 const EDGE_CANDIDATES: [&str; 2] = [

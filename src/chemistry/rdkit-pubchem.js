@@ -78,7 +78,9 @@ export async function lookupPubChem(name, { fetchImpl = fetch, timeoutMs = 15000
 		cid: props.CID,
 		formula: props.MolecularFormula,
 		molecularWeight: props.MolecularWeight,
-		canonicalSmiles: props.CanonicalSMILES,
+		// PubChem PUG may return ConnectivitySMILES for a CanonicalSMILES
+		// property request; accept both field names while keeping our stable API.
+		canonicalSmiles: props.CanonicalSMILES ?? props.ConnectivitySMILES ?? props.SMILES,
 		inchiKey: props.InChIKey,
 		iupacName: props.IUPACName,
 		queryTime: new Date().toISOString()

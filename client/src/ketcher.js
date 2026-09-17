@@ -163,7 +163,7 @@ export function readStepFieldValue(step, def) {
 					if (def.key === "reagents") return [row.name, row.equivalent ? `(${row.equivalent})` : "", row.amount ? row.amount : ""].filter(Boolean).join(" ");
 					if (def.key === "catalysts") return [row.name, row.loading ? `(${row.loading})` : ""].filter(Boolean).join(" ");
 					if (def.key === "solvents") return [row.name, row.ratio ? `(${row.ratio})` : "", row.volume ? row.volume : ""].filter(Boolean).join(" ");
-					if (def.key === "temperature") return [row.value, row.stage ? `(${row.stage})` : ""].filter(Boolean).join(" ");
+					if (def.key === "temperature") return [row.value, row.unit, row.stage ? `(${row.stage})` : ""].filter(Boolean).join(" ");
 					return Object.values(row).filter((v) => v !== undefined && v !== "").join(" ");
 				});
 				return items.filter(Boolean).join("；");

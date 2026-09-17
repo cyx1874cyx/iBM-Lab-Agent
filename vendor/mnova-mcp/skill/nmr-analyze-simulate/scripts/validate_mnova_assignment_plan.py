@@ -14,6 +14,17 @@ from typing import Any
 
 CONFIDENCE_LEVELS = {"high", "medium", "low"}
 ASSIGNMENT_LABEL_RE = re.compile(r"^[a-z]+$")
+UNRESOLVED_CLASSIFICATIONS = {
+    "solvent",
+    "water",
+    "reference",
+    "unrelated_impurity",
+    "starting_material",
+    "byproduct",
+    "unknown",
+    "overlap",
+}
+INTEGRATION_POLICIES = {"exclude", "retain_for_quantitation", "review"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -85,6 +96,7 @@ def validate(
     seen_targets: set[tuple[int, str]] = set()
     label_to_multiplet: dict[str, str] = {}
     multiplet_targets: dict[str, list[int]] = {}
+    assigned_multiplets: set[str] = set()
 
     for index, assignment in enumerate(assignments):
         prefix = f"assignments[{index}]"
@@ -113,8 +125,10 @@ def validate(
         multiplet = multiplets.get(uuid)
         if multiplet is None:
             errors.append(f"{prefix}.multiplet_uuid is absent from analysis")
-        elif isinstance(atom_index, int):
-            multiplet_targets.setdefault(uuid, []).append(atom_index)
+        else:
+            assigned_multiplets.add(uuid)
+            if isinstance(atom_index, int):
+                multiplet_targets.setdefault(uuid, []).append(atom_index)
 
         label = assignment.get("label")
         if not isinstance(label, str) or not ASSIGNMENT_LABEL_RE.fullmatch(label):
@@ -182,6 +196,87 @@ def validate(
     unresolved = plan.get("unresolved", [])
     if not isinstance(unresolved, list):
         errors.append("unresolved must be an array when present")
+        unresolved = []
+
+    seen_unresolved: set[str] = set()
+    excluded_count = 0
+    retained_for_quantitation_count = 0
+    review_count = 0
+    for index, item in enumerate(unresolved):
+        prefix = f"unresolved[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        uuid = item.get("multiplet_uuid")
+        multiplet = multiplets.get(uuid)
+        if multiplet is None:
+            errors.append(f"{prefix}.multiplet_uuid is absent from analysis")
+        if uuid in assigned_multiplets:
+            errors.append(f"{prefix} is also present in assignments")
+        if isinstance(uuid, str) and uuid in seen_unresolved:
+            errors.append(f"{prefix}.multiplet_uuid duplicates an unresolved item")
+        if isinstance(uuid, str):
+            seen_unresolved.add(uuid)
+
+        classification = item.get("classification")
+        if classification not in UNRESOLVED_CLASSIFICATIONS:
+            errors.append(
+                f"{prefix}.classification must be one of "
+                f"{sorted(UNRESOLVED_CLASSIFICATIONS)}"
+            )
+        integration_policy = item.get("integration_policy")
+        if integration_policy not in INTEGRATION_POLICIES:
+            errors.append(
+                f"{prefix}.integration_policy must be one of "
+                f"{sorted(INTEGRATION_POLICIES)}"
+            )
+        elif integration_policy == "exclude":
+            excluded_count += 1
+        elif integration_policy == "retain_for_quantitation":
+            retained_for_quantitation_count += 1
+        elif integration_policy == "review":
+            review_count += 1
+        if classification == "unrelated_impurity" and integration_policy != "exclude":
+            errors.append(
+                f"{prefix}: unrelated_impurity must use integration_policy='exclude'"
+            )
+        if classification == "unknown" and integration_policy == "exclude":
+            errors.append(
+                f"{prefix}: an unknown peak must use integration_policy='review', "
+                "not be excluded merely because it is unassigned"
+            )
+        reason = item.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            errors.append(f"{prefix}.reason must be a non-empty string")
+
+        numeric_fields = ("ppm", "range_min_ppm", "range_max_ppm")
+        if any(not finite_number(item.get(field)) for field in numeric_fields):
+            errors.append(f"{prefix} must contain finite ppm and range values")
+        else:
+            ppm = float(item["ppm"])
+            low, high = sorted(
+                (float(item["range_min_ppm"]), float(item["range_max_ppm"]))
+            )
+            if not low <= ppm <= high:
+                errors.append(f"{prefix}.ppm is outside its declared range")
+            if multiplet is not None:
+                comparisons = (
+                    ("ppm", ppm, float(multiplet.get("ppm"))),
+                    ("range_min_ppm", low, min(
+                        float(multiplet.get("range_min_ppm")),
+                        float(multiplet.get("range_max_ppm")),
+                    )),
+                    ("range_max_ppm", high, max(
+                        float(multiplet.get("range_min_ppm")),
+                        float(multiplet.get("range_max_ppm")),
+                    )),
+                )
+                for field, planned, observed in comparisons:
+                    if abs(planned - observed) > ppm_tolerance:
+                        errors.append(
+                            f"{prefix}.{field} differs from multiplet {uuid} by "
+                            f"more than {ppm_tolerance:g} ppm"
+                        )
 
     for uuid, target_atoms in multiplet_targets.items():
         if len(target_atoms) > 1:
@@ -198,6 +293,9 @@ def validate(
             item.get("label") for item in assignments if isinstance(item, dict)
         ],
         "unresolved_count": len(unresolved) if isinstance(unresolved, list) else 0,
+        "excluded_integral_region_count": excluded_count,
+        "retained_for_quantitation_region_count": retained_for_quantitation_count,
+        "review_region_count": review_count,
         "errors": errors,
         "warnings": warnings,
     }

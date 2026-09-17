@@ -266,21 +266,51 @@ export async function resolveCompoundDual(identifier, deps = {}) {
 export default { CAS_RE, validCas, normalizeStructure, normalizeCanonical, resolveCompoundDual, lookupCactus };
 
 /** Display-first resolution. The first usable source wins; no comparison or RDKit gate. */
-export async function resolveCompoundFirst(identifier, {pubchem, cactus, timeoutMs=8000}) {
- const query=String(identifier||"").trim();if(!query)throw new Error("compound name or CAS required");
- const sources={};const timers=[];
- const attempts=Object.entries({pubchem,cactus}).map(([name,lookup])=>new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>reject(new Error(`${name} timed out`)),timeoutMs);timers.push(timer);
-  Promise.resolve().then(()=>lookup(query)).then(value=>{
-   const smiles=normalizeStructure(value?.canonicalSmiles||value?.smiles);const casNumber=value?.casNumber || (validCas(query)?query:undefined);
-   if(!smiles){ if(casNumber) sources[name]={...value,casNumber}; throw new Error(`${name} no structure match`); }
-   const source={...value,smiles,queryTime:new Date().toISOString()};sources[name]=source;
-   resolve({query,smiles:smiles||undefined,casNumber,inchiKey:value?.inchiKey,status:"single-source",source:name,sources:{[name]:source}});
-  }).catch(error=>{sources[name]={...sources[name],error:error.message};reject(error);}).finally(()=>clearTimeout(timer));
- }));
- try{return await Promise.any(attempts);}catch{return {query,status:"unresolved",casNumber:validCas(query)?query:Object.values(sources).find(value=>value.casNumber)?.casNumber,sources:{...sources}};}finally{timers.forEach(clearTimeout);}
+export async function resolveCompoundFirst(identifier, { pubchem, cactus, timeoutMs = 18000 }) {
+	const query = String(identifier || "").trim();
+	if (!query) throw new Error("compound name or CAS required");
+	const sources = {};
+	const attempts = Object.entries({ pubchem, cactus }).map(([name, lookup]) => new Promise((resolve, reject) => {
+		let settled = false;
+		const finishError = (error) => {
+			if (settled) return;
+			settled = true;
+			const message = error?.message || String(error);
+			sources[name] = { ...sources[name], error: message };
+			reject(error instanceof Error ? error : new Error(message));
+		};
+		const timer = setTimeout(() => finishError(new Error(`${name} lookup timed out after ${timeoutMs}ms`)), timeoutMs);
+		Promise.resolve()
+			.then(() => lookup(query))
+			.then((value) => {
+				if (settled) return;
+				const smiles = normalizeStructure(value?.canonicalSmiles || value?.smiles);
+				const casNumber = value?.casNumber || (validCas(query) ? query : undefined);
+				if (!smiles) {
+					if (casNumber) sources[name] = { ...value, casNumber };
+					finishError(new Error(`${name} returned no structure match`));
+					return;
+				}
+				settled = true;
+				const source = { ...value, smiles, queryTime: new Date().toISOString() };
+				sources[name] = source;
+				resolve({ query, smiles, casNumber, inchiKey: value?.inchiKey, status: "single-source", source: name, sources: { [name]: source } });
+			})
+			.catch(finishError)
+			.finally(() => clearTimeout(timer));
+	}));
+	try {
+		return await Promise.any(attempts);
+	} catch {
+		return {
+			query,
+			status: "unresolved",
+			casNumber: validCas(query) ? query : Object.values(sources).find((value) => value.casNumber)?.casNumber,
+			sources: { ...sources }
+		};
+	}
 }
-export async function lookupCactusFirst(identifier,{fetchImpl=fetch,timeoutMs=8000}={}){
+export async function lookupCactusFirst(identifier,{fetchImpl=fetch,timeoutMs=15000}={}){
  const url=`https://cactus.nci.nih.gov/chemical/structure/${encodeURIComponent(identifier)}/smiles`;
  const result=await withTimeout(fetchImpl,url,{timeoutMs,label:"CACTUS"});if(!result.ok)throw new Error(result.error);return {smiles:normalizeStructure(result.value)};
 }

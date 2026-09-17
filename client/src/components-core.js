@@ -3,6 +3,7 @@ import { h } from "./h.js";
 import { STRUCTURE_SOURCE_LABEL, KETCHER_URL, PDF_VIEWER_URL, STEP_FIELD_DEFS } from "./constants.js";
 import { ketcherRenderSmiles, resolveCompoundPreview, stepIsStructured, readStepFieldValue, stepCompoundsByRole, structurePreviewTier } from "./ketcher.js";
 import { openPdfPreview, statusOf, titleOf } from "./lib.js";
+import { buildReactionSchemeLayout, reactionSchemeConditions, reactionSchemeLabel } from "./reaction-scheme.js";
 
 // 核心组件：Artifact/NmrRegistry/PlotRegistry/StructureCard/StepReactionLayout/EvidenceShot/PdfViewerFrame/KetcherEditorModal
 export function Artifact({ title, rows = [], empty }) {
@@ -125,6 +126,62 @@ export function StructureCard({ entry, onClick, compact }) {
 				compact ? null : h("div", { className: "sw-struct-acts", onClick: stop },
 					h("button", { className: "sw-mini-btn", onClick: openCard }, hasSmiles ? "查看/编辑" : "Ketcher 补绘"))
 			);
+		}
+
+/**
+ * 路线总览的一体化论文画布：继续使用 Ketcher 生成结构 SVG，只把结构、箭头、
+ * 名称放入同一个父 SVG。总览只负责展示反应拓扑，具体条件留在步骤详情；
+ * 渲染失败时交回原卡片布局，避免总览不可用。
+ */
+export function ReactionSchemePreview({ step, reactants = [], products = [], onStructureClick, fallback }) {
+			const renderable = [...reactants, ...products].filter((entry) => entry?.smiles);
+			const renderKey = renderable.map((entry) => `${entry.id || entry.name}:${entry.smiles}`).join("|");
+			const [previewState, setPreviewState] = useState({ state: renderable.length ? "loading" : "ready", images: {} });
+			useEffect(() => {
+				let alive = true;
+				if (!renderable.length) {
+					setPreviewState({ state: "ready", images: {} });
+					return () => { alive = false; };
+				}
+				setPreviewState((current) => ({ state: "loading", images: current.images || {} }));
+				Promise.all(renderable.map(async (entry, index) => ({
+					key: `${entry.id || entry.name || index}-${index}`,
+					dataUrl: await ketcherRenderSmiles(entry.smiles, { width: 260, height: 190, format: "svg", theme: "#ffffff" })
+				}))).then((rows) => {
+					if (!alive) return;
+					if (rows.some((row) => !row.dataUrl)) { setPreviewState({ state: "error", images: {} }); return; }
+					setPreviewState({ state: "ready", images: Object.fromEntries(rows.map((row) => [row.key, row.dataUrl])) });
+				}).catch(() => { if (alive) setPreviewState({ state: "error", images: {} }); });
+				return () => { alive = false; };
+			}, [renderKey]);
+
+			if (previewState.state === "error") return fallback;
+			const conditions = { above: [], below: "" };
+			const layout = buildReactionSchemeLayout({ reactants, products, reactantNames: step?.reactants, productNames: step?.products, conditions });
+			const openStructure = (event, entry) => {
+				event?.stopPropagation?.();
+				onStructureClick?.(entry);
+			};
+			const imageForNode = (node) => {
+				const index = renderable.indexOf(node.entry);
+				return index >= 0 ? previewState.images[`${node.entry.id || node.entry.name || index}-${index}`] : null;
+			};
+			return h("div", { className: "sw-route-scheme-shell", "data-state": previewState.state },
+				h("svg", { className: "sw-route-scheme", viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: "img", "aria-label": `${step?.label || step?.reaction || "反应步骤"}：反应物与产物` },
+					h("rect", { x: 0, y: 0, width: layout.width, height: layout.height, rx: 10, fill: "#ffffff" }),
+					layout.plusSigns.map((plus) => h("text", { key: plus.key, x: plus.x, y: plus.y + 6, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 23, fill: "#18352d" }, "+")),
+					h("line", { x1: layout.arrow.x1, y1: layout.arrow.y, x2: layout.arrow.x2 - 12, y2: layout.arrow.y, stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round" }),
+					h("path", { d: `M ${layout.arrow.x2 - 13} ${layout.arrow.y - 6} L ${layout.arrow.x2} ${layout.arrow.y} L ${layout.arrow.x2 - 13} ${layout.arrow.y + 6}`, fill: "none", stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" }),
+					layout.nodes.map((node) => {
+						const image = imageForNode(node);
+						const clickable = !!onStructureClick && !node.entry?.placeholder;
+						return h("g", { key: node.key, className: "sw-route-scheme-node", role: clickable ? "button" : undefined, tabIndex: clickable ? 0 : undefined, "aria-label": clickable ? `${node.entry.name || "结构"}，打开 Ketcher 编辑` : undefined, onClick: clickable ? (event) => openStructure(event, node.entry) : undefined, onKeyDown: clickable ? (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openStructure(event, node.entry); } } : undefined },
+							h("rect", { x: node.x, y: node.y, width: node.width, height: node.height, rx: 7, fill: "#ffffff", stroke: image ? "transparent" : "#b8c8c2", strokeDasharray: image ? undefined : "5 4" }),
+							image ? h("image", { href: image, x: node.x + 3, y: node.y + 3, width: node.width - 6, height: node.height - 6, preserveAspectRatio: "xMidYMid meet", pointerEvents: "none" }) : h("text", { x: node.x + node.width / 2, y: node.y + node.height / 2 + 4, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11, fill: "#789087" }, previewState.state === "loading" && node.entry?.smiles ? "结构渲染中…" : "结构待补绘"),
+							h("text", { x: node.x + node.width / 2, y: node.labelY, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11.5, fontWeight: 650, fill: "#18352d" }, reactionSchemeLabel(node.entry?.name || "未命名结构")),
+							node.entry?.casNumber ? h("text", { x: node.x + node.width / 2, y: node.labelY + 15, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 9.5, fill: "#6a8179" }, `CAS ${reactionSchemeLabel(node.entry.casNumber, 24)}`) : null,
+							clickable ? h("rect", { className: "sw-route-scheme-hit", x: node.x, y: node.y, width: node.width, height: layout.height - node.y - 6, rx: 7, fill: "transparent" }) : null);
+					})));
 		}
 
 
@@ -290,9 +347,13 @@ export function PdfViewerFrame({ row, notify }) {
 			const iframeRef = useRef(null);
 			const [locateState, setLocateState] = useState("loading"); // loading | matched | notfound | noquote | error
 			const [errorMessage, setErrorMessage] = useState("");
-			const pageNumber = (() => { const m = /\d+/.exec(String(row?.page ?? "")); return m ? Number(m[0]) : 1; })();
+			const rawPage = String(row?.page ?? "").trim();
+			const pageMatch = /^(?:S)?([1-9]\d*)$/i.exec(rawPage);
+			const pageIsValid = !!pageMatch;
+			const pageNumber = pageMatch ? Number(pageMatch[1]) : 1;
 			const bundleId = row?.bundleId || row?.documentId;
 			const quote = row?.excerpt || row?.originalExtract || "";
+			const locatorQuote = pageIsValid ? quote : "";
 			const open = !!bundleId;
 			const documentKind = row?.sourceKind === "si" || (!row?.sourceKind && row?.sourceType === "paper-si") ? "si" : "pdf";
 
@@ -303,7 +364,7 @@ export function PdfViewerFrame({ row, notify }) {
 				let disposed = false;
                 const requestId = `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 				const postOpen = () => {
-					try { const computed = getComputedStyle(document.body); const theme = {}; for (const key of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key] = computed.getPropertyValue(`--dsw-alias-${key}`).trim(); iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote, pageLabel: row?.page }, "*"); } catch { /* ignore */ }
+					try { const computed = getComputedStyle(document.body); const theme = {}; for (const key of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key] = computed.getPropertyValue(`--dsw-alias-${key}`).trim(); iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote: locatorQuote, pageLabel: rawPage }, "*"); } catch { /* ignore */ }
 				};
 				const onMessage = (event) => {
 					const data = event.data || {};
@@ -317,7 +378,7 @@ export function PdfViewerFrame({ row, notify }) {
 					if (data?.type === "highlight") {
 						if (disposed) return;
 						setLocateState(data.status === "matched" ? "matched" : data.status === "candidate" ? "candidate" : data.status === "notfound" ? "notfound" : "noquote");
-						if (data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
+						if (pageIsValid && data.status === "notfound" && notify) notify("未能自动定位原文，请在本页人工确认");
 						return;
 					}
 					if (data?.type === "error") {
@@ -333,13 +394,13 @@ export function PdfViewerFrame({ row, notify }) {
 					disposed = true;
 					window.removeEventListener("message", onMessage);
 				};
-			}, [bundleId, documentKind, pageNumber, quote]);
+			}, [bundleId, documentKind, pageNumber, pageIsValid, locatorQuote, rawPage]);
 
 			if (!open) {
 				return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
 			}
-			const label = locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
-			const tone = locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
+			const label = !pageIsValid ? "未提供有效页码，已停在首页" : locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
+			const tone = !pageIsValid ? "#b34a45" : locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
 			return h("div", { className: "sw04-review-shot", style: { display: "flex", flexDirection: "column", gap: 8 } },
 				h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
 					h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label),
@@ -394,7 +455,7 @@ export function KetcherEditorModal({ entry, onSave, onCancel }) {
 
 			if (!open) return null;
 			const saveFallback = () => { onSave(fallbackSmiles.trim()); };
-			return h("div", { className: "sw-struct-edit", role: "dialog", "aria-modal": "true", "aria-label": `编辑 ${entry.name} 结构式` },
+			return h("div", { className: "sw-struct-edit", "data-layer": "ketcher", role: "dialog", "aria-modal": "true", "aria-label": `编辑 ${entry.name} 结构式` },
 				h("div", { className: "sw-struct-edit-box" },
 					h("div", { className: "sw-struct-edit-head" },
 						h("b", null, `Ketcher · ${entry.name}`),

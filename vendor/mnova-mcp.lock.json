@@ -8,6 +8,7 @@
   "license": "MIT",
   "mcpPackage": "mnova-mcp",
   "skill": "skill/nmr-analyze-simulate",
+  "localSkillRevision": "nmr-assessment-rearchive-v3",
   "vendoredFileCount": 19,
   "contentHash": "30f91b22aec7829249590d94f117ae24b51d0573f759002f5a1fb4758d581042"
 }

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "科研任务动态调用时序",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 520],
+    "views": [
+      { "id": "interactive-path", "label": "交互请求", "focus": ["user", "client", "service"], "note": "工作台经 Remote 网关语义调用宿主领域服务。" },
+      { "id": "agent-execution", "label": "Agent 执行", "focus": ["service", "agent", "tools", "sources"], "note": "服务创建任务，Agent 使用技能与本地工具补全产物。" },
+      { "id": "durable-result", "label": "持久化与审核", "focus": ["service", "store", "client", "user"], "note": "产物先登记和暂存，随后由用户审核。" }
+    ]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "研究人员", "sublabel": "发起与审核" },
+    { "id": "client", "type": "frontend", "label": "科研工作台", "sublabel": "DSH Client" },
+    { "id": "service", "type": "backend", "label": "Remote + 领域服务", "sublabel": "Typert / labTasks" },
+    { "id": "agent", "type": "backend", "label": "科研 Agent", "sublabel": "预设与技能" },
+    { "id": "tools", "type": "messagebus", "label": "本地工具", "sublabel": "MCP / Python" },
+    { "id": "sources", "type": "cloud", "label": "科研来源", "sublabel": "开放 API / PDF" },
+    { "id": "store", "type": "database", "label": "课题存储", "sublabel": "版本与产物" }
+  ],
+  "segments": [
+    { "from": 150, "to": 226, "label": "创建任务" },
+    { "from": 230, "to": 346, "label": "执行与取证" },
+    { "from": 350, "to": 440, "label": "暂存与人工审核" }
+  ],
+  "messages": [
+    { "id": "open-project", "from": "user", "to": "client", "y": 164, "label": "打开课题并发起任务", "variant": "emphasis" },
+    { "id": "remote-dispatch", "from": "client", "to": "service", "y": 194, "label": "Remote 调用、校验并分派" },
+    { "id": "task-context", "from": "service", "to": "agent", "y": 224, "label": "创建 pending 任务并传递目标快照", "variant": "emphasis" },
+    { "id": "source-query", "from": "agent", "to": "sources", "y": 254, "label": "检索元数据或读取原文" },
+    { "id": "source-return", "from": "sources", "to": "agent", "y": 284, "label": "DOI、PDF、SI 与来源信息", "variant": "return" },
+    { "id": "tool-call", "from": "agent", "to": "tools", "y": 314, "label": "转换、分析与科学软件调用", "variant": "dashed" },
+    { "id": "tool-result", "from": "tools", "to": "agent", "y": 344, "label": "结构化结果与文件", "variant": "return" },
+    { "id": "complete-artifact", "from": "agent", "to": "service", "y": 374, "label": "complete* 登记产物", "variant": "emphasis" },
+    { "id": "store-artifact", "from": "service", "to": "store", "y": 404, "label": "SHA-256、provenance、under-review" },
+    { "id": "human-review", "from": "user", "to": "service", "y": 434, "label": "在工作台审核并保存最终状态", "variant": "security" }
+  ],
+  "activations": [
+    { "participant": "client", "from": 158, "to": 202, "type": "frontend" },
+    { "participant": "service", "from": 188, "to": 232, "type": "backend" },
+    { "participant": "agent", "from": 218, "to": 382, "type": "backend" },
+    { "participant": "sources", "from": 248, "to": 292, "type": "cloud" },
+    { "participant": "tools", "from": 308, "to": 346, "type": "messagebus" },
+    { "participant": "service", "from": 368, "to": 442, "type": "backend" },
+    { "participant": "store", "from": 398, "to": 412, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "控制与执行", "items": ["UI/Remote 负责结构化调用；领域服务负责状态迁移", "技能处理内容推理，本地工具执行机械操作"] },
+    { "dot": "rose", "title": "可信结果", "items": ["外部证据和生成文件必须回到服务登记", "审核记录绑定当前文件哈希"] }
+  ]
+}

@@ -45,6 +45,15 @@ test("prepare-runtime validates Ketcher before selective component refresh", asy
 	assert.match(source, /\[System\.IO\.FileShare\]::None/, "独占句柄锁判断");
 });
 
+test("prepare-runtime reapplies the DSH web clipboard compatibility patch", async () => {
+	const source = await read("desktop/scripts/prepare-runtime.ps1");
+	assert.match(source, /patch-dsh-web-frontend\.mjs/);
+	assert.match(source, /DSH web frontend clipboard patch failed/);
+	assert.match(source, /function Test-DshWebFrontendPatch/);
+	assert.match(source, /catch\{\}const r=typeof document\.execCommand/);
+	assert.match(source, /return Test-DshWebFrontendPatch \$dshRoot/, "未带剪贴板修复的既有快照必须触发 DSH 刷新");
+});
+
 test("desktop packaging preserves DSH authentication inside the WebView iframe", async () => {
 	const prepare = await read("desktop/scripts/prepare-runtime.ps1");
 	const verify = await read("desktop/scripts/verify-package.ps1");

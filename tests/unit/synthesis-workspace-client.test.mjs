@@ -17,6 +17,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { structurePreviewTier } from "../../client/src/ketcher.js";
+import { buildReactionSchemeLayout, reactionSchemeConditions } from "../../client/src/reaction-scheme.js";
 
 // 0.4.1 起 client/index.js 拆分为 client/src/*.js 多模块（由 build-client.mjs 打包回单文件）。
 // 本文件锁的是「客户端源码契约」，故读取 src/ 下全部源文件拼接后断言（与 esbuild 产物解耦）。
@@ -66,6 +67,24 @@ test("0.4.1 workspace: review uses one large archived-PDF column and chemistry c
 	assert.match(source, /\.sw-graph\{align-items:flex-start/);
 });
 
+test("research chat collapses hidden process rows and keeps markdown tables stable", async () => {
+	const source = await readClientSource();
+	assert.match(source, /\[data-turn-process-hidden\]/);
+	assert.match(source, /margin-block:0!important/);
+	assert.match(source, /\[class\*='_markdown'\] \[class\*='_tableScroll'\],body\.ib-research-chat \[class\*='_markdown'\] \[class\*='_tableFill'\]/);
+	assert.match(source, /position:static!important/);
+	assert.match(source, /transform:none!important/);
+	assert.match(source, /overflow-x:auto!important/);
+	assert.match(source, /table-layout:auto!important/);
+	assert.match(source, /min-width:72px!important/);
+	assert.match(source, /overflow-wrap:break-word!important/);
+	assert.doesNotMatch(source, /contain:inline-size/);
+	assert.match(source, /border-bottom-width:1px!important/);
+	assert.match(source, /querySelectorAll\("\.md-table-wide"\)/);
+	assert.match(source, /classList\.remove\("md-table-wide"\)/);
+	assert.match(source, /wrapper\.scrollLeft=0/);
+});
+
 test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text cards", async () => {
 	const source = await readClientSource();
 	// 步骤卡渲染结构图流程：化合物节点（sw-step-chem-node）+ 反应箭头 + 条件摘要
@@ -90,6 +109,19 @@ test("0.4.0 workspace: overview flows by Ketcher structure nodes, not plain text
 	assert.doesNotMatch(source, /h\("span", \{ className: "sw-step-foot"/);
 	assert.doesNotMatch(source, /`Evidence \$\{stepEv\.length\}`/);
 	assert.doesNotMatch(source, /"已人工确认"/);
+});
+
+test("route overview pages through one full-width step without condition text or nested scrollbars", async () => {
+	const source = await readClientSource();
+	assert.match(source, /className: "sw-step-carousel"/);
+	assert.match(source, /"aria-label": "上一个合成步骤"/);
+	assert.match(source, /"aria-label": "下一个合成步骤"/);
+	assert.match(source, /const step = steps\[stepIndex\]/);
+	assert.doesNotMatch(source, /detail\.route\.steps\.map\(\(step\)/, "总览不得同时渲染全部步骤");
+	assert.match(source, /const conditions = \{ above: \[\], below: "" \};/);
+	assert.doesNotMatch(source, /key: `condition-\$\{index\}`/, "总览 SVG 不渲染具体反应条件");
+	assert.match(source, /\.sw-step-scheme\{width:100%;max-width:none;min-width:0/);
+	assert.match(source, /\.sw-route-scheme-shell\{width:100%;overflow:hidden/);
 });
 
 test("0.4.0 workspace: two-column reaction layout with full condition coverage", async () => {
@@ -128,6 +160,19 @@ test("0.4.0 review: three human decisions, correction keeps original+correction,
 	assert.match(source, /"重新审核"/);
 	assert.match(source, /sw04-review-drawer/);
 	assert.match(source, /openReviewDrawer/);
+	// 每个审核动作有独立进行中标签、保存结果提示与已选状态。
+	assert.match(source, /evidenceFeedback/);
+	assert.match(source, /"确认中…"/);
+	assert.match(source, /"标记中…"/);
+	assert.match(source, /"保存中…"/);
+	assert.match(source, /data-selected/);
+	assert.match(source, /sw04-review-feedback/);
+	// 新产物候选在核验抽屉直接渲染，并可用 Ketcher 补绘回写证据决定。
+	assert.match(source, /structureCandidate/);
+	assert.match(source, /"Ketcher 补绘 \/ 修正"/);
+	assert.match(source, /modal\.evidenceId/);
+	assert.match(source, /data-layer": "ketcher"/);
+	assert.match(source, /\.sw-struct-edit\[data-layer=ketcher\]\{z-index:3200\}/);
 });
 
 test("0.4.0 review batches: remote descriptors + server apply are wired", async () => {
@@ -209,6 +254,37 @@ test("structure preview tiers use the supplied reference molecule as the standar
 	assert.equal(structurePreviewTier("C=C(C(=O)Cl)C"), "simple", "简单酰氯应小于参考图");
 	assert.equal(structurePreviewTier("OCCSSCCO"), "standard", "2,2'-dithiodiethanol 是用户给定的基准尺寸");
 	assert.equal(structurePreviewTier("C=C(C)C(=O)OCCSSCCO"), "complex", "更复杂产物应得到更大卡片");
+});
+
+test("route overview composes structures with a half-length arrow on one SVG canvas", () => {
+	const conditions = reactionSchemeConditions({
+		procedure: {
+			reagents: [{ name: "HATU", equivalent: "1.2 eq" }, { name: "DIPEA", equivalent: "2 eq" }],
+			solvents: [{ name: "DMF" }],
+			temperature: [{ value: "40", unit: "°C" }],
+			time: "16 h",
+			yield: "82%"
+		}
+	});
+	assert.deepEqual(conditions.above, ["HATU (1.2 eq)；DIPEA (2 eq)", "DMF", "40 °C · 16 h"]);
+	assert.equal(conditions.below, "收率 82%");
+	const layout = buildReactionSchemeLayout({
+		reactants: [{ id: "r1", name: "Reactant A" }, { id: "r2", name: "Reactant B" }],
+		products: [{ id: "p1", name: "Product" }],
+		conditions
+	});
+	assert.equal(layout.nodes.length, 3);
+	assert.equal(layout.plusSigns.length, 1);
+	assert.ok(layout.arrow.x1 > layout.nodes[1].x + layout.nodes[1].width);
+	assert.ok(layout.nodes[2].x > layout.arrow.x2);
+	assert.ok(layout.width > layout.arrow.x2);
+	assert.ok(layout.arrow.x2 - layout.arrow.x1 <= 142);
+	const withoutConditions = buildReactionSchemeLayout({
+		reactants: [{ id: "r1", name: "Reactant" }],
+		products: [{ id: "p1", name: "Product" }],
+		conditions: { above: [], below: "" }
+	});
+	assert.equal(withoutConditions.arrow.x2 - withoutConditions.arrow.x1, 75);
 });
 
 test("rc.4 review §3: EvidenceShot Object URL lifecycle — probe must not revoke/confirm early; ready gated on visible img", async () => {

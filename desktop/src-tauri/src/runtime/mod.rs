@@ -1,6 +1,6 @@
 mod bridge;
 mod config;
-mod deps;
+pub mod deps;
 mod dsh;
 mod files;
 mod health;

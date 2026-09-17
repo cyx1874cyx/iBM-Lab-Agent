@@ -212,6 +212,8 @@ def write_preview(
         header="ppm,real_intensity,imag_intensity", comments="",
     )
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
         return ppm, spectrum

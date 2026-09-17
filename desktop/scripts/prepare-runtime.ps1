@@ -229,8 +229,24 @@ function Test-NodeSnapshot {
   return Test-Path -LiteralPath (Join-Path $resourceRoot 'node\node.exe')
 }
 
+function Test-DshWebFrontendPatch([string]$DshRoot) {
+  $frontendRoot = Join-Path $DshRoot 'node_modules\@deepseek-ai\dsh-web-frontend\dist\assets'
+  if (-not (Test-Path -LiteralPath $frontendRoot)) { return $false }
+  $assets = @(Get-ChildItem -LiteralPath $frontendRoot -Filter 'index-*.js' -File -ErrorAction SilentlyContinue)
+  foreach ($asset in $assets) {
+    $text = [IO.File]::ReadAllText($asset.FullName)
+    if ($text.Contains('catch{}const r=typeof document.execCommand') -and
+        $text.Contains('await Fn(rm(b,j))?$("copied"):$("failed");')) {
+      return $true
+    }
+  }
+  return $false
+}
+
 function Test-DshSnapshot {
-  return Test-Path -LiteralPath (Join-Path $resourceRoot 'dsh\node_modules\@deepseek-ai\dsh\lib\bin.js')
+  $dshRoot = Join-Path $resourceRoot 'dsh'
+  if (-not (Test-Path -LiteralPath (Join-Path $dshRoot 'node_modules\@deepseek-ai\dsh\lib\bin.js'))) { return $false }
+  return Test-DshWebFrontendPatch $dshRoot
 }
 
 function Test-PluginSnapshot {
@@ -379,6 +395,9 @@ if ($refreshDsh) {
     $connectionText.Replace($strictCookie, $embeddedCookie),
     [Text.UTF8Encoding]::new($false)
   )
+  $webFrontendRoot = Join-Path $tempResourceRoot 'dsh\node_modules\@deepseek-ai\dsh-web-frontend'
+  & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-web-frontend.mjs') patch --root $webFrontendRoot
+  if ($LASTEXITCODE -ne 0) { throw "DSH web frontend clipboard patch failed for $webFrontendRoot" }
   Write-Phase ("DSH tree copied in {0:n1}s." -f $dshCopyWatch.Elapsed.TotalSeconds)
 }
 if ($refreshPlugin) {

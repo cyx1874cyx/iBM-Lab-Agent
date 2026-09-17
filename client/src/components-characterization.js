@@ -3,6 +3,7 @@ import { h } from "./h.js";
 import { StructureCard } from "./components-core.js";
 import { openOfficeArtifact } from "./lib.js";
 const labels = { queued: "排队中", running: "处理中", completed: "已完成", failed: "失败" };
+const verdictLabels = { match: "吻合", mismatch: "不吻合", inconclusive: "暂无法判断" };
 const localDate = () => {
   const d = /* @__PURE__ */ new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -38,15 +39,15 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
   }, [projectId, call]);
   const start = (kind) => {
     setError("");
-    setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", instructions: "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
+    setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", structurePath: "", instructions: kind === "nmr" ? "根据所附分子结构处理一维核磁原始数据，在 Mnova 中完成峰归属和字母标注，保存可编辑谱图及核磁报告并自动归档。" : "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
   };
   const change = (key) => (e) => setForm((old) => ({ ...old, [key]: e.target.value }));
-  const upload = async (e) => {
+  const upload = (field, label) => async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
     try {
-      if (file.size > 40 * 1024 * 1024) throw new Error("文件超过 40 MB，请先放入课题目录再填写路径");
+      if (file.size > 25 * 1024 * 1024) throw new Error(`${label}超过 25 MB，请先放入课题目录再填写路径`);
       const base64 = await new Promise((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1]);
@@ -56,7 +57,7 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
       const result = await call("project_file_upload", { request: { projectId, name: file.name, base64 } });
       const path = result.file?.sourcePath || result.file?.path;
       if (!path) throw new Error("上传结果未返回文件路径");
-      setForm((old) => ({ ...old, inputPath: path }));
+      setForm((old) => ({ ...old, [field]: path }));
     } catch (e2) {
       setError(e2.message);
     } finally {
@@ -116,14 +117,20 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
     }
   };
   const fileButton = (row, slot, text, app) => h("button", { className: "ib-btn", disabled: !row.artifacts?.[slot], title: row.artifacts?.[slot] ? `使用 ${app} 打开` : "任务完成后可打开", onClick: () => void open(row, slot, app) }, text);
+  const assessmentBadge = (row) => {
+    if (row.status !== "completed") return null;
+    if (!row.assessment) return h("span", { className: "ib-nmr-confidence", "data-level": "pending", title: "旧记录尚未登记结构判断" }, "判断待补充");
+    const level = row.assessment.confidence;
+    return h("span", { className: "ib-nmr-confidence", "data-level": level, title: row.assessment.summary }, `${verdictLabels[row.assessment.verdict] || row.assessment.verdict} · ${level[0].toUpperCase()}${level.slice(1)}`);
+  };
   const renderRow = (row, kind) => h(
     "article",
     { className: "ib-characterization-row", key: row.id },
     kind === "nmr" ? h("div", { className: "ib-nmr-structure" }, row.compound?.smiles ? h(StructureCard, { entry: row.compound, compact: true }) : h("span", null, "结构待补充")) : null,
-    h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
+    h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row) : null, row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
     kind === "nmr" ? h(React.Fragment, null, fileButton(row, "spectrum", "核磁图", "mnova"), fileButton(row, "report", "报告", "word")) : fileButton(row, "origin", "绘图文件", "origin"),
     row.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row) }, "重试") : null,
-    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
+    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h(React.Fragment, null, h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`), row.assessment ? h("p", null, `结构判断：${verdictLabels[row.assessment.verdict]}；置信度 ${row.assessment.confidence.toUpperCase()}。${row.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
   return h(
@@ -139,7 +146,7 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
       const legacy = (kind === "nmr" ? nmrRows : plots).filter((r) => !tasks.some((t) => t.id === r.id)).map((r) => ({ ...r, artifacts: kind === "nmr" ? { spectrum: r.spectrumPath, report: r.reportPath } : { origin: r.artifactPath } }));
       return h("section", { className: "ib-card", key: kind }, h("div", { className: "ib-card-head" }, h("h3", null, kind === "nmr" ? "核磁分析" : "科研绘图"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => start(kind) }, kind === "nmr" ? "提交核磁任务" : "提交绘图任务")), rows.length || legacy.length ? h("div", null, ...rows.map((r) => renderRow(r, kind)), ...legacy.map((r) => renderRow(r, kind))) : h("p", { className: "ib-muted" }, "任务完成后，文件会自动回填到这里。"));
     }),
-    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, "上传数据文件（FID 目录请先压缩）", h("input", { type: "file", disabled: busy, onChange: upload })), field("inputPath", "课题目录内文件 / FID 目录路径"), form.kind === "nmr" ? h(React.Fragment, null, field("compoundName", "化合物名称"), field("smiles", "结构 SMILES"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
+    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(React.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
   );
 }
 function PlotEdit({ row, call, onChanged, onError }) {
