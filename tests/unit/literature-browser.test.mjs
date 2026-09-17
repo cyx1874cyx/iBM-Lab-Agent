@@ -96,3 +96,27 @@ test("completed literature PDF supports inline web preview and verified download
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test("queued and failed literature downloads can be cancelled and removed from the active queue", async () => {
+	const queued = "12345678-1234-1234-1234-123456789abc";
+	const failed = "87654321-4321-4321-4321-cba987654321";
+	const rows = new Map([
+		[queued, { id: queued, identifier: "10.1000/queued", state: "queued", message: "排队中", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+		[failed, { id: failed, identifier: "10.1000/failed", state: "failed", message: "失败", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
+	]);
+	rows.put = async (id, value) => { rows.set(id, value); };
+	let aborted = false;
+	const service = {
+		downloadTable: rows,
+		downloadQueue: [queued],
+		downloadControllers: new Map([[queued, { abort: () => { aborted = true; } }]]),
+		updateDownload: LabLiteratureSourcesService.prototype.updateDownload,
+		listDownloads: LabLiteratureSourcesService.prototype.listDownloads
+	};
+	const first = await LabLiteratureSourcesService.prototype.cancelDownload.call(service, queued, "人工终止");
+	assert.equal(first.state, "cancelled");
+	assert.equal(aborted, true);
+	assert.deepEqual(service.downloadQueue, []);
+	const second = await LabLiteratureSourcesService.prototype.cancelDownload.call(service, failed, "失败后确认终止");
+	assert.equal(second.state, "cancelled");
+});

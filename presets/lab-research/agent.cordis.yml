@@ -100,7 +100,10 @@
            或回复“我已登录”后，才用同一 bundleId 再次调用本工具并传
            loginConfirmed=true，随后继续访问正文。SI kind=si 为公开附件直连，不要求 WebVPN。任务创建后
            使用返回的 taskId 调用 lab_nature_browser_download_status 查询状态，
-           不得读取 lab_captures.json 或 webvpn-downloads 目录推测进度；
+           不得读取 lab_captures.json 或 webvpn-downloads 目录推测进度。若状态工具
+           返回 requiresUserAction=true，必须把 question 原样询问用户；只有用户明确
+           确认终止后，才调用 lab_publisher_browser_download_cancel(taskId)，不得因
+           一次获取失败擅自取消，也不得让失败任务继续占据队列；
          - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
            无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
            RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接

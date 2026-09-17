@@ -225,7 +225,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /ctx\.workspaces\.create\(\{ path: project\.workspacePath \}\)/);
 	assert.match(source, /ctx\.workspaces\.rename\(workspaceId, project\.name\)/);
 	assert.match(source, /ctx\.uiWorkspace\.connectWorkspace\(workspaceId\)/);
-	assert.match(source, /agentPresets\.select\(\{ sessionId, agentPreset: presetId \}\)/);
+	assert.match(source, /ctx\.remote\.agentPresets\.select\(sessionId, presetId\)/);
 	assert.match(source, /projects_ensure_workspace/);
 	assert.match(source, /projects_bind_workspace/);
 	assert.match(source, /workspaceId = ws\.workspaceId/);
@@ -289,12 +289,14 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /无法打开\$\{kind === "pdf" \? "正文 PDF" : "SI PDF"\}：/);
 	assert.match(source, /data-opening/);
 	assert.match(source, /"网页预览"/);
+	assert.match(source, /literature_download_cancel/);
+	assert.match(source, /"终止中…" : "终止"/);
 	assert.doesNotMatch(source, /}, "公众号"\) : null/);
 	assert.match(source, /bundleRecordIndex/);
 	assert.match(source, /PPT/);
-	// 需要 connection（wire api）来选择预设；DSH 0.1.5 起 connectWorkspace/openSession
+	// 通过 DSH 0.4.3 的 remote.agentPresets 位置参数 API 选择预设；connectWorkspace/openSession
 	// 由 uiWorkspace 服务提供（sessions 服务仍在，但不再承载会话切换）。
-	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"\]/);
+	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "remote\.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"\]/);
 	// 品牌覆盖：展开侧栏使用人像 Logo；烧瓶作为原生侧栏开关图标。
 	assert.match(source, /function applyBranding/);
 	assert.match(source, /iBM Agent/);
@@ -325,8 +327,8 @@ test("web client auto-launches per-project workspace + research session and cust
 	// 预设切换必须检查 result.ok（wire 层不 throw，否则失败被静默吞掉，
 	// 会话停留在默认 standard 模式——此前"进入科研 Agent 模式"失效的根因）
 	assert.match(source, /const selectResearchPreset = async/);
-	assert.match(source, /response\?\.result \?\? response/);
-	assert.match(source, /agent-preset-locked/);
+	assert.match(source, /ctx\.remote\.agentPresets\.select\(sessionId, presetId\)/);
+	assert.match(source, /agent-preset\/locked/);
 	assert.match(source, /presetApplied !== "ok"\) toast/);
 });
 
@@ -374,7 +376,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	});
 
-	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"]);
+	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
 	for (const descriptor of contribution.descriptors) {

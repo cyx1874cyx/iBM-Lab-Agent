@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { databaseState, databaseStateTone, downloadState } from "./constants.js";
-import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
+import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 
 // 文献相关组件：DatabaseOverview/FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
@@ -105,6 +105,7 @@ export function FullTextDownloader({ call, notify }) {
 			const [identifier, setIdentifier] = useState("");
 			const [jobs, setJobs] = useState([]);
 			const [busy, setBusy] = useState(false);
+			const [stopping, setStopping] = useState("");
 			const load = useCallback(async () => {
 				try { const result = await call("literature_downloads", { request: { limit: 8 } }); setJobs(result.jobs || []); }
 				catch (reason) { notify(reason.message); }
@@ -112,7 +113,7 @@ export function FullTextDownloader({ call, notify }) {
 			useEffect(() => {
 				void load();
 			}, [load]);
-			const hasActiveJobs = jobs.some((job) => !["completed", "no-access", "verification-required", "failed", "waiting-login"].includes(job.state));
+			const hasActiveJobs = jobs.some((job) => !["completed", "cancelled", "no-access", "verification-required", "failed", "waiting-login"].includes(job.state));
 			useEffect(() => {
 				const timer = setInterval(() => void load(), hasActiveJobs ? 2000 : 7000);
 				return () => clearInterval(timer);
@@ -128,6 +129,11 @@ export function FullTextDownloader({ call, notify }) {
 				try { await call("literature_download_retry", { request: { id: job.id } }); notify("已复用当前受控浏览器会话重试"); await load(); }
 				catch (reason) { notify(reason.message); }
 			};
+			const stop = async (job) => {
+				setStopping(job.id);
+				try { await call("literature_download_cancel", { request: { id: job.id, reason: "用户在全文获取队列中终止任务" } }); notify("已终止该文献获取任务"); await load(); }
+				catch (reason) { notify(reason.message); } finally { setStopping(""); }
+			};
 			return h("section", { className: "ib-fulltext" },
 				h("div", { className: "ib-db-head" }, h("div", null, h("h3", null, "全文获取队列"), h("p", null, "开放获取优先 · 中科大授权后备 · 可见浏览器人工登录"))),
 				h("div", { className: "ib-fulltext-form" }, h("input", { value: identifier, placeholder: "粘贴 DOI、论文落地页或 PDF 链接", onChange: (event) => setIdentifier(event.target.value), onKeyDown: (event) => { if (event.key === "Enter" && identifier.trim() && !busy) void create(); } }), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !identifier.trim(), onClick: () => void create() }, busy ? "创建中…" : "查找并下载")),
@@ -138,7 +144,10 @@ export function FullTextDownloader({ call, notify }) {
 					job.state === "completed" ? h(React.Fragment, null,
 						h("button", { className: "ib-lit-btn", onClick: () => openPdfPreview(job.downloadUrl) }, "网页预览"),
 						h("button", { className: "ib-lit-btn", onClick: () => void downloadVerifiedBinary(job.downloadUrl).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)) }, "下载 PDF")
-					) : ["waiting-login", "verification-required", "failed"].includes(job.state) ? h("button", { className: "ib-lit-btn", onClick: () => void retry(job) }, "重试") : null
+					) : h(React.Fragment, null,
+						["waiting-login", "verification-required", "failed", "no-access"].includes(job.state) ? h("button", { className: "ib-lit-btn", disabled: stopping === job.id, onClick: () => void retry(job) }, "重试") : null,
+						job.state !== "cancelled" ? h("button", { className: "ib-lit-btn", "data-danger": true, disabled: stopping === job.id, onClick: () => void stop(job) }, stopping === job.id ? "终止中…" : "终止") : null
+					)
 				))) : null
 			);
 		}
@@ -213,6 +222,8 @@ export function ProjectBadge({ sessionId, call, openWorkspace, useSessions, toas
 							if (claimedAction?.action?.type === "open-login" && !iwanStatus?.usable) {
 								shellStatus = await openWebVpnLoginViaShell();
 								toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
+							} else if (claimedAction?.action?.type === "cancel-capture" && claimedAction.action.taskId) {
+								await cancelWebVpnCaptureViaShell(claimedAction.action.taskId);
 							}
 						} catch { /* 桌面壳暂不可达；SI 队列仍可继续尝试领取 */ }
 						// 单个软件内浏览器只处理一个捕获。上一个任务仍在导航、下载或归档时

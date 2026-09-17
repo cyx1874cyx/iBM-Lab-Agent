@@ -502,6 +502,9 @@ test("capture: Remote 接口可从浏览器侧调用（create/get/cancel/list）
 		});
 		assert.equal(cancelled.task.status, "cancelled");
 		assert.equal(cancelled.task.error, "该 Nature 文章页面未发现补充材料");
+		const action = await invoke(ctx, "manual_capture_desktop_action_claim", { request: { projectId: "capture-project" } });
+		assert.equal(action.action.type, "cancel-capture");
+		assert.equal(action.action.taskId, task.id);
 
 		const listed = await invoke(ctx, "manual_capture_list", { request: { projectId: "capture-project" } });
 		assert.ok(listed.tasks.some((row) => row.id === task.id));

@@ -70,8 +70,9 @@ export function applyUi(ctx) {
 		return lines.join("\n");
 	};
 	/**
-	 * 为空白新会话选择科研 Agent 预设。wire 层返回 { result: { ok, error } }，
-	 * **不会 throw**——必须检查 result.ok，否则预设切换失败会被静默吞掉。
+	 * 为空白新会话选择科研 Agent 预设。DSH 0.4.3 的 remote 方法使用两个
+	 * 位置参数（sessionId, agentPreset），返回 RemoteResult 且不会 throw——
+	 * 必须检查 result.ok，否则预设切换失败会被静默吞掉。
 	 * agent-preset-locked = 复用了已开始会话（预设已固定）：若该会话本就在
 	 * 科研模式则无需处理，返回 "ok（沿用已有会话）"；否则返回失败说明。
 	 * 返回 "ok" 或失败说明。
@@ -79,12 +80,11 @@ export function applyUi(ctx) {
 	const selectResearchPreset = async (sessionId, presetId) => {
 		if (!presetId) return "ok（未配置科研预设，沿用会话默认）";
 		try {
-			const response = await ctx.connection.api.agentPresets.select({ sessionId, agentPreset: presetId });
-			const result = response?.result ?? response;
+			const result = await ctx.remote.agentPresets.select(sessionId, presetId);
 			if (!result.ok) {
 				const code = result.error?.code ?? "unknown";
-				const detail = result.error?.message ?? "agentPresets.select 未返回 ok";
-				if (code === "agent-preset-locked") {
+				const detail = result.error?.details?.reason ?? result.error?.message ?? "agentPresets.select 未返回 ok";
+				if (code === "agent-preset/locked" || code === "agent-preset-locked") {
 					// 复用了已开始会话：预设已固定，无法中途切换（DSH 约束）。
 					return `ok（复用已开始的会话，预设已固定，无法切换到 ${presetId}）`;
 				}
@@ -174,5 +174,5 @@ export function applyUi(ctx) {
 
 export async function apply(ctx) {
 	await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
-	ctx.inject(["remote", "remote.lab", "slots", "sessions", "workspaces", "uiWorkspace", "conversation", "connection"], applyUi);
+	ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
 }

@@ -195,3 +195,28 @@ test("Nature browser download status exposes progress without raw storage access
 	assert.match(output.message, /正在下载/);
 	assert.equal(Object.hasOwn(output, "tokenSha256"), false);
 });
+
+test("failed publisher download asks before the Agent cancels it", async () => {
+	const registered = [];
+	let cancelledReason;
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labTasks: { getProject: () => ({ id: "proj-test" }) },
+		labCapture: {
+			sweepExpired: async () => {},
+			getTask: () => ({ id: "capture-failed123", projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", status: "failed", error: "未捕获到 PDF", updatedAt: "2026-09-17T00:00:00.000Z" }),
+			listTasks: () => [],
+			getDesktopWebVpnStatus: () => ({ stale: false }),
+			cancelTask: async (id, reason) => { cancelledReason = reason; return { id, status: "cancelled" }; }
+		}
+	});
+	const status = registered.find((item) => item.name === "lab_publisher_browser_download_status");
+	const failed = await status.execute({ projectId: "proj-test", taskId: "capture-failed123" }, {});
+	assert.equal(failed.requiresUserAction, true);
+	assert.match(failed.question, /是否终止/);
+	const cancel = registered.find((item) => item.name === "lab_publisher_browser_download_cancel");
+	assert.ok(cancel);
+	const stopped = await cancel.execute({ projectId: "proj-test", taskId: "capture-failed123", reason: "用户确认终止" }, {});
+	assert.deepEqual(stopped, { ok: true, taskId: "capture-failed123", status: "cancelled" });
+	assert.equal(cancelledReason, "用户确认终止");
+});

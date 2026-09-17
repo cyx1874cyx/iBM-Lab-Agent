@@ -38,6 +38,7 @@ export const DOWNLOAD_STATES = [
 	"locating-pdf",
 	"downloading",
 	"completed",
+	"cancelled",
 	"no-access",
 	"verification-required",
 	"failed"
