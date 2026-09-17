@@ -113,6 +113,8 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
   const runKey = `__ibm_publisher_download_${publisher}_${kind}`;
   if (window[runKey]) return;
   window[runKey] = true;
+  const WILEY_HUMAN_CHECK_MS = 10000;
+  const wileyReadyAt = Date.now() + WILEY_HUMAN_CHECK_MS;
   let attempts = 0;
   let expanded = false;
   const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -145,7 +147,8 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
       elsevier: /sciencedirect\.com|elsevier\.com|10\.1016\//,
       acs: /pubs\.acs\.org|10\.1021\//,
       rsc: /pubs\.rsc\.org|10\.1039\//,
-      ieee: /ieeexplore\.ieee\.org|10\.1109\//
+      ieee: /ieeexplore\.ieee\.org|10\.1109\//,
+      wiley: /(?:onlinelibrary\.)?wiley\.com|10\.(?:1002|1111)\//
     };
     return forwarded || patterns[publisher]?.test(evidence) === true;
   };
@@ -185,19 +188,31 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     return true;
   };
   const previewDownloadUrl = () => {
-    if (kind !== 'pdf') return '';
+    // Wiley 的正文和 SI 都会先进入 PDF 预览页。SI 预览页同样要把实际
+    // PDF 地址交给下载捕获器，避免再生成一份浏览器默认下载副本。
+    if (kind !== 'pdf' && publisher !== 'wiley') return '';
     const current = new URL(location.href);
     const path = current.pathname;
-    for (const root of automationRoots()) {
-      for (const element of root.querySelectorAll?.('iframe[src],embed[src],object[data]') || []) {
-        const raw = element.getAttribute('src') || element.getAttribute('data');
-        if (!raw) continue;
-        const resolved = new URL(raw, location.href);
-        if (/\/stampPDF\/getPDF\.jsp|\/doi\/pdf\/|\/pdfft(?:[/?#]|$)|\/content\/pdf\/|\.pdf(?:[?#]|$)/i.test(resolved.href)) {
-          if (/\/pdfft(?:[/?#]|$)/i.test(resolved.pathname)) resolved.searchParams.set('download', 'true');
-          return resolved.href;
+    const wileyPreviewPage = publisher === 'wiley'
+      && (/\/doi\/pdf(?:direct)?\//i.test(path)
+        || /\/action\/downloadsupplement|\/suppinfo\/|\/asset\//i.test(path)
+        || /\.pdf(?:[/?#]|$)/i.test(path));
+    if (kind === 'pdf' || wileyPreviewPage) {
+      for (const root of automationRoots()) {
+        for (const element of root.querySelectorAll?.('iframe[src],embed[src],object[data]') || []) {
+          const raw = element.getAttribute('src') || element.getAttribute('data');
+          if (!raw) continue;
+          const resolved = new URL(raw, location.href);
+          if (/\/stampPDF\/getPDF\.jsp|\/doi\/pdf\/|\/pdfft(?:[/?#]|$)|\/content\/pdf\/|\.pdf(?:[?#]|$)/i.test(resolved.href)) {
+            if (/\/pdfft(?:[/?#]|$)/i.test(resolved.pathname)) resolved.searchParams.set('download', 'true');
+            return resolved.href;
+          }
         }
       }
+    }
+    if (wileyPreviewPage) {
+      current.searchParams.set('download', 'true');
+      return current.href;
     }
     if (publisher === 'ieee' && /\/stamp\/stamp\.jsp$/i.test(path)) {
       current.pathname = path.replace(/\/stamp\/stamp\.jsp$/i, '/stampPDF/getPDF.jsp');
@@ -239,12 +254,57 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     if (/\.(?:docx?|zip)(?:[?#]|$)/.test(href)) score += 7;
     return score;
   };
+  const clickWileySupportingInformation = (items) => {
+    if (publisher !== 'wiley' || kind !== 'si') return false;
+
+    // Wiley 的 Supporting Information 是折叠区标题，不是文件下载入口。
+    // 先只展开折叠区，再从带有 Filename 表头的区域中选择真实文件链接。
+    const expander = items.find(({ element, text, href }) =>
+      /supporting information/.test(text)
+      && (element.matches('button,[role="button"]')
+        || element.hasAttribute('aria-expanded')
+        || /^#/.test(element.getAttribute('href') || '')
+        || /#.*support/i.test(href)));
+    if (expander && !expanded) {
+      expanded = true;
+      if (expander.element.getAttribute('aria-expanded') !== 'true') expander.element.click();
+      return true;
+    }
+    expanded = true;
+
+    const filenameLink = items.find(({ element, text, href }) => {
+      const anchor = element.closest?.('a[href]') || (element.matches?.('a[href]') ? element : null);
+      if (!anchor || !href || /^#|^javascript:/i.test(href)) return false;
+      const row = anchor.closest?.('tr');
+      const table = anchor.closest?.('table');
+      const region = anchor.closest?.('section,article,[role="region"],div');
+      const context = clean(`${text} ${row?.innerText || ''} ${table?.innerText || ''} ${region?.innerText || ''}`);
+      return /\bfilename\b/.test(context)
+        && !/^supporting information$/i.test(String(anchor.innerText || '').trim());
+    });
+    if (!filenameLink) return false;
+    clearInterval(timer);
+    window[`${runKey}_clicked`] = true;
+    // 正常进入 Wiley 的 PDF 预览页；下一次页面加载会注入本脚本并捕获保存。
+    filenameLink.element.click();
+    return true;
+  };
   const scan = () => {
-    attempts += 1;
     if (!confirmedPublisherPage()) return;
-    if (challengePresent()) { clearInterval(timer); signal('challenge'); return; }
-    if (attempts >= 2 && forceDownload(previewDownloadUrl())) { clearInterval(timer); return; }
+    const previewUrl = previewDownloadUrl();
+    // Wiley 首次进入文章页时为人工验证预留至少 10 秒。验证未完成时继续
+    // 等待，不消耗自动化重试次数，也不提前把任务判为失败。
+    if (publisher === 'wiley' && !previewUrl && Date.now() < wileyReadyAt) return;
+    if (challengePresent()) {
+      if (publisher === 'wiley') return;
+      clearInterval(timer);
+      signal('challenge');
+      return;
+    }
+    attempts += 1;
+    if (attempts >= 2 && forceDownload(previewUrl)) { clearInterval(timer); return; }
     const items = candidates();
+    if (clickWileySupportingInformation(items)) return;
     const scored = items.map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
       .sort((a, b) => b.score - a.score);
     const threshold = kind === 'pdf' ? 8 : 10;

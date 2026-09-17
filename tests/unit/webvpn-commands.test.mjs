@@ -12,10 +12,29 @@ test("出版社页面自动化脚本保持可执行", async () => {
 	const source = await webvpnSource();
 	const match = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/);
 	assert.ok(match, "必须能提取出版社下载自动化脚本");
-	const script = match[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "ieee");
-	assert.doesNotThrow(() => new Function(script));
+	for (const publisher of ["ieee", "wiley"]) {
+		for (const kind of ["pdf", "si"]) {
+			const script = match[1]
+				.replaceAll("__IBM_CAPTURE_KIND__", kind)
+				.replaceAll("__IBM_PUBLISHER__", publisher);
+			assert.doesNotThrow(() => new Function(script), `${publisher}/${kind} 自动化脚本必须可执行`);
+		}
+	}
+});
+
+test("Wiley iWAN 下载先等待人机验证，再按正文与 Filename SI 两段流程执行", async () => {
+	const webvpn = await webvpnSource();
+	assert.match(webvpn, /WILEY_HUMAN_CHECK_MS = 10000/);
+	assert.match(webvpn, /publisher === 'wiley' && !previewUrl && Date\.now\(\) < wileyReadyAt/);
+	assert.match(webvpn, /if \(publisher === 'wiley'\) return;/, "Wiley 验证页不得提前结束捕获任务");
+	assert.match(webvpn, /clickWileySupportingInformation/);
+	assert.match(webvpn, /supporting information/);
+	assert.match(webvpn, /\\bfilename\\b/);
+	assert.match(webvpn, /kind !== 'pdf' && publisher !== 'wiley'/, "Wiley SI 预览页也必须支持捕获保存");
+	assert.ok(
+		webvpn.indexOf("clickWileySupportingInformation(items)") < webvpn.indexOf("const scored = items.map"),
+		"Wiley SI 必须先展开并选择 Filename，不能让通用评分器误点折叠标题",
+	);
 });
 
 /** `invoke('name', ...)` 里的命令名。辅助函数本身是 `invoke(command, args)`，不含引号，不会被收录。 */
@@ -124,7 +143,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /isForwardedPage/);
 	assert.match(webvpn, /state\.mark_authenticated\(\)/);
 	assert.match(webvpn, /PUBLISHER_DOWNLOAD_AUTOMATION/);
-	for (const publisher of ["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee"]) assert.match(webvpn, new RegExp(`${publisher}:`));
+	for (const publisher of ["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee", "wiley"]) assert.match(webvpn, new RegExp(`${publisher}:`));
 	assert.match(webvpn, /PageLoadEvent::Finished/);
 	assert.match(webvpn, /supplementary methods\?/i);
 	assert.match(webvpn, /supplyment methods\?/i);
