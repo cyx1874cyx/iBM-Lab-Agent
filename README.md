@@ -8,15 +8,21 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 当前稳定版本为 **v0.5.0**。本版本聚焦文献、合成路线、
 表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
 
+**[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.0/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
+[查看 v0.5.0 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.0) ·
+[SHA-256 校验文件](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt)
+
+安装包 SHA-256：`392F5DB567B0D2335376C46433DBFBBFA38FD65B97B20795EB59E91F294D6CF0`
+
 ## 主要能力
 
 | 模块 | 当前实现 |
 |---|---|
 | 课题工作台 | 一个课题对应一个独立 workspace；会话共享课题绑定、版本化核心记忆和科研产物索引 |
-| 文献工作流 | 多源检索、去重、RIS 汇总、DOI 核验、PDF/SI 捕获、精读报告、文献 PPT 与人工审核 |
-| 合成路线 | 靶标、路线、逐步条件、结构式、开放来源证据、可行性检查、版本修订与人工锁定 |
+| 文献工作流 | 多源检索、去重、RIS 汇总、DOI 核验、PDF/SI 捕获、精读报告、文献 PPT 与人工审核；支持软件内 WebVPN、iWAN 状态监视和出版社下载规则 |
+| 合成路线 | 靶标、路线、逐步条件、结构式、开放来源证据、可行性检查、版本修订与人工锁定；支持单步骤全宽翻页和结构统一渲染 |
 | 化学与高分子计算 | 化学实体及来源登记、分子量与聚合物指标计算、实验方案审核、CAS 授权边界 |
-| NMR 与表征 | FID/结构文件登记、峰积分与组成计算、审核/回写/可视确认状态机、旧记录兼容 |
+| NMR 与表征 | 直接提交 FID/ZIP 与 MOL 等结构文件，Agent 自动建任务、预检、标峰、生成报告并归档；登记结构判断与 High/Medium/Low 置信度，支持保留历史的重新登记 |
 | 绘图登记 | 按课题记录主题、日期、产物引用和来源，可修改、删除并检查文件状态 |
 | 模板与文档 | 阅读笔记和 PPT 模板版本化；DOCX/PPTX/XLSX/PDF 转换、预览、哈希与 provenance |
 | 桌面集成 | Windows Tauri 客户端，内置 Node、DSH、Python、Origin MCP、Mnova MCP 与离线查看器 |
@@ -37,17 +43,17 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
        └─ 课题 workspace、版本快照与 ArtifactProvenance
 ```
 
-所有课题数据默认保存在用户自己的 DSH 数据目录。浏览器扩展仅用于把用户已获授权的
-PDF/SI 下载交给本机回环服务；项目不会自动执行实验、采购，也不会绕过机构或 CAS
-授权边界。
+所有课题数据默认保存在用户自己的 DSH 数据目录。文献访问仅使用开放来源、用户已建立的
+学校 WebVPN 会话或本机 iWAN 网络；浏览器捕获只接收用户已获授权的 PDF/SI。项目不会
+自动执行实验、采购，也不会绕过机构或 CAS 授权边界。
 
 ## Linux 安装
 
-支持 Ubuntu/Debian 的 x86_64 与 arm64。安装器默认安装当前 `main`（版本 **v0.4.3**），在用户
-目录中创建隔离的 Node、DSH、pnpm 与 Python 环境，并可直接启动 Web 界面：
+支持 Ubuntu/Debian 的 x86_64 与 arm64。稳定安装命令固定到 **v0.5.0**，在用户目录中创建
+隔离的 Node、DSH、pnpm 与 Python 环境，并可直接启动 Web 界面：
 
 ```bash
-curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/main/install.sh | bash -s -- --start
+curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/v0.5.0/install.sh | bash -s -- --start
 ```
 
 系统包安装阶段会按需请求 `sudo`；模型密钥不包含在发行包中，请在首次打开 DSH 后配置。
@@ -79,6 +85,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\update-server.ps1 -Ref main
 `desktop/` 是 Tauri 2 桌面客户端。运行时与用户数据隔离，服务只监听本机回环地址；
 API Key 使用当前 Windows 用户的 DPAPI 加密保存。Origin 自动化需要已安装 Origin，
 Mnova GUI/Verify 工作流需要已安装并授权的 MestReNova；文件型 NMR 分析不依赖 Mnova GUI。
+
+正式安装包由本地统一发布流水线生成并复验，再直接上传到 GitHub Release，不依赖 GitHub
+Actions 构建。v0.5.0 安装包大小为 `227,363,800` 字节。
 
 发布构建统一使用：
 
@@ -133,7 +142,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.4.3 |
+| iBM Lab Agent | 0.5.0 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -147,17 +156,17 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-v0.4.2 在 2026-09-09 的迁移后源码验证结果：
+v0.5.0 于 2026-09-17 完成正式发布验证：
 
-- 客户端构建与预设导出检查通过；
-- Node 单元/集成测试 353/353 通过；
-- 离线浏览器专项测试 7/7 通过；
-- 回归套件 11/11 通过；
-- Rust 桌面端测试 53 项通过，1 项真实注册表测试按设计忽略；
-- ESLint 0 error（保留 87 条未超过发布门限的 warning）。
+- Node 单元与集成测试 **402/402** 通过；
+- 回归套件 **11/11** 通过；
+- 客户端一致性、预设导出、ESLint 和真实浏览器 Ketcher 验收通过；
+- 固定版本 Nature Skills、Harness 依赖、Python 锁定、NMR、合成与任务链路验证通过；
+- 桌面运行时准备、Web 冒烟、Tauri/NSIS 构建和最终安装包复验通过；
+- Release 安装包的 GitHub 远程摘要与本地 SHA-256 一致。
 
-真实 Origin/Mnova 操作、机构授权下载和正式 NSIS 安装包仍应在目标软件、授权和完整发布
-资源均具备的机器上按 release checklist 验收。
+真实 Origin/Mnova GUI 操作和机构授权下载仍需在具有相应商业软件、许可证及校园访问权限的
+目标机器上验收；系统会在依赖不可用时显式失败，不会伪造科研产物。
 
 ## 目录
 
