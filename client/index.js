@@ -149,7 +149,7 @@ function buildDescriptors() {
   const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, schema: pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
+    ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
     ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list"].map((name) => direct(name, ["request"])),
     direct("projects_list")
@@ -2945,6 +2945,28 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
       setBusy(false);
     }
   };
+  const remove = async (row, kind) => {
+    if (lock.current || busy) return;
+    const label = kind === "nmr" ? "核磁" : "绘图";
+    if (!window.confirm(`确认删除这条${label}登记？
+
+课题目录中的原始数据和已归档文件会保留。`)) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice(`正在删除${label}登记…`);
+    try {
+      await call("characterization_remove", { request: { taskId: row.id, projectId, kind } });
+      await refresh();
+      setNotice(`${label}登记已删除；课题文件已保留。`);
+    } catch (e) {
+      setError(e.message);
+      setNotice("");
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
   const open = async (row, slot, application) => {
     try {
       setNotice("正在打开…");
@@ -2969,6 +2991,7 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row) : null, row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
     kind === "nmr" ? h(import_react6.default.Fragment, null, fileButton(row, "spectrum", "核磁图", "mnova"), fileButton(row, "report", "报告", "word")) : fileButton(row, "origin", "绘图文件", "origin"),
     row.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row) }, "重试") : null,
+    h("button", { className: "ib-btn", "data-danger": true, disabled: busy, onClick: () => void remove(row, kind), title: `删除${kind === "nmr" ? "核磁" : "绘图"}登记（保留课题文件）` }, "删除"),
     h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h(import_react6.default.Fragment, null, h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`), row.assessment ? h("p", null, `结构判断：${verdictLabels[row.assessment.verdict]}；置信度 ${row.assessment.confidence.toUpperCase()}。${row.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));

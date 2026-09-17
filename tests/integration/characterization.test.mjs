@@ -64,8 +64,18 @@ test("characterization persists tasks, retries, validates artifacts and updates 
   await writeFile(join(workspace,"legacy.opju"),"legacy origin fixture");
   await ctx.labPlotRecords.create({id:"legacy-plot",projectId:"p-test",topic:"legacy",artifactPath:join(workspace,"legacy.opju")});
   assert.equal((await c.artifactFile("legacy-plot","p-test","origin")).fileName,"legacy.opju");
+  assert.deepEqual(await c.remove("legacy-plot","p-test","plot"),{id:"legacy-plot",kind:"plot",filesPreserved:true});
+  assert.equal(await ctx.labPlotRecords.get("legacy-plot"),null);assert.equal((await stat(join(workspace,"legacy.opju"))).isFile(),true);
   await assert.rejects(c.submit({...fields,id:"nmr-test",date:"2025-01-01"}),/另一任务/);
   const outside=join(dir,"outside.txt");await writeFile(outside,"outside");await assert.rejects(c.submit({...fields,id:"escape",inputPath:outside}),/当前课题工作目录/);
-  await handle.dispose();handle=await bootLite(options);assert.equal(handle.ctx.labCharacterization.get(a.task.id).status,"completed");assert.equal((await handle.ctx.labPlotRecords.get(plot.task.id)).topic,"edited");
+  await assert.rejects(c.remove(a.task.id,"other","nmr"),/当前课题/);
+  const preservedReport=revised.artifacts.report.path;
+  assert.deepEqual(await c.remove(plot.task.id,"p-test","plot"),{id:plot.task.id,kind:"plot",filesPreserved:true});
+  assert.equal(await ctx.labPlotRecords.get(plot.task.id),null);assert.equal(c.list("p-test").some(row=>row.id===plot.task.id),false);
+  assert.deepEqual(await c.remove(a.task.id,"p-test","nmr"),{id:a.task.id,kind:"nmr",filesPreserved:true});
+  assert.equal(ctx.labNmr.listDatasets().some(row=>row.id===a.task.id),false);assert.equal(c.list("p-test").some(row=>row.id===a.task.id),false);
+  assert.equal((await stat(preservedReport)).isFile(),true);
+  await assert.rejects(c.remove(a.task.id,"p-test","nmr"),/不存在/);
+  await handle.dispose();handle=await bootLite(options);assert.equal(handle.ctx.labCharacterization.list("p-test").some(row=>row.id===a.task.id),false);assert.equal(await handle.ctx.labPlotRecords.get(plot.task.id),null);
  }finally{await handle?.dispose();await rm(dir,{recursive:true,force:true});}
 });

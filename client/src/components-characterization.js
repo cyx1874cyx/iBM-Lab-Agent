@@ -106,6 +106,26 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
       setBusy(false);
     }
   };
+  const remove = async (row, kind) => {
+    if (lock.current || busy) return;
+    const label = kind === "nmr" ? "核磁" : "绘图";
+    if (!window.confirm(`确认删除这条${label}登记？\n\n课题目录中的原始数据和已归档文件会保留。`)) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice(`正在删除${label}登记…`);
+    try {
+      await call("characterization_remove", { request: { taskId: row.id, projectId, kind } });
+      await refresh();
+      setNotice(`${label}登记已删除；课题文件已保留。`);
+    } catch (e) {
+      setError(e.message);
+      setNotice("");
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
   const open = async (row, slot, application) => {
     try {
       setNotice("正在打开…");
@@ -130,6 +150,7 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
     h("div", { className: "ib-characterization-title" }, h("b", null, row.title || row.topic || row.compound?.name || row.name), h("time", null, row.date || row.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row) : null, row.status && row.status !== "completed" ? h("small", null, labels[row.status] || "") : null),
     kind === "nmr" ? h(React.Fragment, null, fileButton(row, "spectrum", "核磁图", "mnova"), fileButton(row, "report", "报告", "word")) : fileButton(row, "origin", "绘图文件", "origin"),
     row.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row) }, "重试") : null,
+    h("button", { className: "ib-btn", "data-danger": true, disabled: busy, onClick: () => void remove(row, kind), title: `删除${kind === "nmr" ? "核磁" : "绘图"}登记（保留课题文件）` }, "删除"),
     h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row.error || row.instructions || ""), kind === "nmr" ? h(React.Fragment, null, h("p", null, `CAS ${row.compound?.casNumber || "待补充"} · ${row.nucleus || "1H"} · ${row.deuteratedSolvent || row.solvent || "氘代溶剂待补充"}`), row.assessment ? h("p", null, `结构判断：${verdictLabels[row.assessment.verdict]}；置信度 ${row.assessment.confidence.toUpperCase()}。${row.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));

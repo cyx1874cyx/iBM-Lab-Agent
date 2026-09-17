@@ -5,14 +5,14 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.5.0**。本版本聚焦文献、合成路线、
+当前稳定版本为 **v0.5.1**。本版本聚焦文献、合成路线、
 表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
 
-**[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.0/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
-[查看 v0.5.0 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.0) ·
-[SHA-256 校验文件](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.0/SHA256SUMS-v0.5.0.txt)
+**[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
+[查看 v0.5.1 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.1) ·
+[SHA-256 校验文件](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/SHA256SUMS-v0.5.1.txt)
 
-安装包 SHA-256：`392F5DB567B0D2335376C46433DBFBBFA38FD65B97B20795EB59E91F294D6CF0`
+安装包 SHA-256：以发布产物同目录的校验文件和最终构建报告为准。
 
 ## 主要能力
 
@@ -49,11 +49,11 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 
 ## Linux 安装
 
-支持 Ubuntu/Debian 的 x86_64 与 arm64。稳定安装命令固定到 **v0.5.0**，在用户目录中创建
+支持 Ubuntu/Debian 的 x86_64 与 arm64。稳定安装命令固定到 **v0.5.1**，在用户目录中创建
 隔离的 Node、DSH、pnpm 与 Python 环境，并可直接启动 Web 界面：
 
 ```bash
-curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/v0.5.0/install.sh | bash -s -- --start
+curl -fsSL https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/raw/v0.5.1/install.sh | bash -s -- --start
 ```
 
 系统包安装阶段会按需请求 `sudo`；模型密钥不包含在发行包中，请在首次打开 DSH 后配置。
@@ -87,7 +87,7 @@ API Key 使用当前 Windows 用户的 DPAPI 加密保存。Origin 自动化需�
 Mnova GUI/Verify 工作流需要已安装并授权的 MestReNova；文件型 NMR 分析不依赖 Mnova GUI。
 
 正式安装包由本地统一发布流水线生成并复验，再直接上传到 GitHub Release，不依赖 GitHub
-Actions 构建。v0.5.0 安装包大小为 `227,363,800` 字节。
+Actions 构建。安装包大小和 SHA-256 由统一发布流水线写入最终构建报告。
 
 发布构建统一使用：
 
@@ -142,7 +142,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.0 |
+| iBM Lab Agent | 0.5.1 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -156,9 +156,9 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-v0.5.0 于 2026-09-17 完成正式发布验证：
+v0.5.1 于 2026-09-17 完成正式发布验证：
 
-- Node 单元与集成测试 **402/402** 通过；
+- Node 单元与集成测试全部通过；
 - 回归套件 **11/11** 通过；
 - 客户端一致性、预设导出、ESLint 和真实浏览器 Ketcher 验收通过；
 - 固定版本 Nature Skills、Harness 依赖、Python 锁定、NMR、合成与任务链路验证通过；

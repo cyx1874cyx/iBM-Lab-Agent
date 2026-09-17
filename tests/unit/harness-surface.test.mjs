@@ -111,6 +111,14 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.doesNotMatch(source, /我的科研课题"\) : null/);
 });
 
+test("核磁和绘图登记条目支持确认后删除且明确保留课题文件", async () => {
+	const source = await readClientSource();
+	assert.match(source, /characterization_remove/);
+	assert.match(source, /确认删除这条\$\{label\}登记/);
+	assert.match(source, /原始数据和已归档文件会保留/);
+	assert.match(source, /删除核磁登记（保留课题文件）|删除绘图登记（保留课题文件）|删除\$\{kind === "nmr"/);
+});
+
 test("PPT template import initializes role mappings before rendering the staged form", async () => {
 	const source = await readClientSource();
 	const mappingUpdate = source.indexOf("setMapping(initialMapping)");
