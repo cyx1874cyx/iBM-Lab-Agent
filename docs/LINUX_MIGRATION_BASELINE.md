@@ -187,7 +187,7 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 | 1.2 剔除第三方 tests/ | **L2**：`install.sh` 的 `strip_python_test_trees()`，实测 −44 MB，含 import 守卫 + 变异测试 | ✅ 完成（见 §5） |
 | 1.2' Windows 侧同样扩展 | 路线书原文要求扩 `build-bundled-python.ps1:86-89`；本机无 pwsh/Windows，**不写不可验证的发布流水线改动** | ⬜ 留给 Windows 机器 |
 | 1.3 vendor 白名单 | 与 Windows 共用 `cordis.patch.yml:32`；`vendor.manifest.json` 机制仍适用。注：`figures4papers` 在本仓库中为 **tracked 文件**（70 个），剔除会改 `vendor/` 树与 `vendor.lock.json`；Linux 归档实测占 **28 MB**（见 §8.3） | 🟡 停车点 S1 |
-| 1.4 import 探测脚本 | 仍适用（Linux 侧需覆盖 `requirements-linux.lock` 引入的 extras） | ⬜ 待做 |
+| 1.4 import 探测脚本 | `scripts/audit-imports.mjs`：静态扫描（正确正则）+ 运行期追踪 + 锁文件差集 | ✅ 完成（见 §11） |
 | 2.1 摘 magika 链 | **L3**（66 MB） | 🟡 停车点 S2 |
 | 2.2 matplotlib 策略 | **L4**（48 MB） | 🟡 停车点 S3 |
 | 2.3 双 PDF 栈收敛 | 同样存在：`PyMuPDF`(60 M)+`pdfminer.six`(9 M)+`pdfplumber`+`pypdf`+`pypdfium2`；`vendor/` 中 `pdfplumber` 1 文件、`pypdf` 2 文件、`fitz` 1 文件，与 `agent.cordis.yml` 的禁令冲突 | 🔴 先调研 |
@@ -317,3 +317,66 @@ const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
 `!!js` 表达式，而是由 `lib/capabilities.js::defaultBrowserMode()` 在运行期决定，
 YAML 里保持「不配置」，从而只有一个真源、也没有 YAML 转义陷阱。
 
+
+## 11. import 可达性审计（路线书 1.4）
+
+`scripts/audit-imports.mjs`：为「依赖能不能删」提供**证据**。此前一次真实误判是把
+scipy（143 MB）当成可删，根因是静态扫描用了 `^import`，漏掉函数体内的缩进导入。
+
+### 11.1 那个坑的实测（`process_1d.py`）
+
+| 正则 | 命中行数 | 漏掉的 |
+|---|---|---|
+| `^\s*(?:import\|from)\s+`（本工具） | **15** | — |
+| `^import`（历史误用） | **6** | `nmrglue`(143)、`scipy.signal`(147)、`matplotlib`(295/297)、`shutil`(83) |
+
+漏掉的恰好就是 scipy 与 nmrglue —— 这就是那次误判的完整机制。
+
+### 11.2 两条互补证据
+
+- **静态扫描**：正则允许任意缩进层级，能看见函数体内的导入；
+- **运行期追踪**：`<python> -X importtime <target>`，只统计**真正被导入**的模块。
+
+两者**分开列示**，不合并成一个「可删」结论：函数体内的导入只有走到那条代码路径才会
+出现，所以「运行期没出现」不等于「用不到」。硬/软依赖同样分开看（路线书纪律 #2）——
+`process_1d.py:295-300` 的 `import matplotlib` 就在 `except ImportError: plt = None` 里，
+是软依赖，一样不能删。
+
+### 11.3 验收（路线书原文要求的三条）
+
+交付内容：`node scripts/audit-imports.mjs --target <process_1d.py> --python <venv/bin/python>`
+输出必须含 `nmrglue` 与 `scipy`，且不含 `pandas`。实测：
+
+```
+静态扫描命中模块 : __future__, argparse, csv, datetime, json, math, matplotlib,
+                   nmrglue, numpy, pathlib, scipy, shutil, sys, typing
+运行期实际导入   : （仅 import 模块时）不含 nmrglue/scipy
+运行期退出码     : 2（argparse 缺参；如实标注运行期证据不完整）
+可达发行版       : matplotlib, nmrglue, numpy, scipy          ← 含 nmrglue 与 scipy ✓
+⚠ 仅静态可达     : matplotlib, nmrglue, scipy                 ← 如实标注需补调用路径
+```
+
+### 11.4 "逐功能路径触发"的实证
+
+用同目录的 `simulate_1d.py` 生成合成 FID，再让 `process_1d.py` 真正处理它，然后把该
+调用作为 `--run-args` 交给审计：
+
+```
+simulate_1d.py  model.json --output /tmp/nmr-e2e/fid        → 合成 Varian FID（readback 误差 0）
+process_1d.py   .../synthetic_1d.fid --output ... --overwrite → 105 个峰，输出 4 个文件
+audit-imports.mjs --target process_1d.py --run-args "<上面的参数>"
+```
+
+结果：运行期追踪**捕获到 `nmrglue` 与 `scipy`**，"⚠ 仅静态可达"整行消失 ——
+证明"逐功能路径触发"能闭合静态与运行期的差距。该次可达发行版为：
+`charset-normalizer, cycler, defusedxml, fonttools, kiwisolver, matplotlib, nmrglue,
+numpy, packaging, pillow, pyparsing, python-dateutil, scipy, six`（`pandas` 始终不出现）。
+
+### 11.5 锁文件差集（Phase 2 决策依据）
+
+`--lock python/requirements.lock` 报告「锁定但未被本次路径触达」的发行版。单一 NMR
+路径触达 66 个锁定包中的 13 个，其余 53 个列为**候选**。
+
+> ⚠ 候选 ≠ 可删。真实反例就在本次结果里：`contourpy` 被列为未触达，但它是 matplotlib
+> 的**惰性依赖**（只在画等高线时导入）。动态导入、插件注册表、CLI 入口同理。
+> 该工具**只读不写**：不删文件、不改锁文件。
