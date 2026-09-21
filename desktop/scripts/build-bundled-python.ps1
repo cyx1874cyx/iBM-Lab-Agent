@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$Python = 'py -3.11',

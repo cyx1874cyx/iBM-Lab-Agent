@@ -39,6 +39,15 @@
     #bridge-detail { margin-top: 14px; padding: 12px 14px; background: var(--shell-panel); border: 1px solid var(--shell-border); border-radius: 8px; font-size: 12px; color: var(--shell-text); line-height: 1.7; }
     #bridge-detail code { color: var(--shell-text); word-break: break-all; }
     .diag-actions { display: flex; gap: 10px; margin: 16px 0 14px; }
+    .diag-overview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:12px 0 16px; }
+    .diag-card { border:1px solid var(--shell-border); border-radius:9px; padding:13px 14px; background:var(--shell-panel); }
+    .diag-card h3 { margin:0 0 8px; font-size:14px; }
+    .diag-card ul { margin:0; padding-left:19px; font-size:12px; line-height:1.75; color:var(--shell-muted); }
+    .first-run-note { display:none; border-left:3px solid var(--shell-accent); padding:9px 12px; margin:8px 0 14px; background:var(--shell-panel); font-size:13px; line-height:1.55; }
+    #update-panel { position:absolute; z-index:12; top:18px; right:18px; width:min(520px,calc(100% - 36px)); max-height:calc(100% - 36px); overflow:auto; display:none; padding:18px; border:1px solid var(--shell-border); border-radius:10px; background:var(--shell-bg); box-shadow:0 12px 34px rgba(0,0,0,.25); }
+    #update-panel h2 { margin:0 0 8px; font-size:17px; }
+    #update-summary { line-height:1.6; font-size:13px; color:var(--shell-text); }
+    #update-notes { max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-word; padding:10px; border:1px solid var(--shell-border); border-radius:7px; color:var(--shell-muted); font:12px/1.55 Arial,"Microsoft YaHei",sans-serif; }
     .field-row { display: flex; gap: 8px; align-items: center; }
     .field-row input { flex: 1; }
     .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; color: var(--shell-text); font-size: 13px; }
@@ -62,6 +71,7 @@
     :root{--shell-bg:#fff;--shell-panel:#f7f7f8;--shell-border:#ddd;--shell-text:#202124;--shell-muted:#676b73;--shell-accent:#4d6bfe}
     @media(prefers-color-scheme:dark){:root{--shell-bg:#18191b;--shell-panel:#232529;--shell-border:#45474c;--shell-text:#eceef1;--shell-muted:#b3b6bf}}
     body,#diagnostics{background:var(--shell-bg)}button,input,select{font-family:Arial,"Microsoft YaHei",sans-serif;color:var(--shell-text);border-color:var(--shell-border)}button{transition:background-color 160ms ease,transform 120ms ease}button:hover{border-color:var(--shell-accent)}button:active{transform:translateY(1px)}:focus-visible{outline:2px solid var(--shell-accent);outline-offset:2px}.state,.hint,.detail{color:var(--shell-muted)}
+    @media(max-width:850px){.diag-overview{grid-template-columns:1fr}}
     @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   </style>
 </head>
@@ -69,14 +79,30 @@
   <main class="shell">
     <nav class="topbar">
       <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
-      <button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
+      <button id="update-button" type="button">检查更新</button><button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
+      <section id="update-panel" role="dialog" aria-modal="true" aria-labelledby="update-title">
+        <h2 id="update-title">软件更新</h2>
+        <div id="update-summary">正在检查 GitLab 最新发布版本…</div>
+        <pre id="update-notes" style="display:none"></pre>
+        <div class="diag-actions">
+          <button id="update-download" type="button" style="display:none">下载更新</button>
+          <button id="update-install" type="button" style="display:none">安装并退出</button>
+          <button id="update-release" type="button" style="display:none">查看发布页</button>
+          <button id="update-close" type="button">关闭</button>
+        </div>
+      </section>
       <!-- P1-1 runtime dependency doctor：覆盖层，一屏展示依赖状态 -->
       <section id="diagnostics">
         <div class="diag-head"><h2>应用与连接诊断</h2><span class="state" id="diag-state">加载中…</span></div>
         <p class="diag-sub">按应用或运行组件检查本机状态；只有已配置 MCP 的应用才显示 MCP 连接状态。</p>
+        <div class="first-run-note" id="first-run-note"><strong>欢迎使用 iBM Lab Agent。</strong><br>这是首次启动检查。下方会明确列出当前可用功能、受限功能以及需要升级或重新安装的软件版本。</div>
+        <div class="diag-overview">
+          <div class="diag-card"><h3>现在可执行的功能</h3><ul id="available-features"><li>正在评估…</li></ul></div>
+          <div class="diag-card"><h3>需要处理 / 升级</h3><ul id="upgrade-summary"><li>正在评估…</li></ul></div>
+        </div>
         <div class="diag-actions">
           <button id="diag-refresh" type="button">重新检测</button>
           <button id="diag-close" type="button">关闭</button>
@@ -129,6 +155,10 @@
     const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args);
     const splash = $('splash'), frame = $('app'), diagnostics = $('diagnostics');
     let activeMcpApp = null;
+    let latestReleaseUrl = '';
+    const FIRST_RUN_KEY = 'ibm-lab-agent.onboarding.v1.completed';
+    let firstRun = false;
+    try { firstRun = localStorage.getItem(FIRST_RUN_KEY) !== '1'; } catch { firstRun = true; }
     // P1-1：状态徽章映射（ok=绿 / warning=黄 / missing=红，暗色主题）
     const DEP_STATES = {
       ok: { text: '正常', badge: 'badge-ok' },
@@ -136,10 +166,28 @@
       missing: { text: '缺失', badge: 'badge-missing' },
     };
     const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    async function showDiagnostics() {
-      diagnostics.style.display = diagnostics.style.display === 'block' ? 'none' : 'block';
+    async function showDiagnostics(forceOpen = false) {
+      diagnostics.style.display = forceOpen ? 'block' : (diagnostics.style.display === 'block' ? 'none' : 'block');
       if (diagnostics.style.display !== 'block') return;
       await refreshDiagnostics();
+    }
+    function renderCapabilitySummary(items) {
+      const byKey = Object.fromEntries(items.map((item) => [item.key, item]));
+      const usable = (key) => byKey[key] && byKey[key].state !== 'missing';
+      const features = [];
+      if (usable('node') && usable('python')) features.push('科研 Agent 对话、项目管理、文档转换与报告/PPT 生成');
+      if (usable('powershell')) features.push('Agent PowerShell 命令执行（支持 Windows PowerShell 5.1 和 PowerShell 7.x）');
+      if (usable('edge') && usable('bridge')) features.push('Edge 文献捕获、PDF/SI 归档与本地阅读');
+      if (usable('python')) features.push('文件型 NMR 分析、模拟 FID、化学与科研计算');
+      if (byKey.mnova?.state === 'ok') features.push('MestReNova GUI / Verify 工作流');
+      if (byKey.origin?.state === 'ok') features.push('Origin/OriginPro 作图与分析工作流');
+      const connectedSources = items.filter((item) => ['openalex','crossref','pubchem','cactus'].includes(item.key) && item.state === 'ok').length;
+      if (connectedSources) features.push(`在线 DOI/结构式检索（${connectedSources}/4 个数据源可用）`);
+      $('available-features').innerHTML = (features.length ? features : ['暂无完整可用功能，请先修复必需组件。']).map((text) => `<li>${esc(text)}</li>`).join('');
+
+      const actions = items.filter((item) => item.state !== 'ok').map((item) => `${item.label}：${item.hint}`);
+      if (!actions.length) actions.push('无必须升级项。当前基线：内置 Python 3.11.x、内置 Node.js v24.16.0、PowerShell 5.1 或 7.x。');
+      $('upgrade-summary').innerHTML = actions.map((text) => `<li>${esc(text)}</li>`).join('');
     }
     async function refreshDiagnostics() {
       const body = $('deps-body'), bridgeDetail = $('bridge-detail');
@@ -175,6 +223,7 @@
           sourceItems = [{ key: 'research-sources', label: '科研检索源', state: 'missing', detail: String(error), hint: '请查看应用日志后重新检测。', mcpCapable: false }];
         }
         renderItems();
+        renderCapabilitySummary(allItems());
         const counts = allItems().reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
         const summary = ['ok', 'warning', 'missing'].filter((k) => counts[k]).map((k) => `${DEP_STATES[k].text} ${counts[k]} 项`).join('，');
         $('diag-state').textContent = `检测完成：${summary}`;
@@ -285,17 +334,65 @@
     };
     window.ibmLabRuntimeReady = (url) => {
       frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', `本地服务已就绪：${url}`);
+      if (firstRun) {
+        $('first-run-note').style.display = 'block';
+        void showDiagnostics(true);
+      }
     };
     window.ibmLabRuntimeFailed = (message) => {
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'none'; $('error-actions').style.display = 'block';
       setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看诊断与日志后重试。`); setText('state', '启动失败');
     };
     $('retry-button').addEventListener('click', () => invoke('restart_runtime').catch(window.ibmLabRuntimeFailed));
+    $('update-button').addEventListener('click', async () => {
+      const panel = $('update-panel'), button = $('update-button'), summary = $('update-summary');
+      panel.style.display = 'block'; button.disabled = true;
+      $('update-download').style.display = 'none'; $('update-install').style.display = 'none';
+      $('update-release').style.display = 'none'; $('update-notes').style.display = 'none';
+      summary.textContent = '正在检查 GitLab 最新发布版本…';
+      try {
+        const info = await invoke('check_update');
+        latestReleaseUrl = info.releaseUrl || '';
+        $('update-release').style.display = latestReleaseUrl ? '' : 'none';
+        if (info.releaseNotes) { $('update-notes').textContent = info.releaseNotes; $('update-notes').style.display = 'block'; }
+        if (!info.available) {
+          summary.textContent = info.currentVersion === info.latestVersion
+            ? `当前版本 ${info.currentVersion} 已是最新版。`
+            : `当前版本 ${info.currentVersion} 高于 GitLab 最新发布版本 ${info.latestVersion}，不会降级。`;
+        } else if (!info.canDownload) {
+          summary.textContent = `发现新版本 ${info.latestVersion}，但 Release 缺少 Windows x64 安装包或 SHA-256，已禁止自动更新。`;
+        } else {
+          summary.textContent = `发现新版本 ${info.latestVersion}（当前 ${info.currentVersion}）。安装包将下载到“下载”目录，并在校验 SHA-256 后提供安装。`;
+          $('update-download').style.display = '';
+        }
+      } catch (error) { summary.textContent = `检查更新失败：${error}`; }
+      finally { button.disabled = false; }
+    });
+    $('update-download').addEventListener('click', async () => {
+      const button = $('update-download'); button.disabled = true; $('update-summary').textContent = '正在下载并校验安装包，请稍候…';
+      try {
+        const result = await invoke('download_update');
+        $('update-summary').textContent = `版本 ${result.version} 已下载并通过 SHA-256 校验：${result.path}`;
+        button.style.display = 'none'; $('update-install').style.display = '';
+      } catch (error) { $('update-summary').textContent = `下载更新失败：${error}`; button.disabled = false; }
+    });
+    $('update-install').addEventListener('click', async () => {
+      const button = $('update-install'); button.disabled = true; $('update-summary').textContent = '正在启动安装程序并关闭应用…';
+      try { await invoke('install_downloaded_update'); }
+      catch (error) { $('update-summary').textContent = `启动安装程序失败：${error}`; button.disabled = false; }
+    });
+    $('update-release').addEventListener('click', () => {
+      if (latestReleaseUrl) invoke('open_in_edge', { url: latestReleaseUrl }).catch((error) => { $('update-summary').textContent = `无法打开发布页：${error}`; });
+    });
+    $('update-close').addEventListener('click', () => { $('update-panel').style.display = 'none'; });
     $('logs-button').addEventListener('click', () => invoke('open_logs').catch(window.ibmLabRuntimeFailed));
     $('workspace-button').addEventListener('click', () => invoke('open_workspace').catch(window.ibmLabRuntimeFailed));
-    $('deps-button').addEventListener('click', showDiagnostics);
+    $('deps-button').addEventListener('click', () => showDiagnostics(false));
     $('diag-refresh').addEventListener('click', refreshDiagnostics);
-    $('diag-close').addEventListener('click', () => { diagnostics.style.display = 'none'; activeMcpApp = null; $('mcp-editor').style.display = 'none'; });
+    $('diag-close').addEventListener('click', () => {
+      diagnostics.style.display = 'none'; activeMcpApp = null; $('mcp-editor').style.display = 'none';
+      if (firstRun) { firstRun = false; $('first-run-note').style.display = 'none'; try { localStorage.setItem(FIRST_RUN_KEY, '1'); } catch {} }
+    });
     $('deps-body').addEventListener('click', (event) => {
       const button = event.target.closest('[data-mcp-app]');
       if (button) void openMcpEditor(button.dataset.mcpApp, button.dataset.mcpLabel);

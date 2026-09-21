@@ -11,8 +11,9 @@
  * P1-2: unified Windows resolver. [resolvePythonExecutable] and
  * [pythonCandidates] give every consumer (RDKit / MarkItDown / nature
  * skills / Doctor) one deterministic resolution order:
- *   managed venv → bundled python → py -3.11 → py -3 → python.exe
- * Windows never falls back to the nonexistent `python3` command.
+ *   desktop/bundled: bundled python only
+ *   source/Linux install: managed venv → platform system python
+ * A packaged desktop process must never silently escape to a system Python.
  */
 
 import { createHash } from "node:crypto";
@@ -164,18 +165,25 @@ export async function pythonVersion(venvDir, platform = process.platform) {
 
 /**
  * 桌面打包环境注入的捆绑 Python（Rust 启动 DSH 子进程时设置
- * IBM_LAB_AGENT_BUNDLED_PYTHON 环境变量）。未设置或文件不存在时返回
- * undefined，各 resolver 自然回退到 venv / 系统 python。
+ * IBM_LAB_AGENT_BUNDLED_PYTHON 环境变量）。只要变量已设置就返回该路径；
+ * 即使文件损坏/缺失也不能隐式回退到系统 Python。
  */
 export function bundledPythonFromEnv(env = process.env) {
 	const value = env.IBM_LAB_AGENT_BUNDLED_PYTHON;
-	return value && existsSync(value) ? value : undefined;
+	return value || undefined;
 }
 
-export function pythonCandidates({ venvPython, bundledPython, platform = process.platform } = {}) {
+export function pythonCandidates({ venvPython, bundledPython, platform = process.platform, allowSystemFallback } = {}) {
 	const candidates = [];
+	// The desktop launcher provides IBM_LAB_AGENT_BUNDLED_PYTHON.  In that
+	// environment the bundled interpreter is an isolation boundary, not merely
+	// a preference: falling through to py/python would make results depend on
+	// arbitrary user installations and could load unpinned packages.
+	if (bundledPython) {
+		if (existsSync(bundledPython)) candidates.push({ command: [bundledPython], source: "bundled" });
+		if (allowSystemFallback !== true) return candidates;
+	}
 	if (venvPython && existsSync(venvPython)) candidates.push({ command: [venvPython], source: "venv" });
-	if (bundledPython && existsSync(bundledPython)) candidates.push({ command: [bundledPython], source: "bundled" });
 	if (platform === "win32") {
 		candidates.push({ command: ["py", "-3.11"], source: "py" });
 		candidates.push({ command: ["py", "-3"], source: "py" });
@@ -194,8 +202,8 @@ export function pythonCandidates({ venvPython, bundledPython, platform = process
  * 非零退出码会被 [pythonVersionFrom] 过滤，不会误判为已安装。
  * 桌面打包环境自动纳入 bundled Python（默认参数读取环境变量）。
  */
-export async function resolvePythonExecutable({ venvPython, bundledPython = bundledPythonFromEnv(), platform = process.platform } = {}) {
-	for (const candidate of pythonCandidates({ venvPython, bundledPython, platform })) {
+export async function resolvePythonExecutable({ venvPython, bundledPython = bundledPythonFromEnv(), platform = process.platform, allowSystemFallback } = {}) {
+	for (const candidate of pythonCandidates({ venvPython, bundledPython, platform, allowSystemFallback })) {
 		const version = await pythonVersionFrom(candidate.command, platform);
 		if (version) return { ...candidate, version };
 	}

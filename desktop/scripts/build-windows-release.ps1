@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$NodeExe = $env:CODEX_MCP_NODE_PATH,
@@ -19,6 +19,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Read-JsonUtf8([string]$Path) {
+  return [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+}
 $desktopRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $SourceRoot) { $SourceRoot = Join-Path $desktopRoot '..' }
 $sourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
@@ -57,7 +60,8 @@ if (-not $SkipBuild) {
 if (-not $DshSource) {
   $DshSource = Join-Path $sourceRoot 'node_modules'
 }
-$DshSource = (Resolve-Path -LiteralPath $DshSource -ErrorAction SilentlyContinue)?.Path
+$resolvedDshSource = Resolve-Path -LiteralPath $DshSource -ErrorAction SilentlyContinue
+$DshSource = if ($resolvedDshSource) { $resolvedDshSource.Path } else { $null }
 if (-not $DshSource -or -not (Test-Path -LiteralPath (Join-Path $DshSource '@deepseek-ai\dsh\lib\bin.js'))) {
   throw "DSH runtime is unavailable below '$DshSource'. Install the locked root workspace dependencies first."
 }
@@ -88,6 +92,22 @@ function Get-Tail([string]$Path, [int]$Count = 40) {
   return (Get-Content -LiteralPath $Path -Tail $Count -ErrorAction SilentlyContinue) -join "`n"
 }
 
+# Windows PowerShell 5.1 runs on .NET Framework and has no
+# ProcessStartInfo.ArgumentList collection; build the classic argument string.
+function Join-NativeArguments([string[]]$Values) {
+  $quoted = foreach ($value in $Values) {
+    if ($value -notmatch '[\s"]') { $value }
+    else {
+      # CommandLineToArgvW quoting: double backslashes before a quote and at
+      # the end of a quoted value.
+      $escaped = [regex]::Replace($value, '(\\*)"', '$1$1\"')
+      $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+      '"' + $escaped + '"'
+    }
+  }
+  return ($quoted -join ' ')
+}
+
 function Invoke-LoggedProcess {
   param(
     [Parameter(Mandatory)] [string]$Name,
@@ -107,10 +127,10 @@ function Invoke-LoggedProcess {
   $info.CreateNoWindow = $true
   $info.RedirectStandardOutput = $true
   $info.RedirectStandardError = $true
-  foreach ($argument in $Arguments) { [void]$info.ArgumentList.Add([string]$argument) }
-  $info.Environment['CI'] = 'true'
-  $info.Environment['CODEBUDDY_SAFE_DELETE_ENABLED'] = '0'
-  foreach ($key in $Environment.Keys) { $info.Environment[[string]$key] = [string]$Environment[$key] }
+  $info.Arguments = Join-NativeArguments $Arguments
+  $info.EnvironmentVariables['CI'] = 'true'
+  $info.EnvironmentVariables['CODEBUDDY_SAFE_DELETE_ENABLED'] = '0'
+  foreach ($key in $Environment.Keys) { $info.EnvironmentVariables[[string]$key] = [string]$Environment[$key] }
 
   $process = [System.Diagnostics.Process]::new()
   $process.StartInfo = $info
@@ -129,7 +149,7 @@ function Invoke-LoggedProcess {
       $errSize = if (Test-Path -LiteralPath $stderrPath) { (Get-Item -LiteralPath $stderrPath).Length } else { 0 }
       Write-ReleaseStatus ("HEARTBEAT {0}: elapsed={1:hh\:mm\:ss}, pid={2}, cpu={3:n1}s, logs={4}/{5} bytes" -f $Name, $watch.Elapsed, $process.Id, $process.TotalProcessorTime.TotalSeconds, $outSize, $errSize)
       if ($watch.Elapsed.TotalMinutes -ge $TimeoutMinutes) {
-        try { $process.Kill($true) } catch {}
+        try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { try { $process.Kill() } catch {} }
         throw "Phase '$Name' exceeded ${TimeoutMinutes} minutes and its process tree was stopped. Inspect $stdoutPath and $stderrPath."
       }
     }
@@ -178,10 +198,10 @@ function Assert-PdfViewerReferences([string]$Root) {
 }
 
 function Get-ReleaseVersion {
-  $rootVersion = (Get-Content -LiteralPath (Join-Path $sourceRoot 'package.json') -Raw | ConvertFrom-Json).version
-  $desktopVersion = (Get-Content -LiteralPath (Join-Path $desktopRoot 'package.json') -Raw | ConvertFrom-Json).version
-  $tauriVersion = (Get-Content -LiteralPath (Join-Path $desktopRoot 'src-tauri\tauri.conf.json') -Raw | ConvertFrom-Json).version
-  $manifestVersion = (Get-Content -LiteralPath (Join-Path $desktopRoot 'docs\release-manifest.json') -Raw | ConvertFrom-Json).ibmLabAgent
+  $rootVersion = (Read-JsonUtf8 (Join-Path $sourceRoot 'package.json')).version
+  $desktopVersion = (Read-JsonUtf8 (Join-Path $desktopRoot 'package.json')).version
+  $tauriVersion = (Read-JsonUtf8 (Join-Path $desktopRoot 'src-tauri\tauri.conf.json')).version
+  $manifestVersion = (Read-JsonUtf8 (Join-Path $desktopRoot 'docs\release-manifest.json')).ibmLabAgent
   $cargoText = Get-Content -LiteralPath (Join-Path $desktopRoot 'src-tauri\Cargo.toml') -Raw
   $cargoVersion = [regex]::Match($cargoText, '(?ms)^\[package\].*?^version\s*=\s*"([^"]+)"').Groups[1].Value
   $versions = @($rootVersion, $desktopVersion, $tauriVersion, $manifestVersion, $cargoVersion)
@@ -200,23 +220,37 @@ function Assert-GitReleaseReady {
   param([string]$RepoRoot, [switch]$AllowDirty)
   $git = Get-Command git -ErrorAction SilentlyContinue
   if (-not $git) { throw 'Git is unavailable. Release preflight cannot verify a clean, complete repository.' }
+  # Windows PowerShell 5.1 converts any native stderr line into a terminating
+  # NativeCommandError while ErrorActionPreference=Stop, even when the process
+  # exits 0 (for example Git's harmless LF/CRLF warning). Quiet checks must use
+  # the native exit code as their source of truth.
+  function Invoke-GitQuiet([string[]]$Arguments) {
+    $previousErrorAction = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = 'Continue'
+      & $git.Source -C $RepoRoot @Arguments *> $null
+      return $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousErrorAction
+    }
+  }
   # 1) 非 bare 工作树
-  & $git.Source -C $RepoRoot rev-parse --is-inside-work-tree *> $null
-  if ($LASTEXITCODE -ne 0) { throw "Repository check failed (exit $LASTEXITCODE): '$RepoRoot' is not inside a git working tree." }
+  $gitExit = Invoke-GitQuiet @('rev-parse', '--is-inside-work-tree')
+  if ($gitExit -ne 0) { throw "Repository check failed (exit $gitExit): '$RepoRoot' is not inside a git working tree." }
   if ((& $git.Source -C $RepoRoot rev-parse --is-bare-repository) -eq 'true') {
     throw "Repository '$RepoRoot' is bare; releases require a normal (non-bare) working repository."
   }
   # 2) HEAD 可解析为可读 commit（bad object 直接终止，不把空输出当干净）
-  & $git.Source -C $RepoRoot rev-parse --verify -q 'HEAD^{commit}' *> $null
-  if ($LASTEXITCODE -ne 0) { throw "Repository HEAD cannot be resolved to a commit (exit $LASTEXITCODE); refusing to release from a broken repository." }
-  & $git.Source -C $RepoRoot cat-file -e 'HEAD^{commit}' 2>$null
-  if ($LASTEXITCODE -ne 0) { throw 'Repository HEAD does not point to a readable commit object.' }
+  $gitExit = Invoke-GitQuiet @('rev-parse', '--verify', '-q', 'HEAD^{commit}')
+  if ($gitExit -ne 0) { throw "Repository HEAD cannot be resolved to a commit (exit $gitExit); refusing to release from a broken repository." }
+  $gitExit = Invoke-GitQuiet @('cat-file', '-e', 'HEAD^{commit}')
+  if ($gitExit -ne 0) { throw 'Repository HEAD does not point to a readable commit object.' }
   # 3) status --porcelain 必须自身成功；失败时空 stdout 不得解释为干净
   $porcelain = @(& $git.Source -C $RepoRoot status --porcelain)
   if ($LASTEXITCODE -ne 0) { throw "git status --porcelain failed (exit $LASTEXITCODE); empty output must NOT be treated as a clean tree." }
   # 4) diff --check（空白/冲突标记）无条件必须 0
-  & $git.Source -C $RepoRoot diff --check *> $null
-  if ($LASTEXITCODE -ne 0) { throw 'git diff --check reported whitespace/conflict errors; fix them before release.' }
+  $gitExit = Invoke-GitQuiet @('diff', '--check')
+  if ($gitExit -ne 0) { throw 'git diff --check reported whitespace/conflict errors; fix them before release.' }
   $dirty = $porcelain.Count -gt 0
   if ($dirty -and -not $AllowDirty) {
     throw 'Working tree is dirty. Commit/stash the release inputs, or pass -AllowDirty only for a non-publishable diagnostic build.'
@@ -226,8 +260,8 @@ function Assert-GitReleaseReady {
     New-Item -ItemType File -Force -Path (Join-Path $logRoot 'DIAGNOSTIC-NOT-PUBLISHABLE.txt') -Value ("Built " + (Get-Date).ToUniversalTime().ToString('o') + " from a dirty working tree with -AllowDirty. Publish/upload must reject this artifact.") | Out-Null
   }
   # 5) 对象连通性
-  & $git.Source -C $RepoRoot fsck --connectivity-only *> $null
-  if ($LASTEXITCODE -ne 0) { throw "git fsck --connectivity-only reported problems (exit $LASTEXITCODE); refusing to release from an incomplete repository." }
+  $gitExit = Invoke-GitQuiet @('fsck', '--connectivity-only')
+  if ($gitExit -ne 0) { throw "git fsck --connectivity-only reported problems (exit $gitExit); refusing to release from an incomplete repository." }
   return @{ dirty = $dirty }
 }
 
@@ -257,15 +291,16 @@ try {
     $phases.Add((Invoke-LoggedProcess -Name 'lint' -FilePath $NodeExe -Arguments @($eslint, 'lib', 'src', 'scripts', 'tests', 'client', 'browser-extension', '--max-warnings=200') -WorkingDirectory $sourceRoot -TimeoutMinutes 15))
   }
 
+  $hostPowerShell = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
   $bundledPython = Join-Path $desktopRoot 'src-tauri\resources\python\dist\python.exe'
   if ($RebuildBundledPython -or -not (Test-Path -LiteralPath $bundledPython)) {
-    $phases.Add((Invoke-LoggedProcess -Name 'bundled-python' -FilePath (Get-Command pwsh).Source -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-bundled-python.ps1'), '-SourceRoot', $sourceRoot) -WorkingDirectory $desktopRoot -TimeoutMinutes 90))
+    $phases.Add((Invoke-LoggedProcess -Name 'bundled-python' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-bundled-python.ps1'), '-SourceRoot', $sourceRoot) -WorkingDirectory $desktopRoot -TimeoutMinutes 90))
   }
 
   $prepareArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'prepare-runtime.ps1'), '-SourceRoot', $sourceRoot, '-DshSource', $DshSource, '-NodeExe', $NodeExe)
   if ($ForcePrepare) { $prepareArguments += '-Force' }
-  $phases.Add((Invoke-LoggedProcess -Name 'prepare-runtime' -FilePath (Get-Command pwsh).Source -Arguments $prepareArguments -WorkingDirectory $desktopRoot -TimeoutMinutes $PrepareTimeoutMinutes -Environment @{ IBM_LAB_RELEASE_ORCHESTRATOR_PID = $PID }))
-  $phases.Add((Invoke-LoggedProcess -Name 'verify-runtime' -FilePath (Get-Command pwsh).Source -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-package.ps1'), '-WebSmokeTest') -WorkingDirectory $desktopRoot -TimeoutMinutes 20))
+  $phases.Add((Invoke-LoggedProcess -Name 'prepare-runtime' -FilePath $hostPowerShell -Arguments $prepareArguments -WorkingDirectory $desktopRoot -TimeoutMinutes $PrepareTimeoutMinutes -Environment @{ IBM_LAB_RELEASE_ORCHESTRATOR_PID = $PID }))
+  $phases.Add((Invoke-LoggedProcess -Name 'verify-runtime' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-package.ps1'), '-WebSmokeTest') -WorkingDirectory $desktopRoot -TimeoutMinutes 20))
 
   if ($SkipBuild) {
     Write-ReleaseStatus 'SkipBuild requested: runtime snapshot verified; no installer was produced.'
@@ -289,7 +324,7 @@ try {
   } | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
   if (-not $installer) { throw "Tauri exited successfully but did not create a fresh exact-version installer for $version below $installerRoot" }
 
-  $phases.Add((Invoke-LoggedProcess -Name 'verify-installer' -FilePath (Get-Command pwsh).Source -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-package.ps1'), '-InstallerPath', $installer.FullName) -WorkingDirectory $desktopRoot -TimeoutMinutes 20))
+  $phases.Add((Invoke-LoggedProcess -Name 'verify-installer' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-package.ps1'), '-InstallerPath', $installer.FullName) -WorkingDirectory $desktopRoot -TimeoutMinutes 20))
   $hash = Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256
   $report = [ordered]@{
     version = $version

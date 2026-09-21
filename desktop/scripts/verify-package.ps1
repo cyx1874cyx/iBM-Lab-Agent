@@ -1,10 +1,13 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$InstallerPath,
   [switch]$WebSmokeTest
 )
 
 $ErrorActionPreference = 'Stop'
+function Read-JsonUtf8([string]$Path) {
+  return [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+}
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $resourceRoot = Join-Path $projectRoot 'src-tauri\resources'
 $required = @(
@@ -44,7 +47,7 @@ if (-not (Test-Path -LiteralPath $capabilityDir)) { throw "Missing capabilities 
 $capabilityFiles = @(Get-ChildItem -LiteralPath $capabilityDir -Filter '*.json' -File)
 if ($capabilityFiles.Count -eq 0) { throw 'No capability files found: the desktop shell would ship with no permissions at all.' }
 foreach ($capabilityFile in $capabilityFiles) {
-  $capability = Get-Content -LiteralPath $capabilityFile.FullName -Raw | ConvertFrom-Json
+  $capability = Read-JsonUtf8 $capabilityFile.FullName
   # PowerShell 的 @($null) 长度为 1；先过滤空值，否则“未声明 windows”会被
   # 误判为含一个窗口授权，导致正确的 webview-only capability 无法发布。
   $grantedWindows = @($capability.windows | Where-Object { $null -ne $_ })
@@ -118,7 +121,7 @@ $mnovaVersion = & $python -I -c 'import mnova_mcp; print(mnova_mcp.__version__)'
 if ($LASTEXITCODE -ne 0 -or $mnovaVersion -ne '0.3.1') { throw "Bundled mnova-mcp version mismatch: '$mnovaVersion' (expected 0.3.1)." }
 $mnovaBridge = & $python -I -c 'from mnova_mcp.config import Settings; p = Settings.from_environment().bridge_script; print(p); assert p.is_file(), "bridge.qs missing"' 2>&1
 if ($LASTEXITCODE -ne 0) { throw "Bundled mnova-mcp bridge.qs is missing. Output: $mnovaBridge" }
-$mnovaProbe = & $python -I -c @'
+$mnovaProbeScript = @'
 import json, subprocess, sys
 child = subprocess.Popen(
     [sys.executable, "-m", "mnova_mcp"],
@@ -146,7 +149,17 @@ if missing:
     print(err[-2000:] if err else "", file=sys.stderr)
     sys.exit(3)
 print(f"mnova probe OK: {len(tools)} tools")
-'@ 2>&1
+'@
+# Windows PowerShell 5.1's legacy native argv binder can corrupt multiline
+# `python -c` values containing quotes.  Execute an explicit UTF-8 temp script
+# instead; PowerShell 7.x follows the same path for identical verification.
+$mnovaProbePath = Join-Path ([System.IO.Path]::GetTempPath()) ("ibm-mnova-probe-" + [guid]::NewGuid().ToString('N') + '.py')
+try {
+  [System.IO.File]::WriteAllText($mnovaProbePath, $mnovaProbeScript, (New-Object System.Text.UTF8Encoding($false)))
+  $mnovaProbe = & $python -I $mnovaProbePath 2>&1
+} finally {
+  if (Test-Path -LiteralPath $mnovaProbePath) { Remove-Item -LiteralPath $mnovaProbePath -Force }
+}
 if ($LASTEXITCODE -ne 0) { throw "Bundled mnova_mcp STDIO probe failed. Output: $mnovaProbe" }
 Write-Host "Bundled Python checks: origin-mcp 0.1.4 | mnova-mcp $mnovaVersion | $mnovaBridge | $mnovaProbe"
 $temporaryHome = Join-Path ([System.IO.Path]::GetTempPath()) ("ibm-lab-desktop-verify-" + [guid]::NewGuid())
@@ -175,6 +188,10 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Bundled DSH profile check failed.' }
 
   if ($WebSmokeTest) {
+    # Windows PowerShell 5.1 does not autoload System.Net.Http when a type
+    # literal is first referenced; PowerShell 7 does. Load it explicitly so
+    # the same authenticated smoke client works on both hosts.
+    Add-Type -AssemblyName System.Net.Http -ErrorAction Stop
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
     $listener.Start()
     $port = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
@@ -245,29 +262,18 @@ try {
           $setCookies -notmatch 'Secure') {
         throw "Bundled DSH token exchange did not issue the embedded-WebView session cookie (status=$([int]$loginResponse.StatusCode))."
       }
-      $httpClient.Dispose()
-      $httpHandler.Dispose()
       if ($stderr -match 'service\s+["'']labAgent["'']\s+has been registered|plugin tree failed to load') {
         throw "Bundled DSH Web reported a duplicate service or plugin-tree error:`n$stderr"
       }
       $handoffUri = Add-SmokeToken "http://127.0.0.1:$port/lab/capture/?taskId=capture-route-smoke" $token
-      if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')) {
-        $handoffResponse = Invoke-WebRequest -Uri $handoffUri -UseBasicParsing -TimeoutSec 2 -SkipHttpErrorCheck
-        $handoffStatus = [int]$handoffResponse.StatusCode
-        $handoffBody = [string]$handoffResponse.Content
-      } else {
-        try {
-          $handoffResponse = Invoke-WebRequest -Uri $handoffUri -UseBasicParsing -TimeoutSec 2
-          $handoffStatus = [int]$handoffResponse.StatusCode
-          $handoffBody = [string]$handoffResponse.Content
-        } catch {
-          $errorResponse = $_.Exception.Response
-          if (-not $errorResponse) { throw }
-          $handoffStatus = [int]$errorResponse.StatusCode
-          $reader = New-Object System.IO.StreamReader($errorResponse.GetResponseStream())
-          try { $handoffBody = $reader.ReadToEnd() } finally { $reader.Dispose() }
-        }
-      }
+      # Reuse HttpClient so Windows PowerShell 5.1 and PowerShell 7 read HTTP
+      # error bodies identically. Invoke-WebRequest 5.1 may discard a 404 body.
+      $handoffResponse = $httpClient.GetAsync($handoffUri).GetAwaiter().GetResult()
+      $handoffStatus = [int]$handoffResponse.StatusCode
+      $handoffBody = $handoffResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+      $handoffResponse.Dispose()
+      $httpClient.Dispose()
+      $httpHandler.Dispose()
       if ($handoffStatus -ne 404 -or $handoffBody -ne 'capture task not found') {
         throw "Bundled DSH fixed capture handoff route did not reach the plugin handler (status=$handoffStatus, body=$handoffBody)."
       }
@@ -290,7 +296,7 @@ try {
       }
       foreach ($asset in $ketcherAssets) {
         $assetUri = Add-SmokeToken "http://127.0.0.1:$port/api/lab-ketcher/assets/$asset" $token
-        $assetResponse = Invoke-WebRequest -Uri $assetUri -UseBasicParsing -TimeoutSec 15 -SkipHttpErrorCheck
+        $assetResponse = Invoke-WebRequest -Uri $assetUri -UseBasicParsing -TimeoutSec 15
         if ([int]$assetResponse.StatusCode -ge 400) {
           throw "Ketcher smoke failed: static asset $asset returned HTTP $([int]$assetResponse.StatusCode)."
         }

@@ -7,15 +7,18 @@ The desktop shell is deliberately small: it starts a bundled Node.js and DSH pro
 ## Build
 
 > **Agent 必读**：本仓库 Windows 打包有大量环境性/工具链陷阱（tauri-build 资源扫描假死、
-> pwsh 输出捕获、后台管道阻塞、NSIS 耗时等），完整避坑记录见
+> PowerShell 输出捕获、后台管道阻塞、NSIS 耗时等），完整避坑记录见
 > [docs/packaging-pitfalls.md](docs/packaging-pitfalls.md)。先读再动手。
 
 在已安装 Rust stable、Microsoft C++ Build Tools 和 Node 24 的 Windows 构建机上，推荐只使用统一发布入口：
 
 ```powershell
 Set-Location <repository-root>
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 -SourceRoot . -NodeExe (Get-Command node).Source
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 -SourceRoot . -NodeExe (Get-Command node).Source
 ```
+
+同一脚本可在 Windows PowerShell 5.1 或 PowerShell 7.x 下运行；使用 7.x 时将
+`powershell.exe` 替换为 `pwsh`即可。
 
 该脚本依次执行源码测试、回归、预设导出检查、lint、资源准备、Web 冒烟、Tauri/NSIS 构建和精确安装包验证。每个阶段写入独立日志并默认每 20 秒输出心跳；prepare 和 build 分别有超时，超时只终止本次启动的进程树。日志与 `release-report.json` 位于 `desktop\.build\windows-release-<时间>`。
 
@@ -56,6 +59,17 @@ Per-user operational data is kept below `%LOCALAPPDATA%\iBM-Lab-Agent`:
 - `runtime-state\dsh.pid` — recoverable child-process state
 
 The API key is neither logged nor written to ordinary JSON. Windows DPAPI encrypts it for the current user; existing plaintext `apiKey` values are migrated on first read and removed from `app-config.json`.
+
+## In-app updates
+
+The desktop top bar checks the USTC GitLab project's latest Release through its
+API. It compares semantic versions, selects the Windows x64 setup executable,
+downloads it to the current user's Downloads directory, and requires the
+SHA-256 published in the Release description to match before enabling
+installation. The installer is only launched after an explicit user action;
+the bundled runtime is shut down before the desktop process exits. A missing
+installer or checksum disables automatic updating instead of bypassing the
+verification gate.
 
 ## Distribution checks
 

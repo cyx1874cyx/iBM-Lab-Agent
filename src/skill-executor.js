@@ -9,9 +9,8 @@
  *   - audit_paper_card.py    精读报告审计（--card --bundle --locator-mode --report）
  *   - audit_pptx_quality.py  PPTX 质量审计（--report --json --fail-on）
  *
- * P1-2：实际执行经统一 resolver（venv → bundled → py -3.11/-3 → python），
- * Windows 不再回退到不存在的 python3。[pythonCommand] 保留同步语义（venv
- * 优先，否则系统命令）供诊断/兼容；[resolvePython] 为真实的异步解析。
+ * P1-2：桌面版实际执行强制 bundled Python；非桌面安装才使用
+ * venv / 平台 Python。[resolvePython] 为真实的异步解析。
  */
 
 import { spawn } from "node:child_process";
@@ -113,6 +112,8 @@ export class SkillExecutor {
 	 * 真实执行请用 [resolvePython]（统一 resolver，win32 含 py -3.11 → python 序列）。
 	 */
 	pythonCommand() {
+		const bundled = bundledPythonFromEnv();
+		if (bundled) return bundled;
 		if (this.venvPython && existsSync(this.venvPython)) return this.venvPython;
 		return systemPython(this.platform);
 	}

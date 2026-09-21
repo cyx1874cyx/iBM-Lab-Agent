@@ -273,49 +273,6 @@ fn probe_python(command: &str, args: &[&str]) -> Option<String> {
     }
 }
 
-/// Python 安装目录名版本解析："Python311" → (3, 11)；"Python3.11" → (3, 11)。
-fn python_dir_version(path: &Path) -> (u32, u32) {
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let rest = name.strip_prefix("Python").unwrap_or(name);
-    if let Some((major, minor)) = rest.split_once('.') {
-        (
-            major.trim().parse().unwrap_or(0),
-            minor.trim().parse().unwrap_or(0),
-        )
-    } else {
-        let digits: Vec<char> = rest.chars().collect();
-        if digits.is_empty() {
-            return (0, 0);
-        }
-        let major = digits[0].to_digit(10).unwrap_or(0);
-        let minor = digits[1..].iter().collect::<String>().parse().unwrap_or(0);
-        (major, minor)
-    }
-}
-
-/// 官方安装目录 %LOCALAPPDATA%\Programs\Python\Python*\python.exe，取最高版本。
-fn find_python_install() -> Option<(PathBuf, String)> {
-    let base = local_app_dir()?.join("Programs").join("Python");
-    let mut found: Vec<(u32, u32, PathBuf)> = fs::read_dir(&base)
-        .ok()?
-        .flatten()
-        .filter_map(|entry| {
-            let candidate = entry.path().join("python.exe");
-            if candidate.is_file() {
-                let (major, minor) = python_dir_version(&entry.path());
-                Some((major, minor, candidate))
-            } else {
-                None
-            }
-        })
-        .collect();
-    found.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
-    found
-        .into_iter()
-        .next()
-        .map(|(major, minor, path)| (path, format!("Python {major}.{minor}")))
-}
-
 fn edge_status() -> DependencyStatus {
     match find_edge() {
         Some(path) => ok(
@@ -334,42 +291,126 @@ fn edge_status() -> DependencyStatus {
     }
 }
 
-fn python_status() -> DependencyStatus {
-    // 1) Windows py launcher（首选：不命中 Store alias）
-    if let Some(version) = probe_python("py", &["-3", "--version"]) {
-        return ok("python", "Python", version, "位于 PATH 的 py launcher。");
-    }
-    // 2) PATH 中的 python.exe（stdout 校验，Store alias 不会误判）
-    if let Some(version) = probe_python("python", &["--version"]) {
-        return ok("python", "Python", version, "位于 PATH 的 python.exe。");
-    }
-    // 3) 官方安装目录
-    if let Some((path, version)) = find_python_install() {
-        return ok(
+fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
+    let python = layout.bundled_python();
+    if !python.is_file() {
+        return missing(
             "python",
-            "Python",
-            format!("{version}（{}）", path.display()),
-            "官方安装目录。",
+            "内置 Python",
+            format!("缺失：{}", python.display()),
+            "必须使用软件内置 Python 3.11.x；安装包不完整，请重新安装 iBM Lab Agent。",
+        );
+    }
+    let command = python.to_string_lossy();
+    match probe_python(&command, &["--version"]) {
+        Some(version) if version.starts_with("Python 3.11.") || version == "Python 3.11" => ok(
+            "python",
+            "内置 Python",
+            format!("{version}（{}）", python.display()),
+            "已强制使用软件内置 Python 3.11.x；Agent 不会回退到系统 Python。",
+        ),
+        Some(version) => warning(
+            "python",
+            "内置 Python",
+            format!("{version}（{}）", python.display()),
+            "当前安装包应内置 Python 3.11.x；请升级或重新安装 iBM Lab Agent。",
+        ),
+        None => missing(
+            "python",
+            "内置 Python",
+            format!("无法启动：{}", python.display()),
+            "需要可用的内置 Python 3.11.x；请重新安装 iBM Lab Agent，安装系统 Python 无法修复此问题。",
+        ),
+    }
+}
+
+fn probe_powershell(command: &str) -> Option<String> {
+    let output = std::process::Command::new(command)
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$PSVersionTable.PSVersion.ToString()",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!version.is_empty()).then_some(version)
+}
+
+fn powershell_status() -> DependencyStatus {
+    for (command, edition) in [
+        ("pwsh.exe", "PowerShell 7"),
+        ("powershell.exe", "Windows PowerShell"),
+    ] {
+        let Some(version) = probe_powershell(command) else {
+            continue;
+        };
+        let mut parts = version
+            .split('.')
+            .filter_map(|part| part.parse::<u32>().ok());
+        let major = parts.next().unwrap_or(0);
+        let minor = parts.next().unwrap_or(0);
+        if major > 5 || (major == 5 && minor >= 1) {
+            return ok(
+                "powershell",
+                "PowerShell",
+                format!("{edition} {version}（{command}）"),
+                "已兼容 Windows PowerShell 5.1 与 PowerShell 7.x；若两者共存则优先使用 7.x。",
+            );
+        }
+        return warning(
+            "powershell",
+            "PowerShell",
+            format!("{edition} {version}（{command}）"),
+            "Agent Shell 需要 PowerShell 5.1 或 7.x；请升级 PowerShell。",
         );
     }
     missing(
-        "python",
-        "Python",
-        "未检测到 python.exe / py launcher",
-        "P1-2 统一 Python resolver 需要 Python 3.8+。可从 python.org 下载安装并勾选 \
-         “Add python.exe to PATH”，或安装 Windows py launcher。文献捕获主链路（Node host）不依赖 Python。",
+        "powershell",
+        "PowerShell",
+        "未找到 pwsh.exe 或 powershell.exe",
+        "Agent Shell 需要 Windows PowerShell 5.1 或 PowerShell 7.x。",
     )
 }
 
 fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
     let node = layout.node_exe();
     if node.exists() {
-        ok(
-            "node",
-            "内置 Node.js",
-            node.display().to_string(),
-            "DSH 服务与文献捕获 host 的运行引擎。",
-        )
+        let version = std::process::Command::new(&node)
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+            .unwrap_or_default();
+        if version == "v24.16.0" {
+            ok(
+                "node",
+                "内置 Node.js",
+                format!("Node.js {version}（{}）", node.display()),
+                "DSH 服务与文献捕获 host 的内置运行引擎。",
+            )
+        } else {
+            warning(
+                "node",
+                "内置 Node.js",
+                format!(
+                    "Node.js {}（{}）",
+                    if version.is_empty() {
+                        "无法读取版本"
+                    } else {
+                        &version
+                    },
+                    node.display()
+                ),
+                "当前安装包要求内置 Node.js v24.16.0；请升级或重新安装 iBM Lab Agent。",
+            )
+        }
     } else {
         missing(
             "node",
@@ -725,7 +766,8 @@ pub fn probe(layout: &RuntimeLayout) -> RuntimeDeps {
     RuntimeDeps {
         items: vec![
             edge_status(),
-            python_status(),
+            python_status(layout),
+            powershell_status(),
             node_status(layout),
             bridge_status(layout),
             office_status(),
@@ -759,26 +801,17 @@ mod tests {
     }
 
     #[test]
-    fn parses_python_dir_versions() {
-        assert_eq!(python_dir_version(Path::new("Python311")), (3, 11));
-        assert_eq!(python_dir_version(Path::new("Python310")), (3, 10));
-        assert_eq!(python_dir_version(Path::new("Python39")), (3, 9));
-        assert_eq!(python_dir_version(Path::new("Python3.12")), (3, 12));
-        assert_eq!(python_dir_version(Path::new("nonsense")), (0, 0));
-        assert_eq!(python_dir_version(Path::new("")), (0, 0));
-    }
-
-    #[test]
-    fn probe_reports_all_six_deps_with_valid_states() {
+    fn probe_reports_all_dependencies_with_valid_states() {
         let (layout, sandbox) = sandbox_layout();
         let deps = probe(&layout);
-        // 八项齐全且顺序稳定
+        // 九项齐全且顺序稳定
         let keys: Vec<&str> = deps.items.iter().map(|item| item.key.as_str()).collect();
         assert_eq!(
             keys,
             [
                 "edge",
                 "python",
+                "powershell",
                 "node",
                 "bridge",
                 "office",
@@ -787,9 +820,9 @@ mod tests {
                 "edge-policy"
             ]
         );
-        // 捆绑 node 存在 → ok
+        // 伪文件可被找到但不是可执行 Node，应降级为 warning，不得误报 ok。
         let node = deps.items.iter().find(|item| item.key == "node").unwrap();
-        assert_eq!(node.state, "ok");
+        assert_eq!(node.state, "warning");
         // 沙箱下未注册 → bridge 至少非 ok，且不 panic
         let bridge_item = deps.items.iter().find(|item| item.key == "bridge").unwrap();
         assert_ne!(bridge_item.state, "ok");

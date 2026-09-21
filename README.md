@@ -8,6 +8,8 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 当前稳定版本为 **v0.5.1**。本版本聚焦文献、合成路线、
 表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
 
+当前候选版本为 **v0.5.2-rc.1**，用于验证首次启动引导、环境诊断、软件封装 Python 强制执行与 PowerShell 5.1/7.x 兼容性。
+
 **[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
 [查看 v0.5.1 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.1) ·
 [SHA-256 校验文件](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/SHA256SUMS-v0.5.1.txt)
@@ -86,15 +88,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\update-server.ps1 -Ref main
 API Key 使用当前 Windows 用户的 DPAPI 加密保存。Origin 自动化需要已安装 Origin，
 Mnova GUI/Verify 工作流需要已安装并授权的 MestReNova；文件型 NMR 分析不依赖 Mnova GUI。
 
+桌面端顶部提供“检查更新”。它从 USTC GitLab 的最新 Release 读取版本与 Windows x64
+安装包，只在远端语义版本更高时允许下载；安装包保存到当前用户的“下载”目录，且必须与
+Release 说明中的 SHA-256 一致，之后才会显示“安装并退出”。缺少安装包或校验值时不会
+执行自动更新，也不会把预发布版降级到较旧的稳定版。
+
 正式安装包由本地统一发布流水线生成并复验，再直接上传到 GitHub Release，不依赖 GitHub
 Actions 构建。安装包大小和 SHA-256 由统一发布流水线写入最终构建报告。
 
 发布构建统一使用：
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 `
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\desktop\scripts\build-windows-release.ps1 `
   -SourceRoot . -NodeExe (Get-Command node).Source
 ```
+
+发布脚本同时支持 Windows PowerShell 5.1 和 PowerShell 7.x；也可将上述
+`powershell.exe` 换成 `pwsh`。
 
 该入口依次执行源码测试、回归、预设检查、lint、运行时准备、Web 冒烟、Tauri/NSIS
 构建和安装包验证，并输出阶段日志与 `release-report.json`。首次完整构建需要 Rust stable、
@@ -142,7 +152,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.1 |
+| iBM Lab Agent | 0.5.2-rc.1 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |

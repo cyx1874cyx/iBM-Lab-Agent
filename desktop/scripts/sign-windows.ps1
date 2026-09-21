@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string[]]$Files,
   [string]$CertificateBase64 = $env:WINDOWS_CERTIFICATE_BASE64,

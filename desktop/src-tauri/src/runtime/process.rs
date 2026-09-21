@@ -92,6 +92,25 @@ fn extract_startup_url(line: &str) -> Option<String> {
     })
 }
 
+/// Build the child PATH with the packaged Python directory first.  Merely
+/// exporting IBM_LAB_AGENT_BUNDLED_PYTHON is insufficient because Agent shell
+/// commands commonly invoke `python` by name.  Prepending the directory makes
+/// that command deterministic while preserving access to PowerShell and other
+/// Windows tools later in PATH.
+fn child_path_with_bundled_python(layout: &RuntimeLayout) -> Result<OsString, RuntimeError> {
+    let python_dir = layout
+        .bundled_python()
+        .parent()
+        .ok_or_else(|| RuntimeError::new("Bundled Python path has no parent directory"))?
+        .to_path_buf();
+    let mut entries = vec![python_dir];
+    if let Some(current) = std::env::var_os("PATH") {
+        entries.extend(std::env::split_paths(&current));
+    }
+    std::env::join_paths(entries)
+        .map_err(|error| RuntimeError::new(format!("Cannot construct child PATH: {error}")))
+}
+
 fn pipe_to_log<R: Read + Send + 'static>(
     reader: R,
     logger: AppLogger,
@@ -176,6 +195,7 @@ pub fn spawn_dsh(
         super::mcp::validate_enabled_server(layout, mcp)?;
     }
     let mcp_patch = super::dsh::prepare_mcp_patch(layout, &config.mcp_servers)?;
+    let child_path = child_path_with_bundled_python(layout)?;
     let mut command = Command::new(layout.node_exe());
     #[cfg(windows)]
     command.creation_flags(0x08000000); // CREATE_NO_WINDOW
@@ -186,6 +206,12 @@ pub fn spawn_dsh(
         .env("DSH_HARNESS_NODE_MODULES", layout.dsh_node_modules())
         .env("IBM_LAB_AGENT_WORKSPACE", &layout.workspace_dir)
         .env("IBM_LAB_AGENT_BUNDLED_PYTHON", layout.bundled_python())
+        .env("PYTHON", layout.bundled_python())
+        .env("PYTHON_EXECUTABLE", layout.bundled_python())
+        .env("PYTHONNOUSERSITE", "1")
+        .env("PYTHONUTF8", "1")
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PATH", child_path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -591,5 +617,14 @@ mod tests {
             extract_startup_url("dsh web: http://localhost:3080/?token=secret-value"),
             None
         );
+    }
+
+    #[test]
+    fn child_path_forces_bundled_python_directory_first() {
+        let root = sandbox();
+        let layout = RuntimeLayout::new(root.join("data"), root.join("resources"));
+        let path = child_path_with_bundled_python(&layout).unwrap();
+        let first = std::env::split_paths(&path).next().unwrap();
+        assert_eq!(first, layout.bundled_python().parent().unwrap());
     }
 }

@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$RuntimeSourceRoot,
@@ -10,6 +10,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Read-JsonUtf8([string]$Path) {
+  return [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+}
+function ConvertTo-HexString([byte[]]$Bytes) {
+  return ([System.BitConverter]::ToString($Bytes)).Replace('-', '')
+}
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $SourceRoot) { $SourceRoot = Join-Path $projectRoot '..' }
 if (-not $NodeExe) {
@@ -32,7 +38,8 @@ if (-not $DshSource) {
     Test-Path -LiteralPath (Join-Path $_ '@deepseek-ai\dsh\lib\bin.js')
   } | Select-Object -First 1
 }
-$dshSource = (Resolve-Path $DshSource -ErrorAction SilentlyContinue)?.Path
+$resolvedDshSource = Resolve-Path $DshSource -ErrorAction SilentlyContinue
+$dshSource = if ($resolvedDshSource) { $resolvedDshSource.Path } else { $null }
 $buildStateRoot = Join-Path $projectRoot '.build'
 $statePath = Join-Path $buildStateRoot 'prepare-runtime.state.json'
 $lockPath = Join-Path $buildStateRoot 'prepare-runtime.lock'
@@ -134,7 +141,7 @@ function Get-StreamingTreeDigest([string]$Root, [string[]]$RelativeFiles) {
     } finally {
       $incremental.Dispose()
     }
-    return [Convert]::ToHexString($sha.Hash)
+    return ConvertTo-HexString $sha.Hash
   } finally {
     $sha.Dispose()
   }
@@ -166,7 +173,7 @@ function Get-DshFingerprint {
   # package.json 的 version 字段——不枚举目录内容，只读 manifest。
   $seen = @{}
   $queue = [System.Collections.Generic.Queue[string]]::new()
-  foreach ($dep in @((Get-Content -LiteralPath $dshManifest -Raw | ConvertFrom-Json).dependencies.PSObject.Properties.Name)) {
+  foreach ($dep in @((Read-JsonUtf8 $dshManifest).dependencies.PSObject.Properties.Name)) {
     $queue.Enqueue($dep)
   }
   $dshRoot = Join-Path $dshSource '@deepseek-ai'
@@ -179,7 +186,7 @@ function Get-DshFingerprint {
     $chosen = if (Test-Path -LiteralPath $resolved) { $resolved } elseif (Test-Path -LiteralPath $depManifest) { $depManifest } else { $null }
     if (-not $chosen) { continue }
     try {
-      $manifest = Get-Content -LiteralPath $chosen -Raw | ConvertFrom-Json
+      $manifest = Read-JsonUtf8 $chosen
       $parts.Add("$depName=$($manifest.version)")
       if ($manifest.dependencies) {
         foreach ($child in @($manifest.dependencies.PSObject.Properties.Name)) {
@@ -192,7 +199,7 @@ function Get-DshFingerprint {
   }
   $payload = [System.Text.Encoding]::UTF8.GetBytes(($parts -join "`n"))
   $sha = [System.Security.Cryptography.SHA256]::Create()
-  try { return [Convert]::ToHexString($sha.ComputeHash($payload)) } finally { $sha.Dispose() }
+  try { return ConvertTo-HexString ($sha.ComputeHash($payload)) } finally { $sha.Dispose() }
 }
 
 function Test-KetcherAssetReferences([string]$PluginRoot) {
@@ -277,7 +284,7 @@ try {
   Write-Phase ("All fingerprints computed in {0:n1}s." -f $fingerprintWatch.Elapsed.TotalSeconds)
 
   if (Test-Path -LiteralPath $statePath) {
-    try { $previousState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json } catch { $previousState = $null }
+    try { $previousState = Read-JsonUtf8 $statePath } catch { $previousState = $null }
   } else { $previousState = $null }
   $refreshNode = [bool]$Force -or -not (Test-NodeSnapshot) -or -not $previousState -or $previousState.nodeFingerprint -ne $nodeFingerprint
   $refreshDsh = [bool]$Force -or -not (Test-DshSnapshot) -or -not $previousState -or $previousState.dshFingerprint -ne $dshFingerprint
@@ -455,7 +462,7 @@ function Copy-ProductionDependency([string]$DependencyName, [string]$SearchRoot,
   }
   $dependencySource = Resolve-MaterializedPackageDirectory $dependencyLink
   $manifestPath = Join-Path $dependencySource 'package.json'
-  $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+  $manifest = Read-JsonUtf8 $manifestPath
   $packageName = [string]$manifest.name
   if ([string]::IsNullOrWhiteSpace($packageName)) { throw "Invalid package manifest: $manifestPath" }
   if ($Visited.ContainsKey($packageName)) { return }
@@ -482,7 +489,11 @@ foreach ($dependencyName in $productionDependencies) {
 New-Item -ItemType Directory -Force -Path (Join-Path $tempResourceRoot 'plugin\presets') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'presets\lab-research') -Destination (Join-Path $tempResourceRoot 'plugin\presets\lab-research') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'vendor.lock.json') -Destination (Join-Path $tempResourceRoot 'plugin\vendor.lock.json') -Force
-Set-Content -LiteralPath (Join-Path $tempResourceRoot 'plugin\.plugin-fingerprint') -Value $pluginFingerprint -Encoding utf8NoBOM
+[System.IO.File]::WriteAllText(
+  (Join-Path $tempResourceRoot 'plugin\.plugin-fingerprint'),
+  $pluginFingerprint,
+  [System.Text.UTF8Encoding]::new($false)
+)
 New-Item -ItemType Directory -Force -Path (Join-Path $tempResourceRoot 'plugin\python') | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'python\requirements.lock') -Destination (Join-Path $tempResourceRoot 'plugin\python\requirements.lock') -Force
   Write-Phase ("Plugin staged in {0:n1}s." -f $pluginCopyWatch.Elapsed.TotalSeconds)

@@ -40,6 +40,18 @@ test("pythonCommand prefers the venv python when it exists", async () => {
 	}
 });
 
+test("pythonCommand forces configured bundled Python in desktop mode", () => {
+	const previous = process.env.IBM_LAB_AGENT_BUNDLED_PYTHON;
+	process.env.IBM_LAB_AGENT_BUNDLED_PYTHON = "C:\\iBM\\python\\python.exe";
+	try {
+		const executor = new SkillExecutor({ skillsRoot: ".", venvPython: "C:\\project\\.venv\\Scripts\\python.exe", platform: "win32" });
+		assert.equal(executor.pythonCommand(), "C:\\iBM\\python\\python.exe");
+	} finally {
+		if (previous === undefined) delete process.env.IBM_LAB_AGENT_BUNDLED_PYTHON;
+		else process.env.IBM_LAB_AGENT_BUNDLED_PYTHON = previous;
+	}
+});
+
 test("scriptPath resolves and rejects unknown/missing scripts", () => {
 	const executor = new SkillExecutor({ skillsRoot });
 	assert.ok(executor.scriptPath("auditPaperCard").endsWith("audit_paper_card.py"));

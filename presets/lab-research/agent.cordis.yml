@@ -52,8 +52,10 @@
          - markitdown 不可用时，先明确告知用户并征得同意，再临时降级。
          探测 markitdown 可用性请用（不要用 pip list / which / pip show 判断，
          --user 安装且缺 pip 元数据时查不到会误判不可用）：
-           python3 scripts/markitdown/convert.py --check
-         或 python3 -c "import markitdown"
+           python scripts/markitdown/convert.py --check
+         或 python -c "import markitdown"
+         Windows 桌面版中 `python` 已由启动器强制绑定到软件内置
+         Python；不得调用 py/python3 或用户系统 Python。
          nature skills 的 PDF/Office 预处理统一由 lab_convert_document 工具
          完成（工具列表第一位）：决定使用 nature-reader / nature-paper-card /
          nature-academic-search 等 skill 且输入含 PDF/Office 时，必须先调用该

@@ -2,6 +2,7 @@
 
 mod iwan;
 mod runtime;
+mod updates;
 mod webvpn;
 
 use std::sync::Arc;
@@ -119,6 +120,44 @@ fn runtime_status(state: tauri::State<'_, AppState>) -> RuntimeStatus {
 #[tauri::command]
 fn runtime_deps(state: tauri::State<'_, AppState>) -> RuntimeDeps {
     state.0.deps()
+}
+
+#[tauri::command]
+async fn check_update() -> Result<updates::UpdateInfo, String> {
+    tauri::async_runtime::spawn_blocking(updates::check)
+        .await
+        .map_err(|error| format!("更新检查任务失败：{error}"))?
+}
+
+#[tauri::command]
+async fn download_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, updates::UpdateState>,
+) -> Result<updates::DownloadedUpdate, String> {
+    let download_app = app.clone();
+    let downloaded = tauri::async_runtime::spawn_blocking(move || updates::download(&download_app))
+        .await
+        .map_err(|error| format!("更新下载任务失败：{error}"))??;
+    *state.0.lock().map_err(|_| "更新状态不可用".to_string())? = Some(downloaded.clone());
+    Ok(downloaded)
+}
+
+#[tauri::command]
+fn install_downloaded_update(
+    app: tauri::AppHandle,
+    app_state: tauri::State<'_, AppState>,
+    update_state: tauri::State<'_, updates::UpdateState>,
+) -> Result<(), String> {
+    let downloaded = update_state
+        .0
+        .lock()
+        .map_err(|_| "更新状态不可用".to_string())?
+        .clone()
+        .ok_or_else(|| "请先下载更新安装包".to_string())?;
+    updates::launch_installer(&downloaded)?;
+    app_state.0.shutdown().map_err(|error| error.to_string())?;
+    app.exit(0);
+    Ok(())
 }
 
 /// 使用业务真实端点检查 DOI 与结构式检索源，不阻塞桌面 UI 线程。
@@ -745,6 +784,7 @@ fn main() {
                     .map_err(|error| Box::new(error) as Box<dyn std::error::Error>)?,
             );
             app.manage(AppState(Arc::clone(&runtime)));
+            app.manage(updates::UpdateState::default());
             app.manage(webvpn::WebVpnState::default());
             start_runtime(app.handle().clone(), runtime);
             Ok(())
@@ -771,6 +811,9 @@ fn main() {
             reveal_path,
             runtime_status,
             runtime_deps,
+            check_update,
+            download_update,
+            install_downloaded_update,
             research_source_diagnostics,
             pick_mcp_dir,
             app_mcp_status,

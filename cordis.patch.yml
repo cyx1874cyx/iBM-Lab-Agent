@@ -239,7 +239,7 @@
     #
     # Host service `ctx.labEvidenceShot`：合成路线工作台 Evidence 卡「文献来源
     # 板块」把已捕获原文 PDF 对应页（可含 bbox）渲染为 PNG 内嵌，供人工审核。
-    # 渲染走 scripts/evidence-shot.py（PyMuPDF/fitz，venv→bundled→系统 python
+    # 渲染走 scripts/evidence-shot.py（PyMuPDF/fitz；桌面版强制 bundled Python，
     # 统一解析）；PDF 不落盘（tasks.bundleFile 校验后内存传临时文件），截图
     # 缓存到 evidenceShotsDir；原文未捕获/无页码/页越界返回明确错误，不猜不补。
     - id: lab-evidence-shot

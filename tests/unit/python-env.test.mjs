@@ -9,6 +9,7 @@ import {
 	preflight,
 	sha256OfFile,
 	pythonCandidates,
+	bundledPythonFromEnv,
 	resolvePythonExecutable,
 	pythonEnvironmentStatus
 } from "../../src/python-env.js";
@@ -66,7 +67,7 @@ test("pythonCandidates on unix: python3 only", () => {
 	assert.deepEqual(candidates[0].command, ["python3"]);
 });
 
-test("pythonCandidates prefers an existing venv, then bundled python", async () => {
+test("pythonCandidates makes bundled Python exclusive in desktop mode", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-cand-"));
 	try {
 		const venvPy = join(dir, "Scripts", "python.exe");
@@ -81,10 +82,18 @@ test("pythonCandidates prefers an existing venv, then bundled python", async () 
 		await mkdir(join(dir, "bundled"), { recursive: true });
 		await writeFile(bundled, "");
 		const withBundled = pythonCandidates({ venvPython: venvPy, bundledPython: bundled, platform: "win32" });
-		assert.deepEqual(withBundled.map((c) => c.source), ["venv", "bundled", "py", "py", "python"]);
+		assert.deepEqual(withBundled.map((c) => c.source), ["bundled"]);
+		const explicitDevelopmentFallback = pythonCandidates({ venvPython: venvPy, bundledPython: bundled, platform: "win32", allowSystemFallback: true });
+		assert.deepEqual(explicitDevelopmentFallback.map((c) => c.source), ["bundled", "venv", "py", "py", "python"]);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
+});
+
+test("a configured but missing bundled Python fails closed", () => {
+	const missing = join("C:", "missing-bundled", "python.exe");
+	assert.equal(bundledPythonFromEnv({ IBM_LAB_AGENT_BUNDLED_PYTHON: missing }), missing);
+	assert.deepEqual(pythonCandidates({ bundledPython: missing, platform: "win32" }), []);
 });
 
 test("resolvePythonExecutable returns a usable candidate or unavailable (win32, real probe)", async () => {

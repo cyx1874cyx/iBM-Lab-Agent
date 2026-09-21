@@ -129,3 +129,42 @@ test("diagnostics removes the development WebVPN probe and checks real research 
 	assert.match(deps, /pubchem\.ncbi\.nlm\.nih\.gov\/rest\/pug/);
 	assert.match(deps, /cactus\.nci\.nih\.gov\/chemical\/structure/);
 });
+
+test("first launch runs diagnostics and desktop Python fails closed to the bundle", async () => {
+	const [shell, deps, process, pythonEnv, preset] = await Promise.all([
+		read("desktop/src/index.html"),
+		read("desktop/src-tauri/src/runtime/deps.rs"),
+		read("desktop/src-tauri/src/runtime/process.rs"),
+		read("src/python-env.js"),
+		read("presets/lab-research/agent.cordis.yml"),
+	]);
+	assert.match(shell, /FIRST_RUN_KEY/);
+	assert.match(shell, /showDiagnostics\(true\)/);
+	assert.match(shell, /现在可执行的功能/);
+	assert.match(shell, /需要处理 \/ 升级/);
+	assert.match(deps, /内置 Python 3\.11\.x/);
+	assert.match(deps, /PowerShell 5\.1 与 PowerShell 7\.x/);
+	assert.match(process, /child_path_with_bundled_python/);
+	assert.match(process, /\.env\("PATH", child_path\)/);
+	assert.match(process, /\.env\("PYTHONNOUSERSITE", "1"\)/);
+	assert.match(pythonEnv, /if \(allowSystemFallback !== true\) return candidates/);
+	assert.match(preset, /不得调用 py\/python3 或用户系统 Python/);
+});
+
+test("desktop checks GitLab releases and only installs checksum-verified updates", async () => {
+	const [shell, main, updates] = await Promise.all([
+		read("desktop/src/index.html"),
+		read("desktop/src-tauri/src/main.rs"),
+		read("desktop/src-tauri/src/updates.rs"),
+	]);
+	assert.match(shell, /id="update-button"[^>]*>检查更新/);
+	assert.match(shell, /invoke\('check_update'\)/);
+	assert.match(shell, /invoke\('download_update'\)/);
+	assert.match(shell, /invoke\('install_downloaded_update'\)/);
+	assert.match(main, /async fn check_update/);
+	assert.match(main, /async fn download_update/);
+	assert.match(updates, /releases\/permalink\/latest/);
+	assert.match(updates, /extract_sha256/);
+	assert.match(updates, /安装包 SHA-256 校验失败/);
+	assert.match(updates, /release\.version <= current/);
+});

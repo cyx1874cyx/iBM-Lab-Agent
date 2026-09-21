@@ -28,5 +28,6 @@ test("release metadata and Linux installer describe the current version", async 
 	assert.match(versionsEnv, new RegExp(`^IBM_LAB_AGENT_VERSION=${expected.replaceAll(".", "\\.")}$`, "m"));
 	assert.match(installer, /source_ref="\$\{IBM_LAB_AGENT_REF:-main\}"/);
 	assert.match(installer, /--ref <git-ref>\s+GitLab branch\/tag\/commit \(default: main\)/);
-	assert.match(readme, new RegExp(`当前稳定版本为 \\*\\*v${expected.replaceAll(".", "\\.")}\\*\\*`));
+	const releaseLabel = expected.includes("-") ? "当前候选版本" : "当前稳定版本";
+	assert.match(readme, new RegExp(`${releaseLabel}为 \\*\\*v${expected.replaceAll(".", "\\.")}\\*\\*`));
 });
