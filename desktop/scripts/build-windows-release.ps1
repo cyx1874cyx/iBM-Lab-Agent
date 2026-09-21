@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$NodeExe = $env:CODEX_MCP_NODE_PATH,
@@ -55,6 +55,15 @@ if (-not $SkipBuild) {
     throw 'Rust Cargo is unavailable. Install the Rust MSVC toolchain or pass -CargoExe explicitly.'
   }
   $CargoExe = (Resolve-Path -LiteralPath $CargoExe).Path
+
+  # desktop/ 是**独立的 npm 单元**（自带 package-lock.json 与 @tauri-apps/cli），
+  # 不在根 pnpm workspace 里。全新副本只跑根 install 时这里会缺 CLI —— 原先要等前面
+  # 所有阶段（bundled-python / prepare-runtime / verify-runtime，实测约 6 分钟）跑完，
+  # 才在 tauri-nsis 之前报错。提前到预检期，并给出可操作命令。
+  $tauriCliPath = Join-Path $desktopRoot 'node_modules\@tauri-apps\cli\tauri.js'
+  if (-not (Test-Path -LiteralPath $tauriCliPath)) {
+    throw "Tauri CLI is missing: $tauriCliPath. desktop/ is a separate npm unit (own package-lock.json, @tauri-apps/cli devDependency). Run 'npm ci' inside the desktop directory before a release build."
+  }
 }
 
 if (-not $DshSource) {

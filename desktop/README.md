@@ -20,6 +20,19 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\desktop\script
 同一脚本可在 Windows PowerShell 5.1 或 PowerShell 7.x 下运行；使用 7.x 时将
 `powershell.exe` 替换为 `pwsh`即可。
 
+**全新构建机 / 全新副本先装依赖**（两处互相独立，缺任一处都会让出包失败）：
+
+```powershell
+corepack prepare pnpm@10.34.5 --activate   # 项目 pin 的 pnpm（见 runtime/versions.env）
+pnpm install --frozen-lockfile             # 根 workspace：提供 DSH 与插件 node_modules
+npm ci --prefix desktop                    # desktop/ 是独立 npm 单元（@tauri-apps/cli），
+                                           # 不在 pnpm workspace 内，必须单独安装
+```
+
+> 后两步此前未写入文档：在全新副本上实测时，缺 `desktop/` 的 `npm ci` 会让流水线跑到
+> `tauri-nsis` 之前才报 `Tauri CLI is missing`（白跑前面约 6 分钟）。现在预检期就会报
+> 同一条信息，并直接指出要跑 `npm ci`。
+
 该脚本依次执行源码测试、回归、预设导出检查、lint、资源准备、Web 冒烟、Tauri/NSIS 构建和精确安装包验证。每个阶段写入独立日志并默认每 20 秒输出心跳；prepare 和 build 分别有超时，超时只终止本次启动的进程树。日志与 `release-report.json` 位于 `desktop\.build\windows-release-<时间>`。
 
 发布构建默认拒绝脏工作树并使用锁阻止并发。`-AllowDirty` 只用于诊断，产物会标记为不可发布；`-SkipBuild` 可只验证源码和资源；`-ForcePrepare` 强制忽略资源指纹做完整快照刷新。
