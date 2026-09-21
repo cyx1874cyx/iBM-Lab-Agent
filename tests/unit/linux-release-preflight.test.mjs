@@ -20,7 +20,7 @@ import test from "node:test";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const script = join(repoRoot, "scripts/linux-release-preflight.mjs");
-const SIZE_BASELINE_BYTES = 51_291_488;
+const SIZE_BASELINE_BYTES = 23_122_955; // vendor 白名单剔除后重测（原 51,291,488）
 
 /** 造一个指定大小的临时归档文件，供体积用例显式注入。 */
 function makeTarball(bytes) {

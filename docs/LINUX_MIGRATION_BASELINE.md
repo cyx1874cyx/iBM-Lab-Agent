@@ -186,7 +186,7 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 | 1.1 pycache 红利 | 不适用（无 `pip --target` 产物缓存） | 不适用 |
 | 1.2 剔除第三方 tests/ | **L2**：`install.sh` 的 `strip_python_test_trees()`，实测 −44 MB，含 import 守卫 + 变异测试 | ✅ 完成（见 §5） |
 | 1.2' Windows 侧同样扩展 | 路线书原文要求扩 `build-bundled-python.ps1:86-89`；本机无 pwsh/Windows，**不写不可验证的发布流水线改动** | ⬜ 留给 Windows 机器 |
-| 1.3 vendor 白名单 | 与 Windows 共用 `cordis.patch.yml:32`；`vendor.manifest.json` 机制仍适用。注：`figures4papers` 在本仓库中为 **tracked 文件**（70 个），剔除会改 `vendor/` 树与 `vendor.lock.json`；Linux 归档实测占 **28 MB**（见 §8.3） | 🟡 停车点 S1 |
+| 1.3 vendor 白名单 | `vendor.manifest.json` + `src/vendor-manifest.js` + `scripts/prune-vendor.mjs`。剔除 `figures4papers`(28.97 MB/70 文件) 与顶层 `assets`(4.75 MB/6 文件) = **32.2 MiB**；归档 −54.9%。记录写入 `vendor.lock.json.vendorManifest`，`pin-vendor.mjs` 每次升级后幂等重应用 | ✅ 完成（见 §8.3） |
 | 1.4 import 探测脚本 | `scripts/audit-imports.mjs`：静态扫描（正确正则）+ 运行期追踪 + 锁文件差集 | ✅ 完成（见 §11） |
 | 2.1 摘 magika 链 | **L3**（66 MB） | 🟡 停车点 S2 |
 | 2.2 matplotlib 策略 | **L4**（48 MB） | 🟡 停车点 S3 |
@@ -204,8 +204,14 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 bash scripts/build-linux-release.sh HEAD     # → dist/ibm-lab-agent-v0.5.2-rc.1-linux.tar.gz
 ```
 
-**51,291,488 字节（48.9 MiB）** @ `release-0.5.0` + Phase 3 拆分后。
-该值即脚本里的 `SIZE_BASELINE_BYTES`；告警阈值 = 基线 × 1.10 = 53.8 MiB。
+| 时点 | 归档字节 | 说明 |
+|---|---|---|
+| `release-0.5.0` + Phase 3 拆分后 | 51,291,488 (48.9 MiB) | 初始基线 |
+| **vendor 白名单剔除后（当前）** | **23,122,955 (22.1 MiB)** | **−26.9 MB / −54.9%** |
+
+当前值即脚本里的 `SIZE_BASELINE_BYTES`；告警阈值 = 基线 × 1.10 = 24.3 MiB。
+注意 `build-linux-release.sh` 用的是 `git archive HEAD` —— **读已提交的树**，
+所以剔除后必须先提交再打包才能看到效果（实测踩过：未提交时归档体积纹丝不动）。
 
 按路线书纪律，体积超标**只告警不阻断**（Phase 0.3），退出码仍为 0；Phase 5.1 才转强制。
 
@@ -222,8 +228,8 @@ bash scripts/build-linux-release.sh HEAD     # → dist/ibm-lab-agent-v0.5.2-rc.
 | 项 | 体积 | 说明 |
 |---|---|---|
 | `client/assets/ketcher-standalone` | 30 MB | 预构建编辑器，单文件 `index-*.js` 即 28.9 MB；**必需** |
-| `vendor/.../nature-figure/assets/figures4papers` | **28 MB**（70 个 tracked 文件） | 路线书 S1 目标；上游 `manifest.yaml` 标为 `references.on_demand` |
-| `vendor/nature-skills/assets`（README 配图） | 4.6 MB | 运行期无用 |
+| `vendor/.../nature-figure/assets/figures4papers` | ~~28.97 MB~~ → **0** | ✅ 已剔除（S1）：上游 `manifest.yaml` 标为 `references.on_demand`，且 `demos.md` 声明不由根 MIT 覆盖 |
+| `vendor/nature-skills/assets`（README 配图） | ~~4.75 MB~~ → **0** | ✅ 已剔除：经全仓核查无任何 skill 引用 |
 | `scripts/pdf-viewer-shell/public/{pdf.worker,pdf.worker.min}.mjs` | 3.5 MB | 与 `client/assets/pdf-viewer-standalone/` 下同名文件 **sha256 完全相同** → 纯冗余（提交了两次） |
 
 > 剔除 `figures4papers` 与 README 配图会让 `vendor/` 偏离固定 commit，需同步

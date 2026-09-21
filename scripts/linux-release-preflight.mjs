@@ -42,11 +42,13 @@ const allowDirty = hasFlag("--allow-dirty");
 
 /**
  * 归档体积基线。测量方式：
- *   bash scripts/build-linux-release.sh HEAD /tmp/dist-check
- * 测得 51,291,488 字节（48.9 MiB）@ release-0.5.0 + Phase 3 拆分后（2026-09-21）。
+ *   bash scripts/build-linux-release.sh HEAD     # 读的是 git archive HEAD，故须先提交
+ * 历史：
+ *   51,291,488 B (48.9 MiB)  release-0.5.0 + Phase 3 拆分后
+ *   23,122,955 B (22.1 MiB)  vendor 白名单剔除 32.2 MB 后（figures4papers + 顶层 assets，−54.9%）
  * 作为**告警**阈值：超过基线的 110% 就提醒，不阻断（路线书 0.3）。
  */
-const SIZE_BASELINE_BYTES = 51_291_488;
+const SIZE_BASELINE_BYTES = 23_122_955;
 const SIZE_WARN_RATIO = 1.1;
 
 /** 必需路径（下限断言）。删掉任何一项都应该让发布预检红，而不是等到用户装完才发现。 */
