@@ -1,7 +1,20 @@
 # Linux product extras installed into $DSH_HOME/lab-agent/.venv after the
 # base nature-skills requirements.lock. Top-level versions are pinned; pip's
 # installation report is retained under $DSH_HOME/lab-agent for auditing.
-markitdown[all]==0.1.7
+#
+# markitdown extras 必须与 desktop/scripts/build-bundled-python.ps1 的
+# `markitdown[pdf,docx,pptx,xls,xlsx]` 保持一致，不得用 `[all]`：
+#   * `[all]` 额外拉入 azure-ai-contentunderstanding / azure-ai-documentintelligence /
+#     azure-identity / msal / pydub / speechrecognition / youtube-transcript-api /
+#     olefile —— 全部是音频转写、YouTube 与 Azure 云端转换能力，而本产品只做
+#     PDF/Office → Markdown：lib/convert.js 的 CONVERTIBLE_UPLOAD_EXTENSIONS
+#     白名单（pdf/doc/docx/ppt/pptx/xls/xlsx/rtf/html/epub）不含上述任一格式，
+#     且仓库自有代码对这些包零引用。
+#   * `[all]` 是未固定的传递依赖面（实测未固定包 24 个，窄 extras 为 12 个），
+#     与「Top-level versions are pinned」的定位冲突。
+# 实测（Linux/cp312, uv）：site-packages 705 MB → 642 MB（−63 MB），
+# 且对 .pdf/.docx/.pptx/.xlsx/.xls/.html/.epub 七种格式的转换输出长度逐一相同。
+markitdown[pdf,docx,pptx,xls,xlsx]==0.1.7
 PyMuPDF==1.28.2
 python-pptx==1.0.2
 rdkit==2026.3.5
