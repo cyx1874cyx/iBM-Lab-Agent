@@ -15,6 +15,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { describeApplications } from "../lib/applications/registry.js";
 
 const python = process.argv.includes("--python") ? process.argv[process.argv.indexOf("--python") + 1] : (process.platform === "win32" ? "py" : "python3");
 const asJson = process.argv.includes("--json");
@@ -46,6 +47,9 @@ async function main() {
 		packages: {},
 		renderers: {},
 		venv: {},
+		// 外部应用（Mnova / Origin）：哪些在当前形态下可用，以及为什么不可用。
+		// 由 lib/applications/registry.js 的 availableOn 决定，不做形态条件分支。
+		applications: describeApplications(),
 		fixes: []
 	};
 
@@ -138,6 +142,14 @@ print("ok" if r.returncode == 0 else r.stderr.strip().splitlines()[0] if r.stder
 	console.log("");
 	console.log(`--- venv ---`);
 	console.log(`  create      ${report.venv.create}`);
+	console.log("");
+	console.log(`--- 外部应用（形态：${report.applications.form}）---`);
+	for (const app of report.applications.available) {
+		console.log(`  ${app.appKey.padEnd(14)} 可用（${app.label}；启动方式 ${app.launch.kind}:${app.launch.module}）`);
+	}
+	for (const app of report.applications.unavailable) {
+		console.log(`  ${app.appKey.padEnd(14)} 不可用（${app.reason}）`);
+	}
 	console.log("");
 	if (report.fixes.length) {
 		console.log("--- 建议修复 ---");
