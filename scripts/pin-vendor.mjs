@@ -23,10 +23,12 @@ import { fileURLToPath } from "node:url";
 import { COMMIT_SHA_RE, createVendorLock } from "../src/lockfile.js";
 import { pythonLockSha256 } from "../src/python-lock-hash.js";
 import { scanSkillsRoot } from "../src/skill-catalog.js";
+import { excludedPaths, pruneVendorTree, readVendorManifest } from "../src/vendor-manifest.js";
 import { fetchTree } from "./vendor-fetch.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const vendor = join(repoRoot, "vendor", "nature-skills");
+const MANIFEST = join(repoRoot, "vendor.manifest.json");
 const REPO_URL = "https://github.com/Yuan1z0825/nature-skills.git";
 const USER_REPO = "Yuan1z0825/nature-skills";
 
@@ -87,6 +89,18 @@ async function main() {
 	}
 
 	const skillsRoot = join(vendor, "skills");
+	// 体积白名单：pin/升级后**每次都**应用（幂等）。上游树会把这些资源组重新带回来，
+	// 只在首次剔除的话，下一次升级就悄悄涨回 ~33 MB。
+	const manifest = await readVendorManifest(MANIFEST);
+	const pruned = await pruneVendorTree({ repoRoot, manifest });
+	if (pruned.removedFiles > 0) {
+		const mb = (pruned.removedBytes / 1024 / 1024).toFixed(1);
+		console.log(`pruned ${pruned.removedFiles} file(s) / ${mb} MB per vendor.manifest.json`);
+		for (const entry of pruned.results.filter((r) => r.existed)) {
+			console.log(`  - ${entry.path} (${(entry.bytes / 1024 / 1024).toFixed(1)} MB)`);
+		}
+	}
+
 	const { skills, diagnostics } = await scanSkillsRoot(skillsRoot);
 	for (const d of diagnostics) console.warn(`  ! ${d.skill}: ${d.error ?? d.missing?.join(", ")}`);
 
@@ -97,7 +111,12 @@ async function main() {
 		license: "Apache-2.0",
 		skills,
 		pythonDepsSha256: await readPythonLockSha256(),
-		pythonDepsFile: "requirements.lock"
+		pythonDepsFile: "requirements.lock",
+		vendorManifest: {
+			file: "vendor.manifest.json",
+			excludedPaths: excludedPaths(manifest),
+			note: "vendor 树已按该清单过滤；可用 node scripts/prune-vendor.mjs 重新应用/校验"
+		}
 	});
 
 	await writeFile(join(vendor, ".dsh-lab-agent-commit"), `${resolved}\n`, "utf8");

@@ -45,7 +45,16 @@ export const vendorLockSchema = z.object({
 		lastPassedAt: z.string().nullable().optional(),
 		lastRunAt: z.string().nullable().optional(),
 		caseCount: z.number().int().nonnegative().default(0)
-	})
+	}),
+	/**
+	 * 体积白名单记录：vendor 树在 pin 时被 vendor.manifest.json 过滤过。
+	 * 可选，保持对旧锁文件的向后兼容。
+	 */
+	vendorManifest: z.object({
+		file: z.string().min(1),
+		excludedPaths: z.array(z.string()),
+		note: z.string().optional()
+	}).optional()
 });
 
 /** Stable snapshot of the harness versions the plugin was tested against. */
@@ -59,7 +68,7 @@ export const harnessLockSchema = z.object({
 });
 
 /** Create a fresh vendor lock for a pinned commit. */
-export function createVendorLock({ repo, pinnedCommit, pinnedAt, license, skills, pythonDepsSha256, pythonDepsFile = "requirements.lock" }) {
+export function createVendorLock({ repo, pinnedCommit, pinnedAt, license, skills, pythonDepsSha256, pythonDepsFile = "requirements.lock", vendorManifest }) {
 	return vendorLockSchema.parse({
 		schema: "dsh-lab-agent/vendor-lock/v1",
 		repo,
@@ -68,7 +77,8 @@ export function createVendorLock({ repo, pinnedCommit, pinnedAt, license, skills
 		license,
 		skills,
 		pythonDeps: { file: pythonDepsFile, sha256: pythonDepsSha256 },
-		regression: { lastPassedAt: null, lastRunAt: null, caseCount: 0 }
+		regression: { lastPassedAt: null, lastRunAt: null, caseCount: 0 },
+		...(vendorManifest ? { vendorManifest } : {})
 	});
 }
 

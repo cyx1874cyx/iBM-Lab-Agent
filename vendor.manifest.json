@@ -1,0 +1,32 @@
+{
+  "schema": "dsh-lab-agent/vendor-manifest/v1",
+  "vendorRoot": "vendor/nature-skills",
+  "note": [
+    "固定版本 nature-skills 树的体积白名单：声明**从上游树中剔除**的路径。",
+    "",
+    "为什么用「排除清单」而不是「保留清单」：上游新增的 skill/asset 在排除清单下会被",
+    "自动带上（默认保留），而在保留清单下会被静默丢弃 —— 后者对科研能力的破坏远大于",
+    "多带几 MB 的成本。故只显式排除**已核实运行期无用**的资源组。",
+    "",
+    "本清单由 scripts/pin-vendor.mjs 在每次 pin/升级后应用（幂等），",
+    "也可单独用 scripts/prune-vendor.mjs 应用到工作区。",
+    "剔除记录同时写入 vendor.lock.json 的 vendorManifest 字段。",
+    "修改本文件后必须重跑：npm run test && npm run regression"
+  ],
+  "exclude": [
+    {
+      "path": "skills/nature-figure/assets/figures4papers",
+      "bytesAtExclusion": 28975074,
+      "filesAtExclusion": 70,
+      "reason": "一次性教学素材，属 nature-figure 的 on-demand 参考（非默认加载）。依据三条：manifest.yaml 把它列在 references.on_demand 表内；SKILL.md 明写 references 是 deep references, not defaults, 需按需打开；assets/figures4papers/THIRD_PARTY_NOTICES.md 与 references/demos.md 均声明这些素材不由根 MIT 许可自动覆盖。保留 chart-atlas(3.3M)/gallery(2.3M)：教学价值高于体积成本。",
+      "restore": "删除本条目后运行 node scripts/prune-vendor.mjs --restore 会从上游重新拉取；或 node scripts/pin-vendor.mjs --sha <pinnedCommit>"
+    },
+    {
+      "path": "assets",
+      "bytesAtExclusion": 4748981,
+      "filesAtExclusion": 6,
+      "reason": "nature-skills 仓库根目录的 README 配图（横幅、知识星球/交流群二维码、Star 历史图）。已核实没有任何 skill 的 SKILL.md/manifest.yaml/references 引用它们 —— 只被 vendor/nature-skills/README.md 使用，而该 README 不参与运行期。",
+      "restore": "同上；若需离线阅读 vendored README 的配图，删除本条目后重跑 prune。"
+    }
+  ]
+}

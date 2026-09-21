@@ -318,5 +318,13 @@
     "lastPassedAt": "2026-08-18T08:19:49.709Z",
     "lastRunAt": "2026-08-18T08:19:49.709Z",
     "caseCount": 11
+  },
+  "vendorManifest": {
+    "file": "vendor.manifest.json",
+    "excludedPaths": [
+      "assets",
+      "skills/nature-figure/assets/figures4papers"
+    ],
+    "note": "vendor 树已按该清单过滤；可用 node scripts/prune-vendor.mjs 重新应用/校验"
   }
 }
