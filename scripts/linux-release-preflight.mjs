@@ -184,9 +184,12 @@ function checkSize() {
 		return { name: "size-report", ok: true, skipped: true, detail: "未找到归档（跳过；用 --tarball 指定，或先跑 scripts/build-linux-release.sh）" };
 	}
 	const bytes = statSync(tarball).size;
-	const ceiling = Number(flagValue("--size-ceiling-mb", "0")) > 0
-		? Number(flagValue("--size-ceiling-mb")) * 1024 * 1024
-		: SIZE_BASELINE_BYTES * SIZE_WARN_RATIO;
+	// 字节数取整：阈值是可断言的整数，避免浮点余数泄进 JSON 与比较。
+	const ceiling = Math.round(
+		Number(flagValue("--size-ceiling-mb", "0")) > 0
+			? Number(flagValue("--size-ceiling-mb")) * 1024 * 1024
+			: SIZE_BASELINE_BYTES * SIZE_WARN_RATIO
+	);
 	const mb = (n) => (n / 1024 / 1024).toFixed(1);
 	const over = bytes > ceiling;
 	const entry = {
