@@ -181,30 +181,74 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 |---|---|---|
 | 0.1 给 bundled-python 加输入指纹 | Linux 线由 `install.sh` 每次显式 `pip install -r` 驱动，**不存在「存在即永久跳过」**；无等价缺陷 | 不适用 |
 | 0.2 重建产物、测真实基线 | §2 已用 uv 实测 | ✅ 完成 |
-| 0.3 体积门禁（只报警） | 见 §8 | ⬜ 待做 |
+| 0.3 体积门禁（只报警） | `scripts/linux-release-preflight.mjs`：归档体积告警 + 必需项下限 | ✅ 完成（见 §8） |
 | 0.4 回归基线快照 | §1 全绿 | ✅ 完成 |
 | 1.1 pycache 红利 | 不适用（无 `pip --target` 产物缓存） | 不适用 |
 | 1.2 剔除第三方 tests/ | **L2**：`install.sh` 的 `strip_python_test_trees()`，实测 −44 MB，含 import 守卫 + 变异测试 | ✅ 完成（见 §5） |
 | 1.2' Windows 侧同样扩展 | 路线书原文要求扩 `build-bundled-python.ps1:86-89`；本机无 pwsh/Windows，**不写不可验证的发布流水线改动** | ⬜ 留给 Windows 机器 |
-| 1.3 vendor 白名单 | 与 Windows 共用 `cordis.patch.yml:32`；`vendor.manifest.json` 机制仍适用。注：`vendor/nature-skills/skills/nature-figure/assets/figures4papers` 在本仓库中为 **tracked 文件**（`git ls-files` 可见），剔除会改 `vendor/` 树与 `vendor.lock.json` | 🟡 停车点 S1 |
+| 1.3 vendor 白名单 | 与 Windows 共用 `cordis.patch.yml:32`；`vendor.manifest.json` 机制仍适用。注：`figures4papers` 在本仓库中为 **tracked 文件**（70 个），剔除会改 `vendor/` 树与 `vendor.lock.json`；Linux 归档实测占 **28 MB**（见 §8.3） | 🟡 停车点 S1 |
 | 1.4 import 探测脚本 | 仍适用（Linux 侧需覆盖 `requirements-linux.lock` 引入的 extras） | ⬜ 待做 |
 | 2.1 摘 magika 链 | **L3**（66 MB） | 🟡 停车点 S2 |
 | 2.2 matplotlib 策略 | **L4**（48 MB） | 🟡 停车点 S3 |
 | 2.3 双 PDF 栈收敛 | 同样存在：`PyMuPDF`(60 M)+`pdfminer.six`(9 M)+`pdfplumber`+`pypdf`+`pypdfium2`；`vendor/` 中 `pdfplumber` 1 文件、`pypdf` 2 文件、`fitz` 1 文件，与 `agent.cordis.yml` 的禁令冲突 | 🔴 先调研 |
-| 3.x 结构拆分 | 与平台无关，闸门在 Linux 上全绿 | 🔄 进行中 |
-| 5.x 发布与门禁 | `.github/workflows/linux-release.yml` 已有 `test:all`+`regression`，但 `scripts/build-linux-release.sh` 仅 24 行（`git archive`+sha256，**零门禁**） | ⬜ 待做 |
+| 3.x 结构拆分 | 3.1 `lib/tasks/*`、3.2 `capabilities`、3.3 `adapters/browser`、3.4 `applications/registry` 均已落地并通过闸门 | ✅ 完成 |
+| 5.x 发布与门禁 | `scripts/linux-release-preflight.mjs` + CI 在 `Build Linux archive` 后调用 `--report-only`；`build-linux-release.sh` 仍只负责出包 | ✅ 完成（见 §8.4） |
 
-## 8. 待建立的 Linux 体积门禁
+## 8. Linux 体积门禁（已建立）
 
-路线书 0.3/5.1 的 Linux 对应物，应覆盖三个可测维度（当前**一个都没有**）：
+路线书 0.3/5.1 的 Linux 对应物：`scripts/linux-release-preflight.mjs`，做**双向断言**。
 
-1. **归档体积**：`dist/ibm-lab-agent-v<ver>-linux.tar.gz`（源码包，与 Python 无关）；
-2. **venv 磁盘占用**：`$DSH_HOME/lab-agent/.venv` 的 site-packages 总量（本文件 §2 即其基线）；
-3. **安装报告**：`install.sh` 已用 `pip --report` 产出
-   `$DSH_HOME/lab-agent/python-linux-install-report.json`，可据其断言必需包仍在。
+### 8.1 归档体积基线（实测）
 
-按路线书纪律，先只 `Write-Warning`，待基线稳定后再转强制；且必须**双向断言**
-（上限 + 必需项下限），下限项至少含 `scipy/signal`、`nmrglue`、`markitdown`、`origin_mcp`。
+```
+bash scripts/build-linux-release.sh HEAD     # → dist/ibm-lab-agent-v0.5.2-rc.1-linux.tar.gz
+```
+
+**51,291,488 字节（48.9 MiB）** @ `release-0.5.0` + Phase 3 拆分后。
+该值即脚本里的 `SIZE_BASELINE_BYTES`；告警阈值 = 基线 × 1.10 = 53.8 MiB。
+
+按路线书纪律，体积超标**只告警不阻断**（Phase 0.3），退出码仍为 0；Phase 5.1 才转强制。
+
+### 8.2 下限断言（必需的"东西还在"）
+
+- 25 个必需路径，含 Phase 3 拆分后的 `lib/tasks/index.js`、`lib/capabilities.js`、
+  `lib/adapters/browser.js`、`lib/applications/registry.js`；
+- 19 个 nature skill 与 `vendor.lock.json` 的 `skills` 登记数量一致；
+- 4 个 bash 入口 `bash -n`；
+- 发布要求工作区干净（`--allow-dirty` 可跳过）。
+
+### 8.3 归档体积构成与已发现的冗余（**仅记录，未擅自删除**）
+
+| 项 | 体积 | 说明 |
+|---|---|---|
+| `client/assets/ketcher-standalone` | 30 MB | 预构建编辑器，单文件 `index-*.js` 即 28.9 MB；**必需** |
+| `vendor/.../nature-figure/assets/figures4papers` | **28 MB**（70 个 tracked 文件） | 路线书 S1 目标；上游 `manifest.yaml` 标为 `references.on_demand` |
+| `vendor/nature-skills/assets`（README 配图） | 4.6 MB | 运行期无用 |
+| `scripts/pdf-viewer-shell/public/{pdf.worker,pdf.worker.min}.mjs` | 3.5 MB | 与 `client/assets/pdf-viewer-standalone/` 下同名文件 **sha256 完全相同** → 纯冗余（提交了两次） |
+
+> 剔除 `figures4papers` 与 README 配图会让 `vendor/` 偏离固定 commit，需同步
+> `vendor.lock.json` —— 属路线书 **停车点 S1**，本文件只记录实测数字，不擅自改动。
+
+### 8.4 用法
+
+```bash
+node scripts/linux-release-preflight.mjs                 # 预检 + 闸门 + 体积
+node scripts/linux-release-preflight.mjs --report-only   # 只做必需项 + 体积（CI 构建后）
+node scripts/linux-release-preflight.mjs --json
+node scripts/linux-release-preflight.mjs --tarball <path> --size-ceiling-mb <n>
+```
+
+CI（`.github/workflows/linux-release.yml`）在 `Build Linux archive` 之后、
+`upload-artifact` 之前调用 `--report-only`。
+
+### 8.5 尚未覆盖的维度
+
+1. **venv 磁盘占用**：`$DSH_HOME/lab-agent/.venv` 的 site-packages 总量（§2 即其基线）。
+   该目录在发布时不存在，只能在安装后测量；要纳入门禁需在 CI 里真跑一次 `install.sh`
+   （当前被 `soffice` 硬依赖阻断，见 §5 末与停车点）。
+2. **安装报告**：`install.sh` 已用 `pip --report` 产出
+   `$DSH_HOME/lab-agent/python-linux-install-report.json`，可据其断言必需包仍在；
+   目前必需包的下限断言放在 `install.sh` 内的 import 守卫（见 §5）。
 
 ## 9. 复现命令
 
@@ -212,6 +256,13 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 # 闸门
 npm run test && npm run regression && npm run lint \
   && npm run check:preset-exports && npm run check:client
+
+# 一条命令跑完预检 + 闸门 + 体积（推荐；等价于上面 + 必需项/体积断言）
+node scripts/linux-release-preflight.mjs
+
+# 出包后再做一次必需项与体积检查（CI 即此用法）
+bash scripts/build-linux-release.sh HEAD
+node scripts/linux-release-preflight.mjs --report-only
 
 # Linux Python 体积基线（隔离在 /tmp）
 uv venv --python 3.12.11 /tmp/linux-baseline/venv
