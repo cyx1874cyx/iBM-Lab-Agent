@@ -380,3 +380,18 @@ numpy, packaging, pillow, pyparsing, python-dateutil, scipy, six`（`pandas` 始
 > ⚠ 候选 ≠ 可删。真实反例就在本次结果里：`contourpy` 被列为未触达，但它是 matplotlib
 > 的**惰性依赖**（只在画等高线时导入）。动态导入、插件注册表、CLI 入口同理。
 > 该工具**只读不写**：不删文件、不改锁文件。
+
+## 12. Phase 3.2 的 5 处平台假设：逐条去向
+
+路线书列出 5 处隐式平台假设。逐条核实后的去向（避免以后重复调研）：
+
+| # | 假设 | 位置 | 去向 |
+|---|---|---|---|
+| ① | 假设 node_modules 可写 | `scripts/patch-dsh-runtime.mjs` | ✅ 已处理：写失败（备份拷贝与 `atomicWrite` 两条路径）统一转成带 errno、成因与出路的提示，不再抛裸 `EACCES/EROFS`。见 `tests/unit/patch-dsh-runtime-writability.test.mjs` |
+| ② | 硬编码 `browserMode: 'desktop-edge-handoff'` | `cordis.patch.yml` | ✅ 已处理：改为运行期探测（`lib/capabilities.js`），Linux 解析为 `web-current` |
+| ③ | 假设 `window.parent` 是 Tauri | `client/src/lib.js:241-304` | ✅ **原本已优雅**：4 秒超时后给出「请检查是否运行在 iBM Lab Agent 桌面版」，不静默挂起。仅文档化，无需改码 |
+| ④ | 假设捆绑 Python 存在 | `desktop/src-tauri/src/runtime/process.rs:205-214` | ✅ **原本已按隔离边界设计**：`src/python-env.js::pythonCandidates` 在设置 `IBM_LAB_AGENT_BUNDLED_PYTHON` 时 `allowSystemFallback !== true` 即**不回落**系统 Python。桌面专属，Linux 线走 venv，无需改码 |
+| ⑤ | 强依赖 `soffice` | `scripts/install.mjs:42-48`、`install.sh:123`、`runtime/apt-packages.txt` | 🟡 **停车点**：`apt-packages.txt` 明确写了「Office preview is intentionally hard-required: no text-only fallback」，改成降级属产品决策（路线书 4.3）。它也是本机无法端到端跑完 `install.sh` 的唯一原因 |
+
+结论：Phase 3.2 的验收（① browserMode 运行期探测 ② Linux 不再命中 Windows 分支 ③ 回归全过）
+均已满足；5 处假设中 4 处已闭环，剩余 1 处是停车点。
