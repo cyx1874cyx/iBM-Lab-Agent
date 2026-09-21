@@ -34,6 +34,12 @@ Usage: install.sh [options]
   --no-dsh-patch           do not apply the reversible fake-<invoke> compatibility patch
   --keep-default-preset    do not set new sessions to lab-research
   -h, --help               show this help
+
+Environment:
+  IBM_LAB_AGENT_PIP_INDEX_URL   pip 索引（默认清华源，与 Windows 构建脚本一致；
+                                置空或指向校内镜像可覆盖）
+  IBM_LAB_AGENT_ARCHIVE_PREFIX  源码包下载前缀（默认 USTC GitLab）
+  IBM_LAB_AGENT_REF             默认安装的 git ref（默认 main）
 USAGE
 }
 
@@ -56,6 +62,15 @@ done
 # DSH's own CLI reads this variable; keep every profile/config operation in
 # the exact state root selected by --dsh-home.
 export DSH_HOME="$dsh_home"
+
+# pip 镜像。Windows 构建脚本（desktop/scripts/build-bundled-python.ps1）默认就用清华源，
+# Node 走 mirrors.ustc.edu.cn、pnpm 走 registry.npmmirror.com —— Linux 线此前**没有**
+# 任何 pip 镜像，实测从 PyPI 直连只有 ~30 KB/s（600 MB 依赖要一个多小时，校内部署尤其
+# 明显）。pip 自身读取 PIP_INDEX_URL，所以这里 export 一次即可覆盖本脚本的 pip 调用
+# 与嵌套的 `node scripts/install.mjs`（labPython.bootstrap 里也是 pip），无需逐处透传。
+# 需要时可用 IBM_LAB_AGENT_PIP_INDEX_URL 覆盖（例如指向校内镜像或走代理）。
+pip_index_url="${IBM_LAB_AGENT_PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple/}"
+export PIP_INDEX_URL="$pip_index_url"
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "此发行安装器仅支持 Linux。" >&2; exit 1; }
 [[ ${EUID} -ne 0 ]] || { echo "请以普通用户运行安装器；需要系统包时会单独调用 apt/sudo。" >&2; exit 1; }
