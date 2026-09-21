@@ -63,14 +63,16 @@ test("清单 schema：拒绝错误 schema 与缺少理由的排除项", () => {
 });
 
 test("路径安全边界：拒绝绝对路径、逃逸与 root 本身", () => {
-	const vendorRoot = "/repo/vendor/tree";
+	// 用平台原生的假根：硬编码 "/repo/..." 在 Windows 上会得到 H:\repo\... 而失败
+	// （本用例在 Windows 发布流水线里第一次跑就因此失败过）。
+	const vendorRoot = join(tmpdir(), "repo", "vendor", "tree");
 	assert.throws(() => resolveExcludedPath({ vendorRoot, entry: { path: "/etc/passwd" } }), /相对路径/);
 	assert.throws(() => resolveExcludedPath({ vendorRoot, entry: { path: "../outside" } }), /逃出 vendorRoot/);
 	assert.throws(() => resolveExcludedPath({ vendorRoot, entry: { path: "a/../../outside" } }), /逃出 vendorRoot/);
 	assert.throws(() => resolveExcludedPath({ vendorRoot, entry: { path: "." } }), /vendorRoot 本身/);
 	assert.throws(() => resolveExcludedPath({ vendorRoot, entry: { path: "" } }), /缺少 path/);
 	// 正常相对路径被接受（含子目录）
-	assert.equal(resolveExcludedPath({ vendorRoot, entry: { path: "a/big" } }), "/repo/vendor/tree/a/big");
+	assert.equal(resolveExcludedPath({ vendorRoot, entry: { path: "a/big" } }), join(vendorRoot, "a", "big"));
 });
 
 test("measurePath 统计字节与文件数", async () => {

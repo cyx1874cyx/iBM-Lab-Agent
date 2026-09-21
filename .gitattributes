@@ -9,3 +9,7 @@ bin/ibm-lab-agent text eol=lf
 # Cargo/tauri 构建会重写 .toml（内容不变，但行尾可能落成 LF）。不声明的话
 # core.autocrlf=true 会把它判成"工作树脏"，使 desktop 发布预检直接拒绝构建。
 *.toml text eol=lf
+# apt-packages.txt 等 .txt 由 Linux 安装器用 bash `mapfile` 逐行读成包名；一旦被
+# checkout 成 CRLF，包名会带 \r 使 apt 安装失败。仓库里 7 个 .txt 的已提交内容全是
+# LF，声明 eol=lf 不引发 renormalize，只防止 Windows 侧（core.autocrlf=true）写成 CRLF。
+*.txt text eol=lf

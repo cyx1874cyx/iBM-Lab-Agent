@@ -81,7 +81,10 @@ test("apt-packages.txt 不再声明 soffice 是硬依赖，但仍默认安装 Li
 	assert.equal(/intentionally hard-required/.test(text), false, "旧注释会误导：它已不再是硬依赖");
 	assert.match(text, /不再阻断安装/, "应说明新策略");
 	// 默认仍然安装：它是唯一的渲染器
+	// 按行比较时**不能**假定 LF：Windows 侧 checkout 可能是 CRLF（本用例在
+	// Windows 发布流水线里第一次跑就因此失败过）。这里对行尾与两端空白都做归一。
+	const packages = text.split(/\r?\n/).map((line) => line.trim());
 	for (const pkg of ["libreoffice-core", "libreoffice-writer", "libreoffice-impress"]) {
-		assert.ok(text.split("\n").includes(pkg), `应仍然默认安装 ${pkg}`);
+		assert.ok(packages.includes(pkg), `应仍然默认安装 ${pkg}`);
 	}
 });
