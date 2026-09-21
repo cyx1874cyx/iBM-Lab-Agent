@@ -70,6 +70,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 剥离第三方 wheel 自带的测试树：运行期不加载，但会占用可观的磁盘。
+# Windows 线在 desktop/scripts/build-bundled-python.ps1 的
+# "5) Strip caches / test artifacts" 做过同类清理，Linux 线此前没有对应步骤
+# （实测 site-packages 内有 65 个 tests/test 目录，约 44 MB）。
+#
+# 只删名字**恰为** tests / test 的目录：numpy/testing、pandas.testing 是公共
+# API，名字不同，必须保留；删完由调用方做 import 守卫断言。
+strip_python_test_trees() {
+	local python="$1"
+	local site_packages
+	site_packages="$("$python" -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null)" || return 0
+	[[ -d "$site_packages" ]] || return 0
+	local before after
+	before="$(du -sm "$site_packages" | cut -f1)"
+	# find 在删除过程中可能因目录消失返回非零，属预期，不视为失败。
+	find "$site_packages" -type d \( -name tests -o -name test \) -prune -exec rm -rf {} + 2>/dev/null || true
+	find "$site_packages" -type f \( -name 'test_*.py' -o -name 'conftest.py' \) -delete 2>/dev/null || true
+	after="$(du -sm "$site_packages" | cut -f1)"
+	echo "已剥离第三方测试树：${before} MB → ${after} MB"
+}
+
 echo "[1/8] 获取 iBM Lab Agent 源码"
 if [[ -n "$source_dir" ]]; then
 	source_dir="$(cd "$source_dir" && pwd)"
@@ -221,6 +242,21 @@ if [[ $install_python_extras -eq 1 ]]; then
 else
 	echo "已按要求跳过 Linux Python 扩展。"
 fi
+
+# 基础锁（install.mjs 的 labPython.bootstrap）与 Linux extras 都已装完，
+# 此时统一剥离一次第三方测试树。
+strip_python_test_trees "$venv_python"
+
+# 守卫断言：剥离后产品运行期真正用到的模块必须仍可导入。装了 extras 就一并断言
+# 其提供的能力（裸装基础锁时 markitdown/fitz 等本就不存在，不能无条件断言）。
+required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
+if [[ $install_python_extras -eq 1 ]]; then
+	required_modules="markitdown, fitz, pptx, rdkit.Chem, $required_modules"
+fi
+"$venv_python" -c "import $required_modules" || {
+	echo "剥离测试树后必需模块不可导入：$required_modules" >&2
+	exit 1
+}
 
 echo "[6/8] 创建独立 iBM Lab profile 并加入插件"
 dsh_bin="$launcher_root/node_modules/.bin/dsh"
