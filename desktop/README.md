@@ -20,6 +20,36 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\desktop\script
 同一脚本可在 Windows PowerShell 5.1 或 PowerShell 7.x 下运行；使用 7.x 时将
 `powershell.exe` 替换为 `pwsh`即可。
 
+### 从 WSL 驱动出包（开发在 Linux、打包在 Windows）
+
+如果开发环境是 WSL，而同机的 Windows 侧具备 MSVC/NSIS/Rust，用：
+
+```bash
+scripts/windows-release-from-wsl.sh                 # 同步 + 完整出包
+scripts/windows-release-from-wsl.sh --preflight-only # 只同步 + 发布预检
+scripts/windows-release-from-wsl.sh --dry-run        # 只打印计划
+```
+
+它做的事：把当前分支推到 NTFS 上的裸仓库 → Windows 侧 `fetch`/`reset --hard` →
+缺 `desktop/node_modules` 时自动 `npm ci` → 跑本 README 的统一入口 →
+回显 `release-report.json` 与安装包 SHA-256。
+
+**为什么不在 Linux 上交叉编译**：NSIS 确实可以在 Linux 上交叉编译（Tauri 有官方说明），
+但官方也写明那是"测试较少、最后手段"，而且**交叉编译出的包无法在 Linux 上验证** ——
+而 `verify-package.ps1 -WebSmokeTest` 要真正启动打包后的应用、访问回环 HTTP、检查 Ketcher
+静态资源与捆绑 Python 自检。WSL + 同机 Windows 侧既避免交叉编译的全部风险，又保留可验证性。
+
+脚本里已规避四个 WSL 坑（改动时勿退化，有守卫测试）：
+
+1. **UNC 工作目录**：cwd 在 `\\wsl.localhost\...` 时 `powershell.exe` 直接拒绝执行
+   （"UNC 路径不支持"）→ 调用前必须 `cd` 到 `/mnt/<盘>/` 下。
+2. **生成的 `.ps1` 必须纯 ASCII**：PowerShell 5.1 读取无 BOM 的 UTF-8 会按 ANSI 码页解析，
+   中文/emoji 会破坏字符串终止符，报 `ParserError: TerminatorExpectedAtEndOfString`。
+3. **绝不在 drvfs 上构建**：`/mnt/c` 的目录遍历极慢（实测 `find` 60 s 超时）；源码副本、
+   `node_modules`、`target/` 一律放 NTFS，跨盘只传 git 对象。
+4. **`desktop/` 是独立 npm 单元**（不在 pnpm workspace 内），缺 `@tauri-apps/cli` 会让出包
+   跑到 `tauri-nsis` 之前才失败。
+
 **全新构建机 / 全新副本先装依赖**（两处互相独立，缺任一处都会让出包失败）：
 
 ```powershell
