@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [string]$InstallerPath,
   [switch]$WebSmokeTest
@@ -82,7 +82,7 @@ await Promise.all([
   import('jszip'),
   import('zod'),
   import('./lib/remote.js'),
-  import('./lib/tasks.js'),
+  import('./lib/tasks/index.js'),
   import('./lib/ppt-templates.js'),
   import('./lib/manual-capture.js'),
   import('./lib/experiment-plan-templates.js'),
