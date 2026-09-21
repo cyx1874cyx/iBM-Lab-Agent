@@ -624,10 +624,21 @@ async fn webvpn_open_capture(
 }
 
 #[tauri::command]
-fn webvpn_cancel_capture(task_id: String, app: tauri::AppHandle) -> Result<(), String> {
+async fn webvpn_cancel_capture(task_id: String, app: tauri::AppHandle) -> Result<(), String> {
     app.try_state::<webvpn::WebVpnState>()
         .ok_or_else(|| "WebVPN 状态不可用".to_string())?
-        .cancel_capture(&task_id)
+        .cancel_capture(&task_id)?;
+    // WebView2 没有向 Tauri 暴露“取消当前下载”句柄。销毁这一枚子 WebView
+    // 才能保证网络传输立即停止；专属 profile 保留，因此下次点击正文/SI 时
+    // 登录态仍可复用。关闭后同时恢复主界面全宽。
+    if let Some(webview) = app.get_webview(webvpn::WINDOW_LABEL) {
+        webview.close().map_err(|error| error.to_string())?;
+    }
+    webvpn::hide_sidebar(&app)?;
+    if let Some(state) = app.try_state::<webvpn::WebVpnState>() {
+        state.mark_closed();
+    }
+    Ok(())
 }
 
 /// 放行一个此前被白名单拦下的域名，并写回配置。
@@ -721,6 +732,15 @@ fn webvpn_status(
 #[tauri::command]
 async fn webvpn_hide(app: tauri::AppHandle) -> Result<(), String> {
     webvpn::hide_sidebar(&app)
+}
+
+/// 重新显示已存在的文献浏览器，不改变 URL、不重新布防下载任务。
+#[tauri::command]
+async fn webvpn_show(app: tauri::AppHandle) -> Result<(), String> {
+    let webview = app
+        .get_webview(webvpn::WINDOW_LABEL)
+        .ok_or_else(|| "文献浏览器尚未打开，请重新点击正文或 SI".to_string())?;
+    webvpn::show_sidebar(&app, &webview)
 }
 
 /// 拉取当前会话的探测记录（内存中，最多 800 条）。
@@ -832,6 +852,7 @@ fn main() {
             webvpn_allow_host,
             webvpn_set_policy,
             webvpn_status,
+            webvpn_show,
             webvpn_hide,
             webvpn_probe_events,
             webvpn_probe_clear,

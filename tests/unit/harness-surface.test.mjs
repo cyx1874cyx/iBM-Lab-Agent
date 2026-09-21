@@ -89,6 +89,14 @@ test("document conversion tool is scoped to the research preset", async () => {
 	assert.doesNotMatch(preset, /id:\s*convert-document/);
 });
 
+test("research preset hard-disables DSH subagent delegation", async () => {
+	const preset = await readFile(presetPath, "utf8");
+	assert.match(preset, /禁止委派（写死）/);
+	assert.doesNotMatch(preset, /@deepseek-ai\/dsh-tool-subagent/);
+	assert.doesNotMatch(preset, /@deepseek-ai\/dsh-workflow-worker-thread/);
+	assert.doesNotMatch(preset, /id:\s*tool-workflow/);
+});
+
 test("web client exposes the project-first research workspace shell", async () => {
 	const source = await readClientSource();
 	assert.doesNotMatch(source, /\bbusyTemp\b/, "client must render from the declared busy state");

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -130,6 +130,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
 			// 文献捕获：{ bundleId, kind, taskId } —— Nature 自动点击，其他出版社等待人工点击。
 			const [captureHint, setCaptureHint] = useState(null);
+			const [captureStopping, setCaptureStopping] = useState(false);
 			// 浏览器模式（web-current / managed-edge / desktop-edge-handoff）：
 			// desktop 下 WebView2 不是扩展宿主，捕获必须经外部 Edge handoff。
 			const [browserMode, setBrowserMode] = useState("managed-edge");
@@ -210,6 +211,30 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			 * 页面交给外部 Edge；扩展只在 handoff 页面完成布防。普通 Web 宿主不再
 			 * 直接与扩展通信。
 			 */
+			const cancelCapture = async (event) => {
+				event?.stopPropagation?.();
+				const taskId = captureHint?.taskId;
+				if (!taskId || captureStopping) return;
+				const pendingHint = captureHint;
+				setCaptureStopping(true);
+				// 先卸载轮询，避免服务端返回 cancelled 时又弹一条“捕获失败”。
+				setCaptureHint(null);
+				try {
+					const [shellResult, taskResult] = await Promise.allSettled([
+						cancelWebVpnCaptureViaShell(taskId),
+						call("manual_capture_cancel", { request: { taskId, reason: "用户手动终止文献下载" } })
+					]);
+					if (shellResult.status === "rejected" && taskResult.status === "rejected") {
+						setCaptureHint(pendingHint);
+						throw shellResult.reason || taskResult.reason;
+					}
+					notify("已终止下载并关闭文献浏览器；可重新点击正文或 SI 进入");
+				} catch (reason) {
+					notify(reason?.message || "终止下载失败，请重试");
+				} finally {
+					setCaptureStopping(false);
+				}
+			};
 			const armCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
 				// Nature Portfolio / SpringerLink 的 SI 托管在公开的 Springer 静态附件域名。
@@ -227,8 +252,13 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 					void (async () => {
 						const iwan = await iwanStatusViaShell().catch(() => null);
 						const active = await webVpnStatusViaShell().catch(() => null);
+						if (captureHint?.bundleId === bundle.id && captureHint?.kind === kind && active?.windowOpen) {
+							await showWebVpnViaShell();
+							notify(`已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面`);
+							return;
+						}
 						if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
-							notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理，请等待当前下载归档后再启动下一项`);
+							notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
 							return;
 						}
 						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
@@ -573,7 +603,10 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 								)
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
-								h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+								h("div", { className: "ib-capture-head" },
+									h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+									!captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
+								),
 								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : undefined, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : undefined, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
 							) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
 							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null

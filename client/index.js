@@ -88,7 +88,7 @@ function injectStyles() {
     ".ib-lit{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}",
     ".ib-lit-col{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:12px;padding:13px;min-width:0}.ib-lit-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}.ib-lit-head h3{font-size:13px;font-weight:700;margin:0;color:var(--ib-text)}.ib-lit-head small{color:var(--ib-text);font-size:9px}.ib-lit-note{color:var(--ib-text);font-size:9.5px;margin:2px 0 10px;line-height:1.5}",
     ".ib-lit-list{display:grid;gap:7px}.ib-lit-row{display:flex;align-items:center;gap:9px;border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:11px;padding:9px 10px}.ib-lit-row[data-waiting=true]{border-color:var(--ib-line);background:var(--ib-panel)}.ib-lit-row[data-clickable]{cursor:pointer}.ib-lit-row[data-clickable]:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-lit-main{flex:1;min-width:0;display:grid;gap:2px}.ib-lit-main b{font-size:11px;color:var(--ib-text);font-weight:560;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-main b i{font-family:Arial,'Microsoft YaHei','微软雅黑',sans-serif;font-weight:560}.ib-lit-main small{display:block;font-size:9px;color:var(--ib-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-acts{flex:none;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;max-width:58%}.ib-lit-btn{border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);color:var(--ib-text);font-size:10px;padding:7px 10px;cursor:pointer;font-weight:560;line-height:1}.ib-lit-btn:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-lit-btn[data-review=approve]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-lit-btn[data-review=reject]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-lit-btn:disabled{opacity:.4;pointer-events:none}.ib-lit-fmt{border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);color:var(--ib-text);font-size:10px;padding:6px 8px;cursor:pointer;outline:none}.ib-lit-fmt:hover{border-color:var(--ib-line)}.ib-lit-fmt:focus{border-color:var(--ib-line)}.ib-lit-fmt option{background:var(--ib-panel);color:var(--ib-text)}",
-    ".ib-lit-empty{border:1px dashed var(--ib-line);border-radius:12px;padding:22px 14px;text-align:center;color:var(--ib-text);font-size:10px;line-height:1.6}.ib-capture-hint{margin-top:7px;border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);padding:7px 10px;font-size:9.5px;color:var(--ib-text)}.ib-capture-hint[data-tone=busy]{color:var(--ib-cyan)}.ib-capture-label{line-height:1.45}.ib-capture-hint[data-tone=error]{color:var(--ib-red)}.ib-capture-progress{position:relative;height:5px;margin-top:7px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--ib-line) 70%,transparent)}.ib-capture-progress i{position:absolute;inset:0 auto 0 0;width:38%;border-radius:inherit;background:currentColor;animation:ib-capture-progress 1.25s ease-in-out infinite}.ib-capture-progress[data-complete=true] i{width:100%;transform:none;animation:none}@keyframes ib-capture-progress{0%{transform:translateX(-110%)}100%{transform:translateX(365%)}}.ib-lit-overview{margin-top:8px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);padding:10px 12px;font-size:10.2px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap}.ib-lit-overview b{display:block;color:var(--ib-text);font-size:10.5px;margin-bottom:4px}.ib-review-detail{margin-top:8px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);padding:10px 12px;color:var(--ib-text)}.ib-review-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ib-review-detail-head b{font-size:10.5px;color:var(--ib-text)}.ib-review-detail-head span{font-size:9px;color:var(--ib-text)}.ib-review-findings{display:grid;gap:5px}.ib-review-finding{display:grid;grid-template-columns:44px 1fr;gap:7px;font-size:9.5px;line-height:1.55}.ib-review-finding i{font-style:normal;text-transform:uppercase;font-size:8px;color:var(--ib-text)}.ib-review-finding[data-level=error] i{color:var(--ib-text)}.ib-review-finding[data-level=warning] i{color:var(--ib-text)}.ib-review-finding[data-level=pass] i{color:var(--ib-text)}",
+    ".ib-lit-empty{border:1px dashed var(--ib-line);border-radius:12px;padding:22px 14px;text-align:center;color:var(--ib-text);font-size:10px;line-height:1.6}.ib-capture-hint{margin-top:7px;border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);padding:7px 10px;font-size:9.5px;color:var(--ib-text)}.ib-capture-hint[data-tone=busy]{color:var(--ib-cyan)}.ib-capture-head{display:flex;align-items:center;gap:10px}.ib-capture-label{line-height:1.45;flex:1}.ib-capture-stop{flex:0 0 auto;border:1px solid color-mix(in srgb,var(--ib-red) 55%,var(--ib-line));border-radius:7px;background:transparent;color:var(--ib-red);padding:4px 8px;font:inherit;font-weight:700;cursor:pointer}.ib-capture-stop:hover{background:color-mix(in srgb,var(--ib-red) 12%,transparent)}.ib-capture-stop:disabled{cursor:wait;opacity:.55}.ib-capture-hint[data-tone=error]{color:var(--ib-red)}.ib-capture-progress{position:relative;height:5px;margin-top:7px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--ib-line) 70%,transparent)}.ib-capture-progress i{position:absolute;inset:0 auto 0 0;width:38%;border-radius:inherit;background:currentColor;animation:ib-capture-progress 1.25s ease-in-out infinite}.ib-capture-progress[data-complete=true] i{width:100%;transform:none;animation:none}@keyframes ib-capture-progress{0%{transform:translateX(-110%)}100%{transform:translateX(365%)}}.ib-lit-overview{margin-top:8px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);padding:10px 12px;font-size:10.2px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap}.ib-lit-overview b{display:block;color:var(--ib-text);font-size:10.5px;margin-bottom:4px}.ib-review-detail{margin-top:8px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);padding:10px 12px;color:var(--ib-text)}.ib-review-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.ib-review-detail-head b{font-size:10.5px;color:var(--ib-text)}.ib-review-detail-head span{font-size:9px;color:var(--ib-text)}.ib-review-findings{display:grid;gap:5px}.ib-review-finding{display:grid;grid-template-columns:44px 1fr;gap:7px;font-size:9.5px;line-height:1.55}.ib-review-finding i{font-style:normal;text-transform:uppercase;font-size:8px;color:var(--ib-text)}.ib-review-finding[data-level=error] i{color:var(--ib-text)}.ib-review-finding[data-level=warning] i{color:var(--ib-text)}.ib-review-finding[data-level=pass] i{color:var(--ib-text)}",
     ".ib-search-results{margin:-1px 4px 4px;border:1px solid var(--ib-line);border-top:0;border-radius:0 0 11px 11px;background:var(--ib-panel);padding:8px;display:grid;gap:6px;max-height:420px;overflow:auto}.ib-search-paper{border-top:1px solid var(--ib-line);padding:7px 5px 2px}.ib-search-paper:first-child{border-top:0}.ib-search-citation{font-size:10.5px;line-height:1.5;color:var(--ib-text)}.ib-search-citation i{font-family:Arial,'Microsoft YaHei','微软雅黑',sans-serif;color:var(--ib-text)}.ib-search-citation span{color:var(--ib-text)}.ib-search-paper small{display:block;margin-top:2px;color:var(--ib-text);font-size:8.8px;line-height:1.4}.ib-search-paper a{color:var(--ib-text);text-decoration:none;margin-left:7px}.ib-search-paper a:hover{text-decoration:underline}.ib-search-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}.ib-icon-btn{display:inline-grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid var(--ib-line);border-radius:8px;background:var(--ib-panel);color:var(--ib-text);cursor:pointer;line-height:1}.ib-icon-btn svg{display:block}.ib-icon-btn[data-ready=false]{opacity:.42;filter:grayscale(.9)}.ib-icon-btn[data-ready=false]:hover{border-color:var(--ib-line);opacity:.72;filter:grayscale(.3)}.ib-icon-btn[data-ready=true]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-icon-btn[data-ready=true]:hover{border-color:var(--ib-line);background:var(--ib-panel)}.ib-icon-btn[data-opening=true]{cursor:progress;animation:ib-opening-pulse 1.1s ease-in-out infinite}@keyframes ib-opening-pulse{0%,100%{opacity:.45}50%{opacity:1}}",
     ".ib-preview-backdrop{position:fixed;inset:0;z-index:1004;background:var(--ib-panel);backdrop-filter:blur(2px)}.ib-preview-drawer{position:fixed;z-index:1005;top:0;right:0;bottom:0;width:min(760px,68vw);display:flex;flex-direction:column;background:var(--ib-panel);color:var(--ib-text);border-left:1px solid var(--ib-line);box-shadow:-28px 0 70px var(--ib-line)}.ib-preview-head{flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--ib-panel);border-bottom:1px solid var(--ib-line)}.ib-preview-title{min-width:0;flex:1}.ib-preview-title b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.ib-preview-title small{display:block;margin-top:3px;color:var(--ib-text);font-size:9.5px}.ib-preview-state{border-radius:999px;padding:4px 8px;background:var(--ib-panel);color:var(--ib-text);font-size:9px}.ib-preview-frame{min-height:0;flex:1;width:100%;border:0;background:var(--ib-panel)}.ib-preview-foot{flex:none;display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--ib-panel);border-top:1px solid var(--ib-line)}.ib-preview-foot-note{min-width:0;flex:1;color:var(--ib-text);font-size:9.5px;line-height:1.45}.ib-preview-btn{border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text);border-radius:9px;padding:8px 12px;cursor:pointer;font-size:10px;white-space:nowrap}.ib-preview-btn[data-primary]{border-color:var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}.ib-preview-btn[data-danger]{border-color:var(--ib-line);color:var(--ib-text)}.ib-preview-btn:disabled{opacity:.45;cursor:not-allowed}.ib-preview-review{flex:none;max-height:190px;overflow:auto;padding:12px 14px;background:var(--ib-panel);border-top:1px solid var(--ib-line)}.ib-preview-review .ib-review-detail{margin:0;background:var(--ib-panel);color:var(--ib-text)}.ib-preview-review .ib-review-detail-head b{color:var(--ib-text)}.ib-approval-shade{position:absolute;inset:0;z-index:2;display:grid;place-items:center;padding:24px;background:var(--ib-panel);backdrop-filter:blur(3px)}.ib-approval-card{width:min(560px,100%);max-height:min(650px,86vh);overflow:auto;box-sizing:border-box;border:1px solid var(--ib-line);border-radius:17px;background:var(--ib-panel);padding:22px;box-shadow:0 22px 70px var(--ib-line)}.ib-approval-card h3{margin:0 0 7px;font-size:17px}.ib-approval-card>p{margin:0 0 14px;color:var(--ib-text);font-size:10.5px;line-height:1.65}.ib-approval-card .ib-review-detail{margin:0;background:var(--ib-panel);color:var(--ib-text)}.ib-approval-card .ib-review-detail-head b{color:var(--ib-text)}.ib-approval-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.ib-approval-ok{display:grid;place-items:center;text-align:center;padding:18px 8px}.ib-approval-ok strong{font-size:16px}.ib-approval-ok span{margin-top:6px;color:var(--ib-text);font-size:10px}",
     "@media(max-width:880px){.ib-lit{grid-template-columns:1fr}.ib-preview-drawer{width:100vw}}",
@@ -566,6 +566,7 @@ var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 var openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 var openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3);
+var showWebVpnViaShell = () => webVpnShellRequest("WEBVPN_SHOW");
 var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 var clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15e3);
 var openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
@@ -3150,6 +3151,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [reviewVisible, setReviewVisible] = (0, import_react8.useState)(false);
   const [approval, setApproval] = (0, import_react8.useState)(null);
   const [captureHint, setCaptureHint] = (0, import_react8.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react8.useState)(false);
   const [browserMode, setBrowserMode] = (0, import_react8.useState)("managed-edge");
   const [opening, setOpening] = (0, import_react8.useState)({});
   (0, import_react8.useEffect)(() => {
@@ -3226,6 +3228,29 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, captureHint?.route]);
+  const cancelCapture = async (event) => {
+    event?.stopPropagation?.();
+    const taskId = captureHint?.taskId;
+    if (!taskId || captureStopping) return;
+    const pendingHint = captureHint;
+    setCaptureStopping(true);
+    setCaptureHint(null);
+    try {
+      const [shellResult, taskResult] = await Promise.allSettled([
+        cancelWebVpnCaptureViaShell(taskId),
+        call("manual_capture_cancel", { request: { taskId, reason: "用户手动终止文献下载" } })
+      ]);
+      if (shellResult.status === "rejected" && taskResult.status === "rejected") {
+        setCaptureHint(pendingHint);
+        throw shellResult.reason || taskResult.reason;
+      }
+      notify("已终止下载并关闭文献浏览器；可重新点击正文或 SI 进入");
+    } catch (reason) {
+      notify(reason?.message || "终止下载失败，请重试");
+    } finally {
+      setCaptureStopping(false);
+    }
+  };
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
     const { publisher, directSpringerSi, publisherUrl } = captureRouteForBundle(bundle, kind);
@@ -3237,8 +3262,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       void (async () => {
         const iwan = await iwanStatusViaShell().catch(() => null);
         const active = await webVpnStatusViaShell().catch(() => null);
+        if (captureHint?.bundleId === bundle.id && captureHint?.kind === kind && active?.windowOpen) {
+          await showWebVpnViaShell();
+          notify(`已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面`);
+          return;
+        }
         if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
-          notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理，请等待当前下载归档后再启动下一项`);
+          notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
           return;
         }
         const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
@@ -3675,7 +3705,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             captureActive ? h(
               "div",
               { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
-              h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+              h(
+                "div",
+                { className: "ib-capture-head" },
+                h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+                !captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
+              ),
               captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : void 0, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : void 0, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
             ) : opening[openKey("pdf")] || opening[openKey("si")] ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
             report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null

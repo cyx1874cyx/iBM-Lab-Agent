@@ -127,8 +127,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	]);
 	assert.match(client, /WEBVPN_STATUS/);
 	assert.match(client, /WEBVPN_OPEN_CAPTURE/);
+	assert.match(client, /WEBVPN_SHOW/);
 	assert.match(client, /WEBVPN_CLEAR_SESSION/);
 	assert.match(shell, /invoke\('webvpn_open_capture'/);
+	assert.match(shell, /invoke\('webvpn_show'/);
 	assert.match(shell, /invoke\('webvpn_clear_session'/);
 	assert.match(main, /fn webvpn_open_capture\(/);
 	assert.match(main, /fn webvpn_cancel_capture\(/);
@@ -159,8 +161,17 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获附件/);
 	assert.match(webvpn, /fs::remove_file\(&upload\.path\)/, "归档成功后必须删除唯一临时文件");
 	assert.match(webvpn, /DownloadDecision::PassThrough => allow = false/, "侧栏不得把非捕获下载写进系统下载目录");
-	assert.match(webvpn, /关闭文献侧栏/);
+	assert.match(webvpn, /class="tabs"/);
+	assert.match(webvpn, /新建标签页/);
+	assert.match(webvpn, /sessionStorage\.setItem\(stateKey/);
+	assert.doesNotMatch(webvpn, /window\.name/, "标签状态不得通过跨域可读的 window.name 泄漏浏览历史");
+	assert.match(webvpn, /aria-label="网址"/);
+	assert.match(webvpn, /data-action="back"/);
+	assert.match(webvpn, /data-action="forward"/);
+	assert.match(webvpn, /data-action="reload"/);
+	assert.match(webvpn, /关闭浏览器/);
 	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
+	assert.match(webvpn, /width \/ 3\.0/, "文献浏览器应占主窗口宽度的三分之一");
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
@@ -175,6 +186,9 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /task\.size/);
 	assert.match(projectPanel, /directSpringerSi/);
 	assert.match(projectPanel, /manual_capture_cancel/);
+	assert.match(projectPanel, /终止下载/);
+	assert.match(projectPanel, /showWebVpnViaShell/);
+	assert.match(main, /webvpn_cancel_capture[\s\S]*?webview\.close\(\)/, "终止捕获必须关闭 WebView2 以停止实际网络下载");
 	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
 	assert.match(projectPanel, /"wiley"\]\.includes\(publisher\)/);
 	assert.match(projectPanel, /已适配出版社固定在软件内/);
@@ -213,6 +227,8 @@ test("建窗与操作窗口的 WebVPN 命令必须是 async", async () => {
 		"webvpn_probe_open",
 		"webvpn_open_login",
 		"webvpn_open_capture",
+		"webvpn_cancel_capture",
+		"webvpn_show",
 		"webvpn_hide",
 		"webvpn_clear_session",
 	]) {

@@ -487,6 +487,11 @@
         invoke('webvpn_cancel_capture', { taskId: String(data.payload?.taskId || '') })
           .then(() => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }))
           .catch((error) => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_SHOW') {
+        invoke('webvpn_show')
+          .then(() => invoke('webvpn_status'))
+          .then((result) => reply('WEBVPN_SHOW_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_SHOW_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_CLEAR_SESSION') {
         invoke('webvpn_clear_session')
           .then(() => invoke('webvpn_status'))

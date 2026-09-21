@@ -55,11 +55,9 @@ const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 
-/// WebVPN 窗口作为主窗口右侧「侧边面板」时的固定宽度（逻辑像素）。
-const SIDE_PANEL_WIDTH: f64 = 720.0;
-
-/// 注入到 WebVPN 子 WebView 的轻量浏览器壳。按钮位于侧栏自身右上角，页面
-/// 每次导航后都会重新注入；点击后走受控自定义导航，由 Rust 隐藏侧栏。
+/// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
+/// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
+/// 关闭。页面每次导航后都会重新注入。
 const WEBVPN_CHROME_SCRIPT: &str = r#"
 (() => {
   const reportAuthenticatedPortal = () => {
@@ -83,15 +81,126 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     if (document.getElementById('__ibm_webvpn_chrome')) return;
     const host = document.createElement('div');
     host.id = '__ibm_webvpn_chrome';
-    host.style.cssText = 'all:initial;position:fixed;top:8px;right:10px;z-index:2147483647;width:34px;height:30px;';
+    host.style.cssText = 'all:initial;position:fixed;inset:0 0 auto 0;z-index:2147483647;height:76px;';
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
-      button{all:initial;box-sizing:border-box;width:34px;height:30px;border:1px solid rgba(15,23,42,.22);border-radius:7px;background:rgba(255,255,255,.94);color:#334155;font:22px/27px "Segoe UI",sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.18);user-select:none}
-      button:hover{background:#e81123;color:#fff;border-color:#e81123}
-      button:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
-    </style><button type="button" title="关闭文献侧栏" aria-label="关闭文献侧栏">×</button>`;
-    root.querySelector('button').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
+      *{box-sizing:border-box}
+      .shell{height:76px;background:#f8fafc;color:#0f172a;border-bottom:1px solid #cbd5e1;box-shadow:0 2px 10px rgba(15,23,42,.18);font:13px/1.2 "Segoe UI","Microsoft YaHei",sans-serif}
+      .tabs{height:30px;display:flex;align-items:end;padding:4px 7px 0;background:#e2e8f0;gap:5px}
+      .tabs-list{display:flex;align-items:end;gap:4px;min-width:0;overflow:hidden}
+      .tab{height:26px;min-width:82px;max-width:190px;display:flex;align-items:center;gap:5px;padding:0 6px 0 9px;border-radius:7px 7px 0 0;background:#d7dee8;border:1px solid #cbd5e1;font-weight:600;cursor:pointer}
+      .tab[data-active="true"]{background:#fff;border-bottom-color:#fff}
+      .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+      .tab-close,.window-close{border:0;background:transparent;color:#475569;cursor:pointer;border-radius:5px}
+      .tab-close:hover,.window-close:hover{background:#e81123;color:#fff}
+      .bar{height:46px;display:flex;align-items:center;gap:6px;padding:7px;background:#fff}
+      button{all:initial;box-sizing:border-box;width:31px;height:31px;border-radius:7px;color:#334155;font:600 17px/31px "Segoe UI",sans-serif;text-align:center;cursor:pointer;user-select:none}
+      button:hover{background:#e2e8f0}
+      button:focus-visible,input:focus-visible{outline:2px solid #2563eb;outline-offset:1px}
+      form{display:flex;flex:1;min-width:0}
+      input{all:initial;box-sizing:border-box;width:100%;height:32px;padding:0 12px;border:1px solid #cbd5e1;border-radius:16px;background:#f1f5f9;color:#0f172a;font:12px/32px "Segoe UI","Microsoft YaHei",sans-serif}
+      input:focus{background:#fff;border-color:#60a5fa}
+      .new-tab,.tab-close,.window-close{width:26px;height:25px;font:17px/25px "Segoe UI",sans-serif;text-align:center;flex:0 0 auto}
+      .window-close{margin-left:auto}
+    </style>
+    <div class="shell">
+      <div class="tabs"><div class="tabs-list"></div><button class="new-tab" type="button" title="新建标签页" aria-label="新建标签页">＋</button><button class="window-close" type="button" title="关闭浏览器" aria-label="关闭浏览器">×</button></div>
+      <div class="bar">
+        <button data-action="back" type="button" title="后退" aria-label="后退">←</button>
+        <button data-action="forward" type="button" title="前进" aria-label="前进">→</button>
+        <button data-action="reload" type="button" title="刷新" aria-label="刷新">↻</button>
+        <form><input type="text" spellcheck="false" aria-label="网址" /></form>
+      </div>
+    </div>`;
+    const input = root.querySelector('input');
+    const tabsList = root.querySelector('.tabs-list');
+    const stateKey = '__ibm_lab_browser_tabs__';
+    const freshTab = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url: location.href, title: document.title || location.hostname || '文献浏览器' });
+    let tabState;
+    try {
+      tabState = JSON.parse(sessionStorage.getItem(stateKey) || 'null');
+    } catch { tabState = null; }
+    if (!tabState?.tabs?.length) {
+      const tab = freshTab();
+      tabState = { active: tab.id, tabs: [tab] };
+    }
+    const activeTab = () => tabState.tabs.find((tab) => tab.id === tabState.active) || tabState.tabs[0];
+    const persistTabs = () => { try { sessionStorage.setItem(stateKey, JSON.stringify(tabState)); } catch {} };
+    const openTab = (tab) => {
+      tabState.active = tab.id;
+      persistTabs();
+      if (tab.url) location.assign(tab.url);
+      else { renderTabs(); input.value = ''; input.focus(); }
+    };
+    const closeTab = (tab, event) => {
+      event.stopPropagation();
+      if (tabState.tabs.length === 1) { location.href = 'ibm-webvpn://close/'; return; }
+      const wasActive = tab.id === tabState.active;
+      tabState.tabs = tabState.tabs.filter((item) => item.id !== tab.id);
+      if (wasActive) tabState.active = tabState.tabs.at(-1).id;
+      persistTabs();
+      if (wasActive) openTab(activeTab());
+      else renderTabs();
+    };
+    function renderTabs() {
+      tabsList.replaceChildren(...tabState.tabs.map((tab) => {
+        const element = document.createElement('div');
+        element.className = 'tab';
+        element.dataset.active = tab.id === tabState.active ? 'true' : 'false';
+        element.title = tab.url || '新标签页';
+        const label = document.createElement('span');
+        label.className = 'tab-title';
+        label.textContent = tab.title || '新标签页';
+        const close = document.createElement('button');
+        close.className = 'tab-close';
+        close.type = 'button';
+        close.title = '关闭标签页';
+        close.setAttribute('aria-label', '关闭标签页');
+        close.textContent = '×';
+        close.addEventListener('click', (event) => closeTab(tab, event));
+        element.append(label, close);
+        element.addEventListener('click', () => { if (tab.id !== tabState.active) openTab(tab); });
+        return element;
+      }));
+    }
+    const sync = () => {
+      const tab = activeTab();
+      if (!tab.url) { input.value = ''; renderTabs(); return; }
+      tab.url = location.href;
+      tab.title = document.title || location.hostname || '文献浏览器';
+      input.value = location.href;
+      host.title = location.href;
+      persistTabs();
+      renderTabs();
+    };
+    root.querySelector('[data-action="back"]').addEventListener('click', () => history.back());
+    root.querySelector('[data-action="forward"]').addEventListener('click', () => history.forward());
+    root.querySelector('[data-action="reload"]').addEventListener('click', () => location.reload());
+    root.querySelector('.window-close').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
+    root.querySelector('.new-tab').addEventListener('click', () => {
+      const tab = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url: '', title: '新标签页' };
+      tabState.tabs.push(tab);
+      tabState.active = tab.id;
+      persistTabs();
+      renderTabs();
+      input.value = '';
+      input.focus();
+    });
+    root.querySelector('form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      let target = input.value.trim();
+      if (!target) return;
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(target)) target = `https://${target}`;
+      const tab = activeTab();
+      tab.url = target;
+      tab.title = target;
+      persistTabs();
+      location.assign(target);
+    });
     (document.documentElement || document.body).appendChild(host);
+    sync();
+    const titleNode = document.querySelector('title');
+    if (titleNode) new MutationObserver(sync).observe(titleNode, { childList: true, subtree: true });
     reportAuthenticatedPortal();
     const observer = new MutationObserver(reportAuthenticatedPortal);
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
@@ -1565,15 +1674,15 @@ fn destroy_orphan_webview(app: &AppHandle) {
     }
 }
 
-/// 为主 WebView 与右侧 WebVPN 子 WebView 计算同窗布局。
-/// 小窗口下压缩侧栏，始终给主界面保留至少 640 逻辑像素。
+/// 为主 WebView 与右侧文献浏览器计算同窗布局。正常窗口中浏览器固定占可用宽度
+/// 的三分之一；窄窗口下保证浏览器可操作，并尽量给主界面留下阅读空间。
 fn sidebar_layout(width: f64, height: f64) -> ((f64, f64), (f64, f64, f64, f64)) {
     const MIN_MAIN_WIDTH: f64 = 480.0;
-    const MIN_SIDEBAR_WIDTH: f64 = 420.0;
+    const MIN_BROWSER_WIDTH: f64 = 360.0;
     let available = (width - MIN_MAIN_WIDTH).max(0.0);
-    let sidebar_width = SIDE_PANEL_WIDTH
-        .min(available)
-        .max(MIN_SIDEBAR_WIDTH.min(width));
+    let sidebar_width = (width / 3.0)
+        .max(MIN_BROWSER_WIDTH.min(width))
+        .min(available.max(MIN_BROWSER_WIDTH.min(width)));
     let main_width = (width - sidebar_width).max(0.0);
     (
         (main_width, height),
@@ -2519,19 +2628,19 @@ mod tests {
     }
 
     #[test]
-    fn sidebar_layout_shares_one_window_and_preserves_main_width() {
+    fn sidebar_layout_uses_one_third_for_the_browser() {
         let ((main_width, main_height), (x, y, sidebar_width, sidebar_height)) =
             sidebar_layout(1_200.0, 720.0);
-        assert_eq!((main_width, main_height), (480.0, 720.0));
+        assert_eq!((main_width, main_height), (800.0, 720.0));
         assert_eq!(
             (x, y, sidebar_width, sidebar_height),
-            (480.0, 0.0, 720.0, 720.0)
+            (800.0, 0.0, 400.0, 720.0)
         );
 
-        // 最小窗口宽 960 时，侧栏收缩到 480，主界面仍保留 480。
+        // 窄窗口中仍给浏览器保留可操作的 360px。
         let ((main_width, _), (_, _, sidebar_width, _)) = sidebar_layout(960.0, 640.0);
-        assert_eq!(main_width, 480.0);
-        assert_eq!(sidebar_width, 480.0);
+        assert_eq!(main_width, 600.0);
+        assert_eq!(sidebar_width, 360.0);
     }
 
     #[test]

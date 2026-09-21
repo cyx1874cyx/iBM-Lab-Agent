@@ -170,6 +170,11 @@
           编号单独写 figure；excerpt 必须是同一正文或 SI 文件中的连续逐字原文，
           不得加入中文说明、省略号或跨文件拼接。sourceType/sourceKind 必须与实际
           打开的正文或 SI 一致；页码或逐字摘录不能确认时不要伪造定位。
+      12. 禁止委派（写死）：当前科研 Agent 必须亲自、顺序完成全部任务，禁止创建、
+          fork、调用、控制或等待任何子智能体，也禁止使用 workflow 把工作转交给
+          其他 Agent。即使用户要求并行、长任务或 PPT/精读任务，也只能使用当前
+          会话的普通工具、后台作业和 skills 完成；不得声称已委派。科研预设不会
+          挂载 subagent / subagent_fork / workflow 工具，任何同名能力都视为不可用。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
@@ -278,41 +283,6 @@
         thresholdChars: 8192
         headChars: 4096
         tailChars: 1024
-
-# ── delegation（精读/PPT 的长流程子任务）────────────────────────────────────
-- id: delegation
-  name: cordis:group
-  group: true
-  isolate:
-    workflowEngine: true
-  config:
-    - id: tool-subagent-control
-      name: '@deepseek-ai/dsh-tool-subagent-control'
-
-    - id: tool-subagent-list-agents
-      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
-
-    - id: tool-subagent
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: spawn
-        toolName: subagent
-        backgroundMode: continuable
-
-    - id: tool-subagent-fork
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: fork
-        toolName: subagent_fork
-        backgroundMode: continuable
-
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
-      config:
-        provider: spawn
-
-    - id: tool-workflow
-      name: '@deepseek-ai/dsh-tool-workflow'
 
 # ── remaining model-facing rows ─────────────────────────────────────────────
 - id: tool-ask-user
