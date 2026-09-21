@@ -128,7 +128,13 @@ export async function bootLite(options) {
 	}
 	const configPath = join(dir, "cordis.yml");
 	// Resolve this checkout explicitly: shared dependency stores can otherwise load a sibling worktree.
- const localRows=rows.map(row=>row.name.startsWith("dsh-lab-agent/")?{...row,name:pathToFileURL(join(repoRoot,"lib",row.name.slice("dsh-lab-agent/".length)+".js")).href}:row);
+ const localRows=rows.map(row=>{
+  if(!row.name.startsWith("dsh-lab-agent/")) return row;
+  const sub=row.name.slice("dsh-lab-agent/".length);
+  // `tasks` is a directory module: its entry point is lib/tasks/index.js.
+  const entry=sub==="tasks"?join(repoRoot,"lib","tasks","index.js"):join(repoRoot,"lib",sub+".js");
+  return {...row,name:pathToFileURL(entry).href};
+ });
  await writeFile(configPath, renderYaml(localRows), "utf8");
 	const ctx = await boot("dsh-lab-agent-test", configPath, [], undefined, pathToFileURL(join(repoRoot, "node_modules") + "/").href);
 	return {

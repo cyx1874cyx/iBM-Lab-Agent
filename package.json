@@ -32,7 +32,7 @@
       "default": "./lib/ppt-templates.js"
     },
     "./tasks": {
-      "default": "./lib/tasks.js"
+      "default": "./lib/tasks/index.js"
     },
     "./literature-sources": {
       "default": "./lib/literature-sources.js"

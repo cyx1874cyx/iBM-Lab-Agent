@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractWechatArticlePage, LabTasksService, normalizeWechatArticleUrl } from "../../lib/tasks.js";
+import { extractWechatArticlePage, LabTasksService, normalizeWechatArticleUrl } from "../../lib/tasks/index.js";
 
 test("WeChat URL validation accepts article links and removes share-only parameters", () => {
 	const normalized = normalizeWechatArticleUrl("https://mp.weixin.qq.com/s?__biz=abc&mid=123&idx=1&sn=xyz&scene=21&from=timeline#wechat_redirect");
