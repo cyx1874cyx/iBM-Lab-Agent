@@ -54,6 +54,12 @@ jobs:
       - name: Build Linux archive
         run: bash scripts/build-linux-release.sh HEAD
 
+      # 路线书 0.3/5.1 的 Linux 对应物：双向断言 —— 上限（归档体积超过基线 110%
+      # 只告警，不阻断）与下限（必需路径、19 个 nature skill、锁文件登记一致）。
+      # 用 --report-only：闸门已由上面的 Test 步骤跑过，这里不重复。
+      - name: Release preflight (required paths + size gate)
+        run: node scripts/linux-release-preflight.mjs --report-only
+
       - uses: actions/upload-artifact@v4
         with:
           name: ibm-lab-agent-linux
