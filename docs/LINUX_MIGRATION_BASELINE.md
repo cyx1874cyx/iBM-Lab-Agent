@@ -221,3 +221,48 @@ uv pip install --python "$V" -r python/requirements.lock && du -sm "$SP"
 uv pip install --python "$V" -r python/requirements-linux.lock && du -sm "$SP"
 find "$SP" -type d -name tests -prune -exec du -sm {} + | sort -rn | head
 ```
+
+## 10. 踩坑记录：composition 里的 `!!js` 不能写三元运算符
+
+写 `cordis.patch.yml`（以及任何 cordis 组合）的 `!!js` 表达式时，**只能写不含
+`?` 与 `: ` 的简单表达式**。
+
+YAML 的 `? ` 是**复杂映射键指示符**，因此
+
+```yaml
+browserMode: !!js process.env['X'] ? 'a' : 'b'      # ❌
+```
+
+不会解析成标量，而是解析成映射对象：
+
+```
+{ '[object Object]': 'b' }
+```
+
+加载器随后把 `!!js …` 包装成惰性占位符 `{ __jsExpr: "<表达式原文>" }`；
+被误解析的这一行连 `__jsExpr` 都没有，于是**静默传错值**，不报任何错。
+
+生产里已被验证的写法是简单表达式，可安全裸写：
+
+```yaml
+command: !!js process.env['IBM_LAB_AGENT_BUNDLED_PYTHON']      # ✅
+sessionsDir: !!js dshHomePath('lab-agent/literature-sessions')  # ✅
+```
+
+**为什么会漏掉**：基于「读文件 + 正则匹配原文 + 自行 eval」的断言**看不到这个错**——
+它绕过了 YAML 解析，拿到的是自己 eval 出来的正确值，属于假阳性。必须用真实加载器
+断言解析后的结构：
+
+```js
+import { composeEntries, loadOverlayPatches } from "@deepseek-ai/dsh-app-boot";
+const rows = composeEntries([loadOverlayPatches("test", patchPath)]);
+// 再断言 config 的值要么是 string，要么是 { __jsExpr: string }
+```
+
+`tests/unit/capabilities.test.mjs` 的「防 YAML 误解析」用例就是这么写的，并且用变异
+测试证明：注入裸三元 → 该用例失败并打印出 `{"[object Object]":"web-current"}`。
+
+**结论性做法**：能放进 JS 的判断就不要放进 YAML。`browserMode` 最终没有写成
+`!!js` 表达式，而是由 `lib/capabilities.js::defaultBrowserMode()` 在运行期决定，
+YAML 里保持「不配置」，从而只有一个真源、也没有 YAML 转义陷阱。
+

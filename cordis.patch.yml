@@ -140,12 +140,26 @@
         sessionsDir: !!js dshHomePath('lab-agent/literature-sessions')
         downloadsDir: !!js dshHomePath('lab-agent/literature-downloads')
         institutionPortalUrl: 'https://lib.ustc.edu.cn/'
-        # 浏览器模式（browserMode，替代旧的 clientManagedBrowser 布尔）：
-        #   web-current          # 传统 DSH Web 运行在真实浏览器，复用当前标签页（默认，兼容旧行为）
-        #   managed-edge         # 应用启动独立 Edge profile + CDP，可自动定位页面
-        #   desktop-edge-handoff # Windows Desktop 默认；外部 Edge 承担登录/下载，
-        #                        # PDF/SI 经 capture handoff + 扩展 + Native Messaging 回传
-        browserMode: 'desktop-edge-handoff'
+        # 浏览器模式（browserMode）**刻意不在此处配置**，由运行期能力探测决定，
+        # 单一真源是 lib/capabilities.js 的 defaultBrowserMode()：
+        #   桌面封装环境 → desktop-edge-handoff
+        #       （外部 Edge 承担登录/下载，PDF/SI 经 capture handoff + 扩展 +
+        #        Native Messaging 回传；该链只在桌面端存在）
+        #   其它形态    → web-current
+        #       （Linux 服务端/纯 Web 没有那条回传链；若落到 managed-edge 会去
+        #        启动一个不存在的 Edge）
+        # 判据是 IBM_LAB_AGENT_BUNDLED_PYTHON：Tauri 启动 DSH 子进程时设置
+        # （desktop/src-tauri/src/runtime/process.rs:208），也是本仓库既有的桌面环境
+        # 判据（dsh.rs 生成 MCP patch 同用）。不能用 IBM_LAB_AGENT_WORKSPACE，
+        # bin/ibm-lab-agent:23 会把它默认成 $HOME，Linux 形态也为真。
+        #
+        # 为什么不在 YAML 里写 !!js 三元表达式：YAML 的 "? " 是复杂映射键指示符，
+        # `!!js cond ? 'a' : 'b'` 会被解析成映射对象 { '[object Object]': 'b' } 而
+        # 不是标量，静默传错值（本项目实测踩过）。简单表达式（无 ? :）才可裸写，
+        # 如上面的 dshHomePath(...) 与 dsh.rs 的 process.env[...]。
+        # 需要三种模式时可显式配置 browserMode；显式值仍优先（见 resolveBrowserMode）。
+        # clientManagedBrowser（旧布尔）同理保持未配置，避免旧分支遮蔽探测。
+        # 该行为由 tests/unit/capabilities.test.mjs 用**真实加载器解析**后断言。
 
     # ── Office 产物二进制下载 ─────────────────────────────────────────────
     # DOCX/PPTX 走同源 HTTP 二进制流并附带长度/SHA-256，避免大型 base64 经
