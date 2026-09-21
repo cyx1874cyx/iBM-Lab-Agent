@@ -2,8 +2,8 @@
 # base nature-skills requirements.lock. Top-level versions are pinned; pip's
 # installation report is retained under $DSH_HOME/lab-agent for auditing.
 #
-# markitdown extras 必须与 desktop/scripts/build-bundled-python.ps1 的
-# `markitdown[pdf,docx,pptx,xls,xlsx]` 保持一致，不得用 `[all]`：
+# markitdown 的格式依赖必须与 desktop/scripts/build-bundled-python.ps1 的
+# `markitdown[pdf,docx,pptx,xls,xlsx]` 对齐，不得用 `[all]`：
 #   * `[all]` 额外拉入 azure-ai-contentunderstanding / azure-ai-documentintelligence /
 #     azure-identity / msal / pydub / speechrecognition / youtube-transcript-api /
 #     olefile —— 全部是音频转写、YouTube 与 Azure 云端转换能力，而本产品只做
@@ -14,7 +14,32 @@
 #     与「Top-level versions are pinned」的定位冲突。
 # 实测（Linux/cp312, uv）：site-packages 705 MB → 642 MB（−63 MB），
 # 且对 .pdf/.docx/.pptx/.xlsx/.xls/.html/.epub 七种格式的转换输出长度逐一相同。
-markitdown[pdf,docx,pptx,xls,xlsx]==0.1.7
+#
+# ⚠ markitdown 本体**刻意不写在本文件里**：0.1.7 把 magika 列为**无条件**依赖
+# （`_markitdown.py:15 import magika`，`__init__` 里无条件 `magika.Magika()`），
+# 而 magika 要求 onnxruntime（实测 60.9 MB）。只要写进来，`pip install -r` 就会把
+# 整条链拉下来 —— 这也是路线书设想的「`--no-deps` 手工摘」按字面做不到的原因：
+# 摘掉 magika 会让 `import markitdown` 直接失败。
+#
+# 因此 install.sh 分三步（scripts/install-markitdown.mjs 的手工/修复路径同理）：
+#   1) pip install -r 本文件              —— 下面这些依赖，全部精确 pin
+#   2) pip install --no-deps markitdown==0.1.7
+#   3) node scripts/patch-markitdown.mjs patch --target <venv>/.../_markitdown.py
+#      把 magika 变为可选（src/markitdown-patch.js，锚点 + sha256 校验 + 可回滚）
+#
+# 为什么等价：magika 在 markitdown 里只用于在扩展名/mimetype 之外**细化**流类型
+# 猜测，且不 ok 时就回退到扩展名猜测；本插件按扩展名显式判定，不依赖内容嗅探。
+# 实测：移除 onnxruntime / magika / flatbuffers / protobuf（−65 MB）后，
+# .pdf/.docx/.pptx/.xlsx/.xls/.html/.epub 七种格式输出与含 magika 时**逐字一致**。
+#
+# 校验命令（安装后 smoke test）：
+#   <venv>/bin/python -c "import markitdown; markitdown.MarkItDown()"
+beautifulsoup4==4.15.0
+cobble==0.1.4
+defusedxml==0.7.1
+mammoth==1.11.0
+markdownify==1.2.3
+soupsieve==2.9.2
 PyMuPDF==1.28.2
 python-pptx==1.0.2
 rdkit==2026.3.5

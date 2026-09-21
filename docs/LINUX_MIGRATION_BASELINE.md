@@ -72,13 +72,17 @@ mpmath 2.1 M = 64 M」。**该外推在 Linux 上不成立**：
 |---|---|---|---|---|
 | L1 | `markitdown[all]` 独有链：`speechrecognition` 43 M + `youtube-transcript-api` 9 M + `azure` 6 M + `pydub` 1 M + 传递依赖 | **63 MB** | 仓库自有代码对这 4 个包**零引用**；`lib/convert.js` 的 `CONVERTIBLE_UPLOAD_EXTENSIONS` 白名单不含音频/YouTube 格式 | 🟢 已验证等价（见 §4） |
 | L2 | `site-packages/*/tests/`（65 个目录） | **44 MB**（实测，非估算） | 运行期不加载；Windows 线已在 `build-bundled-python.ps1:88-89` 做过同类清理，Linux 线**无对应步骤** | 🟢 已实施并验证（见 §5） |
-| L3 | `magika` + `onnxruntime` | **66 MB** | magika 仅用于猜文件格式，而扩展名白名单已显式判定 | 🟡 需 S2 拍板 |
+| L3 | `magika` + `onnxruntime` + `flatbuffers` + `protobuf` | ~~66 MB~~ → **0** | ✅ 已实施：markitdown 把 magika 列为**无条件**依赖，无法照路线书用 `--no-deps` 硬摘；改为打「magika 可选化」补丁（`src/markitdown-patch.js`）。实测 −65 MB，7 格式逐字一致 | 🟢 已验证（见 §13） |
 | L4 | `matplotlib` 25 M + `fontTools` 23 M | **48 MB** | `process_1d.py:295-300` 是 `except ImportError: plt = None`，**软依赖** | 🟡 需 S3 拍板 |
 | L5 | `pytest` + `iniconfig` + `pluggy` | **3 MB** | 项目自有 Python 测试用 **unittest**（`npm run test:bridge`），全仓库对 pytest 的唯一引用就是 `requirements.lock:72` 自身 | 🟢 低，但见 §6 的耦合 |
 | L6 | `pygments` 5 M、`rdkit-stubs` 4 M | **9 MB** | 运行期无引用（stubs 为类型存根） | 🟢 低 |
 
-**已回收：L1 63 MB + L2 44 MB = 107 MB**
-**待回收（不含需拍板的 L3/L4）：L5 3 MB + L6 9 MB = 12 MB**
+**已回收：L1 63 MB + L2 44 MB + L3 65 MB = 172 MB（venv）＋ S1 32.2 MiB（归档）**
+**待回收（不含已判定保留的 L4）：L5 3 MB + L6 9 MB = 12 MB**
+
+> L4（matplotlib 25 MB + fontTools 23 MB）经核实**判定保留**：`SKILL.md:32` 要求 preflight
+> 必须确认 `matplotlib` 存在，`process_1d.py:301-316` 会产出 `processing_quicklook.png`。
+> 按路线书自己的判据（「是否承诺出谱图？是 → 保留」）结论是保留。
 
 ## 4. L1 已实施并验证：`markitdown[all]` → 窄 extras
 
@@ -188,8 +192,8 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 | 1.2' Windows 侧同样扩展 | 路线书原文要求扩 `build-bundled-python.ps1:86-89`；本机无 pwsh/Windows，**不写不可验证的发布流水线改动** | ⬜ 留给 Windows 机器 |
 | 1.3 vendor 白名单 | `vendor.manifest.json` + `src/vendor-manifest.js` + `scripts/prune-vendor.mjs`。剔除 `figures4papers`(28.97 MB/70 文件) 与顶层 `assets`(4.75 MB/6 文件) = **32.2 MiB**；归档 −54.9%。记录写入 `vendor.lock.json.vendorManifest`，`pin-vendor.mjs` 每次升级后幂等重应用 | ✅ 完成（见 §8.3） |
 | 1.4 import 探测脚本 | `scripts/audit-imports.mjs`：静态扫描（正确正则）+ 运行期追踪 + 锁文件差集 | ✅ 完成（见 §11） |
-| 2.1 摘 magika 链 | **L3**（66 MB） | 🟡 停车点 S2 |
-| 2.2 matplotlib 策略 | **L4**（48 MB） | 🟡 停车点 S3 |
+| 2.1 摘 magika 链 | **L3**：markitdown 0.1.7 把 magika 列为**无条件**依赖（`_markitdown.py:15 import magika` + `__init__` 里无条件 `magika.Magika()`），故路线书的「`--no-deps` 手工摘」按字面**不可行**——摘掉后 `import markitdown` 直接失败（已实测）。改为打「magika 可选化」补丁（锚点 + sha256 + 可回滚） | ✅ 完成（见 §13） |
+| 2.2 matplotlib 策略 | **L4**（48 MB）→ **判定保留**：`SKILL.md:32` 要求 preflight 确认 matplotlib，`process_1d.py` 产出 quicklook 图；按路线书判据属「承诺出图」 | ✅ 已裁定（见 §3） |
 | 2.3 双 PDF 栈收敛 | 同样存在：`PyMuPDF`(60 M)+`pdfminer.six`(9 M)+`pdfplumber`+`pypdf`+`pypdfium2`；`vendor/` 中 `pdfplumber` 1 文件、`pypdf` 2 文件、`fitz` 1 文件，与 `agent.cordis.yml` 的禁令冲突 | 🔴 先调研 |
 | 3.x 结构拆分 | 3.1 `lib/tasks/*`、3.2 `capabilities`、3.3 `adapters/browser`、3.4 `applications/registry` 均已落地并通过闸门 | ✅ 完成 |
 | 5.x 发布与门禁 | `scripts/linux-release-preflight.mjs` + CI 在 `Build Linux archive` 后调用 `--report-only`；`build-linux-release.sh` 仍只负责出包 | ✅ 完成（见 §8.4） |
@@ -401,3 +405,83 @@ numpy, packaging, pillow, pyparsing, python-dateutil, scipy, six`（`pandas` 始
 
 结论：Phase 3.2 的验收（① browserMode 运行期探测 ② Linux 不再命中 Windows 分支 ③ 回归全过）
 均已满足；5 处假设中 4 处已闭环，剩余 1 处是停车点。
+
+## 13. S2 已实施：摘除 magika→onnxruntime 链（−65 MB）
+
+### 13.1 为什么不能照路线书原文做
+
+路线书 2.1 的方案 A 是「上游 markitdown + `--no-deps` 手工摘 magika」。实测**不可行**：
+
+```
+$ rm -rf site-packages/{magika,onnxruntime}
+$ python -c "import markitdown"
+ModuleNotFoundError: No module named 'magika'
+```
+
+原因：`markitdown/_markitdown.py:15` 是**顶层 `import magika`，无 try/except**，
+且 `__init__` 里无条件 `self._magika = magika.Magika()`。magika 不是 extra，是
+无条件依赖；它又要求 `onnxruntime`（实测 60.9 MB）。
+
+另外 `identify_stream` 的调用点只在 `try/finally` 里（**没有 except**），所以
+"塞一个会抛异常的 stub"也会炸——只有"返回非 ok 状态"才等于优雅降级。
+
+### 13.2 实际做法：把 magika 变成可选
+
+`src/markitdown-patch.js` + `scripts/patch-markitdown.mjs`（沿用
+`patch-dsh-runtime.mjs` 的范式：marker + 锚点 + sha256 校验 + 可回滚 + `.bak`）：
+
+| 钩子 | 补丁 |
+|---|---|
+| imports | `import magika` → `try: import magika / except ImportError: magika = None` |
+| constructor | `magika.Magika()` → `magika.Magika() if magika is not None else None` |
+| stream-info | `self._magika.identify_stream(...)` → `... if self._magika is not None else None`，条件加 `result is not None` |
+
+语义等价：magika 在 `_get_stream_info_guesses()` 里只用于在扩展名/mimetype 之外
+**细化**流类型猜测，非 ok 时本来就回退 `enhanced_guess`（扩展名猜测）。本插件按
+扩展名显式判定（`lib/convert.js` 的 `CONVERTIBLE_UPLOAD_EXTENSIONS`），不依赖内容嗅探。
+
+锚点不匹配（例如未来 markitdown 自己把 magika 变可选）时**拒绝修改**并明确报错，
+不会猜着改。
+
+### 13.3 装法（install.sh 第 5 步与 install-markitdown.mjs 一致）
+
+```bash
+pip install -r python/requirements-linux.lock      # 格式依赖，全部精确 pin
+pip install --no-deps 'markitdown==0.1.7'          # 本体：不加 --no-deps 就会拉 magika
+node scripts/patch-markitdown.mjs patch --target <venv>/.../markitdown/_markitdown.py
+```
+
+`markitdown` **刻意不写进锁文件**：只要写进去，`pip install -r` 就会解析出 magika。
+
+### 13.4 证据
+
+**负对照（证明装法是承重的，不是摆设）**：
+
+| 对照 | 命令 | 结果 |
+|---|---|---|
+| A | `pip install --dry-run 'markitdown==0.1.7'`（不加 `--no-deps`） | 解析出 `magika-0.6.3`、`onnxruntime-1.30.0` |
+| B | `pip install --dry-run -r python/requirements-linux.lock` | ✅ 不含 magika/onnxruntime |
+
+**全新环境实测**（`uv venv --python 3.12.11`，逐步执行上面的装法）：
+
+```
+基础锁           428 MB
++ 格式依赖       575 MB
++ markitdown     576 MB      → Linux extras 共 148 MB（原为 ~270 MB）
+打补丁           patched markitdown 0.1.7: magika 变为可选
+smoke test       import markitdown; MarkItDown()  OK
+```
+
+7 格式转换与含 magika 时**逐字一致**：`.docx OK:161 / .epub OK:158 / .html OK:56 /
+.pdf OK:343 / .pptx OK:97 / .xls OK:61 / .xlsx OK:68`。
+移除 `onnxruntime / magika / flatbuffers / protobuf`（−65 MB）；
+保留 `mammoth` 与 `cobble` —— `cobble` 是 **mammoth 的依赖**
+（`mammoth requires cobble<0.2,>=0.1.3`），误删会让 `.docx` 报
+`MissingDependencyException`（实验中被真实抓到过一次）。
+
+### 13.5 一个过程中踩到的错
+
+我第一版闭包脚本跳过了「带 extra 条件」的依赖，于是 `mammoth` 不在根集合里、
+`cobble` 被误判为 magika 独占的孤儿。删掉后 `.docx` 立刻失败。教训与路线书纪律 #2
+一致：**extra 依赖不等于可选依赖** —— 我们**需要** docx 这个 extra，它的依赖
+（mammoth → cobble）就必须留在保留集合里。

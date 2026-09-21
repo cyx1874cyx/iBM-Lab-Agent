@@ -236,9 +236,20 @@ cp -a "$tmp_root/source/." "$release_dir/"
 venv_python="$dsh_home/lab-agent/.venv/bin/python"
 [[ -x "$venv_python" ]] || { echo "科研 Python venv 未生成：$venv_python" >&2; exit 1; }
 if [[ $install_python_extras -eq 1 ]]; then
+	# 1) 格式依赖，全部精确 pin（markitdown 本体刻意不在锁内，见下方注释）
 	"$venv_python" -m pip install --disable-pip-version-check \
 		--report "$dsh_home/lab-agent/python-linux-install-report.json" \
 		-r "$release_dir/python/requirements-linux.lock"
+	# 2) markitdown 本体用 --no-deps 单独装：0.1.7 把 magika 列为**无条件**依赖，
+	#    而 magika 要求 onnxruntime（实测 60.9 MB）。整条链只用于「按内容猜文件
+	#    类型」，本插件却按扩展名显式判定（lib/convert.js 的白名单），故摘除。
+	"$venv_python" -m pip install --disable-pip-version-check --no-deps 'markitdown==0.1.7'
+	# 3) 让 magika 变成可选（幂等）：缺失时退回扩展名猜测，与 magika 报 unknown
+	#    的行为等价。补丁带锚点 + sha256 校验，不认识的文件会拒绝修改。
+	#    定位文件时**不能** import markitdown —— 补丁前它必然 ImportError（缺 magika）。
+	markitdown_source="$("$venv_python" -c 'import site, os; print(os.path.join(site.getsitepackages()[0], "markitdown", "_markitdown.py"))')"
+	[[ -f "$markitdown_source" ]] || { echo "未找到 markitdown 源文件：$markitdown_source" >&2; exit 1; }
+	node "$release_dir/scripts/patch-markitdown.mjs" patch --target "$markitdown_source"
 else
 	echo "已按要求跳过 Linux Python 扩展。"
 fi
@@ -257,6 +268,15 @@ fi
 	echo "剥离测试树后必需模块不可导入：$required_modules" >&2
 	exit 1
 }
+
+# 补丁后的 smoke test：**构造** MarkItDown 才会走到被改写的 magika 分支，
+# 只 import 是测不到的（__init__ 里那句 `magika.Magika() if magika is not None`）。
+if [[ $install_python_extras -eq 1 ]]; then
+	"$venv_python" -c "import markitdown; markitdown.MarkItDown()" || {
+		echo "markitdown 在 magika 可选化后无法构造（补丁未生效？）" >&2
+		exit 1
+	}
+fi
 
 echo "[6/8] 创建独立 iBM Lab profile 并加入插件"
 dsh_bin="$launcher_root/node_modules/.bin/dsh"
