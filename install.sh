@@ -298,7 +298,11 @@ fi
 
 echo "[6/8] 创建独立 iBM Lab profile 并加入插件"
 dsh_bin="$launcher_root/node_modules/.bin/dsh"
-node "$tmp_root/source/scripts/ensure-ibm-lab-profile.mjs" --dsh-home "$dsh_home"
+# 必须用 $release_dir（已 npm ci，有 node_modules），不能用 $tmp_root/source：
+# 后者是 tar 复制的源码快照、**不含 node_modules**，而
+# src/ibm-lab-profile.js 会 import @deepseek-ai/dsh-app-boot —— 在 source 里跑必然
+# ERR_MODULE_NOT_FOUND，使一行式安装固定卡在 [6/8]（完整安装 E2E 实测抓到的缺陷）。
+node "$release_dir/scripts/ensure-ibm-lab-profile.mjs" --dsh-home "$dsh_home"
 "$dsh_bin" plugin --profile ibm-lab add "$release_dir"
 if [[ $set_default_preset -eq 1 ]]; then
 	node "$release_dir/scripts/configure-default-preset.mjs" --dsh-home "$dsh_home"

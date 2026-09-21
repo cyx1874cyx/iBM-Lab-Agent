@@ -513,3 +513,56 @@ LibreOffice"和"装不上"混为一谈。
   探测函数内无 `throw`、install.sh 该分支无 `exit 1`、apt-packages.txt 不再声明硬依赖。
 - 隔离的完整安装 E2E：以普通用户（`install.sh` 拒绝 root）在无 soffice 的机器上跑
   `--skip-system-deps`，确认 `[2/8]` 不再中止并继续到后续阶段。
+
+## 15. 完整安装 E2E：抓到一个使一行式安装必然失败的缺陷
+
+### 15.1 怎么跑（可复现）
+
+`install.sh` 刻意拒绝 root（`EUID -ne 0`），所以隔离验证需要一个普通用户：
+
+```bash
+useradd -m -s /bin/bash e2etest
+tar -C <repo> --exclude=node_modules --exclude=.git --exclude=dist -cf - . \
+  | tar -C /tmp/ibm-src -xf - && chown -R e2etest /tmp/ibm-src
+rm -rf /tmp/e2e-data /tmp/e2e-dsh          # 必须由 root 清理：root 建的目录 e2etest 删不掉
+su - e2etest -c 'bash /tmp/ibm-src/install.sh --source-dir /tmp/ibm-src \
+  --skip-system-deps --no-dsh-patch --data-dir /tmp/e2e-data --dsh-home /tmp/e2e-dsh'
+```
+
+⚠️ 第一次尝试时我把 `rm -rf` 放在 `su` 内部，结果 e2etest 删不掉 root 遗留的
+`/tmp/e2e-dsh`，`install.mjs` 在 `rmdir` 上报 EACCES —— 那是**测试脚本的 bug**，
+不是产品问题。
+
+### 15.2 抓到的产品缺陷：`[6/8]` 从无 node_modules 的目录执行脚本
+
+```
+ERR_MODULE_NOT_FOUND: Cannot find package '@deepseek-ai/dsh-app-boot'
+  imported from /tmp/ibm-lab-agent-install.XXXX/source/src/ibm-lab-profile.js
+```
+
+`$tmp_root/source` 是 tar 复制的源码快照，按设计**排除 node_modules**；`npm ci` 只装在
+`$release_dir`。而 `[6/8]` 的 `ensure-ibm-lab-profile.mjs` 从 `$tmp_root/source` 执行，
+它经 `src/ibm-lab-profile.js` import `@deepseek-ai/dsh-app-boot` —— 必然失败。
+**即官方的一行式 Linux 安装此前固定卡在 6/8**（`--source-dir` 与下载 GitLab 归档两条路径
+都没有 node_modules）。修法：改从 `$release_dir` 执行。
+
+对照：`[4/8]` 的 `patch-dsh-runtime.mjs` 也在 source 里跑，但那时 `$release_dir` 尚未
+创建，且它只 import 本地模块 —— 是安全的，**不动**。守卫因此只管 `release_dir` 创建之后的
+部分（`tests/unit/install-sh-script-paths.test.mjs`）。
+
+### 15.3 全绿结果（隔离、无 soffice、普通用户）
+
+```
+[2/8] 警告：未找到 LibreOffice soffice —— 安装继续（不再中止）
+[5/8] 已剥离第三方测试树：718 MB → 628 MB
+[6/8] ibm-lab profile ready / default preset -> lab-research
+[8/8] 安装完成   iBM Lab Agent 0.5.2-rc.1 / DSH 0.1.5-rc.1
+退出码 = 0
+```
+
+产物核验：`current` 软链指向 release；venv 为 Python 3.12.11；
+**magika / onnxruntime / flatbuffers / protobuf 缺失**（S2）；mammoth / cobble 保留；
+`markitdown OK (magika optional)`；补丁 `present`；vendor 树 **11 MB** 且
+`figures4papers` 不存在（S1）；`doctor-linux.json` 已生成。
+
+耗时约 **2 分钟**（00:54:23 → 00:56:17）—— 补上 pip 镜像后从"一个多小时"降到分钟级。
