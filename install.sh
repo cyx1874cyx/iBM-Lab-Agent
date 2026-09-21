@@ -141,7 +141,10 @@ if [[ $install_system -eq 1 ]]; then
 	bash "$tmp_root/source/runtime/install-ubuntu.sh"
 else
 	echo "[2/8] 跳过系统包安装"
-	command -v soffice >/dev/null 2>&1 || { echo "缺少 LibreOffice soffice；安装阶段无法继续。" >&2; exit 1; }
+	if ! command -v soffice >/dev/null 2>&1; then
+		echo "警告：未找到 LibreOffice soffice —— 安装继续，但「文档预览」在此机器上不可用。" >&2
+		echo "      需要时安装：sudo apt-get install -y libreoffice-core libreoffice-writer libreoffice-impress" >&2
+	fi
 fi
 
 mkdir -p "$data_root/runtime" "$data_root/releases" "$data_root/bin"

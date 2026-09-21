@@ -22,8 +22,6 @@ import { cp, mkdir, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import {
 	resolveDshHome,
 	layoutSummary,
@@ -33,20 +31,40 @@ import {
 	venvDir
 } from "../src/paths.js";
 import { readVendorLock, writeVendorLock } from "../src/lockfile.js";
+import { resolveSofficeExecutable } from "../lib/office-preview.js";
 import { bootLite } from "../tests/helpers/boot-lite.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const execFileAsync = promisify(execFile);
 
-/** Office 真实分页预览是产品硬依赖；安装时缺失即失败，不启用近似预览。 */
-async function assertOfficePreviewRuntime() {
-	const renderer = process.env.LAB_OFFICE_RENDERER || "soffice";
-	try {
-		const { stdout } = await execFileAsync(renderer, ["--headless", "--version"], { timeout: 15000, windowsHide: true });
-		console.log(`Office preview renderer ready: ${(stdout || renderer).trim()}`);
-	} catch (error) {
-		throw new Error(`Office preview runtime is required but unavailable (${renderer}). Package the dependencies listed in runtime/apt-packages.txt before installing. ${error.message}`);
+/**
+ * Office 预览渲染器探测（路线书 4.3：**不再阻断安装**）。
+ *
+ * 为什么可以从"硬依赖"改成"警告"：运行期本来就不静默降级 ——
+ * lib/office-preview.js 的注释写明 "a missing renderer is an environment error"，
+ * lib/artifact-download.js 在缺渲染器时明确返回 503。所以安装期只需给出可操作
+ * 警告，剩下的如实报错由运行期负责；把它们都当成安装失败反而让「形态① 即插即用」
+ * 在没装 LibreOffice 的机器上完全无法安装。
+ *
+ * 这里**复用** lib/office-preview.js 的 resolveSofficeExecutable，而不是自己跑
+ * `soffice --headless --version`：后者的发现顺序没有覆盖典型安装路径，而且在
+ * Windows 上会误判（soffice.exe 是 GUI 启动器，stdout 被管道化时常常不输出版本，
+ * 必须用同目录的 soffice.com）。该解析器已有自己的单元测试。
+ */
+async function probeOfficePreviewRuntime() {
+	const resolved = await resolveSofficeExecutable({ explicit: process.env.LAB_OFFICE_RENDERER });
+	if (resolved.command) {
+		console.log(`Office preview renderer ready: ${resolved.version ?? resolved.detail} (${resolved.source})`);
+		return resolved;
 	}
+	console.warn(
+		[
+			"警告：未找到 Office 预览渲染器（LibreOffice / soffice）——安装继续，但「文档预览」在此机器上不可用。",
+			`  详情：${resolved.detail}`,
+			`  处理：${resolved.hint}`,
+			"  Ubuntu/Debian：sudo apt-get install -y libreoffice-core libreoffice-writer libreoffice-impress（见 runtime/apt-packages.txt）"
+		].join("\n")
+	);
+	return resolved;
 }
 
 function parseArgs(argv) {
@@ -155,7 +173,7 @@ async function bootstrapPython() {
 
 async function main() {
 	console.log(`dsh-lab-agent install -> DSH_HOME=${dsh}`);
-	await assertOfficePreviewRuntime();
+	await probeOfficePreviewRuntime();
 	const lock = await readVendorLock(join(repoRoot, "vendor.lock.json"));
 	await verifyRepoVendor(lock);
 

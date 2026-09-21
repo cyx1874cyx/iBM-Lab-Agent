@@ -1,5 +1,9 @@
 # Ubuntu/Debian runtime packages installed by install.sh.
-# Office preview is intentionally hard-required: no text-only fallback.
+#
+# LibreOffice 仍然默认安装：它是 Office 分页预览（DOCX/PPTX → PDF）唯一的渲染器。
+# 但它**不再阻断安装**（路线书 4.3）：缺失时安装给可操作警告并继续，运行期在预览
+# 请求上明确返回 503（lib/office-preview.js / lib/artifact-download.js），
+# 不静默降级、也不伪造预览。这样「形态① 即插即用」在没装 LibreOffice 的机器上也能装上。
 ca-certificates
 curl
 git

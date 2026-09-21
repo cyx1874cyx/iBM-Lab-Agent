@@ -401,7 +401,7 @@ numpy, packaging, pillow, pyparsing, python-dateutil, scipy, six`（`pandas` 始
 | ② | 硬编码 `browserMode: 'desktop-edge-handoff'` | `cordis.patch.yml` | ✅ 已处理：改为运行期探测（`lib/capabilities.js`），Linux 解析为 `web-current` |
 | ③ | 假设 `window.parent` 是 Tauri | `client/src/lib.js:241-304` | ✅ **原本已优雅**：4 秒超时后给出「请检查是否运行在 iBM Lab Agent 桌面版」，不静默挂起。仅文档化，无需改码 |
 | ④ | 假设捆绑 Python 存在 | `desktop/src-tauri/src/runtime/process.rs:205-214` | ✅ **原本已按隔离边界设计**：`src/python-env.js::pythonCandidates` 在设置 `IBM_LAB_AGENT_BUNDLED_PYTHON` 时 `allowSystemFallback !== true` 即**不回落**系统 Python。桌面专属，Linux 线走 venv，无需改码 |
-| ⑤ | 强依赖 `soffice` | `scripts/install.mjs:42-48`、`install.sh:123`、`runtime/apt-packages.txt` | 🟡 **停车点**：`apt-packages.txt` 明确写了「Office preview is intentionally hard-required: no text-only fallback」，改成降级属产品决策（路线书 4.3）。它也是本机无法端到端跑完 `install.sh` 的唯一原因 |
+| ⑤ | 强依赖 `soffice` | `scripts/install.mjs`、`install.sh`、`runtime/apt-packages.txt` | ✅ 已处理（路线书 4.3，见 §14）：安装期改为**警告不阻断**；仍默认安装 LibreOffice |
 
 结论：Phase 3.2 的验收（① browserMode 运行期探测 ② Linux 不再命中 Windows 分支 ③ 回归全过）
 均已满足；5 处假设中 4 处已闭环，剩余 1 处是停车点。
@@ -485,3 +485,31 @@ smoke test       import markitdown; MarkItDown()  OK
 `cobble` 被误判为 magika 独占的孤儿。删掉后 `.docx` 立刻失败。教训与路线书纪律 #2
 一致：**extra 依赖不等于可选依赖** —— 我们**需要** docx 这个 extra，它的依赖
 （mammoth → cobble）就必须留在保留集合里。
+
+## 14. 4.3 已实施：soffice 不再阻断安装
+
+**改动前**：`install.mjs` 缺 soffice 直接 throw；`install.sh --skip-system-deps` 直接
+`exit 1`；`apt-packages.txt` 注释写着 "Office preview is intentionally hard-required:
+no text-only fallback"。后果：**没装 LibreOffice 的机器完全无法安装**（「形态① 即插即用」
+在这类机器上直接不可用）。本机也因此一直无法端到端跑完 `install.sh`。
+
+**改动后**：安装期只给可操作警告并继续；LibreOffice 仍默认安装。
+
+为什么改成警告是安全的：运行期本来就不静默降级 —— `lib/office-preview.js` 的注释写明
+`a missing renderer is an environment error`，`lib/artifact-download.js` 在缺渲染器时
+明确返回 **503**。所以安装期不必替运行期做决定；把缺失当成安装失败，反而把"没装
+LibreOffice"和"装不上"混为一谈。
+
+**顺带修掉一个真实缺陷**：`install.mjs` 原先自己跑 `soffice --headless --version` 探测，
+在 Windows 上会**误判**——`soffice.exe` 是 GUI 启动器，stdout 被管道化时常常不输出版本，
+必须用同目录的 `soffice.com`。现在改为复用 `lib/office-preview.js::resolveSofficeExecutable`
+（已有自己的单元测试，且覆盖典型安装路径与 PATH 查找顺序）。
+
+验证：
+- `node scripts/install.mjs --skip-python --dsh-home /tmp/e2e-dsh`（本机无 soffice）
+  → 打印警告后**继续**，完成 vendor 同步 / preset 安装 / 19 个 skill 注册，退出码 **0**；
+  且同步出的 vendor 树为修剪后的 **11 MB**（`figures4papers` 未被同步回来，兼验 S1）。
+- 源码级守卫（`tests/unit/office-preview-install.test.mjs`）：install.mjs 复用解析器且
+  探测函数内无 `throw`、install.sh 该分支无 `exit 1`、apt-packages.txt 不再声明硬依赖。
+- 隔离的完整安装 E2E：以普通用户（`install.sh` 拒绝 root）在无 soffice 的机器上跑
+  `--skip-system-deps`，确认 `[2/8]` 不再中止并继续到后续阶段。
