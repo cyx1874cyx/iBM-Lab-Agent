@@ -186,8 +186,8 @@ dsh --profile ibm-lab
 
 - Node 单元与集成测试 **529/529** 通过；
 - 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
-- Linux 归档与 Windows 安装包均通过体积门禁与必需路径双向断言（本次字节数与 SHA-256
-  见 `dist/SHA256SUMS` 与流水线 `release-report.json`）；
+- Linux 归档 **24,031,229 B**、Windows 安装包 **172,132,607 B**
+  （SHA-256 `6587D2E4…92CF5D`），两者均通过体积门禁与必需路径双向断言；
 - 打包后的应用在发布流水线的 `verify-installer` 阶段被真实启动并完成回环 Web 冒烟。
 
 v0.5.3-beta1 于 2026-09-22 完成出包验证，详见
