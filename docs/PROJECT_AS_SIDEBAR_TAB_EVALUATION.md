@@ -98,3 +98,37 @@ ctx.sidebarRight.openResource(`dsh-resource://lab-project/${projectId}`);
    「一个课题一个 tab、切课题不串台」；确认交互合适后，再投入紧凑视图的改造。
 3. 如果评审后认为「一个课题 tab + 内部切换」也能接受，路线 A 的成本低一个数量级，且不需要
    动 `Panel` 的布局。
+
+---
+
+## 五、已实施：路线 B 的步骤 1（2026-09-22）
+
+按上面第 2 条落地了「通路」部分，紧凑视图暂用只读摘要占位。
+
+**新增**
+
+- `client/src/project-address.js` —— 寻址规则，**无 React 依赖**（`projectAddress` /
+  `projectIdOf` / `PROJECT_PATTERNS`）。拆出来是为了让「每课题一标签」这条不变量能被
+  Node 直接单测，而不是只存在于注释里。
+- `client/src/project-tab.js` —— tab 类型（`patterns: ["dsh-resource://lab-project/**"]`）、
+  正文（课题摘要 + 「打开完整面板」）、标题座位（把课题名写进标签条）、opener
+  （`openResource(address)`）。
+- `tests/unit/project-sidebar-tab.test.mjs` —— 4 条契约：地址往返（含空格/斜杠/中文/`%zz`）、
+  类型互不侵吞、**用右侧栏真正使用的 picomatch 实测模式命中**、装配面必须走 `openResource`。
+
+**入口**
+
+课题徽章（`conversation.session.header.utilities`）旁新增一个按钮「在右侧栏打开课题」。
+右侧栏服务不可用时回落到原有的全屏面板，不让按钮点了没反应。
+
+**为什么标题要单独一个座位**：`title(address)` 在打开时被捕获，而它是同步接口、课题名要查
+一次 remote。因此用一个模块级名称缓存 + 订阅：正文与标题座位谁先拿到名字都能让另一边更新；
+标题座位对未激活的 tab 也会渲染，所以它自己会触发一次加载。
+
+**仍未做**（步骤 2）
+
+- `Panel` 的紧凑渲染：现在正文是只读摘要，「打开完整面板」仍走全屏 overlay。要把课题主页面
+  真正搬进侧栏，需要把 `Panel` 拆成「数据 + 视图」并做单列布局（见第三节）。
+- 课题列表侧的入口：目前只能从「已绑定课题」的徽章进入；从课题列表点某个课题直接开 tab，
+  需要在卡片上加同款按钮。
+

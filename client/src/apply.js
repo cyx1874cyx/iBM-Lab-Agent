@@ -6,6 +6,7 @@ import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
+import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelOpener, setProjectTabOpener } from "./project-tab.js";
 
 export function applyUi(ctx) {
  // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
@@ -169,13 +170,20 @@ export function applyUi(ctx) {
 	};
 	const openWorkspace = (project) => open(project);
 	const disposeBranding = applyBranding(() => open());
-	ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast })), "dsh-lab-agent: project badge");
+	ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast, openProjectTab })), "dsh-lab-agent: project badge");
 	// 文献浏览器 tab：DSH 右侧栏是可扩展停靠面，把 WebVPN 子 WebView 挂成其中一类
 	// 页面 tab（与自带「文件」「文档预览」并列）。单独一次 inject，右侧栏未挂载时
 	// 只有这一个能力缺失，不阻塞整个面板。
-	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => registerWebVpnTab(tabCtx, {
-		openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND)
-	}), "dsh-lab-agent: 文献浏览器右侧栏 tab");
+	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => {
+		// 文献浏览器：页面 tab（「+」类型列表里可选）。
+		registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
+		// 课题：资源 tab，一个课题一个标签页（页面 tab 的身份只由 kind 决定，
+		// 做不到每课题一标签）。
+		registerProjectTab(tabCtx);
+		setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));
+		setProjectLoader(async (projectId) => (await call("projects_get", { request: { id: projectId } }))?.project ?? null);
+		setProjectPanelOpener((project) => open(project));
+	}, "dsh-lab-agent: 右侧栏 tab");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }
 
