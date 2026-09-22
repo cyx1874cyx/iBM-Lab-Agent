@@ -73,3 +73,20 @@ test("只通过 NTFS 裸仓库传输 git 对象（不在 drvfs 上构建）", ()
 	const bareDefault = /IBM_LAB_WSL_BARE:-([^}]+)\}/.exec(script)?.[1] ?? "";
 	assert.match(bareDefault, /^\/mnt\/[a-z]\//, `默认传输路径应在 Windows 盘上，实际为 ${bareDefault}`);
 });
+
+test("构建失败时不把上一次的产物说成本次结果（实测踩过：失败后仍打印旧报告与旧 SHA）", () => {
+	// 旧写法：无条件取 .build 下最新的 release-report.json，并列出 target 下任意 *-setup.exe
+	// 及其 SHA256 —— 一个阶段失败后，屏幕上会出现一份可信的安装包与哈希，看起来像成功。
+	assert.match(script, /\$startedAt\s*=\s*\(Get-Date\)/, "应记录本次构建的起始时间，用于区分新鲜产物");
+	// 注意：这些片段位于 bash heredoc 内，$ 被转义成 \$，因此模式要允许一个反斜杠。
+	assert.match(script, /-gt\s*\\?\$startedAt/, '报告必须按"本次构建之后生成"过滤');
+	assert.match(script, /if \(\\\$rc -eq 0 -and \\\$freshReports\.Count -gt 0\)/, "只有成功且存在本次报告时才输出产物信息");
+	assert.match(script, /THIS RUN PRODUCED NO ARTIFACT/, "失败时应明确说明本次没有产出");
+	assert.match(script, /stale artifact from an earlier build/, "若列出既有产物，必须标注它来自更早的构建");
+	// 不允许再出现“无条件哈希任意 setup.exe”的写法
+	assert.doesNotMatch(
+		script,
+		/Get-ChildItem \(Join-Path \\\$work 'desktop\\src-tauri\\target'\) -Recurse -Filter '\*-setup\.exe'[\s\S]{0,200}Get-FileHash/,
+		"不应无条件哈希 target 下的任意安装包",
+	);
+});

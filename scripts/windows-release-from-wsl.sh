@@ -141,18 +141,35 @@ if (\$mode -eq 'preflight') { \$args += '-PreflightOnly' }
 New-Item -ItemType Directory -Force -Path \$logDir | Out-Null
 \$log = Join-Path \$logDir ("release-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 Write-Output ("=== build-windows-release.ps1 (" + \$mode + ") log: " + \$log + " ===")
+# Gotcha 5: this driver used to always print the NEWEST release-report.json and ANY
+# *-setup.exe under the build tree. After a FAILED phase that showed a stale, plausible
+# installer with a valid SHA256 - i.e. it attributed an earlier build's artifact to this
+# run. Only artifacts created after \$startedAt belong to this run.
+\$startedAt = (Get-Date).AddSeconds(-2)
 & pwsh @args 2>&1 | Tee-Object -FilePath \$log
 \$rc = \$LASTEXITCODE
 Write-Output ("=== exit code: " + \$rc + " ===")
 
-Get-ChildItem (Join-Path \$work 'desktop\.build') -Recurse -Filter 'release-report.json' -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object {
-    Write-Output ("  report: " + \$_.FullName); Get-Content \$_.FullName -Raw }
-Get-ChildItem (Join-Path \$work 'desktop\src-tauri\target') -Recurse -Filter '*-setup.exe' -ErrorAction SilentlyContinue |
-  ForEach-Object {
-    \$h = (Get-FileHash -LiteralPath \$_.FullName -Algorithm SHA256).Hash
-    Write-Output ("  installer: " + \$_.FullName)
-    Write-Output ("  bytes: " + \$_.Length + "  sha256: " + \$h) }
+\$freshReports = @(Get-ChildItem (Join-Path \$work 'desktop\.build') -Recurse -Filter 'release-report.json' -ErrorAction SilentlyContinue |
+  Where-Object { \$_.LastWriteTime -gt \$startedAt } | Sort-Object LastWriteTime -Descending)
+if (\$rc -eq 0 -and \$freshReports.Count -gt 0) {
+  \$r = \$freshReports[0]
+  \$json = Get-Content \$r.FullName -Raw | ConvertFrom-Json
+  Write-Output ("  report: " + \$r.FullName)
+  Write-Output ("  version: " + \$json.version + "  publishable: " + \$json.publishable)
+  Write-Output ("  installer: " + \$json.installer)
+  Write-Output ("  bytes: " + \$json.bytes + "  sha256: " + \$json.sha256)
+  Write-Output ("  phases: " + ((\$json.phases | ForEach-Object { \$_.name + '=' + \$_.seconds + 's' }) -join ', '))
+} elseif (\$rc -ne 0) {
+  Write-Output '  THIS RUN PRODUCED NO ARTIFACT (a phase failed above).'
+  Write-Output '  Not publishing anything; the artifacts listed below are NOT from this run.'
+  Get-ChildItem (Join-Path \$work 'desktop\src-tauri\target') -Recurse -Filter '*-setup.exe' -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object {
+      Write-Output ("  stale artifact from an earlier build: " + \$_.FullName)
+      Write-Output ("    mtime " + \$_.LastWriteTime.ToString('o') + "  bytes " + \$_.Length) }
+} else {
+  Write-Output '  WARNING: exit code 0 but no fresh release-report.json was found; do not publish.'
+}
 exit \$rc
 PS1
 

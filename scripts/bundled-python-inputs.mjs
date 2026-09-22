@@ -148,31 +148,43 @@ function readPythonVersion(pythonExe) {
 }
 
 /**
+ * 解析解释器版本：显式注入优先，否则去真正执行解释器。
+ *
+ * 注入这条路径是刻意的 —— 单元测试必须能在 Windows 上跑，而"造一个 #!/bin/sh 假
+ * python"在 Windows 上根本执行不了（曾因此在 Windows 的 tests 阶段失败、阻断出包）。
+ * 依赖注入让这条轴的测试与平台无关，也不必真的启动进程。
+ */
+function resolvePythonVersion({ pythonVersion, pythonExe }) {
+	if (pythonVersion !== undefined) return pythonVersion;
+	return readPythonVersion(pythonExe);
+}
+
+/**
  * 写入指纹文件。
  * @returns {{ stampPath: string, fingerprint: string, pythonVersion: string|null }}
  */
-export function writeStamp(repoRoot, stampDir, { pythonExe = null, now = () => new Date() } = {}) {
+export function writeStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion, now = () => new Date() } = {}) {
 	const { fingerprint, files, trees, missing } = computeInputs(repoRoot);
-	const pythonVersion = readPythonVersion(pythonExe);
+	const version = resolvePythonVersion({ pythonVersion, pythonExe });
 	const stamp = {
 		stampVersion: STAMP_VERSION,
 		fingerprint,
 		files,
 		trees,
 		missing,
-		pythonVersion,
+		pythonVersion: version,
 		builtAt: now().toISOString(),
 	};
 	const stampPath = join(stampDir, STAMP_NAME);
 	writeFileSync(stampPath, `${JSON.stringify(stamp, null, 2)}\n`, "utf8");
-	return { stampPath, fingerprint, pythonVersion };
+	return { stampPath, fingerprint, pythonVersion: version };
 }
 
 /**
  * 比对指纹。
  * @returns {{ current: boolean, reason: string, changed: string[] }}
  */
-export function checkStamp(repoRoot, stampDir, { pythonExe = null } = {}) {
+export function checkStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion } = {}) {
 	const stampPath = join(stampDir, STAMP_NAME);
 	if (!existsSync(stampPath)) {
 		return { current: false, reason: "no stamp: 该产物早于指纹机制，无法证明它对应当前 recipe", changed: ["<stamp>"] };
@@ -211,9 +223,9 @@ export function checkStamp(repoRoot, stampDir, { pythonExe = null } = {}) {
 		if (!(rel in trees)) changed.push(`removed:${rel}/`);
 	}
 
-	const pythonVersion = readPythonVersion(pythonExe);
-	if (pythonVersion && stamp.pythonVersion && pythonVersion !== stamp.pythonVersion) {
-		changed.push(`pythonVersion:${stamp.pythonVersion}->${pythonVersion}`);
+	const pythonVersionNow = resolvePythonVersion({ pythonVersion, pythonExe });
+	if (pythonVersionNow && stamp.pythonVersion && pythonVersionNow !== stamp.pythonVersion) {
+		changed.push(`pythonVersion:${stamp.pythonVersion}->${pythonVersionNow}`);
 	}
 
 	if (changed.length > 0) {

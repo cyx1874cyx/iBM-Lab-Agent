@@ -622,14 +622,24 @@ BOM 就没了 —— 而该文件在 LF 下"碰巧"仍能解析通过（它的�
 路线书 §0.1 的发现是真的，且**恰好卡住本次 S2/L2 的验证**：`build-windows-release.ps1`
 原先只用 `Test-Path python.exe` 判断捆绑 Python 是否需要重建 —— **一次生成，永久跳过**。
 第一次尝试出包时 `resources/python/dist/python.exe` 存在，于是 bundled-python 阶段被整段
-跳过：**S2（摘 magika）与 L2（剥 tests 树）根本不会被执行，也就无从验证**。现场证据：
+跳过：**S2（摘 magika）与 L2（剥 tests 树）根本不会被执行，也就无从验证**。现场证据
+（两次构建的 Windows 侧日志逐字对照，日志为 UTF-16LE，`iconv -f UTF-16LE` 可读）：
 
 ```
-$ ls -l .../resources/python/dist/python.exe
--rwxrwxrwx 1 root root 103192 Apr  2  2024 ...
+# 修复前 release-20260922-094808.log —— client-bundle-check 之后直接进 tests
 [09:48:10] Windows release preflight passed for 0.5.2-rc.1.
-[09:48:10] START client-bundle-phase ...   # 直接进 tests，没有 bundled-python
+[09:48:10] START client-bundle-check (timeout 5m). ...
+[09:48:10] DONE client-bundle-check in 00:00:00.
+[09:48:10] START tests (timeout 20m). ...          ← 没有 bundled-python
+
+# 修复后 release-20260922-095141.log —— 多出判定行，且确实重建
+[09:51:42] Windows release preflight passed for 0.5.2-rc.1.
+[09:51:42] bundled-python: REBUILD (no stamp: 该产物早于指纹机制，无法证明它对应当前 recipe)
+[09:51:43] START client-bundle-check (timeout 5m). ...
 ```
+
+产物侧同样可查：`resources/python/dist/python.exe` 的时间戳是 `Apr 2 2024`（基础解释器
+的日期），而 `resources/python/dist` 目录本身 11 天未变。
 
 ### 17.1 做法：单一实现 + 两侧共用
 
@@ -699,3 +709,57 @@ gitignore）。两个失效方向都安全：dist 在而指纹被清 → 缺指�
 恢复后 md5 一致。第一次变异尝试时我的正则写的是 `\$bundledPython\)` 而变量现名
 `$bundledPythonExe`，**没抓住** —— 已把正则改成 `\$bundledPython\w*` 并重做变异。这条
 "守卫自己有没有漏洞"的教训值得单独记下来：**先证明守卫能失败，再相信它通过。**
+
+## 18. 出包链路本身抓到的两个缺陷
+
+指纹补齐后重新出包，构建**失败**了 —— 但失败原因与报错方式各暴露一个问题。
+
+### 18.1 Windows 的 tests 阶段拦住了一个不可移植的单元测试（同类第 3 次）
+
+```
+✖ tests/unit/bundled-python-inputs.test.mjs:143 捆绑解释器版本变化会触发重建
+  AssertionError: 解释器版本变化必须判为过期  true !== false
+```
+
+我在测试里造了一个 `#!/bin/sh` 的假解释器来测"解释器版本变化"这条轴。Linux 上能跑，
+**Windows 上根本执行不了** → 读到版本为 null → 判定不变 → 断言失败。
+
+这是同一类错误在本仓库的第 3 次（前两次：断言里硬编码 `/repo/vendor/...`；用
+`split("\n")` 读 CRLF 文件）。三点结论：
+
+1. `tests/unit/*.test.mjs` 与 `tests/integration/*.test.mjs` **在 Windows 上也会跑**，
+   这是发布流水线的真实闸门，不是可选项；
+2. "造一个假可执行文件"这种手法天生不可移植 —— 改为**依赖注入**
+   （`writeStamp(..., { pythonVersion: "3.11.9" })`），测试不再启动任何进程，还更快；
+3. 既然同类错误已经 3 次，就用机械守卫兜住能精确判定的两条：
+   `tests/unit/test-suite-portability.test.mjs` 禁止测试里 `chmod` 造可执行 fixture、
+   禁止硬编码 `/repo/` 绝对路径（`split("\n")` 刻意**不**守：仓库里有 12 处合法用法，
+   一律禁掉会造出误报，可移植性的边界交给 Windows 的 tests 阶段裁决）。
+
+该守卫第一次运行就误报了 —— 命中的是 `patch-dsh-runtime-writability.test.mjs` 注释里的
+"chmod 0555" 四个字。**守卫匹配到注释里的文字**已经是本仓库第二次（前一次是
+`markitdown[all]`），所以扫描前先剥注释，并排除守卫自身（它必须内含违规样本作为自测数据）。
+
+### 18.2 驱动脚本把上一次的产物说成了本次结果
+
+失败现场（退出码 1）之后紧接着打印的是：
+
+```
+=== exit code: 1 ===
+  report: ...windows-release-20260922-013253\release-report.json   ← 上一次的
+  installer: ...\bundle\nsis\iBM Lab Agent_0.5.2-rc.1_x64-setup.exe
+  bytes: 195059271  sha256: 951576A26736C7284...                  ← 上一次的
+[09:52:08] 结束，退出码 1
+```
+
+驱动脚本无条件取 `desktop/.build` 下**最新**的 `release-report.json`，并列出 `target` 下
+**任意** `*-setup.exe` 及其 SHA256。于是一次失败的构建会在屏幕上留下"一份安装包 + 一个
+有效哈希"，极易被当成成功（本人在这次就一度看错）。
+
+改法：记录 `$startedAt`（构建开始前的时间戳），只认**本次构建之后生成**的报告；失败时
+明确输出 `THIS RUN PRODUCED NO ARTIFACT`，若仍列出既有产物则标注
+`stale artifact from an earlier build` 并附 mtime。守卫见
+`tests/unit/windows-release-from-wsl.test.mjs` 的新增条。
+
+顺带一条自身教训：我用 `bash driver.sh | tee log` 启动，**管道的退出码取 `tee` 的值**，
+所以作业上报 exit 0 而实际是 1。看结论要看驱动自己打印的"结束，退出码 N"，别信外层管道。
