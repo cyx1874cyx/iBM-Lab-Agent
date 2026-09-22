@@ -970,3 +970,109 @@ corepack pnpm install --frozen-lockfile     # 实测 5.8s（pnpm store 已热）
 
 `node_modules\@deepseek-ai\dsh\lib\bin.js` 必须在位，否则 `build-windows-release.ps1` 会在
 `$DshSource` 检查处直接 throw（这是设计好的失败关闭）。`desktop/` 那份交给驱动。
+
+## 22. 评估：能不能去掉 Node（结论：可以，但不划算）
+
+起因是一个合理的问题——既然有"免装 Node"的 dsh 安装包，我们的 Windows 包为什么还要带
+`node.exe`(88 MB) + `resources/dsh`(318 MB)？实测之后结论是**不值得做**，理由如下（数字都是
+本机实测，不是估算）。
+
+### 22.1 官方确实有单文件运行时，且版本正好对上
+
+`deepseek-harness-runtime-bin`（PyPI，官方 Trusted Publishing）把 **dsh CLI + 闭包 Node
+依赖树打成单个原生可执行文件**，无需系统 Node。`0.1.5rc1` 正好对应我们 pin 的
+DSH `0.1.5-rc.1`。实测其 win_amd64 轮子：
+
+| 内容 | 解包后 |
+|---|---|
+| `deepseek-harness-sdk-runtime-win-x64.exe` | **229.4 MB** |
+| `…-rg.exe`（ripgrep 侧车，必需） | 5.2 MB |
+| 轮子本体 | 68.7 MB（压缩比 3.41） |
+
+### 22.2 关键实测：原始字节少 129 MB，安装包只少 11.9 MB
+
+用与 NSIS 同族的 LZMA（`xz -9`）分别压"现在的分体"与"官方单文件"：
+
+| | 原始 | LZMA 后 | 压缩比 |
+|---|---|---|---|
+| A 现在：`resources/node` + `resources/dsh` | 364 MB | **58,293,820 B** | 6.2x |
+| B 官方：exe + rg | 234.6 MB | **46,377,908 B** | 5.1x |
+| | −129 MB | **−11,915,912 B（−11.4 MiB，−6.9%）** | |
+
+原因是**松散 JS/JSON 压 6.2x，而预编译 exe 只能压 5.1x**（它内部已经是优化过的包）。
+所以"原始体积 −35%"换算到安装包只有 **172.1 MB → 约 160.2 MB**。
+
+这条与 §19.3 / §20 的教训是同一个：**任何体积收益都必须以安装包字节数衡量**，否则会高估数倍。
+（`xz` 与 NSIS 的 LZMA1 不完全等同，但同族，且这里比较的是两者的**相对**差值。）
+
+### 22.3 代价：三个"就地修改 DSH 文件"的补丁会全部失效
+
+| 补丁 | 目标 | 作用 |
+|---|---|---|
+| `patch-dsh-runtime.mjs` | `@deepseek-ai/dsh-agent-loop/lib/index.js` | 模型把工具调用写成**字面量 `<invoke>` 文本**时纠正一次，避免静默空转 |
+| `prepare-runtime.ps1`（内联） | `@deepseek-ai/dsh-client-connection/lib/index.js` | `SameSite=Strict` → `SameSite=None; Secure`，使 WebView2 嵌入后仍带上鉴权 cookie |
+| `patch-dsh-web-frontend.mjs` | `@deepseek-ai/dsh-web-frontend/dist/assets/index-*.js` | 剪贴板回退修复（锚点是 **minified 产物里的字符串**） |
+
+单文件运行时把这些文件放进 exe 的**虚拟文件系统**，改不了。而且：
+
+- **上游没有第一个修复**：实测 DSH `0.1.5-rc.2` 全树里搜不到任何 `<invoke` 处理逻辑
+  （`grep -rn '<invoke' node_modules/@deepseek-ai/` 为空）。它属于本项目独有的产品修复，
+  放弃它等于接受"模型偶发假调用时静默结束回合"。
+- 第三个补丁的锚点是 minified 串（`catch{}const r=typeof document.execCommand`、
+  `await Fn(rm(b,j))?$("copied"):$("failed");`）——**每次 DSH 升版都可能失效**，本身就是
+  维护负担。
+- 还会失去对 DSH 树做裁剪/去重的能力（现在 318 MB 里包含多平台预编译等可裁内容），
+  并新增一个构建期的上游二进制依赖（需按平台 pin SHA256，和 Node 一样的模式）。
+
+替换的爆炸半径：`desktop/src-tauri/src/runtime/process.rs`、`tauri.conf.json`、
+`prepare-runtime.ps1`、`verify-package.ps1`、`build-windows-release.ps1`、`src/harness-root.js`
+共 6 处引用，加 4 个补丁文件与 4 个守卫测试改判。另外该运行时的契约是
+**`DSH_HOME` 必须非空、永不回退 `~/.dsh`**，我们需要保证所有拉起路径都显式传。
+
+### 22.4 一个好消息：最难的那个补丁有干净的插件等价物
+
+`dsh-agent-loop` 的回合循环是这样的（本机 `0.1.5-rc.2` 源码）：
+
+```js
+if (turnEnds && this.inbox.nextStep.length === 0) {
+    await this.dispatch.serial("agent/turn-stopping", { turn, signal });
+    signal.throwIfAborted();
+}
+if (turnEnds && this.inbox.nextStep.length === 0) break;   // ← 事件之后重新判定
+```
+
+`nextStep.length` 在事件**之后被再次判定**，说明这是**有意留出的扩展点**：插件只要在
+`agent/turn-stopping` 处理器里往 inbox 推一步，循环就不结束。因此"假 `<invoke>` 纠正"
+**可以在不补丁源码的前提下实现为插件行**（`agent/pre-step`、`step/end`、`assistant/attempt`
+也都是可用事件）。
+
+这条值得单独做——与是否切换运行时无关：它同时消除了"安装期改写 node_modules"这个脆弱环节
+（现有一个专门的测试 `patch-dsh-runtime-writability.test.mjs` 就是为它兜的）。
+
+### 22.5 为什么"免装 Node"这个卖点不适用于本项目
+
+那套包/讨论的受众是 **`pip install` Python SDK 的人**（他们本机没有 Node）。而本项目两条
+安装路径**都已经自带 Node**：
+
+- Linux：`install.sh` 第 [3/8] 步从 USTC 镜像下载 Node v24.16.0 并用
+  `NODE_SHA256_LINUX_{X64,ARM64}` 校验，再建 `runtime/node` 软链；
+- Windows：NSIS 安装包直接带 `resources/node/node.exe`。
+
+也就是说，我们的用户**从不需要自己装 Node**——"去掉 Node"对他们没有任何可感知变化。
+
+### 22.6 建议（按性价比）
+
+1. **不做运行时替换**：为 −11.9 MB 放弃一个上游没有的产品修复、并新增上游二进制依赖，
+   不划算。
+2. **把假-invoke 纠正改写成插件行**（§22.4 的钩子已确认）——去掉一个脆弱的安装期补丁，
+   同时为将来留门。
+3. **要体积就对 `resources/dsh/node_modules` 做白名单裁剪**：实测可疑项有
+   `@opentelemetry` 23 MB、`chromium-bidi` 19 MB + `puppeteer-core` 12 MB + `@esbuild` 10 MB、
+   `node-pty/prebuilds/darwin-arm64`（非 win32 平台预编译，全树 8 个非 win32 二进制）。
+   按 §19.3 的比值，raw −40~70 MB ≈ 安装包 −7~11 MB。可以复用已有的
+   `scripts/audit-imports.mjs` 证明"不可达"再删。
+4. 若将来确实要单文件：应先把假-invoke 修复**上游化**进 DSH，等官方 runtime-bin 包含它，
+   再切换——而不是去改 exe 内嵌的 blob（需逆向、破坏完整性校验、每次升级重做）。
+
+参考：[deepseek-harness-runtime-bin (PyPI)](https://pypi.org/project/deepseek-harness-runtime-bin/0.1.5rc1/)、
+[免装 Node 的 dsh 安装包（Discussion #414）](https://github.com/deepseek-ai/deepseek-harness/discussions/414?plain=1)。
