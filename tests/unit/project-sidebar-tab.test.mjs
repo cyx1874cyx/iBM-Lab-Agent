@@ -101,7 +101,46 @@ test("装配面是资源 tab：openResource + patterns，且不贡献 guide 条�
 	// 课题读取走既有 remote，不新增 host 服务。
 	assert.match(apply, /call\("projects_get", \{ request: \{ id: projectId \} \}\)/);
 
-	// 入口：课题徽章旁边一个按钮；右侧栏不可用时回落到原有全屏面板，不能点了没反应。
-	assert.match(badge, /openProjectTab\?\.\(bound\.project\.id\)/);
+	// 入口就是课题徽章本身（不是旁边另加一个按钮）：点它在右侧栏开该课题的标签页。
+	// 右侧栏不可用时回落到原有全屏面板，不能点了没反应。
+	assert.match(badge, /onClick: \(\) => \{\s*\n\s*if \(openProjectTab\?\.\(bound\.project\.id\)\) return;/);
 	assert.match(badge, /openWorkspace\(bound\.project\)/, "回落路径必须打开原有面板");
+	assert.match(badge, /title: "在右侧栏打开课题空间"/);
+	// 不再有上一轮那个多余的旁挂按钮。
+	assert.doesNotMatch(badge, /ib-project-tab-btn/);
+});
+
+test("tab 正文里嵌的是真正的课题空间页面，不是只读摘要", async () => {
+	const [tab, apply, styles] = await Promise.all([
+		read("client/src/project-tab.js"),
+		read("client/src/apply.js"),
+		read("client/src/styles.js"),
+	]);
+
+	// 渲染器由 apply.js 注入，复用现有 Project 组件（全屏面板里的同一页）。
+	assert.match(tab, /export function setProjectPanelRenderer\(fn\)/);
+	assert.match(tab, /renderPanel = typeof fn === "function" \? fn : null/);
+	assert.match(tab, /return h\("div", \{ className: "ib-project-tab-embed" \}, renderPanel\(projectId\)\)/);
+	assert.match(apply, /setProjectPanelRenderer\(\(projectId\) => h\("div", \{ className: "ib-overlay ib-panel-embed" \}/);
+	assert.match(apply, /h\(Project, \{/, "必须复用 Project，而不是另写一份课题页面");
+	// Project 只用到 project.id，所以按 id 构造即可，正文不必先预取一次课题。
+	assert.match(apply, /project: \{ id: projectId \}/);
+	// 「← 所有课题」在侧栏里没有列表可回 → 打开全屏管理页。
+	assert.match(apply, /onBack: \(\) => open\(null\)/);
+
+	// 全屏定位必须被压掉：两个类一起用，优先级高于单类 .ib-overlay，不依赖书写顺序。
+	assert.match(styles, /\.ib-overlay\.ib-panel-embed\{position:static;inset:auto;z-index:auto/);
+	// 多列栅格在侧栏窄列里必须收敛成单列，否则会横向溢出。按实际规则逐条点名，
+	// 不用宽松回退——那等于没测。
+	const embedGrid = styles.match(/\.ib-panel-embed \.ib-grid[^{]*\{([^}]*)\}/);
+	assert.ok(embedGrid, "必须有一组嵌入模式的栅格收敛规则");
+	assert.match(embedGrid[1], /grid-template-columns:minmax\(0,1fr\)/);
+	for (const cls of ["ib-grid", "ib-tabs", "ib-artifacts", "ib-memory", "ib-lit", "ib-db-grid"]) {
+		assert.ok(
+			embedGrid[0].includes(`.ib-panel-embed .${cls}`),
+			`嵌入模式必须把 ${cls} 收敛成单列，否则在 360–560px 的侧栏列里会溢出`,
+		);
+	}
+	// 侧栏里不该再出现全屏抽屉式的宽度。
+	assert.match(styles, /\.ib-panel-embed \.ib-preview-drawer\{width:min\(560px,94vw\)\}/);
 });

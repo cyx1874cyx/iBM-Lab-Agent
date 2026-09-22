@@ -3,7 +3,6 @@ import { h } from "./h.js";
 import { databaseState, databaseStateTone, downloadState } from "./constants.js";
 import { when, openPdfPreview, downloadVerifiedBinary, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, clearWebVpnSessionViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
-import { ProjectTabGlyph } from "./project-tab.js";
 
 // 文献相关组件：DatabaseOverview/FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
 export function DatabaseOverview({ call, notify }) {
@@ -286,24 +285,21 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 				return () => { disposed = true; clearTimeout(timer); };
 			}, [bound?.project?.id, call, toast]);
 			if (!bound?.project) return null;
-			return h(React.Fragment, null,
-				h("button", { className: "ib-research-badge", title: "打开课题空间", "aria-label": `打开课题空间：${bound.project.name}`, onClick: () => openWorkspace(bound.project) },
-					h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
-					h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
-					h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
-				),
-				// 课题主页面也是右侧栏的一种类型：在这里给一个直达入口。
-				// 右侧栏不可用时（服务缺失）回落到原有的全屏面板，不让按钮点了没反应。
-				h("button", {
-					className: "ib-icon-btn ib-project-tab-btn",
-					title: "在右侧栏打开课题（每个课题一个标签页）",
-					"aria-label": `在右侧栏打开课题：${bound.project.name}`,
-					onClick: () => {
-						if (openProjectTab?.(bound.project.id)) return;
-						toast?.("右侧栏不可用，已改为打开课题面板");
-						openWorkspace(bound.project);
-					}
-				}, h(ProjectTabGlyph, { width: 14, height: 14 }))
+			// 课题徽章就是「打开课题空间」的入口：点击直接在右侧栏开一个该课题的标签页
+			// （每课题一标签）。右侧栏不可用时才回落到原来的全屏面板，不让按钮点了没反应。
+			return h("button", {
+				className: "ib-research-badge",
+				title: "在右侧栏打开课题空间",
+				"aria-label": `打开课题空间：${bound.project.name}`,
+				onClick: () => {
+					if (openProjectTab?.(bound.project.id)) return;
+					toast?.("右侧栏不可用，已改为全屏打开课题空间");
+					openWorkspace(bound.project);
+				}
+			},
+				h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
+				h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
+				h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
 			);
 		}
 

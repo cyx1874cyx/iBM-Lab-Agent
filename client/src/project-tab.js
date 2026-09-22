@@ -21,7 +21,7 @@ export { PROJECT_ADDRESS_PREFIX, PROJECT_PATTERNS, PROJECT_TAB_ID, PROJECT_TAB_K
 // ── 装配面（由 apply.js 注入，保持本模块不依赖 ctx）─────────────────────────
 let openResourceAction = null;
 let loadProject = null;
-let openPanelAction = null;
+let renderPanel = null;
 
 /** 打开器：`(address) => void`，来自 ctx.sidebarRight.openResource。 */
 export function setProjectTabOpener(fn) {
@@ -33,9 +33,9 @@ export function setProjectLoader(fn) {
 	loadProject = typeof fn === "function" ? fn : null;
 }
 
-/** 完整面板打开器：`(project) => void`，复用现有全屏课题面板。 */
-export function setProjectPanelOpener(fn) {
-	openPanelAction = typeof fn === "function" ? fn : null;
+/** 完整面板渲染器：`(projectId) => ReactElement`，由 apply.js 注入（复用现有 Project 组件）。 */
+export function setProjectPanelRenderer(fn) {
+	renderPanel = typeof fn === "function" ? fn : null;
 }
 
 /**
@@ -97,13 +97,6 @@ function ensureProjectName(projectId) {
 		.catch(() => {});
 }
 
-/** 右侧栏面板里的图标：一个侧栏轮廓，用于「在侧栏打开课题」按钮。 */
-export function ProjectTabGlyph({ width = 14, height = 14 } = {}) {
-	return h("svg", { viewBox: "0 0 16 16", width, height, fill: "none", stroke: "currentColor", "stroke-width": "1.4", "aria-hidden": "true" },
-		h("rect", { x: "1.6", y: "2.6", width: "12.8", height: "10.8", rx: "2" }),
-		h("line", { x1: "10.2", y1: "2.6", x2: "10.2", y2: "13.4" }));
-}
-
 const STATUS_LABEL = { active: "进行中", archived: "已归档", closed: "已结束" };
 
 function row(label, value, title) {
@@ -113,10 +106,11 @@ function row(label, value, title) {
 }
 
 /**
- * tab 正文：课题摘要（只读）。
+ * tab 正文：**课题空间页面本身**。
  *
- * 这是评估里「先打通每课题一标签的通路」的第一步——紧凑视图，不改动现有全屏面板的
- * 布局假设。需要完整编辑能力时点「打开完整面板」。
+ * 有内嵌渲染器（apply.js 注入的 `Project`）时直接渲染它——所见即全屏面板里的那一页，
+ * 只是被放进侧栏列里（`ib-panel-embed` 负责把全屏布局收敛成单列）。
+ * 没有渲染器时退化成只读摘要，保证标签页不至于空白。
  */
 export function ProjectTabBody({ useTabInfo }) {
 	const { tab } = useTabInfo();
@@ -127,6 +121,8 @@ export function ProjectTabBody({ useTabInfo }) {
 
 	useEffect(() => {
 		if (projectId === undefined) { setState({ status: "invalid" }); return undefined; }
+		// 有内嵌渲染器时它自己会加载课题；这里只为标签条准备课题名，省一次多余请求。
+		if (renderPanel) { ensureProjectName(projectId); return undefined; }
 		if (!loadProject) { setState({ status: "unavailable" }); return undefined; }
 		let disposed = false;
 		setState({ status: "loading" });
@@ -144,8 +140,11 @@ export function ProjectTabBody({ useTabInfo }) {
 		return () => { disposed = true; };
 	}, [projectId, revision]);
 
-	if (state.status === "invalid") {
+	if (projectId === undefined) {
 		return h("div", { className: "ib-project-tab ib-project-tab-note" }, "这个标签页不是课题地址，无法显示课题内容。");
+	}
+	if (renderPanel) {
+		return h("div", { className: "ib-project-tab-embed" }, renderPanel(projectId));
 	}
 	if (state.status === "unavailable" || state.status === "loading") {
 		return h("div", { className: "ib-project-tab ib-project-tab-note" }, "正在读取课题…");
@@ -171,14 +170,7 @@ export function ProjectTabBody({ useTabInfo }) {
 			row("精读目标", goal ? `${goal.id}@${goal.version}` : "—"),
 			row("阅读模板", template ? `${template.id}@${template.version}` : "—"),
 			row("创建", project.createdAt ? new Date(project.createdAt).toLocaleDateString() : "—"),
-			row("更新", project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : "—")),
-		h("div", { className: "ib-project-tab-foot" },
-			h("button", {
-				className: "ib-btn",
-				disabled: !openPanelAction,
-				title: openPanelAction ? "打开全屏课题面板" : "课题面板当前不可用",
-				onClick: () => { try { openPanelAction?.(project); } catch { /* 面板打开失败不应影响侧栏 */ } }
-			}, "打开完整面板")));
+			row("更新", project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : "—")));
 }
 
 /** tab 标题座位：把课题名写进标签条（页面 tab 的 title() 只在打开时捕获一次）。 */
@@ -195,7 +187,7 @@ export function ProjectTabTitle({ useTabInfo }) {
  *
  * 刻意**不贡献 guide 条目**：guide 条目是「按类型」的一条入口，点开走的是
  * `openTab(kind)`（页面 tab 语义，地址 `sidebar://<kind>`），对本资源类型是无效地址；
- * 课题的入口由「在侧栏打开课题」按钮（带 projectId）承担。
+ * 课题的入口是对话头部课题徽章本身（点击即 openProjectTab，带 projectId）。
  *
  * @param ctx - Cordis 装配面（sidebarRightTabs / slots / effect）。
  */
@@ -220,6 +212,6 @@ export function registerProjectTab(ctx) {
 	ctx.effect(() => () => {
 		setProjectTabOpener(null);
 		setProjectLoader(null);
-		setProjectPanelOpener(null);
+		setProjectPanelRenderer(null);
 	}, "dsh-lab-agent: 课题 tab 装配面注销");
 }

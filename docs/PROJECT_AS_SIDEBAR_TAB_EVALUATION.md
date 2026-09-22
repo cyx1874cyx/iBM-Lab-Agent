@@ -101,9 +101,9 @@ ctx.sidebarRight.openResource(`dsh-resource://lab-project/${projectId}`);
 
 ---
 
-## 五、已实施：路线 B 的步骤 1（2026-09-22）
+## 五、已实施：路线 B 的步骤 1 + 步骤 2（2026-09-22）
 
-按上面第 2 条落地了「通路」部分，紧凑视图暂用只读摘要占位。
+按上面第 2 条落地了「通路」，并按人工审核的修正把**课题空间页面本身**放进了标签页。
 
 **新增**
 
@@ -111,24 +111,44 @@ ctx.sidebarRight.openResource(`dsh-resource://lab-project/${projectId}`);
   `projectIdOf` / `PROJECT_PATTERNS`）。拆出来是为了让「每课题一标签」这条不变量能被
   Node 直接单测，而不是只存在于注释里。
 - `client/src/project-tab.js` —— tab 类型（`patterns: ["dsh-resource://lab-project/**"]`）、
-  正文（课题摘要 + 「打开完整面板」）、标题座位（把课题名写进标签条）、opener
-  （`openResource(address)`）。
-- `tests/unit/project-sidebar-tab.test.mjs` —— 4 条契约：地址往返（含空格/斜杠/中文/`%zz`）、
-  类型互不侵吞、**用右侧栏真正使用的 picomatch 实测模式命中**、装配面必须走 `openResource`。
+  正文、标题座位（把课题名写进标签条）、opener（`openResource(address)`）。
+- `tests/unit/project-sidebar-tab.test.mjs` —— 5 条契约：地址往返（含空格/斜杠/中文/`%zz`）、
+  类型互不侵吞、**用右侧栏真正使用的 picomatch 实测模式命中**、装配面必须走 `openResource`、
+  以及「正文里嵌的是真正的课题空间页面」。
 
-**入口**
+**入口：课题徽章本身**
 
-课题徽章（`conversation.session.header.utilities`）旁新增一个按钮「在右侧栏打开课题」。
-右侧栏服务不可用时回落到原有的全屏面板，不让按钮点了没反应。
+对话头部右上角的课题徽章（`conversation.session.header.utilities`）点击即
+`openProjectTab(project.id)`，直接在右侧栏开一个该课题的标签页；右侧栏服务不可用时才回落到
+原来的全屏面板。上一版曾在徽章旁另挂一个按钮，人工审核指出「那个按钮」就是徽章本身，
+已撤掉。
 
-**为什么标题要单独一个座位**：`title(address)` 在打开时被捕获，而它是同步接口、课题名要查
+**正文：复用 `Project`，不另写一份**
+
+侧栏 tab 里渲染的就是全屏面板里的那一页 `Project`（`← 所有课题 / 核心记忆 / 删除课题 /
+开始科研 Agent 对话 / 文献资料 / 研究设计 / 表征分析`），只是套一层
+`.ib-overlay.ib-panel-embed`：
+
+- **不走 `Panel`**：它用 `ReactDOM.createPortal(..., document.body)` 渲染全屏 overlay 外壳，
+  天生进不了侧栏列。
+- **两个类一起用**（`.ib-overlay.ib-panel-embed`）把 `.ib-overlay` 的
+  `position:fixed;inset:0;z-index:1000` 压掉——双类优先级 0,2,0 高于单类 0,1,0，不依赖
+  书写顺序。
+- 多列栅格（`.ib-lit`/`.ib-artifacts`/`.ib-memory`/`.ib-grid`/`.ib-tabs`/`.ib-db-grid`）
+  在嵌入模式下收敛成单列。**必须用容器类而不是媒体查询**：侧栏是窄列，但视口可能是宽的，
+  `@media(max-width:…)` 在这里永远不会命中。
+- `Project` 只用到 `project.id`（名称等由它自己 `projects_workspace` 加载），所以正文不必先
+  预取一次课题；预取只用于标签条的课题名。
+
+**标题为什么要单独一个座位**：`title(address)` 在打开时被捕获，而它是同步接口、课题名要查
 一次 remote。因此用一个模块级名称缓存 + 订阅：正文与标题座位谁先拿到名字都能让另一边更新；
 标题座位对未激活的 tab 也会渲染，所以它自己会触发一次加载。
 
-**仍未做**（步骤 2）
+**仍未做**
 
-- `Panel` 的紧凑渲染：现在正文是只读摘要，「打开完整面板」仍走全屏 overlay。要把课题主页面
-  真正搬进侧栏，需要把 `Panel` 拆成「数据 + 视图」并做单列布局（见第三节）。
-- 课题列表侧的入口：目前只能从「已绑定课题」的徽章进入；从课题列表点某个课题直接开 tab，
-  需要在卡片上加同款按钮。
+- 课题列表侧入口：目前只能从「已绑定课题」的徽章进入；从课题列表点某个课题直接开 tab，
+  需要在卡片上加同款入口。
+- 嵌入模式的视觉打磨：现在是把全屏页按单列塞进窄列，`项目记忆.md` 编辑器、合成路线工作台
+  这类宽内容还需要逐一确认（见发布说明的真机验收清单）。
+
 

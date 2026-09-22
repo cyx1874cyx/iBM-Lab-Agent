@@ -129,6 +129,7 @@ function injectStyles() {
   css += "body.ib-research-chat [class*='_markdown']{min-width:0!important;max-width:100%!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'],body.ib-research-chat [class*='_markdown'] [class*='_tableFill']{display:block!important;position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:100%!important;margin:14px 0!important;overflow-x:auto!important;overflow-y:hidden!important;padding-bottom:0!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] table,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] table{box-sizing:border-box!important;width:100%!important;min-width:100%!important;max-width:100%!important;margin:0!important;table-layout:auto!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] td,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] td{min-width:72px!important;max-width:min(30vw,320px)!important;border-bottom-width:1px!important;padding-inline:12px!important;white-space:normal!important;overflow-wrap:break-word!important;word-break:normal!important}";
   css += ".ib-webvpn-tab{position:relative;display:grid;place-items:center;width:100%;height:100%;min-height:160px;box-sizing:border-box;padding:18px;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-secondary,var(--ib-muted));text-align:center}.ib-webvpn-tab-note{max-width:280px;display:grid;gap:6px}.ib-webvpn-tab-note b{font-size:12.5px;color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-webvpn-tab-note p{margin:0;font-size:10.5px;line-height:1.7}";
   css += ".ib-project-tab{display:flex;flex-direction:column;gap:12px;height:100%;min-height:160px;box-sizing:border-box;padding:14px;overflow:auto;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-project-tab-note{justify-content:flex-start;color:var(--dsw-alias-label-secondary,var(--ib-muted));font-size:11px;line-height:1.7}.ib-project-tab-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ib-project-tab-head b{min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-rows{display:grid;gap:7px;border:1px solid var(--dsw-alias-border-l2,var(--ib-line));border-radius:10px;padding:10px 11px;background:var(--dsw-alias-bg-layer-2,var(--ib-panel2))}.ib-project-tab-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:10.5px}.ib-project-tab-row span{flex:none;color:var(--dsw-alias-label-secondary,var(--ib-muted))}.ib-project-tab-row b{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:560}.ib-project-tab-foot{margin-top:auto;display:flex;justify-content:flex-end}.ib-project-tab-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-btn{flex:none;margin-left:4px}";
+  css += ".ib-overlay.ib-panel-embed{position:static;inset:auto;z-index:auto;height:100%;min-height:0;overflow:auto;box-sizing:border-box}.ib-project-tab-embed{height:100%;min-height:0}.ib-panel-embed .ib-main{max-width:none;margin:0;padding:12px 12px 28px}.ib-panel-embed .ib-grid,.ib-panel-embed .ib-tabs,.ib-panel-embed .ib-artifacts,.ib-panel-embed .ib-memory,.ib-panel-embed .ib-tm-wrap,.ib-panel-embed .ib-form-grid,.ib-panel-embed .ib-db-grid,.ib-panel-embed .ib-lit{grid-template-columns:minmax(0,1fr)}.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:8px;margin-bottom:14px}.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}.ib-panel-embed .ib-project-copy h1{font-size:19px}.ib-panel-embed .ib-head{flex-direction:column;align-items:flex-start;gap:10px}.ib-panel-embed .ib-head h1{font-size:20px}.ib-panel-embed .ib-preview-drawer{width:min(560px,94vw)}.ib-panel-embed .ib-section-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 62px 24px}";
   css += themeCss;
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
@@ -284,9 +285,9 @@ function applyBranding(onOpen) {
 }
 
 // client/src/components-project.js
-var import_react8 = __toESM(require("react"), 1);
+var import_react7 = __toESM(require("react"), 1);
 var import_react_dom = __toESM(require("react-dom"), 1);
-var import_react9 = require("react");
+var import_react8 = require("react");
 
 // client/src/webvpn-bridge.js
 var WEBVPN_RECT_MESSAGE = "WEBVPN_SET_RECT";
@@ -657,7 +658,7 @@ var openExternalUrl = async (url) => {
 };
 
 // client/src/components-literature.js
-var import_react4 = __toESM(require("react"), 1);
+var import_react3 = __toESM(require("react"), 1);
 
 // client/src/constants.js
 var ROUTE_ORIGIN_LABEL = { "literature-extracted": "文献提取", "human-edited": "人工修改", "agent-optimized": "Agent 优化", retrosynthesis: "逆向候选" };
@@ -1179,223 +1180,14 @@ function SiSvg({ width = 15, height = 15 }) {
   );
 }
 
-// client/src/project-tab.js
-var import_react3 = require("react");
-
-// client/src/project-address.js
-var PROJECT_TAB_ID = "dsh-lab-agent/project";
-var PROJECT_TAB_KIND = "lab-project";
-var PROJECT_ADDRESS_PREFIX = "dsh-resource://lab-project/";
-var PROJECT_PATTERNS = ["dsh-resource://lab-project/**"];
-var projectAddress = (projectId) => `${PROJECT_ADDRESS_PREFIX}${encodeURIComponent(String(projectId ?? ""))}`;
-function projectIdOf(address) {
-  const raw = String(address ?? "");
-  if (!raw.startsWith(PROJECT_ADDRESS_PREFIX)) return void 0;
-  try {
-    const id = decodeURIComponent(raw.slice(PROJECT_ADDRESS_PREFIX.length));
-    return id || void 0;
-  } catch {
-    return void 0;
-  }
-}
-
-// client/src/project-tab.js
-var openResourceAction = null;
-var loadProject = null;
-var openPanelAction = null;
-function setProjectTabOpener(fn) {
-  openResourceAction = typeof fn === "function" ? fn : null;
-}
-function setProjectLoader(fn) {
-  loadProject = typeof fn === "function" ? fn : null;
-}
-function setProjectPanelOpener(fn) {
-  openPanelAction = typeof fn === "function" ? fn : null;
-}
-function openProjectTab(projectId) {
-  const id = String(projectId ?? "").trim();
-  if (!openResourceAction || !id) return false;
-  try {
-    openResourceAction(projectAddress(id));
-    return true;
-  } catch (reason) {
-    console.warn("[dsh-lab-agent] 打开课题 tab 失败", reason);
-    return false;
-  }
-}
-var projectNames = /* @__PURE__ */ new Map();
-var nameListeners = /* @__PURE__ */ new Set();
-function publishProjectName(projectId, name) {
-  const id = String(projectId ?? "");
-  if (!id || typeof name !== "string" || !name) return;
-  if (projectNames.get(id) === name) return;
-  projectNames.set(id, name);
-  for (const listener of nameListeners) listener();
-}
-function projectNameOf(projectId) {
-  return projectId === void 0 ? void 0 : projectNames.get(projectId);
-}
-function useProjectName(projectId) {
-  const [, bump] = (0, import_react3.useState)(0);
-  (0, import_react3.useEffect)(() => {
-    const listener = () => bump((value) => value + 1);
-    nameListeners.add(listener);
-    return () => {
-      nameListeners.delete(listener);
-    };
-  }, []);
-  return projectNameOf(projectId);
-}
-function ensureProjectName(projectId) {
-  if (projectId === void 0 || projectNames.has(projectId) || !loadProject) return;
-  Promise.resolve().then(() => loadProject(projectId)).then((project) => {
-    if (project?.name) publishProjectName(projectId, project.name);
-  }).catch(() => {
-  });
-}
-function ProjectTabGlyph({ width = 14, height = 14 } = {}) {
-  return h(
-    "svg",
-    { viewBox: "0 0 16 16", width, height, fill: "none", stroke: "currentColor", "stroke-width": "1.4", "aria-hidden": "true" },
-    h("rect", { x: "1.6", y: "2.6", width: "12.8", height: "10.8", rx: "2" }),
-    h("line", { x1: "10.2", y1: "2.6", x2: "10.2", y2: "13.4" })
-  );
-}
-var STATUS_LABEL = { active: "进行中", archived: "已归档", closed: "已结束" };
-function row(label, value, title) {
-  return h(
-    "div",
-    { className: "ib-project-tab-row" },
-    h("span", null, label),
-    h("b", { title: title ?? (typeof value === "string" ? value : void 0) }, value)
-  );
-}
-function ProjectTabBody({ useTabInfo }) {
-  const { tab } = useTabInfo();
-  const projectId = projectIdOf(tab?.contentId);
-  const revision = tab?.navigation?.revision ?? 0;
-  const [state, setState] = (0, import_react3.useState)({ status: "loading" });
-  const cachedName = useProjectName(projectId);
-  (0, import_react3.useEffect)(() => {
-    if (projectId === void 0) {
-      setState({ status: "invalid" });
-      return void 0;
-    }
-    if (!loadProject) {
-      setState({ status: "unavailable" });
-      return void 0;
-    }
-    let disposed = false;
-    setState({ status: "loading" });
-    Promise.resolve().then(() => loadProject(projectId)).then((project2) => {
-      if (disposed) return;
-      if (!project2) {
-        setState({ status: "missing" });
-        return;
-      }
-      publishProjectName(projectId, project2.name);
-      setState({ status: "ready", project: project2 });
-    }).catch((reason) => {
-      if (!disposed) setState({ status: "error", message: reason?.message || String(reason) });
-    });
-    return () => {
-      disposed = true;
-    };
-  }, [projectId, revision]);
-  if (state.status === "invalid") {
-    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "这个标签页不是课题地址，无法显示课题内容。");
-  }
-  if (state.status === "unavailable" || state.status === "loading") {
-    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "正在读取课题…");
-  }
-  if (state.status === "missing") {
-    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "该课题已不存在（可能已被删除）。");
-  }
-  if (state.status === "error") {
-    return h("div", { className: "ib-project-tab ib-project-tab-note" }, `读取课题失败：${state.message}`);
-  }
-  const { project } = state;
-  const goal = project.goalProfile;
-  const template = project.template;
-  return h(
-    "div",
-    { className: "ib-project-tab" },
-    h(
-      "div",
-      { className: "ib-project-tab-head" },
-      h("b", { title: project.name }, project.name || cachedName || project.id),
-      h("span", { className: "ib-chip" }, STATUS_LABEL[project.status] || project.status || "—")
-    ),
-    h(
-      "div",
-      { className: "ib-project-tab-rows" },
-      row("课题编号", project.id || "—"),
-      row("核心记忆", `v${project.memoryVersion || "1"}`),
-      row("工作区", project.workspacePath || "尚未建立", project.workspacePath),
-      row("精读目标", goal ? `${goal.id}@${goal.version}` : "—"),
-      row("阅读模板", template ? `${template.id}@${template.version}` : "—"),
-      row("创建", project.createdAt ? new Date(project.createdAt).toLocaleDateString() : "—"),
-      row("更新", project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : "—")
-    ),
-    h(
-      "div",
-      { className: "ib-project-tab-foot" },
-      h("button", {
-        className: "ib-btn",
-        disabled: !openPanelAction,
-        title: openPanelAction ? "打开全屏课题面板" : "课题面板当前不可用",
-        onClick: () => {
-          try {
-            openPanelAction?.(project);
-          } catch {
-          }
-        }
-      }, "打开完整面板")
-    )
-  );
-}
-function ProjectTabTitle({ useTabInfo }) {
-  const { tab } = useTabInfo();
-  const projectId = projectIdOf(tab?.contentId);
-  const name = useProjectName(projectId);
-  (0, import_react3.useEffect)(() => {
-    ensureProjectName(projectId);
-  }, [projectId]);
-  return h("span", { className: "ib-project-tab-title", title: name || projectId || "" }, name || "课题");
-}
-function registerProjectTab(ctx) {
-  ctx.effect(() => ctx.sidebarRightTabs.register({
-    id: PROJECT_TAB_ID,
-    kind: PROJECT_TAB_KIND,
-    // 含 ":" → 按整条地址匹配；实测命中 dsh-resource://lab-project/<id>。
-    patterns: PROJECT_PATTERNS,
-    priority: "extension",
-    // 打开时捕获，此时通常还没查到课题名；实时名称由下面的标题座位补上。
-    title: () => "课题"
-  }), "dsh-lab-agent: 课题 tab 类型");
-  ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
-    name: "sidebar.right.pane.tab",
-    key: PROJECT_TAB_ID
-  }, ProjectTabBody)), "dsh-lab-agent: 课题 tab 正文");
-  ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
-    name: "sidebar.right.pane.tab.title",
-    key: PROJECT_TAB_ID
-  }, ProjectTabTitle)), "dsh-lab-agent: 课题 tab 标题");
-  ctx.effect(() => () => {
-    setProjectTabOpener(null);
-    setProjectLoader(null);
-    setProjectPanelOpener(null);
-  }, "dsh-lab-agent: 课题 tab 装配面注销");
-}
-
 // client/src/components-literature.js
 function DatabaseOverview({ call, notify }) {
-  const [snapshot, setSnapshot] = (0, import_react4.useState)({ loading: true, sources: [], checkedAt: "", error: "" });
-  const [busy, setBusy] = (0, import_react4.useState)("");
-  const [open, setOpen] = (0, import_react4.useState)(false);
-  const [webvpn, setWebvpn] = (0, import_react4.useState)(null);
-  const [iwan, setIwan] = (0, import_react4.useState)(null);
-  const refreshWebvpn = (0, import_react4.useCallback)(async () => {
+  const [snapshot, setSnapshot] = (0, import_react3.useState)({ loading: true, sources: [], checkedAt: "", error: "" });
+  const [busy, setBusy] = (0, import_react3.useState)("");
+  const [open, setOpen] = (0, import_react3.useState)(false);
+  const [webvpn, setWebvpn] = (0, import_react3.useState)(null);
+  const [iwan, setIwan] = (0, import_react3.useState)(null);
+  const refreshWebvpn = (0, import_react3.useCallback)(async () => {
     if (window.parent === window) return;
     try {
       setWebvpn(await webVpnStatusViaShell());
@@ -1403,7 +1195,7 @@ function DatabaseOverview({ call, notify }) {
       setWebvpn(null);
     }
   }, []);
-  const refreshIwan = (0, import_react4.useCallback)(async () => {
+  const refreshIwan = (0, import_react3.useCallback)(async () => {
     if (window.parent === window) return;
     try {
       setIwan(await iwanStatusViaShell());
@@ -1411,7 +1203,7 @@ function DatabaseOverview({ call, notify }) {
       setIwan(null);
     }
   }, []);
-  const refresh = (0, import_react4.useCallback)(async (force = false) => {
+  const refresh = (0, import_react3.useCallback)(async (force = false) => {
     try {
       const result = await call("literature_status", { request: { force } });
       setSnapshot({ loading: false, sources: result.sources || [], checkedAt: result.checkedAt || "", browserMode: result.browserMode || "managed-edge", error: "" });
@@ -1419,7 +1211,7 @@ function DatabaseOverview({ call, notify }) {
       setSnapshot((old) => ({ ...old, loading: false, error: reason.message }));
     }
   }, [call]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     void refresh(false);
     void refreshWebvpn();
     void refreshIwan();
@@ -1475,7 +1267,7 @@ function DatabaseOverview({ call, notify }) {
   const webvpnStatusText = webvpnLoggedIn ? "WebVPN 已登录" : "WebVPN 未登录";
   const iwanStatusText = iwan?.usable ? "iWAN 全局模式可用" : iwan?.connected ? "iWAN 已连接但未启用全部路由" : iwan?.installed ? "iWAN 未连接" : "未安装 iWAN";
   return h(
-    import_react4.default.Fragment,
+    import_react3.default.Fragment,
     null,
     h(
       "div",
@@ -1519,8 +1311,8 @@ function DatabaseOverview({ call, notify }) {
 }
 function useBoundProject(sessionId, call, useSessions) {
   const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
-  const [bound, setBound] = (0, import_react4.useState)(null);
-  (0, import_react4.useEffect)(() => {
+  const [bound, setBound] = (0, import_react3.useState)(null);
+  (0, import_react3.useEffect)(() => {
     if (!sessionId) {
       setBound(null);
       return void 0;
@@ -1550,7 +1342,7 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
     document.body.dataset.ibResearchProject = bound.project.id;
@@ -1561,7 +1353,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       }
     };
   }, [bound?.project?.id]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
     let disposed = false;
@@ -1651,33 +1443,26 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
   }, [bound?.project?.id, call, toast]);
   if (!bound?.project) return null;
   return h(
-    import_react4.default.Fragment,
-    null,
-    h(
-      "button",
-      { className: "ib-research-badge", title: "打开课题空间", "aria-label": `打开课题空间：${bound.project.name}`, onClick: () => openWorkspace(bound.project) },
-      h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
-      h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
-      h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
-    ),
-    // 课题主页面也是右侧栏的一种类型：在这里给一个直达入口。
-    // 右侧栏不可用时（服务缺失）回落到原有的全屏面板，不让按钮点了没反应。
-    h("button", {
-      className: "ib-icon-btn ib-project-tab-btn",
-      title: "在右侧栏打开课题（每个课题一个标签页）",
-      "aria-label": `在右侧栏打开课题：${bound.project.name}`,
+    "button",
+    {
+      className: "ib-research-badge",
+      title: "在右侧栏打开课题空间",
+      "aria-label": `打开课题空间：${bound.project.name}`,
       onClick: () => {
         if (openProjectTab2?.(bound.project.id)) return;
-        toast?.("右侧栏不可用，已改为打开课题面板");
+        toast?.("右侧栏不可用，已改为全屏打开课题空间");
         openWorkspace(bound.project);
       }
-    }, h(ProjectTabGlyph, { width: 14, height: 14 }))
+    },
+    h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
+    h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
+    h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
   );
 }
 var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 // client/src/components-workspace.js
-var import_react6 = require("react");
+var import_react5 = require("react");
 
 // client/src/ketcher.js
 function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false } = {}) {
@@ -1862,7 +1647,7 @@ function stepCompoundsByRole(step, roles) {
 }
 
 // client/src/components-core.js
-var import_react5 = __toESM(require("react"), 1);
+var import_react4 = __toESM(require("react"), 1);
 
 // client/src/reaction-scheme.js
 function textWeight(value) {
@@ -1932,12 +1717,12 @@ function reactionSchemeLabel(value, maxWeight = 30) {
 // client/src/components-core.js
 function StructureCard({ entry, onClick, compact }) {
   const preview = resolveCompoundPreview(entry);
-  const [state, setState] = (0, import_react5.useState)(preview.state === "resolvable" ? "loading" : "not_found");
-  const [image, setImage] = (0, import_react5.useState)(null);
-  const [attempt, setAttempt] = (0, import_react5.useState)(0);
-  const requested = (0, import_react5.useRef)(false);
+  const [state, setState] = (0, import_react4.useState)(preview.state === "resolvable" ? "loading" : "not_found");
+  const [image, setImage] = (0, import_react4.useState)(null);
+  const [attempt, setAttempt] = (0, import_react4.useState)(0);
+  const requested = (0, import_react4.useRef)(false);
   const previewTier = structurePreviewTier(entry?.smiles);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!entry?.smiles) {
       setImage(null);
       setState("not_found");
@@ -2003,8 +1788,8 @@ function StructureCard({ entry, onClick, compact }) {
 function ReactionSchemePreview({ step, reactants = [], products = [], onStructureClick, fallback }) {
   const renderable = [...reactants, ...products].filter((entry) => entry?.smiles);
   const renderKey = renderable.map((entry) => `${entry.id || entry.name}:${entry.smiles}`).join("|");
-  const [previewState, setPreviewState] = (0, import_react5.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
-  (0, import_react5.useEffect)(() => {
+  const [previewState, setPreviewState] = (0, import_react4.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
+  (0, import_react4.useEffect)(() => {
     let alive = true;
     if (!renderable.length) {
       setPreviewState({ state: "ready", images: {} });
@@ -2098,9 +1883,9 @@ function StepReactionLayout({ step, onStructureClick }) {
   );
 }
 function PdfViewerFrame({ row: row2, notify }) {
-  const iframeRef = (0, import_react5.useRef)(null);
-  const [locateState, setLocateState] = (0, import_react5.useState)("loading");
-  const [errorMessage, setErrorMessage] = (0, import_react5.useState)("");
+  const iframeRef = (0, import_react4.useRef)(null);
+  const [locateState, setLocateState] = (0, import_react4.useState)("loading");
+  const [errorMessage, setErrorMessage] = (0, import_react4.useState)("");
   const rawPage = String(row2?.page ?? "").trim();
   const pageMatch = /^(?:S)?([1-9]\d*)$/i.exec(rawPage);
   const pageIsValid = !!pageMatch;
@@ -2110,7 +1895,7 @@ function PdfViewerFrame({ row: row2, notify }) {
   const locatorQuote = pageIsValid ? quote : "";
   const open = !!bundleId;
   const documentKind = row2?.sourceKind === "si" || !row2?.sourceKind && row2?.sourceType === "paper-si" ? "si" : "pdf";
-  (0, import_react5.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!open) {
       setLocateState("error");
       setErrorMessage("未绑定已归档原文，无法定位");
@@ -2175,13 +1960,13 @@ function PdfViewerFrame({ row: row2, notify }) {
   );
 }
 function KetcherEditorModal({ entry, onSave, onCancel }) {
-  const iframeRef = (0, import_react5.useRef)(null);
-  const [status, setStatus] = (0, import_react5.useState)("loading");
-  const [fallbackSmiles, setFallbackSmiles] = (0, import_react5.useState)(entry?.smiles || "");
-  const fallbackTimer = (0, import_react5.useRef)(null);
-  const commitTimer = (0, import_react5.useRef)(null);
+  const iframeRef = (0, import_react4.useRef)(null);
+  const [status, setStatus] = (0, import_react4.useState)("loading");
+  const [fallbackSmiles, setFallbackSmiles] = (0, import_react4.useState)(entry?.smiles || "");
+  const fallbackTimer = (0, import_react4.useRef)(null);
+  const commitTimer = (0, import_react4.useRef)(null);
   const open = entry != null;
-  (0, import_react5.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!open) return void 0;
     setStatus("loading");
     const onMessage = (event) => {
@@ -2250,30 +2035,30 @@ function KetcherEditorModal({ entry, onSave, onCancel }) {
 // client/src/components-workspace.js
 function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onRequestPlan, onChanged }) {
   const targetById = (id) => targets.find((row2) => row2.id === id) || null;
-  const [routeId, setRouteId] = (0, import_react6.useState)(routes.length ? routes[0].id : null);
-  const [tick, setTick] = (0, import_react6.useState)(0);
-  const [detail, setDetail] = (0, import_react6.useState)(null);
-  const [selectedStepId, setSelectedStepId] = (0, import_react6.useState)(null);
-  const [assess, setAssess] = (0, import_react6.useState)(null);
-  const [alt, setAlt] = (0, import_react6.useState)(null);
-  const [busy, setBusy] = (0, import_react6.useState)({});
-  const [error, setError] = (0, import_react6.useState)("");
-  const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react6.useState)(null);
-  const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react6.useState)(false);
-  const [correctionFor, setCorrectionFor] = (0, import_react6.useState)(null);
-  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react6.useState)(null);
-  const [batchList, setBatchList] = (0, import_react6.useState)([]);
-  const [newRouteForm, setNewRouteForm] = (0, import_react6.useState)(null);
-  const [moreOpen, setMoreOpen] = (0, import_react6.useState)(false);
-  const [lockBlockers, setLockBlockers] = (0, import_react6.useState)([]);
-  (0, import_react6.useEffect)(() => {
+  const [routeId, setRouteId] = (0, import_react5.useState)(routes.length ? routes[0].id : null);
+  const [tick, setTick] = (0, import_react5.useState)(0);
+  const [detail, setDetail] = (0, import_react5.useState)(null);
+  const [selectedStepId, setSelectedStepId] = (0, import_react5.useState)(null);
+  const [assess, setAssess] = (0, import_react5.useState)(null);
+  const [alt, setAlt] = (0, import_react5.useState)(null);
+  const [busy, setBusy] = (0, import_react5.useState)({});
+  const [error, setError] = (0, import_react5.useState)("");
+  const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react5.useState)(null);
+  const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react5.useState)(false);
+  const [correctionFor, setCorrectionFor] = (0, import_react5.useState)(null);
+  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react5.useState)(null);
+  const [batchList, setBatchList] = (0, import_react5.useState)([]);
+  const [newRouteForm, setNewRouteForm] = (0, import_react5.useState)(null);
+  const [moreOpen, setMoreOpen] = (0, import_react5.useState)(false);
+  const [lockBlockers, setLockBlockers] = (0, import_react5.useState)([]);
+  (0, import_react5.useEffect)(() => {
     if (routes.length && !routes.some((row2) => row2.id === routeId)) setRouteId(routes[0].id);
     if (!routes.length) {
       setDetail(null);
       setSelectedStepId(null);
     }
   }, [routes]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!routeId) return;
     let stale = false;
     setDetail(null);
@@ -2304,7 +2089,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   const selectedStep = detail ? (detail.route.steps || []).find((step) => step.id === selectedStepId || `s${step.step}` === selectedStepId) : null;
   const stepEvidence = detail && selectedStep ? evidenceByStep(detail.evidence, selectedStep) : [];
   const routeEvidence = detail ? routeLevelEvidence(detail.evidence) : [];
-  (0, import_react6.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!routeId || !selectedStepId || !detail) return;
     let stale = false;
     setAssess(null);
@@ -2519,7 +2304,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       throw reason;
     }
   });
-  const loadReviewBatches = (0, import_react6.useCallback)(() => {
+  const loadReviewBatches = (0, import_react5.useCallback)(() => {
     if (!routeId) return Promise.resolve([]);
     return call("synth_review_batch_get", { request: { routeId } }).then((result) => {
       setBatchList(result.batches || []);
@@ -2577,7 +2362,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
     setCorrectionFor(null);
     setEvidenceFeedback(null);
   };
-  (0, import_react6.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!reviewDrawerOpen) return void 0;
     const onKey = (event) => {
       if (event.key === "Escape") setReviewDrawerOpen(false);
@@ -2586,10 +2371,10 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
     return () => window.removeEventListener("keydown", onKey);
   }, [reviewDrawerOpen]);
   const activeEvidence = detail && selectedEvidenceId ? stepEvidence.find((row2) => row2.id === selectedEvidenceId) || null : null;
-  const [ketcherModal, setKetcherModal] = (0, import_react6.useState)(null);
-  const [addStepForm, setAddStepForm] = (0, import_react6.useState)(null);
-  const [dualPanel, setDualPanel] = (0, import_react6.useState)(null);
-  const [planPreview, setPlanPreview] = (0, import_react6.useState)(null);
+  const [ketcherModal, setKetcherModal] = (0, import_react5.useState)(null);
+  const [addStepForm, setAddStepForm] = (0, import_react5.useState)(null);
+  const [dualPanel, setDualPanel] = (0, import_react5.useState)(null);
+  const [planPreview, setPlanPreview] = (0, import_react5.useState)(null);
   const routePlan = route ? plans.find((item) => item.routeId === route.id || item.id === `plan-${route.id}` || item.id.startsWith(`plan-${route.id}-`)) : null;
   const requestExperimentPlan = () => {
     if (!route || !onRequestPlan) return;
@@ -2673,12 +2458,12 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       notify(reason.message || "结构式保存失败");
     }
   });
-  (0, import_react6.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     const candidates = detail?.evidence || [];
     const rows = selectedStep ? candidates.filter((row2) => row2.stepId === selectedStep.id || row2.stepId === void 0 && row2.stepKey !== void 0 && Number(row2.stepKey) === selectedStep.step) : [];
     setSelectedEvidenceId((current) => current && rows.some((row2) => row2.id === current) ? current : rows[0]?.id ?? null);
   }, [detail, selectedStepId]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!routeId) return void 0;
     let stale = false;
     call("synth_review_batch_get", { request: { routeId } }).then((result) => {
@@ -3122,7 +2907,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
 }
 
 // client/src/components-characterization.js
-var import_react7 = __toESM(require("react"), 1);
+var import_react6 = __toESM(require("react"), 1);
 var labels = { queued: "排队中", running: "处理中", completed: "已完成", failed: "失败" };
 var verdictLabels = { match: "吻合", mismatch: "不吻合", inconclusive: "暂无法判断" };
 var localDate = () => {
@@ -3130,14 +2915,14 @@ var localDate = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) {
-  const [tasks, setTasks] = (0, import_react7.useState)([]), [plots, setPlots] = (0, import_react7.useState)([]), [form, setForm] = (0, import_react7.useState)(null), [error, setError] = (0, import_react7.useState)(""), [busy, setBusy] = (0, import_react7.useState)(false), [notice, setNotice] = (0, import_react7.useState)("");
-  const lock = (0, import_react7.useRef)(false);
+  const [tasks, setTasks] = (0, import_react6.useState)([]), [plots, setPlots] = (0, import_react6.useState)([]), [form, setForm] = (0, import_react6.useState)(null), [error, setError] = (0, import_react6.useState)(""), [busy, setBusy] = (0, import_react6.useState)(false), [notice, setNotice] = (0, import_react6.useState)("");
+  const lock = (0, import_react6.useRef)(false);
   const refresh = async () => {
     const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), call("plot_records_list", { request: { projectId } })]);
     setTasks(a.tasks || []);
     setPlots(b.records || []);
   };
-  (0, import_react7.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -3271,10 +3056,10 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     { className: "ib-characterization-row", key: row2.id },
     kind === "nmr" ? h("div", { className: "ib-nmr-structure" }, row2.compound?.smiles ? h(StructureCard, { entry: row2.compound, compact: true }) : h("span", null, "结构待补充")) : null,
     h("div", { className: "ib-characterization-title" }, h("b", null, row2.title || row2.topic || row2.compound?.name || row2.name), h("time", null, row2.date || row2.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row2) : null, row2.status && row2.status !== "completed" ? h("small", null, labels[row2.status] || "") : null),
-    kind === "nmr" ? h(import_react7.default.Fragment, null, fileButton(row2, "spectrum", "核磁图", "mnova"), fileButton(row2, "report", "报告", "word")) : fileButton(row2, "origin", "绘图文件", "origin"),
+    kind === "nmr" ? h(import_react6.default.Fragment, null, fileButton(row2, "spectrum", "核磁图", "mnova"), fileButton(row2, "report", "报告", "word")) : fileButton(row2, "origin", "绘图文件", "origin"),
     row2.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row2) }, "重试") : null,
     h("button", { className: "ib-btn", "data-danger": true, disabled: busy, onClick: () => void remove(row2, kind), title: `删除${kind === "nmr" ? "核磁" : "绘图"}登记（保留课题文件）` }, "删除"),
-    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row2.error || row2.instructions || ""), kind === "nmr" ? h(import_react7.default.Fragment, null, h("p", null, `CAS ${row2.compound?.casNumber || "待补充"} · ${row2.nucleus || "1H"} · ${row2.deuteratedSolvent || row2.solvent || "氘代溶剂待补充"}`), row2.assessment ? h("p", null, `结构判断：${verdictLabels[row2.assessment.verdict]}；置信度 ${row2.assessment.confidence.toUpperCase()}。${row2.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row2.id), call, onChanged: refresh, onError: setError }) : null)
+    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row2.error || row2.instructions || ""), kind === "nmr" ? h(import_react6.default.Fragment, null, h("p", null, `CAS ${row2.compound?.casNumber || "待补充"} · ${row2.nucleus || "1H"} · ${row2.deuteratedSolvent || row2.solvent || "氘代溶剂待补充"}`), row2.assessment ? h("p", null, `结构判断：${verdictLabels[row2.assessment.verdict]}；置信度 ${row2.assessment.confidence.toUpperCase()}。${row2.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row2.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
   return h(
@@ -3290,11 +3075,11 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
       const legacy = (kind === "nmr" ? nmrRows : plots).filter((r) => !tasks.some((t) => t.id === r.id)).map((r) => ({ ...r, artifacts: kind === "nmr" ? { spectrum: r.spectrumPath, report: r.reportPath } : { origin: r.artifactPath } }));
       return h("section", { className: "ib-card", key: kind }, h("div", { className: "ib-card-head" }, h("h3", null, kind === "nmr" ? "核磁分析" : "科研绘图"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => start(kind) }, kind === "nmr" ? "提交核磁任务" : "提交绘图任务")), rows.length || legacy.length ? h("div", null, ...rows.map((r) => renderRow(r, kind)), ...legacy.map((r) => renderRow(r, kind))) : h("p", { className: "ib-muted" }, "任务完成后，文件会自动回填到这里。"));
     }),
-    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(import_react7.default.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
+    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(import_react6.default.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
   );
 }
 function PlotEdit({ row: row2, call, onChanged, onError }) {
-  const [topic, setTopic] = (0, import_react7.useState)(row2?.topic || ""), [date, setDate] = (0, import_react7.useState)(row2?.date || "");
+  const [topic, setTopic] = (0, import_react6.useState)(row2?.topic || ""), [date, setDate] = (0, import_react6.useState)(row2?.date || "");
   if (!row2) return null;
   return h("div", { className: "ib-entry-edit" }, h("input", { "aria-label": "绘图主题", value: topic, onChange: (e) => setTopic(e.target.value) }), h("input", { "aria-label": "绘图日期", type: "date", value: date, onChange: (e) => setDate(e.target.value) }), h("button", { className: "ib-btn", onClick: async () => {
     try {
@@ -3344,9 +3129,9 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
   }
 };
 function CreateProject({ call, defaults, onCancel, onCreated }) {
-  const [form, setForm] = (0, import_react9.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
-  const [busy, setBusy] = (0, import_react9.useState)(false);
-  const [error, setError] = (0, import_react9.useState)("");
+  const [form, setForm] = (0, import_react8.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
+  const [busy, setBusy] = (0, import_react8.useState)(false);
+  const [error, setError] = (0, import_react8.useState)("");
   const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
   const create = async () => {
     setBusy(true);
@@ -3366,10 +3151,10 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 }
 function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
-  const [state, setState] = (0, import_react9.useState)({ loading: true, projects: [], defaults: {}, error: "" });
-  const [creating, setCreating] = (0, import_react9.useState)(false);
-  const [launching, setLaunching] = (0, import_react9.useState)(null);
-  const load = (0, import_react9.useCallback)(async () => {
+  const [state, setState] = (0, import_react8.useState)({ loading: true, projects: [], defaults: {}, error: "" });
+  const [creating, setCreating] = (0, import_react8.useState)(false);
+  const [launching, setLaunching] = (0, import_react8.useState)(null);
+  const load = (0, import_react8.useCallback)(async () => {
     try {
       const [projects, goals, templates] = await Promise.all([call("projects_list"), call("goals_list"), call("templates_list")]);
       setState({ loading: false, projects: projects.projects || [], defaults: { goal: goals.goals.find((x) => x.id === "default-prodrug-polymer") || goals.goals[0], template: templates.templates.find((x) => x.id === "nature-default") || templates.templates[0] }, error: "" });
@@ -3377,7 +3162,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
   }, []);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     void load();
   }, [load]);
   const launch = async (project, presetId) => {
@@ -3424,18 +3209,18 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   for (const item of (presentations || []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (!(item.reportId in presentationByReport)) presentationByReport[item.reportId] = item;
   }
-  const [busy, setBusy] = (0, import_react9.useState)({});
-  const [overview, setOverview] = (0, import_react9.useState)({});
-  const [expandedSearch, setExpandedSearch] = (0, import_react9.useState)(null);
-  const [machineReviews, setMachineReviews] = (0, import_react9.useState)({});
-  const [preview, setPreview] = (0, import_react9.useState)(null);
-  const [reviewVisible, setReviewVisible] = (0, import_react9.useState)(false);
-  const [approval, setApproval] = (0, import_react9.useState)(null);
-  const [captureHint, setCaptureHint] = (0, import_react9.useState)(null);
-  const [captureStopping, setCaptureStopping] = (0, import_react9.useState)(false);
-  const [browserMode, setBrowserMode] = (0, import_react9.useState)("managed-edge");
-  const [opening, setOpening] = (0, import_react9.useState)({});
-  (0, import_react9.useEffect)(() => {
+  const [busy, setBusy] = (0, import_react8.useState)({});
+  const [overview, setOverview] = (0, import_react8.useState)({});
+  const [expandedSearch, setExpandedSearch] = (0, import_react8.useState)(null);
+  const [machineReviews, setMachineReviews] = (0, import_react8.useState)({});
+  const [preview, setPreview] = (0, import_react8.useState)(null);
+  const [reviewVisible, setReviewVisible] = (0, import_react8.useState)(false);
+  const [approval, setApproval] = (0, import_react8.useState)(null);
+  const [captureHint, setCaptureHint] = (0, import_react8.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react8.useState)(false);
+  const [browserMode, setBrowserMode] = (0, import_react8.useState)("managed-edge");
+  const [opening, setOpening] = (0, import_react8.useState)({});
+  (0, import_react8.useEffect)(() => {
     let alive = true;
     call("literature_status", { request: { force: false } }).then((result) => {
       if (alive && result?.browserMode) setBrowserMode(result.browserMode);
@@ -3446,7 +3231,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     };
   }, [call]);
   const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
-  (0, import_react9.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId) return void 0;
     let disposed = false;
@@ -3480,7 +3265,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, call, onChanged]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId || captureHint?.route !== "webvpn") return void 0;
     let disposed = false;
@@ -3770,7 +3555,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const shortOf = (report) => citationOf(report)?.text || report.shortCitation || titleByBundle[report.bundleId] || `精读报告 ${report.id.slice(0, 12)}`;
   const shortNode = (report) => {
     const citation = citationOf(report);
-    return citation ? h(import_react8.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
+    return citation ? h(import_react7.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
   };
   const zhOf = (report) => report.titleZh || shortOf(report);
   const paperCitation = (paper) => {
@@ -3827,7 +3612,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "section",
       { className: "ib-approval-card", role: approval.stage === "approved" ? "status" : "alertdialog", "aria-label": approval.stage === "approved" ? "审核通过" : "审核通过二次确认" },
       approval.stage === "approved" ? h(
-        import_react8.default.Fragment,
+        import_react7.default.Fragment,
         null,
         h("div", { className: "ib-approval-ok" }, h("strong", null, "审核通过"), h("span", null, `${preview?.kind === "ppt" ? "PPTX" : "DOCX"} 已开放下载；你也可以关闭此页面后继续在预览窗口下载。`)),
         h(
@@ -3837,7 +3622,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("button", { className: "ib-preview-btn", "data-primary": true, disabled: busy[preview?.kind === "ppt" ? `ppt:${preview?.report.id}` : `rep:${preview?.report.id}`], onClick: () => void downloadPreviewArtifact() }, preview?.kind === "ppt" ? "下载PPT" : "下载DOCX")
         )
       ) : h(
-        import_react8.default.Fragment,
+        import_react7.default.Fragment,
         null,
         h("h3", null, "审核通过前请确认自查提醒"),
         h("p", null, "自动自查仅供参考，不构成通过门限。请结合上方实际分页预览人工判断；点击确认后将锁定当前文件版本并开放下载。"),
@@ -3852,7 +3637,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ) : null;
   const previewNode = preview ? h(
-    import_react8.default.Fragment,
+    import_react7.default.Fragment,
     null,
     h("div", { className: "ib-preview-backdrop", onClick: closePreview }),
     h(
@@ -3879,7 +3664,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  return h(import_react8.default.Fragment, null, h(
+  return h(import_react7.default.Fragment, null, h(
     "div",
     { className: "ib-lit" },
     // ── 左：文献检索 ──
@@ -4015,17 +3800,17 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   ), previewNode);
 }
 function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch }) {
-  const [state, setState] = (0, import_react9.useState)({ loading: true, data: null, error: "" });
-  const [tab, setTab] = (0, import_react9.useState)("literature");
-  const [draft, setDraft] = (0, import_react9.useState)("");
-  const [memoryOpen, setMemoryOpen] = (0, import_react9.useState)(false);
-  const memoryDirty = (0, import_react9.useRef)(false);
-  const [note, setNote] = (0, import_react9.useState)("");
-  const [saving, setSaving] = (0, import_react9.useState)(false);
-  const [launching, setLaunching] = (0, import_react9.useState)(false);
-  const [deleting, setDeleting] = (0, import_react9.useState)(false);
-  const [toast, setToast] = (0, import_react9.useState)("");
-  const load = (0, import_react9.useCallback)(async () => {
+  const [state, setState] = (0, import_react8.useState)({ loading: true, data: null, error: "" });
+  const [tab, setTab] = (0, import_react8.useState)("literature");
+  const [draft, setDraft] = (0, import_react8.useState)("");
+  const [memoryOpen, setMemoryOpen] = (0, import_react8.useState)(false);
+  const memoryDirty = (0, import_react8.useRef)(false);
+  const [note, setNote] = (0, import_react8.useState)("");
+  const [saving, setSaving] = (0, import_react8.useState)(false);
+  const [launching, setLaunching] = (0, import_react8.useState)(false);
+  const [deleting, setDeleting] = (0, import_react8.useState)(false);
+  const [toast, setToast] = (0, import_react8.useState)("");
+  const load = (0, import_react8.useCallback)(async () => {
     try {
       const data2 = await call("projects_workspace", { request: { projectId: project.id } });
       setState({ loading: false, data: data2, error: "" });
@@ -4034,7 +3819,7 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
       setState({ loading: false, data: null, error: reason.message });
     }
   }, [project.id]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     memoryDirty.current = false;
     try {
       const cached = sessionStorage.getItem(`ib-memory-draft:${project.id}`);
@@ -4047,7 +3832,7 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
     setMemoryOpen(false);
     void load();
   }, [load]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 7e3);
     return () => clearTimeout(timer);
@@ -4132,7 +3917,7 @@ function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch })
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
-var OverlayBoundary = class extends (import_react8.default.Component ?? class {
+var OverlayBoundary = class extends (import_react7.default.Component ?? class {
 }) {
   constructor(props) {
     super(props);
@@ -4152,20 +3937,20 @@ var OverlayBoundary = class extends (import_react8.default.Component ?? class {
   }
 };
 function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, initial }) {
-  const [project, setProject] = (0, import_react9.useState)(initial ?? null);
-  const [templates, setTemplates] = (0, import_react9.useState)(false);
+  const [project, setProject] = (0, import_react8.useState)(initial ?? null);
+  const [templates, setTemplates] = (0, import_react8.useState)(false);
   return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/webvpn-tab.js
-var import_react10 = require("react");
+var import_react9 = require("react");
 var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 var WEBVPN_TAB_KIND = "lab-webvpn";
 function WebVpnTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const visible = tab?.visible === true;
-  const hostRef = (0, import_react10.useRef)(null);
-  (0, import_react10.useEffect)(() => {
+  const hostRef = (0, import_react9.useRef)(null);
+  (0, import_react9.useEffect)(() => {
     if (!visible) {
       sendWebVpnRect({ visible: false });
       return void 0;
@@ -4210,8 +3995,8 @@ function WebVpnTabBody({ useTabInfo }) {
     };
   }, [visible]);
   const inShell = typeof window !== "undefined" && window.parent !== window;
-  const portalSeeded = (0, import_react10.useRef)(false);
-  (0, import_react10.useEffect)(() => {
+  const portalSeeded = (0, import_react9.useRef)(false);
+  (0, import_react9.useEffect)(() => {
     if (!visible || portalSeeded.current || !inShell) return;
     portalSeeded.current = true;
     void (async () => {
@@ -4256,6 +4041,199 @@ function registerWebVpnTab(ctx, { openTab }) {
   }, WebVpnTabBody)), "dsh-lab-agent: 文献浏览器 tab 正文");
   setWebVpnTabOpener(openTab);
   ctx.effect(() => () => setWebVpnTabOpener(null), "dsh-lab-agent: 文献浏览器 opener");
+}
+
+// client/src/project-tab.js
+var import_react10 = require("react");
+
+// client/src/project-address.js
+var PROJECT_TAB_ID = "dsh-lab-agent/project";
+var PROJECT_TAB_KIND = "lab-project";
+var PROJECT_ADDRESS_PREFIX = "dsh-resource://lab-project/";
+var PROJECT_PATTERNS = ["dsh-resource://lab-project/**"];
+var projectAddress = (projectId) => `${PROJECT_ADDRESS_PREFIX}${encodeURIComponent(String(projectId ?? ""))}`;
+function projectIdOf(address) {
+  const raw = String(address ?? "");
+  if (!raw.startsWith(PROJECT_ADDRESS_PREFIX)) return void 0;
+  try {
+    const id = decodeURIComponent(raw.slice(PROJECT_ADDRESS_PREFIX.length));
+    return id || void 0;
+  } catch {
+    return void 0;
+  }
+}
+
+// client/src/project-tab.js
+var openResourceAction = null;
+var loadProject = null;
+var renderPanel = null;
+function setProjectTabOpener(fn) {
+  openResourceAction = typeof fn === "function" ? fn : null;
+}
+function setProjectLoader(fn) {
+  loadProject = typeof fn === "function" ? fn : null;
+}
+function setProjectPanelRenderer(fn) {
+  renderPanel = typeof fn === "function" ? fn : null;
+}
+function openProjectTab(projectId) {
+  const id = String(projectId ?? "").trim();
+  if (!openResourceAction || !id) return false;
+  try {
+    openResourceAction(projectAddress(id));
+    return true;
+  } catch (reason) {
+    console.warn("[dsh-lab-agent] 打开课题 tab 失败", reason);
+    return false;
+  }
+}
+var projectNames = /* @__PURE__ */ new Map();
+var nameListeners = /* @__PURE__ */ new Set();
+function publishProjectName(projectId, name) {
+  const id = String(projectId ?? "");
+  if (!id || typeof name !== "string" || !name) return;
+  if (projectNames.get(id) === name) return;
+  projectNames.set(id, name);
+  for (const listener of nameListeners) listener();
+}
+function projectNameOf(projectId) {
+  return projectId === void 0 ? void 0 : projectNames.get(projectId);
+}
+function useProjectName(projectId) {
+  const [, bump] = (0, import_react10.useState)(0);
+  (0, import_react10.useEffect)(() => {
+    const listener = () => bump((value) => value + 1);
+    nameListeners.add(listener);
+    return () => {
+      nameListeners.delete(listener);
+    };
+  }, []);
+  return projectNameOf(projectId);
+}
+function ensureProjectName(projectId) {
+  if (projectId === void 0 || projectNames.has(projectId) || !loadProject) return;
+  Promise.resolve().then(() => loadProject(projectId)).then((project) => {
+    if (project?.name) publishProjectName(projectId, project.name);
+  }).catch(() => {
+  });
+}
+var STATUS_LABEL = { active: "进行中", archived: "已归档", closed: "已结束" };
+function row(label, value, title) {
+  return h(
+    "div",
+    { className: "ib-project-tab-row" },
+    h("span", null, label),
+    h("b", { title: title ?? (typeof value === "string" ? value : void 0) }, value)
+  );
+}
+function ProjectTabBody({ useTabInfo }) {
+  const { tab } = useTabInfo();
+  const projectId = projectIdOf(tab?.contentId);
+  const revision = tab?.navigation?.revision ?? 0;
+  const [state, setState] = (0, import_react10.useState)({ status: "loading" });
+  const cachedName = useProjectName(projectId);
+  (0, import_react10.useEffect)(() => {
+    if (projectId === void 0) {
+      setState({ status: "invalid" });
+      return void 0;
+    }
+    if (renderPanel) {
+      ensureProjectName(projectId);
+      return void 0;
+    }
+    if (!loadProject) {
+      setState({ status: "unavailable" });
+      return void 0;
+    }
+    let disposed = false;
+    setState({ status: "loading" });
+    Promise.resolve().then(() => loadProject(projectId)).then((project2) => {
+      if (disposed) return;
+      if (!project2) {
+        setState({ status: "missing" });
+        return;
+      }
+      publishProjectName(projectId, project2.name);
+      setState({ status: "ready", project: project2 });
+    }).catch((reason) => {
+      if (!disposed) setState({ status: "error", message: reason?.message || String(reason) });
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [projectId, revision]);
+  if (projectId === void 0) {
+    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "这个标签页不是课题地址，无法显示课题内容。");
+  }
+  if (renderPanel) {
+    return h("div", { className: "ib-project-tab-embed" }, renderPanel(projectId));
+  }
+  if (state.status === "unavailable" || state.status === "loading") {
+    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "正在读取课题…");
+  }
+  if (state.status === "missing") {
+    return h("div", { className: "ib-project-tab ib-project-tab-note" }, "该课题已不存在（可能已被删除）。");
+  }
+  if (state.status === "error") {
+    return h("div", { className: "ib-project-tab ib-project-tab-note" }, `读取课题失败：${state.message}`);
+  }
+  const { project } = state;
+  const goal = project.goalProfile;
+  const template = project.template;
+  return h(
+    "div",
+    { className: "ib-project-tab" },
+    h(
+      "div",
+      { className: "ib-project-tab-head" },
+      h("b", { title: project.name }, project.name || cachedName || project.id),
+      h("span", { className: "ib-chip" }, STATUS_LABEL[project.status] || project.status || "—")
+    ),
+    h(
+      "div",
+      { className: "ib-project-tab-rows" },
+      row("课题编号", project.id || "—"),
+      row("核心记忆", `v${project.memoryVersion || "1"}`),
+      row("工作区", project.workspacePath || "尚未建立", project.workspacePath),
+      row("精读目标", goal ? `${goal.id}@${goal.version}` : "—"),
+      row("阅读模板", template ? `${template.id}@${template.version}` : "—"),
+      row("创建", project.createdAt ? new Date(project.createdAt).toLocaleDateString() : "—"),
+      row("更新", project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : "—")
+    )
+  );
+}
+function ProjectTabTitle({ useTabInfo }) {
+  const { tab } = useTabInfo();
+  const projectId = projectIdOf(tab?.contentId);
+  const name = useProjectName(projectId);
+  (0, import_react10.useEffect)(() => {
+    ensureProjectName(projectId);
+  }, [projectId]);
+  return h("span", { className: "ib-project-tab-title", title: name || projectId || "" }, name || "课题");
+}
+function registerProjectTab(ctx) {
+  ctx.effect(() => ctx.sidebarRightTabs.register({
+    id: PROJECT_TAB_ID,
+    kind: PROJECT_TAB_KIND,
+    // 含 ":" → 按整条地址匹配；实测命中 dsh-resource://lab-project/<id>。
+    patterns: PROJECT_PATTERNS,
+    priority: "extension",
+    // 打开时捕获，此时通常还没查到课题名；实时名称由下面的标题座位补上。
+    title: () => "课题"
+  }), "dsh-lab-agent: 课题 tab 类型");
+  ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+    name: "sidebar.right.pane.tab",
+    key: PROJECT_TAB_ID
+  }, ProjectTabBody)), "dsh-lab-agent: 课题 tab 正文");
+  ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
+    name: "sidebar.right.pane.tab.title",
+    key: PROJECT_TAB_ID
+  }, ProjectTabTitle)), "dsh-lab-agent: 课题 tab 标题");
+  ctx.effect(() => () => {
+    setProjectTabOpener(null);
+    setProjectLoader(null);
+    setProjectPanelRenderer(null);
+  }, "dsh-lab-agent: 课题 tab 装配面注销");
 }
 
 // client/src/apply.js
@@ -4414,7 +4392,29 @@ function applyUi(ctx) {
     registerProjectTab(tabCtx);
     setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));
     setProjectLoader(async (projectId) => (await call("projects_get", { request: { id: projectId } }))?.project ?? null);
-    setProjectPanelOpener((project) => open(project));
+    setProjectPanelRenderer((projectId) => h(
+      "div",
+      { className: "ib-overlay ib-panel-embed" },
+      h(
+        "div",
+        { className: "ib-main" },
+        h(Project, {
+          call,
+          project: { id: projectId },
+          // 「← 所有课题」在侧栏里没有列表可回，改为打开全屏课题管理页。
+          onBack: () => open(null),
+          onDelete: deleteProject,
+          onStartChat: launchProject,
+          onOpenSearch: (sessionId) => {
+            try {
+              ctx.uiWorkspace.openSession(sessionId);
+            } catch (reason) {
+              toast(reason.message || "无法打开该会话");
+            }
+          }
+        })
+      )
+    ));
   }, "dsh-lab-agent: 右侧栏 tab");
   ctx.on("dispose", () => {
     if (disposeBranding) disposeBranding();

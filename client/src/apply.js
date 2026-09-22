@@ -3,10 +3,10 @@ import ReactDOM from "react-dom";
 import { h } from "./h.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
-import { OverlayBoundary, Panel } from "./components-project.js";
+import { OverlayBoundary, Panel, Project } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
-import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelOpener, setProjectTabOpener } from "./project-tab.js";
+import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 
 export function applyUi(ctx) {
  // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
@@ -182,7 +182,19 @@ export function applyUi(ctx) {
 		registerProjectTab(tabCtx);
 		setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));
 		setProjectLoader(async (projectId) => (await call("projects_get", { request: { id: projectId } }))?.project ?? null);
-		setProjectPanelOpener((project) => open(project));
+		// 侧栏 tab 里放的就是全屏面板里的那一页（Project），只是套上 ib-panel-embed 把
+		// 全屏布局收敛成单列。不走 Panel：它用 createPortal 渲染全屏 overlay 外壳。
+		setProjectPanelRenderer((projectId) => h("div", { className: "ib-overlay ib-panel-embed" },
+			h("div", { className: "ib-main" },
+				h(Project, {
+					call,
+					project: { id: projectId },
+					// 「← 所有课题」在侧栏里没有列表可回，改为打开全屏课题管理页。
+					onBack: () => open(null),
+					onDelete: deleteProject,
+					onStartChat: launchProject,
+					onOpenSearch: (sessionId) => { try { ctx.uiWorkspace.openSession(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }
+				}))));
 	}, "dsh-lab-agent: 右侧栏 tab");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }
