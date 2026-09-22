@@ -135,12 +135,18 @@ test("tab 正文里嵌的是真正的课题空间页面，不是只读摘要", a
 	const embedGrid = styles.match(/\.ib-panel-embed \.ib-grid[^{]*\{([^}]*)\}/);
 	assert.ok(embedGrid, "必须有一组嵌入模式的栅格收敛规则");
 	assert.match(embedGrid[1], /grid-template-columns:minmax\(0,1fr\)/);
-	for (const cls of ["ib-grid", "ib-tabs", "ib-artifacts", "ib-memory", "ib-lit", "ib-db-grid"]) {
+	for (const cls of ["ib-grid", "ib-artifacts", "ib-memory", "ib-lit"]) {
 		assert.ok(
 			embedGrid[0].includes(`.ib-panel-embed .${cls}`),
 			`嵌入模式必须把 ${cls} 收敛成单列，否则在 360–560px 的侧栏列里会溢出`,
 		);
 	}
+	// 三个业务选项是例外：人工审核要求保持一排三个，不能被收敛掉。
+	assert.ok(
+		!embedGrid[0].includes(".ib-panel-embed .ib-tabs"),
+		"文献资料/研究设计/表征分析 必须保持一排三个",
+	);
+	assert.match(styles, /\.ib-panel-embed \.ib-tabs\{gap:6px\}/);
 	// 侧栏里不该再出现全屏抽屉式的宽度。
 	assert.match(styles, /\.ib-panel-embed \.ib-preview-drawer\{width:min\(560px,94vw\)\}/);
 });

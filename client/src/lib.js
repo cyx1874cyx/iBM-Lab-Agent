@@ -307,6 +307,27 @@ export const openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpn
 export const showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
 export const cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15000);
+
+/**
+ * 桌面壳顶栏的 WebVPN 入口：壳直接发消息进来，由客户端接手。
+ *
+ * 为什么不让壳自己调 `webvpn_open_login`：Rust 只有在收到过右侧栏 tab 正文的矩形之后
+ * 才切换为「右侧栏接管布局」，壳抢先调用会先执行一次旧的按比例分栏。所以壳只发请求，
+ * 由这里走 `openWebVpnLoginViaShell`（先开 tab、等矩形、再开门户）。
+ *
+ * @returns 卸载函数；不在桌面壳内时是空操作。
+ */
+export function installShellRequestBridge() {
+	if (typeof window === "undefined" || window.parent === window) return () => {};
+	const onMessage = (event) => {
+		if (event.source !== window.parent) return;
+		const data = event.data;
+		if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_WEBVPN_REQUEST") return;
+		void openWebVpnLoginViaShell().catch(() => {});
+	};
+	window.addEventListener("message", onMessage);
+	return () => window.removeEventListener("message", onMessage);
+}
 /**
  * 放行一个被导航白名单拦下的域名（逃生阀）。
  *

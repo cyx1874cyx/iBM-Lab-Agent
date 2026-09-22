@@ -5,6 +5,7 @@ import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
+import { installShellRequestBridge } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 
@@ -161,7 +162,7 @@ export function applyUi(ctx) {
 		root = document.createElement("div");
 		document.body.appendChild(root);
 		try {
-			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, onOpenSearch: (sessionId) => { close(); try { ctx.uiWorkspace.openSession(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }, initial: initial ?? null })), root);
+			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
 		} catch (reason) {
 			console.error("[dsh-lab-agent] overlay mount failed:", reason);
 			close(); // 重置 root，避免侧边栏点击被残留节点短路
@@ -192,10 +193,11 @@ export function applyUi(ctx) {
 					// 「← 所有课题」在侧栏里没有列表可回，改为打开全屏课题管理页。
 					onBack: () => open(null),
 					onDelete: deleteProject,
-					onStartChat: launchProject,
-					onOpenSearch: (sessionId) => { try { ctx.uiWorkspace.openSession(sessionId); } catch (reason) { toast(reason.message || "无法打开该会话"); } }
+					onStartChat: launchProject
 				}))));
 	}, "dsh-lab-agent: 右侧栏 tab");
+	// 桌面壳顶栏的 WebVPN 指示器只发请求；由这里先开右侧栏 tab 再开原生窗口。
+	ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }
 

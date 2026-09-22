@@ -11,6 +11,11 @@
     .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: var(--shell-panel); border-bottom: 1px solid var(--shell-border); }
     .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; } .state { color: var(--shell-text); font-size: 13px; flex: 1; }
     button { border: 1px solid var(--shell-border); background: var(--shell-panel); color: var(--shell-text); padding: 7px 11px; border-radius: 6px; cursor: pointer; }
+    /* WebVPN / iWAN 状态指示器：与顶栏按钮同款式，iWAN 那个是只读 span。 */
+    .indicator { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--shell-border); border-radius: 6px; background: var(--shell-panel); color: var(--shell-text); font-size: 13px; white-space: nowrap; }
+    .indicator i { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .14); }
+    .indicator i[data-partial=true] { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .14); }
+    .indicator i[data-online=true] { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .14); }
     button:hover { background: var(--shell-panel); } .workspace { position: relative; min-height: 0; }
     #app { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: white; display: none; }
     #splash { max-width: 640px; margin: 13vh auto; padding: 32px; text-align: center; }
@@ -79,6 +84,9 @@
   <main class="shell">
     <nav class="topbar">
       <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
+      <!-- WebVPN / iWAN 状态：原先在课题页里，现按人工审核移到「检查更新」左边。
+           WebVPN 可点（经壳转发给 Harness 打开侧栏 tab），iWAN 只读。 -->
+      <button id="webvpn-indicator" class="indicator" type="button" title="WebVPN 未登录" aria-label="WebVPN 未登录"><i id="webvpn-indicator-dot" data-online="false" aria-hidden="true"></i><span id="webvpn-indicator-text">打开 WebVPN</span></button><span id="iwan-indicator" class="indicator" title="iWAN 未连接" aria-label="iWAN 未连接"><i id="iwan-indicator-dot" data-online="false" data-partial="false" aria-hidden="true"></i><span id="iwan-indicator-text">iWAN</span></span>
       <button id="update-button" type="button">检查更新</button><button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
     </nav>
     <section class="workspace">
@@ -154,6 +162,52 @@
     const $ = (id) => document.getElementById(id);
     const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args);
     const splash = $('splash'), frame = $('app'), diagnostics = $('diagnostics');
+
+    // ── 顶栏 WebVPN / iWAN 指示器 ────────────────────────────────────────────
+    // 状态由壳直接查（本来就是本进程的命令），不再经 Harness 转发。
+    // 但「打开 WebVPN」必须交给 Harness 侧执行：Rust 只有在收到过右侧栏 tab 正文的
+    // 矩形之后才接管布局，壳直接调 webvpn_open_login 会先走一次旧的按比例分栏。
+    const frameOrigin = () => { try { return new URL(frame.src).origin; } catch { return undefined; } };
+    const postToFrame = (type, payload) => {
+      const origin = frameOrigin();
+      if (!origin || !frame.contentWindow) return;
+      try {
+        frame.contentWindow.postMessage({ source: 'ibm-lab-agent-shell', type, requestId: `shell-${Date.now()}-${Math.random().toString(36).slice(2)}`, payload }, origin);
+      } catch { /* iframe 尚未就绪时忽略：下一次点击会重试 */ }
+    };
+    const setIndicator = (dotId, textId, { online, partial, label, title }) => {
+      const dot = $(dotId), text = $(textId);
+      if (dot) { dot.dataset.online = online ? 'true' : 'false'; dot.dataset.partial = partial ? 'true' : 'false'; }
+      if (text) text.textContent = label;
+      const host = dot ? dot.closest('.indicator') : null;
+      if (host) { host.title = title; host.setAttribute('aria-label', title); }
+    };
+    const refreshShellIndicators = async () => {
+      try {
+        const status = await invoke('webvpn_status');
+        const loggedIn = Boolean(status && status.windowOpen && status.authenticated);
+        const label = status && status.sidebarVisible ? '返回 WebVPN' : '打开 WebVPN';
+        setIndicator('webvpn-indicator-dot', 'webvpn-indicator-text', {
+          online: loggedIn,
+          partial: false,
+          label,
+          title: `${loggedIn ? 'WebVPN 已登录' : 'WebVPN 未登录'}，点击${label}`,
+        });
+      } catch { /* 启动早期命令尚不可用：保持上一次状态 */ }
+      try {
+        const status = await invoke('iwan_status');
+        const usable = Boolean(status && status.usable), connected = Boolean(status && status.connected);
+        const label = usable ? 'iWAN 全局模式可用' : connected ? 'iWAN 已连接但未启用全部路由' : status && status.installed ? 'iWAN 未连接' : '未安装 iWAN';
+        setIndicator('iwan-indicator-dot', 'iwan-indicator-text', {
+          online: usable,
+          partial: connected && !usable,
+          label,
+          title: (status && status.message) || label,
+        });
+      } catch { /* 同上 */ }
+    };
+    $('webvpn-indicator').addEventListener('click', () => postToFrame('OPEN_WEBVPN_REQUEST'));
+    setInterval(() => void refreshShellIndicators(), 5000);
     let activeMcpApp = null;
     let latestReleaseUrl = '';
     const FIRST_RUN_KEY = 'ibm-lab-agent.onboarding.v1.completed';
@@ -334,6 +388,7 @@
     };
     window.ibmLabRuntimeReady = (url) => {
       frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', `本地服务已就绪：${url}`);
+      void refreshShellIndicators();
       if (firstRun) {
         $('first-run-note').style.display = 'block';
         void showDiagnostics(true);

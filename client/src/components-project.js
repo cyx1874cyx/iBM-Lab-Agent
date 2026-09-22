@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
-import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
-import { BookSvg, FlaskSvg, SiSvg } from "./components-templates.js";
+import { BookSvg, SiSvg } from "./components-templates.js";
 
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
@@ -114,7 +113,7 @@ function captureRouteForBundle(bundle, kind) {
 }
 
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onOpenSearch, onRequestArtifact, onChanged }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onChanged }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};
@@ -545,9 +544,11 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				// ── 左：文献检索 ──
 				h("section", { className: "ib-lit-col" },
 					h("div", { className: "ib-lit-head" }, h("h3", null, "文献检索"), h("small", null, `${searches.length} 条记录`)),
-					h("div", { className: "ib-lit-note" }, "每个会话汇总为一个检索条目和一个 RIS；“检索”可展开本会话全部去重文献，点击条目可回到原对话。"),
+					h("div", { className: "ib-lit-note" }, "每个会话汇总为一个检索条目和一个 RIS；“检索”可展开本会话全部去重文献。"),
 					searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => h("div", { key: search.id },
-						h("div", { className: "ib-lit-row", "data-clickable": search.sessionId ? "true" : undefined, onClick: search.sessionId ? () => onOpenSearch(search.sessionId) : undefined, title: search.sessionId ? "跳转到检索对话" : "该检索未记录会话" },
+						// 人工审核要求：点击检索条目不得跳转到对应对话，因此整行不再是可点区域，
+						// 只有右侧的「检索 / .ris / 删除」按钮生效。
+						h("div", { className: "ib-lit-row" },
 							h("div", { className: "ib-lit-main" }, h("b", null, search.title || search.query || search.id), h("small", null, `${(search.results || []).length} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
 							h("div", { className: "ib-lit-acts" },
 								h("button", { className: "ib-lit-btn ok", disabled: !(search.results || []).length, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); } }, expandedSearch === search.id ? "收起" : "检索"),
@@ -632,7 +633,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			), previewNode);
 		}
 
-export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSearch }) {
+export function Project({ call, project, onBack, onDelete, onStartChat }) {
 			const [state, setState] = useState({ loading: true, data: null, error: "" });
 			const [tab, setTab] = useState("literature");
 			const [draft, setDraft] = useState("");
@@ -658,12 +659,9 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 				try { const result = await call("projects_memory_update", { request: { fields: { projectId: project.id, markdown: draft, changeNote: note } } }); setToast(`核心记忆已提交为 v${result.memory.version}`); setNote(""); memoryDirty.current = false; try { sessionStorage.removeItem(`ib-memory-draft:${project.id}`); } catch { /* storage may be disabled */ } await load(); }
 				catch (reason) { setToast(reason.message); } finally { setSaving(false); }
 			};
-			const startChat = async () => {
-				if (!state.data) return;
-				setLaunching(true);
-				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId }); }
-				catch (reason) { setToast(reason.message); setLaunching(false); }
-			};
+			// 人工审核要求去掉课题页右上角的「开始科研 Agent 对话」按钮：
+			// 起会话改由具体任务按钮（登记产物、路线方案、表征提交）按需触发，
+			// 这里只保留 startTaskChat 那条路径。
 			const startTaskChat = async (prompt, autoSubmit = false) => {
 				if (!state.data || launching) throw new Error("会话正在启动，请稍后重试");
 				setLaunching(true);
@@ -691,10 +689,10 @@ export function Project({ call, project, onBack, onDelete, onStartChat, onOpenSe
 			const characterization = data.characterization || {};
 			const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
 			return h("div", null,
-				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题"), h("button", { className: "ib-btn ib-agent", disabled: deleting || launching, onClick: () => void startChat() }, h("span", { className: "ib-spark", "aria-hidden": "true" }, h(FlaskSvg, { width: 15, height: 15 })), launching ? "正在启动…" : "开始科研 Agent 对话")),
+				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题")),
 				memoryOpen ? h("div", { className: "ib-memory-drawer", role: "dialog", "aria-label": "核心记忆" }, h("button", { className: "ib-btn ib-memory-close", onClick: () => setMemoryOpen(false) }, "收起（保留编辑）"), h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => { memoryDirty.current = true; setDraft(event.target.value); try { sessionStorage.setItem(`ib-memory-draft:${project.id}`, event.target.value); } catch { /* storage may be disabled */ } } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
 				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(DatabaseOverview, { call, notify: setToast }), h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onOpenSearch, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
+				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
 				toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
 			);
 		}
@@ -719,7 +717,7 @@ export class OverlayBoundary extends (React.Component ?? class {}) {
 			}
 		}
 
-export function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, initial }) {			const [project, setProject] = useState(initial ?? null);
+export function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {			const [project, setProject] = useState(initial ?? null);
 			const [templates, setTemplates] = useState(false);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 		}

@@ -125,11 +125,12 @@ test("导航白名单仍保留后端放行能力，但不再占用诊断页", as
 });
 
 test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
-	const [shell, main, webvpn, client, projectPanel, literaturePanel, styles] = await Promise.all([
+	const [shell, main, webvpn, client, apply, projectPanel, literaturePanel, styles] = await Promise.all([
 		shellSource(),
 		mainSource(),
 		webvpnSource(),
 		read("client/src/lib.js"),
+		read("client/src/apply.js"),
 		read("client/src/components-project.js"),
 		read("client/src/components-literature.js"),
 		read("client/src/styles.js"),
@@ -184,11 +185,22 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
-	assert.match(literaturePanel, /ib-webvpn-dot/);
-	assert.match(literaturePanel, /webvpn\?\.windowOpen && webvpn\?\.authenticated/);
+	// 指示器已按人工审核移到桌面壳顶栏（课题页里不再有）。
+	assert.doesNotMatch(literaturePanel, /ib-webvpn-dot/);
+	assert.match(shell, /id="webvpn-indicator"/);
+	assert.match(shell, /id="iwan-indicator"/);
+	assert.match(shell, /invoke\('webvpn_status'\)/);
+	assert.match(shell, /invoke\('iwan_status'\)/);
+	assert.match(shell, /postToFrame\('OPEN_WEBVPN_REQUEST'\)/);
+	assert.match(client, /installShellRequestBridge/);
+	assert.match(apply, /installShellRequestBridge\(\)/);
+	assert.doesNotMatch(literaturePanel, /webvpn\?\.windowOpen && webvpn\?\.authenticated/, "课题页不再自己渲染 WebVPN 登录态");
+	// 但是「AI 下载队列在领取令牌前复核桌面状态」这条链路必须留着——它不依赖那个面板。
+	assert.match(literaturePanel, /manual_capture_desktop_status_update/);
 	assert.match(projectPanel, /已在 WebVPN 侧栏打开出版社页面，请手动点击/);
-	assert.match(styles, /\.ib-webvpn-dot\{[^}]*background:#ef4444/);
-	assert.match(styles, /\.ib-webvpn-dot\[data-online=true\]\{[^}]*background:#22c55e/);
+	assert.doesNotMatch(styles, /\.ib-webvpn-dot/, "指示器样式随功能一起搬去桌面壳");
+	assert.match(shell, /\.indicator i\s*\{[^}]*background:\s*#ef4444/);
+	assert.match(shell, /\.indicator i\[data-online=true\]\s*\{[^}]*background:\s*#22c55e/);
 	assert.match(projectPanel, /ib-capture-progress/);
 	assert.match(projectPanel, /status\.downloadedBytes/);
 	assert.match(projectPanel, /下载并归档完成/);
@@ -214,8 +226,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(main, /let use_iwan = iwan\.usable/);
 	assert.match(main, /!use_iwan && direct_access/, "iWAN 下不得启用 Springer SI 的后端拦截直取");
 	assert.match(main, /use_iwan \|\| direct_springer_si/);
-	assert.match(literaturePanel, /iWAN 全局模式可用/);
-	assert.match(literaturePanel, /iwanUsable/);
+	// iWAN 状态文案与字段：随指示器一起搬到了桌面壳顶栏。
+	assert.match(shell, /iWAN 全局模式可用/);
+	assert.match(shell, /status\.usable/);
+	assert.match(literaturePanel, /iwanUsable/, "AI 下载队列仍要按 iWAN 可用性选择路由");
 });
 
 /**

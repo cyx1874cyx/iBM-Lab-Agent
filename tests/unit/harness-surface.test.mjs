@@ -108,7 +108,8 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.match(source, /每个会话汇总为一个检索条目和一个 RIS/);
 	assert.match(source, /shortDescriptionZh/);
 	assert.match(source, /ib-search-results/);
-	assert.match(source, /收起数据库状态/);
+	// 人工审核：数据库状态是废案，整个面板已移除（含采集它的 literature_status 轮询）。
+	assert.doesNotMatch(source, /收起数据库状态|文献数据库实时状态/);
 	assert.match(source, /aria-expanded/);
 	assert.match(source, /研究设计/);
 	assert.match(source, /表征分析/);
@@ -329,10 +330,14 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /\.ib-rail-flask\{position:absolute!important;z-index:3/);
 	assert.match(source, /\.ib-rail-flask\{[^}]*background:#51d4a3;[^}]*pointer-events:none/);
 	assert.match(source, /class\*='_titleGroup'/, "应兼容 DSH 0.1.5 新版首页标题结构");
-	assert.match(source, /h\(FlaskSvg, \{ width: 15, height: 15 \}\)/, "科研 Agent 按钮应使用可见烧瓶图标");
 	assert.match(source, /stroke: "currentColor"/, "烧瓶描边应跟随黑白主题文字颜色");
-	assert.match(source, /\.ib-agent\{[^}]*background:var\(--ib-bg\)!important;[^}]*color:var\(--ib-text\)!important/,
-		"科研 Agent 按钮应跟随 DSH 黑白主题底色");
+	// 人工审核要求：课题页右上角的「开始科研 Agent 对话」按钮已去掉，起会话改由
+	// 具体任务按钮（登记产物 / 路线方案 / 表征提交）按需触发。按钮与它的专属样式
+	// 都不该再出现，否则就是删了一半。
+	assert.doesNotMatch(source, /开始科研 Agent 对话"\)/, "课题页不应再有独立的启动对话按钮");
+	assert.doesNotMatch(source, /className: "ib-btn ib-agent"/);
+	assert.doesNotMatch(source, /\.ib-agent\{/, "启动按钮的专属样式应一并删除");
+	assert.doesNotMatch(source, /\.ib-spark\{/, "启动按钮的图章样式应一并删除");
 	assert.doesNotMatch(source, /bindEntry\(railEntry\)/);
 	assert.match(source, /课题界面统一主题/);
 	assert.match(source, /import \{ themeCss \} from "\.\/theme\.js"/);
@@ -389,6 +394,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 				remote: { lab: {} },
 				slots: { inject: () => {} },
 				on: () => {},
+				effect: () => () => {},
 				// applyUi 内部还会再注入一次右侧栏服务（文献浏览器 tab）。
 				// 本用例断言的是依赖面，因此这里只记录服务清单，不执行回调。
 				inject: (nested) => { webVpnInject = nested; }
