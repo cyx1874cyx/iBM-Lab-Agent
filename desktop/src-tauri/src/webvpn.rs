@@ -696,6 +696,17 @@ struct Session {
     authenticated: bool,
     /// 子 WebView 是否正在主窗口右侧显示。隐藏时 WebView 仍存在，以保留登录态。
     sidebar_visible: bool,
+    /// DSH 右侧栏是否已接管布局。**只置位，不清除。**
+    ///
+    /// 收到过任意一条 `webvpn_set_rect` 即为真（即使那一条上报的是「不可见」）。
+    /// 置位后 `layout_sidebar` 这条按比例分栏的老路径彻底停用，主 WebView 不再收窄，
+    /// 让位交给 DSH 右侧栏自己的 push presentation。
+    client_layout: bool,
+    /// DSH 右侧栏上报的「文献浏览器」tab 正文矩形（x, y, width, height，逻辑像素）。
+    ///
+    /// 仅在客户端明确上报「可见且尺寸足够」时写入；`None` 表示 tab 当前没有可用区域，
+    /// 此时 `show_sidebar` 只隐藏子 WebView，不猜位置。
+    client_rect: Option<(f64, f64, f64, f64)>,
     policy: WebVpnPolicy,
     /// 最近一次由应用主动转发的目标 host。
     target_host: Option<String>,
@@ -1153,6 +1164,36 @@ impl WebVpnState {
             .unwrap_or(false)
     }
 
+    /// 标记 DSH 右侧栏已接管布局（幂等，只置位不清除）。
+    pub fn mark_client_layout(&self) {
+        if let Ok(mut session) = self.session.lock() {
+            session.client_layout = true;
+        }
+    }
+
+    /// 是否已由 DSH 右侧栏接管布局。接管后 `layout_sidebar` 不再执行。
+    pub fn client_layout(&self) -> bool {
+        self.session
+            .lock()
+            .map(|session| session.client_layout)
+            .unwrap_or(false)
+    }
+
+    /// 记录 DSH 右侧栏上报的 tab 正文矩形。
+    pub fn set_client_rect(&self, rect: (f64, f64, f64, f64)) {
+        if let Ok(mut session) = self.session.lock() {
+            session.client_rect = Some(rect);
+        }
+    }
+
+    /// 最近一次上报的可用矩形；`None` 表示 tab 当前没有可显示区域。
+    pub fn client_rect(&self) -> Option<(f64, f64, f64, f64)> {
+        self.session
+            .lock()
+            .ok()
+            .and_then(|session| session.client_rect)
+    }
+
     pub fn apply_policy(&self, policy: WebVpnPolicy) {
         if let Ok(mut session) = self.session.lock() {
             session.policy = policy;
@@ -1215,6 +1256,8 @@ impl WebVpnState {
                 state: session.state,
                 authenticated: session.authenticated,
                 sidebar_visible: session.sidebar_visible,
+                client_layout: session.client_layout,
+                client_rect: session.client_rect,
                 policy: session.policy.clone(),
                 target_host: session.target_host.clone(),
                 denied_hosts: session.denied_hosts.clone(),
@@ -1707,6 +1750,9 @@ fn bounds(x: f64, y: f64, width: f64, height: f64) -> Rect {
 }
 
 /// 把主 WebView 与 WebVPN 子 WebView 排成同一原生窗口内的左右两栏。
+///
+/// **仅在 DSH 右侧栏未接管布局时使用**（旧路径）。接管后由 `apply_client_rect`
+/// 直接按客户端上报的矩形摆放，主 WebView 保持全宽。
 pub fn layout_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
     let (width, height) = main_inner_logical(app)?;
     let ((main_width, main_height), (x, y, sidebar_width, sidebar_height)) =
@@ -1723,7 +1769,89 @@ pub fn layout_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> 
     Ok(())
 }
 
+/// 校验并规整客户端上报的矩形。
+///
+/// 返回 `None` 表示「没有可显示区域」——不可见、非有限值、或尺寸低于可操作下限；
+/// 三者都按不可见处理，绝不用一个坏矩形去 `set_bounds`（NaN 会让窗口系统行为未定义）。
+fn sanitize_client_rect(
+    visible: bool,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Option<(f64, f64, f64, f64)> {
+    const MIN_WIDTH: f64 = 160.0;
+    const MIN_HEIGHT: f64 = 120.0;
+    if !visible || ![x, y, width, height].iter().all(|value| value.is_finite()) {
+        return None;
+    }
+    if width < MIN_WIDTH || height < MIN_HEIGHT {
+        return None;
+    }
+    Some((x.max(0.0), y.max(0.0), width, height))
+}
+
+/// DSH 右侧栏上报「文献浏览器」tab 正文矩形时的入口。
+///
+/// 与旧的 `show_sidebar` 的关键差别：**主 WebView 的宽度完全不动**。让位由 DSH
+/// 右侧栏自己的 push presentation 完成，这里只把原生子 WebView 贴到 tab 正文上。
+///
+/// 首次收到消息即标记 `client_layout`——即使那一条是「不可见」，也说明客户端具备
+/// 上报能力，此后不该再回到按比例分栏。
+pub fn apply_client_rect(
+    app: &AppHandle,
+    visible: bool,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let Some(state) = app.try_state::<WebVpnState>() else {
+        return Err("WebVPN 状态不可用".to_string());
+    };
+    state.mark_client_layout();
+    let Some(rect) = sanitize_client_rect(visible, x, y, width, height) else {
+        if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+            webview.hide().map_err(|error| error.to_string())?;
+        }
+        state.set_sidebar_visible(false);
+        return Ok(());
+    };
+    state.set_client_rect(rect);
+    // 浏览器尚未创建（用户还没点开过 WebVPN）：只记布局，等 open_window 时按它摆放。
+    let Some(webview) = app.get_webview(WINDOW_LABEL) else {
+        return Ok(());
+    };
+    webview
+        .set_bounds(bounds(rect.0, rect.1, rect.2, rect.3))
+        .map_err(|error| error.to_string())?;
+    webview.show().map_err(|error| error.to_string())?;
+    state.set_sidebar_visible(true);
+    Ok(())
+}
+
 pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
+    let state = app.try_state::<WebVpnState>();
+    if state.as_ref().map(|state| state.client_layout()).unwrap_or(false) {
+        // DSH 右侧栏接管布局：只按最近一次上报的矩形显示，绝不改动主 WebView 宽度。
+        let Some(rect) = state.as_ref().and_then(|state| state.client_rect()) else {
+            // tab 尚未量出可用区域（未打开或已收起）：先不显示，等它上报。
+            webview.hide().map_err(|error| error.to_string())?;
+            if let Some(state) = state.as_ref() {
+                state.set_sidebar_visible(false);
+            }
+            return Ok(());
+        };
+        webview
+            .set_bounds(bounds(rect.0, rect.1, rect.2, rect.3))
+            .map_err(|error| error.to_string())?;
+        webview.show().map_err(|error| error.to_string())?;
+        webview.set_focus().map_err(|error| error.to_string())?;
+        if let Some(state) = state.as_ref() {
+            state.set_sidebar_visible(true);
+        }
+        return Ok(());
+    }
     layout_sidebar(app, webview)?;
     webview.show().map_err(|error| error.to_string())?;
     webview.set_focus().map_err(|error| error.to_string())?;
@@ -1733,15 +1861,24 @@ pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
     Ok(())
 }
 
-/// 收起侧栏并让主 WebView 恢复全宽。子 WebView 不销毁，因此登录态仍在。
+/// 收起侧栏。子 WebView 不销毁，因此登录态仍在。
+///
+/// 旧路径下同时把主 WebView 恢复全宽；右侧栏接管后主 WebView 从头到尾就是全宽，
+/// 这里只隐藏子 WebView。
 pub fn hide_sidebar(app: &AppHandle) -> Result<(), String> {
     if let Some(webview) = app.get_webview(WINDOW_LABEL) {
         webview.hide().map_err(|error| error.to_string())?;
     }
-    let (width, height) = main_inner_logical(app)?;
-    if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
-        main.set_bounds(bounds(0.0, 0.0, width, height))
-            .map_err(|error| error.to_string())?;
+    let client_layout = app
+        .try_state::<WebVpnState>()
+        .map(|state| state.client_layout())
+        .unwrap_or(false);
+    if !client_layout {
+        let (width, height) = main_inner_logical(app)?;
+        if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
+            main.set_bounds(bounds(0.0, 0.0, width, height))
+                .map_err(|error| error.to_string())?;
+        }
     }
     if let Some(state) = app.try_state::<WebVpnState>() {
         state.set_sidebar_visible(false);
@@ -1750,9 +1887,16 @@ pub fn hide_sidebar(app: &AppHandle) -> Result<(), String> {
 }
 
 /// 主窗口缩放时更新当前可见侧栏；隐藏状态不改变。
+///
+/// 右侧栏接管后这里直接返回：窗口尺寸变化会先反映到 DSH 的布局上，再由 tab 正文的
+/// ResizeObserver 重新上报矩形。若在这里按旧比例抢先挪一次，反而会和客户端打架。
 pub fn resize_sidebar(app: &AppHandle) {
-    let visible = app
-        .try_state::<WebVpnState>()
+    let state = app.try_state::<WebVpnState>();
+    if state.as_ref().map(|state| state.client_layout()).unwrap_or(false) {
+        return;
+    }
+    let visible = state
+        .as_ref()
         .map(|state| state.sidebar_visible())
         .unwrap_or(false);
     if visible {
@@ -2625,6 +2769,42 @@ mod tests {
         assert_eq!(proxy.scheme(), "https");
         assert_eq!(proxy.host_str(), Some("vpn.example.edu"));
         assert_eq!(proxy.port(), Some(8443));
+    }
+
+    /// 客户端接管布局后，坏矩形必须被规整为 None，绝不用 NaN/负尺寸去 set_bounds。
+    #[test]
+    fn sanitize_client_rect_rejects_unusable_input() {
+        // 正常矩形原样通过。
+        assert_eq!(
+            sanitize_client_rect(true, 840.0, 68.0, 400.0, 652.0),
+            Some((840.0, 68.0, 400.0, 652.0))
+        );
+        // 负坐标夹到 0。
+        assert_eq!(
+            sanitize_client_rect(true, -12.0, -3.0, 400.0, 652.0),
+            Some((0.0, 0.0, 400.0, 652.0))
+        );
+        // 不可见 / 非有限值 / 尺寸低于可操作下限：一律 None（按隐藏处理）。
+        assert_eq!(sanitize_client_rect(false, 840.0, 68.0, 400.0, 652.0), None);
+        assert_eq!(sanitize_client_rect(true, f64::NAN, 0.0, 400.0, 652.0), None);
+        assert_eq!(sanitize_client_rect(true, 0.0, f64::INFINITY, 400.0, 652.0), None);
+        assert_eq!(sanitize_client_rect(true, 0.0, 0.0, 12.0, 652.0), None);
+        assert_eq!(sanitize_client_rect(true, 0.0, 0.0, 400.0, 9.0), None);
+    }
+
+    /// client_layout 只置位不清除：这条保证「上报过矩形」之后不再回落到按比例分栏。
+    #[test]
+    fn client_layout_flag_latches_once_set() {
+        let state = WebVpnState::default();
+        assert!(!state.client_layout());
+        assert_eq!(state.client_rect(), None);
+        state.mark_client_layout();
+        state.set_client_rect((10.0, 20.0, 400.0, 600.0));
+        assert!(state.client_layout());
+        assert_eq!(state.client_rect(), Some((10.0, 20.0, 400.0, 600.0)));
+        // 状态重置（关闭会话）不解除布局接管。
+        state.mark_closed();
+        assert!(state.client_layout());
     }
 
     #[test]

@@ -487,6 +487,20 @@
         invoke('webvpn_cancel_capture', { taskId: String(data.payload?.taskId || '') })
           .then(() => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }))
           .catch((error) => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_SET_RECT') {
+        // DSH 右侧栏接管布局：客户端上报「文献浏览器」tab 正文的矩形（相对它自己
+        // 的视口），这里补上 iframe 在壳页面里的偏移，换算成主窗口客户区坐标。
+        // 高频消息，不回包：只在失败时回一条携带 requestId 的错误。
+        const payload = data.payload || {};
+        const box = frame.getBoundingClientRect();
+        const visible = payload.visible === true;
+        invoke('webvpn_set_rect', {
+          visible,
+          x: box.left + Number(payload.x || 0),
+          y: box.top + Number(payload.y || 0),
+          width: Number(payload.width || 0),
+          height: Number(payload.height || 0)
+        }).catch((error) => reply('WEBVPN_SET_RECT_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_SHOW') {
         invoke('webvpn_show')
           .then(() => invoke('webvpn_status'))

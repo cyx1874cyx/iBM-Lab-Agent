@@ -8,7 +8,83 @@
 
 ---
 
-## 2026-09-12 同窗侧边栏更新（最新）
+## 2026-09-22 挂进 DSH 自带右侧栏（最新）
+
+**动机（同类型需求合并）**：软件内浏览器自 0.4.3 起由 Rust 自己按 `width / 3.0` 分栏、
+自己维护 `sidebarVisible`、客户端再轮询状态同步——这套与 DSH 自带的右侧栏
+（`@deepseek-ai/dsh-client-ui-sidebar-right`，本部署已挂载）是重复实现。DSH 的右侧栏本身
+是一个**可扩展停靠面**，自带「文件」「文档预览」两类 tab，并提供公开的 tab 类型注册表
+`ctx.sidebarRightTabs` 与导航控制器 `ctx.sidebarRight`。现在把 WebVPN 注册成第三类
+**页面 tab**，与自带预览共用同一个展开按钮、标签条、拆分/浮动/全屏行为。
+
+**先确认过的前提**：DSH 里**没有**可集成的浏览器插件。逐个核过 240 个 `@deepseek-ai`
+包，唯一渲染 iframe 的是 `dsh-client-ui-sidebar-documentpreview`，而它是
+`sandbox="allow-scripts"` 的 Blob iframe（无 `allow-same-origin`），加载不了出版社页面，
+也不具备 Cookie profile 与下载回调。因此集成方式是「DSH 管外壳，Rust 管渲染」。
+
+**职责划分（关键变化）**
+
+| 事项 | 改造前 | 改造后 |
+|---|---|---|
+| 让位 | Rust 把主 WebView 收窄到 `width - width/3` | DSH 右侧栏的 push presentation 自己收窄对话列；**主 WebView 保持全宽** |
+| 收起 | Rust 恢复主 WebView 全宽 | 只 `hide()` 子 WebView |
+| 位置 | Rust 按比例算 | 客户端上报 tab 正文矩形，Rust `set_bounds` 贴上 |
+| 入口 | 面板「打开 WebVPN」直接调原生命令 | 先 `openTab('lab-webvpn')`，等首次矩形上报后再调原生命令 |
+
+**改动清单**
+
+- 新增 `client/src/webvpn-bridge.js`：opener 语义 + 首次矩形等待 + 跨 iframe 上报。
+  刻意不 import React，因此可在 Node 里直接单测。
+- 新增 `client/src/webvpn-tab.js`：注册 tab 类型（id `dsh-lab-agent/webvpn`，kind
+  `lab-webvpn`）与 `sidebar.right.pane.tab` 正文；正文用 `ResizeObserver` 量矩形，
+  `tab.visible` 变化与卸载时都上报「不可见」。
+- `client/src/apply.js`：单独一次 `ctx.inject(["slots","sidebarRightTabs","sidebarRight"], …)`
+  ——右侧栏缺失时只有这一个能力缺失，不阻塞课题面板。
+- `client/src/lib.js`：`openWebVpnLoginViaShell` / `openWebVpnCaptureViaShell` /
+  `showWebVpnViaShell` 先 `await openWebVpnTab()`。
+- `desktop/src/index.html`：新增 `WEBVPN_SET_RECT` 分支，用 `frame.getBoundingClientRect()`
+  把 tab 相对视口的坐标换算成主窗口客户区坐标（高频消息，不回包）。
+- `desktop/src-tauri/src/webvpn.rs`：新增 `apply_client_rect` / `sanitize_client_rect` 与
+  `client_layout` 标志；`show_sidebar` / `hide_sidebar` / `resize_sidebar` 按该标志分支，
+  接管后**不再触碰主 WebView**。
+- `desktop/src-tauri/src/main.rs`：新增 async 命令 `webvpn_set_rect`。
+
+**两个刻意的取舍**
+
+1. **不贡献 guide 条目**。DSH 的默认页规则是「恰好一个 guide 条目时直接打开它，零个或多个
+   时打开指南页」；再贡献一条会把宿主默认页从「文件」变成指南，属于对宿主 UI 的隐性改动。
+   入口由课题面板的「打开 WebVPN」按钮承担。想让它出现在指南页，在
+   `client/src/webvpn-tab.js` 的定义里补 `guide: [...]` 即可。
+2. **回落到旧路径**。`sidebarRight` 缺失时 `openWebVpnTab()` 返回 `false`，调用方照旧走
+   原生分栏；Rust 侧在收到任意一条矩形上报之前也一直走旧路径。因此这个改动不是硬切换。
+
+**自动化验证**：Node 528/528 通过（新增 `tests/unit/webvpn-tab-bridge.test.mjs` 7 条，
+并在 `tests/unit/webvpn-commands.test.mjs` 增加「文献浏览器作为 DSH 右侧栏 tab 接入」契约）。
+本机**没有 cargo/rustc**，Rust 改动未经编译，只有静态契约断言兜底。
+
+**⚠️ 仍需 Windows 真机人工验收（本机无法执行）**
+
+1. 点「打开 WebVPN」→ 右侧栏出现「文献浏览器」tab，WebVPN 内容嵌在**该 tab 正文区域**内
+   （不再是自己占一条 1/3 宽的栏），标签条与 DSH 自带「文件」tab 并列可见、可点击。
+2. 拖动右侧栏宽度 / 切换 `fullscreen` → 子 WebView 跟随，不留白边、不越界。
+3. 切到「文件」tab、收起右侧栏、关闭 tab → 子 WebView 立即消失，**不得**继续浮在对话区上方。
+4. 窗口缩放 → 子 WebView 跟随（由 tab 正文的 ResizeObserver 重报）。
+5. 登录 + 实际点击出版社 PDF 下载 → 归档链路仍正常；登录态在切换 tab 后保留。
+6. 主 WebView **始终全宽**（用 DevTools 或 `webvpn_status` 复核），不再出现被收窄的情况。
+
+**已知限制（原生覆盖层固有）**
+
+- 原生子 WebView 永远绘制在 Web 内容之上。DSH 若在弹出的下拉/浮层里覆盖到 tab 正文区域，
+  会被浏览器画面**遮住**（浮层本身仍可交互，只是视觉被盖）。`webvpn-tab` 正文自带一层
+  中性底衬，覆盖范围之外的 DSH 浮层不受影响。
+- 几何靠「量矩形 → postMessage → set_bounds」的异步链路，拖动右侧栏宽度时子 WebView
+  会有**一帧左右的滞后**；这是原生覆盖层方案的固有代价，不是实现缺陷。
+- 该 tab 只在桌面壳内可用；纯网页部署下正文显示说明文案，`openWebVpnTab()` 返回 `false`
+  并回落到原生路径。
+
+---
+
+## 2026-09-12 同窗侧边栏更新
 
 - 已将 WebVPN 载体从独立 `WebviewWindow` 改为主窗口内的 Tauri 官方子 WebView：
   `Window::add_child(WebviewBuilder, position, size)`。

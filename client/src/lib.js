@@ -1,4 +1,5 @@
 // 工具函数：格式化、下载、desktop shell 通信（从原 client/index.js 单文件抽离）。
+import { openWebVpnTab } from "./webvpn-bridge.js";
 export const when = (value) => value ? new Date(value).toLocaleString() : "—";
 export const titleOf = (row) => row.title || row.name || row.query || row.id;
 export const statusOf = (row) => ({ succeeded: "已审核", pending: "待处理", running: "生成中", failed: "已退回", draft: "草稿", "under-review": "已暂存·待审核", approved: "已批准", prepared: "待分析", "approved-written": "已审核", "visually-verified": "已确认" })[row.status] || row.status || "已登记";
@@ -289,10 +290,14 @@ const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise
 
 export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
 export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
-export const openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
+// 打开原生 WebVPN 之前先打开 DSH 右侧栏的「文献浏览器」tab：只有在 tab 正文上报过
+// 矩形之后，Rust 端才切换为「右侧栏接管布局」模式，否则会先执行一次旧的按比例分栏。
+// 右侧栏不可用时 openWebVpnTab() 返回 false，这里照旧走原生兜底路径。
+const withWebVpnTab = async (request) => { await openWebVpnTab(); return request(); };
+export const openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
 export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
-export const openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000);
-export const showWebVpnViaShell = () => webVpnShellRequest("WEBVPN_SHOW");
+export const openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000));
+export const showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
 export const cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15000);
 /**

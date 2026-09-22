@@ -375,6 +375,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 
 	let contribution;
 	let childInject;
+	let webVpnInject;
 	await client.apply({
 		remote: {
 			$mount: async (value) => {
@@ -387,12 +388,16 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 			callback({
 				remote: { lab: {} },
 				slots: { inject: () => {} },
-				on: () => {}
+				on: () => {},
+				// applyUi 内部还会再注入一次右侧栏服务（文献浏览器 tab）。
+				// 本用例断言的是依赖面，因此这里只记录服务清单，不执行回调。
+				inject: (nested) => { webVpnInject = nested; }
 			});
 		}
 	});
 
 	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
+	assert.deepEqual(Array.from(webVpnInject), ["slots", "sidebarRightTabs", "sidebarRight"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
 	for (const descriptor of contribution.descriptors) {

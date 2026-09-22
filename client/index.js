@@ -127,6 +127,7 @@ function injectStyles() {
   css += ".sw-struct-edit[data-layer=ketcher]{z-index:3200}.sw04-structure-candidate{display:grid;gap:10px;padding:12px;border:1px solid rgba(81,212,163,.42);border-radius:12px;background:rgba(81,212,163,.07)}.sw04-structure-candidate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.sw04-structure-candidate-head>div{display:grid;gap:3px}.sw04-structure-candidate-head b{font-size:12px;color:var(--ib-text)}.sw04-structure-candidate-head small{font-size:9.5px;color:var(--ib-muted);line-height:1.5}.sw04-structure-candidate>.sw-struct-card{width:min(280px,100%);max-width:280px}.sw04-structure-candidate>.sw-struct-card img,.sw04-structure-candidate>.sw-struct-card .sw-struct-fallback{height:190px}.sw04-review-feedback{padding:9px 12px;border:1px solid var(--ib-line);border-radius:9px;font-size:10.5px;font-weight:650;line-height:1.5}.sw04-review-feedback[data-state=saving]{border-color:#6da8df;background:rgba(80,148,211,.12);color:#baddff;animation:sw04-pulse 1.1s ease-in-out infinite}.sw04-review-feedback[data-state=saved]{border-color:#51d4a3;background:rgba(81,212,163,.13);color:#b7f4d8}.sw04-review-feedback[data-state=error]{border-color:#ef7282;background:rgba(239,114,130,.12);color:#ffd0d6}.sw04-review-foot .sw-mini-btn[data-selected=true]{border-color:#51d4a3;background:#17684e;color:#fff;box-shadow:0 0 0 2px rgba(81,212,163,.16)}@keyframes sw04-pulse{50%{opacity:.62}}@media(max-width:640px){.sw04-structure-candidate-head{align-items:flex-start;flex-direction:column}.sw04-structure-candidate-head .sw-mini-btn{width:100%}}";
   css += "body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden],body.ib-research-chat [class*='_flowItem'][hidden]{margin-block:0!important;padding:0!important;border:0!important;min-height:0!important}body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden]+[class*='_flowItem']{margin-top:0!important}";
   css += "body.ib-research-chat [class*='_markdown']{min-width:0!important;max-width:100%!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'],body.ib-research-chat [class*='_markdown'] [class*='_tableFill']{display:block!important;position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:100%!important;margin:14px 0!important;overflow-x:auto!important;overflow-y:hidden!important;padding-bottom:0!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] table,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] table{box-sizing:border-box!important;width:100%!important;min-width:100%!important;max-width:100%!important;margin:0!important;table-layout:auto!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] td,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] td{min-width:72px!important;max-width:min(30vw,320px)!important;border-bottom-width:1px!important;padding-inline:12px!important;white-space:normal!important;overflow-wrap:break-word!important;word-break:normal!important}";
+  css += ".ib-webvpn-tab{position:relative;display:grid;place-items:center;width:100%;height:100%;min-height:160px;box-sizing:border-box;padding:18px;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-secondary,var(--ib-muted));text-align:center}.ib-webvpn-tab-note{max-width:280px;display:grid;gap:6px}.ib-webvpn-tab-note b{font-size:12.5px;color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-webvpn-tab-note p{margin:0;font-size:10.5px;line-height:1.7}";
   css += themeCss;
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
@@ -285,6 +286,55 @@ function applyBranding(onOpen) {
 var import_react7 = __toESM(require("react"), 1);
 var import_react_dom = __toESM(require("react-dom"), 1);
 var import_react8 = require("react");
+
+// client/src/webvpn-bridge.js
+var WEBVPN_RECT_MESSAGE = "WEBVPN_SET_RECT";
+var WEBVPN_MIN_RECT = 80;
+var WEBVPN_RECT_READY_TIMEOUT_MS = 800;
+var openTabAction = null;
+var rectReported = false;
+var rectWaiters = /* @__PURE__ */ new Set();
+function setWebVpnTabOpener(fn) {
+  openTabAction = typeof fn === "function" ? fn : null;
+}
+function markWebVpnRectReported() {
+  if (rectReported) return;
+  rectReported = true;
+  for (const resolve of rectWaiters) resolve(true);
+  rectWaiters.clear();
+}
+function waitForWebVpnRect(timeoutMs = WEBVPN_RECT_READY_TIMEOUT_MS) {
+  if (rectReported) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    rectWaiters.add(resolve);
+    setTimeout(() => {
+      if (rectWaiters.delete(resolve)) resolve(false);
+    }, timeoutMs);
+  });
+}
+function sendWebVpnRect(payload) {
+  if (typeof window === "undefined" || !window.parent || window.parent === window) return;
+  try {
+    window.parent.postMessage({
+      source: "ibm-lab-agent",
+      type: WEBVPN_RECT_MESSAGE,
+      requestId: `webvpn-rect-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      payload
+    }, "*");
+  } catch {
+  }
+}
+async function openWebVpnTab() {
+  if (!openTabAction) return false;
+  try {
+    openTabAction();
+  } catch (reason) {
+    console.warn("[dsh-lab-agent] 打开文献浏览器 tab 失败", reason);
+    return false;
+  }
+  await waitForWebVpnRect();
+  return true;
+}
 
 // client/src/lib.js
 var when = (value) => value ? new Date(value).toLocaleString() : "—";
@@ -563,10 +613,14 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
 var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
-var openWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
+var withWebVpnTab = async (request) => {
+  await openWebVpnTab();
+  return request();
+};
+var openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
-var openWebVpnCaptureViaShell = (payload) => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3);
-var showWebVpnViaShell = () => webVpnShellRequest("WEBVPN_SHOW");
+var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3));
+var showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
 var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 var clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15e3);
 var openArtifactInBrowserViaShell = (kind, bundleId) => new Promise((resolve, reject) => {
@@ -3863,6 +3917,85 @@ function Panel({ call, onClose, onDeleteProject, onStartChat, onOpenSearch, init
   return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat, onOpenSearch }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
+// client/src/webvpn-tab.js
+var import_react9 = require("react");
+var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
+var WEBVPN_TAB_KIND = "lab-webvpn";
+function WebVpnTabBody({ useTabInfo }) {
+  const { tab } = useTabInfo();
+  const visible = tab?.visible === true;
+  const hostRef = (0, import_react9.useRef)(null);
+  (0, import_react9.useEffect)(() => {
+    if (!visible) {
+      sendWebVpnRect({ visible: false });
+      return void 0;
+    }
+    const node = hostRef.current;
+    if (!node) {
+      sendWebVpnRect({ visible: false });
+      return void 0;
+    }
+    let frame = 0;
+    let disposed = false;
+    const push = () => {
+      frame = 0;
+      if (disposed) return;
+      const rect = node.getBoundingClientRect();
+      if (!(rect.width >= WEBVPN_MIN_RECT) || !(rect.height >= WEBVPN_MIN_RECT)) {
+        sendWebVpnRect({ visible: false });
+        return;
+      }
+      markWebVpnRectReported();
+      sendWebVpnRect({ visible: true, x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+    };
+    const schedule = () => {
+      if (frame || disposed) return;
+      frame = requestAnimationFrame(push);
+    };
+    push();
+    let observer = null;
+    if (typeof ResizeObserver === "function") {
+      observer = new ResizeObserver(schedule);
+      observer.observe(node);
+    }
+    window.addEventListener("resize", schedule, true);
+    window.addEventListener("scroll", schedule, true);
+    return () => {
+      disposed = true;
+      if (frame) cancelAnimationFrame(frame);
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", schedule, true);
+      window.removeEventListener("scroll", schedule, true);
+      sendWebVpnRect({ visible: false });
+    };
+  }, [visible]);
+  const inShell = typeof window !== "undefined" && window.parent !== window;
+  return h(
+    "div",
+    { ref: hostRef, className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
+    h(
+      "div",
+      { className: "ib-webvpn-tab-note" },
+      h("b", null, "文献浏览器"),
+      h("p", null, inShell ? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。" : "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。")
+    )
+  );
+}
+function registerWebVpnTab(ctx, { openTab }) {
+  ctx.effect(() => ctx.sidebarRightTabs.register({
+    id: WEBVPN_TAB_ID,
+    kind: WEBVPN_TAB_KIND,
+    priority: "extension",
+    title: () => "文献浏览器"
+  }), "dsh-lab-agent: 文献浏览器 tab 类型");
+  ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+    name: "sidebar.right.pane.tab",
+    key: WEBVPN_TAB_ID
+  }, WebVpnTabBody)), "dsh-lab-agent: 文献浏览器 tab 正文");
+  setWebVpnTabOpener(openTab);
+  ctx.effect(() => () => setWebVpnTabOpener(null), "dsh-lab-agent: 文献浏览器 opener");
+}
+
 // client/src/apply.js
 function applyUi(ctx) {
   const normalizeMarkdownTables = () => {
@@ -4014,6 +4147,9 @@ function applyUi(ctx) {
   const openWorkspace = (project) => open(project);
   const disposeBranding = applyBranding(() => open());
   ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast })), "dsh-lab-agent: project badge");
+  ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => registerWebVpnTab(tabCtx, {
+    openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND)
+  }), "dsh-lab-agent: 文献浏览器右侧栏 tab");
   ctx.on("dispose", () => {
     if (disposeBranding) disposeBranding();
     close();

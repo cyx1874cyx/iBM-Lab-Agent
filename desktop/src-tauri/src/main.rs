@@ -743,6 +743,24 @@ async fn webvpn_show(app: tauri::AppHandle) -> Result<(), String> {
     webvpn::show_sidebar(&app, &webview)
 }
 
+/// DSH 右侧栏「文献浏览器」tab 上报正文矩形：把原生子 WebView 贴到该区域。
+///
+/// 与 `webvpn_show` 的区别：这里不改动主 WebView 宽度——让位由 DSH 右侧栏自己的
+/// push presentation 完成。`visible=false` 或尺寸不足时只隐藏子 WebView。
+///
+/// **必须是 `async`**：`set_bounds` / `show` / `hide` 都要回到主线程执行并等待结果。
+#[tauri::command]
+async fn webvpn_set_rect(
+    app: tauri::AppHandle,
+    visible: bool,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    webvpn::apply_client_rect(&app, visible, x, y, width, height)
+}
+
 /// 拉取当前会话的探测记录（内存中，最多 800 条）。
 #[tauri::command]
 fn webvpn_probe_events(app: tauri::AppHandle) -> Vec<webvpn::WebVpnEvent> {
@@ -853,6 +871,7 @@ fn main() {
             webvpn_set_policy,
             webvpn_status,
             webvpn_show,
+            webvpn_set_rect,
             webvpn_hide,
             webvpn_probe_events,
             webvpn_probe_clear,

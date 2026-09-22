@@ -101,7 +101,16 @@ test("WebVPN 使用同窗子 WebView，登录 profile 隔离且可隐藏复用",
 	assert.match(webvpn, /pub const WINDOW_LABEL: &str = "webvpn"/);
 	assert.match(webvpn, /main_window[\s\S]*?\.add_child\(/, "必须通过官方 add_child 创建同窗侧栏");
 	assert.match(webvpn, /app\.get_webview\(WINDOW_LABEL\)/);
-	assert.match(webvpn, /pub fn hide_sidebar\([\s\S]*?webview\.hide\(\)[\s\S]*?main\.set_bounds\(/, "收起后保留 WebView 并恢复主界面全宽");
+	// 收起：只隐藏、不销毁子 WebView（登录态不丢）。主 WebView 恢复全宽只属于旧的
+	// 按比例分栏路径；DSH 右侧栏接管布局后主 WebView 本来就是全宽，不得再动它。
+	const hideSidebar = webvpn.match(/pub fn hide_sidebar\([\s\S]*?\n\}/);
+	assert.ok(hideSidebar, "必须存在 hide_sidebar");
+	assert.match(hideSidebar[0], /webview\.hide\(\)/, "收起必须只隐藏、不销毁子 WebView");
+	assert.match(
+		hideSidebar[0],
+		/if !client_layout \{[\s\S]*?main\.set_bounds\(/,
+		"只有未由右侧栏接管布局时才恢复主界面全宽",
+	);
 });
 
 test("导航白名单仍保留后端放行能力，但不再占用诊断页", async () => {
@@ -230,6 +239,7 @@ test("建窗与操作窗口的 WebVPN 命令必须是 async", async () => {
 		"webvpn_cancel_capture",
 		"webvpn_show",
 		"webvpn_hide",
+		"webvpn_set_rect",
 		"webvpn_clear_session",
 	]) {
 		const signature = main.match(new RegExp(`(async\\s+)?fn ${name}\\(`));
@@ -253,4 +263,60 @@ test("子 WebView 创建失败会清理残留并记录可诊断错误", async ()
 			/record\(\s*app,\s*"error"/.test(body),
 		"创建失败必须回收残留 WebView 并把原因落进 webvpn.log",
 	);
+});
+
+/**
+ * 需求合并：WebVPN 浏览器不再由 Rust 自己按 width/3 分栏，而是作为**一类 DSH 右侧栏
+ * 页面 tab**挂进 @deepseek-ai/dsh-client-ui-sidebar-right 的公开扩展面。
+ *
+ * 布局责任因此一分为二：DSH 右侧栏负责让位（push presentation），Rust 只按 tab 正文
+ * 上报的矩形摆原生子 WebView。任何一半退化，都会表现为「浏览器浮在错误位置」或
+ * 「主界面被莫名收窄」——这两条都由下面的断言兜住。
+ */
+test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏", async () => {
+	const [shell, webvpn, main, apply, tab, bridge] = await Promise.all([
+		shellSource(),
+		webvpnSource(),
+		mainSource(),
+		read("client/src/apply.js"),
+		read("client/src/webvpn-tab.js"),
+		read("client/src/webvpn-bridge.js"),
+	]);
+
+	// 1) 客户端：注册页面 tab 类型 + 同 key 的正文座位（与自带 sidebar-files 同一条公开路径）。
+	assert.match(tab, /ctx\.sidebarRightTabs\.register\(\{/, "必须通过公开注册表登记 tab 类型");
+	assert.match(tab, /id:\s*WEBVPN_TAB_ID/);
+	assert.match(tab, /kind:\s*WEBVPN_TAB_KIND/);
+	assert.match(tab, /ctx\.slots\.inject\("sidebar\.right\.pane\.tab"/, "正文必须注册到右侧栏 tab 座位");
+	assert.match(tab, /key:\s*WEBVPN_TAB_ID/, "正文的 key 必须是类型的 id，否则座位找不到实现");
+	// 只断言真正的注册对象，不看文件里的说明性注释。
+	const definition = tab.match(/ctx\.sidebarRightTabs\.register\(\{([\s\S]*?)\}\)/);
+	assert.ok(definition, "必须能提取 tab 类型定义");
+	assert.doesNotMatch(definition[1], /guide/, "不得贡献 guide 条目：那会把宿主默认页从「文件」改成指南");
+	// 注册与注销都在 ctx.effect 里，随插件生命周期起落。
+	assert.match(tab, /ctx\.effect\(\(\) => \(\) => setWebVpnTabOpener\(null\)/);
+	assert.match(apply, /ctx\.inject\(\["slots", "sidebarRightTabs", "sidebarRight"\]/, "右侧栏服务单独注入，缺失时不阻塞其余面板");
+	assert.match(apply, /sidebarRight\.openTab\(WEBVPN_TAB_KIND\)/);
+
+	// 2) 必须先等首次矩形上报，否则 webvpn_open_login 会先触发一次旧的分栏。
+	assert.match(bridge, /await waitForWebVpnRect\(\)/);
+	assert.match(bridge, /requestId:/, "桌面壳要求 requestId 非空，否则整条消息被丢弃");
+
+	// 3) 桌面壳：把 tab 相对视口的坐标换算成主窗口客户区坐标。
+	assert.match(shell, /data\.type === 'WEBVPN_SET_RECT'/);
+	assert.match(shell, /frame\.getBoundingClientRect\(\)/);
+	assert.match(shell, /x:\s*box\.left \+ Number\(payload\.x \|\| 0\)/);
+	assert.match(shell, /y:\s*box\.top \+ Number\(payload\.y \|\| 0\)/);
+	assert.match(shell, /invoke\('webvpn_set_rect'/);
+
+	// 4) Rust：接管后主 WebView 完全不动，坏矩形一律按隐藏处理。
+	const applyRect = webvpn.match(/pub fn apply_client_rect\([\s\S]*?\n\}/);
+	assert.ok(applyRect, "必须存在 apply_client_rect");
+	assert.doesNotMatch(applyRect[0], /main\.set_bounds|MAIN_WINDOW_LABEL/, "接管布局后不得再改动主 WebView");
+	assert.match(applyRect[0], /state\.mark_client_layout\(\)/);
+	assert.match(webvpn, /fn sanitize_client_rect\([\s\S]*?is_finite\(\)[\s\S]*?return None;/);
+	assert.match(webvpn, /pub fn client_layout\(&self\)/, "show/hide/resize 需要读这个标志来分支");
+	assert.match(webvpn, /if state\.as_ref\(\)\.map\(\|state\| state\.client_layout\(\)\)/, "show_sidebar 必须分支");
+	assert.match(webvpn, /if !client_layout \{[\s\S]*?main\.set_bounds\(/, "旧分栏只在不接管时执行");
+	assert.match(main, /async fn webvpn_set_rect\(/);
 });
