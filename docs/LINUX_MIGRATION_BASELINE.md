@@ -183,20 +183,38 @@ required_modules="scipy.signal, nmrglue, numpy, pandas, origin_mcp, yaml"
 
 | 路线书 | Linux 等价物 | 状态 |
 |---|---|---|
-| 0.1 给 bundled-python 加输入指纹 | Linux 线由 `install.sh` 每次显式 `pip install -r` 驱动，**不存在「存在即永久跳过」**；无等价缺陷 | 不适用 |
+| 0.1 给 bundled-python 加输入指纹 | Linux 线由 `install.sh` 每次显式 `pip install -r` 驱动，**不存在「存在即永久跳过」**；但 **Windows 线确实有此缺陷**（曾整段跳过 bundled-python，使 S2/L2 静默失效）→ 已按本卡修复 | ✅ 完成（Windows 线，见 §17） |
 | 0.2 重建产物、测真实基线 | §2 已用 uv 实测 | ✅ 完成 |
 | 0.3 体积门禁（只报警） | `scripts/linux-release-preflight.mjs`：归档体积告警 + 必需项下限 | ✅ 完成（见 §8） |
 | 0.4 回归基线快照 | §1 全绿 | ✅ 完成 |
 | 1.1 pycache 红利 | 不适用（无 `pip --target` 产物缓存） | 不适用 |
 | 1.2 剔除第三方 tests/ | **L2**：`install.sh` 的 `strip_python_test_trees()`，实测 −44 MB，含 import 守卫 + 变异测试 | ✅ 完成（见 §5） |
-| 1.2' Windows 侧同样扩展 | 路线书原文要求扩 `build-bundled-python.ps1:86-89`；本机无 pwsh/Windows，**不写不可验证的发布流水线改动** | ⬜ 留给 Windows 机器 |
+| 1.2' Windows 侧同样扩展 | 已在 Windows 线实施并与 Linux 采用同一套方案（pin 格式依赖 + `--no-deps` + 补丁 + 剥 tests 树），实测 site-packages 358.9→320.7 MB | ✅ 完成（见 §19） |
 | 1.3 vendor 白名单 | `vendor.manifest.json` + `src/vendor-manifest.js` + `scripts/prune-vendor.mjs`。剔除 `figures4papers`(28.97 MB/70 文件) 与顶层 `assets`(4.75 MB/6 文件) = **32.2 MiB**；归档 −54.9%。记录写入 `vendor.lock.json.vendorManifest`，`pin-vendor.mjs` 每次升级后幂等重应用 | ✅ 完成（见 §8.3） |
 | 1.4 import 探测脚本 | `scripts/audit-imports.mjs`：静态扫描（正确正则）+ 运行期追踪 + 锁文件差集 | ✅ 完成（见 §11） |
 | 2.1 摘 magika 链 | **L3**：markitdown 0.1.7 把 magika 列为**无条件**依赖（`_markitdown.py:15 import magika` + `__init__` 里无条件 `magika.Magika()`），故路线书的「`--no-deps` 手工摘」按字面**不可行**——摘掉后 `import markitdown` 直接失败（已实测）。改为打「magika 可选化」补丁（锚点 + sha256 + 可回滚） | ✅ 完成（见 §13） |
 | 2.2 matplotlib 策略 | **L4**（48 MB）→ **判定保留**：`SKILL.md:32` 要求 preflight 确认 matplotlib，`process_1d.py` 产出 quicklook 图；按路线书判据属「承诺出图」 | ✅ 已裁定（见 §3） |
 | 2.3 双 PDF 栈收敛 | 同样存在：`PyMuPDF`(60 M)+`pdfminer.six`(9 M)+`pdfplumber`+`pypdf`+`pypdfium2`；`vendor/` 中 `pdfplumber` 1 文件、`pypdf` 2 文件、`fitz` 1 文件，与 `agent.cordis.yml` 的禁令冲突 | 🔴 先调研 |
 | 3.x 结构拆分 | 3.1 `lib/tasks/*`、3.2 `capabilities`、3.3 `adapters/browser`、3.4 `applications/registry` 均已落地并通过闸门 | ✅ 完成 |
-| 5.x 发布与门禁 | `scripts/linux-release-preflight.mjs` + CI 在 `Build Linux archive` 后调用 `--report-only`；`build-linux-release.sh` 仍只负责出包 | ✅ 完成（见 §8.4） |
+| 5.x 发布与门禁（0.3 语义） | `scripts/linux-release-preflight.mjs` 双向断言；CI 在 `Build Linux archive` 后调用 `--report-only` | ✅ 完成（见 §8.4） |
+| 5.1 体积门禁**转强制** | 门禁当前是**告警**语义（`ok: true // 体积超标不影响退出码（路线书 0.3）`），尚未改成 `throw` | ⬜ 未做 |
+
+### 7.1 尚未实施的路线书条目（截至 `3a04267`）
+
+| 路线书 | 内容 | 状态与前置 |
+|---|---|---|
+| 1.5 零碎项清理 | `pygments` 5.1 M 剔除、`fontTools` 的 `ufoLib/designspaceLib/varLib`（保留 `ttLib`+`fontBuilder`）、`matplotlib/mpl-data/sample_data` 约 10 M | ⬜ 未做（install.sh 与 ps1 里都没有对应处理） |
+| 2.3 双 PDF 栈收敛 | `PyMuPDF`+`pdfminer.six`+`pdfplumber`+`pypdf`+`pypdfium2` 共存；且 `vendor/` 里的 `pdfplumber`/`pypdf` 用法与 `agent.cordis.yml` 的禁令**冲突** | ⬜ 未做，需先裁定政策冲突 |
+| 2.4 / 4.2 服务端鉴权定版 | R1 可伪造 `actor`、R2 `lib/remote.js` 无 header/origin 校验、R3 `denyCrossSite` 假设仅回环单用户 | ⬜ 未做（Phase 4 最大风险项，须先定版） |
+| 3.5 拆 `lib/tasks-tool.js` | 1082 行同构重复，风险高 | ⬜ 按路线书建议**本轮不做** |
+| 3.6 patch 文件分组 | `cordis.patch.yml` 一次挂 26 个服务，按板块分组降低单点耦合 | ⬜ 未做 |
+| 4.4 OCR provider 接口 | 所有 skill 都写了 OCR 分支但全仓无实现；`lib/literature-sources.js` 缺 `resolveExtractionRoute()` | ⬜ 未做（条件是 2.x 已决定需要） |
+
+### 7.2 CI 的可见范围
+
+`linux-release.yml` 只在 `main` 触发，`windows-release.yml` 只在 `workflow_dispatch` 或 `v*`
+标签触发 —— 因此**本分支（`release-0.5.0`）的提交从未跑过 CI**，本地五道门才是实际闸门。
+若要依赖 CI，需要把分支加进触发条件（或先合并到 `main`）。
 
 ## 8. Linux 体积门禁（已建立）
 
