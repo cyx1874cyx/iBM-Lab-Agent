@@ -1132,3 +1132,38 @@ node $A/bin/archify.mjs deliver architecture $J docs/ibm-agent-code-structure.ht
   既有图的包络是 maxX 1316 / sublabel ≤19 字符，照这个收紧才过。
 - 边界不必是矩形：渲染器按 `wraps` 画正交多边形，"本机受控运行边界"在右下角就有一个
   缺口留给"外部科研来源"。
+
+## 24. 推送到 GitLab：本机凭据与一个耦合陷阱
+
+`origin` 指向 `https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent.git`。**读是匿名的**
+（clone/fetch 不需要凭据），**写不是** —— 直接 `git push` 会得到
+`fatal: could not read Username ...: terminal prompts disabled`。
+
+本机处置（这些是机器配置，不在仓库里）：
+
+1. 生成专用无口令密钥 `~/.ssh/id_ed25519_ustc_gitlab`（ed25519，指纹
+   `SHA256:4AjHrTskdVw9E5V9aej9z+vQdYNKAYeuphk+KtNkNLs`），公钥加到**账号级** SSH Keys。
+   不要用 Deploy Key：即便勾了 write 权限，通常也推不了受保护分支（`main` 默认受保护），
+   而本次正是要快进 `main`。
+2. `~/.ssh/config` 为 `git.ustc.edu.cn` 指定该 `IdentityFile`（`IdentitiesOnly yes`）。
+3. 让 HTTPS 的 origin 透明走 SSH，避免改远端 URL：
+
+   ```bash
+   git config url."git@git.ustc.edu.cn:".insteadOf "https://git.ustc.edu.cn/"
+   ```
+
+   ⚠️ **陷阱**：`git remote get-url origin` **会应用 `insteadOf` 重写**，所以配置后它报告
+   的是 SSH 形式。而 §23 的图会拿 `meta.repository.url` 与它逐字比对 —— 因此图里声明的
+   必须是**重写后**的形式（`git@git.ustc.edu.cn:...`），否则 `archify validate` 直接以
+   `Evidence repository origin ... does not match ...` 失败。本次就被这道校验拦了一次，
+   只好把图的声明改成 SSH 形式并重新生成 HTML（URL 嵌在 HTML 内嵌 JSON 里；PNG 默认视图
+   看不到它，无需重拍）。
+
+其它两条事实：GitLab 侧**没有 `.gitlab-ci.yml`**，`.github/workflows/` 只对 GitHub 生效，
+所以推任何分支都不会触发 CI；密钥是无口令的，安全边界只有 `~/.ssh` 的 600 权限，不用了在
+GitLab 与本机各删一次即可。
+
+2026-09-22 首次推送结果：`release-0.5.0` 与 `main` 均快进到 `3c96f99`（main 由 `c266021`
+纯快进，领先 42 个提交）。推送范围含 S1 白名单删除的 76 个 `vendor` 文件（70 个
+`figures4papers`）；已核对 `vendor/nature-skills` 仍跟踪 615 个文件、`vendor/mnova-mcp`
+23 个文件都在，安装器从本地树物化并用 `vendor.lock.json.pinnedCommit` 校验，**不会断源**。

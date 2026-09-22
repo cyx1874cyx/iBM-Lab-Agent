@@ -6,7 +6,7 @@
     "locale": "zh-CN",
     "quality_profile": "showcase",
     "repository": {
-      "url": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent.git",
+      "url": "git@git.ustc.edu.cn:qbdeng2025/iBM-Lab-Agent.git",
       "revision": "a835a20083ea60f198ade60275befa0e0b414b8a",
       "link_mode": "local-only"
     },
