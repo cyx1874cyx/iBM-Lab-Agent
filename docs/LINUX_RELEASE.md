@@ -47,6 +47,11 @@ Python 环境和 DSH profile 全部验证成功后，才原子切换 `current` �
 SHA-256，版本不匹配就拒绝修改，并在目标旁保存 `.ibm-lab-agent.bak`。
 安装时传 `--no-dsh-patch` 可完全禁用。
 
+DSH 升级后需要重新核对补丁时，用仓库根目录的兼容入口
+`./dsh-agent-loop-fake-invoke-repatch.sh verify|patch|revert`：它会从
+`runtime/versions.env` 取 `DSH_AGENT_LOOP_SHA256`，定位已固定的运行时，并在校验不通过时
+拒绝修改（它只是 `scripts/patch-dsh-runtime.mjs` 的薄封装，保留旧命令名以便升级说明仍可用）。
+
 ## 升级、回滚与停止
 
 - 升级：重新运行一行安装命令（默认当前 `main`），或用 `--ref <tag|commit>`
