@@ -5,10 +5,11 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.5.1**。本版本聚焦文献、合成路线、
-表征登记与 Windows 桌面发布闭环，首要应用方向为聚前药与高分子材料研究。
-
-当前候选版本为 **v0.5.2-rc.1**，用于验证首次启动引导、环境诊断、软件封装 Python 强制执行与 PowerShell 5.1/7.x 兼容性。
+当前稳定版本为 **v0.5.3**。本版本把软件内浏览器并入 DSH 自带的右侧栏——WebVPN 现在是
+右侧栏里与「文件」「文档预览」并列的一类 tab：让位、停靠、拆分与全屏交给 DSH，桌面端
+只负责把原生子 WebView 贴到该 tab 的正文区域上。v0.5.2-rc.1 验证过的首次启动引导、
+环境诊断、软件封装 Python 强制执行与 PowerShell 5.1/7.x 兼容性一并转正。首要应用方向
+仍为聚前药与高分子材料研究。
 
 **[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
 [查看 v0.5.1 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.1) ·
@@ -165,7 +166,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.2-rc.1 |
+| iBM Lab Agent | 0.5.3 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -181,7 +182,7 @@ dsh --profile ibm-lab
 
 当前分支（`release-0.5.0`，含 v0.5.2-rc.1 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **520/520** 通过；
+- Node 单元与集成测试 **528/528** 通过；
 - 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
 - Linux 归档 **23,182,639 B**、Windows 安装包 **172,110,686 B**
   （SHA-256 `3D2956AA…B60B451`），两者均通过体积门禁与必需路径双向断言；
