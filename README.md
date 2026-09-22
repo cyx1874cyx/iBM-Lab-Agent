@@ -7,7 +7,7 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 
 当前稳定版本为 **v0.5.1**。
 
-当前候选版本为 **v0.5.3-beta4**：把软件内浏览器并入 DSH 自带的右侧栏——WebVPN 现在是
+当前候选版本为 **v0.5.3-beta5**：把软件内浏览器并入 DSH 自带的右侧栏——WebVPN 现在是
 右侧栏里与「文件」「文档预览」并列的一类 tab（右侧栏「+」的类型列表里可选），让位、停靠、
 拆分与全屏交给 DSH，桌面端只负责把原生子 WebView 贴到该 tab 的正文区域上，初始页为中国
 科大 WebVPN 门户；课题主页面也成为右侧栏的一类**资源 tab**，点对话头部的课题徽章即在侧栏
@@ -170,7 +170,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.3-beta4 |
+| iBM Lab Agent | 0.5.3-beta5 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -184,7 +184,7 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（`release-0.5.0`，含 v0.5.3-beta4 的全部改动）在本机实测：
+当前分支（`release-0.5.0`，含 v0.5.3-beta5 的全部改动）在本机实测：
 
 - Node 单元与集成测试 **534/534** 通过；
 - 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
@@ -192,8 +192,8 @@ dsh --profile ibm-lab
   （SHA-256 `E032CC44…05E944`），两者均通过体积门禁与必需路径双向断言；
 - 打包后的应用在发布流水线的 `verify-installer` 阶段被真实启动并完成回环 Web 冒烟。
 
-v0.5.3-beta4 于 2026-09-22 完成出包验证，详见
-[`docs/releases/v0.5.3-beta4.md`](docs/releases/v0.5.3-beta4.md)；软件内浏览器已并入 DSH
+v0.5.3-beta5 于 2026-09-22 完成出包验证，详见
+[`docs/releases/v0.5.3-beta5.md`](docs/releases/v0.5.3-beta5.md)；软件内浏览器已并入 DSH
 自带右侧栏、课题主页面已成为「每课题一标签」的资源 tab，其实机交互项（tab 切换时的收起、
 宽度跟随、下载链路、初始页与「+」入口、双课题互不覆盖）仍需在 Windows 上按该文档末尾的
 清单人工验收。

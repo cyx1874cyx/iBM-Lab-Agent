@@ -625,20 +625,21 @@ async fn webvpn_open_capture(
 
 #[tauri::command]
 async fn webvpn_cancel_capture(task_id: String, app: tauri::AppHandle) -> Result<(), String> {
-    app.try_state::<webvpn::WebVpnState>()
-        .ok_or_else(|| "WebVPN 状态不可用".to_string())?
-        .cancel_capture(&task_id)?;
-    // WebView2 没有向 Tauri 暴露“取消当前下载”句柄。销毁这一枚子 WebView
-    // 才能保证网络传输立即停止；专属 profile 保留，因此下次点击正文/SI 时
-    // 登录态仍可复用。关闭后同时恢复主界面全宽。
-    if let Some(webview) = app.get_webview(webvpn::WINDOW_LABEL) {
-        webview.close().map_err(|error| error.to_string())?;
-    }
-    webvpn::hide_sidebar(&app)?;
-    if let Some(state) = app.try_state::<webvpn::WebVpnState>() {
-        state.mark_closed();
-    }
-    Ok(())
+    // 取消语义收在 webvpn::cancel_capture_and_close：页面里的捕获小球走同一个出口
+    // （只是它不带 taskId），避免两处逻辑漂移。
+    webvpn::cancel_capture_and_close(&app, Some(&task_id))
+}
+
+/// 把当前捕获状态同步到页面里的捕获小球（没有任务时推 null，小球隐藏）。
+///
+/// **必须是 `async`**：`eval` 要回到主线程执行。
+#[tauri::command]
+async fn webvpn_sync_capture_ball(app: tauri::AppHandle) -> Result<(), String> {
+    let Some(webview) = app.get_webview(webvpn::WINDOW_LABEL) else {
+        // 载体还没创建：没有页面可推，不算错误。
+        return Ok(());
+    };
+    webvpn::push_capture_ball(&app, &webview)
 }
 
 /// 放行一个此前被白名单拦下的域名，并写回配置。
@@ -867,6 +868,7 @@ fn main() {
             webvpn_confirm_login,
             webvpn_open_capture,
             webvpn_cancel_capture,
+            webvpn_sync_capture_ball,
             webvpn_allow_host,
             webvpn_set_policy,
             webvpn_status,

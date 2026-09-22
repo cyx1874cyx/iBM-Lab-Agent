@@ -13,10 +13,29 @@ export const WEBVPN_RECT_MESSAGE = "WEBVPN_SET_RECT";
 export const WEBVPN_MIN_RECT = 80;
 /** 等待首次矩形上报的默认上限。 */
 export const WEBVPN_RECT_READY_TIMEOUT_MS = 800;
+/** 布防后多久内视为「正在把载体开往目标页」。 */
+const CAPTURE_ARM_WINDOW_MS = 15000;
 
 let openTabAction = null;
 let rectReported = false;
+let captureArmedAt = 0;
 const rectWaiters = new Set();
+
+/**
+ * 标记「马上要把载体开往某个出版社页面」。
+ *
+ * tab 正文首次可见时会自己打开 WebVPN 门户（用户从「+」进来时没有目标地址）。
+ * 但捕获流程也在同一时刻开 tab，两条导航会互相覆盖——门户可能把出版社页面盖掉。
+ * 布防窗口内门户不再抢导航。
+ */
+export function armWebVpnCaptureWindow() {
+	captureArmedAt = Date.now();
+}
+
+/** 是否处在捕获布防窗口内。 */
+export function isWebVpnCaptureArmed() {
+	return captureArmedAt > 0 && Date.now() - captureArmedAt < CAPTURE_ARM_WINDOW_MS;
+}
 
 /** 本次进程内是否已成功上报过可用矩形（即布局是否已由 DSH 右侧栏接管）。 */
 export function isWebVpnTabBound() {

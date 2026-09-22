@@ -77,11 +77,95 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       location.href = 'ibm-webvpn://session/ready';
     }
   };
+  const CHROME_HEIGHT = 76;
+  /**
+   * 让页面内容整体下移到工具栏之下。
+   *
+   * 工具栏是 `position:fixed` 覆盖层，不推走内容就会盖住页面顶部——出版社的 PDF
+   * 预览器工具栏正好在那条带里，表现为「看不到保存/下载按钮，只能用右键另存」。
+   *
+   * 对 `html` 施加 transform 会让它成为 `position:fixed` 后代的包含块，因此
+   * `position:fixed;inset:0` 那类整屏预览容器也会一起下移；工具栏自身用等量反向
+   * 位移抵消（见 mount）。返回是否成功应用，调用方据此决定是否抵消。
+   */
+  const ensurePageOffset = () => {
+    if (document.getElementById('__ibm_webvpn_offset')) return true;
+    try {
+      const style = document.createElement('style');
+      style.id = '__ibm_webvpn_offset';
+      style.textContent = `html{transform:translateY(${CHROME_HEIGHT}px) !important;height:calc(100% - ${CHROME_HEIGHT}px) !important;overflow:auto !important}`;
+      (document.head || document.documentElement).appendChild(style);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  /**
+   * 捕获状态小球：手动/自动文献捕获期间浮在右下角，点一下终止本次捕获。
+   * 状态由壳经 `window.__ibmWebVpnCapture(payload)` 推进来；`null` 表示隐藏。
+   */
+  let captureBall = null;
+  const mountCaptureBall = () => {
+    if (document.getElementById('__ibm_webvpn_capture')) return;
+    const host = document.createElement('div');
+    host.id = '__ibm_webvpn_capture';
+    host.style.cssText = 'all:initial;position:fixed;right:16px;bottom:16px;z-index:2147483646;';
+    const root = host.attachShadow({ mode: 'closed' });
+    root.innerHTML = `<style>
+      .ball{all:initial;box-sizing:border-box;display:none;max-width:300px;padding:9px 14px;border-radius:999px;background:#0f172a;color:#f8fafc;font:600 12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;align-items:center;gap:8px}
+      .ball[data-visible="true"]{display:inline-flex}
+      .ball[data-phase="armed"],.ball[data-phase="waiting"]{background:#b45309}
+      .ball[data-phase="downloading"]{background:#1d4ed8}
+      .ball[data-phase="uploading"]{background:#047857}
+      .dot{width:8px;height:8px;flex:none;border-radius:50%;background:#fde68a;box-shadow:0 0 0 3px rgba(253,230,138,.25)}
+      .ball[data-phase="downloading"] .dot{background:#bfdbfe;box-shadow:0 0 0 3px rgba(191,219,254,.25);animation:ibm-ball-pulse 1.1s ease-in-out infinite}
+      .ball[data-phase="uploading"] .dot{background:#a7f3d0;box-shadow:0 0 0 3px rgba(167,243,208,.25)}
+      .hint{opacity:.72;font-weight:500}
+      @keyframes ibm-ball-pulse{50%{opacity:.3}}
+      @media (prefers-reduced-motion: reduce){.ball .dot{animation:none}}
+    </style><button class="ball" type="button"><i class="dot" aria-hidden="true"></i><span class="text">文献捕获</span><span class="hint">点击终止</span></button>`;
+    const ball = root.querySelector('.ball');
+    ball.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      location.href = 'ibm-webvpn://cancel-capture/';
+    });
+    (document.documentElement || document.body).appendChild(host);
+    captureBall = ball;
+  };
+  const formatBytes = (bytes) => {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '';
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  };
+  window.__ibmWebVpnCapture = (payload) => {
+    if (!captureBall || !captureBall.isConnected) mountCaptureBall();
+    if (!captureBall) return;
+    if (!payload || !payload.phase) {
+      captureBall.dataset.visible = 'false';
+      return;
+    }
+    const kind = payload.kind === 'si' ? '补充材料' : '正文';
+    const size = formatBytes(payload.bytes);
+    const text = payload.phase === 'downloading'
+      ? `正在下载${kind}${size ? ` · ${size}` : ''}`
+      : payload.phase === 'uploading'
+        ? `正在归档${kind}${size ? ` · ${size}` : ''}`
+        : `等待${kind}下载入口`;
+    captureBall.querySelector('.text').textContent = text;
+    captureBall.dataset.phase = payload.phase;
+    captureBall.dataset.visible = 'true';
+    captureBall.setAttribute('title', `${text}；点击终止本次捕获`);
+  };
   const mount = () => {
-    if (document.getElementById('__ibm_webvpn_chrome')) return;
+    const offset = ensurePageOffset();
+    mountCaptureBall();
+    const existing = document.getElementById('__ibm_webvpn_chrome');
+    const shift = offset ? `transform:translateY(-${CHROME_HEIGHT}px);` : '';
+    if (existing) { existing.style.transform = offset ? `translateY(-${CHROME_HEIGHT}px)` : ''; return; }
     const host = document.createElement('div');
     host.id = '__ibm_webvpn_chrome';
-    host.style.cssText = 'all:initial;position:fixed;inset:0 0 auto 0;z-index:2147483647;height:76px;';
+    host.style.cssText = `all:initial;position:fixed;inset:0 0 auto 0;z-index:2147483647;height:${CHROME_HEIGHT}px;${shift}`;
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
       *{box-sizing:border-box}
@@ -1086,6 +1170,49 @@ impl WebVpnState {
         Ok(())
     }
 
+    /// 当前待捕获任务的 id；没有任务时为 `None`。
+    pub fn pending_task_id(&self) -> Option<String> {
+        self.session
+            .lock()
+            .ok()
+            .and_then(|session| session.pending.as_ref().map(|pending| pending.task_id.clone()))
+    }
+
+    /// 取消当前待捕获任务，不管它的 id 是什么（页面里的小球只知道「有一个任务在跑」）。
+    pub fn cancel_pending_capture(&self) -> Result<(), String> {
+        match self.pending_task_id() {
+            Some(task_id) => self.cancel_capture(&task_id),
+            None => Ok(()),
+        }
+    }
+
+    /// 页面里捕获小球要用的状态，已序列化成 JSON；`null` 表示没有任务、小球应隐藏。
+    ///
+    /// 只暴露阶段、类别与已接收字节——不含任务令牌、临时路径或任何页面内容。
+    pub fn capture_ball_json(&self) -> String {
+        let Ok(session) = self.session.lock() else {
+            return "null".to_string();
+        };
+        let Some(pending) = session.pending.as_ref() else {
+            return "null".to_string();
+        };
+        let bytes = pending
+            .download_started_at
+            .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()));
+        let phase = match session.state {
+            WebVpnSessionState::Downloading => "downloading",
+            WebVpnSessionState::Uploading => "uploading",
+            WebVpnSessionState::WaitingDownload => "waiting",
+            _ => "armed",
+        };
+        serde_json::json!({
+            "phase": phase,
+            "kind": pending.kind,
+            "bytes": bytes,
+        })
+        .to_string()
+    }
+
     pub fn fail(&self, message: &str) {
         if let Ok(mut session) = self.session.lock() {
             session.state = WebVpnSessionState::Error;
@@ -1886,6 +2013,46 @@ pub fn hide_sidebar(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 终止当前捕获并关闭载体。
+///
+/// WebView2 没有向 Tauri 暴露「取消当前下载」句柄，销毁这一枚子 WebView 才能保证
+/// 网络传输立即停止；专属 profile 保留，因此下次点击正文/SI 时登录态仍可复用。
+///
+/// `task_id` 为 `None` 时取消当前待捕获任务——页面里的捕获小球只知道「有一个任务在跑」。
+pub fn cancel_capture_and_close(app: &AppHandle, task_id: Option<&str>) -> Result<(), String> {
+    let state = app.try_state::<WebVpnState>();
+    if let Some(state) = state.as_ref() {
+        match task_id {
+            Some(id) => state.cancel_capture(id)?,
+            None => state.cancel_pending_capture()?,
+        }
+    }
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        webview.close().map_err(|error| error.to_string())?;
+    }
+    hide_sidebar(app)?;
+    if let Some(state) = state.as_ref() {
+        state.mark_closed();
+    }
+    Ok(())
+}
+
+/// 把当前捕获状态推给页面里的捕获小球。
+///
+/// 页面每次导航都会重新注入脚本，小球也随之重建，所以页面加载完成后必须再推一次。
+/// 这里不做轮询：节奏由壳的 `webvpn_sync_capture_ball` 决定。
+pub fn push_capture_ball(app: &AppHandle, webview: &Webview) -> Result<(), String> {
+    let payload = app
+        .try_state::<WebVpnState>()
+        .map(|state| state.capture_ball_json())
+        .unwrap_or_else(|| "null".to_string());
+    webview
+        .eval(format!(
+            "window.__ibmWebVpnCapture && window.__ibmWebVpnCapture({payload});"
+        ))
+        .map_err(|error| error.to_string())
+}
+
 /// 主窗口缩放时更新当前可见侧栏；隐藏状态不改变。
 ///
 /// 右侧栏接管后这里直接返回：窗口尺寸变化会先反映到 DSH 的布局上，再由 tab 正文的
@@ -1957,6 +2124,8 @@ pub fn open_window(
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
                 start_pending_publisher_automation(&page_app, &webview);
+                // 脚本每次导航都会重新注入，小球随之重建：必须再推一次状态。
+                let _ = push_capture_ball(&page_app, &webview);
             }
         })
         .on_navigation(move |url| {
@@ -1968,6 +2137,19 @@ pub fn open_window(
                     state.mark_authenticated();
                 }
                 record(&navigation_app, "session", "", "已识别登录后的 WebVPN 门户");
+                return false;
+            }
+            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("cancel-capture") {
+                // 与 close 同理：不在导航回调栈里销毁自身，调度到主线程的下一拍。
+                let scheduled_app = navigation_app.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(10));
+                    let action_app = scheduled_app.clone();
+                    let _ = scheduled_app.run_on_main_thread(move || {
+                        let _ = cancel_capture_and_close(&action_app, None);
+                    });
+                });
+                record(&navigation_app, "capture", "", "用户从捕获小球终止了本次捕获");
                 return false;
             }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("close") {

@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-09-22 第二批人工审核修复（最新）
+
+1. **iWAN 可用时不再强制先过 WebVPN。** `WebVpnTabBody` 的「初始页」逻辑原本无条件开
+   `portal_url`。现在三道闸：捕获布防窗口内不抢导航（`isWebVpnCaptureArmed()`，由
+   `withWebVpnTab(..., { armingCapture: true })` 在打开 tab **之前**登记）、载体已存在
+   不重新导航、iWAN `usable` 时不开门户。
+2. **工具栏不再盖住页面顶部。** 注入壳是 `position:fixed;height:76px` 且没有推走内容，
+   出版社 PDF 预览器的工具栏正好在那条带里，表现为「看不到保存按钮，只能用右键」。
+   现在对 `html` 施加 `transform:translateY(76px)` 并收紧高度：对 `html` 的 transform
+   会让它成为 `position:fixed` 后代的包含块，预览器那类 `fixed;inset:0` 容器因此一起下移；
+   工具栏自身用 `translateY(-76px)` 抵消。详见发布说明里的「已知限制」。
+3. **捕获小球。** 页面右下角浮标，显示捕获阶段，点击 → `ibm-webvpn://cancel-capture/`
+   → `on_navigation` 拦截 → `cancel_capture_and_close(app, None)`。状态由壳按节奏调
+   `webvpn_sync_capture_ball` 推入页面（`on_page_load` 也会推一次——脚本每次导航都重注入）。
+   状态载荷只有 phase/kind/bytes，**不含令牌或临时路径**，有测试守着。
+
 ## 2026-09-22 挂进 DSH 自带右侧栏（最新）
 
 **动机（同类型需求合并）**：软件内浏览器自 0.4.3 起由 Rust 自己按 `width / 3.0` 分栏、

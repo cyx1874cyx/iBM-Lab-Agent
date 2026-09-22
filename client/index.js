@@ -293,9 +293,17 @@ var import_react7 = require("react");
 var WEBVPN_RECT_MESSAGE = "WEBVPN_SET_RECT";
 var WEBVPN_MIN_RECT = 80;
 var WEBVPN_RECT_READY_TIMEOUT_MS = 800;
+var CAPTURE_ARM_WINDOW_MS = 15e3;
 var openTabAction = null;
 var rectReported = false;
+var captureArmedAt = 0;
 var rectWaiters = /* @__PURE__ */ new Set();
+function armWebVpnCaptureWindow() {
+  captureArmedAt = Date.now();
+}
+function isWebVpnCaptureArmed() {
+  return captureArmedAt > 0 && Date.now() - captureArmedAt < CAPTURE_ARM_WINDOW_MS;
+}
 function setWebVpnTabOpener(fn) {
   openTabAction = typeof fn === "function" ? fn : null;
 }
@@ -615,14 +623,15 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
 var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
-var withWebVpnTab = async (request) => {
+var withWebVpnTab = async (request, { armingCapture = false } = {}) => {
+  if (armingCapture) armWebVpnCaptureWindow();
   await openWebVpnTab();
   return request();
 };
 var openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
 var openWebVpnPortalViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
-var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3));
+var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3), { armingCapture: true });
 var showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
 var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 function installShellRequestBridge() {
@@ -3872,8 +3881,13 @@ function WebVpnTabBody({ useTabInfo }) {
     if (!visible || portalSeeded.current || !inShell) return;
     portalSeeded.current = true;
     void (async () => {
-      const status = await webVpnStatusViaShell().catch(() => null);
+      if (isWebVpnCaptureArmed()) return;
+      const [status, iwan] = await Promise.all([
+        webVpnStatusViaShell().catch(() => null),
+        iwanStatusViaShell().catch(() => null)
+      ]);
       if (!status || status.windowOpen) return;
+      if (iwan?.usable) return;
       await openWebVpnPortalViaShell().catch(() => {
       });
     })();

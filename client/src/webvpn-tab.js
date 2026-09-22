@@ -11,8 +11,8 @@
 //   * 原生子 WebView 由 Rust 端 set_bounds 摆到该矩形上，不再改动主 WebView 宽度。
 import { useEffect, useRef } from "react";
 import { h } from "./h.js";
-import { openWebVpnPortalViaShell, webVpnStatusViaShell } from "./lib.js";
-import { WEBVPN_MIN_RECT, markWebVpnRectReported, sendWebVpnRect, setWebVpnTabOpener } from "./webvpn-bridge.js";
+import { iwanStatusViaShell, openWebVpnPortalViaShell, webVpnStatusViaShell } from "./lib.js";
+import { WEBVPN_MIN_RECT, isWebVpnCaptureArmed, markWebVpnRectReported, sendWebVpnRect, setWebVpnTabOpener } from "./webvpn-bridge.js";
 
 /** tab 类型身份：同时是 sidebar.right.pane.tab 座位上的派发 key。 */
 export const WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
@@ -72,8 +72,16 @@ export function WebVpnTabBody({ useTabInfo }) {
 		if (!visible || portalSeeded.current || !inShell) return;
 		portalSeeded.current = true;
 		void (async () => {
-			const status = await webVpnStatusViaShell().catch(() => null);
+			// 捕获正在布防：控制器马上会把载体开往出版社页面，这里再开一次门户
+			// 会把目标页盖掉（用户看到的就是「必须先打开 WebVPN」）。
+			if (isWebVpnCaptureArmed()) return;
+			const [status, iwan] = await Promise.all([
+				webVpnStatusViaShell().catch(() => null),
+				iwanStatusViaShell().catch(() => null)
+			]);
 			if (!status || status.windowOpen) return;
+			// iWAN 全部路由可用时机构可直接访问，不需要也不应该先绕 WebVPN 门户。
+			if (iwan?.usable) return;
 			await openWebVpnPortalViaShell().catch(() => {});
 		})();
 	}, [visible, inShell]);

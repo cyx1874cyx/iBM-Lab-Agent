@@ -183,6 +183,8 @@
       if (host) { host.title = title; host.setAttribute('aria-label', title); }
     };
     const refreshShellIndicators = async () => {
+      // 顺带把捕获状态推给页面里的捕获小球：它是页面内的浮标，只能由壳推。
+      void invoke('webvpn_sync_capture_ball').catch(() => {});
       try {
         const status = await invoke('webvpn_status');
         const loggedIn = Boolean(status && status.windowOpen && status.authenticated);
@@ -536,11 +538,11 @@
           directAccess: data.payload?.directAccess === true,
           automate: data.payload?.automate === true
         })
-          .then((result) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }))
+          .then((result) => { reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }); void invoke('webvpn_sync_capture_ball').catch(() => {}); })
           .catch((error) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_CANCEL_CAPTURE') {
         invoke('webvpn_cancel_capture', { taskId: String(data.payload?.taskId || '') })
-          .then(() => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }))
+          .then(() => { reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }); void invoke('webvpn_sync_capture_ball').catch(() => {}); })
           .catch((error) => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_SET_RECT') {
         // DSH 右侧栏接管布局：客户端上报「文献浏览器」tab 正文的矩形（相对它自己

@@ -209,7 +209,10 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(projectPanel, /manual_capture_cancel/);
 	assert.match(projectPanel, /终止下载/);
 	assert.match(projectPanel, /showWebVpnViaShell/);
-	assert.match(main, /webvpn_cancel_capture[\s\S]*?webview\.close\(\)/, "终止捕获必须关闭 WebView2 以停止实际网络下载");
+	// 这条不变量的落点已移到 webvpn::cancel_capture_and_close（见下一条测试）。
+	// 原来直接断言 main.rs 里的 webvpn_cancel_capture 函数体，但 `[\s\S]*?` 会一路
+	// 跨到别的命令里去匹配 webview.close()——命令一旦只做转发就会"因为别处有"而通过。
+	assert.match(main, /cancel_capture_and_close\(&app, Some\(&task_id\)\)/, "命令必须转发到唯一实现");
 	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
 	assert.match(projectPanel, /"wiley"\]\.includes\(publisher\)/);
 	assert.match(projectPanel, /已适配出版社固定在软件内/);
@@ -254,6 +257,7 @@ test("建窗与操作窗口的 WebVPN 命令必须是 async", async () => {
 		"webvpn_show",
 		"webvpn_hide",
 		"webvpn_set_rect",
+		"webvpn_sync_capture_ball",
 		"webvpn_clear_session",
 	]) {
 		const signature = main.match(new RegExp(`(async\\s+)?fn ${name}\\(`));
@@ -379,4 +383,75 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
 
 	// 面板与对话徽章都不得存在「只提示、不打开」的旁路。
 	assert.doesNotMatch(literaturePanel, /notify\([^)]*请在右侧 WebVPN[^)]*\);\s*return;/);
+});
+
+/**
+ * 2026-09-22 人工审核缺陷 2：出版社 PDF 预览页里看不到预览器自己的工具栏按钮
+ * （只能右键另存）。根因是注入的浏览器工具栏是 `position:fixed` 覆盖层，
+ * 高度 76px 且没有把页面推下去——预览器工具栏正好落在那条带里被盖住。
+ */
+test("注入壳把页面推到工具栏之下，且捕获小球可终止捕获", async () => {
+	const webvpn = await webvpnSource();
+	assert.match(webvpn, /const CHROME_HEIGHT = 76;/, "工具栏高度必须集中成一个常量");
+	// 对 html 施加 transform：它因此成为 position:fixed 后代的包含块，
+	// PDF 预览器那种 fixed;inset:0 的整屏容器才会一起下移。
+	assert.match(
+		webvpn,
+		/html\{transform:translateY\(\$\{CHROME_HEIGHT\}px\) !important;height:calc\(100% - \$\{CHROME_HEIGHT\}px\) !important;overflow:auto !important\}/,
+	);
+	// 工具栏自身必须等量反向抵消，否则会跟着 html 一起下移出屏幕。
+	assert.match(webvpn, /transform:translateY\(-\$\{CHROME_HEIGHT\}px\)/);
+	assert.match(webvpn, /const shift = offset \? `transform:translateY\(-\$\{CHROME_HEIGHT\}px\);` : '';/);
+
+	// 捕获小球：独立浮标（不放在被反向位移的工具栏里）+ 状态入口 + 点击终止。
+	assert.match(webvpn, /id = '__ibm_webvpn_capture'/);
+	assert.match(webvpn, /window\.__ibmWebVpnCapture = \(payload\) =>/);
+	assert.match(webvpn, /location\.href = 'ibm-webvpn:\/\/cancel-capture\/'/);
+	// 页面每次导航都会重新注入脚本、小球随之重建 → 加载完成后必须重推一次状态。
+	assert.match(webvpn, /push_capture_ball\(&page_app, &webview\)/);
+	// 导航拦截：点击小球 → 取消当前任务并关闭载体（不带 taskId，与按钮共用出口）。
+	assert.match(webvpn, /url\.host_str\(\) == Some\("cancel-capture"\)/);
+	assert.match(webvpn, /cancel_capture_and_close\(&action_app, None\)/);
+
+	// 小球状态只暴露阶段/类别/字节，绝不能把令牌或临时路径送到页面里。
+	const ball = webvpn.match(/pub fn capture_ball_json\(&self\) -> String \{[\s\S]*?\n    \}/);
+	assert.ok(ball, "必须存在 capture_ball_json");
+	// 只看真正发给页面的那份 JSON：函数体里读 temp_path 只是为了取文件大小。
+	const payload = ball[0].match(/serde_json::json!\(\{[\s\S]*?\}\)/);
+	assert.ok(payload, "必须能提取小球的 JSON 载荷");
+	assert.match(payload[0], /"phase": phase/);
+	assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
+});
+
+test("终止捕获只有一条实现：必须关闭 WebView2 且两处共用", async () => {
+	const webvpn = await webvpnSource();
+	const helper = webvpn.match(/pub fn cancel_capture_and_close\([\s\S]*?\n\}/);
+	assert.ok(helper, "必须存在 cancel_capture_and_close");
+	// WebView2 没有暴露取消下载句柄；不销毁子 WebView 就停不住网络传输。
+	assert.match(helper[0], /webview\.close\(\)/, "终止捕获必须关闭 WebView2 以停止实际网络下载");
+	assert.match(helper[0], /state\.mark_closed\(\)/, "窗口销毁后会话状态必须同步归位");
+	assert.match(helper[0], /None => state\.cancel_pending_capture\(\)\?/, "小球不带 taskId 也要能取消");
+});
+
+test("iWAN 可用时不再强制先过 WebVPN 门户，捕获布防期间也不抢导航", async () => {
+	const [tab, bridge, lib] = await Promise.all([
+		read("client/src/webvpn-tab.js"),
+		read("client/src/webvpn-bridge.js"),
+		read("client/src/lib.js"),
+	]);
+	// 布防登记必须发生在「打开 tab」之前：正文首次可见时会在同一拍决定初始页。
+	assert.match(lib, /if \(armingCapture\) armWebVpnCaptureWindow\(\);\s*\n\s*await openWebVpnTab\(\);/);
+	assert.match(lib, /openWebVpnCaptureViaShell = \(payload\) => withWebVpnTab\([\s\S]*?\{ armingCapture: true \}\)/);
+	assert.match(bridge, /export function armWebVpnCaptureWindow\(\)/);
+	assert.match(bridge, /export function isWebVpnCaptureArmed\(\)/);
+
+	const seed = tab.match(/const portalSeeded = useRef\(false\);[\s\S]*?\}, \[visible, inShell\]\);/);
+	assert.ok(seed, "必须能提取门户初始页逻辑");
+	// 布防中：控制器马上要把载体开往出版社页，门户晚一步就会把它盖掉。
+	assert.match(seed[0], /if \(isWebVpnCaptureArmed\(\)\) return;/);
+	// 载体已存在：保留登录态与当前页面，绝不重新导航。
+	assert.match(seed[0], /if \(!status \|\| status\.windowOpen\) return;/);
+	// iWAN 全部路由可用时机构可直接访问，不需要先绕门户。
+	assert.match(seed[0], /if \(iwan\?\.usable\) return;/);
+	assert.match(tab, /iwanStatusViaShell\(\)/, "判定 iWAN 需要查一次状态");
 });
