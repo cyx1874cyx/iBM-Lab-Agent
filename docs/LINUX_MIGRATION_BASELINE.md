@@ -1077,32 +1077,57 @@ if (turnEnds && this.inbox.nextStep.length === 0) break;   // ← 事件之后�
 参考：[deepseek-harness-runtime-bin (PyPI)](https://pypi.org/project/deepseek-harness-runtime-bin/0.1.5rc1/)、
 [免装 Node 的 dsh 安装包（Discussion #414）](https://github.com/deepseek-ai/deepseek-harness/discussions/414?plain=1)。
 
-## 23. 架构图（Archify）
+## 23. 图形资产（Archify）
 
-`docs/architecture/ibm-lab-agent.architecture.json` 是本项目**运行时架构的图形源码**：
-Tauri 桌面外壳 → DSH 运行时 → iBM 插件 → 科研 Python / MCP / 浏览器适配，以及三个边界
-（自包含运行时 / 外部网络 / 本机操作系统）。内容取自真实代码事实：`resources/` 的体积构成、
-三条裁剪纪律（S1/S2/L2）、以及 §22.4 的扩展点发现。
+仓库用 [Archify](https://github.com/tt-a1i/archify)（Agent Skill，v2.17.0-dev.1，MIT，零依赖）
+维护图形资产。每张图 = 一份 `*.archify.json` 源码 + 独立 HTML + 4 张 PNG
+（1440x900 / 2048x1320 × light/dark），文件名沿用既有约定：
 
-生成器是 [Archify](https://github.com/tt-a1i/archify)（Agent Skill，v2.17.0-dev.1，MIT），
-零依赖，本机安装在 `/opt/archify/archify-main/archify`。重生成：
+| 图 | 源码 | 交互版 | 用途 |
+|---|---|---|---|
+| 软件架构 | `docs/ibm-agent-architecture.archify.json` | `ibm-agent-architecture.html` | 组件、边界与四条主线（开发主线/启动配置/Agent 执行面/科研证据） |
+| 代码结构 | `docs/ibm-agent-code-structure.archify.json` | `ibm-agent-code-structure.html` | 12 个代码单元（插件与领域层 / 桌面与前端产物 / 构建内容与验证） |
+| 数据流 / 时序 / 流程 / 状态 | `docs/ibm-agent-{dataflow,sequence,workflow,lifecycle}.archify.json` | 同名 HTML | 见 `docs/IBM_AGENT_ARCHITECTURE_ANALYSIS.md` |
+
+`README.md` 的「架构」一节嵌入前两张的浅色 PNG。
+
+### 23.1 重新生成
 
 ```bash
 A=/opt/archify/archify-main/archify
-# 1) 校验（showcase 档要求 9 项 artifact 检查全过、0 error 0 warning）
-node $A/bin/archify.mjs validate architecture docs/architecture/ibm-lab-agent.architecture.json --quality showcase --json
-# 2) 产出独立 HTML
-node $A/bin/archify.mjs deliver architecture docs/architecture/ibm-lab-agent.architecture.json \
-  dist/archify/ibm-lab-agent.architecture.html --quality showcase --json
+J=docs/ibm-agent-code-structure.archify.json
+node $A/bin/archify.mjs validate architecture $J --repo-root . --quality showcase --json
+node $A/bin/archify.mjs deliver architecture $J docs/ibm-agent-code-structure.html \
+  --repo-root . --quality showcase --json
 ```
 
-PNG 导出用 Windows 侧无头 Edge（WSL 内没有 Chrome，`visual-check` 会跳过并给出
-`viewer/chrome-unavailable`）：
+`--repo-root` 是必需的：图里每个组件都声明了 `sources`（文件 + 行号），Archify 会**核对
+这些文件与行号真实存在**才允许渲染。它还会把 `meta.repository.url` 与 `git remote` 比对。
+这两道校验让图不能"编"——本次就因此修掉了两处：`revision` 必须是 40 位完整 SHA、
+声明的远端必须与实际 `origin` 一致。
+
+### 23.2 PNG 导出（WSL 内没有 Chrome）
+
+`archify visual-check` 需要 Chrome；WSL 里没有，它会报 `viewer/chrome-unavailable` 并跳过。
+改用 Windows 侧无头 Edge（`?theme=light|dark` 对应 archify 的截图参数）：
 
 ```bash
 '/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' --headless=new \
   --user-data-dir='C:\Users\admin\AppData\Local\Temp\archify\prof' \
-  --screenshot='C:\...\shot.png' --window-size=1600,1000 'file:///C:/.../diagram.html'
+  --screenshot='C:\...\cs-2048x1320-light.png' --window-size=2048,1320 \
+  'file:///C:/.../code-structure.html?theme=light'
 ```
 
-产出物在 `dist/archify/`（gitignore，不入库）；入库的只有图形源码 JSON。
+坑：Edge 的截图**异步落盘**，命令返回时文件可能还没写完（第一次 `ls` 是空的，稍后才出现
+195 KB 的 PNG）。因此不能拿"命令返回 0 但文件不在"当失败，要 `sleep` 后再取。
+
+### 23.3 排版约束（showcase 档）
+
+- 架构图必须显式给坐标；用 `layout.mode: grid` + `row`/`col` 时，**网格是行主序**，跨多格的
+  长边会穿过无关节点（`clean-flow/edge-through-node`）→ 把相连的节点排进相邻格即可。
+- 相邻格之间的间隙只有 39px，**放不下标签**（`label-route-clearance`）→ 用 `labelDy`
+  把标签抬到边上下方，或干脆不画那条弱关系的边。
+- **桌面可读性**：画布宽度决定缩放（1440 视口可用约 930px），因此上下文小字要短 ——
+  既有图的包络是 maxX 1316 / sublabel ≤19 字符，照这个收紧才过。
+- 边界不必是矩形：渲染器按 `wraps` 画正交多边形，"本机受控运行边界"在右下角就有一个
+  缺口留给"外部科研来源"。

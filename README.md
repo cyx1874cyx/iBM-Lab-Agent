@@ -35,19 +35,32 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 
 ## 架构
 
-```text
-用户
-  └─ DSH Web / Windows Desktop
-       ├─ iBM 课题工作台与 lab-research 预设
-       ├─ 19 个固定版本 Nature Skills
-       ├─ 文献、合成、表征、模板与文档服务
-       ├─ Origin / Mnova / LibreOffice / RDKit 等本地工具
-       └─ 课题 workspace、版本快照与 ArtifactProvenance
-```
+![iBM Lab Agent 软件架构](docs/ibm-agent-architecture.visual-check.2048x1320.light.png)
+
+软件架构给出组件与边界：桌面端与 Web 客户端、DeepSeek Harness 宿主、iBM 领域服务与
+Agent 工具层，以及「本机受控运行边界」和「回环地址与用户数据边界」两条安全边界。
+可交互版本（四条主线视图、深色主题与导出）见
+[`docs/ibm-agent-architecture.html`](docs/ibm-agent-architecture.html)。
+
+![iBM Lab Agent 代码结构](docs/ibm-agent-code-structure.visual-check.2048x1320.light.png)
+
+代码结构给出仓库分层：插件与领域层（`cordis.patch.yml`、`presets/lab-research`、`lib/`、`src/`）、
+桌面端与前端产物（`desktop/`、`client/`、`browser-extension/`）、构建内容与验证
+（`scripts/`、`python/`、`vendor/`、`tests/`）。图中每个组件都带
+[`docs/ibm-agent-code-structure.archify.json`](docs/ibm-agent-code-structure.archify.json) 里的
+`sources`（文件与行号），渲染前由 Archify 逐条核对存在性，因此图与代码不会脱节。
+可交互版本见 [`docs/ibm-agent-code-structure.html`](docs/ibm-agent-code-structure.html)。
+
+安装包内的自包含运行时（解包后）：`resources/python` 401 MB、`resources/dsh` 318 MB、
+`resources/node` 88 MB、`resources/plugin` 61 MB；压缩后 Windows 安装包 172 MB、
+Linux 归档 22.1 MB。
 
 所有课题数据默认保存在用户自己的 DSH 数据目录。文献访问仅使用开放来源、用户已建立的
 学校 WebVPN 会话或本机 iWAN 网络；浏览器捕获只接收用户已获授权的 PDF/SI。项目不会
 自动执行实验、采购，也不会绕过机构或 CAS 授权边界。
+
+图形资产的源码、HTML、多尺寸 PNG 与重新生成方式见
+[`docs/LINUX_MIGRATION_BASELINE.md`](docs/LINUX_MIGRATION_BASELINE.md) §23。
 
 ## Linux 安装
 
@@ -166,6 +179,14 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
+当前分支（`release-0.5.0`，含 v0.5.2-rc.1 的全部改动）在本机实测：
+
+- Node 单元与集成测试 **520/520** 通过；
+- 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
+- Linux 归档 **23,182,639 B**、Windows 安装包 **172,110,686 B**
+  （SHA-256 `3D2956AA…B60B451`），两者均通过体积门禁与必需路径双向断言；
+- 打包后的应用在发布流水线的 `verify-installer` 阶段被真实启动并完成回环 Web 冒烟。
+
 v0.5.1 于 2026-09-17 完成正式发布验证：
 
 - Node 单元与集成测试全部通过；
@@ -181,17 +202,21 @@ v0.5.1 于 2026-09-17 完成正式发布验证：
 ## 目录
 
 ```text
-client/             DSH Web 客户端与离线查看器
-desktop/            Windows Tauri 客户端及发布脚本
-lib/                插件服务、远程接口和数据持久化
-src/                领域模型与计算逻辑
-presets/            lab-research 预设
-python/             固定 Python 依赖与辅助脚本
-vendor/             固定版本 Nature Skills
-runtime/            Linux 发行版版本与系统依赖
+bin/                CLI 入口
 browser-extension/  本机 PDF/SI 捕获桥
-tests/              单元、集成、浏览器、回归与 E2E 测试
-docs/               当前发布说明及历史设计/验收记录
+client/             DSH Web 客户端与离线查看器
+desktop/            Windows Tauri 客户端及发布脚本（src-tauri 为 Rust，scripts 为 PowerShell）
+docs/               发行说明、设计/验收记录与图形资产（*.archify.json + HTML + PNG）
+lib/                插件服务层：lib/tasks/ 9 个模块，以及 capabilities/adapters/applications
+presets/            lab-research 预设
+python/             两条线的固定依赖锁与 Python 辅助脚本
+runtime/            Linux 发行版版本与系统依赖
+scripts/            安装、发布、审计与预检脚本
+src/                领域模型与宿主补丁模块
+tests/              单元、集成、浏览器、回归与 E2E 测试（113 个文件）
+vendor/             固定版本 Nature Skills 与 mnova-mcp（受白名单裁剪）
+cordis.patch.yml    插件 bundle：宿主平面服务注册
+install.sh          Linux 一键安装（8 步）
 ```
 
 ## 许可证

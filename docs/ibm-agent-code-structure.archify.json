@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "iBM Lab Agent 代码结构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent.git",
+      "revision": "a835a20083ea60f198ade60275befa0e0b414b8a",
+      "link_mode": "local-only"
+    },
+    "views": [
+      {
+        "id": "plugin-plane",
+        "label": "插件与领域层",
+        "focus": [
+          "bundle",
+          "preset",
+          "srccore",
+          "libsvc",
+          "libtasks"
+        ],
+        "note": "cordis.patch.yml 组合宿主平面服务，presets/lab-research 选择会话平面，服务与任务实现落在 lib/ 与 src/。"
+      },
+      {
+        "id": "desktop-plane",
+        "label": "桌面与前端",
+        "focus": [
+          "tauri",
+          "dscripts",
+          "clientfe"
+        ],
+        "note": "Tauri 外壳负责窗口与更新，发布链把离线前端产物与运行时打成安装包。"
+      },
+      {
+        "id": "build-plane",
+        "label": "构建与内容",
+        "focus": [
+          "tooling",
+          "python",
+          "vendor",
+          "tests"
+        ],
+        "note": "安装与发布脚本、两条线的依赖锁、vendor 白名单与 520 项测试共同守住产物。"
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [
+      50,
+      86
+    ],
+    "cols": 4,
+    "gapX": 39,
+    "gapY": 76,
+    "cellW": 156,
+    "cellH": 78
+  },
+  "components": [
+    {
+      "id": "bundle",
+      "type": "backend",
+      "label": "插件 bundle",
+      "sublabel": "cordis.patch.yml · 319 行",
+      "row": 0,
+      "col": 1,
+      "tag": "宿主平面",
+      "sources": [
+        {
+          "path": "cordis.patch.yml",
+          "line": 1,
+          "end_line": 319,
+          "label": "插件 bundle 与宿主平面组合"
+        }
+      ]
+    },
+    {
+      "id": "preset",
+      "type": "backend",
+      "label": "lab-research 预设",
+      "sublabel": "agent.cordis.yml · 304 行",
+      "row": 0,
+      "col": 0,
+      "tag": "会话平面",
+      "sources": [
+        {
+          "path": "presets/lab-research/agent.cordis.yml",
+          "line": 1,
+          "end_line": 304,
+          "label": "会话平面工具与人格"
+        }
+      ]
+    },
+    {
+      "id": "srccore",
+      "type": "backend",
+      "label": "src/ 领域与宿主",
+      "sublabel": "24 文件 · 2989 行",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        {
+          "path": "src/harness-root.js",
+          "line": 1,
+          "end_line": 93,
+          "label": "宿主根解析"
+        }
+      ]
+    },
+    {
+      "id": "libsvc",
+      "type": "backend",
+      "label": "lib/ 服务层",
+      "sublabel": "36 文件 · 10270 行",
+      "row": 1,
+      "col": 0,
+      "sources": [
+        {
+          "path": "lib/capabilities.js",
+          "line": 1,
+          "end_line": 83,
+          "label": "平台假设收敛"
+        }
+      ]
+    },
+    {
+      "id": "libtasks",
+      "type": "backend",
+      "label": "lib/tasks/ 任务面",
+      "sublabel": "9 模块 · 2243 行",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        {
+          "path": "lib/tasks/index.js",
+          "line": 1,
+          "end_line": 268,
+          "label": "任务服务聚合"
+        }
+      ]
+    },
+    {
+      "id": "tauri",
+      "type": "frontend",
+      "label": "Tauri 桌面外壳",
+      "sublabel": "desktop/src-tauri",
+      "row": 2,
+      "col": 0,
+      "tag": "Windows",
+      "sources": [
+        {
+          "path": "desktop/src-tauri/src/main.rs",
+          "line": 1,
+          "end_line": 1011,
+          "label": "窗口、托盘与运行时进程"
+        }
+      ]
+    },
+    {
+      "id": "dscripts",
+      "type": "backend",
+      "label": "Windows 发布链",
+      "sublabel": "desktop/scripts · 5 个",
+      "row": 2,
+      "col": 1,
+      "sources": [
+        {
+          "path": "desktop/scripts/build-windows-release.ps1",
+          "line": 1,
+          "end_line": 387,
+          "label": "11 阶段发布编排"
+        }
+      ]
+    },
+    {
+      "id": "clientfe",
+      "type": "frontend",
+      "label": "前端产物",
+      "sublabel": "client/ + 扩展",
+      "row": 2,
+      "col": 2,
+      "sources": [
+        {
+          "path": "client/index.js",
+          "line": 1,
+          "end_line": 4030,
+          "label": "DSH Web 客户端"
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "type": "backend",
+      "label": "构建与安装工具",
+      "sublabel": "scripts/ · install.sh",
+      "row": 3,
+      "col": 0,
+      "sources": [
+        {
+          "path": "scripts/linux-release-preflight.mjs",
+          "line": 1,
+          "end_line": 252,
+          "label": "发布预检与体积门禁"
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "type": "database",
+      "label": "依赖锁",
+      "sublabel": "requirements*.lock",
+      "row": 3,
+      "col": 1,
+      "sources": [
+        {
+          "path": "python/requirements-linux.lock",
+          "line": 1,
+          "end_line": 45,
+          "label": "Linux 线精确 pin"
+        }
+      ]
+    },
+    {
+      "id": "vendor",
+      "type": "database",
+      "label": "内容与白名单",
+      "sublabel": "vendor/ + 锁文件",
+      "row": 3,
+      "col": 2,
+      "sources": [
+        {
+          "path": "vendor.lock.json",
+          "line": 1,
+          "end_line": 330,
+          "label": "第三方内容锁定"
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "type": "backend",
+      "label": "测试与守卫",
+      "sublabel": "113 文件 · 13702 行",
+      "row": 3,
+      "col": 3,
+      "sources": [
+        {
+          "path": "tests/unit/tasks-surface.test.mjs",
+          "line": 1,
+          "end_line": 104,
+          "label": "冻结拆分前后的对外接口"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "插件与领域层（随 DSH 插件分发）",
+      "wraps": [
+        "preset",
+        "bundle",
+        "libsvc",
+        "libtasks",
+        "srccore"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "桌面端与前端产物",
+      "wraps": [
+        "tauri",
+        "dscripts",
+        "clientfe"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "构建、内容与验证",
+      "wraps": [
+        "tooling",
+        "python",
+        "vendor",
+        "tests"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "id": "preset-bundle",
+      "from": "preset",
+      "to": "bundle",
+      "label": "选择并挂载",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bundle-libsvc",
+      "from": "bundle",
+      "to": "libsvc",
+      "label": "宿主平面服务行",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bundle-libtasks",
+      "from": "bundle",
+      "to": "libtasks",
+      "label": "注册任务工具",
+      "variant": "emphasis",
+      "labelDy": 24
+    },
+    {
+      "id": "srccore-libtasks",
+      "from": "srccore",
+      "to": "libtasks",
+      "label": "共享领域模型"
+    },
+    {
+      "id": "tauri-dscripts",
+      "from": "tauri",
+      "to": "dscripts",
+      "label": "调用发布链"
+    },
+    {
+      "id": "dscripts-clientfe",
+      "from": "dscripts",
+      "to": "clientfe",
+      "label": "打包离线产物"
+    },
+    {
+      "id": "dscripts-tooling",
+      "from": "dscripts",
+      "to": "tooling",
+      "label": "复用审计与预检"
+    },
+    {
+      "id": "tests-vendor",
+      "from": "tests",
+      "to": "vendor",
+      "label": "校验锁定内容"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分层与不变量",
+      "items": [
+        "lib/tasks.js 2031 行单文件 → lib/tasks/ 9 模块 2243 行，纯搬家不改接口",
+        "导出面 11 项与原型方法 69 项由 tasks-surface 测试冻结",
+        "capabilities / adapters / applications 三处收敛平台假设"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "两条发布链",
+      "items": [
+        "Linux：install.sh 8 步 + scripts/build-linux-release.sh",
+        "Windows：desktop/scripts 5 个 PowerShell 脚本、11 个阶段（由 WSL 驱动）",
+        "python/requirements(-linux).lock 两条线各自锁定同一套版本"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "内容与验证",
+      "items": [
+        "vendor/：nature-skills 19 个 + mnova-mcp；白名单裁剪使归档 −54.9%",
+        "tests/：113 文件 13702 行，覆盖单元、集成、浏览器与回归",
+        "scripts/audit-imports.mjs 用运行期追踪证明不可达后才删依赖"
+      ]
+    }
+  ]
+}
