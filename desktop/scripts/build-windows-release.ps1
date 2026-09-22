@@ -213,9 +213,15 @@ function Get-ReleaseVersion {
   $manifestVersion = (Read-JsonUtf8 (Join-Path $desktopRoot 'docs\release-manifest.json')).ibmLabAgent
   $cargoText = Get-Content -LiteralPath (Join-Path $desktopRoot 'src-tauri\Cargo.toml') -Raw
   $cargoVersion = [regex]::Match($cargoText, '(?ms)^\[package\].*?^version\s*=\s*"([^"]+)"').Groups[1].Value
-  $versions = @($rootVersion, $desktopVersion, $tauriVersion, $manifestVersion, $cargoVersion)
+  # Cargo.lock carries this package's version too, and cargo rewrites it in place during the
+  # build. Bumping the manifest but not the lock leaves the build copy dirty, and the NEXT
+  # release build is then rejected by the dirty-worktree gate (hit for real on 2026-09-22).
+  # An unparsable lock yields '', which fails the uniqueness check below: fail-closed.
+  $cargoLockText = Get-Content -LiteralPath (Join-Path $desktopRoot 'src-tauri\Cargo.lock') -Raw
+  $cargoLockVersion = [regex]::Match($cargoLockText, '(?ms)^\[\[package\]\]\r?\nname = "ibm-lab-desktop"\r?\nversion = "([^"]+)"').Groups[1].Value
+  $versions = @($rootVersion, $desktopVersion, $tauriVersion, $manifestVersion, $cargoVersion, $cargoLockVersion)
   if (($versions | Select-Object -Unique).Count -ne 1) {
-    throw "Release versions are inconsistent: root=$rootVersion desktop=$desktopVersion tauri=$tauriVersion manifest=$manifestVersion cargo=$cargoVersion"
+    throw "Release versions are inconsistent: root=$rootVersion desktop=$desktopVersion tauri=$tauriVersion manifest=$manifestVersion cargo=$cargoVersion cargoLock=$cargoLockVersion"
   }
   return [string]$rootVersion
 }
