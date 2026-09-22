@@ -27,8 +27,8 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pythonLockSha256 } from "../src/python-lock-hash.js";
@@ -45,7 +45,7 @@ import { pythonLockSha256 } from "../src/python-lock-hash.js";
 export const STAMP_NAME = "bundled-python.stamp.json";
 
 /** 指纹方案版本：规则本身变了就 +1，使所有旧产物自动判为过期。 */
-export const STAMP_VERSION = 1;
+export const STAMP_VERSION = 2;
 
 /** 单文件输入：任一变化都意味着 dist 需要重建。 */
 export const INPUT_FILES = [
@@ -79,22 +79,39 @@ export function digestFile(absPath) {
 	return `txt:${sha256(Buffer.from(text, "utf8"))}`;
 }
 
-/** 目录摘要：按相对路径排序后逐个摘要，路径与内容一起参与，增删改名都会变。 */
-export function digestTree(absDir) {
+/**
+ * 列出某个路径下 **git 跟踪** 的文件（相对仓库根，正斜杠，已排序）。
+ *
+ * 为什么必须用 git 列表而不是遍历文件系统：第 4b 步会用 pip 从 vendor/mnova-mcp
+ * **就地**构建 wheel，因而在该目录里留下 `build/` 与 `src/mnova_mcp.egg-info/`（实测
+ * Windows 副本比干净检出多 12 个文件）。这些被 .gitignore 忽略，`git status` 依旧是干净
+ * 的，但"遍历文件系统"会把它们算进指纹 —— 于是指纹变成**副本相关**：装过一次的副本与
+ * 干净副本互相判对方过期。指纹应当只标识**输入**，而生成物不是输入。
+ *
+ * 这也正是项目既有的做法（prepare-runtime.ps1 的 Get-PluginFingerprint = git ls-files +
+ * 流式 SHA256）。这里与它保持一致。
+ */
+export function gitTrackedFiles(repoRoot, relPath) {
+	const out = execFileSync("git", ["-C", repoRoot, "ls-files", "-z", "--", relPath], {
+		encoding: "utf8",
+		maxBuffer: 64 * 1024 * 1024,
+	});
+	return out.split("\0").filter(Boolean).sort();
+}
+
+/**
+ * 目录摘要：只取 git 跟踪的文件，按路径排序后逐个摘要；路径与内容一起参与，
+ * 于是增删改名都会变，而构建生成物不会。
+ */
+export function digestTree(repoRoot, relPath, { listFiles = gitTrackedFiles } = {}) {
 	const hash = createHash("sha256");
-	const walk = (dir) => {
-		const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1));
-		for (const entry of entries) {
-			const abs = join(dir, entry.name);
-			const rel = relative(absDir, abs).split(sep).join("/");
-			if (entry.isDirectory()) {
-				walk(abs);
-			} else if (entry.isFile()) {
-				hash.update(`${rel}\0${digestFile(abs)}\n`);
-			}
-		}
-	};
-	walk(absDir);
+	for (const rel of listFiles(repoRoot, relPath)) {
+		const abs = join(repoRoot, rel);
+		// 跟踪但磁盘上已删：记为 missing 而不是抛 ENOENT。保守方向 —— 摘要变化 →
+		// 判为过期 → 重建，比让指纹工具在出包中途崩掉好得多。
+		const digest = existsSync(abs) ? digestFile(abs) : "missing";
+		hash.update(`${rel.split(sep).join("/")}\0${digest}\n`);
+	}
 	return hash.digest("hex");
 }
 
@@ -121,12 +138,11 @@ export function computeInputs(repoRoot) {
 				: digestFile(abs);
 	}
 	for (const rel of INPUT_TREES) {
-		const abs = join(repoRoot, rel);
-		if (!existsSync(abs)) {
+		if (!existsSync(join(repoRoot, rel))) {
 			missing.push(rel);
 			continue;
 		}
-		trees[rel] = digestTree(abs);
+		trees[rel] = digestTree(repoRoot, rel);
 	}
 
 	// 指纹 = 规范化 JSON 的摘要；missing 也参与，避免"输入缺失"被当成"内容相同"

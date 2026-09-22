@@ -710,6 +710,46 @@ gitignore）。两个失效方向都安全：dist 在而指纹被清 → 缺指�
 `$bundledPythonExe`，**没抓住** —— 已把正则改成 `\$bundledPython\w*` 并重做变异。这条
 "守卫自己有没有漏洞"的教训值得单独记下来：**先证明守卫能失败，再相信它通过。**
 
+### 17.5 修正：树摘要必须只取 git 跟踪的文件
+
+指纹做到一半时，我用它反向检查了一次"当前 HEAD 对已构建产物"的判定，结果报
+`inputs changed: vendor/mnova-mcp/` —— 而我并没有动过它。逐文件比对两份副本才看清：
+
+```
+files linux=23  windows=35  diffs=12
+DIFF build/lib/mnova_mcp/*.py            ← 第 4b 步 pip 就地构建 wheel 的副产物
+DIFF src/mnova_mcp.egg-info/*            ← 同上
+```
+
+第 4b 步会**在 vendor/mnova-mcp 里就地构建 wheel**，留下 `build/` 与 `src/*.egg-info/`
+（Windows 副本实测比干净检出多 12 个文件）。这些被 `.gitignore` 忽略，所以
+`git status --porcelain` 依然干净、发布预检照样通过 —— 但早期实现是**遍历文件系统**算树
+摘要，于是把生成物当成了输入，指纹变成**副本相关**：装过一次的副本与干净副本会互相判对方
+过期。这与设计目标（指纹只标识输入、与检出无关）直接矛盾。
+
+修法：树摘要改用 `git ls-files` 枚举**跟踪**文件（`digestTree(repoRoot, relPath)`），与项目
+既有的 `prepare-runtime.ps1` 的 `Get-PluginFingerprint`（同样 git ls-files + 摘要）保持一致；
+`STAMP_VERSION` 由 1 升到 2，使所有旧指纹干净地失效一次。
+
+两处顺带的稳健性处理：
+
+- 跟踪但磁盘上已删的文件记为 `missing` 而不是抛 ENOENT —— 保守方向（摘要变化 → 重建），
+  好过让指纹工具在出包中途崩掉；
+- 新增断言证明"生成物不影响摘要"，并做变异验证（把实现改回遍历文件系统 → 该条失败，
+  恢复后 md5 一致）。
+
+跨副本一致性（这才是修好的证据；三份内容相同、其中一份多 12 个生成物）：
+
+```
+/root/ibm-lab                  50c7a3f0ff0d103582bc425550e4a4316e717a0a8f7ae1a203582a5b2394a38d
+/mnt/h/build/ibm-lab-agent     50c7a3f0ff0d103582bc425550e4a4316e717a0a8f7ae1a203582a5b2394a38d
+/mnt/h/build/ibm-lab-baseline  50c7a3f0ff0d103582bc425550e4a4316e717a0a8f7ae1a203582a5b2394a38d
+```
+
+**这条值得单独记下来**：指纹这类"判定缓存是否有效"的机制必须严格只依赖**输入**；任何
+"顺手遍历目录"都会把生成物、缓存、临时文件拖进来，让判定失去可复现性。而且这个缺陷
+**不会**被现有任何闸门发现 —— 它只在"跨副本对比"时才现形。
+
 ## 18. 出包链路本身抓到的两个缺陷
 
 指纹补齐后重新出包，构建**失败**了 —— 但失败原因与报错方式各暴露一个问题。

@@ -44,7 +44,18 @@ function makeFixture() {
 	put("vendor/mnova-mcp/pyproject.toml", "[project]\nname = 'mnova-mcp'\n");
 	put("vendor/mnova-mcp/src/mnova_mcp/__init__.py", "__version__ = '0.3.1'\n");
 	mkdirSync(join(root, "stamp-dir"), { recursive: true });
-	return { root, stampDir: join(root, "stamp-dir"), put, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+	// 树摘要走 git ls-files，所以 fixture 必须是个真仓库。这也让测试覆盖到真实代码路径。
+	const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
+	git("init", "-q");
+	const gitAdd = () => git("add", "-A");
+	gitAdd();
+	return {
+		root,
+		stampDir: join(root, "stamp-dir"),
+		put,
+		gitAdd,
+		cleanup: () => rmSync(root, { recursive: true, force: true }),
+	};
 }
 
 test("真实仓库的指纹输入全部存在（否则出包时会直接失败）", () => {
@@ -99,14 +110,45 @@ test("写指纹后判定为 current，改任一输入都会判为过期并指名
 			fx.put(rel, original);
 		}
 
-		// 目录输入的内部新增/改内容/删除
+		// 目录输入：新增"被跟踪的"文件必须判为过期（未跟踪的生成物不算，见另一条断言）
 		fx.put("vendor/mnova-mcp/src/mnova_mcp/new.py", "x = 1\n");
-		assert.equal(checkStamp(fx.root, fx.stampDir).current, false, "vendor 树新增文件必须判为过期");
+		fx.gitAdd();
+		assert.equal(checkStamp(fx.root, fx.stampDir).current, false, "vendor 树新增跟踪文件必须判为过期");
 		rmSync(join(fx.root, "vendor/mnova-mcp/src/mnova_mcp/new.py"));
+		// 删掉一个仍被 git 跟踪的文件：也应判为过期，且不得抛 ENOENT
 		rmSync(join(fx.root, "vendor/mnova-mcp/pyproject.toml"));
 		const removed = checkStamp(fx.root, fx.stampDir);
-		assert.equal(removed.current, false, "vendor 树删除文件必须判为过期");
+		assert.equal(removed.current, false, "vendor 树删除跟踪文件必须判为过期");
 		assert.ok(removed.changed.includes("vendor/mnova-mcp/"), "应指名是 vendor 树变了");
+	} finally {
+		fx.cleanup();
+	}
+});
+
+test("树摘要只认 git 跟踪的输入：构建生成物不得影响指纹", () => {
+	// 第 4b 步会用 pip 从 vendor/mnova-mcp 就地构建 wheel，留下 build/ 与 src/*.egg-info/
+	// （实测 Windows 副本比干净检出多 12 个文件）。这些被 .gitignore 忽略、git status 依然
+	// 干净，但早期实现是"遍历文件系统"，于是装过一次的副本与干净副本互相判对方过期 ——
+	// 指纹变成副本相关。树摘要必须只看输入。
+	const fx = makeFixture();
+	try {
+		const before = computeInputs(fx.root).trees["vendor/mnova-mcp"];
+
+		// 模拟就地构建 wheel 的副产物（未跟踪 + 被忽略）
+		fx.put("vendor/mnova-mcp/build/lib/mnova_mcp/server.py", "# generated\n");
+		fx.put("vendor/mnova-mcp/src/mnova_mcp.egg-info/PKG-INFO", "generated\n");
+		fx.put(".gitignore", "build/\n*.egg-info/\n");
+		assert.equal(
+			computeInputs(fx.root).trees["vendor/mnova-mcp"],
+			before,
+			"生成物不得改变树摘要（否则指纹变成副本相关）",
+		);
+		assert.equal(checkStamp(fx.root, fx.stampDir).current, false, "尚未写指纹，应为过期");
+
+		// 但被跟踪文件的内容变化必须改变摘要
+		fx.put("vendor/mnova-mcp/src/mnova_mcp/__init__.py", "__version__ = '0.3.2'\n");
+		fx.gitAdd();
+		assert.notEqual(computeInputs(fx.root).trees["vendor/mnova-mcp"], before, "跟踪文件变化必须改变树摘要");
 	} finally {
 		fx.cleanup();
 	}
