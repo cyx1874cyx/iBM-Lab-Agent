@@ -1076,3 +1076,33 @@ if (turnEnds && this.inbox.nextStep.length === 0) break;   // ← 事件之后�
 
 参考：[deepseek-harness-runtime-bin (PyPI)](https://pypi.org/project/deepseek-harness-runtime-bin/0.1.5rc1/)、
 [免装 Node 的 dsh 安装包（Discussion #414）](https://github.com/deepseek-ai/deepseek-harness/discussions/414?plain=1)。
+
+## 23. 架构图（Archify）
+
+`docs/architecture/ibm-lab-agent.architecture.json` 是本项目**运行时架构的图形源码**：
+Tauri 桌面外壳 → DSH 运行时 → iBM 插件 → 科研 Python / MCP / 浏览器适配，以及三个边界
+（自包含运行时 / 外部网络 / 本机操作系统）。内容取自真实代码事实：`resources/` 的体积构成、
+三条裁剪纪律（S1/S2/L2）、以及 §22.4 的扩展点发现。
+
+生成器是 [Archify](https://github.com/tt-a1i/archify)（Agent Skill，v2.17.0-dev.1，MIT），
+零依赖，本机安装在 `/opt/archify/archify-main/archify`。重生成：
+
+```bash
+A=/opt/archify/archify-main/archify
+# 1) 校验（showcase 档要求 9 项 artifact 检查全过、0 error 0 warning）
+node $A/bin/archify.mjs validate architecture docs/architecture/ibm-lab-agent.architecture.json --quality showcase --json
+# 2) 产出独立 HTML
+node $A/bin/archify.mjs deliver architecture docs/architecture/ibm-lab-agent.architecture.json \
+  dist/archify/ibm-lab-agent.architecture.html --quality showcase --json
+```
+
+PNG 导出用 Windows 侧无头 Edge（WSL 内没有 Chrome，`visual-check` 会跳过并给出
+`viewer/chrome-unavailable`）：
+
+```bash
+'/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' --headless=new \
+  --user-data-dir='C:\Users\admin\AppData\Local\Temp\archify\prof' \
+  --screenshot='C:\...\shot.png' --window-size=1600,1000 'file:///C:/.../diagram.html'
+```
+
+产出物在 `dist/archify/`（gitignore，不入库）；入库的只有图形源码 JSON。

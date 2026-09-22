@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "iBM Lab Agent 运行时架构",
+    "locale": "zh-CN",
+    "subtitle": "v0.5.2-rc.1 · 自包含 Tauri 桌面端：Node 与科研 Python 全部内置",
+    "visual_preset": "blueprint",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "question-to-literature",
+        "label": "从提问到文献",
+        "focus": [
+          "user",
+          "shell",
+          "dsh",
+          "plugin",
+          "py",
+          "data"
+        ],
+        "note": "用户提问经桌面外壳进入 DSH 运行时，由 iBM 插件调度科研 Python 取回真实文献。"
+      },
+      {
+        "id": "tools-and-local-apps",
+        "label": "工具与本机软件",
+        "focus": [
+          "plugin",
+          "py",
+          "mcp",
+          "apps",
+          "brow"
+        ],
+        "note": "插件通过 MCP 服务与本机科研软件交互，浏览器能力由宿主平面提供。"
+      },
+      {
+        "id": "state-and-model",
+        "label": "状态与模型",
+        "focus": [
+          "dsh",
+          "llm",
+          "store"
+        ],
+        "note": "模型请求与本地会话状态：会话按 JSONL 持久化在 DSH_HOME。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "科研用户",
+      "sublabel": "WebView 对话界面",
+      "pos": [
+        80,
+        250
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "shell",
+      "type": "backend",
+      "label": "Tauri 桌面外壳",
+      "sublabel": "Rust · WebView2",
+      "pos": [
+        300,
+        250
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "dsh",
+      "type": "backend",
+      "label": "DSH 运行时",
+      "sublabel": "Node 24 · agent 循环",
+      "pos": [
+        520,
+        250
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "plugin",
+      "type": "backend",
+      "label": "iBM Lab Agent 插件",
+      "sublabel": "cordis bundle + 预设",
+      "pos": [
+        740,
+        250
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "py",
+      "type": "backend",
+      "label": "科研 Python 运行时",
+      "sublabel": "3.11 捆绑 · 科研栈",
+      "pos": [
+        960,
+        250
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "messagebus",
+      "label": "MCP 工具服务",
+      "sublabel": "origin / mnova MCP",
+      "pos": [
+        960,
+        410
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "brow",
+      "type": "security",
+      "label": "浏览器适配层",
+      "sublabel": "CDP / 原生 bridge",
+      "pos": [
+        520,
+        410
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "本地状态",
+      "sublabel": "DSH_HOME · 会话/产物",
+      "pos": [
+        740,
+        410
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "apps",
+      "type": "external",
+      "label": "本机科研软件",
+      "sublabel": "Mnova / Origin",
+      "pos": [
+        960,
+        570
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "data",
+      "type": "cloud",
+      "label": "外部数据源",
+      "sublabel": "PubChem · 专利 · 期刊",
+      "pos": [
+        960,
+        90
+      ],
+      "size": [
+        150,
+        62
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "cloud",
+      "label": "模型服务",
+      "sublabel": "provider API",
+      "pos": [
+        520,
+        90
+      ],
+      "size": [
+        150,
+        62
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "自包含运行时",
+      "wraps": [
+        "shell",
+        "dsh",
+        "plugin",
+        "py",
+        "brow",
+        "store",
+        "mcp"
+      ],
+      "pad": 22
+    },
+    {
+      "kind": "region",
+      "label": "外部网络",
+      "wraps": [
+        "llm",
+        "data"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "本机操作系统",
+      "wraps": [
+        "apps"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "user",
+      "to": "shell",
+      "label": "启动",
+      "variant": "emphasis",
+      "labelDy": -25
+    },
+    {
+      "from": "shell",
+      "to": "dsh",
+      "label": "载入 UI",
+      "variant": "emphasis",
+      "labelDy": -25
+    },
+    {
+      "from": "dsh",
+      "to": "plugin",
+      "label": "插件行",
+      "variant": "emphasis",
+      "labelDy": -25
+    },
+    {
+      "from": "plugin",
+      "to": "py",
+      "label": "调用",
+      "variant": "emphasis",
+      "labelDy": -25
+    },
+    {
+      "from": "dsh",
+      "to": "llm",
+      "label": "模型请求",
+      "variant": "emphasis"
+    },
+    {
+      "from": "py",
+      "to": "data",
+      "label": "取数据",
+      "variant": "emphasis"
+    },
+    {
+      "from": "dsh",
+      "to": "brow",
+      "label": "浏览器",
+      "variant": "security",
+      "labelDy": 30
+    },
+    {
+      "from": "plugin",
+      "to": "store",
+      "label": "会话",
+      "labelDy": 30
+    },
+    {
+      "from": "py",
+      "to": "mcp",
+      "label": "托管 MCP",
+      "labelDy": 30
+    },
+    {
+      "from": "mcp",
+      "to": "apps",
+      "label": "bridge.qs",
+      "labelDy": 30
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "用户无需自备运行时",
+      "items": [
+        "Linux：install.sh [3/8] 下载并用 SHA256 校验 Node 24.16.0",
+        "Windows：NSIS 直接内含 node.exe(88 MB) + dsh 依赖树(318 MB)",
+        "科研 Python：Windows 捆绑 3.11，Linux 建 venv 3.12"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两条线共用一套裁剪纪律",
+      "items": [
+        "S1 vendor 白名单：Linux 归档 −54.9%（48.9→22.1 MiB）",
+        "S2 摘 magika→onnxruntime：改为 magika 可选化补丁",
+        "L2 剥第三方 tests 树：Windows 358.9→320.7 MB"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "扩展点与兼容补丁",
+      "items": [
+        "agent/turn-stopping 后重判 inbox.nextStep：插件可阻止回合结束",
+        "capabilities / adapters / applications 三处收敛平台假设",
+        "3 个 DSH 就地补丁：fake-invoke、SameSite cookie、剪贴板"
+      ]
+    }
+  ]
+}
