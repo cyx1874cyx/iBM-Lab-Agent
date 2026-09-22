@@ -616,3 +616,86 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File <probe.ps1>
 BOM 就没了 —— 而该文件在 LF 下"碰巧"仍能解析通过（它的非 ASCII 没落在会吞换行的位置），
 所以行尾解析探测**发现不了**。抓住它的是 `powershell-source-encoding.test.mjs`。
 因此：改完这类文件要立刻跑守卫，守卫的失败信息里直接给了补 BOM 的命令。
+
+## 17. P0 任务卡 0.1 已实施：bundled-python 的输入指纹
+
+路线书 §0.1 的发现是真的，且**恰好卡住本次 S2/L2 的验证**：`build-windows-release.ps1`
+原先只用 `Test-Path python.exe` 判断捆绑 Python 是否需要重建 —— **一次生成，永久跳过**。
+第一次尝试出包时 `resources/python/dist/python.exe` 存在，于是 bundled-python 阶段被整段
+跳过：**S2（摘 magika）与 L2（剥 tests 树）根本不会被执行，也就无从验证**。现场证据：
+
+```
+$ ls -l .../resources/python/dist/python.exe
+-rwxrwxrwx 1 root root 103192 Apr  2  2024 ...
+[09:48:10] Windows release preflight passed for 0.5.2-rc.1.
+[09:48:10] START client-bundle-phase ...   # 直接进 tests，没有 bundled-python
+```
+
+### 17.1 做法：单一实现 + 两侧共用
+
+路线书给的是"两个 .ps1 各算一遍"的样例（比对 `requirements.lock` 与 builder 脚本哈希）。
+两份逻辑必然漂移，且 `requirements.lock` 的 LF 归一化哈希项目里**已经有**
+`src/python-lock-hash.js`。故改为一个 Node 工具、两侧共用：
+
+| 位置 | 角色 |
+|---|---|
+| `scripts/bundled-python-inputs.mjs` | 唯一的指纹实现；`--print` / `--write <dir>` / `--check <dir>` |
+| `build-bundled-python.ps1` 收尾 | `--write`：重建成功后写指纹 |
+| `build-windows-release.ps1` | `--check`：判定不通过（含缺失/损坏）就重建 |
+
+`--check` 始终以退出码 0 输出一行 JSON `{current, reason, changed}`：**判定结果不由退出码
+表达**，只有工具内部出错才非零退出（调用方据此走重建分支）。这样"产物过期"与"工具坏了"
+不会混为一谈。
+
+比路线书多算的输入（都是**确实决定 dist 内容**的）：
+
+- `src/markitdown-patch.js` + `scripts/patch-markitdown.mjs` —— 补丁的锚点/替换文本变了，
+  产物里的 `_markitdown.py` 就不同；
+- `vendor/mnova-mcp/`（树摘要）—— 第 4b 步是从它本地打 wheel 装进 dist 的，只有 272 KB；
+- `runtime/versions.env` —— 版本 pin。
+
+另外多一条过期轴：**被捆绑解释器的版本**（`--python-exe` 读 `sys.version`）。基础 Python
+打补丁升级而 dist 未重建，也是静默过期。读不到版本时不参与判定（不能因"读不到"就把新鲜
+产物判成过期）。
+
+### 17.2 指纹文件放在 `desktop/.build/`，不是 `dist/`
+
+路线书写的是 `$dist\.build-stamp.json`。**没有照做**，因为 `tauri.conf.json` 的
+`bundle.resources` 是 `"resources/python/": "python/"` —— 整个目录打进安装包，放在那里会
+把构建元数据一起出货。改放 `desktop/.build/bundled-python.stamp.json`（`/.build/` 已
+gitignore）。两个失效方向都安全：dist 在而指纹被清 → 缺指纹 → 重建；指纹在而 dist 被删 →
+`python.exe` 存在性检查兜住 → 重建。代价只是清掉 `.build` 会多重建一次。
+
+### 17.3 判定行挪到 `-PreflightOnly` 早返回之前
+
+原脚本的 `-PreflightOnly` 在 bundled-python 判定**之前**就返回了，按路线书的验收办法
+（"连续跑两次 `-PreflightOnly`，第二次应跳过"）根本观察不到。故把判定挪到早返回之前：
+
+```
+[hh:mm:ss] bundled-python: REBUILD (no stamp: 该产物早于指纹机制，无法证明它对应当前 recipe)
+```
+
+这条让**不做任何构建**就能看出"这次会不会重建"，验收成本从 20 分钟降到几秒。
+
+### 17.4 验收与守卫
+
+| 场景 | 期望 | 实测 |
+|---|---|---|
+| 旧产物（无指纹） | REBUILD | `no stamp: ...` ✅ |
+| 刚构建完再判 | reuse | 指纹一致 ✅ |
+| `touch python/requirements.lock`（只改 mtime） | reuse（指纹认内容） | reuse ✅ |
+| 真的改一个字节 | REBUILD 并指名 | `inputs changed: <该文件>` ✅ |
+| 指纹缺失/损坏/方案版本变 | REBUILD | 三种分支各有断言 ✅ |
+
+守卫是 `tests/unit/bundled-python-inputs.test.mjs`（6 条）与
+`tests/unit/windows-bundled-python-recipe.test.mjs` 新增的 2 条（共 7 条）。其中一条断言
+刻意验证"指纹认内容而非行尾"：同一份代码的 LF / CRLF / 带 BOM 三种形态**指纹必须相同**，
+否则 Windows 与 WSL 会互相把对方的产物判成过期。
+
+注意验收表第 3 行：`touch` 只改 mtime 不改内容，所以**不应**触发重建 —— 指纹认的是内容。
+要验证"改内容 → 重建"，得真的改一个字节。
+
+变异验证：把调用方改回 `if ($RebuildBundledPython -or -not (Test-Path ...))` → 1 条失败；
+恢复后 md5 一致。第一次变异尝试时我的正则写的是 `\$bundledPython\)` 而变量现名
+`$bundledPythonExe`，**没抓住** —— 已把正则改成 `\$bundledPython\w*` 并重做变异。这条
+"守卫自己有没有漏洞"的教训值得单独记下来：**先证明守卫能失败，再相信它通过。**

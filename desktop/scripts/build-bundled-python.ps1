@@ -250,4 +250,18 @@ if (Test-Path -LiteralPath (Join-Path $resourceRoot 'python\dist.stale')) {
 if (Test-Path -LiteralPath (Join-Path $resourceRoot 'python\mnova-wheel')) {
   Remove-Item -LiteralPath (Join-Path $resourceRoot 'python\mnova-wheel') -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# 7) Write the input fingerprint (roadmap 0.1, P0). build-windows-release.ps1 compares it
+#    to decide whether an existing dist may be reused. Without it that decision was just
+#    "does python.exe exist" - i.e. generate once, then skip forever, silently shipping a
+#    stale tree after any recipe/requirements.lock change.
+#    Not written into dist/: tauri.conf.json bundles resources/python/ wholesale, so build
+#    metadata there would ship inside the installer. desktop/.build is gitignored.
+$stampDir = Join-Path $projectRoot '.build'
+New-Item -ItemType Directory -Force -Path $stampDir | Out-Null
+& $NodeExe (Join-Path $sourceRoot 'scripts\bundled-python-inputs.mjs') --write $stampDir --python-exe (Join-Path $dist 'python.exe')
+if ($LASTEXITCODE -ne 0) { throw 'bundled-python input fingerprint could not be written' }
+$stamp = Get-Content -LiteralPath (Join-Path $stampDir 'bundled-python.stamp.json') -Raw | ConvertFrom-Json
+Write-Host ("Input fingerprint: {0} (python {1})" -f $stamp.fingerprint, $stamp.pythonVersion)
+
 Write-Host 'Bundled Python prepared (origin-mcp OK: 0.1.4 | mnova-mcp OK: 0.3.1 | mnova bridge.qs OK).'

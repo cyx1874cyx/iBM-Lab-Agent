@@ -282,6 +282,38 @@ try {
   if ($gitState.dirty) { $AllowDirty = $true } # 已确认 dirty 走诊断语义
   Write-ReleaseStatus "Windows release preflight passed for $version."
 
+  # rc.5（路线书 §0.1，P0）：bundled-python 原先只判"python.exe 是否存在"—— 一次生成、
+  # 永久跳过。改了 recipe 或 requirements.lock 也不会重建，安装包会静默继续带旧产物
+  # （对照：node / dsh / plugin 三个资源都有正确的增量缓存，唯独 python 没有）。
+  # 改为比对输入指纹（scripts/bundled-python-inputs.mjs），方向保守：判定不通过就重建。
+  # 放在 PreflightOnly 早返回之前，使 `-PreflightOnly` 能直接看到"这次会不会重建"。
+  $bundledPythonRoot = Join-Path $desktopRoot 'src-tauri\resources\python'
+  $bundledPythonExe = Join-Path $bundledPythonRoot 'dist\python.exe'
+  $needsBundledPython = $true
+  $bundledPythonReason = 'dist\python.exe is missing'
+  if ($RebuildBundledPython) {
+    $bundledPythonReason = '-RebuildBundledPython requested'
+  } elseif (Test-Path -LiteralPath $bundledPythonExe) {
+    $fingerprintScript = Join-Path $sourceRoot 'scripts\bundled-python-inputs.mjs'
+    # 2>$null：Windows PowerShell 5.1 会把原生命令的 stderr 变成终止性错误
+    # （NativeCommandError），判定结果一律从 stdout 的 JSON 与退出码取。
+    $verdictRaw = & $NodeExe $fingerprintScript --check $buildRoot --python-exe $bundledPythonExe 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      try {
+        $verdict = ($verdictRaw | Select-Object -Last 1) | ConvertFrom-Json
+        $needsBundledPython = -not [bool]$verdict.current
+        $bundledPythonReason = [string]$verdict.reason
+      } catch {
+        $needsBundledPython = $true
+        $bundledPythonReason = "fingerprint output unreadable: $($_.Exception.Message)"
+      }
+    } else {
+      $needsBundledPython = $true
+      $bundledPythonReason = "fingerprint check failed (exit $LASTEXITCODE)"
+    }
+  }
+  Write-ReleaseStatus ("bundled-python: {0} ({1})" -f $(if ($needsBundledPython) { 'REBUILD' } else { 'reuse' }), $bundledPythonReason)
+
   if ($PreflightOnly) {
     Write-ReleaseStatus 'PreflightOnly requested: versions, Ketcher references, DSH source and git/worktree preflight are valid.'
     return
@@ -301,9 +333,10 @@ try {
   }
 
   $hostPowerShell = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-  $bundledPython = Join-Path $desktopRoot 'src-tauri\resources\python\dist\python.exe'
-  if ($RebuildBundledPython -or -not (Test-Path -LiteralPath $bundledPython)) {
+  if ($needsBundledPython) {
     $phases.Add((Invoke-LoggedProcess -Name 'bundled-python' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-bundled-python.ps1'), '-SourceRoot', $sourceRoot, '-NodeExe', $NodeExe) -WorkingDirectory $desktopRoot -TimeoutMinutes 90))
+  } else {
+    Write-ReleaseStatus 'bundled-python skipped: input fingerprint matches the existing dist.'
   }
 
   $prepareArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'prepare-runtime.ps1'), '-SourceRoot', $sourceRoot, '-DshSource', $DshSource, '-NodeExe', $NodeExe)

@@ -99,3 +99,50 @@ test("Windows 与 Linux 两条线的固定版本一致（防分叉）", () => {
 		assert.ok(linux.has(canon), `Linux 锁里缺少 ${name}，两条线的依赖集已分叉`);
 	}
 });
+
+test("bundled-python 不再以「python.exe 存在」作为跳过依据（路线书 §0.1，P0）", () => {
+	// 旧写法：存在即永久跳过 —— 改了 recipe 或 requirements.lock 也不会重建。
+	// 注意用 \$bundledPython\w* 而不是 \$bundledPython：变量现名 $bundledPythonExe，
+	// 写死旧名会让"改回去"这件事抓不住（变异测试实测过这个漏洞）。
+	assert.doesNotMatch(
+		release,
+		/\$RebuildBundledPython\s+-or\s+-not\s+\(Test-Path[^\n]*\$bundledPython\w*\)/,
+		"复用判定不能退回「文件存在就跳过」，必须比对输入指纹",
+	);
+	// 新写法：跑指纹工具，按判定结果决定是否加入 bundled-python 阶段。
+	assert.match(release, /scripts\\bundled-python-inputs\.mjs/, "应调用共享的指纹工具");
+	assert.match(release, /--check\s+\$buildRoot/, "应在 .build 目录上比对指纹");
+	assert.match(release, /if\s*\(\s*\$needsBundledPython\s*\)/, "应由判定结果决定是否重建");
+	// 判定必须发生在 -PreflightOnly 早返回之前，否则预检看不到"会不会重建"
+	assert.ok(
+		release.indexOf("$needsBundledPython = $true") < release.indexOf("if ($PreflightOnly)"),
+		"指纹判定必须在 PreflightOnly 早返回之前",
+	);
+	// 指纹工具缺失时不能让阶段静默跳过：非零退出 → 判定为需要重建
+	assert.match(release, /fingerprint check failed \(exit/, "指纹工具失败时必须走重建分支，而不是当作新鲜");
+});
+
+test("指纹写入侧与比对侧共用同一工具/同一目录，且指纹文件不会被打进安装包", () => {
+	// 写入侧（build-bundled-python.ps1）
+	assert.match(bundledPython, /bundled-python-inputs\.mjs'\)\s*--write\s+\$stampDir/, "写入侧应调用 --write");
+	assert.match(bundledPython, /\$stampDir\s*=\s*Join-Path\s+\$projectRoot\s+'\.build'/, "指纹应写到 desktop/.build");
+	// 比对侧（build-windows-release.ps1）用的是同一个 desktop/.build
+	assert.match(release, /\$buildRoot\s*=\s*Join-Path\s+\$desktopRoot\s+'\.build'/, "比对侧应使用 desktop/.build");
+
+	// 关键：tauri.conf.json 把 resources/python/ 整目录打进安装包，指纹文件绝不能放那
+	const tauriConf = JSON.parse(read("desktop/src-tauri/tauri.conf.json"));
+	const bundled = Object.keys(tauriConf.bundle?.resources ?? {});
+	assert.ok(
+		bundled.includes("resources/python/"),
+		"前提变了：若 resources/python/ 不再整目录打包，需重新评估指纹文件的位置",
+	);
+	assert.doesNotMatch(
+		bundledPython,
+		/Join-Path\s+\$dist\s+'\.[^']*stamp/i,
+		"指纹文件不能写进 dist/（会被 bundle.resources 打进安装包）",
+	);
+	// 两侧引用的文件名必须与工具导出的常量一致（防改名只改一边）
+	const stampName = /export const STAMP_NAME = "([^"]+)"/.exec(read("scripts/bundled-python-inputs.mjs"))?.[1];
+	assert.ok(stampName, "未能从工具里读出 STAMP_NAME");
+	assert.ok(bundledPython.includes(stampName), `写入侧应引用 ${stampName}`);
+});
