@@ -836,3 +836,60 @@ S2+L2 在磁盘上共减去约 **78 MB**（S2 ~40 MB + L2 38.2 MB），但安装
 regression 1.8s / preset-exports 0.1s / browser-ketcher 22.0s / lint 2.7s /
 **bundled-python 217.5s** / prepare-runtime 6.0s / verify-runtime 35.5s /
 **tauri-nsis 723.3s** / verify-installer 23.2s。两个大头是 pip 装依赖与 Rust 编译。
+
+## 20. 体积归因：同一台机器、同一套方法重建三个阶段
+
+路线书 §11 的收益汇总是分阶段估的，但那些数字混了"原始字节"与"安装包字节"，而且 0.5.0
+的基线来自作者自己的开发副本（`H:\107-iBM-Agent\...`），与新副本不可直接比。所以用
+`--ref` 在**全新副本**里按同一套流程重建了 0.5.0（`12f978c`），得到可比的三点：
+
+| 阶段 | 版本 | 安装包字节 | 相对上一阶段 |
+|---|---|---|---|
+| 0.5.0 基线（同方法重建） | `12f978c` | 221,865,696 | — |
+| + S1（vendor 白名单、去 `figures4papers`） | `b1f66e7` | 195,059,271 | **−26,806,425（−25.6 MiB）** |
+| + S2（摘 magika→onnxruntime）+ L2（剥 tests 树）+ P0 | `03391a7` 线 | **172,121,032** | **−22,938,239（−21.9 MiB）** |
+
+**合计 −49,744,664 B（−47.4 MiB，−22.4%）**，三个阶段各自独立验证：
+S1 的 vendor 树 11 MB 且 `figures4papers` 不存在；S2 的四个包在文件系统上确认摘除；
+L2 的 site-packages 358.9 → 320.7 MB、残留 tests 目录 0 个。
+
+两点方法学说明（否则这张表会被误读）：
+
+1. **中间那点不是"受控实验"**，它当时正因为 P0 缺陷复用了旧 dist —— 而那份旧 dist 的
+   recipe 与基线相同（markitdown extras、不剥 tests），所以它等价于"S1 only"，差值确实是
+   S1 的贡献。这条恰好说明 P0 的严重性：**一个缺陷让"看起来做了 S2/L2"的构建其实什么都没做。**
+2. **路线书给的 0.5.0 基线是 227,363,800 B**，本次同方法重建得 221,865,696 B，差 5.5 MB。
+   差异来自开发副本的依赖/资源状态不同 —— 这正是必须自己重建基线的原因：跨副本的数字
+   不能直接相减。
+
+另外注意 `tauri-nsis` 耗时不可比：本次基线是**全新 target 目录**（冷编译 939.5s），而
+172 MB 那次复用了已有 target（723.3s）；`bundled-python` 297.8s vs 217.5s 的差异则是真实
+的——旧 recipe 多装 magika→onnxruntime 整条链。
+
+复现命令（另开一份互不干扰的副本）：
+
+```bash
+IBM_LAB_WSL_WORK='H:\build\ibm-lab-baseline' \
+IBM_LAB_WSL_LOGDIR='H:\build\release-logs-baseline' \
+  scripts/windows-release-from-wsl.sh --ref 12f978c
+```
+
+前置（驱动不代劳，见 §21）：新副本要先克隆并装根依赖。
+
+## 21. 驱动的一个已知边界：新副本的根依赖
+
+`windows-release-from-wsl.sh` 会自动补 `desktop/` 的依赖（缺 Tauri CLI 就 `npm ci`），但
+**不会克隆工作副本，也不会装根 workspace 依赖** —— ps1 直接 `Set-Location $work`，假定它已经
+存在且装过。这是当前唯一需要手工一次的步骤（驱动 docstring 里也这么写了）。
+
+新副本准备（本次重建基线时实测）：
+
+```powershell
+git clone H:\build\ibm-lab-agent.git H:\build\ibm-lab-baseline
+cd H:\build\ibm-lab-baseline
+git fetch origin; git checkout -q --detach 12f978c
+corepack pnpm install --frozen-lockfile     # 实测 5.8s（pnpm store 已热），656 个包
+```
+
+`node_modules\@deepseek-ai\dsh\lib\bin.js` 必须在位，否则 `build-windows-release.ps1` 会在
+`$DshSource` 检查处直接 throw（这是设计好的失败关闭）。`desktop/` 那份交给驱动。
