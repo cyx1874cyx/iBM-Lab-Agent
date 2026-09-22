@@ -566,3 +566,53 @@ ERR_MODULE_NOT_FOUND: Cannot find package '@deepseek-ai/dsh-app-boot'
 `figures4papers` 不存在（S1）；`doctor-linux.json` 已生成。
 
 耗时约 **2 分钟**（00:54:23 → 00:56:17）—— 补上 pip 镜像后从"一个多小时"降到分钟级。
+
+## 16. 迁移期抓到的一个真缺陷：PowerShell 脚本的 BOM
+
+这条与路线书无关，是"把开发搬到 Linux"过程中暴露出来的：`desktop/scripts/build-windows-release.ps1`
+在 Linux 工作区（LF 行尾）**根本无法被 Windows PowerShell 5.1 解析**。
+
+```
+表达式或语句中包含意外的标记"}"。
+所在位置 ...build-windows-release.ps1:205 字符: 1
+```
+
+第 205 行本身与 HEAD 逐字节相同、花括号 109/109 平衡 —— 报错位置是纯粹误导。机理：
+PS 5.1 读取脚本走**系统 ANSI 代码页**（本机 GBK），含中文注释的**无 BOM UTF-8** 文件被按 GBK
+解码，中文尾字节与紧随的 `\n` 组成非法双字节序列 → **吞掉换行** → 下一行代码被并进注释 →
+花括号失衡，报在别处。
+
+实测矩阵（7 个仓库 `.ps1`，Windows PowerShell 5.1）：
+
+| 行尾 | BOM | 结果 |
+|---|---|---|
+| LF | 无 | **PARSE-FAIL**（`build-windows-release.ps1` 实测） |
+| CRLF | 无 | OK |
+| LF | **有** | OK |
+| CRLF | **有** | OK |
+
+三个含中文注释的脚本（`build-bundled-python.ps1` / `build-windows-release.ps1` /
+`verify-package.ps1`）当时**都没有 BOM**。此前能出包，只是因为 Windows 侧 `core.autocrlf=true`
+恰好检出成 CRLF；`.gitattributes` 并没有把 `*.ps1` 钉成 CRLF。换个检出方式（或经非 git 手段
+传输、或有人"顺手"加一条 `*.ps1 text eol=lf`）就会在打包流程中段突然炸掉。
+
+处置：给这三个文件加 **UTF-8 BOM**（与行尾无关，是根治），并把规则固化成
+`tests/unit/powershell-source-encoding.test.mjs`（4 条断言，含检测器自证与
+`.gitattributes` 不得声明 `*.ps1 eol=lf`）。变异验证：剥掉 BOM → 2 条失败；
+注入 `*.ps1 text eol=lf` → 1 条失败；两次恢复均 md5 一致。
+
+复现命令（WSL 侧即可，Windows PowerShell 走 interop）：
+
+```bash
+# 逐字节构造四种行尾/BOM 组合并送 PS 5.1 解析
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <probe.ps1>
+```
+
+注意：**从 WSL 写 .ps1 文件给 Windows 执行时，文件必须是纯 ASCII**（heredoc 生成的驱动脚本
+就踩过这个坑，`ParserError: TerminatorExpectedAtEndOfString`）；而仓库里带中文注释的
+`.ps1` 则必须带 BOM。两条规则互补，不要混用。
+
+补一条实战教训：**BOM 会被写入工具静默丢弃**。本次加完 BOM 后又用编辑器改了几行注释，
+BOM 就没了 —— 而该文件在 LF 下"碰巧"仍能解析通过（它的非 ASCII 没落在会吞换行的位置），
+所以行尾解析探测**发现不了**。抓住它的是 `powershell-source-encoding.test.mjs`。
+因此：改完这类文件要立刻跑守卫，守卫的失败信息里直接给了补 BOM 的命令。

@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$NodeExe = $env:CODEX_MCP_NODE_PATH,
@@ -303,7 +303,7 @@ try {
   $hostPowerShell = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
   $bundledPython = Join-Path $desktopRoot 'src-tauri\resources\python\dist\python.exe'
   if ($RebuildBundledPython -or -not (Test-Path -LiteralPath $bundledPython)) {
-    $phases.Add((Invoke-LoggedProcess -Name 'bundled-python' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-bundled-python.ps1'), '-SourceRoot', $sourceRoot) -WorkingDirectory $desktopRoot -TimeoutMinutes 90))
+    $phases.Add((Invoke-LoggedProcess -Name 'bundled-python' -FilePath $hostPowerShell -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-bundled-python.ps1'), '-SourceRoot', $sourceRoot, '-NodeExe', $NodeExe) -WorkingDirectory $desktopRoot -TimeoutMinutes 90))
   }
 
   $prepareArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'prepare-runtime.ps1'), '-SourceRoot', $sourceRoot, '-DshSource', $DshSource, '-NodeExe', $NodeExe)

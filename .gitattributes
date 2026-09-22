@@ -13,3 +13,8 @@ bin/ibm-lab-agent text eol=lf
 # checkout 成 CRLF，包名会带 \r 使 apt 安装失败。仓库里 7 个 .txt 的已提交内容全是
 # LF，声明 eol=lf 不引发 renormalize，只防止 Windows 侧（core.autocrlf=true）写成 CRLF。
 *.txt text eol=lf
+# 注意：*.ps1 刻意**不**声明 eol。Windows PowerShell 5.1 按系统 ANSI 代码页（本机 GBK）
+# 读取脚本，含中文注释的无 BOM UTF-8 脚本若为 LF 行尾，中文尾字节会吞掉换行、把下一行
+# 代码并进注释，报出误导性的 `unexpected token "}"`（实测 build-windows-release.ps1）。
+# 防线是给这类文件加 UTF-8 BOM（与行尾无关，见 tests/unit/powershell-source-encoding.test.mjs），
+# 而不是 eol=lf —— 后者会把隐患带到每台机器的每次检出。
