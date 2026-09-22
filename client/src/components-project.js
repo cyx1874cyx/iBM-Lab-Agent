@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
-import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
+import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import { BRAND_ICON } from "./brand-icon.js";
 import { DatabaseOverview } from "./components-literature.js";
 import { ResearchDesignWorkspace } from "./components-workspace.js";
@@ -242,7 +242,17 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				// 在同一个受控侧栏里走直连；正文仍使用 WebVPN 授权链路。
 				const { publisher, directSpringerSi, publisherUrl } = captureRouteForBundle(bundle, kind);
 				if (!publisherUrl) {
-					notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
+					// 未登记 DOI/出版社页面：不再只弹一句提示。用户点的是「尚未获取」，
+					// 意图是去把它找来——直接把软件内浏览器打开到 WebVPN 门户
+					// （初始页由配置的 portal_url 决定，默认中国科大），可自行检索。
+					void (async () => {
+						try {
+							await openWebVpnLoginViaShell();
+							notify("该文献未登记 DOI/出版社页面；已在侧栏打开 WebVPN 门户，可手动检索后下载");
+						} catch (reason) {
+							notify(`无法打开文献浏览器：${reason?.message || "该文献未登记 DOI，也没有出版社页面"}`);
+						}
+					})();
 					return;
 				}
 				// Desktop（desktop-edge-handoff）：任务在外部 Edge 中完成。本页面运行在
@@ -258,6 +268,11 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							return;
 						}
 						if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
+							// 已有任务在处理时也必须把浏览器带回前台：否则用户点了「尚未获取」
+							// 却什么都没发生，只能靠顶部的「打开 WebVPN」自救。
+							if (active?.windowOpen) {
+								try { await showWebVpnViaShell(); } catch { /* 显示失败时下面的提示仍会给出出路 */ }
+							}
 							notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
 							return;
 						}

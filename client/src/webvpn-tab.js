@@ -11,6 +11,7 @@
 //   * 原生子 WebView 由 Rust 端 set_bounds 摆到该矩形上，不再改动主 WebView 宽度。
 import { useEffect, useRef } from "react";
 import { h } from "./h.js";
+import { openWebVpnPortalViaShell, webVpnStatusViaShell } from "./lib.js";
 import { WEBVPN_MIN_RECT, markWebVpnRectReported, sendWebVpnRect, setWebVpnTabOpener } from "./webvpn-bridge.js";
 
 /** tab 类型身份：同时是 sidebar.right.pane.tab 座位上的派发 key。 */
@@ -63,6 +64,20 @@ export function WebVpnTabBody({ useTabInfo }) {
 	}, [visible]);
 
 	const inShell = typeof window !== "undefined" && window.parent !== window;
+	// 初始页：从「+」→ 类型列表选「文献浏览器」时，用户并没有指定目标地址，
+	// 这时把原生载体打开到配置的 WebVPN 门户（默认中国科大）。载体已存在
+	// （登录态保留、或正在看某个出版社页面）时绝不重新导航，否则会打断用户。
+	const portalSeeded = useRef(false);
+	useEffect(() => {
+		if (!visible || portalSeeded.current || !inShell) return;
+		portalSeeded.current = true;
+		void (async () => {
+			const status = await webVpnStatusViaShell().catch(() => null);
+			if (!status || status.windowOpen) return;
+			await openWebVpnPortalViaShell().catch(() => {});
+		})();
+	}, [visible, inShell]);
+
 	return h("div", { ref: hostRef, className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
 		h("div", { className: "ib-webvpn-tab-note" },
 			h("b", null, "文献浏览器"),
@@ -74,11 +89,8 @@ export function WebVpnTabBody({ useTabInfo }) {
 /**
  * 注册「文献浏览器」tab 类型与正文。
  *
- * 刻意**不贡献 guide 条目**：DSH 的默认页规则是「恰好一个 guide 条目时直接打开它，
- * 零个或多个时打开指南页」；再贡献一条会把自带的默认页从「文件」变成指南，属于
- * 对宿主 UI 的隐性改动。入口由课题面板的「打开 WebVPN」按钮承担。
- * 若确实想让它出现在指南页，在 definition 上加：
- *   guide: [{ order: 30, title: () => "文献浏览器", description: () => "出版社页面与 WebVPN 登录" }]
+ * 贡献 guide 条目，使右侧栏「+」的类型列表里能选到「文献浏览器」；正文首次可见时
+ * 若原生载体还不存在，自动打开到配置的 WebVPN 门户（默认中国科大）。
  *
  * @param ctx - hooks：`openTab` 为 ctx.sidebarRight.openTab 的绑定；其余为 Cordis 装配面。
  */
@@ -87,7 +99,18 @@ export function registerWebVpnTab(ctx, { openTab }) {
 		id: WEBVPN_TAB_ID,
 		kind: WEBVPN_TAB_KIND,
 		priority: "extension",
-		title: () => "文献浏览器"
+		title: () => "文献浏览器",
+		// 贡献 guide 条目 = 在「+」的类型列表里出现「文献浏览器」。
+		//
+		// 代价要知道：DSH 的默认页规则是「恰好一个 guide 条目 → 直接打开它；零个或多个 →
+		// 打开指南页」。自带「文件」已占一条，所以再加一条会让右侧栏首次展开时的默认页
+		// 从「文件」变成「选择类型」的指南页。这是「+ 里能选浏览器」的唯一扩展点，
+		// 属有意取舍。
+		guide: [{
+			order: 30,
+			title: () => "文献浏览器",
+			description: () => "软件内浏览器：中国科大 WebVPN 门户与出版社页面"
+		}]
 	}), "dsh-lab-agent: 文献浏览器 tab 类型");
 	ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
 		name: "sidebar.right.pane.tab",

@@ -618,6 +618,7 @@ var withWebVpnTab = async (request) => {
   return request();
 };
 var openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
+var openWebVpnPortalViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3));
 var showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
@@ -3309,7 +3310,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     event.stopPropagation();
     const { publisher, directSpringerSi, publisherUrl } = captureRouteForBundle(bundle, kind);
     if (!publisherUrl) {
-      notify("无法启动捕获：该文献未登记 DOI，也没有出版社页面（公众号条目不支持自动捕获）");
+      void (async () => {
+        try {
+          await openWebVpnLoginViaShell();
+          notify("该文献未登记 DOI/出版社页面；已在侧栏打开 WebVPN 门户，可手动检索后下载");
+        } catch (reason) {
+          notify(`无法打开文献浏览器：${reason?.message || "该文献未登记 DOI，也没有出版社页面"}`);
+        }
+      })();
       return;
     }
     if (desktopEdgeHandoff) {
@@ -3322,6 +3330,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           return;
         }
         if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
+          if (active?.windowOpen) {
+            try {
+              await showWebVpnViaShell();
+            } catch {
+            }
+          }
           notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
           return;
         }
@@ -3970,6 +3984,17 @@ function WebVpnTabBody({ useTabInfo }) {
     };
   }, [visible]);
   const inShell = typeof window !== "undefined" && window.parent !== window;
+  const portalSeeded = (0, import_react9.useRef)(false);
+  (0, import_react9.useEffect)(() => {
+    if (!visible || portalSeeded.current || !inShell) return;
+    portalSeeded.current = true;
+    void (async () => {
+      const status = await webVpnStatusViaShell().catch(() => null);
+      if (!status || status.windowOpen) return;
+      await openWebVpnPortalViaShell().catch(() => {
+      });
+    })();
+  }, [visible, inShell]);
   return h(
     "div",
     { ref: hostRef, className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
@@ -3986,7 +4011,18 @@ function registerWebVpnTab(ctx, { openTab }) {
     id: WEBVPN_TAB_ID,
     kind: WEBVPN_TAB_KIND,
     priority: "extension",
-    title: () => "文献浏览器"
+    title: () => "文献浏览器",
+    // 贡献 guide 条目 = 在「+」的类型列表里出现「文献浏览器」。
+    //
+    // 代价要知道：DSH 的默认页规则是「恰好一个 guide 条目 → 直接打开它；零个或多个 →
+    // 打开指南页」。自带「文件」已占一条，所以再加一条会让右侧栏首次展开时的默认页
+    // 从「文件」变成「选择类型」的指南页。这是「+ 里能选浏览器」的唯一扩展点，
+    // 属有意取舍。
+    guide: [{
+      order: 30,
+      title: () => "文献浏览器",
+      description: () => "软件内浏览器：中国科大 WebVPN 门户与出版社页面"
+    }]
   }), "dsh-lab-agent: 文献浏览器 tab 类型");
   ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
     name: "sidebar.right.pane.tab",

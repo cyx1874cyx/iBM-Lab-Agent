@@ -49,18 +49,32 @@
   接管后**不再触碰主 WebView**。
 - `desktop/src-tauri/src/main.rs`：新增 async 命令 `webvpn_set_rect`。
 
-**两个刻意的取舍**
+**设计与取舍**
 
-1. **不贡献 guide 条目**。DSH 的默认页规则是「恰好一个 guide 条目时直接打开它，零个或多个
-   时打开指南页」；再贡献一条会把宿主默认页从「文件」变成指南，属于对宿主 UI 的隐性改动。
-   入口由课题面板的「打开 WebVPN」按钮承担。想让它出现在指南页，在
-   `client/src/webvpn-tab.js` 的定义里补 `guide: [...]` 即可。
-2. **回落到旧路径**。`sidebarRight` 缺失时 `openWebVpnTab()` 返回 `false`，调用方照旧走
+1. **贡献 guide 条目**（2026-09-22 人工审核后更正）。右侧栏「+」的类型列表就是 guide 页；
+   贡献一条 `guide` 条目，「文献浏览器」才会出现在里面。**代价**：DSH 的默认页规则是
+   「恰好一个 guide 条目 → 直接打开它；零个或多个 → 打开指南页」，自带「文件」已占一条，
+   因此右侧栏首次展开时的默认页会从「文件」变成指南页。这是「+ 里能选浏览器」的唯一扩展点，
+   属有意取舍。
+2. **初始页 = WebVPN 门户**。从「+」打开时用户没给目标地址，`WebVpnTabBody` 首次可见时先查
+   `webvpn_status`；**载体不存在**才打开配置的 `portal_url`（默认中国科大）。载体已存在
+   （登录态保留、或正在看某出版社页面）时绝不重新导航。
+3. **回落到旧路径**。`sidebarRight` 缺失时 `openWebVpnTab()` 返回 `false`，调用方照旧走
    原生分栏；Rust 侧在收到任意一条矩形上报之前也一直走旧路径。因此这个改动不是硬切换。
 
-**自动化验证**：Node 528/528 通过（新增 `tests/unit/webvpn-tab-bridge.test.mjs` 7 条，
-并在 `tests/unit/webvpn-commands.test.mjs` 增加「文献浏览器作为 DSH 右侧栏 tab 接入」契约）。
-本机**没有 cargo/rustc**，Rust 改动未经编译，只有静态契约断言兜底。
+**2026-09-22 人工审核缺陷修复：点「尚未获取」文献打不开浏览器**
+
+`armCaptureFor`（`client/src/components-project.js`）原有两条分支**只弹提示、不打开浏览器**，
+用户点下去像没反应，只能靠顶部的「打开 WebVPN」自救：
+
+| 分支 | 旧行为 | 新行为 |
+|---|---|---|
+| `!publisherUrl`（未登记 DOI/出版社页面） | 只 `notify` | 打开「文献浏览器」到 WebVPN 门户，提示可手动检索 |
+| `active.pendingTaskId`（已有任务在处理） | 只 `notify` 后 `return` | 载体还在就先 `showWebVpnViaShell()` 带回正在下载的页面，再提示 |
+
+**自动化验证**：Node 529/529 通过（`tests/unit/webvpn-tab-bridge.test.mjs` 7 条，
+`tests/unit/webvpn-commands.test.mjs` 增加「右侧栏 tab 接入」与「点尚未获取文献必定打开浏览器」
+两组契约断言）。本机**没有 cargo/rustc**，Rust 改动未经编译，只有静态契约断言兜底。
 
 **⚠️ 仍需 Windows 真机人工验收（本机无法执行）**
 
@@ -71,6 +85,13 @@
 4. 窗口缩放 → 子 WebView 跟随（由 tab 正文的 ResizeObserver 重报）。
 5. 登录 + 实际点击出版社 PDF 下载 → 归档链路仍正常；登录态在切换 tab 后保留。
 6. 主 WebView **始终全宽**（用 DevTools 或 `webvpn_status` 复核），不再出现被收窄的情况。
+7. **「+」→ 类型列表里能看到「文献浏览器」**（与自带「文件」并列），点它 → 正文自动打开
+   中科大 WebVPN 门户；此时右侧栏首次展开的默认页应变成**指南页**（而非「文件」）。
+8. 载体已存在（已登录）时再点「+」→「文献浏览器」→ **不得**重新导航到门户，应保留原页面。
+9. 未登记 DOI/出版社页面的文献条目，点「尚未获取正文/SI」→ 打开浏览器到 WebVPN 门户，
+   而不是只弹一句提示。
+10. 已有下载任务在处理时（状态条显示进行中）再点「尚未获取正文/SI」→ 浏览器被带回
+    正在下载的页面，而不是毫无反应。
 
 **已知限制（原生覆盖层固有）**
 

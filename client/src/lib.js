@@ -295,6 +295,13 @@ export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 // 右侧栏不可用时 openWebVpnTab() 返回 false，这里照旧走原生兜底路径。
 const withWebVpnTab = async (request) => { await openWebVpnTab(); return request(); };
 export const openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
+/**
+ * 打开 WebVPN 门户（`config.webvpn.portal_url`，默认中国科大），**不**顺带打开/聚焦右侧栏 tab。
+ *
+ * 供「文献浏览器」tab 正文自身在首次可见时调用：正文已经在 tab 里，再走
+ * `openWebVpnLoginViaShell` 会从 tab 内部再 `openTab` 一次自己（虽幂等，但没必要）。
+ */
+export const openWebVpnPortalViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 export const openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000));
 export const showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));

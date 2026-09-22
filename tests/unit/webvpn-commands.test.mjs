@@ -290,9 +290,16 @@ test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏",
 	assert.match(tab, /ctx\.slots\.inject\("sidebar\.right\.pane\.tab"/, "正文必须注册到右侧栏 tab 座位");
 	assert.match(tab, /key:\s*WEBVPN_TAB_ID/, "正文的 key 必须是类型的 id，否则座位找不到实现");
 	// 只断言真正的注册对象，不看文件里的说明性注释。
-	const definition = tab.match(/ctx\.sidebarRightTabs\.register\(\{([\s\S]*?)\}\)/);
+	const definition = tab.match(/ctx\.sidebarRightTabs\.register\(\{([\s\S]*?)\n\t\}\)/);
 	assert.ok(definition, "必须能提取 tab 类型定义");
-	assert.doesNotMatch(definition[1], /guide/, "不得贡献 guide 条目：那会把宿主默认页从「文件」改成指南");
+	// 贡献 guide 条目 = 右侧栏「+」的类型列表里出现「文献浏览器」（更正需求）。
+	// 代价：guide 条目从 1 变 2，宿主默认页由「文件」变为指南页——这是唯一扩展点。
+	assert.match(definition[1], /guide:\s*\[\{/, "必须贡献 guide 条目，否则「+」里选不到浏览器");
+	assert.match(definition[1], /order:\s*\d+/);
+	assert.match(definition[1], /title:\s*\(\)\s*=>/);
+	// 初始页：正文首次可见时要主动把门户打开（「+」打开时没有目标地址）。
+	assert.match(tab, /openWebVpnPortalViaShell/);
+	assert.match(tab, /status\.windowOpen/, "载体已存在时不得重新导航到门户，否则会打断正在看的页面");
 	// 注册与注销都在 ctx.effect 里，随插件生命周期起落。
 	assert.match(tab, /ctx\.effect\(\(\) => \(\) => setWebVpnTabOpener\(null\)/);
 	assert.match(apply, /ctx\.inject\(\["slots", "sidebarRightTabs", "sidebarRight"\]/, "右侧栏服务单独注入，缺失时不阻塞其余面板");
@@ -319,4 +326,43 @@ test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏",
 	assert.match(webvpn, /if state\.as_ref\(\)\.map\(\|state\| state\.client_layout\(\)\)/, "show_sidebar 必须分支");
 	assert.match(webvpn, /if !client_layout \{[\s\S]*?main\.set_bounds\(/, "旧分栏只在不接管时执行");
 	assert.match(main, /async fn webvpn_set_rect\(/);
+});
+
+/**
+ * 2026-09-22 人工审核缺陷：面板里点「尚未获取正文/SI」有时什么都不发生，用户只能靠
+ * 顶部的「打开 WebVPN」自救。根因是 armCaptureFor 的两条分支只弹提示：
+ *   * 已有任务在处理（pendingTaskId）时直接 return——浏览器被关掉后就再也回不来；
+ *   * 未登记 DOI/出版社页面时只 notify——用户点它本意就是「去把它找来」。
+ * 这两条路径都必须真的打开/带回软件内浏览器，下面按分支逐一断言。
+ */
+test("点「尚未获取」文献时一定会打开软件内浏览器（含两条只弹提示的旧分支）", async () => {
+	const [projectPanel, literaturePanel, lib] = await Promise.all([
+		read("client/src/components-project.js"),
+		read("client/src/components-literature.js"),
+		read("client/src/lib.js"),
+	]);
+	const arm = projectPanel.match(/const armCaptureFor = \(event, bundle, kind\) => \{[\s\S]*?\n\t\t\t\};/);
+	assert.ok(arm, "必须能提取 armCaptureFor");
+	const body = arm[0];
+
+	// 未登记 DOI/出版社页面：必须打开门户，而不是只提示。
+	const noPublisher = body.match(/if \(!publisherUrl\) \{[\s\S]*?\n\t\t\t\t\}/);
+	assert.ok(noPublisher, "必须存在 !publisherUrl 分支");
+	assert.match(noPublisher[0], /openWebVpnLoginViaShell\(\)/, "该分支必须真的打开浏览器到 WebVPN 门户");
+	assert.doesNotMatch(noPublisher[0], /^\s*notify\([^)]*\);\s*return;/m, "不得退回成只弹提示");
+
+	// 已有任务在处理：载体还在就必须把它带回前台。
+	const busy = body.match(/if \(active\?\.pendingTaskId[\s\S]*?\n\t\t\t\t\t\t\}/);
+	assert.ok(busy, "必须存在 pendingTaskId 分支");
+	assert.match(busy[0], /showWebVpnViaShell\(\)/, "已有任务时也必须把浏览器带回前台");
+
+	// 所有打开浏览器的出口都要经过 withWebVpnTab：先开右侧栏 tab，再调原生命令。
+	for (const name of ["openWebVpnLoginViaShell", "openWebVpnCaptureViaShell", "showWebVpnViaShell"]) {
+		assert.match(lib, new RegExp(`${name} = \\(\\)?[^\\n]*withWebVpnTab`), `${name} 必须先打开右侧栏 tab`);
+	}
+	// 正文自用的门户入口不重复 openTab，避免从 tab 内部再打开自己。
+	assert.match(lib, /openWebVpnPortalViaShell = \(\) => webVpnShellRequest\("WEBVPN_OPEN_LOGIN"\)/);
+
+	// 面板与对话徽章都不得存在「只提示、不打开」的旁路。
+	assert.doesNotMatch(literaturePanel, /notify\([^)]*请在右侧 WebVPN[^)]*\);\s*return;/);
 });
