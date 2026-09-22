@@ -30,6 +30,7 @@
 #   scripts/windows-release-from-wsl.sh --preflight-only # 只同步 + 跑发布预检
 #   scripts/windows-release-from-wsl.sh --skip-sync      # 不打 git，直接出包
 #   scripts/windows-release-from-wsl.sh --dry-run        # 只打印将要做什么
+#   scripts/windows-release-from-wsl.sh --ref <分支|SHA>  # 构建任意 ref（基线归因/重建历史版本）
 #
 # 可覆盖的环境变量：
 #   IBM_LAB_WSL_BARE   传输裸仓库（NTFS 上）默认 /mnt/h/build/ibm-lab-agent.git
@@ -51,14 +52,22 @@ bare_dir="$(dirname "$bare")"
 mode="release"
 skip_sync=0
 dry_run=0
-for arg in "$@"; do
-	case "$arg" in
+ref_override=""
+while [[ $# -gt 0 ]]; do
+	case "$1" in
 		--preflight-only) mode="preflight" ;;
 		--skip-sync) skip_sync=1 ;;
 		--dry-run) dry_run=1 ;;
+		# 构建任意 ref（分支/SHA）：基线归因（重建 0.5.0 对比体积）与重建历史版本都要用
+		--ref)
+			[[ $# -ge 2 ]] || { echo "--ref 需要一个参数" >&2; exit 2; }
+			ref_override="$2"
+			shift
+			;;
 		-h|--help) sed -n '2,60p' "${BASH_SOURCE[0]}"; exit 0 ;;
-		*) echo "未知参数：$arg" >&2; exit 2 ;;
+		*) echo "未知参数：$1" >&2; exit 2 ;;
 	esac
+	shift
 done
 
 log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
@@ -70,12 +79,14 @@ command -v powershell.exe >/dev/null 2>&1 || die "找不到 powershell.exe（WSL
 [[ -n "$(printf '%s' "$work_win" | sed -nE 's#^([A-Za-z]):.*#\1#p')" ]] || die "IBM_LAB_WSL_WORK 必须是 Windows 盘符路径"
 
 branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+ref="${ref_override:-origin/$branch}"
 [[ "$branch" != "HEAD" ]] || die "当前是 detached HEAD，无法同步"
 
 log "仓库   : $repo_root（分支 $branch @ $(git -C "$repo_root" rev-parse --short HEAD)）"
 log "传输   : $bare"
 log "副本   : $work_win  →  $work_mnt"
 log "模式   : $mode$([[ $skip_sync -eq 1 ]] && echo '（跳过同步）')"
+[[ -n "$ref_override" ]] && log "目标 ref: $ref（非当前分支：构建历史版本，用于基线归因）"
 
 if [[ $dry_run -eq 1 ]]; then
 	log "dry-run：将执行 git push → Windows 侧 fetch/reset → 补 desktop 依赖 → 运行 build-windows-release.ps1"
@@ -111,6 +122,7 @@ cat > "$ps1_mnt" <<PS1
 \$cargo = '${cargo_win}'
 \$mode  = '${mode}'
 \$branch = '${branch}'
+\$ref = '${ref}'
 \$logDir = '${log_dir_win}'
 
 # Gotcha 1: cwd must be on a Windows drive (UNC cwd is rejected by powershell.exe).
@@ -118,8 +130,10 @@ Set-Location \$work
 
 Write-Output '=== sync working copy ==='
 & git -c safe.directory=* fetch origin 2>&1 | Select-Object -Last 1
-& git -c safe.directory=* checkout -q \$branch 2>&1 | Select-Object -Last 1
-& git -c safe.directory=* reset --hard "origin/\$branch" 2>&1 | Select-Object -Last 1
+# --ref defaults to origin/<branch> (same as before); an explicit --ref <sha> builds a
+# historical version. Always detached: the build copy should not sit on a branch, and
+# this is what makes building an arbitrary commit possible.
+& git -c safe.directory=* checkout -q --detach \$ref 2>&1 | Select-Object -Last 1
 & git -c safe.directory=* log -1 --format='  HEAD: %h %s'
 \$dirty = (& git -c safe.directory=* status --porcelain | Measure-Object).Count
 Write-Output ("  dirty entries: " + \$dirty)

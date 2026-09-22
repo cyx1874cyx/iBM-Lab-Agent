@@ -97,3 +97,14 @@ test("预检模式不产出报告是正常的，不应报 do-not-publish 警告"
 	assert.match(script, /\\\$mode -eq 'release'/, '缺报告的警告必须只在 release 模式下出现');
 	assert.match(script, /no installer is expected from this run/, '预检应给出正向说明');
 });
+
+test("--ref 支持构建任意版本（基线归因/重建历史版本），默认行为不变", () => {
+	assert.match(script, /--ref\)/, "应接受 --ref 参数");
+	assert.match(script, /--ref 需要一个参数/, "缺参数时应报错退出");
+	// 默认必须等价于旧行为：origin/<branch>
+	assert.match(script, /ref="\$\{ref_override:-origin\/\$branch\}"/, "默认 ref 应为 origin/<branch>");
+	// 检出用 detached：构建副本不该停在分支上，且这样才能检出任意 SHA
+	assert.match(script, /checkout -q --detach \\\$ref/, "应按 ref 做 detached 检出");
+	assert.doesNotMatch(script, /reset --hard "origin\\\/\$branch"/, "不应再写死 reset 到分支");
+	assert.match(script, /目标 ref: \$ref/, "应把目标 ref 打进日志");
+});
