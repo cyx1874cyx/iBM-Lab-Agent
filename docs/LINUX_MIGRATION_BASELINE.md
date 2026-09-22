@@ -763,3 +763,76 @@ gitignore）。两个失效方向都安全：dist 在而指纹被清 → 缺指�
 
 顺带一条自身教训：我用 `bash driver.sh | tee log` 启动，**管道的退出码取 `tee` 的值**，
 所以作业上报 exit 0 而实际是 1。看结论要看驱动自己打印的"结束，退出码 N"，别信外层管道。
+
+## 19. 修复后重新出包：实测收益与验收
+
+同一台 Windows 机器、同一套流程，改动前后各出一次包。
+
+### 19.1 结果
+
+| 项 | 修复前（S1 only） | 修复后（S1+S2+L2+P0） |
+|---|---|---|
+| 安装包 | 195,059,271 B | **172,121,032 B** |
+| SHA-256 | `951576A2…6D755005` | `C127F547…EB41B23B` |
+| 阶段 | 无 bundled-python（被跳过） | bundled-python 217.5s + 其余全绿 |
+
+**−22,938,239 B（−21.9 MiB，−11.8%）**，全程 exit 0，`verify-installer` 真启动了打包后的
+应用（23.2s）。
+
+### 19.2 三条验收（都不只看构建脚本的自述）
+
+**① S2 摘除，独立在文件系统上核验**（不是读构建日志）：
+
+```
+magika      已摘除      onnxruntime  已摘除
+flatbuffers 已摘除      coloredlogs  已摘除
+```
+
+构建期自检亦通过：`magika chain absent: OK`。补丁也真的落在产物文件里：
+`dist/Lib/site-packages/markitdown/_markitdown.py` 含 `IBM_LAB_AGENT_NO_MAGIKA` 标记。
+
+**② L2 剥离，且没有误伤公共 API**：
+
+```
+Stripped third-party test trees: 358.9 MB -> 320.7 MB     （−38.2 MB）
+剥离后残留 tests/test 目录数：0
+保留：numpy/testing、pandas/testing.py、scipy
+```
+
+过程中我自己的核验脚本误报过一次：用 `[ -e .../pandas/testing ]` 判断，而 pandas 3.x 的
+`pandas.testing` 是**模块文件** `testing.py`，不是目录 —— 是检查写错，不是产物有问题。
+`pandas/tests`（测试套件）按设计被剥离。
+
+**③ 五种格式的真实转换**：`markitdown conversion self-check OK: 5 formats`
+（pdf/docx/pptx/xlsx/html）。这条比 `import markitdown` 强得多：依赖集少一个包只会表现为
+运行期 `MissingDependencyException`，只有真的转一遍才抓得住。
+
+**④ P0 指纹在生产里生效**：紧接着再跑一次预检 ——
+
+```
+[10:18:44] Windows release preflight passed for 0.5.2-rc.1.
+[10:18:44] bundled-python: reuse (fingerprint matches)
+```
+
+这正是路线书要求的验收（"第二次应跳过 bundled-python"），且**不做任何构建、几秒内**就能
+看到。
+
+### 19.3 一个必须说清楚的口径问题：原始字节 ≠ 安装包字节
+
+S2+L2 在磁盘上共减去约 **78 MB**（S2 ~40 MB + L2 38.2 MB），但安装包只小了 **22.9 MB**
+（比值约 0.29）。原因是 NSIS 用 LZMA 固实压缩，wheel 里的 `.py` 压缩率很高。
+
+所以路线书 §11"收益汇总"里按**原始 MB** 写的数字（S2 −65 MB、L2 −40 MB 之类）**不能**直接
+当成安装包收益来读：对用户可见的指标是安装包体积，而它大约只有原始值的 3 成。
+本项目真正需要盯的口径是 `desktop/src-tauri/target/release/bundle/nsis/*-setup.exe` 的字节数。
+
+另：路线书给 S2 估的是 −65 MB，本机实测 Windows 侧整链约 40 MB（magika 4 + onnxruntime 33
++ flatbuffers/coloredlogs/humanfriendly/protobuf）—— Linux 侧 onnxruntime 是 62 MB，
+**两条线的这个包大小本来就不一样**，不能互相套用。
+
+### 19.4 全流程耗时
+
+`09:58:26 → 10:16:02`，约 **17.6 分钟**：client-bundle-check 0.2s / tests 21.2s /
+regression 1.8s / preset-exports 0.1s / browser-ketcher 22.0s / lint 2.7s /
+**bundled-python 217.5s** / prepare-runtime 6.0s / verify-runtime 35.5s /
+**tauri-nsis 723.3s** / verify-installer 23.2s。两个大头是 pip 装依赖与 Rust 编译。

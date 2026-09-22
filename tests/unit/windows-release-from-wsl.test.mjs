@@ -90,3 +90,10 @@ test("构建失败时不把上一次的产物说成本次结果（实测踩过�
 		"不应无条件哈希 target 下的任意安装包",
 	);
 });
+
+test("预检模式不产出报告是正常的，不应报 do-not-publish 警告", () => {
+	// 实测：--preflight-only 退出码 0、没有 release-report.json，旧逻辑会打出
+	// "WARNING: ... do not publish"，把正常的预检说成可疑。
+	assert.match(script, /\\\$mode -eq 'release'/, '缺报告的警告必须只在 release 模式下出现');
+	assert.match(script, /no installer is expected from this run/, '预检应给出正向说明');
+});

@@ -167,8 +167,10 @@ if (\$rc -eq 0 -and \$freshReports.Count -gt 0) {
     Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object {
       Write-Output ("  stale artifact from an earlier build: " + \$_.FullName)
       Write-Output ("    mtime " + \$_.LastWriteTime.ToString('o') + "  bytes " + \$_.Length) }
-} else {
+} elseif (\$mode -eq 'release') {
   Write-Output '  WARNING: exit code 0 but no fresh release-report.json was found; do not publish.'
+} else {
+  Write-Output ("  " + \$mode + ": no installer is expected from this run.")
 }
 exit \$rc
 PS1
