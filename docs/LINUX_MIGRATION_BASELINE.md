@@ -229,7 +229,8 @@ bash scripts/build-linux-release.sh HEAD     # → dist/ibm-lab-agent-v0.5.2-rc.
 | 时点 | 归档字节 | 说明 |
 |---|---|---|
 | `release-0.5.0` + Phase 3 拆分后 | 51,291,488 (48.9 MiB) | 初始基线 |
-| **vendor 白名单剔除后（当前）** | **23,122,955 (22.1 MiB)** | **−26.9 MB / −54.9%** |
+| vendor 白名单剔除后 | 23,122,955 (22.1 MiB) | **−26.9 MB / −54.9%** |
+| 迁移工作全部完成（`22416b9`，含 §16–§21 文档与新增工具/守卫） | **23,182,639 (22.1 MiB)** | +59,684 B（+0.26%，文档与守卫增量；门禁阈值 24.3 MiB，通过） |
 
 当前值即脚本里的 `SIZE_BASELINE_BYTES`；告警阈值 = 基线 × 1.10 = 24.3 MiB。
 注意 `build-linux-release.sh` 用的是 `git archive HEAD` —— **读已提交的树**，
