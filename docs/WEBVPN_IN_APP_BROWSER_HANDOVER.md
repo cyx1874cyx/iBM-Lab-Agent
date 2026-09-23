@@ -19,10 +19,14 @@
    现在对 `html` 施加 `transform:translateY(76px)` 并收紧高度：对 `html` 的 transform
    会让它成为 `position:fixed` 后代的包含块，预览器那类 `fixed;inset:0` 容器因此一起下移；
    工具栏自身用 `translateY(-76px)` 抵消。详见发布说明里的「已知限制」。
-3. **捕获小球。** 页面右下角浮标，显示捕获阶段，点击 → `ibm-webvpn://cancel-capture/`
+3. **捕获小球。** 页面**左下角**浮标（相对窗口固定，不随页面滚动），显示捕获阶段，
+   点击 → `ibm-webvpn://cancel-capture/`
    → `on_navigation` 拦截 → `cancel_capture_and_close(app, None)`。状态由壳按节奏调
    `webvpn_sync_capture_ball` 推入页面（`on_page_load` 也会推一次——脚本每次导航都重注入）。
    状态载荷只有 phase/kind/bytes，**不含令牌或临时路径**，有测试守着。
+   小球挂在 **popover 的 top layer** 上：上面那条 `html{transform}` 会让 `position:fixed`
+   的后代改以 `html` 为包含块、跟着页面滚走，top layer 不受祖先 transform 影响，因此是
+   唯一能"相对窗口固定"的位置。拿不到 popover 的旧引擎退回普通层，位置对但会滚动。
 
 ## 2026-09-22 挂进 DSH 自带右侧栏（最新）
 

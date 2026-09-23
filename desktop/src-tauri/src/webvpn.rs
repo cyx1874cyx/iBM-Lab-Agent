@@ -109,7 +109,13 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     if (document.getElementById('__ibm_webvpn_capture')) return;
     const host = document.createElement('div');
     host.id = '__ibm_webvpn_capture';
-    host.style.cssText = 'all:initial;position:fixed;right:16px;bottom:16px;z-index:2147483646;';
+    // 页面根元素被施加了 transform（见 ensurePageOffset），它会让 position:fixed 的
+    // 后代改以 html 为包含块——小球因此会跟着页面滚动、贴在文档里而不是窗口上。
+    // popover 的 top layer 不受祖先 transform 影响，正好用来跳出那个包含块。
+    // 拿不到 popover 的旧引擎退回普通 fixed 层：位置仍是左下角，只是会随页面滚动。
+    const canPopover = typeof host.showPopover === 'function';
+    if (canPopover) host.setAttribute('popover', 'manual');
+    host.style.cssText = 'all:initial;display:block;position:fixed;left:16px;bottom:16px;top:auto;right:auto;margin:0;padding:0;border:0;background:transparent;width:auto;height:auto;max-width:none;max-height:none;overflow:visible;z-index:2147483646;';
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
       .ball{all:initial;box-sizing:border-box;display:none;max-width:300px;padding:9px 14px;border-radius:999px;background:#0f172a;color:#f8fafc;font:600 12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;align-items:center;gap:8px}
@@ -131,6 +137,10 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       location.href = 'ibm-webvpn://cancel-capture/';
     });
     (document.documentElement || document.body).appendChild(host);
+    // showPopover 必须在入 DOM 之后调用；重复调用会抛，用 :popover-open 先判。
+    if (canPopover) {
+      try { if (!host.matches(':popover-open')) host.showPopover(); } catch { /* 引擎不支持：留在普通层 */ }
+    }
     captureBall = ball;
   };
   const formatBytes = (bytes) => {

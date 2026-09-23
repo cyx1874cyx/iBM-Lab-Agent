@@ -407,6 +407,13 @@ test("注入壳把页面推到工具栏之下，且捕获小球可终止捕获",
 	assert.match(webvpn, /id = '__ibm_webvpn_capture'/);
 	assert.match(webvpn, /window\.__ibmWebVpnCapture = \(payload\) =>/);
 	assert.match(webvpn, /location\.href = 'ibm-webvpn:\/\/cancel-capture\/'/);
+	// 小球必须相对**窗口**固定在左下角。页面根元素有 transform，position:fixed 的后代
+	// 会改以 html 为包含块（跟着页面滚动）；popover 的 top layer 不受祖先 transform
+	// 影响，用它跳出。位置与逃逸方式都要被钉住——只改位置不改逃逸仍会滚走。
+	assert.match(webvpn, /left:16px;bottom:16px;top:auto;right:auto/);
+	assert.doesNotMatch(webvpn, /right:16px;bottom:16px/, "不得再固定在右下角");
+	assert.match(webvpn, /host\.setAttribute\('popover', 'manual'\)/);
+	assert.match(webvpn, /if \(!host\.matches\(':popover-open'\)\) host\.showPopover\(\)/);
 	// 页面每次导航都会重新注入脚本、小球随之重建 → 加载完成后必须重推一次状态。
 	assert.match(webvpn, /push_capture_ball\(&page_app, &webview\)/);
 	// 导航拦截：点击小球 → 取消当前任务并关闭载体（不带 taskId，与按钮共用出口）。
