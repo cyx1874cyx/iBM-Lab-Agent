@@ -389,19 +389,32 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
  * 2026-09-22 人工审核缺陷 2：出版社 PDF 预览页里看不到预览器自己的工具栏按钮
  * （只能右键另存）。根因是注入的浏览器工具栏是 `position:fixed` 覆盖层，
  * 高度 76px 且没有把页面推下去——预览器工具栏正好落在那条带里被盖住。
+ *
+ * 2026-09-23 回归：对 html 的**无条件**位移会让按视口居中的验证组件
+ * （Cloudflare Turnstile 一类）上下抖动、渲染不出来（ScienceDirect 实测，
+ * 外部 Edge 正常）。因此位移改为只在确认进入 PDF 预览器时由
+ * `window.__ibmWebVpnSetPageOffset(true)` 打开，并带看门狗自动撤销。
  */
-test("注入壳把页面推到工具栏之下，且捕获小球可终止捕获", async () => {
+test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止捕获", async () => {
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /const CHROME_HEIGHT = 76;/, "工具栏高度必须集中成一个常量");
-	// 对 html 施加 transform：它因此成为 position:fixed 后代的包含块，
-	// PDF 预览器那种 fixed;inset:0 的整屏容器才会一起下移。
+	// 位移规则本身保留：对 html 施加 transform，它因此成为 position:fixed 后代的
+	// 包含块，PDF 预览器那种 fixed;inset:0 的整屏容器才会一起下移。
 	assert.match(
 		webvpn,
 		/html\{transform:translateY\(\$\{CHROME_HEIGHT\}px\) !important;height:calc\(100% - \$\{CHROME_HEIGHT\}px\) !important;overflow:auto !important\}/,
 	);
+	// 默认不位移：只能由显式开关打开，mount() 不得直接调用；白屏看门狗要能撤销。
+	assert.match(webvpn, /window\.__ibmWebVpnSetPageOffset = \(enabled\) =>/);
+	assert.match(webvpn, /ibm-webvpn:\/\/offset-reverted\//);
+	const mountBody = webvpn.split("const mount = () => {")[1].split("if (document.readyState")[0];
+	assert.doesNotMatch(mountBody, /applyPageOffset/, "mount() 不得对所有页面无条件位移");
+	// Rust 侧只在出版社 pdf-manual 信号与直接 .pdf 时打开开关。
+	assert.match(webvpn, /"pdf-manual" => Some\(/);
+	assert.match(webvpn, /is_pdf_document_url/);
 	// 工具栏自身必须等量反向抵消，否则会跟着 html 一起下移出屏幕。
-	assert.match(webvpn, /transform:translateY\(-\$\{CHROME_HEIGHT\}px\)/);
-	assert.match(webvpn, /const shift = offset \? `transform:translateY\(-\$\{CHROME_HEIGHT\}px\);` : '';/);
+	assert.match(webvpn, /translateY\(-\$\{CHROME_HEIGHT\}px\)/);
+	assert.match(webvpn, /const syncChromeShift = \(\) =>/);
 
 	// 捕获小球：独立浮标（不放在被反向位移的工具栏里）+ 状态入口 + 点击终止。
 	assert.match(webvpn, /id = '__ibm_webvpn_capture'/);

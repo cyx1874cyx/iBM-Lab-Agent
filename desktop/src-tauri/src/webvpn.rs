@@ -85,10 +85,12 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
    * HTML PDF 预览器正是 `position:fixed;inset:0` 的整屏容器，不位移就会被我们
    * 76px 的工具栏盖住「保存/下载」按钮。
    *
-   * 但同一个 transform 也会重定位普通论文页里的全屏 fixed 遮罩/加载层：ScienceDirect
-   * 一类 SPA 因此偶发整页白屏（2026-09-23 真机反馈）。所以默认不位移，由 Rust 在确认
-   * 进入 PDF 预览器后调用 `window.__ibmWebVpnSetPageOffset(true)` 打开；白屏看门狗会
-   * 在 2.5s 后自动撤销，宁可盖住预览器工具栏也不把页面变成打不开的白屏。
+   * 但同一个 transform 也会重定位按视口垂直居中的验证组件（Cloudflare Turnstile
+   * 一类），把 html 高度改小后组件的测量值与实际位置每帧互相纠正，验证框会在应出现
+   * 的位置上下抖动、始终渲染不出来（2026-09-23 ScienceDirect + iWAN 真机反馈，外部
+   * Edge 正常）。所以默认不位移，由 Rust 在确认进入 PDF 预览器后调用
+   * `window.__ibmWebVpnSetPageOffset(true)` 打开；看门狗会在 2.5s 后自动撤销，
+   * 宁可盖住预览器工具栏也不把页面变成打不开的样子。
    */
   const applyPageOffset = () => {
     if (document.getElementById('__ibm_webvpn_offset')) return true;
