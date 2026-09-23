@@ -131,22 +131,33 @@
       10. 按模板生成（重要）：主面板有「模板管理」，可配置阅读笔记模板与 PPT
          模板；生成产物前先查模板、按模板生成，不要自造固定版式/章节：
          - 精读报告固定顺序（强制）：先调用 lab_tasks_get_reading_inputs 盘点
-           当前 bundle 已有资源；逐个浏览/读取 available=true 的正文 PDF、SI
-           和 source-map（PDF/Office 先经 lab_convert_document 转 Markdown）；
-           再调用 lab_note_templates_list / lab_note_templates_get 选择并读取模板；
-           最后按模板章节生成。只要存在可用阅读笔记模板，Nature Skills 只能用于
-           解析与证据提取，不得使用 nature-paper-card 的 01–16 卡片结构覆盖模板；
-           仅在确实没有可用阅读笔记模板时才允许回退 Nature paper card；
+           当前 bundle 已有资源；**用 read 读取它返回的 contractPath（精读生成
+           契约）**，契约含模板的完整章节骨架与每节要点，较长时用 offset/limit
+           分段读完；再逐个浏览/读取 available=true 的正文 PDF、SI 和
+           source-map（PDF/Office 先经 lab_convert_document 转 Markdown）；
+           最后严格按契约的章节骨架与每节要点生成。只要契约存在，Nature Skills
+           只能用于解析与证据提取，不得使用 nature-paper-card 的 01–16 卡片结构覆盖模板，
+           也不得自造章节；仅在契约不存在（确实没有可用模板）时才允许回退
+           Nature paper card；
          - lab_note_templates_list / lab_note_templates_get：列出/取「阅读笔记
            模板」的章节骨架、风格、证据与输出要求；生成阅读笔记/精读笔记时
            按所选模板的章节骨架组织，遵守其风格与证据要求；
          - lab_ppt_templates_list / lab_ppt_templates_get：列出/取「PPT 模板」
-           （受众/必选页/可选页/最大页数/讲稿备注要求）；生成汇报 PPT 前调用，
-           按模板的结构要求组织内容，并满足最大页数与讲稿备注要求；
+           （受众/必选页/可选页/最大页数/讲稿备注要求，以及主题字体/主色与
+           源文件路径）；生成汇报 PPT 前先调用挑选模板；
+         - PPT 按模板构建（强制，导入模板时）：拿到非 nature-default 的模板后
+           必须调用 lab_ppt_templates_contract 取 PPT 生成契约，用 read 读完；
+           按契约准备 plan.json（每页 role/title/bullets/notes/配图），再调用
+           lab_ppt_build_from_template 用模板 source.pptx 构建成品并拿到
+           conformancePath。禁止自己写 python-pptx 从空白 Presentation() 拼版式，
+           也不得自行换主题色/字体；符合性报告有问题（required page 缺失、页数
+           超限、备注缺失、主题不一致）必须修正后重建。只有 nature-default 虚拟
+           模板才走 nature-paper2ppt 默认流程；
          - 登记精读报告时用 lab_tasks_register_report 的 noteTemplateId /
            noteTemplateVersion 指明所依据的阅读笔记模板；登记 PPT 时用
            lab_tasks_register_presentation 的 templateId / templateVersion
-           指明所用模板（版本快照保存到任务，后续模板修改不影响旧产物）。
+           指明所用模板，并传 lab_ppt_build_from_template 返回的 conformancePath
+           （版本快照保存到任务，后续模板修改不影响旧产物）。
          若面板从无可用模板，提示用户到「我的科研课题 → 模板管理」创建。
       11. 合成路线结构补全（强制主动执行）：用户上传、粘贴或要求登记合成路线时，
           先从原文/SI 提取每一步全部反应物、产物、试剂和催化剂及其明确名称、
@@ -223,6 +234,10 @@
 - id: lab-templates-tool
   name: 'dsh-lab-agent/templates-tool'
   inject: [tools, labNoteTemplates, labTemplates]
+
+- id: lab-ppt-build-tool
+  name: 'dsh-lab-agent/ppt-build-tool'
+  inject: [tools, labTemplates, labTasks]
 
 - id: lab-synthesis-tool
   name: 'dsh-lab-agent/synthesis-tool'

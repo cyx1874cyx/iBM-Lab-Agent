@@ -84,6 +84,50 @@ test("note templates: seed, create, update, snapshot, copy, requirements, delete
 	}
 });
 
+test("note templates: Markdown import parses real sections and keeps the raw markdown", async () => {
+	const { handle, dir } = await bootNotes();
+	try {
+		const notes = handle.ctx.labNoteTemplates;
+		const markdown = [
+			"# 结构化阅读笔记模板",
+			"",
+			"## 一、文献基本信息",
+			"| 项目 | 内容 |",
+			"| --- | --- |",
+			"| DOI | 【填写】 |",
+			"",
+			"## 二、主要结果",
+			"### 2.1 条件对比",
+			"【填写：不同条件下的表现】",
+			"",
+			"## 三、研究局限性（如有）",
+			"- 【填写：局限】",
+			"",
+			"全文篇幅约 800-1200 字。"
+		].join("\n");
+
+		// 预览解析（不落库）
+		const parsed = notes.parseMarkdown(markdown, { fileName: "结构化阅读笔记模板.md" });
+		assert.deepEqual(parsed.sections.map((s) => s.title), ["文献基本信息", "主要结果", "研究局限性（如有）"]);
+		assert.equal(parsed.sections[2].required, false);
+		assert.match(parsed.sections[1].hint, /### 2\.1 条件对比/);
+		assert.equal(parsed.minContentChars, 800);
+
+		// 落库：章节成为真实骨架，原文保留，生成要求带篇幅下限
+		const { template } = await notes.importMarkdown("note-md-import", { name: "结构化笔记", markdown, fileName: "结构化阅读笔记模板.md" });
+		assert.equal(template.version, "1");
+		assert.equal(template.sections.length, 3);
+		const resolved = await notes.resolve("note-md-import");
+		assert.match(resolved.templateMarkdown, /## 二、主要结果/);
+		const req = await notes.toNoteRequirements(resolved);
+		assert.equal(req.minContentChars, 800);
+		assert.equal(req.sections.length, 3);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
 test("templates-tool: note/ppt list + get tools registered and return requirements", async () => {
 	const { handle, dir } = await bootNotes();
 	try {

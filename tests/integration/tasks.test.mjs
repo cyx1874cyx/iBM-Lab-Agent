@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
-import { buildPptx } from "../fixtures/pptx-builder.mjs";
+import { buildPptx, defaultLayouts } from "../fixtures/pptx-builder.mjs";
 import { PAPER_CARD_SECTION_CONTRACT } from "../../src/goal-profile.js";
 import { entryFileName } from "../../lib/entry-layout.js";
 
@@ -38,10 +38,13 @@ async function bootTasks() {
 		lockFile: fileURLToPath(new URL("../../vendor.lock.json", import.meta.url)),
 		includePython: false,
 		extraRows: [
+			{ id: "system-prompt", name: "@deepseek-ai/dsh-system-prompt" },
+			{ id: "tools", name: "@deepseek-ai/dsh-tools" },
 			{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 			{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"], config: { templatesDir } },
-			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } }
+			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { skillsRoot, projectsRoot: join(dir, "projects") } },
+			{ id: "lab-ppt-build-tool", name: "dsh-lab-agent/ppt-build-tool", inject: ["tools", "labTemplates", "labTasks"] }
 		]
 	});
 	// 真实 vendor 树 → registry 有 NatureSkillVersion，provenance 才能记录 skill 版本
@@ -864,6 +867,76 @@ test("legacy bundle 无 entryStem 时可正常读取并受控迁移到条目目�
 		// 数据库中的 bundle 已持久化新布局，可正常读取
 		assert.equal(tasks.getBundle("bundle-legacy-1").entryStem, migrated.entryStem);
 		assert.equal(tasks.getBundle("bundle-legacy-1").pdfPath, migrated.pdfPath);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令，createPresentation 记录 contractPath", async () => {
+	const { handle, dir, fxDir } = await bootTasks();
+	try {
+		const tasks = handle.ctx.labTasks;
+		stubNetwork(tasks.executor);
+		// ppt-build-tool 模块可加载并注册两个工具（schema 合法）
+		const toolNames = handle.ctx.tools.schemas().map((t) => t.name);
+		assert.ok(toolNames.includes("lab_ppt_templates_contract"), "contract tool registered");
+		assert.ok(toolNames.includes("lab_ppt_build_from_template"), "build tool registered");
+		await tasks.createProject({
+			id: "proj-ppt-tpl",
+			name: "PPT 模板课题",
+			goalProfileId: "default-prodrug-polymer",
+			goalProfileVersion: "1",
+			templateId: "nature-default",
+			templateVersion: "1"
+		});
+
+		// 导入真实 PPTX 模板并确认版式角色映射（发布为 ready）
+		const { buffer } = await buildPptx({ name: "lab-ppt-contract", layouts: defaultLayouts() });
+		const source = join(dir, "lab-ppt-contract.pptx");
+		await writeFile(source, buffer);
+		const { suggestions } = await handle.ctx.labTemplates.importPptx("lab-ppt-contract", {
+			pptxPath: source,
+			meta: { name: "课题组模板", audience: "组会", purpose: "文献汇报", maxPages: 12, requiredPages: ["cover", "summary"] }
+		});
+		const mapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => [role, { layoutId: suggestion.layoutId }]));
+		assert.equal((await handle.ctx.labTemplates.confirmMapping("lab-ppt-contract", "1", mapping)).ok, true);
+
+		// 元数据登记即可拿到 bundle/report（无需下载 PDF）
+		const meta = await tasks.registerPaperMeta({ projectId: "proj-ppt-tpl", title: "PPT contract paper", doi: "10.1000/ppt.1" });
+		const report = meta.report;
+		const contract = await tasks.materializePptContract({
+			projectId: "proj-ppt-tpl",
+			reportId: report.id,
+			templateId: "lab-ppt-contract",
+			templateVersion: "1"
+		});
+		assert.ok(contract?.contractPath && existsSync(contract.contractPath), "生成契约已落盘");
+		const text = await readFile(contract.contractPath, "utf8");
+		assert.match(text, /^# PPT 生成契约（按模板构建）/);
+		assert.match(text, /## 版式角色映射/);
+		assert.match(text, /build_from_template\.py/);
+		assert.match(text, /主题名|字体：major=/);
+		assert.match(text, /--max-pages 12/);
+		assert.match(text, /--required cover,summary/);
+		// nature-default 无 source.pptx → 不产出契约（走 skill 默认流程）
+		assert.equal(await tasks.materializePptContract({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "nature-default", templateVersion: "1" }), undefined);
+
+		// 暂存精读产物后创建 PPT run：run 上记录契约路径，便于追溯
+		await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
+		const run = await tasks.createPresentation({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "lab-ppt-contract", templateVersion: "1" });
+		assert.equal(run.contractPath, contract.contractPath);
+
+		// 缺 plan.json → 明确失败，不静默降级
+		await assert.rejects(
+			() => tasks.buildPresentationFromTemplate({
+				templateId: "lab-ppt-contract",
+				templateVersion: "1",
+				planPath: join(dir, "no-such-plan.json"),
+				outPath: join(dir, "deck.pptx")
+			}),
+			/plan\.json missing/
+		);
 	} finally {
 		await handle.dispose();
 		await rm(dir, { recursive: true, force: true });

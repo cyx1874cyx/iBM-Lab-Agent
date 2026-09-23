@@ -243,6 +243,10 @@ export const presentationRunSchema = z.object({
 	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	speechNotesPath: z.string().optional(),
 	figureSourcesPath: z.string().optional(),
+	/** PPT 生成契约与模板符合性报告（按模板生成与校验）。 */
+	contractPath: z.string().optional(),
+	conformancePath: z.string().optional(),
+	templateConformance: z.unknown().optional(),
 	qa: z
 		.object({
 			ok: z.boolean().default(false),

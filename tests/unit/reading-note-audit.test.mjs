@@ -59,3 +59,32 @@ test("legacy scientific note uses semantic section groups instead of forcing 01-
 	assert.equal(result.summary.errors, 0);
 	assert.equal(result.audit_mode, "scientific-note");
 });
+
+test("template length floor is enforced when the template declares a word count", () => {
+	const short = ["## 文献信息", "Nature 2024", "## 关键结果", evidence].join("\n\n");
+	const result = auditReadingNoteText(short, {
+		locatorMode: "page-grounded",
+		hasBundle: true,
+		noteRequirements: {
+			minContentChars: 600,
+			sections: [
+				{ title: "文献信息", required: true },
+				{ title: "关键结果", required: true }
+			]
+		}
+	});
+	const finding = result.findings.find((row) => row.code === "template_length");
+	assert.equal(finding.level, "error");
+	assert.equal(finding.details.required, 600);
+	assert.equal(result.summary.status, "fail");
+});
+
+test("template length floor passes when the note is long enough", () => {
+	const long = ["## 文献信息", "Nature 2024", "## 关键结果", evidence, "正文".repeat(400)].join("\n\n");
+	const result = auditReadingNoteText(long, {
+		locatorMode: "page-grounded",
+		hasBundle: true,
+		noteRequirements: { minContentChars: 600, sections: [{ title: "文献信息", required: true }, { title: "关键结果", required: true }] }
+	});
+	assert.equal(result.findings.find((row) => row.code === "template_length").level, "pass");
+});

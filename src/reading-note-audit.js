@@ -37,6 +37,7 @@ function item(level, code, message, details) {
 export function auditReadingNoteText(markdown, { locatorMode = "structure-grounded", noteRequirements, hasBundle = false } = {}) {
 	const headings = [...markdown.matchAll(HEADING_RE)].map((match) => match[1].trim());
 	const findings = [];
+	const compactLength = markdown.replace(/\s/g, "").length;
 	const required = (noteRequirements?.sections ?? []).filter((section) => section.required !== false);
 	if (required.length) {
 		const missing = required.filter((section) => !hasHeading(headings, section.title)).map((section) => section.title);
@@ -61,10 +62,16 @@ export function auditReadingNoteText(markdown, { locatorMode = "structure-ground
 		findings.push(item("pass", "bundle_available", hasBundle ? "source bundle 已提供。" : "当前定位模式不强制 source bundle。"));
 	}
 
-	const compactLength = markdown.replace(/\s/g, "").length;
 	findings.push(compactLength >= 800
 		? item("pass", "substance", `正文信息量 ${compactLength} 字符。`)
 		: item("warning", "substance", `正文仅 ${compactLength} 字符，可能不足以支撑精读。`));
+	// 模板显式写了篇幅下限时，按模板校验（区别于上面的通用 800 字符提醒）。
+	const lengthFloor = Number(noteRequirements?.minContentChars);
+	if (Number.isFinite(lengthFloor) && lengthFloor > 0) {
+		findings.push(compactLength >= lengthFloor
+			? item("pass", "template_length", `正文 ${compactLength} 字符，满足模板篇幅下限 ${lengthFloor} 字符。`)
+			: item("error", "template_length", `正文仅 ${compactLength} 字符，低于模板篇幅下限 ${lengthFloor} 字符。`, { found: compactLength, required: lengthFloor }));
+	}
 	const hasUnknownMarker = /无法判断|证据不足|原文未报告|not reported|insufficient evidence/i.test(markdown);
 	findings.push(hasUnknownMarker
 		? item("pass", "uncertainty", "报告显式标记了证据不足或无法判断项。")

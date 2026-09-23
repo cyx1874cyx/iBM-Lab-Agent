@@ -136,20 +136,38 @@ export function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
 			const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
 			const addSection = () => setForm((old) => ({ ...old, sections: [...(old.sections || []), { key: "", title: "", required: true, hint: "" }] }));
 			const removeSection = (index) => setForm((old) => ({ ...old, sections: (old.sections || []).filter((_, i) => i !== index) }));
-			/** 「从 .md 导入」：整篇 Markdown 作为生成要求写入 outputRequirements，名称回退用文件名。 */
+			/** 「从 .md 导入」：解析 Markdown 标题为真实章节骨架（原文留在 templateMarkdown）。 */
 			const fileRef = useRef(null);
 			const importFromMd = (event) => {
 				const file = event.target.files?.[0];
+				event.target.value = "";
 				if (!file) return;
 				const reader = new FileReader();
 				reader.onload = () => {
-					const text = String(reader.result || "");
-					const nameFromFile = (file.name || "").replace(/\.md$/i, "").replace(/[-_]+/g, " ").trim();
-					setForm((old) => ({ ...old, name: old.name?.trim() ? old.name : nameFromFile, outputRequirements: text.split(/\r?\n/).map((s) => s.trimEnd()), remark: old.remark || `从文件导入：${file.name || ""}` }));
+					void (async () => {
+						const text = String(reader.result || "");
+						try {
+							const result = await call("note_templates_parse_markdown", { request: { markdown: text, fileName: file.name || "" } });
+							const parsed = result?.parsed;
+							if (!parsed || !Array.isArray(parsed.sections) || parsed.sections.length === 0) {
+								throw new Error("未能从 Markdown 解析出章节标题（需使用 # / ## 标题）");
+							}
+							setForm((old) => ({
+								...old,
+								name: old.name?.trim() ? old.name : parsed.name,
+								...(parsed.length ? { length: parsed.length } : {}),
+								sections: parsed.sections.map((s) => ({ key: s.key, title: s.title, required: s.required !== false, hint: s.hint || "" })),
+								templateMarkdown: parsed.templateMarkdown || text,
+								remark: old.remark || `从 Markdown 导入：${file.name || ""}`
+							}));
+							setErrorTemp("");
+						} catch (reason) {
+							setErrorTemp(reason.message || "解析 Markdown 失败");
+						}
+					})();
 				};
 				reader.onerror = () => setErrorTemp("读取 Markdown 文件失败");
 				reader.readAsText(file);
-				event.target.value = "";
 			};
 			const save = async () => {
 				setBusyTemp(true); setErrorTemp("");
@@ -168,7 +186,7 @@ export function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
 			};
 			return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : (isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`)), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : (isCreate ? "新模板" : `当前 v${form.version}`))),
 				h("div", { className: "ib-req" },
-					h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "把一份 Markdown 整篇作为该模板的「生成要求」填入；不改变章节结构（按 needs 保留默认章节）。")),
+					h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "解析 Markdown 的 #/## 标题为章节骨架（含子节与表格要求），原文一并保留；导入后仍可逐项调整。")),
 					h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
 						!isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
 						h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "聚前药精读笔记模板", onChange: field("name") })),

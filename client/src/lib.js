@@ -7,8 +7,8 @@ export const statusOf = (row) => ({ succeeded: "已审核", pending: "待处理"
 		/** 深拷贝阅读笔记模板 → 表单可编辑形态（数组隔离，避免污染原始数据）。 */
 export function cloneForm(source) {
 			if (!source) return {};
-			const { id = "", name = "", audience = "课题组组会", language = "zh", length = "", topics = [], tags = [], sections = [], styleRules = [], evidenceRequirements = [], outputRequirements = [], remark = "", version } = source;
-			return { id, name, audience, language, length, topics: [...topics], tags: [...tags], sections: sections.map((s) => ({ ...s })), styleRules: [...styleRules], evidenceRequirements: [...evidenceRequirements], outputRequirements: [...outputRequirements], remark, version };
+			const { id = "", name = "", audience = "课题组组会", language = "zh", length = "", topics = [], tags = [], sections = [], styleRules = [], evidenceRequirements = [], outputRequirements = [], templateMarkdown = "", remark = "", version } = source;
+			return { id, name, audience, language, length, topics: [...topics], tags: [...tags], sections: sections.map((s) => ({ ...s })), styleRules: [...styleRules], evidenceRequirements: [...evidenceRequirements], outputRequirements: [...outputRequirements], templateMarkdown, remark, version };
 		}
 
 		/** 浏览器下载助手：text / base64 二进制 两类 blob 触发下载任务。 */

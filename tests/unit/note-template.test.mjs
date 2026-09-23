@@ -13,8 +13,11 @@ import {
 	cloneNoteTemplate,
 	createDefaultNoteTemplate,
 	nextNoteTemplateVersion,
+	noteLengthFloor,
 	noteTemplateKey,
 	noteTemplateSchema,
+	parseNoteTemplateMarkdown,
+	renderNoteContract,
 	toNoteRequirements
 } from "../../src/note-template.js";
 
@@ -73,4 +76,81 @@ test("noteTemplateSchema parses a minimal row with defaults", () => {
 
 test("BUILTIN_NOTES seeds note-default", () => {
 	assert.ok(BUILTIN_NOTES.some((t) => t.id === "note-default"));
+});
+
+const MARKDOWN_TEMPLATE = [
+	"# 结构化阅读笔记模板",
+	"",
+	"## 一、文献基本信息",
+	"| 项目 | 内容 |",
+	"| --- | --- |",
+	"| DOI | 【填写】 |",
+	"",
+	"## 二、主要结果",
+	"### 2.1 条件对比",
+	"【填写：不同条件下的表现】",
+	"",
+	"## 三、研究局限性（如有）",
+	"- 【填写：局限】",
+	"",
+	"全文篇幅约 800-1200 字。"
+].join("\n");
+
+test("parseNoteTemplateMarkdown turns md headings into the real section skeleton", () => {
+	const parsed = parseNoteTemplateMarkdown(MARKDOWN_TEMPLATE, { fileName: "结构化阅读笔记模板.md" });
+	assert.equal(parsed.name, "结构化阅读笔记模板");
+	assert.deepEqual(parsed.sections.map((s) => s.title), ["文献基本信息", "主要结果", "研究局限性（如有）"]);
+	assert.equal(parsed.sections[0].required, true);
+	assert.equal(parsed.sections[2].required, false);
+	// 子节与表格要求保留在 hint 里，不丢失结构
+	assert.match(parsed.sections[1].hint, /### 2\.1 条件对比/);
+	assert.match(parsed.sections[0].hint, /\| DOI \| 【填写】 \|/);
+	assert.equal(parsed.length, "800-1200 字");
+	assert.equal(parsed.minContentChars, 800);
+	assert.match(parsed.templateMarkdown, /## 二、主要结果/);
+});
+
+test("parseNoteTemplateMarkdown falls back to # sections and section-N keys", () => {
+	const parsed = parseNoteTemplateMarkdown("# 模板名\n\n# 第一节\n正文\n\n# 第二节\n正文");
+	assert.equal(parsed.name, "模板名");
+	assert.deepEqual(parsed.sections.map((s) => s.key), ["section-1", "section-2"]);
+});
+
+test("noteLengthFloor reads ranges, lower bounds and approximate wording", () => {
+	assert.equal(noteLengthFloor("单篇 600-1000 字"), 600);
+	assert.equal(noteLengthFloor("不少于 500 字"), 500);
+	assert.equal(noteLengthFloor("800 字左右"), 800);
+	assert.equal(noteLengthFloor("内容翔实"), undefined);
+});
+
+test("toNoteRequirements carries the template length floor for the audit", () => {
+	const base = createDefaultNoteTemplate();
+	const tpl = noteTemplateSchema.parse({ ...base, length: "单篇 600-1000 字" });
+	const req = toNoteRequirements(tpl);
+	assert.equal(req.minContentChars, 600);
+	// 原始 md 不进入工具 JSON（避免撑爆 8192 字符裁剪阈值）。
+	assert.equal(req.templateMarkdown, undefined);
+});
+
+test("renderNoteContract writes the skeleton, per-section guidance and resources", () => {
+	const parsed = parseNoteTemplateMarkdown(MARKDOWN_TEMPLATE, { fileName: "t.md" });
+	const contract = renderNoteContract({
+		template: { id: "note-x", version: "2", name: parsed.name },
+		requirements: { ...parsed, sections: parsed.sections },
+		resources: [
+			{ kind: "main-pdf", available: true, path: "/p/正文.pdf", registered: true },
+			{ kind: "si", available: false, path: "/p/SI.pdf", registered: true }
+		],
+		mustReadPaths: ["/p/正文.pdf"],
+		formatSource: "reading-note-template",
+		bundleId: "b-1",
+		title: "示例论文"
+	});
+	assert.match(contract, /^# 精读生成契约/);
+	assert.match(contract, /模板：note-x@2/);
+	assert.match(contract, /### 1\. 文献基本信息/);
+	assert.match(contract, /### 1\. 文献基本信息\n\n\| 项目 \| 内容 \|/);
+	assert.match(contract, /### 3\. 研究局限性（如有） \[可选\]/);
+	assert.match(contract, /- main-pdf：\/p\/正文\.pdf/);
+	assert.match(contract, /- si：未就绪（已登记但文件缺失）/);
 });
