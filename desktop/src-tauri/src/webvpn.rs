@@ -79,16 +79,18 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
   };
   const CHROME_HEIGHT = 76;
   /**
-   * 让页面内容整体下移到工具栏之下。
+   * 页面位移：**只在识别出全屏 PDF 预览器时**才注入。
    *
-   * 工具栏是 `position:fixed` 覆盖层，不推走内容就会盖住页面顶部——出版社的 PDF
-   * 预览器工具栏正好在那条带里，表现为「看不到保存/下载按钮，只能用右键另存」。
+   * 对 `html` 施加 transform 会让它成为 `position:fixed` 后代的包含块。出版社的
+   * HTML PDF 预览器正是 `position:fixed;inset:0` 的整屏容器，不位移就会被我们
+   * 76px 的工具栏盖住「保存/下载」按钮。
    *
-   * 对 `html` 施加 transform 会让它成为 `position:fixed` 后代的包含块，因此
-   * `position:fixed;inset:0` 那类整屏预览容器也会一起下移；工具栏自身用等量反向
-   * 位移抵消（见 mount）。返回是否成功应用，调用方据此决定是否抵消。
+   * 但同一个 transform 也会重定位普通论文页里的全屏 fixed 遮罩/加载层：ScienceDirect
+   * 一类 SPA 因此偶发整页白屏（2026-09-23 真机反馈）。所以默认不位移，由 Rust 在确认
+   * 进入 PDF 预览器后调用 `window.__ibmWebVpnSetPageOffset(true)` 打开；白屏看门狗会
+   * 在 2.5s 后自动撤销，宁可盖住预览器工具栏也不把页面变成打不开的白屏。
    */
-  const ensurePageOffset = () => {
+  const applyPageOffset = () => {
     if (document.getElementById('__ibm_webvpn_offset')) return true;
     try {
       const style = document.createElement('style');
@@ -100,6 +102,56 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       return false;
     }
   };
+  const removePageOffset = () => {
+    const style = document.getElementById('__ibm_webvpn_offset');
+    if (!style) return false;
+    style.remove();
+    return true;
+  };
+  /** 工具栏自身用等量反向位移抵消页面位移；没有页面位移时不偏移。 */
+  const syncChromeShift = () => {
+    const existing = document.getElementById('__ibm_webvpn_chrome');
+    if (!existing) return;
+    existing.style.transform = document.getElementById('__ibm_webvpn_offset')
+      ? `translateY(-${CHROME_HEIGHT}px)`
+      : '';
+  };
+  /** 位移后页面仍无可见内容（被固定遮罩盖住）时判定白屏。 */
+  const looksBlank = () => {
+    if (String(document.contentType || '').includes('pdf')) return false;
+    const body = document.body;
+    if (!body) return false;
+    if (String(body.innerText || '').trim().length > 0) return false;
+    if (body.querySelector('img,svg,canvas,video,iframe,embed,object')) return false;
+    return !Array.from(body.children).some((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 4 && rect.height > 4;
+    });
+  };
+  let offsetWatchdog = null;
+  /**
+   * 开关页面位移。开启后 2.5s 检查一次：若仍白屏则撤销，并把结果送回壳记录。
+   */
+  window.__ibmWebVpnSetPageOffset = (enabled) => {
+    if (offsetWatchdog) { clearTimeout(offsetWatchdog); offsetWatchdog = null; }
+    if (!enabled) {
+      const removed = removePageOffset();
+      syncChromeShift();
+      return removed;
+    }
+    const applied = applyPageOffset();
+    syncChromeShift();
+    if (applied) {
+      offsetWatchdog = setTimeout(() => {
+        offsetWatchdog = null;
+        if (!document.getElementById('__ibm_webvpn_offset') || !looksBlank()) return;
+        removePageOffset();
+        syncChromeShift();
+        location.href = 'ibm-webvpn://offset-reverted/';
+      }, 2500);
+    }
+    return applied;
+  };
   /**
    * 捕获状态小球：手动/自动文献捕获期间浮在右下角，点一下终止本次捕获。
    * 状态由壳经 `window.__ibmWebVpnCapture(payload)` 推进来；`null` 表示隐藏。
@@ -109,8 +161,9 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     if (document.getElementById('__ibm_webvpn_capture')) return;
     const host = document.createElement('div');
     host.id = '__ibm_webvpn_capture';
-    // 页面根元素被施加了 transform（见 ensurePageOffset），它会让 position:fixed 的
-    // 后代改以 html 为包含块——小球因此会跟着页面滚动、贴在文档里而不是窗口上。
+    // 页面根元素在 PDF 预览页会被施加 transform（见 __ibmWebVpnSetPageOffset），
+    // 它会让 position:fixed 的后代改以 html 为包含块——小球因此会跟着页面滚动、
+    // 贴在文档里而不是窗口上。
     // popover 的 top layer 不受祖先 transform 影响，正好用来跳出那个包含块。
     // 拿不到 popover 的旧引擎退回普通 fixed 层：位置仍是左下角，只是会随页面滚动。
     const canPopover = typeof host.showPopover === 'function';
@@ -168,14 +221,12 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     captureBall.setAttribute('title', `${text}；点击终止本次捕获`);
   };
   const mount = () => {
-    const offset = ensurePageOffset();
     mountCaptureBall();
     const existing = document.getElementById('__ibm_webvpn_chrome');
-    const shift = offset ? `transform:translateY(-${CHROME_HEIGHT}px);` : '';
-    if (existing) { existing.style.transform = offset ? `translateY(-${CHROME_HEIGHT}px)` : ''; return; }
+    if (existing) { syncChromeShift(); return; }
     const host = document.createElement('div');
     host.id = '__ibm_webvpn_chrome';
-    host.style.cssText = `all:initial;position:fixed;inset:0 0 auto 0;z-index:2147483647;height:${CHROME_HEIGHT}px;${shift}`;
+    host.style.cssText = `all:initial;position:fixed;inset:0 0 auto 0;z-index:2147483647;height:${CHROME_HEIGHT}px;`;
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
       *{box-sizing:border-box}
@@ -292,6 +343,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       location.assign(target);
     });
     (document.documentElement || document.body).appendChild(host);
+    syncChromeShift();
     sync();
     const titleNode = document.querySelector('title');
     if (titleNode) new MutationObserver(sync).observe(titleNode, { childList: true, subtree: true });
@@ -696,6 +748,12 @@ pub fn is_nature_article(target: &url::Url) -> bool {
     (host == "doi.org" && (path.starts_with("/10.1038/") || path.starts_with("/10.1038%2f")))
         || host == "nature.com"
         || host.ends_with(".nature.com")
+}
+
+/// 直接以 `.pdf` 结尾的文档地址：WebView2 内置查看器会占满窗口，其顶部工具栏
+/// 会被我们的 76px 工具栏盖住，因此这类页面需要开启页面位移。
+pub fn is_pdf_document_url(target: &url::Url) -> bool {
+    target.path().to_ascii_lowercase().ends_with(".pdf")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2133,6 +2191,17 @@ pub fn open_window(
         .initialization_script(WEBVPN_CHROME_SCRIPT)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
+                // 直接落到 .pdf（WebView2 内置查看器）时也开启位移，避免查看器
+                // 自带的保存/下载工具栏被我们的 76px 工具栏盖住。
+                if webview
+                    .url()
+                    .map(|url| is_pdf_document_url(&url))
+                    .unwrap_or(false)
+                {
+                    let _ = webview.eval(
+                        "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
+                    );
+                }
                 start_pending_publisher_automation(&page_app, &webview);
                 // 脚本每次导航都会重新注入，小球随之重建：必须再推一次状态。
                 let _ = push_capture_ball(&page_app, &webview);
@@ -2198,6 +2267,16 @@ pub fn open_window(
                     return false;
                 }
             }
+            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("offset-reverted") {
+                // 页面位移的看门狗判定白屏并自行撤销（见 WEBVPN_CHROME_SCRIPT）。
+                record(
+                    &navigation_app,
+                    "offset",
+                    "",
+                    "页面疑似被整屏固定遮罩盖住，已自动撤销 html 位移",
+                );
+                return false;
+            }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
                 let result = url.path().trim_matches('/');
                 let waiting_message = match result {
@@ -2208,6 +2287,15 @@ pub fn open_window(
                     _ => None,
                 };
                 if let Some(message) = waiting_message {
+                    // 出版社 HTML PDF 预览器是整屏 fixed 容器：只有这时才开启页面位移，
+                    // 否则其「保存/下载」工具栏会被我们的 76px 工具栏盖住。
+                    if result == "pdf-manual" {
+                        if let Some(webview) = navigation_app.get_webview(WINDOW_LABEL) {
+                            let _ = webview.eval(
+                                "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
+                            );
+                        }
+                    }
                     record(&navigation_app, "automation", "", message);
                     return false;
                 }
@@ -2388,6 +2476,37 @@ mod tests {
             enforce: true,
             allowed_hosts: hosts.iter().map(|host| host.to_string()).collect(),
         }
+    }
+
+    #[test]
+    fn pdf_document_urls_are_recognized_for_page_offset() {
+        let pdf = url::Url::parse("https://www.example.org/a/b/paper.PDF?download=1").unwrap();
+        assert!(is_pdf_document_url(&pdf));
+        let landing = url::Url::parse("https://www.sciencedirect.com/science/article/pii/S1")
+            .unwrap();
+        assert!(!is_pdf_document_url(&landing));
+        let doi = url::Url::parse("https://doi.org/10.1016/j.rpth.2024.102373").unwrap();
+        assert!(!is_pdf_document_url(&doi));
+    }
+
+    /// 回归护栏（2026-09-23 ScienceDirect 偶发白屏）：`html` 位移只能由
+    /// `window.__ibmWebVpnSetPageOffset(true)` 在确认进入 PDF 预览器后打开，
+    /// `mount()` 不得对所有页面无条件注入 transform。
+    #[test]
+    fn chrome_script_does_not_offset_pages_by_default() {
+        assert!(WEBVPN_CHROME_SCRIPT.contains("__ibmWebVpnSetPageOffset"));
+        assert!(WEBVPN_CHROME_SCRIPT.contains("looksBlank"));
+        assert!(WEBVPN_CHROME_SCRIPT.contains("ibm-webvpn://offset-reverted/"));
+        assert!(!WEBVPN_CHROME_SCRIPT.contains("ensurePageOffset"));
+        let mount_body = WEBVPN_CHROME_SCRIPT
+            .split("const mount = () => {")
+            .nth(1)
+            .and_then(|rest| rest.split("if (document.readyState").next())
+            .expect("mount body");
+        assert!(
+            !mount_body.contains("applyPageOffset"),
+            "mount() must not apply the page offset unconditionally"
+        );
     }
 
     #[test]
