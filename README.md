@@ -7,13 +7,15 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 
 当前稳定版本为 **v0.5.1**。
 
-当前候选版本为 **v0.5.3-beta7**：阅读笔记模板导入时按 Markdown 标题解析成**真实章节骨架**
-（子节、表格与「如有/可选」标记一并保留），生成精读报告前先把「精读生成契约」落盘、
-由 Agent 用 `read` 读取；汇报 PPT 改为以导入模板的 `source.pptx` 为起点、按版式角色映射
-构建，并新增模板符合性检查（页面尺寸、主题字体与主色）。沿用 beta6 起并入的软件内浏览器
-右侧栏、课题资源 tab、捕获小球与 iWAN 直连修复，以及 v0.5.2-rc.1 验证过的首次启动引导、
-环境诊断、软件封装 Python 强制执行与 PowerShell 5.1/7.x 兼容性。首要应用方向仍为聚前药与
-高分子材料研究。
+当前候选版本为 **v0.5.3-beta8**：修掉软件内浏览器里「出版社页面的人机验证框一直上下跳、
+渲染不出来」——beta6 为露出出版社 PDF 预览器的保存/下载按钮，对每个页面无条件给 `html`
+加位移；`transform` 让 `html` 成为 `position:fixed` 后代的包含块、高度又被改小，按视口居中
+的验证组件（Cloudflare Turnstile 一类）测量值每帧自我纠正，于是框在应出现的位置抖动
+（ScienceDirect + iWAN 实测，外部 Edge 正常）。现在默认不位移，只在识别出 PDF 预览器时
+才开启，并带看门狗自动撤销。沿用 beta7 并入的精读模板真实章节解析 / 生成契约落盘、PPT 按
+导入模板构建与符合性检查，以及 beta6 起并入的软件内浏览器右侧栏、课题资源 tab、捕获小球
+与 iWAN 直连修复，和 v0.5.2-rc.1 验证过的首次启动引导、环境诊断、软件封装 Python 强制执行
+与 PowerShell 5.1/7.x 兼容性。首要应用方向仍为聚前药与高分子材料研究。
 
 **[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
 [查看 v0.5.1 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.1) ·
@@ -170,7 +172,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.3-beta7 |
+| iBM Lab Agent | 0.5.3-beta8 |
 | DeepSeek Harness | 0.1.5-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -184,17 +186,17 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（`release-0.5.0`，含 v0.5.3-beta7 的全部改动）在本机实测：
+当前分支（`release-0.5.0`，含 v0.5.3-beta8 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **563/563** 通过；
+- Node 单元与集成测试 **563/563** 通过；Rust 侧 `cargo test` **104 passed / 1 ignored**；
 - 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
 - Linux 归档 **24,070,933 B**、Windows 安装包 **172,130,687 B**
   （SHA-256 `9A368692…170628E`），两者均通过体积门禁与必需路径双向断言；
 - 打包后的应用在发布流水线的 `verify-installer` 阶段被真实启动并完成回环 Web 冒烟。
 
-v0.5.3-beta7 于 2026-09-23 完成出包验证，详见
-[`docs/releases/v0.5.3-beta7.md`](docs/releases/v0.5.3-beta7.md)；精读模板按真实章节生成、
-PPT 按导入模板构建并做符合性检查，两条链路仍需按该文档末尾的清单在真实文献上人工验收。
+v0.5.3-beta8 于 2026-09-23 完成出包验证，详见
+[`docs/releases/v0.5.3-beta8.md`](docs/releases/v0.5.3-beta8.md)；浏览器页面位移已收敛到
+PDF 预览器，人机验证框与 PDF 预览器工具栏需按该文档末尾的清单在真实出版社页面上人工验收。
 
 v0.5.1 于 2026-09-17 完成正式发布验证：
 
