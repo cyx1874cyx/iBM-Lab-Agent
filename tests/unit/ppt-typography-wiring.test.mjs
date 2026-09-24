@@ -1,0 +1,99 @@
+/**
+ * 回归守卫：slots.json 的派生必须用**模板真实排版**算容量。
+ *
+ * 背景（真实发生过）：容量模型做进了 `src/ppt-slot-spec.js`，单测也全绿，但派生 slots.json 的
+ * 两个写入方（`lib/ppt-templates.js` 的导入流程、`scripts/lint-ppt-template.mjs` 的
+ * `--write-slots`）**没有把 typography 传进去**，于是落盘的 `capacityLines` 仍是默认模型值
+ * （行距按 1.2 倍、段间距 0），自算值与 pptx-cli 完全一致（fig1 分析槽 19 vs 19）——
+ * 也就是说"修掉容量高估"这件事在生产路径上根本没生效，而所有测试都是绿的。
+ *
+ * 本文件覆盖两层：
+ *   1. 功能层：`templateTypography()` 能从真实 pptx 里解出行距/段前后/内边距，失败时返回
+ *      undefined（不假装检查过）；
+ *   2. 接线层：两个写入方确实 import 了它并把它交给 `deriveSlotSpec`（源码级断言 ——
+ *      这类"测试绿但接线断"的缺陷只有在接线处断言才能守住）。
+ */
+
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { test } from "node:test";
+
+import JSZip from "jszip";
+
+import { templateTypography } from "../../lib/pptx-manifest.js";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
+const base = "http://schemas.openxmlformats.org";
+const LAYOUT_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="${base}/drawingml/2006/main" xmlns:p="${base}/presentationml/2006/main">
+  <p:cSld name="Fig1"><p:spTree>
+    <p:sp><p:nvSpPr><p:cNvPr id="10" name="文本占位符 20"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="15"/></p:nvPr></p:nvSpPr>
+      <p:spPr><a:bodyPr lIns="18288" tIns="0"/></p:spPr>
+      <p:txBody><a:bodyPr/>
+        <a:lstStyle><a:lvl1pPr><a:lnSpc><a:spcPts val="3000"/></a:lnSpc><a:spcBef><a:spcPts val="1000"/></a:spcBef><a:spcAft><a:spcPts val="1400"/></a:spcAft><a:defRPr sz="2000"/></a:lvl1pPr></a:lstStyle>
+        <a:p><a:r><a:t>正文</a:t></a:r></a:p></p:txBody></p:sp>
+  </p:spTree></p:cSld>
+</p:sldLayout>`;
+
+const LAYOUTS = [{ id: "fig1", name: "Fig1", sourceLayoutIndex: 0 }];
+
+test("templateTypography：从模板 pptx 解出行距/段前后/内边距（本模板是固定 30pt 行距）", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "ppt-typography-"));
+	try {
+		const zip = new JSZip();
+		zip.file("ppt/slideLayouts/slideLayout1.xml", LAYOUT_XML);
+		const templatePath = join(dir, "source.pptx");
+		await writeFile(templatePath, await zip.generateAsync({ type: "nodebuffer" }));
+
+		const typography = await templateTypography({ sourceTemplate: templatePath }, LAYOUTS);
+		assert.ok(typography !== undefined, "有模板时必须扫出排版，而不是返回 undefined");
+		const placeholder = typography.fig1.placeholders[15];
+		assert.deepEqual(placeholder.lineSpacing, { kind: "pts", value: 30 }, "行距必须来自 a:lnSpc，而不是默认 1.2 倍");
+		assert.deepEqual(placeholder.spaceBefore, { kind: "pts", value: 10 });
+		assert.deepEqual(placeholder.spaceAfter, { kind: "pts", value: 14 });
+		assert.equal(placeholder.insets.lIns, 18288);
+		assert.equal(placeholder.insets.tIns, 0);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("templateTypography：模板缺失或不是 zip 时返回 undefined（不假装检查过）", async () => {
+	assert.equal(await templateTypography({}, LAYOUTS), undefined);
+	assert.equal(await templateTypography({ sourceTemplate: "" }, LAYOUTS), undefined);
+	assert.equal(await templateTypography({ sourceTemplate: "/nonexistent/source.pptx" }, LAYOUTS), undefined);
+
+	const dir = await mkdtemp(join(tmpdir(), "ppt-typography-bad-"));
+	try {
+		const broken = join(dir, "source.pptx");
+		await writeFile(broken, "not a zip");
+		assert.equal(await templateTypography({ sourceTemplate: broken }, LAYOUTS), undefined);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("接线守卫：slots.json 的两个写入方都必须把 typography 交给 deriveSlotSpec", async () => {
+	const writers = {
+		"lib/ppt-templates.js": await readFile(join(repoRoot, "lib/ppt-templates.js"), "utf8"),
+		"scripts/lint-ppt-template.mjs": await readFile(join(repoRoot, "scripts/lint-ppt-template.mjs"), "utf8")
+	};
+	for (const [name, source] of Object.entries(writers)) {
+		assert.match(source, /templateTypography/, `${name} 必须使用 templateTypography 取模板排版`);
+		// deriveSlotSpec 调用与其后的 typography 实参之间不应跨太远（防止"导入了但没传"）。
+		assert.match(
+			source,
+			/deriveSlotSpec\([\s\S]{0,400}?typography/,
+			`${name} 必须把 typography 传给 deriveSlotSpec —— 不传就会静默退化为默认排版模型，容量与 pptx-cli 等价`
+		);
+	}
+
+	const manifestModule = await readFile(join(repoRoot, "lib/pptx-manifest.js"), "utf8");
+	assert.match(manifestModule, /export async function templateTypography/, "lib/pptx-manifest.js 必须导出 templateTypography");
+	assert.match(manifestModule, /scanPresentationXml/, "必须读模板 pptx 的 XML，而不是只信 manifest 的估算");
+	assert.match(manifestModule, /typographyFromScan/);
+});
