@@ -8,6 +8,19 @@ Role → layout precedence (the `layout_resolution` finding): plan.roles[role]
 when mapped to an existing layout; else cover → the title layout, other roles
 → the previous slide's layout, else slide_layouts[0].
 
+Writing into placeholders (0.1.16+):
+  * legacy: item.title / item.subtitle / item.bullets / item.image —
+    addressed by placeholder *kind* (first match wins).
+  * `item.texts`: [{ idx | name, paragraphs: [...], mode: "paragraph"|"bullets",
+    sizePt? }] — addressed by placeholder **idx** (or shape name). Required for
+    templates whose cover has several body placeholders and no title, and for
+    summary pages with more than one body placeholder.
+  * Every written run gets latin/ea/cs typefaces (default Arial / 微软雅黑 /
+    Arial) and a size floor (`placeholderRules.minFontPt`, default 20pt), so a
+    Chinese body never inherits a 14pt template default.
+  * mode="paragraph" strips a:buChar/a:buAutoNum/a:buFont and adds a:buNone —
+    “one or two natural paragraphs, no bullet points”.
+
 CLI: --template <source.pptx> --parse <parse.json> --plan <plan.json>
      [--out <deck.pptx>] [--report <conformance.json>] [--check] [--max-pages N]
      [--required cover,summary] [--ratio 16:9] [--notes-required true|false]
@@ -222,13 +235,41 @@ def build_deck(template_path, parsed, plan, findings):
         from pptx.util import Emu, Inches
     except ImportError as exc:
         raise BuildError("python-pptx is not installed; run: python -m pip install python-pptx") from exc
+    from pptx.oxml.ns import qn
+    from pptx.util import Pt
     rules = plan.get("placeholderRules") if isinstance(plan.get("placeholderRules"), dict) else {}
+    fonts = rules.get("fonts") if isinstance(rules.get("fonts"), dict) else {}
+    font_latin = str(fonts.get("latin") or plan.get("fontLatin") or "Arial")
+    font_ea = str(fonts.get("ea") or plan.get("fontEa") or "微软雅黑")
+    font_cs = str(fonts.get("cs") or plan.get("fontCs") or "Arial")
+    try:
+        min_font_pt = float(rules.get("minFontPt", plan.get("minFontPt", 20.0)))
+    except (TypeError, ValueError):
+        min_font_pt = 20.0
+    if min_font_pt <= 0:
+        min_font_pt = 20.0
     safe_inches = rules.get("safeAreaInches", plan.get("safeAreaInches", DEFAULT_SAFE_AREA_INCHES))
     if not isinstance(safe_inches, (int, float)) or isinstance(safe_inches, bool) or safe_inches < 0:
         safe_inches = DEFAULT_SAFE_AREA_INCHES
     crop_mode = rules.get("imageCrop", plan.get("imageCrop", "contain"))
+    def drop_template_slides(presentation):
+        """删掉模板自带的幻灯片，只保留本次生成的页。
+
+        模板的静态装饰在**版式/母版**上，不在这几页里，所以删掉引用不影响底图/蓝线/logo。
+        不删的话，模板里老师放的示例页会原样留在成品里（实测：8 页模板 + 5 页计划 = 13 页）。
+        `placeholderRules.keepTemplateSlides: true` 可保留（用于"在模板页上续写"的场景）。
+        """
+        sldIdLst = presentation.slides._sldIdLst
+        for sldId in list(sldIdLst):
+            rId = sldId.get(qn("r:id"))
+            if rId:
+                presentation.part.drop_rel(rId)
+            sldIdLst.remove(sldId)
+
     safe = Emu(int(Inches(safe_inches)))
     prs = Presentation(template_path)
+    if not (rules.get("keepTemplateSlides", plan.get("keepTemplateSlides", False)) is True):
+        drop_template_slides(prs)
     order, by_id = index_layouts(parsed)
     title_id = title_layout_id(order, by_id)
     roles_map = plan.get("roles") or {}
@@ -240,6 +281,87 @@ def build_deck(template_path, parsed, plan, findings):
     def kind_of(shape):
         partial = getattr(getattr(shape, "placeholder_format", None), "type", None)
         return kinds.get(getattr(partial, "name", None) or str(partial).split(" ")[0], "other")
+
+    def set_typeface(rPr, tag, face):
+        """设置 a:ea / a:cs（python-pptx 只建模了 a:latin）。必须遵守 schema 顺序：
+        latin → ea → cs → sym → hlink*，所以插在 a:latin 之后。"""
+        element = rPr.find(qn(tag))
+        if element is None:
+            element = rPr.makeelement(qn(tag), {})
+            latin = rPr.find(qn("a:latin"))
+            if latin is not None:
+                latin.addnext(element)
+            else:
+                rPr.append(element)
+        element.set("typeface", face)
+
+    def style_paragraphs(shape, size_pt=None):
+        """给形状里每个 run 统一字体，并保证字号不低于 min_font_pt。
+
+        字号策略（只升不降）：run 已有且 >= 下限 → 保持；已有但低于下限 → 提到下限；
+        未显式设置 → 用 sizePt（plan 显式给的）否则下限。模板里更大的字号请用
+        sizePt 显式声明，否则会被收到下限。"""
+        explicit = size_pt if isinstance(size_pt, (int, float)) and not isinstance(size_pt, bool) and size_pt > 0 else None
+        for paragraph in shape.text_frame.paragraphs:
+            for run in paragraph.runs:
+                run.font.name = font_latin
+                rPr = run._r.get_or_add_rPr()
+                set_typeface(rPr, "a:ea", font_ea)
+                set_typeface(rPr, "a:cs", font_cs)
+                current = run.font.size
+                if current is not None and current >= Pt(min_font_pt):
+                    continue
+                run.font.size = Pt(explicit if explicit is not None else min_font_pt)
+
+    def strip_bullet(paragraph):
+        """去掉项目符号：删 a:buChar/a:buAutoNum/a:buFont，补 a:buNone（插在 defRPr 前）。"""
+        pPr = paragraph._p.get_or_add_pPr()
+        for tag in ("a:buChar", "a:buAutoNum", "a:buBlip", "a:buFont"):
+            element = pPr.find(qn(tag))
+            if element is not None:
+                pPr.remove(element)
+        if pPr.find(qn("a:buNone")) is None:
+            buNone = pPr.makeelement(qn("a:buNone"), {})
+            defRPr = pPr.find(qn("a:defRPr"))
+            if defRPr is not None:
+                defRPr.addprevious(buNone)
+            else:
+                pPr.append(buNone)
+
+    def placeholder_by_idx(slide, idx):
+        for placeholder in slide.placeholders:
+            if placeholder.placeholder_format.idx == idx:
+                return placeholder
+        return None
+
+    def write_into_placeholder(slide, entry, index, findings):
+        """按 idx（或形状名）定点写入一段或多段文字。"""
+        idx = entry.get("idx")
+        shape = placeholder_by_idx(slide, idx) if isinstance(idx, int) and not isinstance(idx, bool) else None
+        if shape is None and isinstance(entry.get("name"), str) and entry["name"]:
+            shape = next((candidate for candidate in slide.shapes if candidate.name == entry["name"]), None)
+        if shape is None:
+            findings.append({"level": "warning", "code": "placeholder_missing",
+                             "message": f"slide {index + 1}: no placeholder for idx={idx!r} name={entry.get('name')!r}"})
+            return False
+        if not getattr(shape, "has_text_frame", False):
+            findings.append({"level": "warning", "code": "placeholder_not_text",
+                             "message": f"slide {index + 1}: placeholder idx={idx} has no text frame"})
+            return False
+        paragraphs = entry.get("paragraphs")
+        if not isinstance(paragraphs, list) or not paragraphs:
+            return False
+        mode = entry.get("mode") if entry.get("mode") in ("paragraph", "bullets") else "paragraph"
+        frame = shape.text_frame
+        frame.word_wrap = True
+        frame.clear()
+        for position, text in enumerate(paragraphs):
+            paragraph = frame.paragraphs[0] if position == 0 else frame.add_paragraph()
+            paragraph.text = str(text)
+            if mode == "paragraph":
+                strip_bullet(paragraph)
+        style_paragraphs(shape, entry.get("sizePt"))
+        return True
 
     def place_picture(slide, image, caption, title_shape):
         top = safe if title_shape is None else max(safe, title_shape.top + title_shape.height + Inches(0.15))
@@ -279,13 +401,22 @@ def build_deck(template_path, parsed, plan, findings):
         for key, shape in (("title", title_shape), ("subtitle", next((ph for ph in placeholders if kind_of(ph) == "subtitle"), None))):
             if isinstance(item.get(key), str) and item[key] and shape is not None and shape.has_text_frame:
                 shape.text_frame.text = item[key]
+                style_paragraphs(shape)
         body_shape = next((ph for ph in placeholders if kind_of(ph) == "body"), None)
         bullets = item.get("bullets") if isinstance(item.get("bullets"), list) else []
         if bullets and body_shape is not None and body_shape.has_text_frame:
             body_shape.text_frame.clear()
             frame = body_shape.text_frame
+            frame.word_wrap = True
             for position, bullet in enumerate(bullets):
                 (frame.paragraphs[0] if position == 0 else frame.add_paragraph()).text = str(bullet)
+            style_paragraphs(body_shape)
+        # 定点写入：按占位符 idx（或形状名）写多段文字，用于封面多占位符与总结页多段。
+        texts = item.get("texts")
+        if isinstance(texts, list):
+            for entry in texts:
+                if isinstance(entry, dict):
+                    write_into_placeholder(slide, entry, index, findings)
         if item.get("image"):
             try:
                 place_picture(slide, item["image"], item.get("imageCaption"), title_shape)

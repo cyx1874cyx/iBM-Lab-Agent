@@ -326,3 +326,43 @@ slide3/4/5/6 同理：`methods-1`、`methods-2`、`results`、`summary`，各自
 1. 总结页 `body/12` 的提示是「本文实现的创新方法有：(To Agent:分…)」——
    **总结页是否允许分点？** 需求里"不分点"只点名了图解释与摘要。
 2. Fig3 页要不要图注（见 9.2 #3）。
+
+## 10. 代码侧已实现并通过真机验证（模板 2 第三版）
+
+已在 Windows 侧用**打包 Python（python-pptx 1.0.2）**对真实模板跑通构建，
+生成件渲染成图后确认静态层完好。实现内容：
+
+| 能力 | 位置 | 说明 |
+|---|---|---|
+| **按 idx 定点写入** | `build_from_template.py` `write_into_placeholder()` | `plan.slides[].texts = [{idx\|name, paragraphs[], mode, sizePt?}]`；idx 优先、形状名兜底；找不到时记 `placeholder_missing` warning 而不是静默写错位置 |
+| **自然段模式（去项目符号）** | `strip_bullet()` | `mode="paragraph"` 删 `a:buChar/a:buAutoNum/a:buFont` 并补 `a:buNone`（插在 `defRPr` 前，遵守 schema 顺序）；`mode="bullets"` 保持模板项目符号 |
+| **字体统一** | `style_paragraphs()` / `set_typeface()` | 每个 run 设 `latin=Arial`、`ea=微软雅黑`、`cs=Arial`；`a:ea/a:cs` 由 python-pptx 未建模，手写 XML 并插在 `a:latin` 之后 |
+| **字号下限** | `minFontPt`（默认 20） | 只升不降：已有且 ≥20pt 保持；低于则提到下限；未设则取下限（要更大请在 `sizePt` 显式给） |
+| **删除模板自带页** | `drop_template_slides()` | 载入模板后先清空 `p:sldIdLst` 与关系，只保留本次生成的页；`keepTemplateSlides: true` 可关掉 |
+| **版式名可读** | `src/pptx-parse.js` | 版式名改从 `p:cSld/@name` 取（`标题幻灯片`/`Abs`/`Fig1`…），角色映射时人能看懂 |
+
+### 10.1 真机验证结果（5 页计划 → 5 页成品）
+
+| 页 | 版式 | 写入内容 | 渲染检查 |
+|---|---|---|---|
+| 1 封面 | 标题幻灯片 | idx 10/11/12/13（中/英标题、讲解人、日期；32/24/20pt） | ✅ 校徽底图、课题组名、"文献汇报"全部保留，4 处内容按位填好 |
+| 2 摘要 | Abs | idx 11 一个自然段，20pt | ✅ 蓝线、右上 logo、"摘要 Abstract"保留；正文无项目符号、填满右栏 |
+| 3 方法 Fig.1 | Fig1 | idx 10 图片 + idx 11 两段 | ✅ 图落进模板图框，两段自然段无分点 |
+| 4 结果 Fig.3 | Fig3 | idx 10 图片 + idx 11 一段 | ✅ 通栏图框 + 下方文字 |
+| 5 总结 | End | idx 11 段、**idx 12 分点**、idx 13 段 | ✅ 创新点保留分点（未写 `buNone`），其余为自然段 |
+
+每个 run 实测：`latin=Arial`、`ea=微软雅黑`、`cs=Arial`、`sz=2000`（封面标题 3200/2400）。
+所有段落 inspect 结果：`buChar=0`；仅总结页 idx 12 未写 `buNone`（保留分点）。
+
+### 10.2 修复过程中发现并修掉的构建器缺陷
+
+**模板自带的示例页会原样留在成品里。** 实测：8 页模板 + 5 页计划 = **13 页**，
+而 `report.summary.slideCount` 只统计计划页数，所以这个缺陷此前不可见。
+现已删除模板自带页（静态装饰在版式上，删除引用不影响底图/蓝线/logo）。
+
+### 10.3 仍建议你在模板里改的 3 处（本轮已实现的能力不覆盖）
+
+1. `body/12` 图注 `defRPr sz=1400` → 改 2000（否则图注继承 14pt）；
+2. 封面 `body/10`、`body/11` 无 `sz` → 显式设 32/24pt；
+3. 结尾页 `图片 7` 的 `hdphto1.wdp`（JPEG XR）换 PNG/JPG 并给尺寸。
+   （静态中文的 `ea` 也已建议补上；Fig3 无图注、总结页分点经确认均为预期，不需改。）

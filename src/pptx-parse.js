@@ -87,9 +87,15 @@ function parseLayout(xml, id) {
 			return { type, idx: Number.isFinite(idx) ? idx : undefined };
 		})
 		.sort((a, b) => (a.idx ?? 999) - (b.idx ?? 999));
+	// 版式名优先取 p:cSld/@name（PowerPoint 里显示的名字，如「标题幻灯片」「Fig1」）；
+	// 它才是角色映射时人能看到的名字。p:cNvPr 上通常只有空串，最后才回退到文件 id。
 	let name = id;
-	const cnvPr = collectByKey(doc, "p:cNvPr").find((n) => typeof n["@_name"] === "string");
-	if (cnvPr && cnvPr["@_name"]) name = cnvPr["@_name"];
+	const cSld = collectByKey(doc, "p:cSld").find((n) => typeof n["@_name"] === "string");
+	if (cSld && cSld["@_name"]) name = cSld["@_name"];
+	else {
+		const cnvPr = collectByKey(doc, "p:cNvPr").find((n) => typeof n["@_name"] === "string" && n["@_name"]);
+		if (cnvPr) name = cnvPr["@_name"];
+	}
 	return { id, name, placeholders };
 }
 

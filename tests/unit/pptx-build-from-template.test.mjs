@@ -192,6 +192,59 @@ test("every finding is well formed for both passing and failing plans", (t) => {
 	assertFindingShape(failReport.findings);
 });
 
+test("定点写入契约：--check 接受 texts（按 idx 写多段）并保持 finding 形状", (t) => {
+	// 模板2 的封面没有 title 占位符（4 个 body/10..13），总结页有 3 个 body；
+	// 只按"第一个 body"写会把标题写错位置。texts 是这类模板的唯一正确入口。
+	const files = writeFixtures(t, {
+		plan: validPlan({
+			roles: { cover: "slideLayout1", summary: "slideLayout2" },
+			slides: [
+				{
+					role: "cover",
+					texts: [
+						{ idx: 10, paragraphs: ["论文中文标题"], sizePt: 32 },
+						{ idx: 11, paragraphs: ["English Paper Title"], sizePt: 24 },
+						{ idx: 12, paragraphs: ["讲解人：张三"], sizePt: 20 }
+					],
+					notes: "开场"
+				},
+				{
+					role: "summary",
+					texts: [
+						{ idx: 11, paragraphs: ["第一段总结"], mode: "paragraph" },
+						{ idx: 12, paragraphs: ["创新点一", "创新点二"], mode: "bullets" }
+					],
+					notes: "总结"
+				}
+			]
+		})
+	});
+	const result = runCheck(files);
+	assert.equal(result.status, 0, result.stderr);
+	const report = checkReport(result);
+	assert.equal(report.ok, true);
+	assertFindingShape(report.findings);
+});
+
+test("构建脚本保留定点写入/去项目符号/字体统一/删除模板自带页的实现", () => {
+	const source = readFileSync(SCRIPT, "utf8");
+	// 静态元素在版式上时，模板自带的示例页必须删掉，否则会原样留在成品里
+	assert.match(source, /def drop_template_slides\(/, "应删除模板自带幻灯片");
+	assert.match(source, /keepTemplateSlides/, "应允许显式保留（在模板页上续写的场景）");
+	// 按 idx 定点写入 + 形状名兜底
+	assert.match(source, /def placeholder_by_idx\(/, "应按 idx 定位占位符");
+	assert.match(source, /def write_into_placeholder\(/, "应有定点写入入口");
+	// 自然段模式：去掉项目符号
+	assert.match(source, /def strip_bullet\(/, "应有去项目符号实现");
+	assert.match(source, /a:buNone/, "应写入 buNone");
+	assert.match(source, /"a:buChar", "a:buAutoNum"/, "应删除 buChar/buAutoNum");
+	// 字体：latin 用 python-pptx，ea/cs 手写并按 schema 顺序插在 latin 之后
+	assert.match(source, /def set_typeface\(/, "应设置 a:ea/a:cs");
+	assert.match(source, /latin\.addnext\(element\)/, "ea/cs 必须插在 a:latin 之后（schema 顺序）");
+	assert.match(source, /font_ea = str\(fonts\.get\("ea"\) or plan\.get\("fontEa"\) or "微软雅黑"\)/, "默认东亚字体为微软雅黑");
+	assert.match(source, /minFontPt/, "应有字号下限");
+});
+
 test("build mode without python-pptx exits 2 with a JSON error mentioning python-pptx", (t) => {
 	const probe = spawnSync("python3", ["-c", "import pptx"], { encoding: "utf8" });
 	if (probe.status === 0) {
