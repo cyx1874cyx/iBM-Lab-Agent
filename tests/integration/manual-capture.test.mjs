@@ -421,7 +421,7 @@ test("capture: 路径穿越文件名被清理，文件落在该条目的 literat
 		assert.match(bundle.pdfPath, /\.pdf$/, "正文扩展名强制 .pdf");
 		const stem = buildEntryStem(bundle);
 		assert.ok(bundle.pdfPath.includes(join("literature", stem)), `应落在 literature/${stem}/，实际 ${bundle.pdfPath}`);
-		assert.equal(bundle.pdfPath, join(bundle.entryDir, entryFileName(stem, "pdf")), "文件名 = <entryStem> 正文.pdf");
+		assert.equal(bundle.pdfPath, join(bundle.entryDir, entryFileName(stem, "pdf")), "文件名 = <entryStem>.pdf");
 		assert.ok(existsSync(bundle.pdfPath), "文件真实存在");
 		assert.equal(ctx.labCapture.table.get(created.task.id).status, "completed");
 	} finally {
@@ -444,7 +444,7 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		assert.equal(bundle.id, "bundle-cap-1", "复用原 bundleId，不新建文献");
 		assert.equal(bundle.acquisitionStatus, "ready");
 		assert.equal(bundle.pdfSha256, pdfSha);
-		assert.ok(bundle.pdfPath.endsWith(`${buildEntryStem(bundle)} 正文.pdf`), "正文文件名 = <entryStem> 正文.pdf，不再沿用出版社下载名");
+		assert.ok(bundle.pdfPath.endsWith(`${buildEntryStem(bundle)}.pdf`), "正文文件名 = <entryStem>.pdf，不再沿用出版社下载名");
 		// provenance 记录 manual-browser-capture
 		const prov = ctx.labTasks.listProvenance("capture-project").find((p) => p.source === "manual-browser-capture");
 		assert.ok(prov, "manual-browser-capture provenance 已记录");
@@ -463,7 +463,7 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		assert.equal(resSi.status, 200, JSON.stringify(resSi.payload));
 		bundle = ctx.labTasks.getBundle("bundle-cap-1");
 		assert.equal(bundle.siSha256, siSha);
-		assert.ok(bundle.siPath.endsWith(`${buildEntryStem(bundle)} SI.pdf`), "SI 文件名 = <entryStem> SI.pdf");
+		assert.ok(bundle.siPath.endsWith(`${entryFileName(buildEntryStem(bundle), "si")}`), "SI 文件名 = <entryStem> SI.pdf");
 		assert.equal(dirname(bundle.siPath), dirname(bundle.pdfPath), "正文与 SI 落在同一条目目录");
 		const siFile = await ctx.labTasks.bundleFile("bundle-cap-1", "si");
 		assert.equal(siFile.mime, "application/pdf", "已登记 SI 一律按 PDF 出流，不再按扩展名猜测");
