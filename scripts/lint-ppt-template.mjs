@@ -197,10 +197,14 @@ async function main() {
 	const lintPath = await writeLintReport(outDir, report);
 	if (options.writeSlots) {
 		const { deriveSlotSpec } = await import("../src/ppt-slot-spec.js");
-		const { loadManifestPackage, summarizeManifest } = await import("../lib/pptx-manifest.js");
+		const { loadManifestPackage, summarizeManifest, templateTypography } = await import("../lib/pptx-manifest.js");
 		const pkg = await loadManifestPackage(target.manifestDir);
 		if (pkg.ok) {
-			const spec = deriveSlotSpec(summarizeManifest(pkg.manifest), { minFontPt: options.minFontPt ?? 20 });
+			const summary = summarizeManifest(pkg.manifest);
+			// 容量必须用模板真实排版（行距/段前后）算：不传 typography 就会退化成
+			// 默认 1.2 倍行距模型，容量与 pptx-cli 只看高度的估算等价。
+			const typography = await templateTypography(pkg, summary.layouts);
+			const spec = deriveSlotSpec(summary, { minFontPt: options.minFontPt ?? 20, typography });
 			await writeFile(join(outDir, SLOTS_SPEC_FILE), `${JSON.stringify(spec, null, 2)}\n`, "utf8");
 		}
 	}
