@@ -227,18 +227,23 @@ dsh --profile ibm-lab
   并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
   `verify`/`patch`/`revert` 三态都经过实测前端校验。
 
-v0.5.4 于 2026-09-25 完成出包验证：Windows 侧统一发布流水线 11 个阶段全部通过
-（含 Windows 侧 639 用例、真实浏览器 Ketcher、捆绑 Python 3.12 重建与自检、打包后真实启动的
+v0.5.5-beta1 于 2026-09-25 完成出包验证：Windows 侧统一发布流水线 11 个阶段全部通过
+（含 Windows 侧 692 用例、真实浏览器 Ketcher、捆绑 Python 重建与自检、打包后真实启动的
 回环 Web 冒烟），`release-report.json` 为 `publishable: true`；Linux 侧
-`linux-release-preflight.mjs` 闸门全绿（体积 23.1 MB，在阈值内）。产物：
+`linux-release-preflight.mjs` 闸门全绿（体积 23.2 MB，在阈值内）。产物：
 
 | 产物 | 字节 | SHA-256 |
 |---|---|---|
-| `iBM Lab Agent_0.5.4_x64-setup.exe` | 259,027,217 | `17E51C6F…5EA21F46` |
-| `ibm-lab-agent-v0.5.4-linux.tar.gz` | 24,273,322 | `89f22b44…b9dfefb8` |
+| `iBM Lab Agent_0.5.5-beta1_x64-setup.exe` | 259,060,614 | `9D915B38…0191AF08` |
+| `ibm-lab-agent-v0.5.5-beta1-linux.tar.gz` | 24,353,322 | `4a58d00a…75c9645f` |
 
-两者均由提交 `2b6463f` 构建。Windows 桌面端安装后的人工验收（WebVPN 侧栏、课题 tab、
+两者均由提交 `7c32532` 构建。Windows 桌面端安装后的人工验收（WebVPN 侧栏、课题 tab、
 捕获小球、WebView2 里的真实复制）仍待做。详见
+[`docs/releases/v0.5.5-beta1.md`](docs/releases/v0.5.5-beta1.md)。
+
+v0.5.4 于 2026-09-25 完成出包验证：产物 `iBM Lab Agent_0.5.4_x64-setup.exe`
+（259,027,217 B，`17E51C6F…5EA21F46`）与 `ibm-lab-agent-v0.5.4-linux.tar.gz`
+（24,273,322 B，`89f22b44…b9dfefb8`），均由提交 `2b6463f` 构建。详见
 [`docs/releases/v0.5.4.md`](docs/releases/v0.5.4.md)。
 
 v0.5.3-beta8 于 2026-09-23 完成出包验证，详见
