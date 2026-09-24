@@ -462,3 +462,35 @@ Agent 填进 `body/11` 的段落自己没有 algn，就继承到第 ③ 层的 `
 
 > 注意 B 只覆盖 **Agent 写入的段落**；你在 PowerPoint 里手工编辑时，
 > 仍然受版式第 ③ 层的 `ctr` 影响。要让手工编辑也左对齐，得走 A。
+
+## 13. 模板 2 第五版复检（sha256 6be4323a）
+
+### 13.1 这一版改好了
+
+- 对齐（`a:lstStyle/a:lvl1pPr` 从 `ctr` → `l`）：**layout2 `body/11`（摘要）、
+  layout4 `body/11`（Fig2 正文）、layout5 `body/11`（Fig3 正文）、
+  layout7 `body/14`（创新点）**。
+
+### 13.2 ⚠️ 结构变化：总结页占位符 idx 改了
+
+| | 之前 | 现在 |
+|---|---|---|
+| 总结页占位符 | `body/11`(第一段)、`body/12`(创新点)、`body/13`(结尾) | **`body/11`(第一段)、`body/14`(创新点)、`body/13`(结尾)** |
+
+`body/12` 已不存在。**任何按 idx=12 写创新点的计划/提示词都必须改成 idx=14**；
+构建器找不到 idx 时会记 `placeholder_missing` warning（不会静默写错位置），
+本次已按新契约（11/14/13）验证通过。
+
+### 13.3 仍然 `ctr`、建议改的占位符
+
+`layout3 body/11`、`layout3 body/12`、`layout4 body/12`、`layout6 body/11`、
+`layout6 body/12`、`layout7 body/11`、`layout7 body/13`。
+（layout1 封面 4 个与 layout8 结尾页居中属有意设计，建议保留；
+图注 `body/12` 居中通常更好看，可按喜好决定。）
+
+### 13.4 验证（新模板 + 新 idx 契约）
+
+4 页计划 → 4 页成品，无 warning；封面 4 个占位符、摘要/Fig1/总结按新 idx 写入；
+slide2/3/4 段落 `algn="just"`（计划侧 `align: "justify"` 覆盖生效）；
+全部 run `ea=微软雅黑`、字号 ≥2000；总结页渲染确认「第一段 / 创新点分点 / 结尾段」三段齐全，
+蓝线、logo、页标题等静态层完好。
