@@ -25,7 +25,7 @@ import JSZip from "jszip";
 
 import { compilePlan } from "../../lib/pptx-plan.js";
 import { summarizeManifest, templateTypography } from "../../lib/pptx-manifest.js";
-import { deriveSlotSpec } from "../../src/ppt-slot-spec.js";
+import { computeTextCapacity, deriveSlotSpec } from "../../src/ppt-slot-spec.js";
 import { literatureManifest } from "../fixtures/ppt-manifest-fixture.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -143,4 +143,42 @@ test("容量分级：连一行都放不下只报 info，装得下但内容超长
 	assert.equal(exceeded.length, 1, `超长必须报 capacity-exceeded，实际诊断：${JSON.stringify(long_.diagnostics.map((row) => row.code))}`);
 	assert.equal(exceeded[0].severity, "warning");
 	assert.ok(exceeded[0].location?.estimatedLines > 1, "诊断要带估算行数，Agent 才能判断要删多少字");
+});
+
+test("容量分级：单行框只在超过时告警；多行框顶格（恰好等于容量）就要告警", () => {
+	const spec = deriveSlotSpec(summarizeManifest(literatureManifest()), { minFontPt: 20 });
+	const layout = spec.layouts.find((row) => row.layoutId === "fig1");
+	const slot = layout.slots.find((row) => row.key === "analysis");
+	const fontPt = Number.isFinite(slot.effectiveFontPt) ? slot.effectiveFontPt : slot.fontPt;
+	const capacity = computeTextCapacity({
+		geometry: { leftEmu: slot.leftEmu, topEmu: slot.topEmu, widthEmu: slot.widthEmu, heightEmu: slot.heightEmu },
+		slideHeightEmu: spec.pageSize?.heightEmu,
+		fontPt,
+		insets: slot.insets,
+		lineSpacing: slot.lineSpacing ?? (Number.isFinite(slot.lineHeightPt) ? { kind: "pts", value: slot.lineHeightPt } : undefined),
+		spaceBefore: Number.isFinite(slot.spaceBeforePt) ? { kind: "pts", value: slot.spaceBeforePt } : undefined,
+		spaceAfter: Number.isFinite(slot.spaceAfterPt) ? { kind: "pts", value: slot.spaceAfterPt } : undefined
+	}).capacityLines;
+	assert.ok(capacity >= 2, `夹具 analysis 容量应至少 2 行，实际 ${capacity}`);
+	// 每行可容纳的"字宽单位"：宽度减去左右各 0.1in 内边距后除以字号（CJK 记 1.0）。
+	const unitsPerLine = Math.max(((slot.widthEmu / 914400) * 72 - 0.2 * 72) / fontPt, 1);
+	const compile = (text) => compilePlan({
+		plan: { slides: [{ role: "figure-1", slots: { analysis: text } }] },
+		slotSpec: spec,
+		requireImages: false
+	});
+	const exceeded = (result) => result.diagnostics.filter((row) => row.code === "capacity-exceeded");
+
+	// 明显有余量：不告警。
+	assert.equal(exceeded(compile("字".repeat(Math.floor((capacity - 2) * unitsPerLine)))).length, 0);
+	// 恰好等于容量（顶格）：必须告警，且文案说"已达到容量"——这正是试用现场渲染溢出而编译器沉默的那种情形。
+	const exact = "字".repeat(Math.floor((capacity - 1) * unitsPerLine) + 1);
+	const atLimit = compile(exact);
+	assert.equal(exceeded(atLimit).length, 1, `顶格必须告警（capacity=${capacity}）`);
+	assert.match(exceeded(atLimit)[0].message, /已达到容量/);
+	assert.equal(exceeded(atLimit)[0].location?.capacityLines, capacity);
+	// 超过容量：文案说"超过"。
+	const over = compile("字".repeat(Math.ceil((capacity + 2) * unitsPerLine)));
+	assert.equal(exceeded(over).length, 1);
+	assert.match(exceeded(over)[0].message, /超过容量/);
 });
