@@ -255,12 +255,19 @@ try {
         (Add-SmokeToken "http://127.0.0.1:$port/" $token)
       ).GetAwaiter().GetResult()
       $setCookies = @($loginResponse.Headers.GetValues('Set-Cookie')) -join '; '
+      # 断言的是「重定向回应用根」，不是某个字面量：DSH 0.1.7 把 Location 从
+      # `/` 改成了相对的 `./`；两种写法、以及绝对形式，都要按 URI 解析后比较路径。
+      $locationPath = ''
+      $rawLocation = if ($null -ne $loginResponse.Headers.Location) { $loginResponse.Headers.Location.OriginalString } else { '' }
+      if (-not [string]::IsNullOrWhiteSpace($rawLocation)) {
+        try { $locationPath = ([Uri]::new([Uri]"http://127.0.0.1:$port/", $rawLocation)).AbsolutePath } catch { $locationPath = '' }
+      }
       if ([int]$loginResponse.StatusCode -ne 303 -or
-          $loginResponse.Headers.Location.OriginalString -ne '/' -or
+          $locationPath -ne '/' -or
           $setCookies -notmatch 'HttpOnly' -or
           $setCookies -notmatch 'SameSite=None' -or
           $setCookies -notmatch 'Secure') {
-        throw "Bundled DSH token exchange did not issue the embedded-WebView session cookie (status=$([int]$loginResponse.StatusCode))."
+        throw "Bundled DSH token exchange did not issue the embedded-WebView session cookie (status=$([int]$loginResponse.StatusCode), location='$rawLocation')."
       }
       if ($stderr -match 'service\s+["'']labAgent["'']\s+has been registered|plugin tree failed to load') {
         throw "Bundled DSH Web reported a duplicate service or plugin-tree error:`n$stderr"

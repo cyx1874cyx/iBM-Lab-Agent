@@ -69,6 +69,10 @@ test("desktop packaging preserves DSH authentication inside the WebView iframe",
 	assert.match(prepare, /HttpOnly; SameSite=None; Secure/);
 	assert.match(prepare, /DSH embedded-auth patch anchor changed/);
 	assert.match(verify, /browser authentication is not configured for the embedded WebView/);
+	// 冒烟阶段断言的是「重定向回应用根」，不是字面量 `/`：0.1.7 把 Location 改成
+	// 了相对的 `./`，写死字面量会让 verify-runtime 阶段误报（实测 2026-09-24）。
+	assert.match(verify, /\[Uri\]::new\(\[Uri\]"http:\/\/127\.0\.0\.1:\$port\/", \$rawLocation\)/, "Location 必须按 URI 解析后再比较路径");
+	assert.doesNotMatch(verify, /Headers\.Location\.OriginalString -ne '\/'/, "不得再与字面量 '/' 比较");
 });
 
 test("desktop documentation points Agents at the unified Windows release command", async () => {
