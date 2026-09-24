@@ -127,7 +127,11 @@ test("templates: import three templates, suggest, confirm, validate, preview, de
 		const confirmed = await templates.confirmMapping("lab-template-1", "1", mapping);
 		assert.equal(confirmed.ok, true);
 		assert.equal(confirmed.profile.status, "ready");
-		assert.deepEqual(await templates.validate("lab-template-1"), { ok: true, problems: [] });
+		// validate 现在会带上 manifestSource：合成 fixture 没有 pptx-cli manifest，
+		// 因此走 parse.json 降级路径（manifestSource=fallback），ok/problems 语义不变。
+		const validation = await templates.validate("lab-template-1");
+		assert.deepEqual({ ok: validation.ok, problems: validation.problems }, { ok: true, problems: [] });
+		assert.equal(validation.manifestSource, "fallback");
 
 		// invalid mapping is rejected, template stays draft
 		const badMapping = { ...mapping, cover: { layoutId: "does-not-exist" } };
