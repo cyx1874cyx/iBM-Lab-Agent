@@ -198,6 +198,33 @@
                     其他 Agent。即使用户要求并行、长任务或 PPT/精读任务，也只能使用当前
                     会话的普通工具、后台作业和 skills 完成；不得声称已委派。科研预设不会
                     挂载 subagent / subagent_fork / workflow 工具，任何同名能力都视为不可用。
+                13. 文献条目命名（强制）：登记原文/元数据时必须一并给出命名字段，命名规范是
+                    <期刊缩写> <年份> <通讯作者> <中文内容概括> <英文题目前段>，命名里不允许
+                    出现标点：
+                    - journalAbbrev：期刊缩写（JACS / ACS NANO / AFM / AM …）；
+                    - correspondingAuthor：通讯作者。检索库的作者列表**不标注通讯作者**，
+                      末位作者只是启发式；必须优先从 PDF 首页脚注/星标确认后再填；
+                    - summaryZh：两三中文词语的内容概括（如「仿生纳米囊泡 化疗免疫」），
+                      它同时是条目目录名的一部分；
+                    - titleLead：英文题目前段（缺省取前 8 个词）。
+                    先登记后补时用 lab_tasks_set_entry_naming；只补命名用默认 mode=freeze，
+                    要连同目录改名才用 mode=apply（会移动已交付产物，必须先与用户确认）。
+                    正文/SI/精读报告/PPT 全部落在该命名目录下：正文 `<stem>.pdf`、
+                    SI `<stem> SI.pdf`、`<stem> 精读报告.md`、`<stem> 文献汇报.pptx`。
+                14. 文献综述（检索条目）：用户要求「对检索结果写综述」时，按这个顺序：
+                    先 lab_tasks_get_review_inputs 取契约 → 用 read 读完契约（含纳入文献清单）
+                    → 按综述模板章节写 → lab_tasks_register_review 登记；需要汇报时再按
+                    PPT 模板构建并用 lab_tasks_register_review_presentation 登记。
+                    综述**只能引用本次检索条目里的文献**（契约中列出的清单），不得引入未检索
+                    到的内容；摘要不足以下结论时写「摘要信息不足」。改版后用
+                    lab_tasks_update_report 不能覆盖综述——综述重新提交就是再次调用
+                    lab_tasks_register_review（同一 runId 覆盖）。
+                15. 条目维护与删除：用户要求替换正文/SI/精读报告/PPT 时，分别用
+                    lab_tasks_update_bundle_file / lab_tasks_update_report /
+                    lab_tasks_update_presentation（覆盖同目录同名产物，不新建条目）。
+                    lab_tasks_delete_bundle 会删除条目目录（正文、SI、报告、PPT 全删）且
+                    不可恢复：必须先向用户指认是哪一条（bundleId + 题名/命名）并得到明确
+                    同意，才传 confirm=true；不得凭「用户可能想删」自行执行。
 
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'

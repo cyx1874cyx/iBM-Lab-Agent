@@ -139,3 +139,38 @@ AM 2017 Yong Taik Lim 术后免疫治疗 Implantable Synthetic Immune Niche for 
   Agent 应优先从 PDF 首页脚注确认；工具描述里必须写清这条，避免把它当权威。
 - **综述模板与阅读笔记模板同表**：用 `kind` 区分；旧数据无 `kind` → 视为 `note`
   （schema 默认值），不需要迁移。
+
+
+---
+
+## 7. 执行记录（2026-09-24）
+
+| 阶段 | 状态 | 说明 |
+|---|---|---|
+| P1 命名规范 | ✅ | `lib/entry-layout.js` 重写；幻灯片 7 个实例逐字进单测 |
+| P2 元数据与工具 | ✅ | bundle.naming + 三个登记工具 + `get_reading_inputs` 回显缺口 |
+| P3 改名/搬家 | ✅ | `setEntryNaming(mode=freeze\|apply)`，先复制后删源、DB 同步改写 |
+| P4 重提与删除 | ✅ | `resubmitBundleFile` / `resubmitReport` / `resubmitPresentation` / `deleteBundle` |
+| P5 综述 | ✅ | 模板 kind=review + 综述归档目录 + 5 个工具 + 远程与出流 |
+| P6 界面 | ✅ | 检索条目「写综述/综述/综述PPT」；模板管理「综述模板」标签页 |
+| P7 评估 | ✅ | `LITERATURE_SEARCH_METHODS_EVALUATION.md`、`PROJECT_RAG_DATABASE_ASSESSMENT.md` |
+
+### 实施中与原计划的偏差
+
+1. **D9（SI 缩短）** 改为「仅当 stem 超过 90 字才从尾部逐词缩短」：幻灯片说
+   「可以适当缩短」是许可而非强制，按长度触发就不必再固化一个 `siStem` 字段。
+2. **D6（中文概括）** 去掉了英文标题回退：实测会得到
+   `A prodrug A prodrug polymer …` 这种自重复段。
+3. **综述模板没有新建独立域**，而是在阅读笔记模板域上加 `kind`（缺省 `note`
+   兼容旧数据）；「模板管理」里两类模板共用同一套版本/快照/导入解析。
+4. **精读条目的面板删除沿用既有 `tasks_report_delete`**（它在该条目最后一份报告时
+   会连带删除条目目录），Agent 侧则新增更明确的 `lab_tasks_delete_bundle`。
+5. **预设 persona 增加第 13–15 条**：命名强制、综述顺序、条目维护与删除确认——
+   否则工具存在但 Agent 不会用。
+
+### 未做（明确留在计划外）
+
+- 综述报告的人工审核门禁：精读报告有 `under-review → approved` 状态机，综述目前
+  只有 `pending/ready`，没有审核流。若需要与精读同等门禁，应作为下一阶段。
+- 综述 PPT 的模板符合性校验：已支持传入 `conformancePath` 并由
+  `lab_ppt_build_from_template` 产出，但没有在登记时强制校验。
