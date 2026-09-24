@@ -74,16 +74,35 @@
 ### 3.3 渲染用助手，不要自己拼 soffice
 
 ```bash
-node scripts/render-deck.mjs <deck.pptx|deck.pdf> [--out DIR] [--pages 1,3,5-7] [--dpi 110] [--no-contact-sheet] [--json]
+node scripts/render-deck.mjs <deck.pptx|deck.pdf> [--out DIR] [--pages 1,3,5-7] [--dpi 110] [--no-contact-sheet] [--no-kit] [--json]
 ```
 
-它做的事：解析应用自己的渲染器链（`lib/office-preview.js`，与产物下载预览同源）→ 把
-LibreOffice profile 固定指到 `tempDir/lo-profile` → `--convert-to pdf` → 用捆绑 Python 的
-PyMuPDF 栅格化 → 默认再合成一张 **contact sheet**。
+**渲染器优先级（0.5.5-beta2 起）**：
+
+1. **DSH 自带的 LibreOffice kit**（首选）——`@deepseek-ai/libreoffice-kit` 的 CLI `render` 子命令。
+   DSH 已经把它打进安装包：Windows 是 `libreoffice-kit-win32-x64`（约 341 MB，装在
+   `resources/dsh/node_modules/@deepseek-ai/` 下，正是 `DSH_HARNESS_NODE_MODULES` 指向处），
+   Linux 是 `libreoffice-kit-wasm`（约 186 MB，WebAssembly 后端）。因此**用户不需要自己装
+   LibreOffice**，我们也不需要 PyMuPDF 做栅格化（kit 内部用 pdfium）。它还会回报
+   `missingFonts`，以及 `backend: native|wasm`。
+2. **兜底**：宿主 `soffice` 转 PDF（profile 固定在 `tempDir/lo-profile`）→ 捆绑 Python 的
+   PyMuPDF 栅格化。`--no-kit` 或 `IBM_LAB_AGENT_OFFICE_KIT=off` 可强制走这条。
+
+两条路径最后都由我们合成 **contact sheet**（kit 只出逐页 PNG；`pdf_to_png.py` 新增
+`--png-dir` 模式专门只拼总览图）。
 
 **contact sheet 是省 token 的关键**：一次 `read_image` 看完整套页面的版面（静态层是否被破坏、
 有没有溢出、图文比例是否合适），只在发现异常时才回去读单页。0.5.4 现场 25 次读图里约 15 次
 是可省的。注意它是给"版面核对"用的，缩略后文字不可读 —— 需要看字时再读单页。
+
+**两个必须记住的渲染差异**：
+
+- kit 会在**图片占位符**上画一行英文 `Double-click to add an image`（它自带的占位提示）。
+  实测同一份 deck 宿主 LibreOffice 下不显示这行，而 deck 包结构、python-pptx 读到的图片几何、
+  `inspect_deck.py` 的 XML 结论三者一致 —— 说明**那行提示不代表图没插进去**。判断图是否插入
+  一律以 `inspect_deck.py` 为准。
+- kit 渲染在缺字体的机器上会用替代字形（并报 `missingFonts`）。WSL/容器里通常缺
+  `微软雅黑`/`Arial`，所以**核对字形要在目标机器（Windows）上做**，核对字号与版面不受影响。
 
 ### 3.4 核对成品：先查 XML，再考虑读图
 
@@ -142,8 +161,13 @@ python "<inspector>" --deck out.pptx \
 
 ## 5. 已知限制
 
-1. **LibreOffice 仍由宿主机提供**：仓库不捆绑它，解析链是"显式配置 → 典型安装路径 → PATH"。
-   工具会如实报告 `available: false` + hint，而不是让 Agent 去猜路径。若将来要彻底自包含，
-   需要把 LibreOffice 打进安装包（+300 MB 量级），另立一版评估。
-2. `lab_runtime_env` 每次调用都重新探测（`refresh` 参数目前是保留位）。
-3. contact sheet 的缩略尺寸固定（默认 1920 px 宽、3 列）；页数很多时会自动多行。
+1. **LibreOffice 由 DSH 提供，不是由本仓库捆绑**（0.5.5-beta2 更正）：安装包里就有 DSH 的
+   `libreoffice-kit-win32-x64`（Windows，约 341 MB）/ `libreoffice-kit-wasm`（Linux，约 186 MB），
+   渲染助手默认走它，**用户不需要自己装 LibreOffice**。我们自己的 `lib/office-preview.js`
+   仍保留"宿主 soffice"解析链作为兜底（`lab_runtime_env` 的 `soffice` 字段仍如实报告它的状态）。
+   * 仍待办：把 `lib/office-preview.js`（`/api/lab-artifacts` 的预览）也改为优先用 DSH 的
+     `ctx.officeToPdf` 服务（它带界队列与缓存），目前它仍走宿主 soffice。
+2. kit 的渲染会给图片占位符画一行英文占位提示（见 §3.3），且缺字体时用替代字形 ——
+   这两点都只能靠"以 XML 结论为准 + 在目标机器核对字形"来规避，属上游渲染器行为。
+3. `lab_runtime_env` 每次调用都重新探测（`refresh` 参数目前是保留位）。
+4. contact sheet 的缩略尺寸固定（默认 1920 px 宽、3 列）；页数很多时会自动多行。

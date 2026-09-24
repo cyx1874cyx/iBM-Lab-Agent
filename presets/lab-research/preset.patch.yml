@@ -250,7 +250,12 @@
                       写不了 user profile 时会**静默不产出 PDF**（0.5.4 现场踩过）；
                     - 渲染 PPT/PDF 用它返回的 renderHelper（`scripts/render-deck.mjs`），
                       不要自己拼 soffice 命令行；需要人眼核对多页时用它的 contact sheet
-                      一次看完整套页面，不要逐页读图。
+                      一次看完整套页面，不要逐页读图。该助手**优先用 DSH 自带的 LibreOffice kit**
+                      （已随安装包分发，用户无需自己装 LibreOffice），宿主 soffice 只是兜底；
+                      它报 `缺少字体` 时说明本机字形不可信，核对字形请以目标机器为准。
+                      另注意：kit 渲染会在图片占位符上画一行英文 "Double-click to add an image"，
+                      那是渲染器自带的占位提示，**不代表图没插进去** —— 判断图是否插入一律以
+                      inspect_deck.py 的 XML 结论为准，不要凭总览图上的提示文字下结论。
                     - 核对成品先查 XML、再考虑读图：用 lab_runtime_env 返回的 **inspector 绝对路径**
                       `python "<inspector>" --deck 成品.pptx --expect-latin Arial --expect-ea 微软雅黑
                       --expect-cs Arial` 一次给出字体三槽、最小显式字号、

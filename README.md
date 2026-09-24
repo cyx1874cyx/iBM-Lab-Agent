@@ -5,9 +5,9 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta1**：修掉 0.5.4 真实试用复盘的七条问题（笔记模板工具 schema/lookup、
-builder 的 contain 缩放、容量模型自算、按图片比例选版式、渲染助手与 contact sheet、登记前置条件
-可见），并让 Agent 优先使用**桌面壳自带的运行时**而不是宿主机的环境。
+当前候选版本为 **v0.5.5-beta2**：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
+**桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
+Linux 186 MB wasm，随安装包分发），用户不再需要自己装 LibreOffice；宿主 soffice 仅为兜底。
 
 v0.5.4 把 Windows 捆绑 Python 升到 3.12（与 Linux 线对齐），并接入
 `pptx-cli` 完成文献阅读 PPT 模板的声明式规范（P1–P4）。

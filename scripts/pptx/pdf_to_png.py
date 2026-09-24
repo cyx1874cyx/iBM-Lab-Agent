@@ -105,9 +105,31 @@ def contact_sheet(images, out_path, cols, sheet_width):
     return out_path
 
 
+def pages_from_png_dir(directory, wanted):
+    """从已有 PNG 目录收集页面（DSH 自带 kit 的 render 已经出好逐页 PNG，只需要拼总览图）。"""
+    names = sorted(
+        name for name in os.listdir(directory)
+        if name.lower().endswith(".png") and name != "contact-sheet.png"
+    )
+    pages = []
+    for index, name in enumerate(names, start=1):
+        if wanted is not None and index not in wanted:
+            continue
+        path = os.path.join(directory, name)
+        try:
+            from PIL import Image
+            with Image.open(path) as image:
+                width, height = image.size
+        except Exception:  # noqa: BLE001 - 尺寸读不到不该挡住总览图
+            width = height = None
+        pages.append({"page": index, "path": path, "width": width, "height": height})
+    return pages
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="PDF → PNG（可含 contact sheet）")
-    parser.add_argument("--pdf", required=True)
+    parser.add_argument("--pdf", default="")
+    parser.add_argument("--png-dir", default="", help="已有逐页 PNG 的目录（与 --pdf 二选一，用于只拼总览图）")
     parser.add_argument("--out", required=True)
     parser.add_argument("--dpi", type=int, default=110)
     parser.add_argument("--pages", default="")
@@ -118,9 +140,16 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     os.makedirs(args.out, exist_ok=True)
-    result = {"ok": False, "pdf": args.pdf, "pages": [], "contactSheet": None, "errors": []}
+    result = {"ok": False, "pdf": args.pdf or None, "pages": [], "contactSheet": None, "errors": []}
+    if args.pdf == "" and args.png_dir == "":
+        result["errors"].append("需要 --pdf 或 --png-dir 之一")
+        print(json.dumps(result, ensure_ascii=False))
+        return 2
     try:
-        pages = rasterize(args.pdf, args.out, args.dpi, parse_pages(args.pages))
+        if args.png_dir != "":
+            pages = pages_from_png_dir(args.png_dir, parse_pages(args.pages))
+        else:
+            pages = rasterize(args.pdf, args.out, args.dpi, parse_pages(args.pages))
     except Exception as exc:  # noqa: BLE001 - 诊断必须原样带回给 Agent
         result["errors"].append("%s: %s" % (type(exc).__name__, exc))
         print(json.dumps(result, ensure_ascii=False))
