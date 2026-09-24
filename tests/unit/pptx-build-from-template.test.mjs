@@ -248,6 +248,11 @@ test("构建脚本保留定点写入/去项目符号/字体统一/删除模板�
 	assert.match(source, /normalizeLayoutFonts/, "应可关闭（默认开）");
 	// 对齐：模板里正文是居中，长段落难读；plan 可按占位符覆盖
 	assert.match(source, /entry\.get\("align"\)/, "texts[] 应支持 align 覆盖对齐");
+	// 定位优先级：提示文字最稳（PowerPoint 每次增删占位符都会重排 idx；
+	// 实测同一模板三次修订：正文 11 → 15，总结页 12 → 14 → 15/16；形状名还重复）
+	assert.match(source, /def placeholder_by_prompt\(/, "应支持按版式提示文字定位占位符");
+	assert.match(source, /shape = placeholder_by_prompt\(slide, entry\.get\("prompt"\)\)/, "prompt 必须优先于 idx/name");
+	assert.match(source, /no placeholder for prompt=\{entry\.get\('prompt'\)!r\}/, "缺位警告要带上 prompt 便于排查");
 });
 
 test("build mode without python-pptx exits 2 with a JSON error mentioning python-pptx", (t) => {

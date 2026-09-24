@@ -355,15 +355,43 @@ def build_deck(template_path, parsed, plan, findings):
                 return placeholder
         return None
 
+    def placeholder_by_prompt(slide, prompt):
+        """按**版式里的提示文字**定位占位符，再映射回幻灯片的同 idx 占位符。
+
+        为什么需要它：PowerPoint 会在增删占位符时重新分配 `p:ph/@idx`
+        （实测同一模板三次修订：正文 11 → 15，总结页 12 → 14 → 15/16），
+        而形状名又常常重复（本模板全部叫「文本占位符 20」）。相比之下
+        **提示文字**（"【此处粘贴论文摘要的中文翻译全文…】"、"Fig.1图注"）是
+        作者自己写的、语义稳定，是唯一可靠的定位键。
+        """
+        if not isinstance(prompt, str) or not prompt.strip():
+            return None
+        layout = getattr(slide, "slide_layout", None)
+        if layout is None:
+            return None
+        candidates = [ph for ph in layout.placeholders if getattr(ph, "has_text_frame", False)]
+        for match in ("startswith", "contains"):
+            for layout_placeholder in candidates:
+                text = (layout_placeholder.text_frame.text or "").strip()
+                if not text:
+                    continue
+                hit = text.startswith(prompt.strip()) if match == "startswith" else prompt.strip() in text
+                if hit:
+                    return placeholder_by_idx(slide, layout_placeholder.placeholder_format.idx)
+        return None
+
     def write_into_placeholder(slide, entry, index, findings):
         """按 idx（或形状名）定点写入一段或多段文字。"""
         idx = entry.get("idx")
-        shape = placeholder_by_idx(slide, idx) if isinstance(idx, int) and not isinstance(idx, bool) else None
+        # 定位优先级：prompt（提示文字，最稳）→ idx（显式）→ name（形状名，可能重复）
+        shape = placeholder_by_prompt(slide, entry.get("prompt"))
+        if shape is None and isinstance(idx, int) and not isinstance(idx, bool):
+            shape = placeholder_by_idx(slide, idx)
         if shape is None and isinstance(entry.get("name"), str) and entry["name"]:
             shape = next((candidate for candidate in slide.shapes if candidate.name == entry["name"]), None)
         if shape is None:
             findings.append({"level": "warning", "code": "placeholder_missing",
-                             "message": f"slide {index + 1}: no placeholder for idx={idx!r} name={entry.get('name')!r}"})
+                             "message": f"slide {index + 1}: no placeholder for prompt={entry.get('prompt')!r} idx={idx!r} name={entry.get('name')!r}"})
             return False
         if not getattr(shape, "has_text_frame", False):
             findings.append({"level": "warning", "code": "placeholder_not_text",
