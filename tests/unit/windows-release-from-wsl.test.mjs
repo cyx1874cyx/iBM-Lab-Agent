@@ -74,6 +74,16 @@ test("根 workspace 依赖与锁定的 DSH 版本不一致时自动重装（否�
 	assert.match(script, /FATAL: root dependencies still do not match/, "重装后仍不一致必须硬失败");
 });
 
+test("npmjs 在 Windows 侧不可达时退回 npmmirror（校内网络实测如此）", () => {
+	// 实测：Windows 侧访问 registry.npmjs.org 超时，registry.npmmirror.com 正常；
+	// 不能因为默认 registry 不可达就让整套出包停在依赖安装。
+	assert.match(script, /registry\.npmjs\.org\/-\/ping/, "应先探测 npmjs 可达性");
+	assert.match(script, /https:\/\/registry\.npmmirror\.com/, "不可达时应退回 npmmirror");
+	assert.match(script, /IBM_LAB_WSL_REGISTRY/, "应允许显式指定 registry（空 = 自动探测）");
+	assert.match(script, /--frozen-lockfile @registryArgs/, "pnpm 安装必须带上解析出的 registry");
+	assert.match(script, /npm ci @registryArgs/, "desktop 的 npm ci 同样要能走镜像");
+});
+
 test("只通过 NTFS 裸仓库传输 git 对象（不在 drvfs 上构建）", () => {
 	assert.match(script, /clone --bare/, "应在 NTFS 上建裸仓库作为传输通道");
 	assert.match(script, /push --quiet "\$bare"/, "应把当前分支推到裸仓库");

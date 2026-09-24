@@ -46,6 +46,8 @@ work_win="${IBM_LAB_WSL_WORK:-H:\\build\\ibm-lab-agent}"
 node_win="${IBM_LAB_WSL_NODE:-C:\\Users\\admin\\node-v24.16.0-win-x64\\node.exe}"
 cargo_win="${IBM_LAB_WSL_CARGO:-C:\\Users\\admin\\.cargo\\bin\\cargo.exe}"
 log_dir_win="${IBM_LAB_WSL_LOGDIR:-H:\\build\\release-logs}"
+# 空 = 自动探测（npmjs 不可达则退回 npmmirror）；显式设置则强制使用该 registry。
+registry_win="${IBM_LAB_WSL_REGISTRY:-}"
 work_mnt="/mnt/$(printf '%s' "$work_win" | sed -E 's#^([A-Za-z]):.*#\L\1#')/$(printf '%s' "$work_win" | sed -E 's#^[A-Za-z]:\\##; s#\\#/#g')"
 bare_dir="$(dirname "$bare")"
 
@@ -124,9 +126,28 @@ cat > "$ps1_mnt" <<PS1
 \$branch = '${branch}'
 \$ref = '${ref}'
 \$logDir = '${log_dir_win}'
+\$registry = '${registry_win}'
 
 # Gotcha 1: cwd must be on a Windows drive (UNC cwd is rejected by powershell.exe).
 Set-Location \$work
+
+# Registry reachability. Campus networks frequently block registry.npmjs.org from
+# the Windows side while registry.npmmirror.com works -- npmmirror is already this
+# project's mirror for the pnpm download (install.sh), so fall back to it instead
+# of failing the whole release on an unreachable default. IBM_LAB_WSL_REGISTRY
+# forces one explicitly. pnpm lockfiles record integrity, not registry URLs, so
+# switching registries stays frozen-lockfile clean.
+if ([string]::IsNullOrWhiteSpace(\$registry)) {
+  try {
+    Invoke-WebRequest -Uri 'https://registry.npmjs.org/-/ping' -Method Head -TimeoutSec 10 -UseBasicParsing | Out-Null
+  } catch {
+    \$registry = 'https://registry.npmmirror.com'
+    Write-Output '  registry.npmjs.org is unreachable from Windows; using registry.npmmirror.com'
+  }
+}
+\$registryArgs = @()
+if (-not [string]::IsNullOrWhiteSpace(\$registry)) { \$registryArgs = @('--registry', \$registry) }
+Write-Output ("  npm registry: " + \$(if (\$registry) { \$registry } else { 'default' }))
 
 Write-Output '=== sync working copy ==='
 & git -c safe.directory=* fetch origin 2>&1 | Select-Object -Last 1
@@ -152,7 +173,7 @@ if (\$haveDsh -ne \$wantDsh) {
   Write-Output ('=== root workspace deps: DSH ' + \$haveDsh + ' -> ' + \$wantDsh + ' (corepack pnpm install --frozen-lockfile) ===')
   \$env:PATH = (Split-Path \$node -Parent) + ';' + \$env:PATH
   Push-Location \$work
-  & corepack pnpm install --frozen-lockfile 2>&1 | Select-Object -Last 8
+  & corepack pnpm install --frozen-lockfile @registryArgs 2>&1 | Select-Object -Last 12
   \$pnpmRc = \$LASTEXITCODE
   Pop-Location
   if (\$pnpmRc -ne 0) { Write-Output ('  corepack pnpm install failed: exit ' + \$pnpmRc); exit \$pnpmRc }
@@ -167,7 +188,7 @@ if (\$haveDsh -ne \$wantDsh) {
 if (-not (Test-Path \$cli)) {
   Write-Output '=== desktop/ has no Tauri CLI: running npm ci ==='
   \$env:PATH = (Split-Path \$node -Parent) + ';' + \$env:PATH
-  Push-Location (Join-Path \$work 'desktop'); & npm ci 2>&1 | Select-Object -Last 3; Pop-Location
+  Push-Location (Join-Path \$work 'desktop'); & npm ci @registryArgs 2>&1 | Select-Object -Last 3; Pop-Location
 }
 
 \$args = @('-NoProfile','-ExecutionPolicy','Bypass','-File', (Join-Path \$work 'desktop\scripts\build-windows-release.ps1'),
