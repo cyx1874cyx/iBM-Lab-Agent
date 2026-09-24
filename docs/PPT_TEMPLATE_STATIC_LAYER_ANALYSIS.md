@@ -291,3 +291,38 @@ slide3/4/5/6 同理：`methods-1`、`methods-2`、`results`、`summary`，各自
   外加 plan 层给出**显式 role→layout 映射**。
 - 工作量从上一版的 10–12 人日降到 **4–6 人日**（不需要 deepcopy 克隆页，也不需要重建静态层）。
 - 符合性检查仍建议加"逐槽位比对"：静态形状集合、每个 run 的 latin/ea、字号下限、段落无项目符号。
+
+## 9. 模板 2 第三版复检（sha256 caed2ba0）
+
+### 9.1 这一版改好了什么
+
+- **所有 body 占位符都补了 `a:ea=微软雅黑`**（封面 4 个、Abs、Fig1/2/3/4、End 3 个、PPT_END），
+  中文不再只靠 latin 回退。
+- **Fig1/Fig2/Fig4 增加了图注占位符 `body/12`**（提示文字 "Fig.1图注"）。
+- 增加了一张备注页（`notesSlides/notesSlide1.xml`），讲稿备注可用。
+- 幻灯片仍只含占位符、且与版式 idx 一一对应，静态层继承关系保持正确。
+
+### 9.2 模板仍需你修改的 5 处
+
+| # | 问题 | 实测证据 | 改法 |
+|---|---|---|---|
+| 1 | **封面标题占位符没有字号** | layout1 `body/10`、`body/11` 的 `defRPr` 只有 latin/ea、**无 `sz`**；`body/12`、`body/13` 有 `sz=2000` | 显式设 32pt / 24pt（≥20pt）；否则继承母版正文样式（bodyStyle lvl1=28pt、otherStyle=18pt），可能低于 20pt |
+| 2 | **图注占位符是 14pt** | layout3/4/6 `body/12`：`defRPr sz=1400`，而 run 是 2000 | 把 `defRPr` 改成 **2000**——Agent 填进去的文字继承 defRPr，否则图注只有 14pt |
+| 3 | **Fig3 页没有图注占位符** | layout5 只有 `pic/10` + `body/11`；Fig1/2/4 都有 `body/12` | 复制一个 `body/12` 图注占位符，或确认此页不要图注 |
+| 4 | **静态中文仍无 `ea`** | 页标题 `TextBox 5`（"摘要 Abstract"/"方法 Methods"/"总结 Conclusion"，`latin=Arial`、ea 空）；封面 `TextBox 4/5`（`latin=微软雅黑`、ea 空） | 给这些静态文本框的 run/defRPr 加 `ea=微软雅黑`（中文才稳定用雅黑） |
+| 5 | **结尾页底图是 JPEG XR（`.wdp`）且无尺寸** | layout8 `图片 7` → `hdphoto1.wdp`，`a:ext` 缺失 | 换成 PNG/JPG 并设 12192000×6858000；`.wdp` 是 Windows 专有格式，**桌面预览（LibreOffice）很可能渲染不出来**。若此页不用可忽略 |
+| 6 | （可选，语义更好）封面第一个占位符建议改为 title 类型 | layout1 四个全是 `body/10..13` | 改成 `type="title"` 后 PowerPoint 大纲与 `shapes.title` 都能识别"论文标题"；不改也可以，构建器会改为按 idx 定点写入 |
+
+### 9.3 代码侧仍需实现（与模板修改并行）
+
+1. 按 `idx` 定点写入任意占位符（封面 4 个、总结页 3 个、图注 1 个）；
+2. 自然段模式（不写 `buChar`/`buAutoNum`）+ 填满图旁剩余区域 + 字号 ≥20pt 下限与溢出告警；
+3. 写入时统一 `latin=Arial` + `ea=微软雅黑` + `cs=Arial`；
+4. plan 层显式 role→layout 映射（`Abs` / `Fig1..Fig4` / `End`）；
+5. 符合性检查改逐槽位：静态形状齐全、字体（latin/ea）、字号下限、段落无项目符号。
+
+### 9.4 待确认
+
+1. 总结页 `body/12` 的提示是「本文实现的创新方法有：(To Agent:分…)」——
+   **总结页是否允许分点？** 需求里"不分点"只点名了图解释与摘要。
+2. Fig3 页要不要图注（见 9.2 #3）。
