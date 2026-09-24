@@ -67,9 +67,11 @@ Agent 工具层，以及「本机受控运行边界」和「回环地址与用�
 `sources`（文件与行号），渲染前由 Archify 逐条核对存在性，因此图与代码不会脱节。
 可交互版本见 [`docs/ibm-agent-code-structure.html`](docs/ibm-agent-code-structure.html)。
 
-安装包内的自包含运行时（解包后）：`resources/python` 401 MB、`resources/dsh` 318 MB、
-`resources/node` 88 MB、`resources/plugin` 61 MB；压缩后 Windows 安装包 172 MB、
-Linux 归档 22.1 MB。
+安装包内的自包含运行时（解包后）：`resources/python` 385 MB、`resources/dsh` 648 MB、
+`resources/node` 88 MB、`resources/plugin` 58 MB；压缩后 Windows 安装包 259 MB、
+Linux 归档 24.1 MB。DSH 树从 318 MB 涨到 648 MB 是 0.1.7 带来的：
+`dsh-web-app` 直接依赖 `dsh-office-to-pdf` → `libreoffice-kit`，其 Windows x64 平台包
+解包后 325 MB，而组合出的 profile 里 `office-to-pdf` 行是启用状态，不能删。
 
 所有课题数据默认保存在用户自己的 DSH 数据目录。文献访问仅使用开放来源、用户已建立的
 学校 WebVPN 会话或本机 iWAN 网络；浏览器捕获只接收用户已获授权的 PDF/SI。项目不会
@@ -197,7 +199,7 @@ dsh --profile ibm-lab
 
 当前分支（含 v0.5.3-beta9 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **566/566** 通过（493 单元 + 73 集成）；
+- Node 单元与集成测试 **568/568** 通过（495 单元 + 73 集成）；
 - 回归套件 **11/11** 通过；客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
 - **DSH 0.1.7-rc.1 组合实测**：以真实 0.1.7 依赖闭包挂载 `ibm-lab` profile
   （`dsh-base` + `dsh-web-app` + `dsh-lab-agent`）后，`agentPresets.list()` 返回
@@ -208,17 +210,25 @@ dsh --profile ibm-lab
   `@deepseek-ai/dsh-agent-loop/lib/index.js` 上仍然命中，`runtime/versions.env`
   的 `DSH_AGENT_LOOP_SHA256` 已换成 0.1.7 的实测值；
 - 浏览器侧剪贴板补丁按 0.1.7 的新压缩形态重取锚点（旧锚点在 0.1.7 上一个都不匹配），
-  并做成多布局表，`verify`/`patch`/`revert` 三态都经过实测前端校验。
+  并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
+  `verify`/`patch`/`revert` 三态都经过实测前端校验。
+
+v0.5.3-beta9 于 2026-09-24 完成 Windows 出包验证：统一发布流水线 11 个阶段全部通过
+（含 Windows 侧 568 用例、真实浏览器 Ketcher、全量重刷 DSH 树、打包后真实启动的回环
+Web 冒烟），`release-report.json` 为 `publishable: true`。产物：
+
+| 产物 | 字节 | SHA-256 |
+|---|---|---|
+| `iBM Lab Agent_0.5.3-beta9_x64-setup.exe` | 259,193,194 | `C9B1567C…7D7F55B26` |
+| `ibm-lab-agent-v0.5.3-beta9-linux.tar.gz` | 24,122,035 | `4c914603…c13c13f5` |
+
+两者均由提交 `c7f0852` 构建。Windows 桌面端安装后的人工验收（WebVPN 侧栏、课题 tab、
+捕获小球、WebView2 里的真实复制）仍待做。详见
+[`docs/releases/v0.5.3-beta9.md`](docs/releases/v0.5.3-beta9.md)。
 
 v0.5.3-beta8 于 2026-09-23 完成出包验证，详见
 [`docs/releases/v0.5.3-beta8.md`](docs/releases/v0.5.3-beta8.md)；浏览器页面位移已收敛到
 PDF 预览器，人机验证框与 PDF 预览器工具栏需按该文档末尾的清单在真实出版社页面上人工验收。
-
-v0.5.3-beta9 的 Windows 出包（Tauri/NSIS）与真实桌面端启动尚未在本机复验：本次改动触及
-`desktop/scripts/prepare-runtime.ps1`（剪贴板锚点探测改为调用同一支 node CLI）与
-`desktop/src-tauri/src/runtime/dsh.rs`（不再物化已废弃的预设目录），需要在有 Windows
-构建机的环境中跑一次完整发布流水线确认。详见
-[`docs/releases/v0.5.3-beta9.md`](docs/releases/v0.5.3-beta9.md)。
 
 v0.5.1 于 2026-09-17 完成正式发布验证：
 

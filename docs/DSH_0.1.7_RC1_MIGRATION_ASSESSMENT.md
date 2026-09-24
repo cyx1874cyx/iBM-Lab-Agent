@@ -546,10 +546,19 @@ Windows token 修复、注入面断言同步、浏览器验收 flake 修复，�
 - 旧的 `preset.yml` / `agent.cordis.yml` 直接删除，而不是保留为「历史模板」——
   0.1.7 不再读它们，保留只会让人以为还能编辑。
 
-## E5 仍未验证（与评估 §8 一致的残余）
+## E5 残余验证（2026-09-24 已出包，状态更新）
 
-1. Windows 出包流水线与真实桌面端启动（本机无 Windows/WSL 构建机）；Rust 侧不可编译验证。
-2. WebView2 里「复制」的真实行为（锚点重取是静态完成的，且 `node --check` 过了语法）。
-3. `dsh plugin --profile ibm-lab add <本地目录>` 在 0.1.7 的本地路径语义；本次用
-   profile + `node_modules` 软链等价复现了 composer 输入，但没有走 `plugin add`。
-4. Linux 归档 / Windows 安装包体积与 SHA-256（beta9 尚未出包）。
+1. ~~Windows 出包流水线~~ **已完成**：本环境是 WSL2（interop 可用），
+   `scripts/windows-release-from-wsl.sh` 驱动 Windows 原生工具链跑完 11 个阶段，
+   `release-report.json` 为 `publishable: true`，安装包 259,193,194 B /
+   `C9B1567C…7D7F55B26`。Rust 侧由 `cargo`（Windows 原生）实际编译通过。
+   期间修掉四个只在真出包时暴露的缺陷（见 `docs/releases/v0.5.3-beta9.md` 的
+   「出包链路」一节）：根依赖不自动更新、半装树被放行、npmjs 从 Windows 不可达、
+   以及剪贴板补丁缺分号导致补丁后前端语法错误。
+2. WebView2 里「复制」的真实行为仍未验证（锚点重取是静态完成的；补丁后前端的语法
+   已由 `node --check` + 集成测试守住）。
+3. `dsh plugin --profile ibm-lab add <本地目录>` 在 0.1.7 的本地路径语义仍未走；
+   本次用 profile + `node_modules` 软链等价复现了 composer 输入。
+4. ~~产物体积与 SHA-256~~ **已测**：Windows 安装包 259,193,194 B（比 beta8 的
+   172,150,786 B 大 50%），Linux 归档 24,122,035 B。体积增长已定位到 0.1.7 新增的
+   `libreoffice-kit-win32-x64`（解包 325 MB，`office-to-pdf` 行启用所以必须随包）。
