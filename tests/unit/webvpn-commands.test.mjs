@@ -370,9 +370,20 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
 	assert.doesNotMatch(noPublisher[0], /^\s*notify\([^)]*\);\s*return;/m, "不得退回成只弹提示");
 
 	// 已有任务在处理：载体还在就必须把它带回前台。
-	const busy = body.match(/if \(active\?\.pendingTaskId[\s\S]*?\n\t\t\t\t\t\t\}/);
-	assert.ok(busy, "必须存在 pendingTaskId 分支");
-	assert.match(busy[0], /showWebVpnViaShell\(\)/, "已有任务时也必须把浏览器带回前台");
+	// 2026-09-23 回归：门只看「是否真在捕获中」；空闲时（含 WebVPN 登录后回到
+	// ready）必须继续创建任务并导航，否则会停在门户首页——旧实现对同一篇直接
+	// 早退，只显示浏览器不重新导航。
+	const gate = body.match(/const captureInProgress =[\s\S]*?if \(captureInProgress\) \{[\s\S]*?\n\t\t\t\t\t\t\}/);
+	assert.ok(gate, "必须存在 captureInProgress 门");
+	assert.match(gate[0], /active\?\.pendingTaskId/, "门必须含 pendingTaskId");
+	assert.match(gate[0], /waiting-download/, "门必须含会话中间态");
+	assert.match(gate[0], /showWebVpnViaShell\(\)/, "已有任务时也必须把浏览器带回前台");
+	assert.doesNotMatch(
+		body,
+		/captureHint\?\.bundleId === bundle\.id && captureHint\?\.kind === kind && active\?\.windowOpen/,
+		"不得再对同一篇直接早退：空闲时必须重新导航，否则登录后停在门户",
+	);
+	assert.match(body, /await call\("manual_capture_create"/, "空闲路径必须能走到创建捕获任务");
 
 	// 所有打开浏览器的出口都要经过 withWebVpnTab：先开右侧栏 tab，再调原生命令。
 	for (const name of ["openWebVpnLoginViaShell", "openWebVpnCaptureViaShell", "showWebVpnViaShell"]) {

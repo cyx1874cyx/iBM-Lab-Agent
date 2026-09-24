@@ -261,18 +261,21 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 					void (async () => {
 						const iwan = await iwanStatusViaShell().catch(() => null);
 						const active = await webVpnStatusViaShell().catch(() => null);
-						if (captureHint?.bundleId === bundle.id && captureHint?.kind === kind && active?.windowOpen) {
-							await showWebVpnViaShell();
-							notify(`已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面`);
-							return;
-						}
-						if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
+						// 只有「确实在捕获中」才不重新导航。早期版本在这里对同一篇直接
+						// 早退、只把浏览器带回前台：WebVPN 登录会把目标页顶成门户首页，
+						// 登录后再点同一篇就永远停在门户上（2026-09-23 反馈）。现在空闲
+						// （ready / waiting-login / error）一律重新建任务并导航到目标页。
+						const captureInProgress = Boolean(active?.pendingTaskId)
+							|| ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state);
+						if (captureInProgress) {
 							// 已有任务在处理时也必须把浏览器带回前台：否则用户点了「尚未获取」
 							// 却什么都没发生，只能靠顶部的「打开 WebVPN」自救。
 							if (active?.windowOpen) {
 								try { await showWebVpnViaShell(); } catch { /* 显示失败时下面的提示仍会给出出路 */ }
 							}
-							notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
+							notify(captureHint?.bundleId === bundle.id && captureHint?.kind === kind
+								? `已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面`
+								: `已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
 							return;
 						}
 						const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });

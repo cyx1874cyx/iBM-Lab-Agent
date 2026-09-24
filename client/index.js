@@ -3088,19 +3088,15 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       void (async () => {
         const iwan = await iwanStatusViaShell().catch(() => null);
         const active = await webVpnStatusViaShell().catch(() => null);
-        if (captureHint?.bundleId === bundle.id && captureHint?.kind === kind && active?.windowOpen) {
-          await showWebVpnViaShell();
-          notify(`已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面`);
-          return;
-        }
-        if (active?.pendingTaskId || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state)) {
+        const captureInProgress = Boolean(active?.pendingTaskId) || ["navigating", "waiting-download", "downloading", "uploading"].includes(active?.state);
+        if (captureInProgress) {
           if (active?.windowOpen) {
             try {
               await showWebVpnViaShell();
             } catch {
             }
           }
-          notify(`已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
+          notify(captureHint?.bundleId === bundle.id && captureHint?.kind === kind ? `已返回当前${kind === "pdf" ? "正文" : "SI"}下载页面` : `已有${active.pendingKind === "si" ? "补充材料" : "正文"}正在处理；可点状态条上的“终止下载”后再启动另一项`);
           return;
         }
         const result = await call("manual_capture_create", { request: { projectId: bundle.projectId, bundleId: bundle.id, kind } });
