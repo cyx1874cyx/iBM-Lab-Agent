@@ -65,13 +65,16 @@ test("缺 Tauri CLI 时自动补 desktop 依赖（不再晚到 tauri-nsis 才失
 	assert.match(script, /npm ci/, "缺失时应自动执行 npm ci");
 });
 
-test("根 workspace 依赖与锁定的 DSH 版本不一致时自动重装（否则装错 Harness）", () => {
-	// prepare-runtime 从 <sourceRoot>\node_modules 暂存要出货的 Harness 树；
-	// 树是旧的而锁是新的时，出包不会报错、只会把旧 DSH 打包进去。
+test("根依赖每次都与冻结锁对齐，并校验全部 @deepseek-ai/dsh* 版本（防半装树）", () => {
+	// prepare-runtime 从 <sourceRoot>\node_modules 暂存要出货的 Harness 树。
+	// 只探入口包版本不够：实测 2026-09-24 一次被网络打断的安装留下
+	// @deepseek-ai/dsh=0.1.7 而 dsh-client-ui-session=0.1.5 的混合树，
+	// 探针放行、出包用的就是混合树。
 	assert.match(script, /runtime\\versions\.env/, "应从 runtime/versions.env 读锁定版本");
 	assert.match(script, /DSH_VERSION=/, "应比对 DSH_VERSION");
-	assert.match(script, /corepack pnpm install --frozen-lockfile/, "版本不一致时应重装根依赖");
-	assert.match(script, /FATAL: root dependencies still do not match/, "重装后仍不一致必须硬失败");
+	assert.match(script, /corepack pnpm install --frozen-lockfile/, "应每次都与冻结锁对齐");
+	assert.match(script, /-notlike 'dsh\*'/, "必须遍历 @deepseek-ai/dsh* 而不是只看入口包");
+	assert.match(script, /FATAL: @deepseek-ai packages not on/, "任何版本不一致必须硬失败");
 });
 
 test("npmjs 在 Windows 侧不可达时退回 npmmirror（校内网络实测如此）", () => {

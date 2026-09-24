@@ -161,26 +161,39 @@ Write-Output ("  dirty entries: " + \$dirty)
 if (\$dirty -ne 0) { Write-Output '  WARNING: worktree is dirty; the release preflight will refuse to build.' }
 
 # Root workspace dependencies: prepare-runtime stages the SHIPPED Harness tree
-# from <sourceRoot>\node_modules, so a stale tree silently ships the wrong DSH.
-# Compare the installed @deepseek-ai/dsh with runtime/versions.env and reinstall
-# on mismatch. This is how a DSH upgrade reaches the Windows side: the WSL repo
-# commits a new pnpm-lock.yaml, the guard sees the old tree and reinstalls.
+# from <sourceRoot>\node_modules, so a stale or PARTIALLY updated tree silently
+# ships the wrong Harness. Reconcile against the frozen lock on every run (a
+# no-op when the tree already matches) instead of trusting a version probe on
+# the entry package: an install interrupted by the network leaves a MIXED tree
+# whose @deepseek-ai/dsh alone still looks right (hit for real on 2026-09-24).
 \$wantDsh = (Select-String -Path (Join-Path \$work 'runtime\versions.env') -Pattern '^DSH_VERSION=(.+)\$').Matches[0].Groups[1].Value
-\$dshManifest = Join-Path \$work 'node_modules\@deepseek-ai\dsh\package.json'
-\$haveDsh = ''
-if (Test-Path \$dshManifest) { \$haveDsh = (Get-Content \$dshManifest -Raw | ConvertFrom-Json).version }
-if (\$haveDsh -ne \$wantDsh) {
-  Write-Output ('=== root workspace deps: DSH ' + \$haveDsh + ' -> ' + \$wantDsh + ' (corepack pnpm install --frozen-lockfile) ===')
-  \$env:PATH = (Split-Path \$node -Parent) + ';' + \$env:PATH
-  Push-Location \$work
-  & corepack pnpm install --frozen-lockfile @registryArgs 2>&1 | Select-Object -Last 12
-  \$pnpmRc = \$LASTEXITCODE
-  Pop-Location
-  if (\$pnpmRc -ne 0) { Write-Output ('  corepack pnpm install failed: exit ' + \$pnpmRc); exit \$pnpmRc }
-  \$haveDsh = (Get-Content \$dshManifest -Raw | ConvertFrom-Json).version
-  Write-Output ('  root workspace deps now on DSH ' + \$haveDsh)
-  if (\$haveDsh -ne \$wantDsh) { Write-Output '  FATAL: root dependencies still do not match runtime/versions.env'; exit 1 }
+Write-Output ('=== root workspace deps -> DSH ' + \$wantDsh + ' (corepack pnpm install --frozen-lockfile) ===')
+\$env:PATH = (Split-Path \$node -Parent) + ';' + \$env:PATH
+Push-Location \$work
+& corepack pnpm install --frozen-lockfile @registryArgs 2>&1 | Select-Object -Last 12
+\$pnpmRc = \$LASTEXITCODE
+Pop-Location
+if (\$pnpmRc -ne 0) { Write-Output ('  corepack pnpm install failed: exit ' + \$pnpmRc); exit \$pnpmRc }
+
+# Post-condition: EVERY @deepseek-ai/dsh* package on the pinned version. The
+# entry package alone is not enough evidence.
+\$scope = Join-Path \$work 'node_modules\@deepseek-ai'
+\$wrong = @()
+if (-not (Test-Path \$scope)) { \$wrong += 'missing node_modules\@deepseek-ai' }
+else {
+  foreach (\$entry in Get-ChildItem \$scope -Directory) {
+    if (\$entry.Name -notlike 'dsh*') { continue }
+    \$manifest = Join-Path \$entry.FullName 'package.json'
+    if (-not (Test-Path \$manifest)) { continue }
+    \$version = (Get-Content \$manifest -Raw | ConvertFrom-Json).version
+    if (\$version -ne \$wantDsh) { \$wrong += (\$entry.Name + '@' + \$version) }
+  }
 }
+if (\$wrong.Count -gt 0) {
+  Write-Output ('  FATAL: @deepseek-ai packages not on ' + \$wantDsh + ': ' + (\$wrong -join ', '))
+  exit 1
+}
+Write-Output ('  root workspace deps verified on DSH ' + \$wantDsh)
 
 # desktop/ is a separate npm unit (not in the root pnpm workspace); install the CLI
 # automatically so a fresh copy cannot fail late in tauri-nsis.
