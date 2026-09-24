@@ -184,11 +184,11 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.3-beta9 |
+| iBM Lab Agent | 0.5.4 |
 | DeepSeek Harness | 0.1.7-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
-| Windows bundled Python | 3.11 |
+| Windows bundled Python | 3.12 |
 | Origin MCP | 0.1.4 |
 | Mnova MCP | 0.3.1 |
 | Nature Skills | commit `c171989db699bd601d4373912b3fb8db96ecc95b` |
