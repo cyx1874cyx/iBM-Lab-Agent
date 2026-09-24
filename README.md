@@ -198,10 +198,12 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（含 v0.5.3-beta9 的全部改动）在本机实测：
+当前分支（含 v0.5.4 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **568/568** 通过（495 单元 + 73 集成）；
-- 回归套件 **11/11** 通过；客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
+- Node 单元与集成测试 **639 项 / 637 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
+  模板，CI 预期如此）；
+- 回归套件 **11/11** 通过；Linux 发布预检闸门全绿；客户端一致性、预设导出检查通过；
+  ESLint **0 error / 87 warning**；
 - **DSH 0.1.7-rc.1 组合实测**：以真实 0.1.7 依赖闭包挂载 `ibm-lab` profile
   （`dsh-base` + `dsh-web-app` + `dsh-lab-agent`）后，`agentPresets.list()` 返回
   `standard / ptc / minimal / cordis / lab-research`，其中 `lab-research` **无 `broken`
@@ -214,18 +216,19 @@ dsh --profile ibm-lab
   并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
   `verify`/`patch`/`revert` 三态都经过实测前端校验。
 
-v0.5.3-beta9 于 2026-09-24 完成 Windows 出包验证：统一发布流水线 11 个阶段全部通过
-（含 Windows 侧 568 用例、真实浏览器 Ketcher、全量重刷 DSH 树、打包后真实启动的回环
-Web 冒烟），`release-report.json` 为 `publishable: true`。产物：
+v0.5.4 于 2026-09-25 完成出包验证：Windows 侧统一发布流水线 11 个阶段全部通过
+（含 Windows 侧 639 用例、真实浏览器 Ketcher、捆绑 Python 3.12 重建与自检、打包后真实启动的
+回环 Web 冒烟），`release-report.json` 为 `publishable: true`；Linux 侧
+`linux-release-preflight.mjs` 闸门全绿（体积 23.1 MB，在阈值内）。产物：
 
 | 产物 | 字节 | SHA-256 |
 |---|---|---|
-| `iBM Lab Agent_0.5.3-beta9_x64-setup.exe` | 259,193,194 | `C9B1567C…7D7F55B26` |
-| `ibm-lab-agent-v0.5.3-beta9-linux.tar.gz` | 24,122,035 | `4c914603…c13c13f5` |
+| `iBM Lab Agent_0.5.4_x64-setup.exe` | 259,027,217 | `17E51C6F…5EA21F46` |
+| `ibm-lab-agent-v0.5.4-linux.tar.gz` | 24,273,322 | `89f22b44…b9dfefb8` |
 
-两者均由提交 `c7f0852` 构建。Windows 桌面端安装后的人工验收（WebVPN 侧栏、课题 tab、
+两者均由提交 `2b6463f` 构建。Windows 桌面端安装后的人工验收（WebVPN 侧栏、课题 tab、
 捕获小球、WebView2 里的真实复制）仍待做。详见
-[`docs/releases/v0.5.3-beta9.md`](docs/releases/v0.5.3-beta9.md)。
+[`docs/releases/v0.5.4.md`](docs/releases/v0.5.4.md)。
 
 v0.5.3-beta8 于 2026-09-23 完成出包验证，详见
 [`docs/releases/v0.5.3-beta8.md`](docs/releases/v0.5.3-beta8.md)；浏览器页面位移已收敛到
