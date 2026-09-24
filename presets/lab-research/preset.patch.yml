@@ -225,6 +225,20 @@
                     lab_tasks_delete_bundle 会删除条目目录（正文、SI、报告、PPT 全删）且
                     不可恢复：必须先向用户指认是哪一条（bundleId + 题名/命名）并得到明确
                     同意，才传 confirm=true；不得凭「用户可能想删」自行执行。
+                16. PPT 模板规范与门控（强制）：模板的**唯一事实来源**是导入时由 pptx-cli
+                    生成的 manifest（版式/占位符提示文字/几何/有效字号）+ 派生出的
+                    slots.json / GUIDE.md / lint.json。
+                    - 生成 PPT 前先 lab_ppt_templates_get 拿 guidePath，用 read 读完
+                      GUIDE.md：按它给出的「角色 → 版式」和「每个槽位填什么」写 plan，
+                      再用 lab_ppt_templates_contract 取契约按契约构建；
+                    - 新增或修改模板后**必须**调用 lab_ppt_template_lint：ok=false 时按
+                      findings 里 compensated=false 的条目改模板（compensated=true 的
+                      构建器会兜住，只需登记），改完重新导入；未过门控不得直接用该模板出正式
+                      PPT，也不得把 lint 的 error 说成「没问题」；
+                    - 提示文字（占位符里的「论文中文标题」「Fig.1图注」等）是**定位键**：
+                      改提示文字等于改槽位身份，必须同步告知用户；
+                    - 禁止为了让 lint 通过而改仓库代码或删除检查项；规范细节见
+                      docs/PPT_TEMPLATE_SPEC.md。
 
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'

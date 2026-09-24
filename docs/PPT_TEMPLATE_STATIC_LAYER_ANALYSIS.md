@@ -1,5 +1,10 @@
 # 文献阅读 PPT 模板：静态元素丢失的根因分析与改造方案
 
+> **下游落地（0.5.4）**：本篇的结论已落成「manifest 唯一事实来源 + 槽位规范 slots.json +
+> 模板体检 lint.json + plan 编译器」的完整管线，见 `docs/PPT_TEMPLATE_SPEC.md`（规范）与
+> `docs/PPT_TEMPLATE_PIPELINE_P14.md`（落地记录）。本篇保留为静态层问题的根因档案。
+
+
 > 对象：用户提供的《文献阅读PPT模板.pptx》（378,712 B，6 页，11 个版式）。
 > 方法：解包读取 `ppt/slides/*.xml`、`ppt/slideLayouts/*.xml`、`ppt/slideMasters/*.xml`、
 > `ppt/theme/theme1.xml` 与 `ppt/media/*`，并对照本仓库当前的
