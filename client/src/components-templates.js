@@ -8,10 +8,17 @@ export function Templates({ call, onBack }) {
 			const [notes, setNotes] = useState({ loading: true, list: [], error: "" });
 			const [ppt, setPpt] = useState({ loading: true, list: [], error: "" });
 			const [exp, setExp] = useState({ loading: true, list: [], error: "" });
+			const [reviews, setReviews] = useState({ loading: true, list: [], error: "" });
 			const loadNotes = useCallback(async () => {
 				setNotes((s) => ({ ...s, loading: true, error: "" }));
-				try { const result = await call("note_templates_list"); setNotes({ loading: false, list: result.templates || [], error: "" }); }
+				// kind：note = 单篇阅读笔记；review = 多篇文献综述（写综述时按它生成）
+				try { const result = await call("note_templates_list", { request: { kind: "note" } }); setNotes({ loading: false, list: result.templates || [], error: "" }); }
 				catch (reason) { setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
+			}, [call]);
+			const loadReviews = useCallback(async () => {
+				setReviews((s) => ({ ...s, loading: true, error: "" }));
+				try { const result = await call("note_templates_list", { request: { kind: "review" } }); setReviews({ loading: false, list: result.templates || [], error: "" }); }
+				catch (reason) { setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
 			}, [call]);
 			const loadPpt = useCallback(async () => {
 				setPpt((s) => ({ ...s, loading: true, error: "" }));
@@ -23,14 +30,15 @@ export function Templates({ call, onBack }) {
 				try { const result = await call("experiment_plan_templates_list"); setExp({ loading: false, list: result.templates || [], error: "" }); }
 				catch (reason) { setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
 			}, [call]);
-			useEffect(() => { void loadNotes(); void loadPpt(); void loadExp(); }, [loadNotes, loadPpt, loadExp]);
+			useEffect(() => { void loadNotes(); void loadReviews(); void loadPpt(); void loadExp(); }, [loadNotes, loadReviews, loadPpt, loadExp]);
 			return h("div", null,
-				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
+				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
 				h("div", { className: "ib-tm-tabs" },
 					h("button", { className: "ib-tm-tab", "data-active": tab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"),
+					h("button", { className: "ib-tm-tab", "data-active": tab === "reviews" ? "true" : undefined, onClick: () => setTab("reviews") }, "综述模板"),
 					h("button", { className: "ib-tm-tab", "data-active": tab === "exp" ? "true" : undefined, onClick: () => setTab("exp") }, "实验计划模板"),
 					h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : undefined, onClick: () => setTab("ppt") }, "PPT 模板")),
-				tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes }) : (tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt }))
+				tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note" }) : (tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review" }) : (tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })))
 			);
 		}
 

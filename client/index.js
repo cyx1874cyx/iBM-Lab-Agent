@@ -154,7 +154,7 @@ function buildDescriptors() {
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -2343,13 +2343,23 @@ function Templates({ call, onBack }) {
   const [notes, setNotes] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
   const [ppt, setPpt] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
   const [exp, setExp] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
+  const [reviews, setReviews] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
   const loadNotes = (0, import_react5.useCallback)(async () => {
     setNotes((s) => ({ ...s, loading: true, error: "" }));
     try {
-      const result = await call("note_templates_list");
+      const result = await call("note_templates_list", { request: { kind: "note" } });
       setNotes({ loading: false, list: result.templates || [], error: "" });
     } catch (reason) {
       setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const loadReviews = (0, import_react5.useCallback)(async () => {
+    setReviews((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("note_templates_list", { request: { kind: "review" } });
+      setReviews({ loading: false, list: result.templates || [], error: "" });
+    } catch (reason) {
+      setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
     }
   }, [call]);
   const loadPpt = (0, import_react5.useCallback)(async () => {
@@ -2372,21 +2382,23 @@ function Templates({ call, onBack }) {
   }, [call]);
   (0, import_react5.useEffect)(() => {
     void loadNotes();
+    void loadReviews();
     void loadPpt();
     void loadExp();
-  }, [loadNotes, loadPpt, loadExp]);
+  }, [loadNotes, loadReviews, loadPpt, loadExp]);
   return h(
     "div",
     null,
-    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
+    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
     h(
       "div",
       { className: "ib-tm-tabs" },
       h("button", { className: "ib-tm-tab", "data-active": tab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
+      h("button", { className: "ib-tm-tab", "data-active": tab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
       h("button", { className: "ib-tm-tab", "data-active": tab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
       h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
     ),
-    tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes }) : tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
+    tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note" }) : tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review" }) : tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
   );
 }
 function ExperimentPlanTemplates({ call, state, reload }) {
@@ -3148,6 +3160,23 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
     notify(`${saved.native ? "已保存" : "已开始下载"} ${result.ris.fileName}（${result.ris.count} 条文献）`);
   });
+  const reviewArtifactUrl = (search, variant) => `/api/lab-artifacts?kind=${variant === "ppt" ? "review-ppt" : "review"}&runId=${encodeURIComponent(search.id)}`;
+  const writeReview = (search) => run(`review:${search.id}`, async () => {
+    const inputs = await call("tasks_review_inputs", { request: { runId: search.id, projectId: search.projectId } });
+    const prompt = [
+      `请对文献检索条目「${inputs.title || search.title || search.query || search.id}」撰写一篇文献综述。`,
+      `第一步：调用 lab_tasks_get_review_inputs（runId=${search.id}），它返回 contractPath=${inputs.contractPath}；用 read 把这份「综述生成契约」完整读完（较长时用 offset/limit 分段）。`,
+      `第二步：严格按契约的章节骨架写综述；按主题归类组织，禁止逐篇罗列摘要；每个论断标注来源文献。`,
+      `第三步：只允许引用本次检索到的 ${inputs.resultCount} 条文献（契约中有清单），不得引入未检索到的内容。`,
+      `第四步：写完后调用 lab_tasks_register_review（runId=${search.id}）登记；若需要汇报 PPT，再按 PPT 模板构建并调用 lab_tasks_register_review_presentation 登记。`
+    ].join("\n");
+    onRequestArtifact(prompt);
+  });
+  const openReview = (search, variant) => {
+    const url = reviewArtifactUrl(search, variant);
+    const opened = window.open(url, "_blank");
+    if (!opened) notify("浏览器拦截了综述窗口，请允许弹出窗口后重试");
+  };
   const deleteSearch = (search) => {
     if (!window.confirm(`确定删除检索记录“${search.title || search.query || search.id}”吗？`)) return;
     void run(`delete-search:${search.id}`, async () => {
@@ -3442,6 +3471,18 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               event.stopPropagation();
               void risFor(search);
             } }, busy[`ris:${search.id}`] ? "…" : ".ris"),
+            h("button", { className: `ib-lit-btn${search.review?.status === "ready" ? " ok" : ""}`, "data-ready": search.review?.status === "ready" ? "true" : "false", disabled: busy[`review:${search.id}`] || !(search.results || []).length, onClick: (event) => {
+              event.stopPropagation();
+              void writeReview(search);
+            }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : "写综述"),
+            search.review?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => {
+              event.stopPropagation();
+              openReview(search, "report");
+            }, title: "打开综述报告（Markdown）" }, "综述") : null,
+            search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => {
+              event.stopPropagation();
+              openReview(search, "ppt");
+            }, title: "打开综述汇报 PPT" }, "综述PPT") : null,
             h("button", { className: "ib-lit-btn", "data-danger": true, disabled: busy[`delete-search:${search.id}`], onClick: (event) => {
               event.stopPropagation();
               deleteSearch(search);

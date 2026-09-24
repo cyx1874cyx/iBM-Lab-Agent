@@ -145,6 +145,30 @@ export const literatureSearchRunSchema = z.object({
 	error: z.string().optional(),
 	/** 执行该检索的 Harness 会话 id——面板点击记录可跳转到检索发生的对话。 */
 	sessionId: z.string().optional(),
+	/** 检索条目上的文献综述产物（对本次检索结果写成的综述文档）。 */
+	review: z.object({
+		status: z.enum(["pending", "ready"]).default("pending"),
+		markdownPath: z.string().optional(),
+		docxPath: z.string().optional(),
+		contractPath: z.string().optional(),
+		sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+		templateId: z.string().optional(),
+		templateVersion: z.string().optional(),
+		templateSnapshot: z.unknown().optional(),
+		archiveDir: z.string().optional(),
+		updatedAt: z.string().optional()
+	}).optional(),
+	/** 综述汇报 PPT。 */
+	reviewPresentation: z.object({
+		status: z.enum(["pending", "ready"]).default("pending"),
+		pptxPath: z.string().optional(),
+		contractPath: z.string().optional(),
+		conformancePath: z.string().optional(),
+		templateId: z.string().optional(),
+		templateVersion: z.string().optional(),
+		sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+		updatedAt: z.string().optional()
+	}).optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });

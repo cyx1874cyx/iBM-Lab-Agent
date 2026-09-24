@@ -42,6 +42,8 @@ export const noteSectionSchema = z.object({
 export const noteTemplateSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	version: z.string().regex(/^\d+$/),
+	/** 模板用途：note = 单篇阅读笔记（默认，兼容旧数据）；review = 多篇文献综述。 */
+	kind: z.enum(["note", "review"]).default("note"),
 	/** 显示名（可含中文/空格）。 */
 	name: z.string().min(1),
 	/** 适用课题。 */
@@ -314,8 +316,52 @@ export function createDefaultNoteTemplate(now = new Date().toISOString()) {
 	});
 }
 
-/** 内置默认阅读笔记模板（服务种子用）。 */
-export const BUILTIN_NOTES = [createDefaultNoteTemplate()];
+/** 内置默认文献综述模板（多篇检索结果 → 一篇综述）。 */
+export function createDefaultReviewTemplate(now = new Date().toISOString()) {
+	return noteTemplateSchema.parse({
+		id: "review-default",
+		version: "1",
+		kind: "review",
+		name: "课题组文献综述模板（默认）",
+		topics: ["聚前药", "高分子材料设计", "药物递送"],
+		tags: ["review", "default"],
+		audience: "课题组组会与开题材料",
+		language: "zh",
+		length: "3000-6000 字，按主题归类而不是逐篇摘要",
+		sections: [
+			{ key: "scope", title: "综述范围与检索策略", required: true, hint: "检索式、数据源、时间窗、纳入与排除标准" },
+			{ key: "background", title: "研究背景与问题", required: true, hint: "领域现状、未解决的关键问题" },
+			{ key: "taxonomy", title: "技术路线归类", required: true, hint: "按设计策略/材料体系/机制把文献分组，给出各组代表工作" },
+			{ key: "progress", title: "关键进展", required: true, hint: "分组论述代表性结果与数据，标注来源文献" },
+			{ key: "comparison", title: "横向对比", required: true, hint: "跨组对比指标（载药量/释放行为/靶向性/疗效），指出可比与不可比之处" },
+			{ key: "challenges", title: "挑战与争议", required: true, hint: "证据冲突、方法学局限、重复性存疑处" },
+			{ key: "outlook", title: "趋势与展望", required: true, hint: "可验证的下一步方向，区分已有证据与推测" },
+			{ key: "project-link", title: "与本课题的关系", required: true, hint: "对本课题选题/设计/实验的直接启发" },
+			{ key: "references", title: "参考文献", required: true, hint: "只列本次检索结果中实际引用的条目，含 DOI" }
+		],
+		styleRules: [
+			"用中文正文，保留规范英文术语并用括号标注中文释义",
+			"按主题组织，禁止逐篇罗列摘要式段落",
+			"每个论断标注来源文献（作者 年份 或 DOI）"
+		],
+		evidenceRequirements: [
+			"只使用本次检索条目的题名/摘要/已登记全文，不补写未检索到的内容",
+			"摘要不足以下结论时写明「摘要信息不足」",
+			"对比表格中的数字必须来自所选文献的可见内容"
+		],
+		outputRequirements: [
+			"输出为 Markdown，模板章节作为二级标题",
+			"参考文献与正文引用一一对应"
+		],
+		remark: "默认文献综述模板：对某个检索条目的多篇结果写综述时若未指定模板，使用本模板。",
+		status: "active",
+		createdAt: now,
+		updatedAt: now
+	});
+}
+
+/** 内置模板（服务种子用）：单篇阅读笔记 + 多篇文献综述。 */
+export const BUILTIN_NOTES = [createDefaultNoteTemplate(), createDefaultReviewTemplate()];
 
 /**
  * 转换为模型可直接注入阅读笔记生成流程的结构化要求。

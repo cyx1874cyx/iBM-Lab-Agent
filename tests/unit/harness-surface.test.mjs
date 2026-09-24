@@ -371,6 +371,20 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /presetApplied !== "ok"\) toast/);
 });
 
+test("文献综述：检索条目有写综述入口，模板管理有综述模板分区", async () => {
+	const source = await readClientSource();
+	// 检索条目上的入口：写综述（起对话）与已有综述的打开按钮
+	assert.match(source, /const writeReview = \(search\)/);
+	assert.match(source, /lab_tasks_get_review_inputs/);
+	assert.match(source, /lab_tasks_register_review/);
+	assert.match(source, /tasks_review_inputs/);
+	assert.match(source, /kind=\$\{variant === "ppt" \? "review-ppt" : "review"\}&runId=/);
+	// 模板管理：综述模板走同一套阅读笔记模板域，用 kind 区分
+	assert.match(source, /"综述模板"/);
+	assert.match(source, /note_templates_list", \{ request: \{ kind: "review" \} \}/);
+	assert.match(source, /kind: "note"/);
+});
+
 test("web client bundle exposes valid strict Remote descriptors", async () => {
 
 	let registration;

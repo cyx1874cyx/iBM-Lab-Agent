@@ -324,6 +324,25 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				if (saved.cancelled) { notify("已取消保存 RIS"); return; }
 				notify(`${saved.native ? "已保存" : "已开始下载"} ${result.ris.fileName}（${result.ris.count} 条文献）`);
 			});
+			// 综述：把「写综述」变成一次带完整指令的任务对话，产物由 Agent 用
+			// lab_tasks_register_review / lab_tasks_register_review_presentation 落到检索条目。
+			const reviewArtifactUrl = (search, variant) => `/api/lab-artifacts?kind=${variant === "ppt" ? "review-ppt" : "review"}&runId=${encodeURIComponent(search.id)}`;
+			const writeReview = (search) => run(`review:${search.id}`, async () => {
+				const inputs = await call("tasks_review_inputs", { request: { runId: search.id, projectId: search.projectId } });
+				const prompt = [
+					`请对文献检索条目「${inputs.title || search.title || search.query || search.id}」撰写一篇文献综述。`,
+					`第一步：调用 lab_tasks_get_review_inputs（runId=${search.id}），它返回 contractPath=${inputs.contractPath}；用 read 把这份「综述生成契约」完整读完（较长时用 offset/limit 分段）。`,
+					`第二步：严格按契约的章节骨架写综述；按主题归类组织，禁止逐篇罗列摘要；每个论断标注来源文献。`,
+					`第三步：只允许引用本次检索到的 ${inputs.resultCount} 条文献（契约中有清单），不得引入未检索到的内容。`,
+					`第四步：写完后调用 lab_tasks_register_review（runId=${search.id}）登记；若需要汇报 PPT，再按 PPT 模板构建并调用 lab_tasks_register_review_presentation 登记。`
+				].join("\n");
+				onRequestArtifact(prompt);
+			});
+			const openReview = (search, variant) => {
+				const url = reviewArtifactUrl(search, variant);
+				const opened = window.open(url, "_blank");
+				if (!opened) notify("浏览器拦截了综述窗口，请允许弹出窗口后重试");
+			};
 			const deleteSearch = (search) => {
 				if (!window.confirm(`确定删除检索记录“${search.title || search.query || search.id}”吗？`)) return;
 				void run(`delete-search:${search.id}`, async () => {
@@ -556,6 +575,9 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							h("div", { className: "ib-lit-acts" },
 								h("button", { className: "ib-lit-btn ok", disabled: !(search.results || []).length, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); } }, expandedSearch === search.id ? "收起" : "检索"),
 								h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void risFor(search); } }, busy[`ris:${search.id}`] ? "…" : ".ris"),
+								h("button", { className: `ib-lit-btn${search.review?.status === "ready" ? " ok" : ""}`, "data-ready": search.review?.status === "ready" ? "true" : "false", disabled: busy[`review:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void writeReview(search); }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : "写综述"),
+								search.review?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, "综述") : null,
+								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, "综述PPT") : null,
 								h("button", { className: "ib-lit-btn", "data-danger": true, disabled: busy[`delete-search:${search.id}`], onClick: (event) => { event.stopPropagation(); deleteSearch(search); } }, busy[`delete-search:${search.id}`] ? "…" : "删除")
 							)
 						),
