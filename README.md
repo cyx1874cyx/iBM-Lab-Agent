@@ -5,9 +5,10 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.5.1**。
+当前稳定版本为 **v0.5.4**：Windows 捆绑 Python 升到 3.12（与 Linux 线对齐），并接入
+`pptx-cli` 完成文献阅读 PPT 模板的声明式规范（P1–P4）。
 
-当前候选版本为 **v0.5.3-beta9**：把插件适配到 **DeepSeek Harness 0.1.7-rc.1**。
+v0.5.3-beta9 的主题是把插件适配到 **DeepSeek Harness 0.1.7-rc.1**。
 0.1.7 删除了「预设目录」（`$DSH_HOME/.agent-presets/<id>/` 的 `preset.yml` +
 `agent.cordis.yml`）这一整套契约，改用 bundle patch 里的
 `@deepseek-ai/dsh-agent-preset` 声明行，默认预设也从 `settings.yaml` 的
