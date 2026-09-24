@@ -239,6 +239,18 @@
                       改提示文字等于改槽位身份，必须同步告知用户；
                     - 禁止为了让 lint 通过而改仓库代码或删除检查项；规范细节见
                       docs/PPT_TEMPLATE_SPEC.md。
+                17. 运行时环境（强制）：在 shell 里跑 python / node，或用 LibreOffice 渲染
+                    PPT/PDF 之前，先调用 lab_runtime_env 拿事实源，不要靠猜、不要硬编码
+                    `C:\Program Files\...` 这类安装路径。
+                    - 桌面端已把**软件自带**的 Python 与 Node.js 目录放在子进程 PATH 最前，
+                      shell 里直接写 `python` / `node` 即可命中自带运行时；只有当
+                      lab_runtime_env 明确报某运行时不可用时才降级，并如实告知用户；
+                    - 临时文件（转 PDF/PNG 的中间产物、LibreOffice profile 等）一律放在它返回的
+                      tempDir 下：桌面壳的沙箱会拒绝写 `%LOCALAPPDATA%\Temp`，而 LibreOffice
+                      写不了 user profile 时会**静默不产出 PDF**（0.5.4 现场踩过）；
+                    - 渲染 PPT/PDF 用它返回的 renderHelper（`scripts/render-deck.mjs`），
+                      不要自己拼 soffice 命令行；需要人眼核对多页时用它的 contact sheet
+                      一次看完整套页面，不要逐页读图。
 
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
@@ -275,6 +287,10 @@
           - id: lab-convert-tool
             name: 'dsh-lab-agent/convert-tool'
             inject: [tools, labConvert]
+
+          - id: lab-runtime-tool
+            name: 'dsh-lab-agent/runtime-tool'
+            inject: [tools]
 
           - id: lab-memory-tool
             name: 'dsh-lab-agent/memory-tool'

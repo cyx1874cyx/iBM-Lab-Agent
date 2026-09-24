@@ -92,18 +92,23 @@ fn extract_startup_url(line: &str) -> Option<String> {
     })
 }
 
-/// Build the child PATH with the packaged Python directory first.  Merely
-/// exporting IBM_LAB_AGENT_BUNDLED_PYTHON is insufficient because Agent shell
-/// commands commonly invoke `python` by name.  Prepending the directory makes
-/// that command deterministic while preserving access to PowerShell and other
-/// Windows tools later in PATH.
-fn child_path_with_bundled_python(layout: &RuntimeLayout) -> Result<OsString, RuntimeError> {
-    let python_dir = layout
-        .bundled_python()
-        .parent()
-        .ok_or_else(|| RuntimeError::new("Bundled Python path has no parent directory"))?
-        .to_path_buf();
-    let mut entries = vec![python_dir];
+/// Build the child PATH with the packaged runtime directories first.
+///
+/// Merely exporting IBM_LAB_AGENT_BUNDLED_PYTHON / IBM_LAB_AGENT_BUNDLED_NODE is
+/// insufficient because Agent shell commands commonly invoke `python` or `node`
+/// by name, and the host machine may have a different — or no — interpreter.
+/// Prepending the packaged directories makes those commands deterministic while
+/// preserving access to PowerShell and other Windows tools later in PATH.
+/// Python comes first; each directory only carries its own executable.
+fn child_path_with_bundled_runtimes(layout: &RuntimeLayout) -> Result<OsString, RuntimeError> {
+    let mut entries = Vec::new();
+    for executable in [layout.bundled_python(), layout.node_exe()] {
+        let directory = executable
+            .parent()
+            .ok_or_else(|| RuntimeError::new("Bundled runtime path has no parent directory"))?
+            .to_path_buf();
+        entries.push(directory);
+    }
     if let Some(current) = std::env::var_os("PATH") {
         entries.extend(std::env::split_paths(&current));
     }
@@ -195,7 +200,7 @@ pub fn spawn_dsh(
         super::mcp::validate_enabled_server(layout, mcp)?;
     }
     let mcp_patch = super::dsh::prepare_mcp_patch(layout, &config.mcp_servers)?;
-    let child_path = child_path_with_bundled_python(layout)?;
+    let child_path = child_path_with_bundled_runtimes(layout)?;
     let mut command = Command::new(layout.node_exe());
     #[cfg(windows)]
     command.creation_flags(0x08000000); // CREATE_NO_WINDOW
@@ -206,6 +211,10 @@ pub fn spawn_dsh(
         .env("DSH_HARNESS_NODE_MODULES", layout.dsh_node_modules())
         .env("IBM_LAB_AGENT_WORKSPACE", &layout.workspace_dir)
         .env("IBM_LAB_AGENT_BUNDLED_PYTHON", layout.bundled_python())
+        // Agent shell commands must be able to reach the packaged Node.js too;
+        // without this the only way to find it was the install directory
+        // (a real 0.5.4 field report: the Agent hardcoded "C:\Program Files\...").
+        .env("IBM_LAB_AGENT_BUNDLED_NODE", layout.node_exe())
         .env("PYTHON", layout.bundled_python())
         .env("PYTHON_EXECUTABLE", layout.bundled_python())
         .env("PYTHONNOUSERSITE", "1")
@@ -620,11 +629,14 @@ mod tests {
     }
 
     #[test]
-    fn child_path_forces_bundled_python_directory_first() {
+    fn child_path_forces_bundled_runtime_directories_first() {
         let root = sandbox();
         let layout = RuntimeLayout::new(root.join("data"), root.join("resources"));
-        let path = child_path_with_bundled_python(&layout).unwrap();
-        let first = std::env::split_paths(&path).next().unwrap();
-        assert_eq!(first, layout.bundled_python().parent().unwrap());
+        let path = child_path_with_bundled_runtimes(&layout).unwrap();
+        let entries: Vec<_> = std::env::split_paths(&path).collect();
+        // 捆绑 Python 第一、捆绑 Node 第二：Agent 的 shell 命令里 `python` 与
+        // `node` 都必须是软件自带的那一份，而不是宿主机的。
+        assert_eq!(entries[0], layout.bundled_python().parent().unwrap());
+        assert_eq!(entries[1], layout.node_exe().parent().unwrap());
     }
 }

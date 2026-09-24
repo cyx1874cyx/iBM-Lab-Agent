@@ -91,6 +91,9 @@
     "./templates-tool": {
       "default": "./lib/templates-tool.js"
     },
+    "./runtime-tool": {
+      "default": "./lib/runtime-tool.js"
+    },
     "./ppt-build-tool": {
       "default": "./lib/ppt-build-tool.js"
     },
