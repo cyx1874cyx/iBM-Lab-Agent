@@ -11,7 +11,9 @@ const pristine015 = 'head async function Fn(t){if(navigator.clipboard?.writeText
 
 // 0.1.7-rc.1 的压缩形态：helper 名 tr，参数名 e，JSON 树复制写成状态变量赋值。
 // 上游依然没有 execCommand 回退，缺陷形状不同但仍在。
-const pristine017 = 'head async function tr(e){if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(e),!0}catch{return!1}const n=typeof document.execCommand=="function"?document.execCommand.bind(document):void 0} middle let G;try{await navigator.clipboard.writeText(w_(V,X)),G="copied"}catch{G="failed"} tail';
+// 末尾的 `const ee=...` 是关键：被替换的 try/catch 后面直接跟语句，全靠块的 `}`
+// 分隔；换成表达式语句后必须自带分号，否则 `failed"const` 直接是语法错误。
+const pristine017 = 'head async function tr(e){if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(e),!0}catch{return!1}const n=typeof document.execCommand=="function"?document.execCommand.bind(document):void 0} middle let G;try{await navigator.clipboard.writeText(w_(V,X)),G="copied"}catch{G="failed"}const ee=L.get(); tail';
 
 test("DSH web clipboard fallback patch is exact, idempotent and reversible (0.1.5)", () => {
 	const patched = applyDshWebFrontendPatch(pristine015);
@@ -36,8 +38,10 @@ test("DSH web clipboard fallback patch is exact, idempotent and reversible (0.1.
 	assert.equal(state.layouts.find((layout) => layout.id === "0.1.7-rc.1").patchedAnchors, true);
 	// 共享 helper 必须落到自己的 execCommand 回退分支
 	assert.match(patched, /catch\{\}const n=typeof document\.execCommand/);
-	// JSON 树复制必须改走那个 helper，而不是直接调 clipboard
-	assert.match(patched, /G=await tr\(w_\(V,X\)\)\?"copied":"failed"/);
+	// JSON 树复制必须改走那个 helper，而不是直接调 clipboard。
+	// 结尾的分号是必需的：被替换的 try/catch 是块语句、后面紧跟 const 时不需分隔，
+	// 换成表达式语句后少了分号就会编译不过（2026-09-24 出包时被 node --check 拦下）。
+	assert.match(patched, /G=await tr\(w_\(V,X\)\)\?"copied":"failed";const /);
 	assert.equal(applyDshWebFrontendPatch(patched), patched);
 	assert.equal(revertDshWebFrontendPatch(patched), pristine017);
 });

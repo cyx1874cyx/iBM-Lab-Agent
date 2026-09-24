@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { applyFakeInvokePatch, inspectFakeInvokePatch, revertFakeInvokePatch } from "../../src/dsh-runtime-patch.js";
 import { applyDshWebFrontendPatch, inspectDshWebFrontendPatch, revertDshWebFrontendPatch } from "../../src/dsh-web-frontend-patch.js";
@@ -34,7 +36,7 @@ test("fake-invoke patch matches the pristine locked DSH and reverses without cha
 	assert.match(patched, /let firstAttempt = true;\n\t\tlet fakeInvokeRetries = 0;/);
 });
 
-test("clipboard fallback patch matches the pinned DSH web frontend and is reversible", async () => {
+test("clipboard fallback patch matches the pinned DSH web frontend, parses and is reversible", async () => {
 	const packageRoot = dirname(require.resolve("@deepseek-ai/dsh-web-frontend/package.json"));
 	const assetsRoot = join(packageRoot, "dist", "assets");
 	let source;
@@ -46,5 +48,20 @@ test("clipboard fallback patch matches the pinned DSH web frontend and is revers
 	assert.ok(source, "pinned DSH web frontend clipboard anchors found");
 	const patched = applyDshWebFrontendPatch(source);
 	assert.equal(inspectDshWebFrontendPatch(patched).patchedAnchors, true);
+
+	// 出包时 prepare-runtime 会对补丁后的前端跑 `node --check`，但它要等
+	// robocopy + 补丁跑完（约 40 分钟流水线）才暴露语法错误。这里用同一条
+	// 检查提前拦住：锚点是压缩产物，替换片段少一个分隔符就会编译不过
+	// （2026-09-24：`catch{G="failed"}const ee=...` 换成表达式语句后缺分号）。
+	const scratch = await mkdtemp(join(tmpdir(), "dsh-frontend-syntax-"));
+	try {
+		const asset = join(scratch, "index.js");
+		await writeFile(asset, patched, "utf8");
+		const checked = spawnSync(process.execPath, ["--check", asset], { encoding: "utf8" });
+		assert.equal(checked.status, 0, `patched DSH web frontend is invalid JavaScript:\n${checked.stderr}`);
+	} finally {
+		await rm(scratch, { recursive: true, force: true });
+	}
+
 	assert.equal(revertDshWebFrontendPatch(patched), source);
 });

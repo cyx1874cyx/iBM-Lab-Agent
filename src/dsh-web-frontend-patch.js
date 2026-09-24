@@ -51,7 +51,12 @@ const LAYOUTS = [
 		},
 		json: {
 			pristine: 'try{await navigator.clipboard.writeText(w_(V,X)),G="copied"}catch{G="failed"}',
-			patched: 'G=await tr(w_(V,X))?"copied":"failed"'
+			// The trailing `;` is REQUIRED: the replaced `try{}catch{}` is a block
+			// statement and needs no terminator, but the replacement is an
+			// expression statement followed directly by `const ee=...` in the
+			// minified bundle. Without it the result is `failed"const` — real syntax
+			// error, caught by prepare-runtime's `node --check` on 2026-09-24.
+			patched: 'G=await tr(w_(V,X))?"copied":"failed";'
 		}
 	}
 ];
