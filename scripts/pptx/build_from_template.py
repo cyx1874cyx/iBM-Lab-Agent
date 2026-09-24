@@ -20,6 +20,10 @@ Writing into placeholders (0.1.16+):
     Chinese body never inherits a 14pt template default.
   * mode="paragraph" strips a:buChar/a:buAutoNum/a:buFont and adds a:buNone —
     “one or two natural paragraphs, no bullet points”.
+  * `item.image` 默认按 **contain** 放进图片占位符：显式写 `a:xfrm`（等比缩放 + 居中）
+    并清空 `a:srcRect`。不写几何的话，`insert_picture()` 只会把图塞进占位符并把它裁成
+    占位符比例，且两个渲染器表现不一致（PowerPoint 裁切 / LibreOffice 撑高溢出）。
+    `placeholderRules.cropMode="cover"` 可切回裁切填满（行为未变）。
 
 Input (0.5.4+): 二选一 ——
   * `--plan plan.json`：Agent 手写的语义计划（向后兼容，行为不变）；
@@ -164,6 +168,22 @@ def sha256_file(path):
     except OSError as exc:
         raise BuildError(f"cannot read template {path}: {exc}")
     return digest.hexdigest()
+
+def fit_contain(source_width, source_height, box_width, box_height):
+    """contain 几何：按比例缩进占位符内并居中，返回相对占位符的偏移与尺寸（EMU）。
+
+    纯函数（不依赖 python-pptx），单测可直接调用它验证四种宽高比组合。
+    返回 None 表示几何不可用（源图尺寸或占位符尺寸非正），调用方应保持原样。
+    """
+    if source_width <= 0 or source_height <= 0 or box_width <= 0 or box_height <= 0:
+        return None
+    box_w, box_h = int(box_width), int(box_height)
+    scale = min(box_w / float(source_width), box_h / float(source_height))
+    width = min(int(round(source_width * scale)), box_w)
+    height = min(int(round(source_height * scale)), box_h)
+    if width <= 0 or height <= 0:
+        return None
+    return {"left": (box_w - width) // 2, "top": (box_h - height) // 2, "width": width, "height": height}
 
 def plan_slides(plan):
     slides = plan.get("slides")
@@ -491,12 +511,61 @@ def build_deck(template_path, parsed, plan, findings):
         style_paragraphs(shape, entry.get("sizePt"))
         return True
 
-    def place_picture(slide, image, caption, title_shape):
+    def placeholder_box(shape):
+        """读形状几何（EMU）。读不到返回 None，由调用方兜底。"""
+        try:
+            return {"left": int(shape.left), "top": int(shape.top),
+                    "width": int(shape.width), "height": int(shape.height)}
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    def apply_contain_fit(picture, box):
+        """contain：显式写几何并在占位符内居中，同时清掉 insert_picture 留下的裁切。
+
+        必须显式算几何：`Placeholder.insert_picture()` 只把图片塞进占位符 —— 它既不写
+        `a:xfrm`，还会用 `a:srcRect` 把图片**裁**成占位符比例（实测 600x690 的竖长图放进
+        12.85x4.78in 的占位符，上下各裁 33.8%）。同一份 srcRect 在两个渲染器上表现还不一致：
+        试用时竖长图被 LibreOffice 撑到 9.9 in 高（幻灯片只有 7.5 in）。显式写 width/height
+        并清空 crop 后，PowerPoint 与 LibreOffice 看到同一份几何与同一张完整图片。
+        """
+        try:
+            source_width, source_height = picture.image.size
+        except (AttributeError, TypeError, ValueError, IndexError):
+            return None
+        fit = fit_contain(source_width, source_height, box["width"], box["height"])
+        if fit is None:
+            return None
+        picture.left = box["left"] + fit["left"]
+        picture.top = box["top"] + fit["top"]
+        picture.width = fit["width"]
+        picture.height = fit["height"]
+        # insert_picture 会写 a:srcRect 把图片裁成占位符比例；contain 要的是完整图片。
+        try:
+            picture.crop_left = picture.crop_right = picture.crop_top = picture.crop_bottom = 0
+        except (AttributeError, TypeError, ValueError):
+            pass
+        return {"mode": "contain", "source_width": source_width, "source_height": source_height}
+
+    def place_picture(slide, image, caption, title_shape, index=None):
         top = safe if title_shape is None else max(safe, title_shape.top + title_shape.height + Inches(0.15))
         target = next((ph for ph in slide.placeholders if kind_of(ph) == "pic"), None)
         if target is not None:
+            # 几何必须在 insert_picture **之前**读：insert_picture 会把占位符降级
+            # （spPr/xfrm 被清掉），之后再读 target.width / target.left 会抛
+            # AttributeError: 'NoneType' object has no attribute 'cx'。原 cover 分支正是
+            # 因此在真模板上静默退化成"不设几何"，只留下一条误报 crop_* 不可用的 warning。
+            box = placeholder_box(target)
             picture = target.insert_picture(image)
+            if box is None:
+                box = placeholder_box(picture)  # 图片自身可继承版式几何，通常仍可读
+            applied = None
             if crop_mode == "cover":
+                # 本分支保持 0.5.4 的行为不动（包括它读 target.* 会抛错这一点）。它在真模板上
+                # 从未真正生效过：insert_picture 已经清掉占位符的 spPr/xfrm，这里读
+                # target.width / target.left 必然抛 AttributeError，于是降级成 insert_picture
+                # 自带的填充裁切（ext 继承占位符 + a:srcRect 裁掉溢出部分）——那本身就是正确
+                # 的 cover 语义。把几何来源换成 box 去"复活"它反而会溢出：实测竖长图的 ext
+                # 会是 12.85x14.78in，而幻灯片只有 7.5in 高。故不动，只在本报告里如实记录。
                 try:
                     image_ratio, ratio = picture.image.size[0] / picture.image.size[1], target.width / target.height
                     picture.left, picture.top = target.left, target.top
@@ -506,9 +575,29 @@ def build_deck(template_path, parsed, plan, findings):
                     else:
                         picture.width, picture.height = int(target.width), int(round(target.width / image_ratio))
                         picture.crop_top = picture.crop_bottom = (1 - image_ratio / ratio) / 2.0
+                    applied = {"mode": "cover", "source_width": picture.image.size[0], "source_height": picture.image.size[1]}
                 except (AttributeError, TypeError, ValueError, ZeroDivisionError, IndexError):
                     findings.append({"level": "warning", "code": "image_crop_unsupported",
                                      "message": "python-pptx crop_* unavailable; image kept as contain"})
+            elif box is not None:
+                # contain（默认）：显式写几何，让两个渲染器看到同一份几何与同一张完整图片。
+                applied = apply_contain_fit(picture, box)
+            if applied is None:
+                # cover 的降级是它自己的既有行为（见上），不该再报"几何无法解析"。
+                if crop_mode != "cover":
+                    findings.append({"level": "warning", "code": "image_geometry_unresolved",
+                                     "message": "slide %s: picture placeholder geometry unresolved; image kept as inserted (%s)"
+                                                % (index + 1 if isinstance(index, int) else "?", image)})
+            else:
+                # finding 词汇表只有 error/warning/pass（编译期诊断的 severity=info 也映射到
+                # pass），所以"实际用了哪种 fit、最终几何是多少"这条记录用 pass 级，便于事后核对。
+                findings.append({"level": "pass", "code": "image_fit",
+                                 "message": "slide %s: fit=%s source=%dx%dpx geometry=%.2fx%.2fin at (%.2f, %.2f) box=%.2fx%.2fin"
+                                            % (index + 1 if isinstance(index, int) else "?",
+                                               applied["mode"], applied["source_width"], applied["source_height"],
+                                               picture.width / 914400.0, picture.height / 914400.0,
+                                               picture.left / 914400.0, picture.top / 914400.0,
+                                               box["width"] / 914400.0, box["height"] / 914400.0)})
         else:
             picture = slide.shapes.add_picture(image, safe, top, width=prs.slide_width - 2 * safe)
             room = prs.slide_height - safe - top
@@ -551,7 +640,7 @@ def build_deck(template_path, parsed, plan, findings):
                     write_into_placeholder(slide, entry, index, findings)
         if item.get("image"):
             try:
-                place_picture(slide, item["image"], item.get("imageCaption"), title_shape)
+                place_picture(slide, item["image"], item.get("imageCaption"), title_shape, index)
             except Exception as exc:  # noqa: BLE001 - one bad image must not abort the deck
                 findings.append({"level": "warning", "code": "image_unreadable",
                                  "message": f"slide {index + 1}: cannot insert image {item['image']}: {type(exc).__name__}: {exc}"})
