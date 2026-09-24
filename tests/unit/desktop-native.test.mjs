@@ -144,8 +144,15 @@ test("first launch runs diagnostics and desktop Python fails closed to the bundl
 	assert.match(shell, /需要处理 \/ 升级/);
 	assert.match(deps, /内置 Python 3\.12\.x/);
 	assert.match(deps, /PowerShell 5\.1 与 PowerShell 7\.x/);
-	assert.match(process, /child_path_with_bundled_python/);
+	assert.match(process, /child_path_with_bundled_runtimes/);
 	assert.match(process, /\.env\("PATH", child_path\)/);
+	// 捆绑 Node 必须能被子进程查到（0.5.4 现场只能硬编码安装路径）；
+	// 临时目录必须整体指到工作区，否则沙箱下 python tempfile / node os.tmpdir() /
+	// LibreOffice 都会写到 %LOCALAPPDATA%\Temp 而失败。
+	assert.match(process, /\.env\("IBM_LAB_AGENT_BUNDLED_NODE", layout\.node_exe\(\)\)/);
+	assert.match(process, /\.env\("TMP", layout\.runtime_temp_dir\(\)\)/);
+	assert.match(process, /\.env\("TEMP", layout\.runtime_temp_dir\(\)\)/);
+	assert.match(process, /\.env\("TMPDIR", layout\.runtime_temp_dir\(\)\)/);
 	assert.match(process, /\.env\("PYTHONNOUSERSITE", "1"\)/);
 	assert.match(pythonEnv, /if \(allowSystemFallback !== true\) return candidates/);
 	assert.match(preset, /不得调用 py\/python3 或用户系统 Python/);
