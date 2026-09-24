@@ -202,12 +202,19 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（含 v0.5.4 的全部改动）在本机实测：
+当前分支（含 v0.5.5-beta1 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **639 项 / 637 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
+- Node 单元与集成测试 **692 项 / 690 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
   模板，CI 预期如此）；
 - 回归套件 **11/11** 通过；Linux 发布预检闸门全绿；客户端一致性、预设导出检查通过；
   ESLint **0 error / 87 warning**；
+- **PPT 链路端到端实测**（真实模板 `956b7abf…` + 真实 5 页计划）：`lint`（模板体检）→
+  `compile`（容量自算 15 行 vs pptx-cli 19 行、按图片比例选版式 fig3→fig1）→
+  `build --compiled`（`ok=true, errors=0`）→ 成品体检（字体三槽 Arial/微软雅黑/Arial、
+  最小字号 20pt、0 error）→ Windows 上渲染出 contact sheet 人工核对；
+- **运行时环境实测**（Windows）：`lab_runtime_env` 解析出 `python=bundled` /
+  `node=bundled v24.16.0` / `tempDir=<工作区>/.lab-tmp` / `isolated=true`；
+  `render-deck.mjs` 把 pptx→pdf→png 全落在工作区内，退出码 0；
 - **DSH 0.1.7-rc.1 组合实测**：以真实 0.1.7 依赖闭包挂载 `ibm-lab` profile
   （`dsh-base` + `dsh-web-app` + `dsh-lab-agent`）后，`agentPresets.list()` 返回
   `standard / ptc / minimal / cordis / lab-research`，其中 `lab-research` **无 `broken`
