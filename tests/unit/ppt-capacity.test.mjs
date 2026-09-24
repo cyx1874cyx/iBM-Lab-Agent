@@ -56,7 +56,7 @@ test("resolveLineHeightPt：模板写了 lnSpc 就用模板值，否则退化为
 	assert.equal(resolveLineHeightPt({}).source, "unresolved");
 });
 
-test("真实模板 fig1/body_15：自算 14 行，而 pptx-cli 按 1.22 倍报 19 行", () => {
+test("真实模板 fig1/body_15：自算 15 行，而 pptx-cli 按 1.22 倍报 19 行", () => {
 	const computed = computeTextCapacity({
 		geometry: FIG1_ANALYSIS,
 		slideHeightEmu: SLIDE_H,
@@ -66,7 +66,7 @@ test("真实模板 fig1/body_15：自算 14 行，而 pptx-cli 按 1.22 倍报 1
 	assert.equal(computed.lineHeightPt, 30);
 	assert.equal(computed.lineHeightSource, "template-lnSpc");
 	assert.equal(computed.clampedToSlide, false, "fig1/body_15 的底边 7.46 in 仍在 7.5 in 版面内");
-	assert.equal(computed.capacityLines, 14, "可用高度 458.64pt，扣掉 24pt 段间距后 30pt/行只能放 14 行");
+	assert.equal(computed.capacityLines, 15, "可用高度 458.64pt ÷ 30pt 行距 = 15 行（单段，不扣段间空隙）");
 
 	// 同一个占位符、不读模板行距与段间距（≈ pptx-cli 的模型）：19 行 —— 高估的方向与量级就在这里。
 	const asPptxCliModelsIt = computeTextCapacity({ geometry: FIG1_ANALYSIS, slideHeightEmu: SLIDE_H, fontPt: 20 });
@@ -75,7 +75,7 @@ test("真实模板 fig1/body_15：自算 14 行，而 pptx-cli 按 1.22 倍报 1
 	// pptx-cli 自己报的也是 19 行：它把 text_frame 未显式设置的内边距当 0，且完全不扣段间距。
 	const cliMaxLines = Math.floor((inch(6.47) / EMU_IN * 72) / (20 * 1.22));
 	assert.equal(cliMaxLines, 19);
-	assert.ok(cliMaxLines >= computed.capacityLines * CAPACITY_OPTIMISTIC_RATIO, "19 ≥ 14 × 1.25：必须被判为「元数据系统性高估」");
+	assert.ok(cliMaxLines >= computed.capacityLines * CAPACITY_OPTIMISTIC_RATIO, "19 ≥ 15 × 1.25：必须被判为「元数据系统性高估」");
 });
 
 test("a:lnSpc 的百分比形式与等价点数得到同一容量", () => {
@@ -92,15 +92,17 @@ test("a:lnSpc 的百分比形式与等价点数得到同一容量", () => {
 	assert.equal(asPct.capacityLines, asPts.capacityLines);
 });
 
-test("段间距按段落数扣减：段数越多容量越小", () => {
+test("段间距只按**段间空隙**扣（n−1 个）：单段不扣，段数越多容量越小", () => {
 	const one = computeTextCapacity({ geometry: FIG1_ANALYSIS, slideHeightEmu: SLIDE_H, fontPt: 20, ...TEMPLATE_BODY_TYPOGRAPHY, paragraphs: ["一段"] });
 	const two = computeTextCapacity({ geometry: FIG1_ANALYSIS, slideHeightEmu: SLIDE_H, fontPt: 20, ...TEMPLATE_BODY_TYPOGRAPHY, paragraphs: ["一段", "两段"] });
 	const three = computeTextCapacity({ geometry: FIG1_ANALYSIS, slideHeightEmu: SLIDE_H, fontPt: 20, ...TEMPLATE_BODY_TYPOGRAPHY, paragraphs: ["一", "二", "三"] });
-	assert.equal(one.capacityLines, 14);
-	assert.equal(two.capacityLines, 13);
-	assert.equal(three.capacityLines, 12);
-	assert.equal(one.spacingTotalPt, 24);
-	assert.equal(two.spacingTotalPt, 48);
+	assert.equal(one.capacityLines, 15);
+	assert.equal(two.capacityLines, 14);
+	assert.equal(three.capacityLines, 13);
+	// 首段前的 spcBef / 末段后的 spcAft 不计入容量（否则图注这类单段窄框会被误算成 0 行）。
+	assert.equal(one.spacingTotalPt, 0);
+	assert.equal(two.spacingTotalPt, 24);
+	assert.equal(three.spacingTotalPt, 48);
 });
 
 test("可用高度夹到版面下边界；完全在版面外时容量为 0", () => {
@@ -116,10 +118,16 @@ test("可用高度夹到版面下边界；完全在版面外时容量为 0", () 
 	assert.equal(outside.usableHeightEmu, 0);
 	assert.equal(outside.capacityLines, 0);
 
-	// 图注槽（0.40 in）在「≥20pt」政策下连一行都放不下 —— 模板侧 14pt 设计的真实后果。
-	const caption = computeTextCapacity({ geometry: FIG1_CAPTION, slideHeightEmu: SLIDE_H, fontPt: 20 });
-	assert.equal(caption.capacityLines, 0);
-	assert.ok(caption.usableHeightPt > 0 && caption.usableHeightPt < caption.lineHeightPt);
+	// 图注槽（0.40 in 高）在「≥20pt」政策下仍能放**一行**：可用 21.6pt ÷ 18pt 行距 = 1。
+	// 这里刻意不把首段前的 spcBef 计进容量 —— 实测成品（deck6）里图注渲染正常，
+	// 若按"整段扣前后间距"会算成 0 行，从而对每条图注误报 capacity-exceeded。
+	const caption = computeTextCapacity({ geometry: FIG1_CAPTION, slideHeightEmu: SLIDE_H, fontPt: 20, lineSpacing: { kind: "pct", value: 90000 }, spaceBefore: { kind: "pts", value: 10 } });
+	assert.equal(caption.capacityLines, 1);
+	assert.equal(caption.lineHeightPt, 18);
+	assert.ok(caption.usableHeightPt > caption.lineHeightPt);
+	// 两段图注才真的放不下。
+	const captionTwo = computeTextCapacity({ geometry: FIG1_CAPTION, slideHeightEmu: SLIDE_H, fontPt: 20, lineSpacing: { kind: "pct", value: 90000 }, spaceBefore: { kind: "pts", value: 10 }, paragraphs: ["一", "二"] });
+	assert.equal(captionTwo.capacityLines, 0);
 });
 
 test("内边距可被模板显式覆盖（a:bodyPr 的 lIns/rIns/tIns/bIns）", () => {
@@ -189,7 +197,7 @@ test("deriveSlotSpec：容量字段落盘，且与 pptx-cli 差 ≥25% 时报 ca
 	assert.equal(analysis.lineHeightPt, 30);
 	assert.equal(analysis.spaceBeforePt, 10);
 	assert.equal(analysis.spaceAfterPt, 14);
-	assert.equal(analysis.capacityLines, 13, "夹具 fig1/analysis 是 4 × 6 in、top 1.0 in");
+	assert.equal(analysis.capacityLines, 14, "夹具 fig1/analysis 是 4 × 6 in、top 1.0 in");
 	assert.equal(analysis.cliCapacityLines, 18, "夹具的 estimated_text_capacity.max_lines = round(height × 3)");
 	assert.equal(analysis.capacityOptimistic, true);
 	assert.ok(analysis.cliCapacityLines >= analysis.capacityLines * CAPACITY_OPTIMISTIC_RATIO);
@@ -200,7 +208,7 @@ test("deriveSlotSpec：容量字段落盘，且与 pptx-cli 差 ≥25% 时报 ca
 		&& warning.location?.layoutId === "fig1" && warning.location?.slotKey === "analysis");
 	assert.equal(optimistic.length, 1);
 	assert.match(optimistic[0].message, /pptx-cli 报 18 行/);
-	assert.match(optimistic[0].message, /自算 13 行/);
+	assert.match(optimistic[0].message, /自算 14 行/);
 	assert.match(optimistic[0].hint, /capacityLines 为准/);
 });
 

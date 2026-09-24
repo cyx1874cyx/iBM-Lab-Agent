@@ -117,7 +117,12 @@ export function computeTextCapacity({
 	const spaceBeforePt = spacingToPt(spaceBefore, fontPt) ?? 0;
 	const spaceAfterPt = spacingToPt(spaceAfter, fontPt) ?? 0;
 	const paragraphCount = Array.isArray(paragraphs) && paragraphs.length > 0 ? paragraphs.length : 1;
-	const spacingTotalPt = paragraphCount * (spaceBeforePt + spaceAfterPt);
+	// 段前/段后按**段间空隙**计入（n−1 个），首段前的 spcBef 与末段后的 spcAft 不占"能放几行"的
+	// 额度。为什么这样校准：实测图注槽（0.40 in 框、1 段、母版 90% 行距 = 18pt）在成品 deck 里
+	// 渲染正常（`/tmp/containfit`、deck6），而按"整段扣前后间距"会把它算成容量 0，进而对**每条**
+	// 图注误报 `capacity-exceeded`（1 > 0）——那是新的误报，不是真实溢出。
+	const spacingGaps = Math.max(paragraphCount - 1, 0);
+	const spacingTotalPt = spacingGaps * (spaceBeforePt + spaceAfterPt);
 	const rawLines = usableHeightPt <= 0 || lineHeightPt === undefined
 		? 0
 		: Math.floor((usableHeightPt - spacingTotalPt) / lineHeightPt);
@@ -131,6 +136,7 @@ export function computeTextCapacity({
 		spaceBeforePt: round(spaceBeforePt, 2),
 		spaceAfterPt: round(spaceAfterPt, 2),
 		paragraphCount,
+		spacingGaps,
 		spacingTotalPt: round(spacingTotalPt, 2),
 		effectiveBottomEmu,
 		clampedToSlide,
