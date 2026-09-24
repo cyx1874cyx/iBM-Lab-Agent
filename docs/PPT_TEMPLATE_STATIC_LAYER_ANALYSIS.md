@@ -366,3 +366,45 @@ slide3/4/5/6 同理：`methods-1`、`methods-2`、`results`、`summary`，各自
 2. 封面 `body/10`、`body/11` 无 `sz` → 显式设 32/24pt；
 3. 结尾页 `图片 7` 的 `hdphto1.wdp`（JPEG XR）换 PNG/JPG 并给尺寸。
    （静态中文的 `ea` 也已建议补上；Fig3 无图注、总结页分点经确认均为预期，不需改。）
+
+## 11. 模板 2 第四版复检（sha256 df85c28b）与构建器补充
+
+### 11.1 模板侧：只改了 1 处
+
+| 我上轮提的 | 这一版 |
+|---|---|
+| ⑤ 结尾页底图 `.wdp`（JPEG XR） | ✅ **已换**：`layout8` 现在是 `image3.png`，并给了显式尺寸 12192000×6857999；`hdphoto1.wdp` 已从包里消失 |
+| ① 图注占位符 `body/12` defRPr 14pt | ❌ 仍是 `sz=1400`（run 是 2000） |
+| ② 封面 `body/10`、`body/11` 无字号 | ❌ 仍未设 |
+| ④ 静态中文无 `ea` | ❌ 仍未设（页标题 `TextBox 5` 只有 `latin=Arial`） |
+| ⑤ 正文居中 | ⚠️ 部分改动：layout3/5/7 出现 `algn="l"`，但 layout2（摘要）仍是 `ctr`，且同一框里混用 |
+
+### 11.2 关键结论：①②④ **已经不影响自动生成的成品**
+
+构建器这一侧已经能把它们兜住（实测 4 页计划 → 4 页 deck）：
+
+- **① 与 ②**：`minFontPt`（默认 20）会覆盖占位符的 14pt/继承值。实测
+  封面 idx 10/11 **不传 sizePt** → 成品 `sz=2000`；图注 idx 12（占位符 defRPr=1400）
+  → 成品 `sz=2000`。**所以这两处不改也不会出现 <20pt 的正文。**
+  它们只在"老师在 PowerPoint 里手工往该占位符打字"时才有影响。
+- **④**：新增 `normalize_layout_fonts()`（默认开，
+  `placeholderRules.normalizeLayoutFonts: false` 可关）：把**版式上的静态文字**统一设成
+  `latin=Arial` + `ea=微软雅黑` + `cs=Arial`。实测成品里
+  `摘要 Abstract` / `方法 Methods` / `总结 Conclusion` 都带上了 `ea=微软雅黑`，
+  渲染确认页标题字形变为雅黑。文字本身不会被改动。
+
+### 11.3 仍需模板侧处理：⑤ 对齐
+
+正文框在模板里是居中（layout2 `body/11` 仍 `algn="ctr"`），长段落居中确实难读。
+两种做法：
+
+1. **模板侧**：把 `body/11`（以及 layout3/5/7 的正文框）改成左对齐或两端对齐；
+2. **计划侧**（已实现）：`texts[]` 支持 `align: "left"|"center"|"right"|"justify"`，
+   构建器按占位符覆盖，无需改模板。摘要/图释这类长段落建议直接给 `align: "justify"`。
+
+### 11.4 本轮构建器新增
+
+| 能力 | 说明 |
+|---|---|
+| `normalize_layout_fonts()` | 版式静态文字字体归一化（默认开）；只改字体，不动字号 |
+| `texts[].align` | `left/center/right/justify` 按占位符覆盖对齐（模板是居中时用它改长段落） |

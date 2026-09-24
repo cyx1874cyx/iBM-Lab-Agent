@@ -243,6 +243,11 @@ test("构建脚本保留定点写入/去项目符号/字体统一/删除模板�
 	assert.match(source, /latin\.addnext\(element\)/, "ea/cs 必须插在 a:latin 之后（schema 顺序）");
 	assert.match(source, /font_ea = str\(fonts\.get\("ea"\) or plan\.get\("fontEa"\) or "微软雅黑"\)/, "默认东亚字体为微软雅黑");
 	assert.match(source, /minFontPt/, "应有字号下限");
+	// 版式静态文字也要归一化：页标题"摘要 Abstract"挂在版式上、只有 latin，Agent 覆盖不到
+	assert.match(source, /def normalize_layout_fonts\(/, "应归一化版式静态文字字体");
+	assert.match(source, /normalizeLayoutFonts/, "应可关闭（默认开）");
+	// 对齐：模板里正文是居中，长段落难读；plan 可按占位符覆盖
+	assert.match(source, /entry\.get\("align"\)/, "texts[] 应支持 align 覆盖对齐");
 });
 
 test("build mode without python-pptx exits 2 with a JSON error mentioning python-pptx", (t) => {

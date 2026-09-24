@@ -278,10 +278,6 @@ def build_deck(template_path, parsed, plan, findings):
     kinds = {"TITLE": "title", "CENTER_TITLE": "title", "SUBTITLE": "subtitle",
              "BODY": "body", "OBJECT": "body", "PICTURE": "pic"}
 
-    def kind_of(shape):
-        partial = getattr(getattr(shape, "placeholder_format", None), "type", None)
-        return kinds.get(getattr(partial, "name", None) or str(partial).split(" ")[0], "other")
-
     def set_typeface(rPr, tag, face):
         """设置 a:ea / a:cs（python-pptx 只建模了 a:latin）。必须遵守 schema 顺序：
         latin → ea → cs → sym → hlink*，所以插在 a:latin 之后。"""
@@ -294,6 +290,31 @@ def build_deck(template_path, parsed, plan, findings):
             else:
                 rPr.append(element)
         element.set("typeface", face)
+
+    def normalize_layout_fonts(presentation):
+        """把**版式上的静态文字**也统一成 latin/ea/cs。
+
+        为什么需要：页标题"摘要 Abstract"这类文本挂在版式上、且只有 `a:latin=Arial`、
+        没有 `a:ea`，中文只能靠系统回退，不保证是微软雅黑；而 Agent 不写这些文字，
+        所以"填充时设字体"覆盖不到它们。这里在成品副本里改版式（不改源模板），
+        让整份 deck 满足「中文微软雅黑 / 英文 Arial」。
+        只改字体、不动字号（版式里可能有刻意的小字，例如结尾页的辅助文字）。
+        `placeholderRules.normalizeLayoutFonts: false` 可关闭。
+        """
+        for layout in presentation.slide_layouts:
+            for shape in layout.shapes:
+                if not getattr(shape, "has_text_frame", False):
+                    continue
+                for paragraph in shape.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.name = font_latin
+                        rPr = run._r.get_or_add_rPr()
+                        set_typeface(rPr, "a:ea", font_ea)
+                        set_typeface(rPr, "a:cs", font_cs)
+
+    def kind_of(shape):
+        partial = getattr(getattr(shape, "placeholder_format", None), "type", None)
+        return kinds.get(getattr(partial, "name", None) or str(partial).split(" ")[0], "other")
 
     def style_paragraphs(shape, size_pt=None):
         """给形状里每个 run 统一字体，并保证字号不低于 min_font_pt。
@@ -355,9 +376,14 @@ def build_deck(template_path, parsed, plan, findings):
         frame = shape.text_frame
         frame.word_wrap = True
         frame.clear()
+        align = entry.get("align") if entry.get("align") in ("left", "center", "right", "justify") else None
         for position, text in enumerate(paragraphs):
             paragraph = frame.paragraphs[0] if position == 0 else frame.add_paragraph()
             paragraph.text = str(text)
+            if align is not None:
+                from pptx.enum.text import PP_ALIGN
+                paragraph.alignment = {"left": PP_ALIGN.LEFT, "center": PP_ALIGN.CENTER,
+                                       "right": PP_ALIGN.RIGHT, "justify": PP_ALIGN.JUSTIFY}[align]
             if mode == "paragraph":
                 strip_bullet(paragraph)
         style_paragraphs(shape, entry.get("sizePt"))
@@ -391,6 +417,10 @@ def build_deck(template_path, parsed, plan, findings):
             slide.shapes.add_textbox(safe, cap_top, prs.slide_width - 2 * safe, Inches(0.4)).text_frame.text = caption
         return picture
 
+    # 版式静态文字的字体归一化（占位符正文在写入时处理，这里只管版式自带文本）。
+    # 必须放在 helper 定义之后：Python 的局部变量在函数体内只要有赋值就视为局部。
+    if rules.get("normalizeLayoutFonts", plan.get("normalizeLayoutFonts", True)) is not False:
+        normalize_layout_fonts(prs)
     previous_id = None
     for index, item in enumerate(plan["slides"]):
         resolved, _code, _mapping = resolve_role_layout(item["role"], roles_map, by_id, previous_id, title_id, order)
