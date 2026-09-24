@@ -51,6 +51,8 @@ test("runtime-tool: lab_runtime_env 注册成功并返回运行时事实源", as
 		assert.equal(typeof value.soffice.available, "boolean");
 		assert.match(value.tempDir, /\.lab-tmp$/, "临时目录必须在工作区内的 .lab-tmp 下");
 		assert.match(value.renderHelper, /render-deck\.mjs$/);
+		// 体检器同样是绝对路径：Agent 的 cwd 是课题工作区，相对路径会找不到。
+		assert.match(value.inspector, /inspect_deck\.py$/);
 		// 人话侧的要求：别硬编码安装路径、临时文件放 tempDir、渲染走 renderHelper。
 		const notes = value.notes.join("\n");
 		assert.match(notes, /PATH 最前面/);

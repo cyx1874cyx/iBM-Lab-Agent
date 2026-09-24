@@ -137,11 +137,15 @@ test("lab_runtime_env：输出字段必须落在自己声明的 schema 内", asy
 		assert.equal(value.ok, true);
 		assert.equal(value.tempDir, join(workspace, ".lab-tmp"));
 		assert.ok(existsSync(value.renderHelper) || value.renderHelper.endsWith("render-deck.mjs"));
+		// 体检器也必须是绝对路径：Agent 的 cwd 是课题工作区，写相对路径会找不到文件。
+		assert.ok(value.inspector.endsWith("inspect_deck.py"), `体检器路径应以 inspect_deck.py 结尾，实际：${value.inspector}`);
 		// 三条硬要求：别硬编码安装路径、临时文件放 tempDir、渲染用 renderHelper。
 		const notes = value.notes.join("\n");
 		assert.match(notes, /PATH 最前面/);
 		assert.match(notes, /tempDir/);
 		assert.match(notes, /render-deck\.mjs/);
+		assert.match(notes, /inspect_deck\.py/);
+		assert.match(notes, /绝对路径/);
 		const rendered = tool.output.render({}, value);
 		assert.ok(Array.isArray(rendered) && rendered.length > 0);
 		assert.match(rendered[0].text, /Python/);

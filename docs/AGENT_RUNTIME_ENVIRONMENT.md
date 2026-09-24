@@ -84,7 +84,9 @@ PyMuPDF 栅格化 → 默认再合成一张 **contact sheet**。
 ### 3.4 核对成品：先查 XML，再考虑读图
 
 ```bash
-python scripts/pptx/inspect_deck.py --deck out.pptx \
+# 路径用 lab_runtime_env 返回的 inspector（绝对路径）——
+# Agent 的 cwd 是课题工作区，写相对路径会找不到文件。
+python "<inspector>" --deck out.pptx \
     --expect-latin Arial --expect-ea 微软雅黑 --expect-cs Arial [--strict] [--json]
 ```
 
