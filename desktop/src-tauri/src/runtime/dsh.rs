@@ -40,7 +40,22 @@ impl RuntimeLayout {
                 ))
             })?;
         }
+        // 运行时临时目录也在这里预建：它会被注入为子进程的 TMP/TEMP/TMPDIR，
+        // 任何工具在第一次写临时文件时都不该依赖"目标目录已存在"。
+        fs::create_dir_all(self.runtime_temp_dir()).map_err(|error| {
+            RuntimeError::new(format!(
+                "Cannot create runtime temp directory {}: {error}",
+                self.runtime_temp_dir().display()
+            ))
+        })?;
         Ok(())
+    }
+    /// Agent 运行时应当使用的临时目录（工作区内的 `.lab-tmp`）。
+    ///
+    /// 与 `src/lab-runtime.js` 的 `runtimeTempDir()` 必须保持一致：桌面壳把它注入成
+    /// 子进程的 TMP/TEMP/TMPDIR，插件侧再把它报给 Agent。
+    pub fn runtime_temp_dir(&self) -> PathBuf {
+        self.workspace_dir.join(".lab-tmp")
     }
     pub fn node_exe(&self) -> PathBuf {
         self.resources.join("node").join("node.exe")

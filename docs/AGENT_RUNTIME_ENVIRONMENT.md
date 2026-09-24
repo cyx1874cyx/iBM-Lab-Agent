@@ -27,6 +27,10 @@
   宿主机；现在直接写 `python` / `node` 就命中软件自带的。
 - **新导出 `IBM_LAB_AGENT_BUNDLED_NODE`**（=`resources/node/node.exe`）。此前只有 Python 有
   对应的环境变量，node 的路径无从查询 —— 这就是硬编码安装路径的直接原因。
+- **子进程的 `TMP` / `TEMP` / `TMPDIR` 全部指向工作区内的 `.lab-tmp`**，并在
+  `create_user_directories()` 里预建。沙箱只保证工作区可写，而系统临时目录是**所有**工具的
+  默认落点 —— 不只是 LibreOffice（写不了 user profile 时静默不产出 PDF），还有 python 的
+  `tempfile`、node 的 `os.tmpdir()`、matplotlib 的字体缓存等。整条链一次修掉，而不是逐处绕。
 
 编译验证：`cargo check` / `cargo check --tests` 均通过（`CARGO_EXIT=0`、`CARGO_TESTS_EXIT=0`；
 仅有一个与本次无关的既有 `origin_mcp_package_dir` dead-code 警告）。
@@ -55,8 +59,13 @@
 
 ### 3.2 临时文件放 `tempDir`
 
-一律放在工作区内的 `.lab-tmp`（`tempDir`）。**不要**用 `%LOCALAPPDATA%\Temp`：桌面壳的沙箱
-拒绝写那里，而 LibreOffice 写不了 user profile 时不会报错，只是不产出文件。
+一律放在工作区内的 `.lab-tmp`（`tempDir`）。桌面壳已经把子进程的 `TMP`/`TEMP`/`TMPDIR`
+全指到这里，所以 python 的 `tempfile`、node 的 `os.tmpdir()` 这类默认行为**自动**落在工作区内；
+但需要事后查看/保留的中间产物（渲染出的 PNG、contact sheet、转出的 PDF）仍应显式用
+`tempDir`，不要依赖默认值。
+
+**不要**用 `%LOCALAPPDATA%\Temp`：桌面壳的沙箱拒绝写那里，而 LibreOffice 写不了 user profile
+时不会报错，只是不产出文件。
 
 ### 3.3 渲染用助手，不要自己拼 soffice
 

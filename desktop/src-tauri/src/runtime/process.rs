@@ -210,6 +210,13 @@ pub fn spawn_dsh(
         .env("DSH_HOME", &layout.dsh_home)
         .env("DSH_HARNESS_NODE_MODULES", layout.dsh_node_modules())
         .env("IBM_LAB_AGENT_WORKSPACE", &layout.workspace_dir)
+        // 沙箱只保证工作区可写：把临时目录整体指到工作区的 .lab-tmp。否则任何走系统
+        // 临时目录的工具都会失败 —— 不只是 LibreOffice（它写不了 user profile 时会
+        // 静默不产出 PDF），还包括 python 的 tempfile、node 的 os.tmpdir()、matplotlib
+        // 的字体缓存等（0.5.4 现场为此白耗了好几轮）。
+        .env("TMP", layout.runtime_temp_dir())
+        .env("TEMP", layout.runtime_temp_dir())
+        .env("TMPDIR", layout.runtime_temp_dir())
         .env("IBM_LAB_AGENT_BUNDLED_PYTHON", layout.bundled_python())
         // Agent shell commands must be able to reach the packaged Node.js too;
         // without this the only way to find it was the install directory
@@ -638,5 +645,18 @@ mod tests {
         // `node` 都必须是软件自带的那一份，而不是宿主机的。
         assert_eq!(entries[0], layout.bundled_python().parent().unwrap());
         assert_eq!(entries[1], layout.node_exe().parent().unwrap());
+    }
+
+    #[test]
+    fn runtime_temp_dir_lives_inside_the_workspace_and_is_pre_created() {
+        let root = sandbox();
+        let layout = RuntimeLayout::new(root.join("data"), root.join("resources"));
+        let temp = layout.runtime_temp_dir();
+        // 注入成 TMP/TEMP/TMPDIR 的必须是工作区内的路径，否则沙箱下写不了。
+        assert!(temp.starts_with(&layout.workspace_dir), "临时目录必须在工作区内");
+        assert_eq!(temp.file_name().unwrap(), ".lab-tmp");
+        assert!(!temp.exists(), "create_user_directories 之前不应存在");
+        layout.create_user_directories().unwrap();
+        assert!(temp.is_dir(), "create_user_directories 必须预建运行时临时目录");
     }
 }
