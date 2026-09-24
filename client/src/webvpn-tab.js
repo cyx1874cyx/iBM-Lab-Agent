@@ -114,7 +114,10 @@ export function registerWebVpnTab(ctx, { openTab }) {
 		// 打开指南页」。自带「文件」已占一条，所以再加一条会让右侧栏首次展开时的默认页
 		// 从「文件」变成「选择类型」的指南页。这是「+ 里能选浏览器」的唯一扩展点，
 		// 属有意取舍。
+		// 0.1.7 起 SidebarRightGuideEntry.id 是必填（同一 provider 内唯一），
+		// register() 对重复 id 直接抛错；这里补上稳定的身份。
 		guide: [{
+			id: "dsh-lab-agent/webvpn",
 			order: 30,
 			title: () => "文献浏览器",
 			description: () => "软件内浏览器：中国科大 WebVPN 门户与出版社页面"

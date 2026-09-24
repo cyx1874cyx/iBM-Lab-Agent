@@ -313,6 +313,8 @@ test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏",
 	// 贡献 guide 条目 = 右侧栏「+」的类型列表里出现「文献浏览器」（更正需求）。
 	// 代价：guide 条目从 1 变 2，宿主默认页由「文件」变为指南页——这是唯一扩展点。
 	assert.match(definition[1], /guide:\s*\[\{/, "必须贡献 guide 条目，否则「+」里选不到浏览器");
+	// 0.1.7 起 SidebarRightGuideEntry.id 必填且同一 provider 内唯一，register() 对重复 id 抛错。
+	assert.match(definition[1], /guide:\s*\[\{\s*\n\s*id:\s*"[^"]+"/, "guide 条目必须带 0.1.7 要求的 id");
 	assert.match(definition[1], /order:\s*\d+/);
 	assert.match(definition[1], /title:\s*\(\)\s*=>/);
 	// 初始页：正文首次可见时要主动把门户打开（「+」打开时没有目标地址）。
