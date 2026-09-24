@@ -189,6 +189,33 @@ test("compilePlan：plan.roles 显式钉住时尊重作者，比例不匹配则�
 	}
 });
 
+test("compilePlan：换版式会引入**未声明的必填槽**时不换（不能把合法计划变成 required-slot-missing）", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "ppt-layout-guard-"));
+	try {
+		// 横图 1400×900：夹具里 Fig1/Fig2 的 8×5.2 槽显示面积远大于 Fig3 的 12×4.4 槽。
+		const landscape = await writeImage(dir, "landscape.png", 1400, 900);
+		const result = compilePlan({
+			// figure-3 版式**没有图注槽**，所以这一页只声明 figure + analysis 本身是合法的。
+			plan: { slides: [{ role: "figure-3", slots: { figure: landscape, analysis: "一段图文解读。" } }] },
+			slotSpec: fixtureSlotSpec()
+		});
+		// 回归点：若守卫只检查"声明的键 ⊆ 目标版式的键"，本页会被换成 Fig1，
+		// 而 Fig1 的 `caption` 是必填槽 → 编译直接报 required-slot-missing（把合法计划变成错误）。
+		assert.equal(result.summary.errors, 0, JSON.stringify(result.diagnostics.filter((row) => row.severity === "error")));
+		assert.equal(result.compiled.slides[0].role, "figure-3", "不换版式");
+		assert.equal(result.compiled.slides[0].requestedRole, undefined);
+		const mismatch = result.diagnostics.find((row) => row.code === "figure-layout-mismatch");
+		assert.ok(mismatch, "要给出建议而不是静默");
+		assert.equal(mismatch.location.recommendedLayoutId, "fig1", "Fig1 显示面积更大，仍要推荐");
+		assert.equal(mismatch.location.blockedSwitch?.reason, "required-slot-undeclared");
+		assert.deepEqual(mismatch.location.blockedSwitch?.missing, ["caption"]);
+		assert.match(mismatch.message, /未自动换版式/);
+		assert.match(mismatch.message, /caption/);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
 test("compilePlan：图片尺寸读不出来时只给 info，不阻断编译", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "ppt-layout-badimg-"));
 	try {

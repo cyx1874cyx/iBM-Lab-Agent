@@ -240,19 +240,24 @@ description 没写依赖链、报错也没说下一步。改为：description �
 - `text_frame.margin_*` 未显式设置时按 0 处理。
 
 本模板的正文占位符写的是**固定 30pt 行距**（`<a:lnSpc><a:spcPts val="3000"/></a:lnSpc>`）
-+ 段前 10pt / 段后 14pt，于是系统性高估：
++ 段前 10pt / 段后 14pt，于是系统性高估（下表为 `--write-slots` 落盘后逐槽取出的真实数值）：
 
 | 槽位 | pptx-cli 报 | 按模板实际排版自算 | 高估 |
 |---|---|---|---|
-| `fig1/analysis`（idx 15） | 19 行 | **14 行** | 36% |
-| `fig2/analysis`、`fig4/analysis` | 19 行 | 14 行 | 36% |
-| `abs/abstractZh`（idx 15） | 18 行 | 14 行 | 29% |
-| `fig3/analysis` | 4 行 | 2 行 | 100% |
-| `end/innovation`（idx 14） | 7 行 | 5 行 | 40% |
-| `end/paragraph1` / `paragraph2` | 4 / 4 | 2 / 3 | 100% / 33% |
+| `fig1/analysis`、`fig2/analysis`、`fig4/analysis`（idx 15） | 19 行 | **15 行** | 27% |
+| `abs/abstractZh`（idx 15） | 18 行 | 15 行 | 20% |
+| `fig3/analysis`（idx 15） | 4 行 | 3 行 | 33% |
+| `end/innovation`（idx 14） | 7 行 | 6 行 | 17% |
+| `end/paragraph1`（idx 15） / `end/paragraph2`（idx 16） | 4 / 4 | 3 / 3 | 33% / 33% |
+| 封面 `titleZh/titleEn/date/speaker`、三条图注（`caption`） | 1 行 | 1 行 | 0% |
+
+其中高估 ≥25% 的 **6 条**会由 lint 规则 `capacity-metadata-optimistic` 报出；
+`abs/abstractZh`（20%）与 `end/innovation`（17%）低于该阈值未被标注，但编译器仍按 15 行 / 6 行判溢出
+—— 阈值只是"元数据体检"的噪声闸，真正的溢出拦截在编译期。
 
 （真实模板 `/tmp/tpl-current.pptx` sha256 `956b7abf…`；
-`node scripts/lint-ppt-template.mjs /tmp/pcinit --no-cli --json` 的实测输出。）
+`node scripts/lint-ppt-template.mjs /tmp/pcinit --no-cli --write-slots --json --out /tmp/doc7`
+的实测输出：`summary = {error 6, warning 15, info 8, blocking 0}`。）
 
 后果：Agent 照这个数字填字 → 实渲染溢出 → 改文案 → 重建 → 渲染，试用里磨了约 10 轮。
 
@@ -266,8 +271,15 @@ description 没写依赖链、报错也没说下一步。改为：description �
   spaceAfter, paragraphs})`：
   - 可用底边 = `min(版面高, top + height)`，`clampedToSlide` 如实上报；
   - 内边距取模板 `a:bodyPr` 的 `lIns/rIns/tIns/bIns`，缺省 0.1/0.1/0.05/0.05 in（PowerPoint 默认值）；
-  - `capacityLines = max(0, floor((usableHeightPt − 段落数 × (段前+段后)) / 有效行高pt))`；
+  - `capacityLines = max(0, floor((usableHeightPt − (段落数−1) × (段前+段后)) / 有效行高pt))`
+    —— 段前/段后按**段间空隙**计（见下）；
   - 完全在版面外或连一行都放不下时返回 **0**。
+
+**段间距口径（0.5.5 修正）**：原先按段落数整段扣（`n ×(spcBef+spcAft)`），于是 0.40 in 高的图注槽
+（可用 21.6pt、母版 90% 行距 = 18pt）被算成容量 **0**，编译器就对**每条图注**、以及封面四个 1 行高的
+槽位报 `capacity-exceeded`（1 > 0）—— 而实测成品（deck6 / `/tmp/containfit`）这些槽位渲染正常，
+是误报；5 条噪声还会淹没真正要看的 `analysis 15 > 14`。改为只扣段间空隙后，**全模板再无 0 容量槽位**
+（封面 4 槽与 3 条图注均为 1 行，与 pptx-cli 的 1 行一致）。
 
 `src/pptx-xml.js` 顺带把 `a:bodyPr` 内边距与 `a:lnSpc`/`a:spcBef`/`a:spcAft` 扫出来
 （占位符自身 → 母版 `bodyStyle/lvl1` 回退），`typographyFromScan(scan, layouts)` 整理成按
@@ -294,42 +306,62 @@ lint 新增第 ⑦ 条规则 `capacity-metadata-optimistic`（warning，不阻�
   是 12.85 × 4.78 in 的宽幅槽）。所以"多个图片版式候选"指**同一角色家族**：`roleFamily()`
   去掉尾部 `-数字` 后比较。
 - 决策：同家族候选 ≥2 且能读出尺寸时选显示面积最大者；**只有面积 ≥ 当前 ×1.15
-  （`FIGURE_LAYOUT_SWITCH_GAIN`）、且不丢已声明槽位、未被 `plan.roles` 钉住、未被
+  （`FIGURE_LAYOUT_SWITCH_GAIN`）、且通过下面的双向守卫、未被 `plan.roles` 钉住、未被
   `requiredPages` 引用时**才自动换（换版式 = 换角色，本来就逐页可表达），并在
   `slides[].requestedRole` 留痕；其余情形只出 `figure-layout-mismatch` 并附候选对比与推荐角色。
+- **换版式的双向守卫**（`layoutSwitchGuard`，0.5.5 修正）：`① 计划声明的键 ⊆ 目标版式的键`
+  只挡了一半。本模板族里 `caption` 在 `figure-1/2/4` 的绑定中是**必填**（家族约定
+  `captions.requireFor = [1,2,4]`），而 `figure-3` 根本没有图注槽 —— 于是"把 `figure-3` 的页
+  自动换成显示更大的 `figure-1`"会把一个**原本合法**的计划变成 `required-slot-missing` 错误。
+  现在两个方向都检查：目标版式的**必填槽必须都已被声明**（`②`），否则**不换**，并在
+  `figure-layout-mismatch` 里说明原因（`blockedSwitch.reason = "required-slot-undeclared"`、
+  `missing: ["caption"]`），文案形如"未自动换版式：fig1 的必填槽 caption 未在本页声明"。
 - 两类阈值触发警告：最佳版式下显示宽度 < 4 in（`MIN_READABLE_FIGURE_WIDTH_IN`），
   或留白 > 40%（`MAX_FIGURE_WHITESPACE_RATIO`）。
 
 ### 7.4 验证
 
-- 新增 `tests/unit/ppt-capacity.test.mjs`（11 项）与 `tests/unit/ppt-plan-image-layout.test.mjs`
-  （7 项），全部合成夹具（PNG/JPEG 只造文件头），不依赖真实模板与 pptx-cli 安装。
-- 真实模板：`node scripts/lint-ppt-template.mjs /tmp/pcinit --no-cli --json` →
-  `ok=true`、`error 6`（全部 compensated）、`warning 17`、`blocking 0`，其中
-  `capacity-metadata-optimistic` **8 条**（即 7.1 表）。
+- 新增三个测试文件，全部合成夹具（PNG/JPEG 只造文件头），CI 不依赖真实模板与 pptx-cli：
+  `tests/unit/ppt-capacity.test.mjs`（11 项，容量公式/夹边界/段间距/0 容量）、
+  `tests/unit/ppt-plan-image-layout.test.mjs`（8 项，含"换版式会引入未声明必填槽时不换"的回归）、
+  `tests/unit/ppt-template-typography.test.mjs`（4 项，**真的起进程跑 CLI**）。
+- **CLI 端到端断言**（这一条专门防"测试全绿但生产路径退化"）：合成 manifest 包 + 自带
+  `<a:lnSpc><a:spcPts val="3000"/></a:lnSpc>` 的合成 pptx，跑
+  `node scripts/lint-ppt-template.mjs <dir> --no-cli --write-slots`，断言落盘的
+  `capacityModel.source === "template-xml"`、`lineHeightPt === 30`、段前/后 10/14；
+  「裸 manifest 目录」与「版本目录 `<vN>/manifest` + `source.pptx`」两种形态各一条；
+  另有一条用真实模板（本机有 `/tmp/pcinit` 时才跑）断言 `fig1/analysis` 自算 **15** vs
+  pptx-cli **19**。
+- 真实模板：`--no-cli --write-slots --json` → `ok=true`、`error 6`（全部 compensated）、
+  `warning 15`、`info 8`、**`blocking 0`**，其中 `capacity-metadata-optimistic` **6 条**
+  （即 7.1 表里高估 ≥25% 的那 6 个槽位）；`capacity-typography-unresolved` **0 条**
+  （排版已成功解析）。
 - 效果对照（同一份 212 字中文自然段写进 `fig1/analysis`）：
-  - 默认排版模型（= 当前落盘的 slots.json）：容量 19 行 → **无告警，会静默溢出**；
-  - 模板真实排版：容量 14 行 → `capacity-exceeded`：内容约 18 行 > 容量 14 行
+  - 默认排版模型（排版解析不到、静默退化的状态）：容量 19 行 → **无告警，会静默溢出**；
+  - 模板真实排版：容量 15 行（两段时 14）→ `capacity-exceeded`：内容约 18 行 > 容量 15 行
     （行距 30pt、段间距 24pt）。
 
-### 7.5 已知限制 / 需要接线的一处
+### 7.5 接线与防退化
 
-1. **排版表还没接进落盘的 `slots.json`**：`scripts/lint-ppt-template.mjs` 的 `--write-slots` 与
-   `lib/ppt-templates.js` 的导入流程都调用 `deriveSlotSpec(summary, {…})` 而**没有传
-   `typography`**，所以写出的 `capacityLines` 仍是默认模型的值
-   （`capacitySource: "computed-default-typography"`）。这两个文件不在本次改动范围，修复是各加两行：
-
-   ```js
-   const scan = await scanPresentationXml(await readFile(pkg.sourceTemplate));
-   const typography = typographyFromScan(scan, summary.layouts);
-   const spec = deriveSlotSpec(summary, { minFontPt, typography });
-   ```
-
-   在此之前，编译期会输出一条 `capacity-default-typography`（info），提示容量来自默认模型。
-2. 容量仍是"行数"模型：不模拟标点悬挂、西文断词、段内换行与 autofit；字宽单位 CJK 1.0 /
+1. **接线已完成**（`b8afead`）：`lib/pptx-manifest.js` 新增并导出 `templateTypography(pkg, layouts)`
+   （扫 manifest 包内的 `assets/source-template.pptx`），`lib/ppt-templates.js` 的导入流程与
+   `scripts/lint-ppt-template.mjs` 的 `--write-slots` 都把它传给 `deriveSlotSpec`。实测接线前后：
+   `capacityModel.source` 由 `defaults` → `template-xml`，行高 24 → **30**，段前/后 0/0 → **10/14**，
+   `fig1/analysis` 自算 19（== pptx-cli）→ **15**。
+2. **不许静默退化**：`lib/ppt-template-lint.js` 新增第 ⑧ 条规则
+   `capacity-typography-unresolved`（warning）：`slots.json.capacityModel.source !== "template-xml"`
+   时明确报出"此时容量**不优于** pptx-cli 的 `max_lines` 参考值"，并提示该查的两处路径
+   （manifest 包 `assets/source-template.pptx` / 版本目录 `source.pptx`）。`lib/pptx-plan.js`
+   消费端同码报警（warning）。只留一个 `capacitySource` 字段等人自己发现，就是 0.5.4 试用里
+   那个"静默退化"的同款坑。
+3. **残余缺口**：`templateTypography(pkg, …)` 只认 manifest 包内的 `assets/source-template.pptx`；
+   若某个版本目录**只有** `<vN>/source.pptx` 而 manifest 包里没有 assets 副本（pptx-cli init
+   正常产物都会有，故属边缘情形），排版仍解析不到 —— 此时第 2 条的 warning 会明确报出，
+   不会静默。要覆盖它需要给 `templateTypography` 传版本目录路径，属 `lib/pptx-manifest.js` 的改动。
+4. 容量仍是"行数"模型：不模拟标点悬挂、西文断词、段内换行与 autofit；字宽单位 CJK 1.0 /
    其余 0.5，只用于预警。
-3. 图注槽 0.40 in 高在"≥20pt"政策下容量为 **0**，编译器因此会对每页图注报
-   `capacity-exceeded`。这是模板侧缺陷（图注按 14pt 设计）的如实后果：要么放大图注框，
-   要么接受溢出。
-4. 自动换版式只在"能读出尺寸 + 同家族 ≥2 候选 + 面积差 ≥15% + 不丢已声明槽位"时发生；
-   其余只给建议，不做静默改动。
+5. 自动换版式只在"能读出尺寸 + 同家族 ≥2 候选 + 面积差 ≥15% + 双向守卫通过"时发生；
+   其余只给建议（含"为什么没换"的原因），不做静默改动。
+6. 容量 0 的槽位（文本框连一行都放不下）由 `lib/pptx-plan.js` 降级为 info
+   `slot-box-smaller-than-one-line` —— 那种情况下 Agent 改文案也修不了，只能改模板；
+   当前模板经段间距口径修正后已无此类槽位，该分支是为将来更小的文本框兜底。
