@@ -21,7 +21,13 @@ Writing into placeholders (0.1.16+):
   * mode="paragraph" strips a:buChar/a:buAutoNum/a:buFont and adds a:buNone —
     “one or two natural paragraphs, no bullet points”.
 
-CLI: --template <source.pptx> --parse <parse.json> --plan <plan.json>
+Input (0.5.4+): 二选一 ——
+  * `--plan plan.json`：Agent 手写的语义计划（向后兼容，行为不变）；
+  * `--compiled compiled.json`：`scripts/compile-ppt-plan.mjs` 的产物
+    （kind=compiled-plan：角色→版式、槽位→texts[] 带 prompt+idx/mode/align/sizePt）。
+    编译期诊断会并入符合性报告（前缀 `compiled_`），error 同样使退出码为 1。
+
+CLI: --template <source.pptx> --parse <parse.json> (--plan <plan.json> | --compiled <compiled.json>)
      [--out <deck.pptx>] [--report <conformance.json>] [--check] [--max-pages N]
      [--required cover,summary] [--ratio 16:9] [--notes-required true|false]
 Output: conformance JSON on stdout (and in --report).  Exit codes: 0 clean,
@@ -60,7 +66,8 @@ def parse_args(argv):
     parser = JsonArgumentParser(prog="build_from_template.py")
     parser.add_argument("--template", required=True)
     parser.add_argument("--parse", required=True, dest="parse_path")
-    parser.add_argument("--plan", required=True)
+    parser.add_argument("--plan", default=None)
+    parser.add_argument("--compiled", default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--report", default=None)
     parser.add_argument("--check", action="store_true")
@@ -89,6 +96,56 @@ def read_json(path, label):
     if not isinstance(data, dict):
         raise BuildError(f"{label} must be a JSON object: {path}")
     return data
+
+def load_plan(args):
+    """读取计划输入：`--plan`（手写语义计划）与 `--compiled`（编译器产物）二选一。
+
+    compiled.json 本身就是一份带 `kind: "compiled-plan"` 标记的 plan —— 同样的字段
+    （roles/slides[].role/texts[]/image/notes），所以构建路径完全复用，只是多了一层
+    来源校验 + 编译期诊断并入报告。
+    """
+    if args.plan and args.compiled:
+        raise BuildError("give either --plan or --compiled, not both")
+    if args.compiled:
+        compiled = read_json(args.compiled, "compiled.json")
+        kind = compiled.get("kind")
+        if kind != "compiled-plan":
+            raise BuildError(
+                f"not a compiled plan (kind={kind!r}); regenerate it with "
+                "scripts/compile-ppt-plan.mjs"
+            )
+        return compiled, "compiled"
+    if not args.plan:
+        raise BuildError("--plan is required unless --compiled is used")
+    return read_json(args.plan, "plan.json"), "plan"
+
+
+def apply_compiled_diagnostics(report, compiled):
+    """把编译期诊断并入符合性报告：error 会让构建整体判定为失败（退出码 1）。"""
+    diagnostics = compiled.get("diagnostics")
+    if not isinstance(diagnostics, list):
+        return
+    rows = []
+    for entry in diagnostics:
+        if not isinstance(entry, dict):
+            continue
+        severity = entry.get("severity")
+        level = "error" if severity == "error" else ("warning" if severity == "warning" else "pass")
+        code = str(entry.get("code") or "diagnostic")
+        message = str(entry.get("message") or "")
+        location = entry.get("location")
+        if isinstance(location, dict):
+            where = ", ".join(f"{key}={value}" for key, value in location.items() if value is not None)
+            if where:
+                message = f"{message} ({where})"
+        rows.append({"level": level, "code": f"compiled_{code}", "message": message})
+    report["findings"].extend(rows)
+    report["findings"].append({
+        "level": "pass",
+        "code": "compiled_plan",
+        "message": f"compiled plan consumed (schemaVersion={compiled.get('schemaVersion')})",
+    })
+
 
 def write_json(path, payload):
     try:
@@ -140,14 +197,27 @@ def title_layout_id(order, by_id):
     return None
 
 def resolve_role_layout(role, roles_map, by_id, previous_id, title_id, order):
-    """Return (layout id to use, finding code or None, the raw mapping value)."""
+    """Return (layout id to use, finding code or None, the raw mapping value).
+
+    0.5.4+：`scripts/compile-ppt-plan.mjs` 产出的 roles 用**版式名**（例如 "Fig1"）
+    作为值 —— pptx-cli manifest 的版式 id 是从版式名 slug 出来的（item/abs/fig1），
+    与 parse.json 的 slideLayoutN **不是同一套 id 空间**。所以除了 id，还接受
+    「版式名唯一匹配」；同名多个版式时明确报错，绝不猜。
+    """
     mapping = roles_map.get(role)
     fallback = title_id if role == "cover" and title_id is not None else (previous_id if previous_id is not None else order[0])
     if not isinstance(mapping, str) or not mapping:
         return fallback, "role_unmapped", mapping
-    if mapping not in by_id:
-        return fallback, "unknown_role_layout", mapping
-    return mapping, None, mapping
+    if mapping in by_id:
+        return mapping, None, mapping
+    wanted = mapping.strip()
+    matches = [layout_id for layout_id, layout in by_id.items()
+               if isinstance(layout, dict) and str(layout.get("name") or "").strip() == wanted]
+    if len(matches) == 1:
+        return matches[0], "role_layout_by_name", mapping
+    if len(matches) > 1:
+        return fallback, "ambiguous_role_layout_name", mapping
+    return fallback, "unknown_role_layout", mapping
 
 def refresh_summary(report):
     errors = sum(1 for row in report["findings"] if row["level"] == "error")
@@ -194,6 +264,10 @@ def evaluate(parsed, plan, args, template_path, template_sha):
             add("error", code, f"slide {index + 1} role '{role}' is not mapped in plan.roles; using fallback '{resolved}'")
         elif code == "unknown_role_layout":
             add("error", code, f"slide {index + 1} role '{role}' maps to unknown layout '{mapping}'; using fallback '{resolved}'")
+        elif code == "ambiguous_role_layout_name":
+            add("error", code, f"slide {index + 1} role '{role}' maps to layout name '{mapping}', which is not unique in this template; using fallback '{resolved}'")
+        elif code == "role_layout_by_name":
+            add("pass", code, f"slide {index + 1} role '{role}' resolved by layout name '{mapping}' -> '{resolved}'")
         if notes_required and not notes.strip():
             add("error", "missing_notes", f"slide {index + 1} role '{role}' has empty notes but notes are required")
     present_roles = {row["role"] for row in rows}
@@ -491,8 +565,12 @@ def run(argv):
     if not os.path.isfile(template_path):
         raise BuildError(f"template file not found: {template_path}")
     parsed = read_json(args.parse_path, "parse.json")
-    plan = read_json(args.plan, "plan.json")
+    plan, plan_kind = load_plan(args)
     report = evaluate(parsed, plan, args, template_path, sha256_file(template_path))
+    report["planKind"] = plan_kind
+    if plan_kind == "compiled":
+        apply_compiled_diagnostics(report, plan)
+        refresh_summary(report)
     if not args.check:
         if not args.out:
             raise BuildError("--out is required unless --check is used")
