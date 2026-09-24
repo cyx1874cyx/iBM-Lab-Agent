@@ -81,6 +81,31 @@ PyMuPDF 栅格化 → 默认再合成一张 **contact sheet**。
 有没有溢出、图文比例是否合适），只在发现异常时才回去读单页。0.5.4 现场 25 次读图里约 15 次
 是可省的。注意它是给"版面核对"用的，缩略后文字不可读 —— 需要看字时再读单页。
 
+### 3.4 核对成品：先查 XML，再考虑读图
+
+```bash
+python scripts/pptx/inspect_deck.py --deck out.pptx \
+    --expect-latin Arial --expect-ea 微软雅黑 --expect-cs Arial [--strict] [--json]
+```
+
+一次给出：每页的字体三槽、最小显式字号、图片是否被拉伸（几何比例 vs 图片像素比例）、形状是否
+越界、占位符是否仍是版式提示文字、段落是否带项目符号，并汇总 `error`/`warning` 与退出码。
+**这些都不需要读图** —— 视觉 token 只留给"版面好不好看"（配合 §3.3 的 contact sheet）。
+
+实测（`deck6.pptx`，4 页）：
+
+```
+成品体检：deck6.pptx
+  4 页 | 最小显式字号 20.0pt | error 0 | warning 0
+  p1  标题幻灯片  字体 latin=Arial ea=微软雅黑 cs=Arial
+  p2  Abs        字体 latin=Arial ea=微软雅黑 cs=Arial
+  p3  Fig1       字体 latin=Arial ea=微软雅黑 cs=Arial
+  p4  End        字体 latin=Arial ea=微软雅黑 cs=Arial
+```
+
+负例自证（工具确实会失败）：`--min-font-pt 30` → 11 个 error、退出码 1；
+`--expect-ea 等线` → 12 个 warning。
+
 ## 4. 实测记录（2026-09-25，WSL）
 
 | 项 | 命令 | 结果 |

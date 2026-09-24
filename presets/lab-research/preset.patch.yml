@@ -251,6 +251,11 @@
                     - 渲染 PPT/PDF 用它返回的 renderHelper（`scripts/render-deck.mjs`），
                       不要自己拼 soffice 命令行；需要人眼核对多页时用它的 contact sheet
                       一次看完整套页面，不要逐页读图。
+                    - 核对成品先查 XML、再考虑读图：
+                      `python scripts/pptx/inspect_deck.py --deck 成品.pptx --expect-latin Arial
+                      --expect-ea 微软雅黑 --expect-cs Arial` 一次给出字体三槽、最小显式字号、
+                      图片是否被拉伸、形状是否越界、占位符是否仍是提示文字、段落是否带项目符号。
+                      这些**都不消耗视觉 token**，读图只留给"版面好不好看"。
 
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
