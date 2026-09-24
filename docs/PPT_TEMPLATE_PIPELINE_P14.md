@@ -156,3 +156,71 @@ python scripts/pptx/build_from_template.py --template <版本目录>/source.pptx
    结构）；规范 §3 给了字段说明，后续可按需加 zod schema。
 8. **只支持单一模板族**（`literature-reading-v1`）的角色约定；换一种模板风格需要在
    `src/ppt-slot-spec.js` 的 `FAMILY_EXPECTATIONS` 里加一张表（数据，不是代码）。
+
+---
+
+## 6. 0.5.4 真实试用复盘后的四项修复
+
+真实跑一遍「读论文 → 出 PPT」暴露了四个问题，本节四项已修并验证。
+
+### 6.1 contain 图片几何：跨渲染器不一致 + 图片被静默裁掉
+
+**根因（源码级）**：`Placeholder.insert_picture()` 只把图片塞进占位符 —— 它既不写
+`a:xfrm`，还会用 `a:srcRect` 把图片**裁**成占位符比例。实测把 600x690 的竖长图放进 Fig3 的
+12.85x4.78in 占位符：
+
+| | XML 表现 | 有效几何 |
+|---|---|---|
+| 修前 | 无 `a:xfrm`（继承版式）+ `<a:srcRect t="33833" b="33833"/>` | 12.85x4.78in，**上下各裁掉 33.8%** |
+| 修后 | `<a:xfrm>` off=(4122582,901700) ext=(3798818,4368641) + `<a:srcRect/>` | 4.15x4.78in @ (4.51,0.99)，比例 0.870 = 源图，完整居中 |
+
+同一份 `srcRect` 在两个渲染器上表现不一致，正是试用里「竖长图被 LibreOffice 撑到 9.9in」
+（幻灯片只有 7.5in）的来源。修法：新增纯函数 `fit_contain()` 算 contain 几何，
+`apply_contain_fit()` 显式写 `left/top/width/height` 并**把 crop 清零**（不清的话图片仍被裁）。
+
+**顺带查出的第二个缺陷**：几何必须在 `insert_picture` **之前**读。`insert_picture` 会把
+占位符降级（清掉 `spPr/xfrm`），之后再读 `target.width / target.left` 会抛
+`AttributeError: 'NoneType' object has no attribute 'cx'` —— 原来的 `cover` 分支正是因此
+在真模板上静默退化成「不设几何」，只留下一条误报 `crop_* 不可用` 的 warning（实测三条全中）。
+
+**`cover` 分支保持不动（有意）**：它的既有可观测行为就是 `insert_picture` 自带的填充裁切，
+而那正是正确的 cover 语义；把几何来源换成提前读到的 box 去「复活」它，算出的 ext 会是
+12.85x14.78in（比幻灯片还高，真会溢出）。因此 cover 只在本报告里如实记录，不改。
+
+### 6.2 笔记/目标模板工具：Agent 被迫绕过工具手读存储
+
+| 问题 | 根因 | 修法 |
+|---|---|---|
+| `lab_note_templates_list` 报 `templates[0].kind 未声明` | 该工具输出 schema 声明 `additionalProperties:false` 却漏了 `kind`，而 `list()` 每行都带 `kind` | 补声明；并逐个核对同文件其余工具（`lab_note_templates_get`、`lab_ppt_templates_list/get`、`lab_ppt_template_lint`）的 schema ⊇ 实际返回 |
+| `note template 'note-default'@latest not found` | `resolve()` 只要 `version !== undefined` 就直接拼 key；Agent 传字面量 `"latest"`（错误文案本身也写成 `@latest`）→ 去找 `note-default@latest`，永远找不到 | `"latest"`/空串/纯空白一律当「未指定」（`normalizeTemplateVersion`；goal-profiles 同源实现 `normalizeGoalVersion`） |
+| 报错没说下一步 | 旧文案只回一个 `@latest` | not-found 带上该 id 的实际版本列表与下一步（`noteTemplateMissMessage` / `goalMissMessage`） |
+
+**一处刻意不改（有证据）**：试用复盘推测 `latestActive()` 应改成「从高版本往低找第一个
+active」。**不能改**：`delete` 的语义就是「追加 archived 尾部版本」，最新版本行的状态即该 id
+的当前状态；向下找 active 等于让已删除的模板复活，并直接打破
+`tests/integration/notes.test.mjs` 的删除断言（`list()` 里「先 seen.add 再判 status」的顺序
+同理，也是有意的）。修后语义：删除后 `resolve(id)` 返回 undefined，但 `resolve(id, "旧版本")`
+仍可读（历史永远可读，见文件头契约）——报错文案会明确告诉调用方「该 id 没有 active 版本 +
+已有版本列表」，这比让它悄悄拿到旧版本更安全。
+
+### 6.3 登记 PPT 的前置条件不可见
+
+真实试用里 Agent 被 `reading report '…' has no staged report artifact yet` 直接拒掉，
+description 没写依赖链、报错也没说下一步。改为：description 写明
+「登记原文 → 登记精读报告（`lab_tasks_register_report` 返回 reportId）→ 登记 PPT」，
+并说明公众号/题录元数据登记**不会**自动生成精读报告；`withRegistrationNextStep()` 把该错误
+翻译成可执行下一步（其余错误原样透传）。
+
+### 6.4 测试与验证
+
+- 新增 `tests/unit/pptx-contain-fit.test.mjs`（7 项）：`fit_contain` 在竖长图进宽幅槽/横图/
+  超宽图/比例完全一致/极端竖长图/非法尺寸六种情形下的**落在盒内 + 比例不变 + 居中**断言，
+  以及「`contain` 必须清 crop」「几何必须在 `insert_picture` 之前读」「cover 与 contain 互斥」
+  三条源码级断言。纯函数用 `python3` 标准库加载模块，CI 不需要 python-pptx。
+- 新增 `tests/unit/tool-output-schema.test.mjs`（6 项）：用真实服务原型方法 + storage 表替身
+  跑 `list()`/`resolve()`/`snapshotForTask()`，断言输出 schema 覆盖实际返回的**每一个**键
+  （能真正复现 `kind` 这类漏声明）、`latest`/空串/显式版本三种解析、删除语义、报错文案与
+  前置条件翻译。
+- 真实模板端到端（`/tmp/tpl-current.pptx` sha256 `956b7abf…`，`/tmp/pcvenv/bin/python`）：
+  contain 修前 12.85x4.78in（aspect 2.689，图片被裁）/ 修后 4.15x4.78in（aspect 0.870，居中）；
+  cover 修前修后 findings 与 XML 完全一致。两版 deck 与报告留在 `/tmp/containfit/`。
