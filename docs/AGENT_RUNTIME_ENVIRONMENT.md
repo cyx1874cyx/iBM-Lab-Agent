@@ -31,6 +31,10 @@
   `create_user_directories()` 里预建。沙箱只保证工作区可写，而系统临时目录是**所有**工具的
   默认落点 —— 不只是 LibreOffice（写不了 user profile 时静默不产出 PDF），还有 python 的
   `tempfile`、node 的 `os.tmpdir()`、matplotlib 的字体缓存等。整条链一次修掉，而不是逐处绕。
+  > **预建是必需而非讲究**：Python 的 `tempfile` 只在目录**存在且可写**时才认 `TMPDIR`，
+  > 否则**静默回退**到 `/tmp`。实测（WSL）：`TMPDIR=/tmp/gone-tmp`（不存在）时
+  > `tempfile.gettempdir()` 返回 `/tmp`；`mkdir` 之后才返回注入值。node 的 `os.tmpdir()`
+  > 不做这个校验。所以"用到再建"在 Python 侧等于没生效。
 
 编译验证：`cargo check` / `cargo check --tests` 均通过（`CARGO_EXIT=0`、`CARGO_TESTS_EXIT=0`；
 仅有一个与本次无关的既有 `origin_mcp_package_dir` dead-code 警告）。
