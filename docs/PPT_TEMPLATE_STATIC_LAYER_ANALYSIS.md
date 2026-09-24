@@ -408,3 +408,57 @@ slide3/4/5/6 同理：`methods-1`、`methods-2`、`results`、`summary`，各自
 |---|---|
 | `normalize_layout_fonts()` | 版式静态文字字体归一化（默认开）；只改字体，不动字号 |
 | `texts[].align` | `left/center/right/justify` 按占位符覆盖对齐（模板是居中时用它改长段落） |
+
+## 12. 为什么母版是左对齐、成品却居中
+
+### 12.1 实测的继承链
+
+| 层 | 实测值 |
+|---|---|
+| **母版** `slideMaster1` | `titleStyle.lvl1pPr algn = "l"`、`bodyStyle.lvl1pPr algn = "l"`、`otherStyle.lvl1pPr algn = "l"` —— **都是左对齐** |
+| **每个版式**的占位符 `a:lstStyle/a:lvl1pPr` | **都是 `algn="ctr"`**：layout1 的 `body/10,11,12,13`；layout2–7 的 `body/11`（含 layout3/4/6 的 `body/12`、layout7 的 `body/12,13`）；layout8 的 `body/10` |
+| **段落自身** | 版式里那行提示文字（"【此处粘贴论文摘要的中文翻译全文…】"）的 `a:pPr` **没有 algn**；母版占位符也没有 `lstStyle` |
+| **页标题**（"摘要 Abstract" 等） | 是普通文本框，段落自己写了 `algn="l"` → **左对齐，符合预期** |
+
+### 12.2 规则：版式覆盖母版
+
+PowerPoint 文本样式由高到低解析：
+
+```
+① 幻灯片上段落的显式 a:pPr / a:rPr
+② 幻灯片占位符的 a:txBody/a:lstStyle
+③ 版式占位符的 a:txBody/a:lstStyle      ← 这里写了 ctr
+④ 母版占位符的 a:lstStyle
+⑤ 母版 p:txStyles（titleStyle/bodyStyle/otherStyle）  ← 这里是 l
+⑥ 默认
+```
+
+所以：**母版只是"兜底默认"，真正决定这套版式的是版式里的 `lstStyle`。**
+Agent 填进 `body/11` 的段落自己没有 algn，就继承到第 ③ 层的 `ctr` ——
+这正是"母版里看着是左对齐、拿出来却居中"的原因，也是"在母版里改对齐没用"的原因。
+（母版视图里看到的样式是第 ⑤ 层，版式视图里看到的才是第 ③ 层。）
+
+### 12.3 怎么改（两种，任选）
+
+**A. 模板侧（PowerPoint UI，改版式而不是母版）**
+
+1. 视图 → 幻灯片母版；
+2. 左侧**版式列表**里选具体版式（Abs / Fig1 / Fig2 / Fig3 / Fig4 / End），
+   **不要选最上面的那个大母版**；
+3. 点中**正文占位符的边框**（选中整个占位符，不是里面的提示文字）；
+4. 开始 → 段落 → 对齐方式 → 左对齐 / 两端对齐；
+5. 关闭母版视图。
+
+要改的占位符：`Abs: body/11`、`Fig1: body/11`、`Fig2: body/11`、`Fig3: body/11`、
+`Fig4: body/11`、`End: body/11,13`（图注 `body/12` 居中通常更好看，可不改）。
+封面 `body/10..13` 居中是有意设计，建议保留。
+
+**B. 计划侧（已实现，不用改模板）**
+
+`plan.slides[].texts[]` 支持 `align: "left"|"center"|"right"|"justify"`，
+构建器把 `algn` 写在**幻灯片段落**上（第 ① 层，优先级最高）。
+实测：给摘要正文加 `align: "justify"` → 成品 `ppt/slides/slide1.xml` 出现
+`<a:pPr algn="just">`。
+
+> 注意 B 只覆盖 **Agent 写入的段落**；你在 PowerPoint 里手工编辑时，
+> 仍然受版式第 ③ 层的 `ctr` 影响。要让手工编辑也左对齐，得走 A。
