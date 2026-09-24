@@ -149,6 +149,22 @@ export const literatureSearchRunSchema = z.object({
 	updatedAt: z.string()
 });
 
+/**
+ * 文献条目命名的可覆盖段（课题组《文献命名及分类保存建议》）：
+ *   <期刊缩写> <年份> <通讯作者> <中文内容概括> <英文题目前段>
+ * 年份来自 bundle.year，其余四段可由 Agent 提供；缺哪段就少哪段。
+ */
+export const entryNamingSchema = z.object({
+	/** 期刊缩写，如 JACS / ACS NANO / AFM；缺省时按内置表查 bundle.journal。 */
+	journalAbbrev: z.string().optional(),
+	/** 通讯作者。库里的作者列表不标注通讯作者，末位只是启发式，Agent 应从 PDF 确认后传入。 */
+	correspondingAuthor: z.string().optional(),
+	/** 两三中文词语的内容概括，如「仿生纳米囊泡 化疗免疫」。 */
+	summaryZh: z.string().optional(),
+	/** 英文题目前段；缺省时取标题前 8 个词。 */
+	titleLead: z.string().optional()
+});
+
 /** PaperSourceBundle（§六）：原文、来源地图、图表资源及定位状态。 */
 export const paperSourceBundleSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
@@ -184,8 +200,11 @@ export const paperSourceBundleSchema = z.object({
 	translationNotesPath: z.string().optional(),
 	figuresDir: z.string().optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
-	/** 文献条目标识与固化目录（"<短引用> <10字以内短介绍>"）：占位创建时固化，
-	 *  正文/SI/精读报告/PPT 全部落在同一条目目录，保证分批存档不产生第二个文件夹。 */
+	/** 命名各段（Agent 可覆盖）：<期刊缩写> <年份> <通讯作者> <中文内容概括> <英文题目前段>。 */
+	naming: entryNamingSchema.optional(),
+	/** 文献条目标识与固化目录（"<期刊缩写> <年份> <通讯作者> <中文概括> <题目前段>"）：
+	 *  占位创建时固化，正文/SI/精读报告/PPT 全部落在同一条目目录，
+	 *  保证分批存档不产生第二个文件夹。 */
 	entryStem: z.string().optional(),
 	entryDir: z.string().optional(),
 	status: z.enum(RUN_STATUSES).default("pending"),
