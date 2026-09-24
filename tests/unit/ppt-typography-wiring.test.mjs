@@ -23,7 +23,10 @@ import { test } from "node:test";
 
 import JSZip from "jszip";
 
-import { templateTypography } from "../../lib/pptx-manifest.js";
+import { compilePlan } from "../../lib/pptx-plan.js";
+import { summarizeManifest, templateTypography } from "../../lib/pptx-manifest.js";
+import { deriveSlotSpec } from "../../src/ppt-slot-spec.js";
+import { literatureManifest } from "../fixtures/ppt-manifest-fixture.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -96,4 +99,48 @@ test("接线守卫：slots.json 的两个写入方都必须把 typography 交给
 	assert.match(manifestModule, /export async function templateTypography/, "lib/pptx-manifest.js 必须导出 templateTypography");
 	assert.match(manifestModule, /scanPresentationXml/, "必须读模板 pptx 的 XML，而不是只信 manifest 的估算");
 	assert.match(manifestModule, /typographyFromScan/);
+});
+
+/**
+ * 把 fig1 的 analysis 槽框高压到指定值。
+ *
+ * 注意不能直接改 `capacityLines` —— 编译器会用 `computeTextCapacity()` 拿槽位几何
+ * **重算**容量（这是它和 slots.json 同源的关键），注入的字段会被覆盖。压框高才是
+ * "模板把框做得比行高还矮"的忠实模拟。
+ */
+function withAnalysisHeight(spec, heightEmu) {
+	return {
+		...spec,
+		layouts: spec.layouts.map((layout) => layout.layoutId !== "fig1"
+			? layout
+			: { ...layout, slots: layout.slots.map((slot) => (slot.key !== "analysis" ? slot : { ...slot, heightEmu })) })
+	};
+}
+
+test("容量分级：连一行都放不下只报 info，装得下但内容超长才报 warning", () => {
+	const spec = deriveSlotSpec(summarizeManifest(literatureManifest()), { minFontPt: 20 });
+	const basePlan = (analysis) => ({ slides: [{ role: "figure-1", slots: { analysis } }] });
+
+	// 框高 1 EMU：重算容量必然为 0。Agent 改文案也修不了（只能改模板），因此只能是 info。
+	const zero = compilePlan({ plan: basePlan("一段图文解读。"), slotSpec: withAnalysisHeight(spec, 1), requireImages: false });
+	const boxFindings = zero.diagnostics.filter((row) => row.code === "slot-box-smaller-than-one-line");
+	assert.equal(boxFindings.length, 1, `0 容量必须单独成一条 finding，实际诊断：${JSON.stringify(zero.diagnostics.map((row) => row.code))}`);
+	assert.equal(boxFindings[0].severity, "info");
+	assert.equal(zero.diagnostics.filter((row) => row.code === "capacity-exceeded").length, 0,
+		"0 容量不得再报 capacity-exceeded —— 那会让每页都响一声，真信号被淹没");
+	// 这份最小计划本身还缺 figure/caption 等必填槽（那是另一类诊断），所以这里只断言
+	// "0 容量没被算成 warning"，不去断言整份诊断的 warning 总数。
+	assert.equal(
+		zero.diagnostics.filter((row) => row.code === "slot-box-smaller-than-one-line" && row.severity !== "info").length,
+		0,
+		"0 容量只能是 info 级"
+	);
+
+	// 正常框高 + 超长文案 → warning（这才是要 Agent 真去看、去删字的信号）。
+	const long = "这是一段明显超过槽位容量的图文解读文字，".repeat(12);
+	const long_ = compilePlan({ plan: basePlan(long), slotSpec: spec, requireImages: false });
+	const exceeded = long_.diagnostics.filter((row) => row.code === "capacity-exceeded");
+	assert.equal(exceeded.length, 1, `超长必须报 capacity-exceeded，实际诊断：${JSON.stringify(long_.diagnostics.map((row) => row.code))}`);
+	assert.equal(exceeded[0].severity, "warning");
+	assert.ok(exceeded[0].location?.estimatedLines > 1, "诊断要带估算行数，Agent 才能判断要删多少字");
 });
