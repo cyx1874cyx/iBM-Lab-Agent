@@ -242,7 +242,7 @@
       $('available-features').innerHTML = (features.length ? features : ['暂无完整可用功能，请先修复必需组件。']).map((text) => `<li>${esc(text)}</li>`).join('');
 
       const actions = items.filter((item) => item.state !== 'ok').map((item) => `${item.label}：${item.hint}`);
-      if (!actions.length) actions.push('无必须升级项。当前基线：内置 Python 3.11.x、内置 Node.js v24.16.0、PowerShell 5.1 或 7.x。');
+      if (!actions.length) actions.push('无必须升级项。当前基线：内置 Python 3.12.x、内置 Node.js v24.16.0、PowerShell 5.1 或 7.x。');
       $('upgrade-summary').innerHTML = actions.map((text) => `<li>${esc(text)}</li>`).join('');
     }
     async function refreshDiagnostics() {

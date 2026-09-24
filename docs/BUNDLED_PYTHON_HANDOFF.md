@@ -156,3 +156,50 @@ Remove-Item Env:TAURI_CONFIG
 | 构建脚本 | `desktop/scripts/build-bundled-python.ps1` |
 | Rust 环境变量注入 | `desktop/src-tauri/src/runtime/process.rs`（spawn_dsh） |
 | 桌面数据目录 | `%LOCALAPPDATA%\iBM-Lab-Agent\dsh\`（DSH_HOME） |
+
+---
+
+## 9. 更新：0.5.4 捆绑解释器 3.11.9 → 3.12.10
+
+### 9.1 为什么升
+
+直接动因是 `pptx-cli`（模板 manifest 读取器）声明 `Requires-Python >=3.12`；顺带把 Windows 线
+与 Linux 线拉齐——Linux 安装器从 0.3.x 起就用 `runtime/versions.env` 的 `PYTHON_VERSION=3.12.11`
+（uv 托管 CPython），此前两条线一个 3.11 一个 3.12，属历史遗留。
+
+### 9.2 改了什么（13 处）
+
+| 位置 | 改动 |
+|---|---|
+| `desktop/scripts/build-bundled-python.ps1` | `$Python='py -3.12'`、拷贝清单 `python311.dll`→`python312.dll`、注释与报错文案 |
+| `desktop/src-tauri/src/runtime/deps.rs` | `python_status` 的 5 处文案 + 版本判定 `Python 3.12.` |
+| `desktop/docs/release-manifest.json` | `"python": "3.11"` → `"3.12"` |
+| `desktop/src/index.html` | 依赖面板基线文案「内置 Python 3.12.x」 |
+| `src/python-env.js` | 候选序列 `py -3.12`、区间提醒（`<3.12` 或 `>=3.13` 才 warn）、注释 |
+| `python/requirements.lock` | 头部记录基准变更 + 末尾新增 pptx-cli 闭包 |
+| `python/requirements-linux.lock` | 同批新增 pptx-cli 闭包（不列 Windows-only 的 colorama） |
+| `tests/unit/python-env.test.mjs`、`tests/unit/bundled-python-inputs.test.mjs` | 夹具与断言随版本更新 |
+
+### 9.3 风险核对（升级前做的尽调）
+
+- **wheel 可用性**：逐包查过 PyPI 的实际 tag——numpy/pandas/scipy/matplotlib/Pillow/lxml/cffi/
+  PyYAML/pydantic-core/rpds-py 都有 `cp312-win_amd64`；`cryptography` 走 `cp39-abi3`、
+  `PyMuPDF` 走 `cp310-abi3`、`pypdfium2` 走 `py3-none-win_amd64`，abi3/纯二进制覆盖 3.12；
+  `rdkit==2026.3.5`（Linux 线用）明确有 `cp312-cp312-win_amd64` 与 `cp312-manylinux_2_28_x86_64`。
+  结论：无缺口。
+- **不重新解析**：全部版本 pin 原样保留，避免版本漂移扩大重验证面。
+- **不再与上游 CI 对齐**：`requirements.lock` 的基准自此**有意**偏离 nature-skills 上游 CI（仍钉
+  3.11）。上游每次 bump 需要手工重新推导——这是这次升级的长期成本，已写进 lock 头部注释。
+- **`distutils` / `setuptools`**：3.12 移除 `distutils`、`ensurepip` 不再带 `setuptools`。仓库自有
+  Python 代码对 `distutils`/`pkg_resources`/`imp` 零引用（已 grep 确认）；构建期 `pip wheel
+  vendor/mnova-mcp` 走构建隔离，需要镜像可达（构建环境本来就有网）。
+- **首次启动重新物化**：`requirements.lock` 参与 `runtime/dsh.rs` 的 bootstrap 指纹，换锁会让
+  老用户首次启动时重建 AppData 里的插件树（设计内行为，无数据丢失）。升级路径需实测一次。
+
+### 9.4 新增的 Python 包（pptx-cli 闭包）
+
+`pptx-cli==1.3.5` / `typer==0.27.2` / `rich==15.0.0` / `markdown-it-py==4.2.0` / `mdurl==0.1.2` /
+`shellingham==1.5.4` / `annotated-doc==0.0.5` / `colorama==0.4.6`（Windows）。其中
+jsonschema / lxml / pydantic / python-pptx / pyyaml 原本就在锁里且满足约束。
+调用方式统一用 `python -m pptx_cli`（不依赖控制台脚本）。
+

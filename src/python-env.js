@@ -65,7 +65,7 @@ export async function preflight({ venvDir, lockFile, platform = process.platform
 	return { venvDir, python, lockFile, lockExists, venvExists, lockHash, ok: issues.length === 0, issues };
 }
 
-/** Parse 'Python 3.11.9' → [3, 11]. */
+/** Parse 'Python 3.12.10' → [3, 12]. */
 export function parsePythonVersion(text) {
 	const match = /Python\s+(\d+)\.(\d+)/.exec(text);
 	if (!match) return undefined;
@@ -83,9 +83,12 @@ export async function bootstrap({ venvDir, lockFile, platform = process.platform
 	const py = systemPythonCommand(platform);
 	const sysVersion = await pythonVersionFrom(py, platform);
 	const parsed = sysVersion ? parsePythonVersion(sysVersion) : undefined;
-	if (parsed && (parsed[0] > 3 || (parsed[0] === 3 && parsed[1] >= 13))) {
-		console.warn(`WARNING: system python ${sysVersion} >= 3.13; the pinned lock targets Python 3.11 ` +
-			"(nature-skills CI environment). Some wheels may not exist for this version — expect possible build failures.");
+	// 0.5.4：lock 基准从 Python 3.11 升到 3.12（与 Linux 线 PYTHON_VERSION=3.12.11
+	// 对齐）。区间两端都要提醒：3.11 装不上 pptx-cli（它要求 >=3.12），
+	// 3.13+ 则可能还没有对应的 wheel。
+	if (parsed && (parsed[0] !== 3 || parsed[1] < 12 || parsed[1] >= 13)) {
+		console.warn(`WARNING: system python ${sysVersion} is outside the pinned range; the lock targets ` +
+			"Python 3.12 (3.11 cannot install pptx-cli, 3.13+ may lack wheels) — expect possible build failures.");
 	}
 
 	const recreate = !state.venvExists || !(await pythonIsUsable(state.python, platform));
@@ -157,7 +160,7 @@ export async function pythonVersion(venvDir, platform = process.platform) {
  *
  *   1. managed venv python.exe（存在时）
  *   2. bundled Python（可选捆绑，如桌面资源目录；未捆绑时为空）
- *   3. win32: py -3.11 → py -3 → python.exe；unix: python3
+ *   3. win32: py -3.12 → py -3 → python.exe；unix: python3
  *
  * 每个候选形如 `{ command: string[], source }`，command 可直接作为
  * `spawn(...command, args)` 的前缀（py launcher 需要多 token 表达）。
@@ -185,7 +188,7 @@ export function pythonCandidates({ venvPython, bundledPython, platform = process
 	}
 	if (venvPython && existsSync(venvPython)) candidates.push({ command: [venvPython], source: "venv" });
 	if (platform === "win32") {
-		candidates.push({ command: ["py", "-3.11"], source: "py" });
+		candidates.push({ command: ["py", "-3.12"], source: "py" });
 		candidates.push({ command: ["py", "-3"], source: "py" });
 		candidates.push({ command: ["python"], source: "python" });
 	} else {

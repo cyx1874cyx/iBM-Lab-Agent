@@ -4,7 +4,7 @@
  * 调用 scripts/markitdown/convert.py（需要 python 环境安装 markitdown）。
  * 不可用时返回 { available: false } + 安装指引，绝不静默给出伪结果。
  *
- * P1-2：解释器候选经统一 resolver（venv → bundled → py -3.11/-3 → python），
+ * P1-2：解释器候选经统一 resolver（venv → bundled → py -3.12/-3 → python），
  * 对每个候选探测 markitdown 是否已安装；Windows 不再单独回退 python3。
  */
 

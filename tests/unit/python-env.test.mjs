@@ -52,10 +52,10 @@ test("sha256OfFile is stable", async () => {
 
 // ---- P1-2 统一 Python Resolver ----
 
-test("pythonCandidates on win32: py -3.11 → py -3 → python, never python3", () => {
+test("pythonCandidates on win32: py -3.12 → py -3 → python, never python3", () => {
 	const candidates = pythonCandidates({ platform: "win32" });
 	assert.deepEqual(candidates.map((c) => c.source), ["py", "py", "python"]);
-	assert.deepEqual(candidates[0].command, ["py", "-3.11"]);
+	assert.deepEqual(candidates[0].command, ["py", "-3.12"]);
 	assert.deepEqual(candidates[1].command, ["py", "-3"]);
 	// Windows 不出现 python3 候选
 	assert.ok(!candidates.some((c) => c.command[0] === "python3"));

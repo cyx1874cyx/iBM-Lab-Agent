@@ -20,7 +20,17 @@
 # 的 PDF 输入依赖 fitz，此前仅 python/requirements-linux.lock 含 PyMuPDF，导致
 # Windows venv / bundled python 无法登记 PDF 原文。版本与 linux 锁保持一致。
 #
-# Reproducible Python 3.11 test environment for GitHub Actions.
+# 更新：2026-09-25（0.5.4）Windows 捆绑解释器 3.11.9 -> 3.12.10，与 Linux 线
+# runtime/versions.env 的 PYTHON_VERSION=3.12.11 对齐（两条线此前一 3.11 一 3.12）。
+# 本轮**不重新解析**：逐包核对过 cp312 wheel 可用性后原样保留全部版本 pin
+# （numpy/pandas/scipy/matplotlib/Pillow/lxml/cffi/PyYAML/pydantic-core/rpds-py
+# 均有 cp312-win_amd64；cryptography 走 cp39-abi3、PyMuPDF 走 cp310-abi3、
+# pypdfium2 走 py3-none-win_amd64，均覆盖 3.12），避免版本漂移扩大重验证面。
+# 同批新增 pptx-cli==1.3.5 及其闭包（见文件末尾分组）：它是模板 manifest 的读取方，
+# 而 pptx-cli 要求 Python >=3.12 —— 这就是本次解释器升级的直接动因。
+# 注意：本文件基准自此**有意**偏离 nature-skills 上游 CI（仍为 3.11）。
+#
+# Reproducible Python 3.12 environment (Windows bundle + CLI venv).
 # Keep user-facing skill requirements flexible; update this file deliberately
 # after validating a fresh resolver result in CI.
 annotated-types==0.8.0
@@ -89,3 +99,19 @@ tzdata==2026.3
 urllib3==2.7.0
 uvicorn==0.52.1
 xlrd==2.0.2
+
+# --- 0.5.4 新增：pptx-cli 及其闭包（模板 manifest 读取 + P1-P4）---
+# pptx-cli 声明 jsonschema>=4.23.0 / lxml>=5.3.1 / markdown-it-py>=3.0.0 /
+# pydantic>=2.10.6 / python-pptx>=1.0.2 / pyyaml>=6.0.2 / rich>=13.9.4 /
+# typer>=0.15.1 —— 其中前六项本文件原本就 pin 且满足约束，故只新增下列包。
+# 在 WSL Python 3.12.3 venv（PyPI 清华镜像）中实测解析后固定：
+#   pptx-cli 1.3.5 / typer 0.27.2 / rich 15.0.0 / markdown-it-py 4.2.0 /
+#   mdurl 0.1.2 / shellingham 1.5.4 / annotated-doc 0.0.5 / colorama 0.4.6
+pptx-cli==1.3.5
+typer==0.27.2
+rich==15.0.0
+markdown-it-py==4.2.0
+mdurl==0.1.2
+shellingham==1.5.4
+annotated-doc==0.0.5
+colorama==0.4.6

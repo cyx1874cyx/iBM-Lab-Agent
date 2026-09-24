@@ -187,13 +187,13 @@ test("捆绑解释器版本变化会触发重建（基础 Python 升级这条轴
 	try {
 		// 版本用注入而非"造一个假可执行文件"：Windows 上跑不了 #!/bin/sh 脚本，
 		// 之前正是因为这点在 Windows 的 tests 阶段失败、阻断了整个出包。
-		writeStamp(fx.root, fx.stampDir, { pythonVersion: "3.11.9" });
-		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.11.9" }).current, true);
+		writeStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.9" });
+		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.9" }).current, true);
 
-		const upgraded = checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.11.10" });
+		const upgraded = checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.10" });
 		assert.equal(upgraded.current, false, "解释器版本变化必须判为过期");
 		assert.ok(
-			upgraded.changed.some((c) => c.startsWith("pythonVersion:3.11.9->3.11.10")),
+			upgraded.changed.some((c) => c.startsWith("pythonVersion:3.12.9->3.12.10")),
 			`应指名版本变化，实际：${upgraded.changed}`,
 		);
 

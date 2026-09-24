@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
-  [string]$Python = 'py -3.11',
+  [string]$Python = 'py -3.12',
   [string]$IndexUrl = 'https://pypi.tuna.tsinghua.edu.cn/simple/',
   # Needed to run scripts/patch-markitdown.mjs (magika-optional patch). New code and
   # comments in this file are intentionally ASCII-only: PowerShell 5.1 reads a
@@ -12,7 +12,7 @@ param(
 # Build the self-contained bundled Python (resources/python/dist) for the
 # iBM Lab Agent desktop package.
 #
-# dist/ is a full Python install tree (python.exe + python311.dll + DLLs +
+# dist/ is a full Python install tree (python.exe + python312.dll + DLLs +
 # Lib + site-packages in one directory) so the packaged app works offline
 # without any system Python. A copied *venv* is NOT portable on Windows
 # (pyvenv.cfg pins the base interpreter), which is why we use the dist layout.
@@ -20,7 +20,10 @@ param(
 # Usage (from the desktop/ directory):
 #   powershell -ExecutionPolicy Bypass -File scripts/build-bundled-python.ps1 -SourceRoot ..
 #
-# Requires: a Windows Python 3.11 installed and reachable via `py -3.11`.
+# Requires: a Windows Python 3.12 installed and reachable via `py -3.12`.
+# 0.5.4: raised from 3.11 to 3.12 to match the Linux line
+# (runtime/versions.env PYTHON_VERSION=3.12.11) and because pptx-cli requires
+# Python >= 3.12.
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -29,11 +32,11 @@ $sourceRoot = (Resolve-Path $SourceRoot).Path
 $resourceRoot = Join-Path $projectRoot 'src-tauri\resources'
 $dist = Join-Path $resourceRoot 'python\dist'
 
-# Locate the base Python 3.11 install (used as the source for the stdlib).
+# Locate the base Python 3.12 install (used as the source for the stdlib).
 $pythonParts = $Python.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
 $basePython = & $pythonParts[0] $pythonParts[1..($pythonParts.Count - 1)] -c "import sys; print(sys.prefix)" 2>$null
 if (-not $basePython -or -not (Test-Path -LiteralPath (Join-Path $basePython 'python.exe'))) {
-  throw "Python 3.11 not found via '$Python'. Install Python 3.11 first."
+  throw "Python 3.12 not found via '$Python'. Install Python 3.12 first."
 }
 Write-Host "Base Python: $basePython"
 
@@ -56,7 +59,7 @@ if (Test-Path -LiteralPath $dist) {
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 # 1) Interpreter + runtime DLLs (self-contained, no venv dependency).
-foreach ($file in @('python.exe','pythonw.exe','python3.dll','python311.dll','vcruntime140.dll','vcruntime140_1.dll','LICENSE.txt')) {
+foreach ($file in @('python.exe','pythonw.exe','python3.dll','python312.dll','vcruntime140.dll','vcruntime140_1.dll','LICENSE.txt')) {
   Copy-Item -LiteralPath (Join-Path $basePython $file) -Destination (Join-Path $dist $file) -Force
 }
 # 2) C extension DLLs.

@@ -298,28 +298,28 @@ fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
             "python",
             "内置 Python",
             format!("缺失：{}", python.display()),
-            "必须使用软件内置 Python 3.11.x；安装包不完整，请重新安装 iBM Lab Agent。",
+            "必须使用软件内置 Python 3.12.x；安装包不完整，请重新安装 iBM Lab Agent。",
         );
     }
     let command = python.to_string_lossy();
     match probe_python(&command, &["--version"]) {
-        Some(version) if version.starts_with("Python 3.11.") || version == "Python 3.11" => ok(
+        Some(version) if version.starts_with("Python 3.12.") || version == "Python 3.12" => ok(
             "python",
             "内置 Python",
             format!("{version}（{}）", python.display()),
-            "已强制使用软件内置 Python 3.11.x；Agent 不会回退到系统 Python。",
+            "已强制使用软件内置 Python 3.12.x；Agent 不会回退到系统 Python。",
         ),
         Some(version) => warning(
             "python",
             "内置 Python",
             format!("{version}（{}）", python.display()),
-            "当前安装包应内置 Python 3.11.x；请升级或重新安装 iBM Lab Agent。",
+            "当前安装包应内置 Python 3.12.x；请升级或重新安装 iBM Lab Agent。",
         ),
         None => missing(
             "python",
             "内置 Python",
             format!("无法启动：{}", python.display()),
-            "需要可用的内置 Python 3.11.x；请重新安装 iBM Lab Agent，安装系统 Python 无法修复此问题。",
+            "需要可用的内置 Python 3.12.x；请重新安装 iBM Lab Agent，安装系统 Python 无法修复此问题。",
         ),
     }
 }

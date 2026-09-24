@@ -109,7 +109,7 @@ export class SkillExecutor {
 
 	/**
 	 * 实际 python 命令：venv python 优先，否则系统 python（同步，兼容诊断）。
-	 * 真实执行请用 [resolvePython]（统一 resolver，win32 含 py -3.11 → python 序列）。
+	 * 真实执行请用 [resolvePython]（统一 resolver，win32 含 py -3.12 → python 序列）。
 	 */
 	pythonCommand() {
 		const bundled = bundledPythonFromEnv();

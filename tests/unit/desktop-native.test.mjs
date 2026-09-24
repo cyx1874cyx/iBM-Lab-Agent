@@ -142,7 +142,7 @@ test("first launch runs diagnostics and desktop Python fails closed to the bundl
 	assert.match(shell, /showDiagnostics\(true\)/);
 	assert.match(shell, /现在可执行的功能/);
 	assert.match(shell, /需要处理 \/ 升级/);
-	assert.match(deps, /内置 Python 3\.11\.x/);
+	assert.match(deps, /内置 Python 3\.12\.x/);
 	assert.match(deps, /PowerShell 5\.1 与 PowerShell 7\.x/);
 	assert.match(process, /child_path_with_bundled_python/);
 	assert.match(process, /\.env\("PATH", child_path\)/);

@@ -43,3 +43,15 @@ soupsieve==2.9.2
 PyMuPDF==1.28.2
 python-pptx==1.0.2
 rdkit==2026.3.5
+
+# --- 0.5.4 新增：pptx-cli 及其闭包（模板 manifest 读取 + P1-P4）---
+# 与 python/requirements.lock 同一组 pin。colorama 不列：那是 typer 的
+# Windows-only 依赖，Linux 上由平台标记自动跳过。
+# pptx-cli 要求 Python >=3.12，与本文件一直使用的 uv 托管 3.12.11 一致。
+pptx-cli==1.3.5
+typer==0.27.2
+rich==15.0.0
+markdown-it-py==4.2.0
+mdurl==0.1.2
+shellingham==1.5.4
+annotated-doc==0.0.5

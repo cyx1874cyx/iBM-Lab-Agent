@@ -5,7 +5,7 @@
  * 不可用时 rdkitProperties() 返回 { available: false }，服务降级为
  * 分子式级计算（src/chemistry/elements.js）——绝不静默给出 SMILES 级数值。
  *
- * P1-2：解释器经统一 resolver 解析（venv → bundled → py -3.11/-3 → python），
+ * P1-2：解释器经统一 resolver 解析（venv → bundled → py -3.12/-3 → python），
  * Windows 上不再回退到不存在的 "python3"。
  *
  * PubChem：REST PUG API（无 key 开放数据）；查询结果标记
