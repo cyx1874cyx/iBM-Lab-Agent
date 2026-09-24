@@ -65,6 +65,15 @@ test("缺 Tauri CLI 时自动补 desktop 依赖（不再晚到 tauri-nsis 才失
 	assert.match(script, /npm ci/, "缺失时应自动执行 npm ci");
 });
 
+test("根 workspace 依赖与锁定的 DSH 版本不一致时自动重装（否则装错 Harness）", () => {
+	// prepare-runtime 从 <sourceRoot>\node_modules 暂存要出货的 Harness 树；
+	// 树是旧的而锁是新的时，出包不会报错、只会把旧 DSH 打包进去。
+	assert.match(script, /runtime\\versions\.env/, "应从 runtime/versions.env 读锁定版本");
+	assert.match(script, /DSH_VERSION=/, "应比对 DSH_VERSION");
+	assert.match(script, /corepack pnpm install --frozen-lockfile/, "版本不一致时应重装根依赖");
+	assert.match(script, /FATAL: root dependencies still do not match/, "重装后仍不一致必须硬失败");
+});
+
 test("只通过 NTFS 裸仓库传输 git 对象（不在 drvfs 上构建）", () => {
 	assert.match(script, /clone --bare/, "应在 NTFS 上建裸仓库作为传输通道");
 	assert.match(script, /push --quiet "\$bare"/, "应把当前分支推到裸仓库");
