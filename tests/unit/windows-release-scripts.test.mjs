@@ -51,7 +51,14 @@ test("prepare-runtime reapplies the DSH web clipboard compatibility patch", asyn
 	assert.match(source, /patch-dsh-web-frontend\.mjs/);
 	assert.match(source, /DSH web frontend clipboard patch failed/);
 	assert.match(source, /function Test-DshWebFrontendPatch/);
-	assert.match(source, /catch\{\}const r=typeof document\.execCommand/);
+	// 锚点是压缩产物，只允许存在于 src/dsh-web-frontend-patch.js 的布局表里；
+	// 快照探测改为调用同一支 node CLI，避免升级 DSH 时两处锚点漂移。
+	assert.match(source, /patch-dsh-web-frontend\.mjs'\) verify --root \$frontendRoot/);
+	assert.doesNotMatch(
+		source,
+		/catch\{\}const [a-z]=typeof document\.execCommand/,
+		"PowerShell 不得再复制一份剪贴板锚点"
+	);
 	assert.match(source, /return Test-DshWebFrontendPatch \$dshRoot/, "未带剪贴板修复的既有快照必须触发 DSH 刷新");
 });
 

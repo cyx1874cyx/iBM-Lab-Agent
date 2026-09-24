@@ -7,15 +7,24 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 
 当前稳定版本为 **v0.5.1**。
 
-当前候选版本为 **v0.5.3-beta8**：修掉软件内浏览器里「出版社页面的人机验证框一直上下跳、
-渲染不出来」——beta6 为露出出版社 PDF 预览器的保存/下载按钮，对每个页面无条件给 `html`
-加位移；`transform` 让 `html` 成为 `position:fixed` 后代的包含块、高度又被改小，按视口居中
-的验证组件（Cloudflare Turnstile 一类）测量值每帧自我纠正，于是框在应出现的位置抖动
-（ScienceDirect + iWAN 实测，外部 Edge 正常）。现在默认不位移，只在识别出 PDF 预览器时
-才开启，并带看门狗自动撤销。沿用 beta7 并入的精读模板真实章节解析 / 生成契约落盘、PPT 按
-导入模板构建与符合性检查，以及 beta6 起并入的软件内浏览器右侧栏、课题资源 tab、捕获小球
-与 iWAN 直连修复，和 v0.5.2-rc.1 验证过的首次启动引导、环境诊断、软件封装 Python 强制执行
-与 PowerShell 5.1/7.x 兼容性。首要应用方向仍为聚前药与高分子材料研究。
+当前候选版本为 **v0.5.3-beta9**：把插件适配到 **DeepSeek Harness 0.1.7-rc.1**。
+0.1.7 删除了「预设目录」（`$DSH_HOME/.agent-presets/<id>/` 的 `preset.yml` +
+`agent.cordis.yml`）这一整套契约，改用 bundle patch 里的
+`@deepseek-ai/dsh-agent-preset` 声明行，默认预设也从 `settings.yaml` 的
+`agent-presets:` 段改为 `agent-preset-registry` 行的 `config.default`——
+旧写法在 0.1.7 上**不报错、只是静默失效**（新会话不再默认科研 Agent）。本版把
+preset 改成随 `dsh-lab-agent` bundle 分发的第二个 patch 层
+（`presets/lab-research/preset.patch.yml`），默认预设由安装器写进
+profile 的 `cordis.patch.yml`，因此 `--keep-default-preset` 仍然有效。同时修掉
+两个会导致客户端整体失效/出包退化的破坏性改动：浏览器侧 strict codec 的字段
+`schema` → `create`（不改则 `$mount` 抛错、角标与侧栏全部不注册），以及内嵌
+WebView 剪贴板回退补丁的压缩锚点（0.1.7 重写了 JSON 树复制、重命名了 helper，
+旧锚点完全失配，会让桌面端每次出包都全量重拷 DSH 树）。此外 0.1.7 把 DSH 内部
+依赖改成了 peerDependencies，安装器的 `npm ci --omit=peer --legacy-peer-deps`
+会把它们全部跳过，已改为安装 peer 依赖。沿用 beta8 修掉的软件内浏览器页面位移
+问题，以及 beta7/beta6 的精读模板真实章节解析、PPT 按模板构建与符合性检查、
+软件内浏览器右侧栏、课题资源 tab、捕获小球与 iWAN 直连修复。首要应用方向仍为
+聚前药与高分子材料研究。
 
 **[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.5.1/iBM.Lab.Agent_0.5.0_x64-setup.exe)** ·
 [查看 v0.5.1 Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.5.1) ·
@@ -172,8 +181,8 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.3-beta8 |
-| DeepSeek Harness | 0.1.5-rc.1 |
+| iBM Lab Agent | 0.5.3-beta9 |
+| DeepSeek Harness | 0.1.7-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
 | Windows bundled Python | 3.11 |
@@ -186,17 +195,30 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（`release-0.5.0`，含 v0.5.3-beta8 的全部改动）在本机实测：
+当前分支（含 v0.5.3-beta9 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **563/563** 通过；Rust 侧 `cargo test` **104 passed / 1 ignored**；
-- 回归套件、客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
-- Linux 归档 **24,073,792 B**、Windows 安装包 **172,150,786 B**
-  （SHA-256 `2BA94E0E…2CD16112`），两者均通过体积门禁与必需路径双向断言；
-- 打包后的应用在发布流水线的 `verify-installer` 阶段被真实启动并完成回环 Web 冒烟。
+- Node 单元与集成测试 **566/566** 通过（493 单元 + 73 集成）；
+- 回归套件 **11/11** 通过；客户端一致性、预设导出检查通过；ESLint **0 error / 87 warning**；
+- **DSH 0.1.7-rc.1 组合实测**：以真实 0.1.7 依赖闭包挂载 `ibm-lab` profile
+  （`dsh-base` + `dsh-web-app` + `dsh-lab-agent`）后，`agentPresets.list()` 返回
+  `standard / ptc / minimal / cordis / lab-research`，其中 `lab-research` **无 `broken`
+  诊断**（声明里的 25 行全部在真实宿主里激活成功），`defaultId` 为 `lab-research`
+  （来自 profile patch 覆盖），`readDocument()` 返回完整 `!!js` 组合；
+- 宿主侧 fake-`<invoke>` 补丁锚点在 0.1.7 的
+  `@deepseek-ai/dsh-agent-loop/lib/index.js` 上仍然命中，`runtime/versions.env`
+  的 `DSH_AGENT_LOOP_SHA256` 已换成 0.1.7 的实测值；
+- 浏览器侧剪贴板补丁按 0.1.7 的新压缩形态重取锚点（旧锚点在 0.1.7 上一个都不匹配），
+  并做成多布局表，`verify`/`patch`/`revert` 三态都经过实测前端校验。
 
 v0.5.3-beta8 于 2026-09-23 完成出包验证，详见
 [`docs/releases/v0.5.3-beta8.md`](docs/releases/v0.5.3-beta8.md)；浏览器页面位移已收敛到
 PDF 预览器，人机验证框与 PDF 预览器工具栏需按该文档末尾的清单在真实出版社页面上人工验收。
+
+v0.5.3-beta9 的 Windows 出包（Tauri/NSIS）与真实桌面端启动尚未在本机复验：本次改动触及
+`desktop/scripts/prepare-runtime.ps1`（剪贴板锚点探测改为调用同一支 node CLI）与
+`desktop/src-tauri/src/runtime/dsh.rs`（不再物化已废弃的预设目录），需要在有 Windows
+构建机的环境中跑一次完整发布流水线确认。详见
+[`docs/releases/v0.5.3-beta9.md`](docs/releases/v0.5.3-beta9.md)。
 
 v0.5.1 于 2026-09-17 完成正式发布验证：
 

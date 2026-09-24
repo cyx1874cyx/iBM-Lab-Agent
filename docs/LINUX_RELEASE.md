@@ -31,8 +31,7 @@ Python 环境和 DSH profile 全部验证成功后，才原子切换 `current` �
     └── python-bin/
 
 ~/.dsh/
-├── profiles/ibm-lab/               # 专用 DSH Web + Lab profile
-├── .agent-presets/lab-research/
+├── profiles/ibm-lab/               # 专用 DSH Web + Lab profile（含默认预设覆盖）
 └── lab-agent/                      # 项目、模板、venv、产物与版本登记
 ```
 

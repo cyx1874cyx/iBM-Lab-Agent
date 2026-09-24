@@ -1,17 +1,63 @@
 /**
  * Narrow, reversible compatibility patch for the pinned DSH web frontend.
- * It fixes both clipboard paths: the shared copy helper now falls through to
- * execCommand when Clipboard API rejects, and JSON-tree copy reuses that helper.
+ *
+ * The shipped bundle has two clipboard paths:
+ *
+ *   1. a shared copy helper that returns `false` as soon as
+ *      `navigator.clipboard.writeText` rejects — its own `document.execCommand`
+ *      fallback is unreachable;
+ *   2. a JSON-tree copy that calls `navigator.clipboard.writeText` directly.
+ *
+ * WebView2 and other non-secure-context hosts reject the async Clipboard API
+ * while `execCommand("copy")` still works, so both paths silently fail. The
+ * patch lets the helper fall through to its fallback and routes the JSON-tree
+ * copy through that helper.
+ *
+ * Anchors are minified output, so every supported DSH build is one layout row.
+ * The same patch broke inside the 0.1.5 line (rc.1 → rc.2) once already; new
+ * DSH releases must add a layout instead of editing an existing one, so an old
+ * build stays recognizable ("no supported layout") rather than mis-patched.
  */
 
-export const WEB_CLIPBOARD_PATCH_MARKER = "catch{}const r=typeof document.execCommand";
+const LAYOUTS = [
+	{
+		// @deepseek-ai/dsh-web-frontend 0.1.5-rc.1
+		id: "0.1.5-rc.1",
+		shared: {
+			pristine:
+				"if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(t),!0}catch{return!1}const r=typeof document.execCommand",
+			patched:
+				"if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(t),!0}catch{}const r=typeof document.execCommand"
+		},
+		json: {
+			pristine: 'try{await navigator.clipboard.writeText(rm(b,j)),$("copied")}catch{$("failed")}',
+			patched: 'await Fn(rm(b,j))?$("copied"):$("failed");',
+			// An early build of this patch emitted the expression without the
+			// terminating semicolon. Migrate it rather than refusing to start.
+			legacyPatched: 'await Fn(rm(b,j))?$("copied"):$("failed")'
+		}
+	},
+	{
+		// @deepseek-ai/dsh-web-frontend 0.1.7-rc.1
+		// Upstream rewrote the JSON-tree copy to assign the status variable
+		// instead of calling a setter, and the minifier renamed the helper and
+		// its parameters. The defect (no execCommand fallback) is unchanged.
+		id: "0.1.7-rc.1",
+		shared: {
+			pristine:
+				"if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(e),!0}catch{return!1}const n=typeof document.execCommand",
+			patched:
+				"if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(e),!0}catch{}const n=typeof document.execCommand"
+		},
+		json: {
+			pristine: 'try{await navigator.clipboard.writeText(w_(V,X)),G="copied"}catch{G="failed"}',
+			patched: 'G=await tr(w_(V,X))?"copied":"failed"'
+		}
+	}
+];
 
-const ORIGINAL_SHARED = "if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(t),!0}catch{return!1}const r=typeof document.execCommand";
-const PATCHED_SHARED = "if(navigator.clipboard?.writeText)try{return await navigator.clipboard.writeText(t),!0}catch{}const r=typeof document.execCommand";
-
-const ORIGINAL_JSON = 'try{await navigator.clipboard.writeText(rm(b,j)),$("copied")}catch{$("failed")}';
-const LEGACY_PATCHED_JSON = 'await Fn(rm(b,j))?$("copied"):$("failed")';
-const PATCHED_JSON = 'await Fn(rm(b,j))?$("copied"):$("failed");';
+/** Every layout's "shared helper already patched" marker. */
+export const WEB_CLIPBOARD_PATCH_MARKERS = LAYOUTS.map((layout) => layout.shared.patched);
 
 function exactlyOnce(source, fragment, label) {
 	const first = source.indexOf(fragment);
@@ -20,37 +66,86 @@ function exactlyOnce(source, fragment, label) {
 	}
 }
 
-export function inspectDshWebFrontendPatch(source) {
+function stateForLayout(source, layout) {
+	const patched = source.includes(layout.shared.patched);
+	const patchedJson = source.includes(layout.json.patched);
 	return {
-		patched: source.includes(WEB_CLIPBOARD_PATCH_MARKER),
-		pristineAnchors: source.includes(ORIGINAL_SHARED) && source.includes(ORIGINAL_JSON),
-		patchedAnchors: source.includes(PATCHED_SHARED) && source.includes(PATCHED_JSON),
-		legacyJsonAnchor: source.includes(LEGACY_PATCHED_JSON) && !source.includes(PATCHED_JSON)
+		id: layout.id,
+		patched,
+		pristineAnchors: source.includes(layout.shared.pristine) && source.includes(layout.json.pristine),
+		patchedAnchors: patched && patchedJson,
+		legacyJsonAnchor:
+			layout.json.legacyPatched !== undefined &&
+			!patchedJson &&
+			source.includes(layout.json.legacyPatched)
 	};
+}
+
+export function inspectDshWebFrontendPatch(source) {
+	const layouts = LAYOUTS.map((layout) => stateForLayout(source, layout));
+	return {
+		patched: layouts.some((state) => state.patched),
+		pristineAnchors: layouts.some((state) => state.pristineAnchors),
+		patchedAnchors: layouts.some((state) => state.patchedAnchors),
+		legacyJsonAnchor: layouts.some((state) => state.legacyJsonAnchor),
+		layouts
+	};
+}
+
+/** The first layout whose pristine shared anchor appears in `source`. */
+function pristineLayout(source) {
+	return LAYOUTS.find((layout) => source.includes(layout.shared.pristine));
+}
+
+function patchedLayout(source) {
+	return LAYOUTS.find(
+		(layout) => source.includes(layout.shared.patched) && source.includes(layout.json.patched)
+	);
+}
+
+function legacyLayout(source) {
+	return LAYOUTS.find(
+		(layout) =>
+			layout.json.legacyPatched !== undefined &&
+			source.includes(layout.json.legacyPatched) &&
+			!source.includes(layout.json.patched)
+	);
 }
 
 export function applyDshWebFrontendPatch(source) {
 	const state = inspectDshWebFrontendPatch(source);
 	if (state.patched && state.patchedAnchors) return source;
 	if (state.patched && state.legacyJsonAnchor) {
-		exactlyOnce(source, LEGACY_PATCHED_JSON, "legacy JSON clipboard");
-		return source.replace(LEGACY_PATCHED_JSON, PATCHED_JSON);
+		const layout = legacyLayout(source);
+		exactlyOnce(source, layout.json.legacyPatched, "legacy JSON clipboard");
+		return source.replace(layout.json.legacyPatched, layout.json.patched);
 	}
-	if (state.patched || source.includes(PATCHED_JSON)) throw new Error("DSH web clipboard patch is incomplete");
-	exactlyOnce(source, ORIGINAL_SHARED, "shared clipboard");
-	exactlyOnce(source, ORIGINAL_JSON, "JSON clipboard");
-	return source.replace(ORIGINAL_SHARED, PATCHED_SHARED).replace(ORIGINAL_JSON, PATCHED_JSON);
+	if (state.patched || LAYOUTS.some((layout) => source.includes(layout.json.patched))) {
+		throw new Error("DSH web clipboard patch is incomplete");
+	}
+	const layout = pristineLayout(source);
+	if (!layout) throw new Error("DSH web patch found no supported shared clipboard anchor");
+	exactlyOnce(source, layout.shared.pristine, "shared clipboard");
+	exactlyOnce(source, layout.json.pristine, "JSON clipboard");
+	return source.replace(layout.shared.pristine, layout.shared.patched).replace(layout.json.pristine, layout.json.patched);
 }
 
 export function revertDshWebFrontendPatch(source) {
 	const state = inspectDshWebFrontendPatch(source);
 	if (!state.patched && state.pristineAnchors) return source;
 	if (state.patched && state.legacyJsonAnchor) {
-		exactlyOnce(source, LEGACY_PATCHED_JSON, "legacy patched JSON clipboard");
-		return source.replace(PATCHED_SHARED, ORIGINAL_SHARED).replace(LEGACY_PATCHED_JSON, ORIGINAL_JSON);
+		const layout = legacyLayout(source);
+		exactlyOnce(source, layout.shared.patched, "patched shared clipboard");
+		exactlyOnce(source, layout.json.legacyPatched, "legacy patched JSON clipboard");
+		return source
+			.replace(layout.shared.patched, layout.shared.pristine)
+			.replace(layout.json.legacyPatched, layout.json.pristine);
 	}
-	if (!state.patchedAnchors) throw new Error("cannot revert an unknown or incomplete DSH web patch");
-	exactlyOnce(source, PATCHED_SHARED, "patched shared clipboard");
-	exactlyOnce(source, PATCHED_JSON, "patched JSON clipboard");
-	return source.replace(PATCHED_SHARED, ORIGINAL_SHARED).replace(PATCHED_JSON, ORIGINAL_JSON);
+	const layout = patchedLayout(source);
+	if (!layout) throw new Error("cannot revert an unknown or incomplete DSH web patch");
+	exactlyOnce(source, layout.shared.patched, "patched shared clipboard");
+	exactlyOnce(source, layout.json.patched, "patched JSON clipboard");
+	return source
+		.replace(layout.shared.patched, layout.shared.pristine)
+		.replace(layout.json.patched, layout.json.pristine);
 }

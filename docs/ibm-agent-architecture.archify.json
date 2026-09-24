@@ -98,7 +98,7 @@
       "tag": "模型可见执行面",
       "row": 0,
       "col": 3,
-      "sources": [{ "path": "presets/lab-research/agent.cordis.yml", "line": 1, "end_line": 90, "label": "科研预设" }]
+      "sources": [{ "path": "presets/lab-research/preset.patch.yml", "line": 1, "end_line": 90, "label": "科研预设" }]
     },
     {
       "id": "remoteapi",

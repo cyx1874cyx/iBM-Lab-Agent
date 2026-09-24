@@ -306,7 +306,7 @@
       inject: [llm]
 
     # 课题工具（lab_convert_document / lab_project_memory_*）已移入 lab-research
-    # preset 工具层（presets/lab-research/agent.cordis.yml），仅科研 Agent 会话
+    # preset 工具层（presets/lab-research/preset.patch.yml），仅科研 Agent 会话
     # 可见；standard 等其他预设不暴露 lab 工具，避免误调用。
 
     # ── Lab web client（浏览器管理界面）────────────────────────────────────

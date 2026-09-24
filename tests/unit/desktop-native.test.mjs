@@ -136,7 +136,7 @@ test("first launch runs diagnostics and desktop Python fails closed to the bundl
 		read("desktop/src-tauri/src/runtime/deps.rs"),
 		read("desktop/src-tauri/src/runtime/process.rs"),
 		read("src/python-env.js"),
-		read("presets/lab-research/agent.cordis.yml"),
+		read("presets/lab-research/preset.patch.yml"),
 	]);
 	assert.match(shell, /FIRST_RUN_KEY/);
 	assert.match(shell, /showDiagnostics\(true\)/);

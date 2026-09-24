@@ -246,7 +246,11 @@ mkdir -p "$release_dir"
 cp -a "$tmp_root/source/." "$release_dir/"
 (
 	cd "$release_dir"
-	npm ci --omit=peer --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+	# DSH 0.1.7 把内部依赖（cordis-plugin-group、dsh-sandbox、dsh-llm 等）改成了
+	# peerDependencies，由 @deepseek-ai/dsh 显式声明并安装。旧命令的
+	# `--omit=peer --legacy-peer-deps` 会把它们全部跳过，插件在 bootLite 阶段会以
+	# ERR_MODULE_NOT_FOUND 失败（0.1.7 实测）。peer 必须装。
+	npm ci --ignore-scripts --no-audit --no-fund
 	node scripts/dev-link.mjs
 	node scripts/install.mjs --strict --force-preset --force-vendor --dsh-home "$dsh_home"
 )

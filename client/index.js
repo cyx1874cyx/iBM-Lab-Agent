@@ -149,7 +149,7 @@ var h = import_react.default.createElement;
 // client/src/descriptors.js
 function buildDescriptors() {
   const pass = { parse: (value) => value };
-  const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, schema: pass });
+  const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),

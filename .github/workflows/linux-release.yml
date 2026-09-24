@@ -37,7 +37,7 @@ jobs:
           echo "$GITHUB_WORKSPACE/runtime/launcher/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Install plugin dependencies
-        run: npm ci --omit=peer --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Link the DSH host surface
         env:

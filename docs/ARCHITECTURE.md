@@ -64,8 +64,8 @@ cordis.patch.yml（bundle 层，host 平面）
 └── （Mnova 实际交互：presets/mcp/mnova-mcp.patch.yml 可选的 MCP client overlay，
      mcp__mnova__* 工具由 agent 调用）
 
-presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user trust）
-└── agent.cordis.yml + preset.yml
+presets/lab-research/（作为 dsh-lab-agent bundle 的第二个 patch 层分发）
+└── preset.patch.yml：@deepseek-ai/dsh-agent-preset 声明行（id lab-research）
       → iBM 科研 Agent persona + shell/fs/jobs/skills/goal/planning/compaction/
         delegation/ask-user/todo/web 工具组合；lab 工具（lab_convert_document、
         lab_project_memory_read/update）**只挂在 preset 工具层**——standard 等
@@ -105,7 +105,7 @@ presets/lab-research/（部署到 $DSH_HOME/.agent-presets/lab-research，user t
   读写版本化核心记忆数据行（只增不改、changeNote + 哈希）——agent 归档/总结
   走正道，而不是发明 `PROJECT_MEMORY.md` 之类的孤立文件（系统不会加载）。
 - **lab 工具作用域**：`lab_convert_document`、`lab_project_memory_*` 只挂在
-  lab-research 预设工具层（`presets/lab-research/agent.cordis.yml`），standard
+  lab-research 预设工具层（`presets/lab-research/preset.patch.yml`），standard
   等其他预设不暴露 lab 工具；且**不在全局 `system-prompt.toolOrder` 中引用**
   ——未注册的工具名会让 Harness 拒绝启动（此前"标准模式链接不上模型"的根因）。
 - **浏览器 client**（`client/index.js`）：经 `ctx.remote.lab.*`（Typert Gateway

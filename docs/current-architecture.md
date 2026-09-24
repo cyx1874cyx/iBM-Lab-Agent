@@ -29,7 +29,8 @@ iBM Lab Agent 是一个 DSH bundle，而不是独立 Web 前端。DSH 的 profil
 - Web 客户端入口：[client/index.js](../client/index.js) 通过
   `window.__ModuleLoader__.load({ id: "dsh-lab-agent", ... })` 注册实验室侧栏、
   课题空间和远程接口描述符。它并不再次注册 `labAgent` 服务。
-- `presets/lab-research/agent.cordis.yml` 只挂载模型工具层；它不应再加载主 bundle。
+- `presets/lab-research/preset.patch.yml` 只声明模型工具层（DSH 0.1.7 的
+  `@deepseek-ai/dsh-agent-preset` 行）；它不应再加载主 bundle。
 
 ## `service "labAgent" has been registered` 的原因与最小修复
 
@@ -53,7 +54,8 @@ DSH Web 与 Lab bundle 的顺序和去重结果。
 ## 配置与数据边界
 
 - DSH profile：`$DSH_HOME/profiles/ibm-lab/`。
-- 预设：`$DSH_HOME/.agent-presets/lab-research/`。
+- 预设：由 `dsh-lab-agent` bundle 的 `presets/lab-research/preset.patch.yml` 声明；
+  默认预设经 `$DSH_HOME/profiles/ibm-lab/cordis.patch.yml` 覆盖 `agent-preset-registry`。
 - 插件数据：`$DSH_HOME/lab-agent/`，包括 vendor、Python 环境、课题工作区、模板和
   storage 数据。
 - 启动时不执行 npm/pnpm/pip 安装；这些只属于显式安装或升级阶段。

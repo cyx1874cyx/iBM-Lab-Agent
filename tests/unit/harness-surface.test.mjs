@@ -10,7 +10,9 @@ const patchPath = fileURLToPath(new URL("../../cordis.patch.yml", import.meta.ur
 // clientPath = 打包产物（vm 执行测试用）；clientSrcDir = 拆分后的源码目录（静态契约断言用）。
 const clientPath = fileURLToPath(new URL("../../client/index.js", import.meta.url));
 const clientSrcDir = fileURLToPath(new URL("../../client/src", import.meta.url));
-const presetPath = fileURLToPath(new URL("../../presets/lab-research/agent.cordis.yml", import.meta.url));
+// DSH 0.1.7 起 agent preset 不再是一个目录（preset.yml + agent.cordis.yml），
+// 而是 bundle patch 里的一条 `@deepseek-ai/dsh-agent-preset` 声明行。
+const presetPath = fileURLToPath(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url));
 const serverUpdatePath = fileURLToPath(new URL("../../scripts/update-server.ps1", import.meta.url));
 const localServerUpdatePath = fileURLToPath(new URL("../../update-server.cmd", import.meta.url));
 
@@ -95,6 +97,22 @@ test("research preset hard-disables DSH subagent delegation", async () => {
 	assert.doesNotMatch(preset, /@deepseek-ai\/dsh-tool-subagent/);
 	assert.doesNotMatch(preset, /@deepseek-ai\/dsh-workflow-worker-thread/);
 	assert.doesNotMatch(preset, /id:\s*tool-workflow/);
+});
+
+test("research preset ships as a 0.1.7 declaration row in the bundle patch list", async () => {
+	const [preset, manifest] = await Promise.all([
+		readFile(presetPath, "utf8"),
+		readFile(fileURLToPath(new URL("../../package.json", import.meta.url)), "utf8")
+	]);
+	// 0.1.7：preset 是 bundle patch 里的声明行，不再是 $DSH_HOME/.agent-presets 目录。
+	assert.match(preset, /name:\s*'@deepseek-ai\/dsh-agent-preset'/);
+	assert.match(preset, /id:\s*preset-lab-research/);
+	assert.match(preset, /config:\n\s+id: lab-research\n/);
+	assert.match(preset, /name: iBM科研Agent/);
+	assert.match(preset, /plugins:/);
+	assert.match(preset, /^\s+- id: persona$/m);
+	const parsed = JSON.parse(manifest);
+	assert.deepEqual(parsed.dsh.bundle.patch, ["./cordis.patch.yml", "./presets/lab-research/preset.patch.yml"]);
 });
 
 test("web client exposes the project-first research workspace shell", async () => {
@@ -411,11 +429,17 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		assert.match(descriptor.id, /^dsh-lab-agent#lab\//);
 		assert.equal(descriptor.result.mode, "strict");
 		assert.equal(typeof descriptor.result.typeSymbol, "string");
-		assert.equal(typeof descriptor.result.schema.parse, "function");
+		// DSH 0.1.7：strict codec 用 create() 工厂代替 schema 字段
+		// （dsh-typert-registry 的 validateCodec 要求 typeof create === "function"，
+		// 否则 $mount 抛错、整个客户端 apply() 被 reject）。
+		assert.equal(typeof descriptor.result.create, "function");
+		assert.equal(typeof descriptor.result.create().parse, "function");
+		assert.equal(descriptor.result.schema, undefined, "0.1.7 不再接受 schema 字段");
 		for (const parameter of descriptor.parameters) {
 			assert.equal(parameter.name, parameter.wire);
 			assert.equal(parameter.source, "json");
 			assert.equal(parameter.codec.mode, "strict");
+			assert.equal(typeof parameter.codec.create, "function");
 		}
 	}
 });

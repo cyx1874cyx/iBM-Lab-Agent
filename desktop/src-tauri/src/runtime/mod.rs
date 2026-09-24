@@ -112,7 +112,7 @@ impl RuntimeManager {
                 port: None,
                 pid: None,
                 url: None,
-                dsh_version: "0.1.5-rc.1".to_string(),
+                dsh_version: "0.1.7-rc.1".to_string(),
                 node_version: "24.16.0".to_string(),
                 logs_dir: layout.logs_dir.display().to_string(),
             })),
@@ -173,7 +173,7 @@ impl RuntimeManager {
             port: Some(port),
             pid: Some(pid),
             url: Some(url.clone()),
-            dsh_version: "0.1.5-rc.1".to_string(),
+            dsh_version: "0.1.7-rc.1".to_string(),
             node_version: "24.16.0".to_string(),
             logs_dir: self.layout.logs_dir.display().to_string(),
         };
@@ -265,7 +265,7 @@ impl RuntimeManager {
                 port: None,
                 pid: None,
                 url: None,
-                dsh_version: "0.1.5-rc.1".to_string(),
+                dsh_version: "0.1.7-rc.1".to_string(),
                 node_version: "24.16.0".to_string(),
                 logs_dir: self.layout.logs_dir.display().to_string(),
             })

@@ -237,17 +237,13 @@ function Test-NodeSnapshot {
 }
 
 function Test-DshWebFrontendPatch([string]$DshRoot) {
-  $frontendRoot = Join-Path $DshRoot 'node_modules\@deepseek-ai\dsh-web-frontend\dist\assets'
-  if (-not (Test-Path -LiteralPath $frontendRoot)) { return $false }
-  $assets = @(Get-ChildItem -LiteralPath $frontendRoot -Filter 'index-*.js' -File -ErrorAction SilentlyContinue)
-  foreach ($asset in $assets) {
-    $text = [IO.File]::ReadAllText($asset.FullName)
-    if ($text.Contains('catch{}const r=typeof document.execCommand') -and
-        $text.Contains('await Fn(rm(b,j))?$("copied"):$("failed");')) {
-      return $true
-    }
-  }
-  return $false
+  $frontendRoot = Join-Path $DshRoot 'node_modules\@deepseek-ai\dsh-web-frontend'
+  if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'dist\assets'))) { return $false }
+  # 单一事实来源：锚点是压缩产物，布局表在 src/dsh-web-frontend-patch.js 里维护；
+  # 这里不再复制一份字符串，否则升级 DSH 时两处必然漂移（0.1.7 实际踩过：
+  # 锚点失配让本函数恒假，DSH 暂存缓存失效、每次出包重拷整棵 DSH 树）。
+  & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-web-frontend.mjs') verify --root $frontendRoot 2>$null | Out-Null
+  return ($LASTEXITCODE -eq 0)
 }
 
 function Test-DshSnapshot {
@@ -386,7 +382,7 @@ if ($refreshDsh) {
   Copy-Tree $dshSource (Join-Path $tempResourceRoot 'dsh\node_modules') `
     -ExcludeDirectories @((Join-Path $dshSource '.pnpm')) `
     -ExcludeFiles @('.modules.yaml', '.package-map.json', '.pnpm-workspace-state-v1.json')
-  # The desktop shell embeds DSH from the Tauri origin. DSH 0.1.5's Strict
+  # The desktop shell embeds DSH from the Tauri origin. DSH's Strict
   # browser-session cookie is therefore withheld by WebView2 after the token
   # redirect. Preserve authenticated embedding with an explicit secure
   # cross-site cookie; DSH's Host/Origin fence remains in force for API calls.
@@ -598,7 +594,7 @@ $state = [ordered]@{
   backupRoot = $backupRoot
 }
 $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
-Write-Phase 'Bundled Node, DSH 0.1.5-rc.1, iBM Lab plugin, preset, bundled Python, and Python lock were prepared.'
+Write-Phase 'Bundled Node, DSH 0.1.7-rc.1, iBM Lab plugin, preset, bundled Python, and Python lock were prepared.'
 } finally {
   if ($lockStream) { $lockStream.Dispose() }
   # rc.4（§9.2）：失败/被终止时清理本次临时目录；成功后备份目录保留以便回滚

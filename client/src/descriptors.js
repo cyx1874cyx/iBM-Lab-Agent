@@ -1,8 +1,14 @@
 // 远程 API 描述符（从原 client/index.js 单文件抽离）。
 // 由 apply() 在 $mount 时传给 ctx.remote。
+//
+// DSH 0.1.7 把 strict codec 的字段从 `schema: TypertSchema` 改成
+// `create: () => TypertSchema`（dsh-typert-registry 的 validateCodec 现在要求
+// `typeof codec.create === "function"`，否则 $mount 抛错、整个客户端 apply()
+// 被 reject）。`pass` 仍保留 parse，语义等价；0.1.7 的客户端没有任何调用
+// codec.create() 的代码点，宿主侧拿到工厂后自行 materialize。
 export function buildDescriptors() {
 		const pass = { parse: (value) => value };
-		const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, schema: pass });
+		const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
  ...["synth_compound_resolve_first","characterization_list","characterization_submit","characterization_retry","characterization_remove","characterization_dispatch_failed"].map(name=>direct(name,["request"])),

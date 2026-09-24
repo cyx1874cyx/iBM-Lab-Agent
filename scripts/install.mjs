@@ -2,13 +2,19 @@
 /**
  * dsh-lab-agent: deployment installer.
  *
- * Materializes the pinned nature-skills tree, lock files, the lab-research
- * agent preset, the NatureSkillVersion registry, and (optionally) the Python
- * venv under the deployment data dir:
+ * Materializes the pinned nature-skills tree, lock files, the NatureSkillVersion
+ * registry, and (optionally) the Python venv under the deployment data dir:
  *
  *   $DSH_HOME/lab-agent/{vendor/nature-skills, vendor.lock.json, requirements.lock, .venv}
- *   $DSH_HOME/.agent-presets/lab-research/
  *   $DSH_HOME/storages/...            (registry rows via the domain store)
+ *
+ * The `lab-research` agent preset is NOT installed here any more. DSH 0.1.7
+ * declares presets as `@deepseek-ai/dsh-agent-preset` rows carried by bundle
+ * patches, and the declaration ships inside this package
+ * (`presets/lab-research/preset.patch.yml`, listed in `dsh.bundle.patch`), so
+ * installing the `dsh-lab-agent` bundle installs the preset. The installer
+ * only deletes the legacy `$DSH_HOME/.agent-presets/lab-research/` directory
+ * left behind by a pre-0.1.7 install, which nothing reads any more.
  *
  * Prereq: `node scripts/dev-link.mjs` once (resolves harness packages), and a
  * pinned vendor tree (scripts/pin-vendor.mjs).
@@ -119,16 +125,20 @@ async function syncVendorTree(lock) {
 	console.log(`vendor tree synced -> ${dest}`);
 }
 
-async function installPreset() {
+/**
+ * Remove the directory-shaped preset a pre-0.1.7 install wrote. DSH 0.1.7
+ * reads no preset directory at all, so leaving it behind would only suggest
+ * that editing it still changes the agent. `--force-preset` is accepted for
+ * backward compatibility with existing install commands.
+ */
+async function removeLegacyPresetDir() {
 	const presetDir = join(dsh, ".agent-presets", "lab-research");
-	if (existsSync(presetDir) && !flags.has("--force-preset")) {
-		console.log(`preset already installed (${presetDir}); use --force-preset to replace`);
+	if (!existsSync(presetDir)) {
+		console.log("legacy preset directory absent (the preset ships as a bundle patch)");
 		return;
 	}
-	if (flags.has("--force-preset")) await rm(presetDir, { recursive: true, force: true });
-	await mkdir(dirname(presetDir), { recursive: true });
-	await cp(join(repoRoot, "presets", "lab-research"), presetDir, { recursive: true });
-	console.log(`preset installed -> ${presetDir}`);
+	await rm(presetDir, { recursive: true, force: true });
+	console.log(`legacy preset directory removed -> ${presetDir}`);
 }
 
 async function bootstrapRegistry(lock) {
@@ -185,7 +195,7 @@ async function main() {
 	await cp(join(repoRoot, "python", "requirements.lock"), requirementsLockPath(dsh), { force: true });
 	console.log(`requirements.lock -> ${requirementsLockPath(dsh)}`);
 
-	await installPreset();
+	await removeLegacyPresetDir();
 
 	await bootstrapRegistry(lock);
 

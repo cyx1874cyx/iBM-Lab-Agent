@@ -91,13 +91,24 @@ function renderYaml(rows) {
 
 /**
  * Boot the lab rows in isolation.
- * @param options {{ storageRoot: string, vendorDir: string, lockFile: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, extraRows?: Array }}
+ * @param options {{ storageRoot: string, vendorDir: string, lockFile: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, extraRows?: Array, extraPatches?: Array }}
+ *   `extraPatches` are Loader `PatchOptions` (see `loadOverlayPatches`) appended
+ *   after the base rows — how a test composes a real bundle patch file.
  * @returns {{ ctx, dir, dispose(): Promise<void> }}
  */
 export async function bootLite(options) {
-	const { storageRoot, vendorDir, lockFile, venvDir, requirementsLock, includePython = true, extraRows = [] } = options;
+	const {
+		storageRoot,
+		vendorDir,
+		lockFile,
+		venvDir,
+		requirementsLock,
+		includePython = true,
+		extraRows = [],
+		extraPatches = []
+	} = options;
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-boot-"));
-	// DSH 0.1.5 preset discovery checks disk packages relative to the profile,
+	// DSH checks disk packages relative to the profile for some rows,
 	// independently of the loader's bare-module fallback. Model a real profile.
 	await mkdir(join(dir, "node_modules"));
 	const linkType = process.platform === "win32" ? "junction" : "dir";
@@ -136,7 +147,13 @@ export async function bootLite(options) {
   return {...row,name:pathToFileURL(entry).href};
  });
  await writeFile(configPath, renderYaml(localRows), "utf8");
-	const ctx = await boot("dsh-lab-agent-test", configPath, [], undefined, pathToFileURL(join(repoRoot, "node_modules") + "/").href);
+	const ctx = await boot(
+		"dsh-lab-agent-test",
+		configPath,
+		extraPatches,
+		undefined,
+		pathToFileURL(join(repoRoot, "node_modules") + "/").href
+	);
 	return {
 		ctx,
 		dir,

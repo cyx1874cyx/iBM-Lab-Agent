@@ -181,10 +181,20 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
             &bundled_plugin,
             &profile_dir.join("node_modules").join("dsh-lab-agent"),
         )?;
-        replace_tree(
-            &plugin.join("presets").join("lab-research"),
-            &layout.dsh_home.join(".agent-presets").join("lab-research"),
-        )?;
+        // DSH 0.1.7 declares agent presets as `@deepseek-ai/dsh-agent-preset`
+        // rows inside a bundle patch, so the lab preset travels with the
+        // plugin tree copied above. The pre-0.1.7 `$DSH_HOME/.agent-presets/
+        // lab-research/` directory is dead weight now; drop a stale one so it
+        // cannot look editable.
+        let legacy_preset_dir = layout.dsh_home.join(".agent-presets").join("lab-research");
+        if legacy_preset_dir.exists() {
+            fs::remove_dir_all(&legacy_preset_dir).map_err(|error| {
+                RuntimeError::new(format!(
+                    "Cannot remove legacy preset directory {}: {error}",
+                    legacy_preset_dir.display()
+                ))
+            })?;
+        }
         fs::create_dir_all(&lab_home).map_err(|error| {
             RuntimeError::new(format!("Cannot create lab data directory: {error}"))
         })?;
@@ -369,10 +379,10 @@ mod tests {
             r#"{"name":"mnova-mcp","version":"0.3.1","contentHash":"v1"}"#,
         );
         write_file(
-            &plugin
+            &bundled_plugin
                 .join("presets")
                 .join("lab-research")
-                .join("agent.cordis.yml"),
+                .join("preset.patch.yml"),
             "preset-v1",
         );
         write_file(&plugin.join("vendor.lock.json"), r#"{"pinned":"v1"}"#);
@@ -380,7 +390,15 @@ mod tests {
         let layout = RuntimeLayout::new(sandbox.join("data"), resources);
         layout.create_user_directories().unwrap();
         let logger = AppLogger::new(layout.logs_dir.clone()).unwrap();
+        // A pre-0.1.7 install left a directory-shaped preset behind; the
+        // bootstrap must drop it because nothing reads it any more.
+        let legacy_preset = layout
+            .dsh_home
+            .join(".agent-presets")
+            .join("lab-research");
+        write_file(&legacy_preset.join("agent.cordis.yml"), "legacy");
         bootstrap_user_data(&layout, &logger).unwrap();
+        assert!(!legacy_preset.exists());
 
         let lab_home = layout.dsh_home.join("lab-agent");
         let profile_plugin = layout

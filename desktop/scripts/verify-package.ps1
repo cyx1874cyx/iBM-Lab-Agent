@@ -22,7 +22,7 @@ $required = @(
   'plugin\dsh-lab-agent\vendor\nature-skills',
   'plugin\dsh-lab-agent\python\requirements.lock',
   'python\dist\python.exe',
-  'plugin\presets\lab-research\agent.cordis.yml',
+  'plugin\presets\lab-research\preset.patch.yml',
   'plugin\python\requirements.lock',
   'plugin\dsh-lab-agent\client\assets\ketcher-standalone\index.html',
   'plugin\dsh-lab-agent\src\experiment-plan-template.js',

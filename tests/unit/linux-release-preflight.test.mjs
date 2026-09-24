@@ -102,7 +102,7 @@ test("必需路径清单覆盖 Phase 3 拆分后的新结构（防止清单被�
 		"python/requirements-linux.lock",
 		"vendor.lock.json",
 		"vendor/nature-skills/skills",
-		"presets/lab-research/agent.cordis.yml",
+		"presets/lab-research/preset.patch.yml",
 		"scripts/build-linux-release.sh",
 		// Phase 3 拆分后的新结构
 		"lib/tasks/index.js",

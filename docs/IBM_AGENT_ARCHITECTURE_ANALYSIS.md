@@ -62,7 +62,7 @@ iBM Lab Agent 不是一个独立的大模型应用，也不是对 DeepSeek Harne
 | 平面 | 生命周期 | 内容 | 典型入口 |
 |---|---|---|---|
 | Host 平面 | DSH 进程级 | Cordis 服务、storage domain、Remote、HTTP、文件服务 | [`cordis.patch.yml`](../cordis.patch.yml) |
-| Agent 平面 | 会话/预设级 | 模型提示词、Nature Skills、模型工具、MCP 工具 | [`agent.cordis.yml`](../presets/lab-research/agent.cordis.yml) |
+| Agent 平面 | 会话/预设级 | 模型提示词、Nature Skills、模型工具、MCP 工具 | [`preset.patch.yml`](../presets/lab-research/preset.patch.yml) |
 
 Host 服务只注册一次，Agent 会话只引用工具和服务能力。这个分层既保证跨会话的持久化和冷读能力，也防止同一个 Cordis 服务因预设重复挂载而发生 `service has been registered` 冲突。
 

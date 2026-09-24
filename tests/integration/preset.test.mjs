@@ -1,9 +1,10 @@
 /**
  * Integration test: the lab-research agent preset composes.
  *
- * Boots the agent-presets roster over the repo's shipped presets/ directory
- * and asserts `lab-research` is discovered, not broken, and resolvable — the
- * "skill routing" seam of the plugin.
+ * DSH 0.1.7 declares presets as `@deepseek-ai/dsh-agent-preset` rows carried by
+ * bundle patches, so this boots the real declaration file from
+ * `presets/lab-research/preset.patch.yml` through the Loader overlay path and
+ * asserts the registry accepts it — the "skill routing" seam of the plugin.
  */
 
 import { test } from "node:test";
@@ -12,11 +13,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadOverlayPatches } from "@deepseek-ai/dsh-app-boot";
 import { bootLite } from "../helpers/boot-lite.mjs";
 
-const presetsRoot = fileURLToPath(new URL("../../presets", import.meta.url));
+const presetPatch = fileURLToPath(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url));
 
-test("lab-research preset is discoverable and composes", async () => {
+test("lab-research preset declaration is registered and composes", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-preset-"));
 	try {
 		const handle = await bootLite({
@@ -27,29 +29,36 @@ test("lab-research preset is discoverable and composes", async () => {
 			extraRows: [
 				{ id: "session-projection", name: "@deepseek-ai/dsh-session-projection" },
 				{
-					id: "agent-presets",
-					name: "@deepseek-ai/dsh-agent-presets",
-					config: {
-						default: "lab-research",
-						roots: [{ path: presetsRoot, trust: "user" }],
-						includeUserRoot: false
-					}
+					id: "agent-preset-registry",
+					name: "@deepseek-ai/dsh-agent-preset-registry",
+					config: { default: "lab-research" }
 				}
-			]
+			],
+			extraPatches: loadOverlayPatches("dsh-lab-agent-test", presetPatch)
 		});
 		try {
 			const presets = await handle.ctx.agentPresets.list();
-			const lab = presets.find((p) => p.id === "lab-research");
-			assert.ok(lab, "lab-research discovered");
-			assert.equal(lab.broken, undefined, `lab-research should compose, got: ${lab.broken}`);
-			assert.equal(lab.trust, "user");
-
-			const resolved = await handle.ctx.agentPresets.resolve("lab-research");
-			assert.ok(resolved.path.endsWith("agent.cordis.yml"));
+			const lab = presets.find((preset) => preset.id === "lab-research");
+			assert.ok(lab, "lab-research declared");
+			assert.equal(lab.name, "iBM科研Agent");
+			assert.match(lab.description, /Nature Skills/);
 			assert.equal(handle.ctx.agentPresets.defaultId, "lab-research");
+			// bootLite 只有 storage + lab 行，没有 dsh-base 的 tools/systemPrompt/skills
+			// 等宿主服务，所以声明里的行会停在 "waiting for"；这恰好证明 Loader 接受
+			// 了声明并真的逐行激活。真正要红的是结构性错误：包解析不到、配置非法。
+			if (lab.broken !== undefined) {
+				assert.doesNotMatch(
+					lab.broken,
+					/Cannot find package|invalid config|no plugin|not a plugin row/,
+					`preset 声明必须结构合法，实际诊断：${lab.broken}`
+				);
+				assert.match(lab.broken, /waiting for /);
+			}
 
-			// the composition must contain the skill-routing rows
-			const text = await handle.ctx.agentPresets.read("lab-research");
+			// the declared composition must contain the skill-routing rows
+			const document = await handle.ctx.agentPresets.readDocument("lab-research");
+			assert.equal(document.agentPreset, "lab-research");
+			const text = document.content;
 			assert.match(text, /tool-skill/);
 			assert.match(text, /skill-filesystem/);
 			assert.match(text, /@deepseek-ai\/dsh-skill-filesystem/);

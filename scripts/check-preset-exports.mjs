@@ -7,7 +7,7 @@
  * prepare-runtime.ps1 从根 package.json 拷贝的生成产物（整树 gitignore），
  * 手工改它会被下一次 prepare-runtime 覆盖——本校验必须以根 package.json 为准。
  *
- * 背景（2026-09-04 rc1 真机事故 ×2）：lab-synthesis-tool 挂入 agent.cordis.yml
+ * 背景（2026-09-04 rc1 真机事故 ×2）：lab-synthesis-tool 挂入 presets/lab-research/preset.patch.yml
  * 但 exports 漏登记 "./synthesis-tool"（resources 副本与安装实例手工补了，
  * 根 package.json 一度仍缺），导致 preset mount 失败 → 模型列表空/
  * 会话历史 Failed to fetch。此脚本把该类漏声明变成构建期报错。
