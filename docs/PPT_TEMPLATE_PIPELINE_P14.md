@@ -224,3 +224,112 @@ description 没写依赖链、报错也没说下一步。改为：description �
 - 真实模板端到端（`/tmp/tpl-current.pptx` sha256 `956b7abf…`，`/tmp/pcvenv/bin/python`）：
   contain 修前 12.85x4.78in（aspect 2.689，图片被裁）/ 修后 4.15x4.78in（aspect 0.870，居中）；
   cover 修前修后 findings 与 XML 完全一致。两版 deck 与报告留在 `/tmp/containfit/`。
+
+---
+
+## 7. 容量模型与版式选择
+
+### 7.1 根因：pptx-cli 的 `max_lines` 只按高度算，行距还是硬编码的 1.22 倍
+
+`pptx_cli/core/template.py` 的 `_estimate_text_capacity()`：
+
+- `max_lines = floor(usable_height_pt / (font_size_pt × 1.22))`，常量
+  `_DEFAULT_LINE_HEIGHT_MULTIPLIER = 1.22` 是**硬编码**的；
+- **从不读** `a:lnSpc`（行距）与 `a:spcBef`/`a:spcAft`（段前/段后）；
+- **不把可用高度夹到版面下边界**（占位符可以画到幻灯片外面）；
+- `text_frame.margin_*` 未显式设置时按 0 处理。
+
+本模板的正文占位符写的是**固定 30pt 行距**（`<a:lnSpc><a:spcPts val="3000"/></a:lnSpc>`）
++ 段前 10pt / 段后 14pt，于是系统性高估：
+
+| 槽位 | pptx-cli 报 | 按模板实际排版自算 | 高估 |
+|---|---|---|---|
+| `fig1/analysis`（idx 15） | 19 行 | **14 行** | 36% |
+| `fig2/analysis`、`fig4/analysis` | 19 行 | 14 行 | 36% |
+| `abs/abstractZh`（idx 15） | 18 行 | 14 行 | 29% |
+| `fig3/analysis` | 4 行 | 2 行 | 100% |
+| `end/innovation`（idx 14） | 7 行 | 5 行 | 40% |
+| `end/paragraph1` / `paragraph2` | 4 / 4 | 2 / 3 | 100% / 33% |
+
+（真实模板 `/tmp/tpl-current.pptx` sha256 `956b7abf…`；
+`node scripts/lint-ppt-template.mjs /tmp/pcinit --no-cli --json` 的实测输出。）
+
+后果：Agent 照这个数字填字 → 实渲染溢出 → 改文案 → 重建 → 渲染，试用里磨了约 10 轮。
+
+### 7.2 权威容量模型
+
+`src/ppt-slot-spec.js` 新增并导出（`lib/pptx-plan.js` 复用**同一实现**，两处不再各算一套）：
+
+- `spacingToPt(spacing, fontPt)`：`a:spcPct`（100000 = 1.0 倍）与 `a:spcPts`（3000 = 30pt）都支持；
+- `resolveLineHeightPt({fontPt, lineSpacing})`：模板显式行距优先，否则退化为 `字号 × 1.2`；
+- `computeTextCapacity({geometry, slideHeightEmu, fontPt, insets, lineSpacing, spaceBefore,
+  spaceAfter, paragraphs})`：
+  - 可用底边 = `min(版面高, top + height)`，`clampedToSlide` 如实上报；
+  - 内边距取模板 `a:bodyPr` 的 `lIns/rIns/tIns/bIns`，缺省 0.1/0.1/0.05/0.05 in（PowerPoint 默认值）；
+  - `capacityLines = max(0, floor((usableHeightPt − 段落数 × (段前+段后)) / 有效行高pt))`；
+  - 完全在版面外或连一行都放不下时返回 **0**。
+
+`src/pptx-xml.js` 顺带把 `a:bodyPr` 内边距与 `a:lnSpc`/`a:spcBef`/`a:spcAft` 扫出来
+（占位符自身 → 母版 `bodyStyle/lvl1` 回退），`typographyFromScan(scan, layouts)` 整理成按
+「版式 id + 占位符 idx」索引的排版表。
+
+`slots.json` 新增：`pageSize`、`capacityModel`，以及每个槽位的 `capacityLines`（自算）/
+`cliCapacityLines`（pptx-cli 参考值）/ `capacitySource`（`computed-template` |
+`computed-default-typography`）/ `capacityOptimistic` / `lineHeightPt` / `lineHeightSource` /
+`spaceBeforePt` / `spaceAfterPt` / `clampedToSlide` / `leftEmu`·`topEmu`·`widthEmu`·`heightEmu` /
+`insets` / `effectiveFontPt`。**`fontPt` 仍是 manifest 原值**（体检要看模板真实值），
+容量按构建器抬升后的 `effectiveFontPt`（≥20pt）计算。
+
+lint 新增第 ⑦ 条规则 `capacity-metadata-optimistic`（warning，不阻断门控）：pptx-cli 的
+`max_lines` 比自算值大 ≥25% 就报，**导入模板时立刻暴露**。`deriveSlotSpec` 的同一 warning 改由
+`checkCapacityMetadata` 统一上报，避免以 `slot-` 前缀重复一条。
+
+### 7.3 版式选择：按图片真实像素比例
+
+- 读图片尺寸**只解文件头**（PNG / JPEG / GIF / BMP），不引入依赖、不调用 python；
+  读不到只给 `figure-size-unreadable`（info），不阻断编译。
+- `scoreImageFit(imageSize, slot)`：`scale = min(W/w, H/h)`（构建器与 PowerPoint 的 contain
+  行为），给出显示尺寸、留白占比、图片与占位符宽高比。
+- 本模板族的图片角色是**逐图独立**的（`figure-1`…`figure-4` 各对应一个版式，其中 `figure-3`
+  是 12.85 × 4.78 in 的宽幅槽）。所以"多个图片版式候选"指**同一角色家族**：`roleFamily()`
+  去掉尾部 `-数字` 后比较。
+- 决策：同家族候选 ≥2 且能读出尺寸时选显示面积最大者；**只有面积 ≥ 当前 ×1.15
+  （`FIGURE_LAYOUT_SWITCH_GAIN`）、且不丢已声明槽位、未被 `plan.roles` 钉住、未被
+  `requiredPages` 引用时**才自动换（换版式 = 换角色，本来就逐页可表达），并在
+  `slides[].requestedRole` 留痕；其余情形只出 `figure-layout-mismatch` 并附候选对比与推荐角色。
+- 两类阈值触发警告：最佳版式下显示宽度 < 4 in（`MIN_READABLE_FIGURE_WIDTH_IN`），
+  或留白 > 40%（`MAX_FIGURE_WHITESPACE_RATIO`）。
+
+### 7.4 验证
+
+- 新增 `tests/unit/ppt-capacity.test.mjs`（11 项）与 `tests/unit/ppt-plan-image-layout.test.mjs`
+  （7 项），全部合成夹具（PNG/JPEG 只造文件头），不依赖真实模板与 pptx-cli 安装。
+- 真实模板：`node scripts/lint-ppt-template.mjs /tmp/pcinit --no-cli --json` →
+  `ok=true`、`error 6`（全部 compensated）、`warning 17`、`blocking 0`，其中
+  `capacity-metadata-optimistic` **8 条**（即 7.1 表）。
+- 效果对照（同一份 212 字中文自然段写进 `fig1/analysis`）：
+  - 默认排版模型（= 当前落盘的 slots.json）：容量 19 行 → **无告警，会静默溢出**；
+  - 模板真实排版：容量 14 行 → `capacity-exceeded`：内容约 18 行 > 容量 14 行
+    （行距 30pt、段间距 24pt）。
+
+### 7.5 已知限制 / 需要接线的一处
+
+1. **排版表还没接进落盘的 `slots.json`**：`scripts/lint-ppt-template.mjs` 的 `--write-slots` 与
+   `lib/ppt-templates.js` 的导入流程都调用 `deriveSlotSpec(summary, {…})` 而**没有传
+   `typography`**，所以写出的 `capacityLines` 仍是默认模型的值
+   （`capacitySource: "computed-default-typography"`）。这两个文件不在本次改动范围，修复是各加两行：
+
+   ```js
+   const scan = await scanPresentationXml(await readFile(pkg.sourceTemplate));
+   const typography = typographyFromScan(scan, summary.layouts);
+   const spec = deriveSlotSpec(summary, { minFontPt, typography });
+   ```
+
+   在此之前，编译期会输出一条 `capacity-default-typography`（info），提示容量来自默认模型。
+2. 容量仍是"行数"模型：不模拟标点悬挂、西文断词、段内换行与 autofit；字宽单位 CJK 1.0 /
+   其余 0.5，只用于预警。
+3. 图注槽 0.40 in 高在"≥20pt"政策下容量为 **0**，编译器因此会对每页图注报
+   `capacity-exceeded`。这是模板侧缺陷（图注按 14pt 设计）的如实后果：要么放大图注框，
+   要么接受溢出。
+4. 自动换版式只在"能读出尺寸 + 同家族 ≥2 候选 + 面积差 ≥15% + 不丢已声明槽位"时发生；
+   其余只给建议，不做静默改动。
