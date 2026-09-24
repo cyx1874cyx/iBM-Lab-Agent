@@ -112,6 +112,22 @@ python "<inspector>" --deck out.pptx \
 负例自证（工具确实会失败）：`--min-font-pt 30` → 11 个 error、退出码 1；
 `--expect-ea 等线` → 12 个 warning。
 
+**独立验证时发现并修掉了这个工具自己的两个问题**（都是"只看自测暴露不出来"的那类）：
+
+1. 占位符图片的 `shape_type` 是 `PLACEHOLDER(14)`、不是 `PICTURE(13)` —— 只认 13 会漏掉本模板里的
+   **全部**图片，"竖长图被裁"这项检查等于从没跑过。改为按 XML 标签 `p:pic` 判定。
+2. 把"拉伸"和"裁切"混成了一句话：有 `a:srcRect` 时图片是被**裁**到占位符比例（内容丢失、不变形），
+   没有 `srcRect` 才是非等比**拉伸**。现在拆成 `picture-cropped` / `picture-stretched` 两条，
+   裁切还带百分比 —— 否则会把"该换版式"误报成"该改缩放"。
+
+用同一批产物实测（这也顺带验证了 contain 修复确实生效）：
+
+| 产物 | 体检结果 |
+|---|---|
+| `before-deck.pptx`（contain 修复前） | 3 × `picture-cropped`（p2/p3/p4 全部图片） |
+| `final-contain.pptx`（修复后） | **0 error** |
+| `deck6.pptx`（上一轮会话留下的旧成品） | 1 × `picture-cropped`，裁切 `{l: 7.1, r: 7.1}` |
+
 ## 4. 实测记录（2026-09-25，WSL）
 
 | 项 | 命令 | 结果 |

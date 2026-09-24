@@ -118,28 +118,55 @@ def inspect(deck_path, min_font_pt, expect):
                     "slideSize": {"width": slide_w, "height": slide_h}
                 })
 
-            if shape.shape_type == 13 or shape.__class__.__name__ == "Picture":  # PICTURE
+            # 注意：占位符图片（PlaceholderPicture）的 shape_type 是 PLACEHOLDER(14)，
+            # 不是 PICTURE(13) —— 只认 13 会漏掉本模板里的**全部**图片（竖长图被裁/被拉伸
+            # 恰恰发生在占位符图片上）。按 XML 标签 p:pic 判定才可靠。
+            from pptx.oxml.ns import qn as _qn
+
+            if shape._element.tag == _qn("p:pic"):
                 try:
                     px_w, px_h = shape.image.size
                     image_ratio = px_w / px_h if px_h else 0
                     shape_ratio = geometry["width"] / geometry["height"] if geometry["height"] else 0
-                    stretched = bool(shape_ratio and image_ratio and abs(shape_ratio - image_ratio) / image_ratio > 0.02)
+                    # a:srcRect 存在说明图片被**裁切**到占位符比例（内容丢失，不是变形）；
+                    # 没有 srcRect 而比例不一致，才是真正的非等比**拉伸**。两者都是图表的缺陷，
+                    # 但成因与修法不同，报错必须分开 —— 混为一谈会把"该换版式"说成"该改缩放"。
+                    crop = None
+                    blip_fill = shape._element.find(_qn("p:blipFill"))
+                    if blip_fill is not None:
+                        src_rect = blip_fill.find(_qn("a:srcRect"))
+                        if src_rect is not None and len(src_rect.attrib) > 0:
+                            crop = {key: round(int(value) / 1000.0, 1) for key, value in src_rect.attrib.items()}
+                    mismatch = bool(shape_ratio and image_ratio and abs(shape_ratio - image_ratio) / image_ratio > 0.02)
                     entry["pictures"].append({
                         "name": shape.name,
                         "widthIn": round(geometry["width"] / EMU_PER_INCH, 2),
                         "heightIn": round(geometry["height"] / EMU_PER_INCH, 2),
                         "imagePx": [px_w, px_h],
-                        "stretched": stretched
+                        "cropPercent": crop,
+                        "stretched": mismatch and crop is None,
+                        "cropped": mismatch and crop is not None
                     })
-                    if stretched:
+                    if mismatch and crop is None:
                         findings.append({
                             "level": "error",
                             "code": "picture-stretched",
                             "slide": index,
                             "shape": shape.name,
-                            "message": "图片比例与占位符比例不一致且未被裁切/留白处理，渲染器之间会不一致",
+                            "message": "图片被非等比拉伸（几何比例与像素比例不符，且没有语义裁切）：不同渲染器表现会不一致",
                             "shapeRatio": round(shape_ratio, 3),
                             "imageRatio": round(image_ratio, 3)
+                        })
+                    elif mismatch and crop is not None:
+                        findings.append({
+                            "level": "error",
+                            "code": "picture-cropped",
+                            "slide": index,
+                            "shape": shape.name,
+                            "message": "图片被裁切到占位符比例，图表内容会丢失（上下/左右被切）",
+                            "shapeRatio": round(shape_ratio, 3),
+                            "imageRatio": round(image_ratio, 3),
+                            "cropPercent": crop
                         })
                 except (AttributeError, ValueError, ZeroDivisionError) as exc:
                     findings.append({
