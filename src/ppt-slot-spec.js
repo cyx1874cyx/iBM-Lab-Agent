@@ -24,6 +24,163 @@ import { isTextPlaceholder } from "../lib/pptx-manifest.js";
 export const SLOT_SPEC_VERSION = 1;
 export const TEMPLATE_FAMILY_LITERATURE = "literature-reading-v1";
 
+const EMU_PER_INCH = 914400;
+const PT_PER_INCH = 72;
+
+/**
+ * 文字容量模型的基准常量（权威实现见 `computeTextCapacity()`）。
+ *
+ * 为什么必须自己算，而不信 pptx-cli 的 `estimated_text_capacity.max_lines`：
+ *   * 它只按**高度**算，行距**硬编码** `字号 × 1.22`，从不读模板的 `a:lnSpc`；
+ *   * 它不读 `a:spcBef` / `a:spcAft`（段前段后）；
+ *   * 它不把可用高度夹到**版面下边界**（占位符可以画到幻灯片外面）。
+ * 实测本模板：正文占位符写的是**固定 30pt 行距**
+ * （`<a:lnSpc><a:spcPts val="3000"/></a:lnSpc>`）+ 段前 10pt / 段后 14pt。
+ * pptx-cli 按 20pt 字号算出 24.4pt/行 → 465.8pt 可用高度报 **19 行**（fig1/body_15），
+ * 而按模板真实行距只有 **15 行**。0.5.4 真实试用里"改文案 → 重建 → 渲染"磨 10 轮，
+ * 就是被这个高估驱动的。
+ */
+
+/** PowerPoint 对 `a:bodyPr` 的默认内边距（EMU）：左右 0.1 in、上下 0.05 in。 */
+export const DEFAULT_INSETS_EMU = { lIns: 91440, rIns: 91440, tIns: 45720, bIns: 45720 };
+/** 模板没写行距时的兜底倍数（保守取 1.2 倍字号）。 */
+export const DEFAULT_LINE_SPACING_MULTIPLIER = 1.2;
+/** 拿不到版面尺寸时的兜底高度（EMU）：16:9 的 7.5 in。 */
+export const DEFAULT_SLIDE_HEIGHT_EMU = 6858000;
+/** pptx-cli 的 max_lines 比自算容量大到这个倍数以上，即认定元数据系统性高估。 */
+export const CAPACITY_OPTIMISTIC_RATIO = 1.25;
+
+/**
+ * 把 `{kind:"pct"|"pts", value}` 的间距解析成 pt。
+ * pct 的 100000 表示 1.0 倍（乘字号）；pts 的 value 已经是 pt。
+ */
+export function spacingToPt(spacing, fontPt) {
+	if (spacing === null || typeof spacing !== "object") return undefined;
+	if (!Number.isFinite(spacing.value)) return undefined;
+	if (spacing.kind === "pts") return spacing.value;
+	if (spacing.kind === "pct") return Number.isFinite(fontPt) ? (fontPt * spacing.value) / 100000 : undefined;
+	return undefined;
+}
+
+/**
+ * 有效行高（pt）：模板显式写了 `a:lnSpc` 就用它，否则退化为 `字号 × 1.2`。
+ * @returns {{lineHeightPt: number|undefined, source: "template-lnSpc"|"default-multiplier"|"unresolved"}}
+ */
+export function resolveLineHeightPt({ fontPt, lineSpacing } = {}) {
+	const explicit = spacingToPt(lineSpacing, fontPt);
+	if (explicit !== undefined && explicit > 0) return { lineHeightPt: explicit, source: "template-lnSpc" };
+	if (Number.isFinite(fontPt) && fontPt > 0) return { lineHeightPt: fontPt * DEFAULT_LINE_SPACING_MULTIPLIER, source: "default-multiplier" };
+	return { lineHeightPt: undefined, source: "unresolved" };
+}
+
+/**
+ * 权威容量计算：一个占位符按给定字号与模板排版属性，最多能放几行。
+ *
+ * @param {object} input
+ * @param {{leftEmu?: number, topEmu?: number, widthEmu?: number, heightEmu?: number}} input.geometry
+ * @param {number} [input.slideHeightEmu] 版面高度；可用高度会夹到 `top + height` 与它的小者
+ * @param {number} [input.fontPt] 槽位最终字号（构建器会强制 ≥ minFontPt，调用方应传已经抬高过的值）
+ * @param {{lIns?: number, rIns?: number, tIns?: number, bIns?: number}} [input.insets]
+ * @param {{kind: "pct"|"pts", value: number}} [input.lineSpacing] 模板 `a:lnSpc`
+ * @param {{kind: "pct"|"pts", value: number}} [input.spaceBefore] 模板 `a:spcBef`
+ * @param {{kind: "pct"|"pts", value: number}} [input.spaceAfter] 模板 `a:spcAft`
+ * @param {string[]} [input.paragraphs] 实际要写的段落（用于扣掉段间距）；省略按 1 段计
+ * @returns {object} 容量与全部中间量（写进 slots.json，便于 lint/编译器复算与解释）
+ */
+export function computeTextCapacity({
+	geometry,
+	slideHeightEmu,
+	fontPt,
+	insets,
+	lineSpacing,
+	spaceBefore,
+	spaceAfter,
+	paragraphs
+} = {}) {
+	const resolvedInsets = { ...DEFAULT_INSETS_EMU };
+	for (const key of ["lIns", "rIns", "tIns", "bIns"]) {
+		const value = insets?.[key];
+		if (Number.isFinite(value) && value >= 0) resolvedInsets[key] = value;
+	}
+	const topEmu = Number.isFinite(geometry?.topEmu) ? geometry.topEmu : 0;
+	const heightEmu = Number.isFinite(geometry?.heightEmu) ? geometry.heightEmu : 0;
+	const widthEmu = Number.isFinite(geometry?.widthEmu) ? geometry.widthEmu : 0;
+	const slideH = Number.isFinite(slideHeightEmu) && slideHeightEmu > 0 ? slideHeightEmu : DEFAULT_SLIDE_HEIGHT_EMU;
+	// 占位符可以画到版面外面：可用底边取"占位符底边"与"版面底边"的小者。
+	const bottomEmu = topEmu + heightEmu;
+	const effectiveBottomEmu = Math.min(slideH, bottomEmu);
+	const clampedToSlide = bottomEmu > slideH;
+	const usableHeightEmu = Math.max(effectiveBottomEmu - topEmu - resolvedInsets.tIns - resolvedInsets.bIns, 0);
+	const usableWidthEmu = Math.max(widthEmu - resolvedInsets.lIns - resolvedInsets.rIns, 0);
+	const usableHeightPt = (usableHeightEmu / EMU_PER_INCH) * PT_PER_INCH;
+	const { lineHeightPt, source: lineHeightSource } = resolveLineHeightPt({ fontPt, lineSpacing });
+	const spaceBeforePt = spacingToPt(spaceBefore, fontPt) ?? 0;
+	const spaceAfterPt = spacingToPt(spaceAfter, fontPt) ?? 0;
+	const paragraphCount = Array.isArray(paragraphs) && paragraphs.length > 0 ? paragraphs.length : 1;
+	const spacingTotalPt = paragraphCount * (spaceBeforePt + spaceAfterPt);
+	const rawLines = usableHeightPt <= 0 || lineHeightPt === undefined
+		? 0
+		: Math.floor((usableHeightPt - spacingTotalPt) / lineHeightPt);
+	return {
+		capacityLines: Math.max(rawLines, 0),
+		usableHeightEmu,
+		usableHeightPt: round(usableHeightPt, 2),
+		usableWidthEmu,
+		lineHeightPt: lineHeightPt === undefined ? undefined : round(lineHeightPt, 2),
+		lineHeightSource,
+		spaceBeforePt: round(spaceBeforePt, 2),
+		spaceAfterPt: round(spaceAfterPt, 2),
+		paragraphCount,
+		spacingTotalPt: round(spacingTotalPt, 2),
+		effectiveBottomEmu,
+		clampedToSlide,
+		insets: resolvedInsets
+	};
+}
+
+function round(value, digits) {
+	const factor = 10 ** digits;
+	return Math.round(value * factor) / factor;
+}
+
+/**
+ * 把 `scanPresentationXml()` 的结果整理成"按 manifest 版式 id 索引"的排版表。
+ *
+ * 版式匹配优先用**名字**（pptx-cli 的版式名与 slideLayout 的 `p:cSld/@name` 同源），
+ * 退化为按 `source_layout_index` 对齐。占位符自己的排版属性缺失时回退到母版
+ * `bodyStyle/lvl1`（与 PowerPoint 的继承顺序一致）。
+ *
+ * @param {object} scan `scanPresentationXml()` 的返回值
+ * @param {Array} layouts manifest 摘要里的版式数组（`summarizeManifest().layouts`）
+ * @returns {{[layoutId: string]: {placeholders: {[idx: number]: object}, masterBody?: object}}}
+ */
+export function typographyFromScan(scan, layouts) {
+	const out = {};
+	if (!scan || scan.ok !== true) return out;
+	const byName = new Map((scan.layouts ?? []).filter((layout) => typeof layout.name === "string").map((layout) => [layout.name, layout]));
+	const byIndex = new Map((scan.layouts ?? []).map((layout) => [layout.index, layout]));
+	const masterBody = (scan.masters ?? [])
+		.map((master) => master.styles?.body?.[1])
+		.find((level) => level !== undefined);
+	for (const layout of layouts ?? []) {
+		if (layout?.id === undefined) continue;
+		const scanned = (typeof layout.name === "string" ? byName.get(layout.name) : undefined) ?? byIndex.get(layout.sourceLayoutIndex);
+		if (scanned === undefined) continue;
+		const placeholders = {};
+		for (const placeholder of scanned.placeholders ?? []) {
+			if (!Number.isInteger(placeholder.idx)) continue;
+			placeholders[placeholder.idx] = {
+				insets: placeholder.insets,
+				lineSpacing: placeholder.paragraph?.lineSpacing ?? masterBody?.lineSpacing,
+				spaceBefore: placeholder.paragraph?.spaceBefore ?? masterBody?.spaceBefore,
+				spaceAfter: placeholder.paragraph?.spaceAfter ?? masterBody?.spaceAfter
+			};
+		}
+		out[layout.id] = { placeholders, masterBody };
+	}
+	return out;
+}
+
 /**
  * 版式角色识别：按占位符提示文字匹配（不看 layout id —— 它由 pptx-cli 从版式名
  * slug 而来，而版式名在 PowerPoint 里随时可改；也不看 idx —— 会被重排）。
@@ -307,10 +464,34 @@ function orderSlots(slots, expected) {
 }
 
 /** 把一个已绑定占位符 + 政策展开成 slots.json 里的槽位条目。 */
-function slotEntry(bound, { minFontPt }) {
+function slotEntry(bound, { minFontPt, pageSize, typography }) {
 	const library = SLOT_LIBRARY[bound.key] ?? {};
 	const placeholder = bound.placeholder;
-	const fontPt = placeholder.capacity?.font_size_pt;
+	const cliFontPt = placeholder.capacity?.font_size_pt;
+	// 构建器会把字号抬到 ≥ minFontPt（只升不降）：容量必须按**抬升后**的字号算，
+	// 但 `fontPt` 仍保留 manifest 原值 —— 体检报告要看模板真实值，政策抬升是构建期的事。
+	const effectiveFontPt = Number.isFinite(cliFontPt) ? Math.max(cliFontPt, minFontPt) : minFontPt;
+	const geometry = {
+		leftEmu: placeholder.geometry?.leftEmu,
+		topEmu: placeholder.geometry?.topEmu,
+		widthEmu: placeholder.geometry?.widthEmu,
+		heightEmu: placeholder.geometry?.heightEmu
+	};
+	const capacity = computeTextCapacity({
+		geometry,
+		slideHeightEmu: pageSize?.heightEmu,
+		fontPt: effectiveFontPt,
+		insets: typography?.insets,
+		lineSpacing: typography?.lineSpacing,
+		spaceBefore: typography?.spaceBefore,
+		spaceAfter: typography?.spaceAfter
+	});
+	const cliCapacityLines = placeholder.capacity?.max_lines;
+	const capacityOptimistic = Number.isFinite(cliCapacityLines) && capacity.capacityLines > 0
+		&& cliCapacityLines >= capacity.capacityLines * CAPACITY_OPTIMISTIC_RATIO;
+	// 只有真的读到模板排版属性才算"按模板算"；全为 undefined 时与默认值等价，标签要如实。
+	const hasTemplateTypography = typography !== undefined
+		&& ["insets", "lineSpacing", "spaceBefore", "spaceAfter"].some((key) => typography[key] !== undefined);
 	return {
 		key: bound.key,
 		label: library.label ?? bound.key,
@@ -322,13 +503,27 @@ function slotEntry(bound, { minFontPt }) {
 		boundBy: bound.boundBy,
 		...(library.mode ? { mode: library.mode } : {}),
 		...(library.align ? { align: library.align } : {}),
-		capacityLines: placeholder.capacity?.max_lines,
-		// 几何随槽位一起落盘：编译器只靠 slots.json 就能估算容量，不必再读 manifest。
-		widthEmu: placeholder.geometry?.widthEmu,
-		heightEmu: placeholder.geometry?.heightEmu,
-		fontPt,
+		// —— 容量：自算值（权威，按模板真实行距+版面边界）与 pptx-cli 的参考值并列落盘 ——
+		capacityLines: capacity.capacityLines,
+		capacitySource: hasTemplateTypography ? "computed-template" : "computed-default-typography",
+		cliCapacityLines,
+		...(capacityOptimistic ? { capacityOptimistic: true } : {}),
+		lineSpacing: typography?.lineSpacing,
+		lineHeightPt: capacity.lineHeightPt,
+		lineHeightSource: capacity.lineHeightSource,
+		spaceBeforePt: capacity.spaceBeforePt,
+		spaceAfterPt: capacity.spaceAfterPt,
+		clampedToSlide: capacity.clampedToSlide,
+		// 几何与内边距随槽位一起落盘：编译器只靠 slots.json 就能复算容量，不必再读 manifest。
+		leftEmu: geometry.leftEmu,
+		topEmu: geometry.topEmu,
+		widthEmu: geometry.widthEmu,
+		heightEmu: geometry.heightEmu,
+		insets: capacity.insets,
+		fontPt: cliFontPt,
+		effectiveFontPt,
 		fontFamily: placeholder.capacity?.font_family,
-		belowFontFloor: typeof fontPt === "number" && fontPt < minFontPt,
+		belowFontFloor: typeof cliFontPt === "number" && cliFontPt < minFontPt,
 		usage: library.usage ?? ""
 	};
 }
@@ -342,7 +537,8 @@ export function deriveSlotSpec(summary, {
 	family = TEMPLATE_FAMILY_LITERATURE,
 	minFontPt = 20,
 	templateRef = {},
-	duplicateTextPrompts
+	duplicateTextPrompts,
+	typography
 } = {}) {
 	const warnings = [];
 	const layouts = [];
@@ -350,6 +546,10 @@ export function deriveSlotSpec(summary, {
 	const unassigned = [];
 	const promptMismatches = [];
 	const missingSlots = [];
+	const pageSize = {
+		widthEmu: summary?.pageSize?.widthEmu,
+		heightEmu: summary?.pageSize?.heightEmu
+	};
 	for (const layout of summary?.layouts ?? []) {
 		const detected = detectLayoutRole(layout);
 		const role = detected.role;
@@ -373,12 +573,29 @@ export function deriveSlotSpec(summary, {
 		for (const placeholder of bound.unassigned) {
 			unassigned.push({ layoutId: layout.id, ...briefPlaceholder(placeholder) });
 		}
+		const slots = bound.slots.map((entry) => slotEntry(entry, {
+			minFontPt,
+			pageSize,
+			// 排版表按「版式 id + 占位符 idx」取：同一版式里各占位符的行距/段间距可以不同。
+			typography: typography?.[layout.id]?.placeholders?.[entry.placeholder.idx]
+		}));
+		for (const slot of slots) {
+			if (slot.capacityOptimistic !== true) continue;
+			// 这条是 0.5.4 真实试用里磨了 10 轮重建渲染的根因：pptx-cli 的 max_lines 只按高度、
+			// 行距硬编码 1.22，模板写了固定行距（本模板 30pt）时它把容量系统性报大。
+			warnings.push({
+				code: "capacity-metadata-optimistic",
+				message: `版式 ${layout.id} 槽位 ${slot.key}（idx=${slot.idx}）：pptx-cli 报 ${slot.cliCapacityLines} 行，按模板实际排版自算 ${slot.capacityLines} 行（行距 ${slot.lineHeightPt}pt、段前/段后 ${slot.spaceBeforePt}/${slot.spaceAfterPt}pt），高出 ${Math.round((slot.cliCapacityLines / slot.capacityLines - 1) * 100)}%`,
+				location: { layoutId: layout.id, slotKey: slot.key, idx: slot.idx },
+				hint: "以 capacityLines 为准决定写多少字；或把该占位符的行距/段间距改小"
+			});
+		}
 		layouts.push({
 			layoutId: layout.id,
 			layoutName: layout.name,
 			role,
 			figureNumber: detected.figureNumber,
-			slots: bound.slots.map((entry) => slotEntry(entry, { minFontPt })),
+			slots,
 			unassignedPlaceholders: bound.unassigned.map(briefPlaceholder)
 		});
 	}
@@ -389,6 +606,15 @@ export function deriveSlotSpec(summary, {
 		schemaVersion: SLOT_SPEC_VERSION,
 		family,
 		template: templateRef,
+		// 版面尺寸随规范落盘：编译器要靠它把容量夹到版面下边界。
+		pageSize,
+		capacityModel: {
+			version: 1,
+			source: typography !== undefined ? "template-xml" : "defaults",
+			defaultLineSpacingMultiplier: DEFAULT_LINE_SPACING_MULTIPLIER,
+			optimisticRatio: CAPACITY_OPTIMISTIC_RATIO,
+			note: "capacityLines 为自算值（模板真实行距/段间距 + 版面下边界，按 1 段估）；cliCapacityLines 为 pptx-cli 只按高度、行距固定 1.22 的参考值"
+		},
 		policy: {
 			minFontPt,
 			fonts: { latin: "Arial", ea: "微软雅黑", cs: "Arial" },
@@ -403,13 +629,15 @@ export function deriveSlotSpec(summary, {
 	};
 }
 
+/** 未绑定到槽位的占位符简报（只用于「这个版式还有什么没被用到」的报告）。 */
 function briefPlaceholder(placeholder) {
 	return {
 		idx: placeholder.idx,
 		logicalName: placeholder.logicalName,
 		prompt: placeholder.guidanceText ?? "",
 		kind: placeholderKind(placeholder),
-		capacityLines: placeholder.capacity?.max_lines
+		// 这里只能给 pptx-cli 的参考值：自算容量需要几何 + 模板排版属性，只对已绑定的槽位计算。
+		cliCapacityLines: placeholder.capacity?.max_lines
 	};
 }
 

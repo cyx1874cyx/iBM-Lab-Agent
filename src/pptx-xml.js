@@ -48,7 +48,47 @@ function bulletEvidence(properties) {
 	return found;
 }
 
-/** 收集一个 txBody 里的：lstStyle 各层 pPr、以及段落/run 明细。 */
+/**
+ * `a:lnSpc` / `a:spcBef` / `a:spcAft` → `{kind:"pct"|"pts", value}`。
+ * pct 的 val 以千分之一百分比计（100000 = 1.0 倍），pts 的 val 以百分之一磅计（3000 = 30pt）。
+ */
+function spacingFrom(node) {
+	if (node === undefined || node === null) return undefined;
+	const pct = node["a:spcPct"]?.["@_val"];
+	if (pct !== undefined && Number.isFinite(Number(pct))) return { kind: "pct", value: Number(pct) };
+	const pts = node["a:spcPts"]?.["@_val"];
+	if (pts !== undefined && Number.isFinite(Number(pts))) return { kind: "pts", value: Number(pts) / 100 };
+	return undefined;
+}
+
+/**
+ * 占位符的段落级排版属性：行距 / 段前 / 段后。
+ *
+ * 这两样必须从模板里读出来：本模板的正文占位符写的是**固定 30pt 行距**
+ * （`<a:lnSpc><a:spcPts val="3000"/></a:lnSpc>`），而 pptx-cli 的容量估算一律按
+ * `字号 × 1.22` 算（20pt → 24.4pt），于是把容量系统性高估（19 行 vs 真实 ≈15 行）。
+ */
+function paragraphTypography(txBody) {
+	const lstStyle = asArray(txBody?.["a:lstStyle"])[0];
+	const lvl1 = lstStyle?.["a:lvl1pPr"];
+	const firstParagraphProperties = asArray(txBody?.["a:p"])[0]?.["a:pPr"];
+	const pick = (tag) => spacingFrom(asArray(lvl1?.[tag])[0]) ?? spacingFrom(asArray(firstParagraphProperties?.[tag])[0]);
+	return {
+		lineSpacing: pick("a:lnSpc"),
+		spaceBefore: pick("a:spcBef"),
+		spaceAfter: pick("a:spcAft")
+	};
+}
+
+/** `a:bodyPr` 的显式内边距（EMU）。一个都没有时返回 undefined，由调用方按 PowerPoint 默认值处理。 */
+function insetsFromBodyPr(bodyPr) {
+	if (bodyPr === undefined || bodyPr === null) return undefined;
+	const read = (key) => (bodyPr[`@_${key}`] !== undefined ? Number(bodyPr[`@_${key}`]) : undefined);
+	const insets = { lIns: read("lIns"), rIns: read("rIns"), tIns: read("tIns"), bIns: read("bIns") };
+	return Object.values(insets).some((value) => Number.isFinite(value)) ? insets : undefined;
+}
+
+/** 收集一个 txBody 里的：lstStyle 各层 pPr、段落/run 明细、以及段落级排版属性。 */
 function scanTextBody(txBody) {
 	const lstStyle = asArray(txBody?.["a:lstStyle"]);
 	const levelProps = lstStyle.flatMap((style) => Object.entries(style ?? {})
@@ -81,7 +121,9 @@ function scanTextBody(txBody) {
 		ownBullets,
 		defaultSizePt: defaultLevel?.["a:defRPr"]?.["@_sz"] !== undefined ? Number(defaultLevel["a:defRPr"]["@_sz"]) / 100 : undefined,
 		defaultLatin: defaultLevel?.["a:defRPr"]?.["a:latin"]?.["@_typeface"],
-		defaultEa: defaultLevel?.["a:defRPr"]?.["a:ea"]?.["@_typeface"]
+		defaultEa: defaultLevel?.["a:defRPr"]?.["a:ea"]?.["@_typeface"],
+		// 段落级排版属性：容量自算要用模板真实的行距/段间距（pptx-cli 一律按 1.22 倍估）。
+		paragraph: paragraphTypography(txBody)
 	};
 }
 
@@ -107,6 +149,8 @@ export function scanLayoutXml(xml) {
 				idx: Number.isFinite(idx) ? idx : undefined,
 				type: typeof ph?.["@_type"] === "string" ? ph["@_type"] : "body",
 				shapeName: shape?.["p:nvSpPr"]?.["p:cNvPr"]?.["@_name"],
+				// `a:bodyPr` 在 `p:spPr` 里而不是 `p:txBody` 里；显式内边距会改变可用宽高。
+				insets: insetsFromBodyPr(shape?.["p:spPr"]?.["a:bodyPr"]),
 				...scanned
 			});
 		} else {
@@ -136,7 +180,11 @@ export function scanMasterTextStyles(xml) {
 			levels[Number(match[1])] = {
 				bullets: bulletEvidence(value).filter((tag) => tag !== "a:buNone"),
 				buNone: bulletEvidence(value).includes("a:buNone"),
-				sizePt: value?.["a:defRPr"]?.["@_sz"] !== undefined ? Number(value["a:defRPr"]["@_sz"]) / 100 : undefined
+				sizePt: value?.["a:defRPr"]?.["@_sz"] !== undefined ? Number(value["a:defRPr"]["@_sz"]) / 100 : undefined,
+				// 母版级行距/段间距：版式没写时占位符继承它，是容量自算的回退来源。
+				lineSpacing: spacingFrom(asArray(value?.["a:lnSpc"])[0]),
+				spaceBefore: spacingFrom(asArray(value?.["a:spcBef"])[0]),
+				spaceAfter: spacingFrom(asArray(value?.["a:spcAft"])[0])
 			};
 		}
 		buckets[styleKey] = levels;
