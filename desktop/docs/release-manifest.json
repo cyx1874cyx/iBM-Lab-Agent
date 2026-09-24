@@ -1,6 +1,6 @@
 {
   "ibmLabAgent": "0.5.3-beta9",
-  "dsh": "0.1.5-rc.1",
+  "dsh": "0.1.7-rc.1",
   "python": "3.11",
   "node": "24.16.0",
   "originMcp": {

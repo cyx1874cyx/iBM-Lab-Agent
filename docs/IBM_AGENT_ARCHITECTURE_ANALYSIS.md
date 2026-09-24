@@ -112,7 +112,7 @@ Tauri main.rs
 
 | 类别 | 依赖 | 接入方式 | 失败时行为 |
 |---|---|---|---|
-| Harness | DeepSeek Harness 0.1.5-rc.1 | peer dependency + profile bundle | 无宿主则插件不能运行 |
+| Harness | DeepSeek Harness 0.1.7-rc.1 | peer dependency + profile bundle | 无宿主则插件不能运行 |
 | Node 运行库 | `zod`、`js-yaml`、`jszip`、`fast-xml-parser` | npm/pnpm | 启动前随包固定 |
 | 科研技能 | 固定提交的 Nature Skills | filesystem skill provider | 锁文件和版本登记保证可追溯 |
 | Python | 内置/隔离 Python 与锁定依赖 | 子进程 | 明确 preflight，不在启动时隐式安装 |
