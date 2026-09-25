@@ -40,4 +40,13 @@ test("浏览器动作只接受当前课题的活动 Agent 捕获任务", () => {
 	service.completeBrowserOperation({ projectId: "p1", id: created.id, result: { candidates: [] } });
 	assert.equal(service.getBrowserOperation(created.id, "p1").status, "completed");
 	assert.equal(service.getBrowserOperation(created.id, "p2"), null);
+	const stale = service.createBrowserOperation({
+		projectId: "p1", taskId: "capture-1", action: "observe"
+	});
+	service.browserOperations.get(stale.id).expiresAt = Date.now() - 1;
+	const retry = service.createBrowserOperation({
+		projectId: "p1", taskId: "capture-1", action: "observe"
+	});
+	assert.equal(retry.status, "queued");
+	assert.equal(service.getBrowserOperation(stale.id, "p1").status, "failed");
 });

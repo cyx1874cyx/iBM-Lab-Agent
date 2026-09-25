@@ -122,7 +122,7 @@ if ($LASTEXITCODE -gt 7) { throw 'robocopy Lib failed' }
     $mnovaWheelDir = Join-Path $resourceRoot 'python\mnova-wheel'
     if (Test-Path -LiteralPath $mnovaWheelDir) { Remove-Item -LiteralPath $mnovaWheelDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $mnovaWheelDir | Out-Null
-    & $pythonParts[0] $pythonParts[1..($pythonParts.Count - 1)] -m pip wheel --disable-pip-version-check --no-deps --wheel-dir $mnovaWheelDir (Join-Path $mnovaVendor '.') -i $IndexUrl
+    & $pythonParts[0] $pythonParts[1..($pythonParts.Count - 1)] -m pip wheel --disable-pip-version-check --no-cache-dir --no-deps --wheel-dir $mnovaWheelDir (Join-Path $mnovaVendor '.') -i $IndexUrl
     if ($LASTEXITCODE -ne 0) { throw 'mnova-mcp wheel build failed' }
     $mnovaWheel = Get-ChildItem -LiteralPath $mnovaWheelDir -Filter 'mnova_mcp-0.3.1-*.whl' | Select-Object -First 1
     if (-not $mnovaWheel) { throw 'mnova_mcp-0.3.1 wheel was not produced' }
