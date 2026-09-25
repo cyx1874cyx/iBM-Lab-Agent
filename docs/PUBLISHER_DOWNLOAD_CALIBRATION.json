@@ -4,6 +4,11 @@
   "purpose": "Audit fixture for authenticated iWAN publisher download calibration; not loaded by runtime.",
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
+  "buildUnderTest": {
+    "version": "0.5.5-beta5",
+    "commit": "74d637a",
+    "note": "Automation behaviour changed in this build: the scanner now survives an in-page verification challenge, a blank popup no longer replaces the article page, and the status tool reports nextAction plus a queue position so a queued SI can take over after the article task ends. The pending live checks below refer to this build; no publisher rule was promoted from an unverified page."
+  },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
     "candidateRoots": [
@@ -184,7 +189,11 @@
   "nextLiveCheck": [
     "Open each sample in the installed app with iWAN global route enabled.",
     "Record final publisher URL, visible PDF/SI control text, element type, and whether a native PDF viewer opens.",
-    "Record automation signals searching/clicked/manual/verification and confirm DownloadEvent::Requested.",
+    "Record automation signals opening/searching/clicked/verification/manual/saving and confirm DownloadEvent::Requested.",
+    "Confirm that a publisher verification page clears on its own and the scanner returns from verification to searching without cancelling the task.",
+    "Confirm that an about:blank or other non-HTTP(S) popup does not replace the single article page.",
+    "Queue an SI task behind an article task and confirm SI takes over only after the article task is completed, failed, expired or cancelled, with no leftover webvpn_status.pendingTaskId.",
+    "Read lab_publisher_browser_download_status nextAction per phase and confirm it matches what the Agent should do next (wait-and-poll, observe-or-save-pdf, observe-or-click, ask-user, done).",
     "Verify file signature, size, final bundle path, and whether SI has multiple files.",
     "Keep authentication and anti-bot completion manual; never store credentials or cookies in this file."
   ]
