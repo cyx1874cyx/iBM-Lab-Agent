@@ -36,7 +36,9 @@ $DSH_HOME/lab-agent/templates/<模板id>/v<版本>/
 ```
 
 `manifestSource`：manifest 生成成功 = `manifest`；pptx-cli 缺失/失败 = `fallback`
-（退回 `parse.json` 旧路径，行为与 0.5.4 之前一致，并在导入结果里给出原因）。
+（**该模板不能用于生成 PPT**：派生件缺失 = 没有编译期门禁，标准流程没有旧路径可退。
+导入本身仍然容错，但要用它必须在该环境具备 pptx-cli 后**用新 id 重新导入**——
+模板 id 不复用）。
 
 ## 2. 模板作者要遵守的约定
 
@@ -160,16 +162,20 @@ Agent 只写语义；编译器把它翻成填充指令：
 ```
 
 ```bash
+# 唯一路径：先编译，再按模板构建（两步都不许跳）
 node scripts/compile-ppt-plan.mjs --plan plan.json --template <模板目录> --out compiled.json
 python scripts/pptx/build_from_template.py \
   --template <模板目录>/source.pptx --parse <模板目录>/parse.json \
   --compiled compiled.json --out deck.pptx --report conformance.json
 ```
 
-兼容写法（旧 plan 不必改）：`slides[].texts = [{ prompt | idx, paragraphs, mode, align, sizePt }]`、
-`title/subtitle/bullets/image/imageCaption`。`compiled.json` 的
-`kind=compiled-plan`，`roles` 用**版式名**（构建器侧认 `slideLayoutN`/版式名，与 manifest
-的 slug id 不是同一套 id 空间）。
+**内容只来自槽位写法**：`slides[].slots = { <槽位key>: <文字 | 段落数组 | 图片路径> }`，
+或等价的 `slides[].texts = [{ prompt | idx, paragraphs, mode, align, sizePt }]`。
+`title / subtitle / bullets / imageCaption` 这些旧字段**已不再支持**（0.5.5-beta3 起取消
+向后兼容：它们会绕过编译期的必填槽/容量/选版式校验，正是"溢出磨 10 轮"的成因）；
+构建脚本的 `--plan` 旧入口也已移除，手写 plan 直接构建会被明确拒绝。
+`compiled.json` 的 `kind=compiled-plan`，`roles` 用**版式名**（构建器侧认
+`slideLayoutN`/版式名，与 manifest 的 slug id 不是同一套 id 空间）。
 
 编译期就报：槽位名写错、必填槽缺失、图片不存在、容量超限预警、角色未知、缺讲稿。
 
@@ -187,7 +193,7 @@ python scripts/pptx/build_from_template.py \
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| 导入后 `manifestSource=fallback` | 该环境没装 pptx-cli（或解释器不可用） | `pip install pptx-cli==1.3.5`；桌面版随包自带，Linux 在 `$DSH_HOME/lab-agent/.venv` |
+| 导入后 `manifestSource=fallback` | 该环境没装 pptx-cli（或解释器不可用） | `pip install pptx-cli==1.3.5`；桌面版随包自带，Linux 在 `$DSH_HOME/lab-agent/.venv`。**该模板不能用于生成 PPT**（取契约会直接报"缺少槽位规范"），装好后**用新 id 重新导入** |
 | lint 报 `layout-role-unknown` | 版式占位符没写约定提示文字 | 按 §2 补提示文字；或把该版式纳入 `FAMILY_EXPECTATIONS` |
 | lint 报 `required-slot-missing` | 角色要求的槽位在这个版式里不存在 | 补占位符；或把该槽标为可选（改 `slots.json`） |
 | 明明改了模板却没生效 | 改的是**页**而不是**版式层** | 改版式；改完重新导入 |

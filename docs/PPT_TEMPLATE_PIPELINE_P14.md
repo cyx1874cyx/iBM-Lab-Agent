@@ -36,8 +36,11 @@
     PATH 上的 `python3` 找不到）。
 - **导入流程改造**（`lib/ppt-templates.js`）：`<templates>/<id>/v<版本>/` 下新增
   `manifest/`（pptx-cli 产物）+ `slots.json` + `GUIDE.md` + `lint.json`；
-  **`parse.json` 原样保留**。pptx-cli 不可用/失败 → 清理半成品目录、返回
-  `manifestSource: "fallback"` + 原因，导入本身照常成功。
+  **`parse.json` 原样保留**（它仍是构建器的版式解析依赖，不是兼容垫片）。
+  pptx-cli 不可用/失败 → 清理半成品目录、返回 `manifestSource: "fallback"` + 原因，
+  导入本身照常成功。**但这样的模板不能用于生成 PPT**（0.5.5-beta3 起取消向后兼容：
+  取生成契约时直接报"缺少槽位规范（slots.json）"，必须在该环境具备 pptx-cli 后
+  用新 id 重新导入）。
 - **新增只读服务方法**：`manifestPackage` / `slotSpec` / `lintReport` / `guide` /
   `relint`（重新体检）；`validate()` 并入 lint 的「必须修」错误并带 `manifestSource`。
 - **版本升级对比**：`compareManifestVersions`（`manifest diff`）+ lint 的
@@ -63,17 +66,21 @@
   `plan.roles` 里的 layout id 或版式名）；槽位 → `texts[]`（**prompt 优先 + idx 兜底** +
   `mode`/`align`/`sizePt`）；图片路径解析成绝对路径；图注自动路由进图注槽。
 - **新增 CLI `scripts/compile-ppt-plan.mjs`**，产出 `compiled.json`
-  （`kind: "compiled-plan"`，兼容旧 plan 写法）。
-- **构建器扩展**（`scripts/pptx/build_from_template.py`）：新增 `--compiled` 入口
-  （与 `--plan` 互斥、校验 `kind`），编译期诊断并入符合性报告（前缀 `compiled_`），
-  error 同样让退出码为 1；**新增「版式名唯一匹配」解析**——这是 manifest 的 slug id
-  与 `parse.json` 的 `slideLayoutN` 两套 id 空间之间的桥（`role_layout_by_name` pass
-  finding；同名多版式时明确报错，绝不猜）。
+  （`kind: "compiled-plan"`）。语义计划必须用**槽位写法**（`slides[].slots` /
+  `texts[]`）；旧的 `title/subtitle/bullets/imageCaption` 写法在 0.5.5-beta3 起不再支持。
+- **构建器入口收敛**（`scripts/pptx/build_from_template.py`）：`--compiled` 是**唯一**入口
+  （校验 `kind`；`--plan` 旧入口已移除，传它会退出码 2 并给出"先编译"的指引），
+  编译期诊断并入符合性报告（前缀 `compiled_`），error 同样让退出码为 1；
+  **「版式名唯一匹配」解析**——这是 manifest 的 slug id 与 `parse.json` 的
+  `slideLayoutN` 两套 id 空间之间的桥（`role_layout_by_name` pass finding；
+  同名多版式时明确报错，绝不猜）。
 - **现有排版政策行为不变**：字体三槽、字号下限 20、按槽型开关分点、提示文字优先定位、
   静态层不动 —— 只扩展输入来源。
 - **契约与任务链**（`lib/tasks/presentations.js`）：生成契约里带上 `slots.json` /
-  `GUIDE.md` / `lint.json` 路径与两步构建命令；`buildPresentationFromTemplate`
-  自动识别 `compiled-plan` 并走 `--compiled`。
+  `GUIDE.md` / `lint.json` 路径与两步构建命令（0.5.5-beta3 起**不再有"槽位规范不可用"的
+  降级分支**：模板缺 `slots.json` 时取契约直接报错）；
+  `buildPresentationFromTemplate` 只接受编译产物——手写 plan 会被构建脚本的 `kind`
+  校验拒绝（退出码 2），不再有 `--plan` 直通路径。
 
 ### P4 指导与自举
 
