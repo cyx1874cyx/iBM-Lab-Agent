@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { downloadState } from "./constants.js";
-import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
+import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 
 // 文献相关组件：FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
@@ -115,6 +115,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								windowOpen: shellStatus?.windowOpen,
 								sidebarVisible: shellStatus?.sidebarVisible,
 								pendingTaskId: shellStatus?.pendingTaskId,
+								automationStage: shellStatus?.automationStage,
 								downloadedBytes: shellStatus?.downloadedBytes,
 								downloadElapsedMs: shellStatus?.downloadElapsedMs,
 								iwanInstalled: iwanStatus?.installed,
@@ -130,6 +131,24 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								await cancelWebVpnCaptureViaShell(claimedAction.action.taskId);
 							}
 						} catch { /* 桌面壳暂不可达；SI 队列仍可继续尝试领取 */ }
+						// Agent 页面观察/点击/保存动作复用同一个桌面桥。操作结果经服务返回，
+						// 模型侧只收到有限的候选入口和状态，不接触 WebView2 profile。
+						try {
+							const next = await call("browser_operation_claim", { request: { projectId } });
+							if (next?.operation && !disposed) {
+								const operation = next.operation;
+								try {
+									const result = await webVpnBrowserActionViaShell(operation);
+									await call("browser_operation_complete", { request: {
+										projectId, id: operation.id, result
+									} });
+								} catch (reason) {
+									await call("browser_operation_complete", { request: {
+										projectId, id: operation.id, error: String(reason?.message || reason)
+									} });
+								}
+							}
+						} catch { /* 桌面桥暂不可达；操作超时后由服务标记失败 */ }
 						// 单个软件内浏览器只处理一个捕获。上一个任务仍在导航、下载或归档时
 						// 不领取下一枚一次性令牌，避免新任务被 busy 错误取消并留在僵尸队列。
 						const shellBusy = Boolean(shellStatus?.pendingTaskId)

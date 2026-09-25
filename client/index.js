@@ -154,7 +154,7 @@ function buildDescriptors() {
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -622,6 +622,7 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
   }
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+var webVpnBrowserActionViaShell = (payload) => webVpnShellRequest("WEBVPN_BROWSER_ACTION", payload, 2e4);
 var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 var withWebVpnTab = async (request, { armingCapture = false } = {}) => {
   if (armingCapture) armWebVpnCaptureWindow();
@@ -2867,7 +2868,7 @@ var formatCaptureElapsed = (milliseconds) => {
   const seconds = Math.max(0, Math.floor(Number(milliseconds) / 1e3) || 0);
   return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 };
-var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
+var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage) => {
   switch (state) {
     case "opening":
       return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
@@ -2878,8 +2879,13 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
     case "navigating":
       return { text: "正在打开出版社页面…", tone: "waiting" };
     case "waiting-download":
-      return { text: "出版社页面已打开，正在自动查找并点击对应下载入口…", tone: "waiting" };
+      if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
+      if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
+      if (automationStage === "verification") return { text: "出版社要求人工验证；完成后请在侧栏点击下载", tone: "waiting" };
+      if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
+      return { text: "正在等待出版社页面加载…", tone: "waiting" };
     case "downloading":
+      if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
       return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
     case "uploading":
       return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
@@ -3048,7 +3054,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           notify(message);
           return;
         }
-        setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs) } : current);
+        setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage) } : current);
       } catch {
       }
       timer = setTimeout(() => void poll(), 1200);
@@ -3791,6 +3797,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
             windowOpen: shellStatus?.windowOpen,
             sidebarVisible: shellStatus?.sidebarVisible,
             pendingTaskId: shellStatus?.pendingTaskId,
+            automationStage: shellStatus?.automationStage,
             downloadedBytes: shellStatus?.downloadedBytes,
             downloadElapsedMs: shellStatus?.downloadElapsedMs,
             iwanInstalled: iwanStatus?.installed,
@@ -3804,6 +3811,27 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
             toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
           } else if (claimedAction?.action?.type === "cancel-capture" && claimedAction.action.taskId) {
             await cancelWebVpnCaptureViaShell(claimedAction.action.taskId);
+          }
+        } catch {
+        }
+        try {
+          const next = await call("browser_operation_claim", { request: { projectId } });
+          if (next?.operation && !disposed) {
+            const operation = next.operation;
+            try {
+              const result = await webVpnBrowserActionViaShell(operation);
+              await call("browser_operation_complete", { request: {
+                projectId,
+                id: operation.id,
+                result
+              } });
+            } catch (reason) {
+              await call("browser_operation_complete", { request: {
+                projectId,
+                id: operation.id,
+                error: String(reason?.message || reason)
+              } });
+            }
           }
         } catch {
         }

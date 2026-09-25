@@ -1715,7 +1715,7 @@ dependencies = [
 
 [[package]]
 name = "ibm-lab-desktop"
-version = "0.5.5-beta3"
+version = "0.5.5-beta4"
 dependencies = [
  "aes",
  "cfb-mode",
@@ -1730,6 +1730,8 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-single-instance",
  "url",
+ "webview2-com",
+ "windows",
  "windows-sys 0.61.2",
  "winreg",
 ]

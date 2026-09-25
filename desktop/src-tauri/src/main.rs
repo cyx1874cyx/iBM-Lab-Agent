@@ -624,6 +624,17 @@ async fn webvpn_open_capture(
 }
 
 #[tauri::command]
+async fn webvpn_browser_action(
+    task_id: String,
+    action: String,
+    observation_id: String,
+    element_id: String,
+    app: tauri::AppHandle,
+) -> Result<serde_json::Value, String> {
+    webvpn::browser_action(&app, &task_id, &action, &observation_id, &element_id).await
+}
+
+#[tauri::command]
 async fn webvpn_cancel_capture(task_id: String, app: tauri::AppHandle) -> Result<(), String> {
     // 取消语义收在 webvpn::cancel_capture_and_close：页面里的捕获小球走同一个出口
     // （只是它不带 taskId），避免两处逻辑漂移。
@@ -867,6 +878,7 @@ fn main() {
             webvpn_open_login,
             webvpn_confirm_login,
             webvpn_open_capture,
+            webvpn_browser_action,
             webvpn_cancel_capture,
             webvpn_sync_capture_ball,
             webvpn_allow_host,

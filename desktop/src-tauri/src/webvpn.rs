@@ -32,6 +32,18 @@ use tauri::{
 
 use crate::runtime::WebVpnConfig;
 
+#[cfg(windows)]
+use webview2_com::{
+    take_pwstr, CoTaskMemPWSTR, ExecuteScriptCompletedHandler,
+    SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler,
+    Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2_25, COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS,
+    },
+};
+#[cfg(windows)]
+use windows::core::{Interface, PWSTR};
+
+
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
 pub const WINDOW_LABEL: &str = "webvpn";
 
@@ -175,9 +187,12 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     root.innerHTML = `<style>
       .ball{all:initial;box-sizing:border-box;display:none;max-width:300px;padding:9px 14px;border-radius:999px;background:#0f172a;color:#f8fafc;font:600 12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;align-items:center;gap:8px}
       .ball[data-visible="true"]{display:inline-flex}
-      .ball[data-phase="armed"],.ball[data-phase="waiting"]{background:#b45309}
-      .ball[data-phase="downloading"]{background:#1d4ed8}
-      .ball[data-phase="uploading"]{background:#047857}
+      .ball[data-phase="armed"],.ball[data-phase="waiting"],.ball[data-phase="opening"],.ball[data-phase="searching"],.ball[data-phase="clicked"]{background:#b45309}
+      .ball[data-phase="manual"],.ball[data-phase="verification"]{background:#9a3412}
+      .ball[data-phase="downloading"],.ball[data-phase="saving"]{background:#1d4ed8}
+      .ball[data-phase="uploading"],.ball[data-phase="completed"]{background:#047857}
+      .ball[data-phase="error"]{background:#b91c1c}
+      .ball:disabled{cursor:default}
       .dot{width:8px;height:8px;flex:none;border-radius:50%;background:#fde68a;box-shadow:0 0 0 3px rgba(253,230,138,.25)}
       .ball[data-phase="downloading"] .dot{background:#bfdbfe;box-shadow:0 0 0 3px rgba(191,219,254,.25);animation:ibm-ball-pulse 1.1s ease-in-out infinite}
       .ball[data-phase="uploading"] .dot{background:#a7f3d0;box-shadow:0 0 0 3px rgba(167,243,208,.25)}
@@ -212,15 +227,27 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     }
     const kind = payload.kind === 'si' ? '补充材料' : '正文';
     const size = formatBytes(payload.bytes);
-    const text = payload.phase === 'downloading'
-      ? `正在下载${kind}${size ? ` · ${size}` : ''}`
+    const text = payload.phase === 'saving'
+      ? '正在保存原生 PDF'
+      : payload.phase === 'downloading'
+      ? '正在下载' + kind + (size ? ' · ' + size : '')
       : payload.phase === 'uploading'
-        ? `正在归档${kind}${size ? ` · ${size}` : ''}`
-        : `等待${kind}下载入口`;
+        ? '正在归档' + kind + (size ? ' · ' + size : '')
+        : payload.phase === 'searching' ? '正在查找' + kind + '下载入口'
+        : payload.phase === 'clicked' ? '已点击' + kind + '入口，等待下载响应'
+        : payload.phase === 'verification' ? '页面需要人工验证；完成后请点击下载'
+        : payload.phase === 'manual' ? '未确认自动入口，请手动保存' + kind
+        : payload.phase === 'opening' ? '正在打开出版社页面'
+        : payload.phase === 'completed' ? kind + '已归档'
+        : payload.phase === 'error' ? kind + '下载或归档失败，请重试'
+        : '等待' + kind + '下载入口';
+    const finished = payload.phase === 'completed' || payload.phase === 'error';
+    captureBall.disabled = finished;
+    captureBall.querySelector('.hint').textContent = finished ? '' : '点击终止';
     captureBall.querySelector('.text').textContent = text;
     captureBall.dataset.phase = payload.phase;
     captureBall.dataset.visible = 'true';
-    captureBall.setAttribute('title', `${text}；点击终止本次捕获`);
+    captureBall.setAttribute('title', finished ? text : text + '；点击终止本次捕获');
   };
   const mount = () => {
     mountCaptureBall();
@@ -374,6 +401,8 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
   const wileyReadyAt = Date.now() + WILEY_HUMAN_CHECK_MS;
   let attempts = 0;
   let expanded = false;
+  let reportedSearch = false;
+  let reportedChallenge = false;
   const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const visible = (element) => {
     if (!element || element.nodeType !== 1) return false;
@@ -441,6 +470,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     document.documentElement.appendChild(anchor);
     window[`${runKey}_forced`] = true;
     anchor.click();
+    signal('clicked');
     setTimeout(() => anchor.remove(), 1000);
     return true;
   };
@@ -544,20 +574,26 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     window[`${runKey}_clicked`] = true;
     // 正常进入 Wiley 的 PDF 预览页；下一次页面加载会注入本脚本并捕获保存。
     filenameLink.element.click();
+    signal('clicked');
     return true;
   };
   const scan = () => {
     if (!confirmedPublisherPage()) return;
+    if (!reportedSearch) { reportedSearch = true; signal('searching'); }
     const previewUrl = previewDownloadUrl();
     // Wiley 首次进入文章页时为人工验证预留至少 10 秒。验证未完成时继续
     // 等待，不消耗自动化重试次数，也不提前把任务判为失败。
     if (publisher === 'wiley' && !previewUrl && Date.now() < wileyReadyAt) return;
     if (challengePresent()) {
-      if (publisher === 'wiley') return;
+      if (publisher === 'wiley') {
+        if (!reportedChallenge) { reportedChallenge = true; signal('challenge'); }
+        return;
+      }
       clearInterval(timer);
       signal('challenge');
       return;
     }
+    if (reportedChallenge) { reportedChallenge = false; signal('searching'); }
     attempts += 1;
     if (attempts >= 2 && forceDownload(previewUrl)) { clearInterval(timer); return; }
     const items = candidates();
@@ -571,6 +607,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
       const anchor = scored[0].element.closest?.('a[href]') || (scored[0].element.matches?.('a[href]') ? scored[0].element : null);
       if (anchor) anchor.setAttribute('download', kind === 'pdf' ? 'article.pdf' : 'supporting-information');
       scored[0].element.click();
+      signal('clicked');
       return;
     }
     if (kind === 'si' && !expanded) {
@@ -589,6 +626,62 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
 "#;
 
 /// 主窗口的 label（由 `tauri.conf.json` 的 `app.windows[0]` 定义）。
+/// Agent 只观察候选下载入口，不读整页正文、Cookie 或表单值。
+const AGENT_OBSERVE_SCRIPT: &str = r#"
+(() => {
+  if (document.querySelector('input[type="password"]')) return { error: '登录页请由用户操作' };
+  const visible = (el) => {
+    const r = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+  };
+  const roots = [document];
+  for (let i = 0; i < roots.length && roots.length < 20; i++) {
+    for (const el of roots[i].querySelectorAll('*')) {
+      if (el.shadowRoot) roots.push(el.shadowRoot);
+      if (roots.length >= 20) break;
+    }
+  }
+  const rows = [];
+  const elements = [];
+  for (const root of roots) {
+    for (const el of root.querySelectorAll('a[href],button,[role="button"]')) {
+      if (!visible(el)) continue;
+      const label = String(el.getAttribute('aria-label') || el.innerText || el.textContent || '')
+        .replace(/\s+/g, ' ').trim().slice(0, 100);
+      const href = el.closest('a[href]')?.getAttribute('href') || '';
+      if (!/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
+      const id = 'e' + (rows.length + 1);
+      elements.push(el);
+      rows.push({ id, role: el.tagName.toLowerCase(), label,
+        likely: /supplement|supporting|附件|补充/i.test(label + ' ' + href) ? 'si' : 'pdf' });
+      if (rows.length >= 30) break;
+    }
+    if (rows.length >= 30) break;
+  }
+  const observationId = crypto.randomUUID().replace(/-/g, '');
+  window.__ibmAgentObservation = { observationId, at: Date.now(), elements };
+  return { observationId, host: location.hostname.slice(0, 100),
+    documentType: document.contentType || '', candidates: rows };
+})()
+"#;
+
+const AGENT_CLICK_SCRIPT: &str = r#"
+(() => {
+  const snapshot = window.__ibmAgentObservation;
+  if (!snapshot || snapshot.observationId !== __OBSERVATION_ID__ || Date.now() - snapshot.at > 15000)
+    return { error: '页面观察已过期，请重新观察' };
+  const index = Number(String(__ELEMENT_ID__).slice(1)) - 1;
+  const element = snapshot.elements[index];
+  if (!element || !element.isConnected) return { error: '入口已变化，请重新观察' };
+  const r = element.getBoundingClientRect();
+  if (r.width <= 0 || r.height <= 0) return { error: '入口已不可见，请重新观察' };
+  window.__ibmAgentObservation = null;
+  element.click();
+  return { clicked: true, elementId: __ELEMENT_ID__ };
+})()
+"#;
+
 const MAIN_WINDOW_LABEL: &str = "main";
 
 /// 出现这些参数名时一律脱敏。长度 <= 2 的按全等匹配，其余按包含匹配——
@@ -869,7 +962,15 @@ struct Session {
     denied_hosts: Vec<String>,
     last_error: Option<String>,
     pending: Option<PendingCapture>,
+    capture_notice: Option<CaptureNotice>,
     generation: u64,
+}
+
+#[derive(Debug, Clone)]
+struct CaptureNotice {
+    kind: String,
+    phase: &'static str,
+    expires_at: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -880,6 +981,9 @@ struct PendingCapture {
     publisher: PublisherAdapter,
     /// Agent 任务自动点击；面板任务只布防捕获并交给用户手动操作。
     automate: bool,
+    /// 只描述自动化已观察到的阶段；不把点击冒充为下载已开始。
+    automation_stage: String,
+    native_saving: bool,
     /// 仅在未启用 iWAN 时，对公开的 Nature/Springer SI 预览链接使用后端直取。
     /// iWAN 全部路由模式必须让 WebView2 自己直连并触发下载，避免 reqwest 与
     /// 系统代理/认证路径不一致造成“页面能开、附件直取失败”。
@@ -942,6 +1046,8 @@ pub struct WebVpnStatus {
     pub last_error: Option<String>,
     pub pending_task_id: Option<String>,
     pub pending_kind: Option<String>,
+    /// 自动化找入口的可观察阶段；点击并不代表下载已开始。
+    pub automation_stage: Option<String>,
     /// 当前下载目标文件已经写入的字节数。WebView2 不提供总大小，因此该值
     /// 用于显示真实接收量与不确定进度条，不伪造百分比。
     pub downloaded_bytes: Option<u64>,
@@ -1068,12 +1174,15 @@ impl WebVpnState {
         }
         session.generation = session.generation.wrapping_add(1).max(1);
         let generation = session.generation;
+        session.capture_notice = None;
         session.pending = Some(PendingCapture {
             generation,
             task_id: task_id.to_string(),
             kind: kind.to_string(),
             publisher,
             automate,
+            automation_stage: if automate { "opening" } else { "manual" }.to_string(),
+            native_saving: false,
             intercept_direct_si,
             upload_url,
             temp_path,
@@ -1100,6 +1209,19 @@ impl WebVpnState {
                     && !pending.download_claimed)
                     .then(|| (pending.kind.clone(), pending.publisher))
             })
+    }
+
+    fn set_automation_stage(&self, stage: &str) {
+        if !matches!(stage, "searching" | "clicked" | "manual" | "verification") {
+            return;
+        }
+        if let Ok(mut session) = self.session.lock() {
+            if let Some(pending) = session.pending.as_mut() {
+                if pending.automate && !pending.download_claimed {
+                    pending.automation_stage = stage.to_string();
+                }
+            }
+        }
     }
 
     fn should_capture_direct_si_preview(&self, target: &url::Url) -> bool {
@@ -1152,6 +1274,25 @@ impl WebVpnState {
         DownloadDecision::Capture(destination)
     }
 
+    fn claim_native_save_destination(&self, task_id: &str) -> Result<PathBuf, String> {
+        let Ok(mut session) = self.session.lock() else {
+            return Err("文献浏览器状态不可用".to_string());
+        };
+        let Some(pending) = session.pending.as_mut() else {
+            return Err("没有待保存的文献任务".to_string());
+        };
+        if pending.task_id != task_id || pending.kind != "pdf" || pending.download_claimed {
+            return Err("当前任务不允许保存原生 PDF".to_string());
+        }
+        pending.download_claimed = true;
+        pending.native_saving = true;
+        pending.automation_stage = "saving".to_string();
+        pending.download_started_at = Some(Instant::now());
+        let path = pending.temp_path.clone();
+        session.state = WebVpnSessionState::Downloading;
+        Ok(path)
+    }
+
     fn should_ignore_failed_finish(&self) -> bool {
         let Ok(mut session) = self.session.lock() else {
             return false;
@@ -1193,6 +1334,12 @@ impl WebVpnState {
         if session.pending.as_ref().map(|pending| pending.generation) != Some(generation) {
             return;
         }
+        let kind = session.pending.as_ref().map(|pending| pending.kind.clone()).unwrap_or_default();
+        session.capture_notice = Some(CaptureNotice {
+            kind,
+            phase: if result.is_ok() { "completed" } else { "error" },
+            expires_at: Instant::now() + Duration::from_secs(8),
+        });
         session.pending = None;
         match result {
             Ok(()) => {
@@ -1211,7 +1358,15 @@ impl WebVpnState {
             let Ok(mut session) = self.session.lock() else {
                 return;
             };
-            let path = session.pending.take().map(|pending| pending.temp_path);
+            let pending = session.pending.take();
+            if let Some(ref pending) = pending {
+                session.capture_notice = Some(CaptureNotice {
+                    kind: pending.kind.clone(),
+                    phase: "error",
+                    expires_at: Instant::now() + Duration::from_secs(8),
+                });
+            }
+            let path = pending.map(|pending| pending.temp_path);
             if path.is_some() {
                 session.state = WebVpnSessionState::Error;
                 session.last_error = Some(message.to_string());
@@ -1233,6 +1388,7 @@ impl WebVpnState {
             }
             let path = pending.temp_path.clone();
             session.pending = None;
+            session.capture_notice = None;
             session.state = WebVpnSessionState::Ready;
             session.last_error = None;
             let _ = fs::remove_file(path);
@@ -1264,16 +1420,24 @@ impl WebVpnState {
             return "null".to_string();
         };
         let Some(pending) = session.pending.as_ref() else {
-            return "null".to_string();
+            return session.capture_notice.as_ref()
+                .filter(|notice| notice.expires_at > Instant::now())
+                .map(|notice| serde_json::json!({
+                    "phase": notice.phase,
+                    "kind": notice.kind,
+                }).to_string())
+                .unwrap_or_else(|| "null".to_string());
         };
         let bytes = pending
             .download_started_at
             .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()));
         let phase = match session.state {
+            WebVpnSessionState::Downloading if pending.native_saving => "saving",
             WebVpnSessionState::Downloading => "downloading",
             WebVpnSessionState::Uploading => "uploading",
-            WebVpnSessionState::WaitingDownload => "waiting",
-            _ => "armed",
+            WebVpnSessionState::WaitingDownload => pending.automation_stage.as_str(),
+            WebVpnSessionState::Navigating => "opening",
+            _ => "waiting",
         };
         serde_json::json!({
             "phase": phase,
@@ -1330,6 +1494,7 @@ impl WebVpnState {
             session.sidebar_visible = false;
             session.target_host = None;
             session.pending = None;
+            session.capture_notice = None;
         }
     }
 
@@ -1460,6 +1625,7 @@ impl WebVpnState {
                 denied_hosts: session.denied_hosts.clone(),
                 last_error: session.last_error.clone(),
                 pending: session.pending.clone(),
+                capture_notice: session.capture_notice.clone(),
                 generation: session.generation,
             })
             .unwrap_or_default();
@@ -1489,6 +1655,7 @@ impl WebVpnState {
                 .as_ref()
                 .map(|pending| pending.task_id.clone()),
             pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
+            automation_stage: session.pending.as_ref().map(|pending| pending.automation_stage.clone()),
             downloaded_bytes,
             download_elapsed_ms,
             window_open,
@@ -1710,6 +1877,9 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
     let outcome = result.map(|_| ()).map_err(|_| detail.clone());
     if let Some(state) = app.try_state::<WebVpnState>() {
         state.finish_upload(upload.generation, outcome);
+        if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+            let _ = push_capture_ball(&app, &webview);
+        }
     }
     record(
         &app,
@@ -2107,6 +2277,177 @@ pub fn cancel_capture_and_close(app: &AppHandle, task_id: Option<&str>) -> Resul
     Ok(())
 }
 
+#[cfg(windows)]
+async fn eval_agent_script(webview: &Webview, script: String) -> Result<serde_json::Value, String> {
+    let (sender, receiver) = std::sync::mpsc::channel::<Result<String, String>>();
+    webview
+        .with_webview(move |platform| {
+            let core = match unsafe { platform.controller().CoreWebView2() } {
+                Ok(core) => core,
+                Err(error) => {
+                    let _ = sender.send(Err(error.to_string()));
+                    return;
+                }
+            };
+            let completed_sender = sender.clone();
+            let handler = ExecuteScriptCompletedHandler::create(Box::new(move |status, result| {
+                let result = status.map(|_| result).map_err(|error| error.to_string());
+                let _ = completed_sender.send(result);
+                Ok(())
+            }));
+            let code = CoTaskMemPWSTR::from(script.as_str());
+            if let Err(error) = unsafe { core.ExecuteScript(*code.as_ref().as_pcwstr(), &handler) } {
+                let _ = sender.send(Err(error.to_string()));
+            }
+        })
+        .map_err(|error| error.to_string())?;
+    let response = tauri::async_runtime::spawn_blocking(move || {
+        receiver.recv_timeout(Duration::from_secs(10))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|_| "页面操作超时".to_string())??;
+    serde_json::from_str(&response).map_err(|_| "页面操作返回值无效".to_string())
+}
+
+#[cfg(windows)]
+async fn save_current_pdf(
+    app: &AppHandle,
+    task_id: &str,
+    webview: &Webview,
+) -> Result<serde_json::Value, String> {
+    let state = app.try_state::<WebVpnState>().ok_or("文献浏览器状态不可用")?;
+    let destination = state.claim_native_save_destination(task_id)?;
+    let path_text = destination.to_string_lossy().to_string();
+    let app_for_save = app.clone();
+    let (sender, receiver) = std::sync::mpsc::channel::<Result<(), String>>();
+    webview.with_webview(move |platform| {
+        let setup = (|| -> Result<(), String> {
+            let core = unsafe { platform.controller().CoreWebView2() }
+                .map_err(|error| error.to_string())?;
+            let core25: ICoreWebView2_25 = core.cast().map_err(|error| error.to_string())?;
+            let showing_path = path_text.clone();
+            let showing = SaveAsUIShowingEventHandler::create(Box::new(move |_sender, args| {
+                if let Some(args) = args {
+                    let mut mime_ptr = PWSTR::null();
+                    unsafe { args.ContentMimeType(&mut mime_ptr)?; }
+                    let mime = take_pwstr(mime_ptr);
+                    if mime.eq_ignore_ascii_case("application/pdf") {
+                        let path = CoTaskMemPWSTR::from(showing_path.as_str());
+                        unsafe {
+                            args.SetSaveAsFilePath(*path.as_ref().as_pcwstr())?;
+                            args.SetAllowReplace(false)?;
+                            args.SetSuppressDefaultDialog(true)?;
+                        }
+                    } else {
+                        unsafe { args.SetCancel(true)?; }
+                    }
+                }
+                Ok(())
+            }));
+            let mut event_token = 0_i64;
+            unsafe { core25.add_SaveAsUIShowing(&showing, &mut event_token) }
+                .map_err(|error| error.to_string())?;
+            let completion_core = core25.clone();
+            let completion_app = app_for_save.clone();
+            let completion_path = destination.clone();
+            let completed = ShowSaveAsUICompletedHandler::create(Box::new(move |status, result| {
+                let _ = unsafe { completion_core.remove_SaveAsUIShowing(event_token) };
+                let completion_app = completion_app.clone();
+                let completion_path = completion_path.clone();
+                if status.is_ok() && result == COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS {
+                    tauri::async_runtime::spawn_blocking(move || {
+                        if let Some(state) = completion_app.try_state::<WebVpnState>() {
+                            if let Some(upload) = state.begin_upload(&completion_path) {
+                                upload_capture(completion_app, upload);
+                            } else {
+                                state.fail_pending_download("原生 PDF 保存与当前捕获任务不匹配");
+                            }
+                        }
+                    });
+                } else if let Some(state) = completion_app.try_state::<WebVpnState>() {
+                    state.fail_pending_download("原生 PDF 保存未完成；请在侧栏手动保存或重试");
+                }
+                Ok(())
+            }));
+            if let Err(error) = unsafe { core25.ShowSaveAsUI(&completed) } {
+                let _ = unsafe { core25.remove_SaveAsUIShowing(event_token) };
+                return Err(error.to_string());
+            }
+            Ok(())
+        })();
+        let _ = sender.send(setup);
+    }).map_err(|error| error.to_string())?;
+    let setup = tauri::async_runtime::spawn_blocking(move || receiver.recv_timeout(Duration::from_secs(10)))
+        .await.map_err(|error| error.to_string())?
+        .map_err(|_| "原生 PDF 保存启动超时".to_string())?;
+    if let Err(error) = setup {
+        state.fail_pending_download(&error);
+        return Err(error);
+    }
+    let _ = push_capture_ball(app, webview);
+    Ok(serde_json::json!({ "started": true, "phase": "saving" }))
+}
+
+#[cfg(not(windows))]
+async fn save_current_pdf(
+    _app: &AppHandle,
+    _task_id: &str,
+    _webview: &Webview,
+) -> Result<serde_json::Value, String> {
+    Err("原生 PDF 保存仅在 Windows 桌面端可用".to_string())
+}
+
+pub async fn browser_action(
+    app: &AppHandle,
+    task_id: &str,
+    action: &str,
+    observation_id: &str,
+    element_id: &str,
+) -> Result<serde_json::Value, String> {
+    let state = app.try_state::<WebVpnState>().ok_or("文献浏览器状态不可用")?;
+    if state.pending_task_id().as_deref() != Some(task_id) {
+        return Err("浏览器动作与当前文献任务不匹配".to_string());
+    }
+    let webview = app.get_webview(WINDOW_LABEL).ok_or("文献浏览器尚未打开")?;
+    match action {
+        "observe" | "click" => {
+            #[cfg(windows)]
+            {
+                let script = if action == "observe" {
+                    AGENT_OBSERVE_SCRIPT.to_string()
+                } else {
+                    if !observation_id.bytes().all(|byte| byte.is_ascii_alphanumeric())
+                        || !element_id.starts_with('e')
+                        || !element_id[1..].bytes().all(|byte| byte.is_ascii_digit())
+                    {
+                        return Err("页面元素引用无效".to_string());
+                    }
+                    AGENT_CLICK_SCRIPT
+                        .replace("__OBSERVATION_ID__", &serde_json::json!(observation_id).to_string())
+                        .replace("__ELEMENT_ID__", &serde_json::json!(element_id).to_string())
+                };
+                let value = eval_agent_script(&webview, script).await?;
+                if let Some(error) = value.get("error").and_then(|item| item.as_str()) {
+                    return Err(error.to_string());
+                }
+                if action == "click" && value.get("clicked").and_then(|item| item.as_bool()) == Some(true) {
+                    state.set_automation_stage("clicked");
+                    let _ = push_capture_ball(app, &webview);
+                }
+                Ok(value)
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = (webview, observation_id, element_id);
+                Err("文献浏览器页面操作仅在 Windows 桌面端可用".to_string())
+            }
+        }
+        "save-pdf" => save_current_pdf(app, task_id, &webview).await,
+        _ => Err("不支持的浏览器动作".to_string()),
+    }
+}
+
 /// 把当前捕获状态推给页面里的捕获小球。
 ///
 /// 页面每次导航都会重新注入脚本，小球也随之重建，所以页面加载完成后必须再推一次。
@@ -2281,6 +2622,21 @@ pub fn open_window(
             }
             if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
                 let result = url.path().trim_matches('/');
+                let stage = match result {
+                    "searching" => Some("searching"),
+                    "clicked" => Some("clicked"),
+                    "si-manual" | "pdf-manual" => Some("manual"),
+                    "challenge" => Some("verification"),
+                    _ => None,
+                };
+                if let Some(stage) = stage {
+                    if let Some(state) = navigation_app.try_state::<WebVpnState>() {
+                        state.set_automation_stage(stage);
+                    }
+                    if let Some(webview) = navigation_app.get_webview(WINDOW_LABEL) {
+                        let _ = push_capture_ball(&navigation_app, &webview);
+                    }
+                }
                 let waiting_message = match result {
                     "si-manual" => {
                         Some("自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料")
@@ -2302,10 +2658,7 @@ pub fn open_window(
                     return false;
                 }
                 if result == "challenge" {
-                    let message = "出版社页面出现验证码或安全检查，请在侧栏完成后重新点击下载";
-                    if let Some(state) = navigation_app.try_state::<WebVpnState>() {
-                        state.fail_pending_download(message);
-                    }
+                    let message = "出版社页面出现验证码或安全检查；捕获仍有效，请人工完成验证后点击下载";
                     record(&navigation_app, "automation", "", message);
                 }
                 return false;

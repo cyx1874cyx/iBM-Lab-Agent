@@ -1,0 +1,191 @@
+{
+  "schema": "ibm-lab/publisher-download-calibration/v1",
+  "createdAt": "2026-09-25",
+  "purpose": "Audit fixture for authenticated iWAN publisher download calibration; not loaded by runtime.",
+  "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
+  "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
+  "sharedAlgorithm": {
+    "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
+    "candidateRoots": [
+      "document",
+      "open shadow roots",
+      "same-origin iframes"
+    ],
+    "candidateFilter": "visible links and buttons",
+    "articleScoreThreshold": 8,
+    "siScoreThreshold": 10,
+    "scanIntervalMs": 750,
+    "manualFallbackAfterAttempts": 16,
+    "downloadProof": "WebView2 DownloadEvent::Requested, not a clicked link",
+    "resultProof": "validated local upload and bundle registration"
+  },
+  "verificationLegend": {
+    "article-and-si-visible": "Public page showed article and supplementary link; institutional PDF was not tested",
+    "article-and-docx-si-visible": "Public page showed article and DOCX supplementary link; institutional PDF was not tested",
+    "article-visible": "Public article page loaded; authenticated controls were not inspected",
+    "minimal-public-page": "Only a minimal page was available through read-only inspection",
+    "public-page-unavailable": "Read-only page fetch failed; no selector claims were made"
+  },
+  "publishers": [
+    {
+      "id": "nature",
+      "publisher": "Nature Portfolio",
+      "doiPrefixes": [
+        "10.1038"
+      ],
+      "sampleArticleUrl": "https://www.nature.com/articles/s41557-025-01903-y",
+      "accessRoute": "institution or iWAN for subscribed article; SI may be direct",
+      "articleEntryHint": "PDF or View PDF",
+      "siEntryHint": "Supplementary Information",
+      "previewHandling": "PDF preview or direct PDF",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "article-and-si-visible"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "springer",
+      "publisher": "SpringerLink",
+      "doiPrefixes": [
+        "10.1007"
+      ],
+      "sampleArticleUrl": "https://link.springer.com/article/10.1007/s10853-026-13749-x",
+      "accessRoute": "institution or iWAN for subscribed article; SI may be direct",
+      "articleEntryHint": "PDF or Download PDF",
+      "siEntryHint": "Supplementary file link",
+      "previewHandling": "PDF preview; SI direct attachment",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "article-and-docx-si-visible"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "science",
+      "publisher": "Science / AAAS",
+      "doiPrefixes": [
+        "10.1126"
+      ],
+      "sampleArticleUrl": "https://www.science.org/doi/10.1126/science.abm6304",
+      "accessRoute": "institution or iWAN",
+      "articleEntryHint": "PDF or View PDF",
+      "siEntryHint": "Supplementary Material",
+      "previewHandling": "reader or epdf becomes doi/pdf",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "public-page-unavailable"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "elsevier",
+      "publisher": "Elsevier / ScienceDirect",
+      "doiPrefixes": [
+        "10.1016"
+      ],
+      "sampleArticleUrl": "https://www.sciencedirect.com/science/article/pii/S2214714424019238",
+      "accessRoute": "institution or iWAN",
+      "articleEntryHint": "View PDF",
+      "siEntryHint": "Appendix or supplementary data",
+      "previewHandling": "pdfft with download=true and isDTMRedir=true",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "public-page-unavailable"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "acs",
+      "publisher": "ACS",
+      "doiPrefixes": [
+        "10.1021"
+      ],
+      "sampleArticleUrl": "https://pubs.acs.org/doi/10.1021/acs.macromol.5c00304",
+      "accessRoute": "institution or iWAN",
+      "articleEntryHint": "Open PDF or PDF",
+      "siEntryHint": "Supporting Information",
+      "previewHandling": "reader or epdf becomes doi/pdf",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "public-page-unavailable"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "rsc",
+      "publisher": "Royal Society of Chemistry",
+      "doiPrefixes": [
+        "10.1039"
+      ],
+      "sampleArticleUrl": "https://pubs.rsc.org/en/content/articlelanding/2025/md/d5md00309a",
+      "accessRoute": "institution or iWAN",
+      "articleEntryHint": "PDF",
+      "siEntryHint": "Supplementary Information",
+      "previewHandling": "shared scoring; no site-specific URL rewrite",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "public-page-unavailable"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "ieee",
+      "publisher": "IEEE Xplore",
+      "doiPrefixes": [
+        "10.1109"
+      ],
+      "sampleArticleUrl": "https://ieeexplore.ieee.org/document/8770126/",
+      "accessRoute": "institution or iWAN",
+      "articleEntryHint": "PDF",
+      "siEntryHint": "Supplementary material",
+      "previewHandling": "stamp/stamp.jsp becomes stampPDF/getPDF.jsp",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "minimal-public-page"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    },
+    {
+      "id": "wiley",
+      "publisher": "Wiley Online Library",
+      "doiPrefixes": [
+        "10.1002",
+        "10.1111"
+      ],
+      "sampleArticleUrl": "https://advanced.onlinelibrary.wiley.com/doi/10.1002/adma.202502918",
+      "accessRoute": "iWAN only; WebVPN path paused",
+      "articleEntryHint": "PDF",
+      "siEntryHint": "expand Supporting Information, then file link in Filename table",
+      "previewHandling": "doi/pdf or suppinfo preview; try download=true",
+      "publicPageInspection": {
+        "date": "2026-09-25",
+        "result": "article-visible"
+      },
+      "authenticatedIwanVerification": "pending",
+      "liveSelectorVerification": "pending",
+      "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
+    }
+  ],
+  "nextLiveCheck": [
+    "Open each sample in the installed app with iWAN global route enabled.",
+    "Record final publisher URL, visible PDF/SI control text, element type, and whether a native PDF viewer opens.",
+    "Record automation signals searching/clicked/manual/verification and confirm DownloadEvent::Requested.",
+    "Verify file signature, size, final bundle path, and whether SI has multiple files.",
+    "Keep authentication and anti-bot completion manual; never store credentials or cookies in this file."
+  ]
+}

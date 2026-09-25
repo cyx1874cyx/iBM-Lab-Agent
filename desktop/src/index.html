@@ -540,6 +540,15 @@
         })
           .then((result) => { reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: true, result }); void invoke('webvpn_sync_capture_ball').catch(() => {}); })
           .catch((error) => reply('WEBVPN_OPEN_CAPTURE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_BROWSER_ACTION') {
+        invoke('webvpn_browser_action', {
+          taskId: String(data.payload?.taskId || ''),
+          action: String(data.payload?.action || ''),
+          observationId: String(data.payload?.observationId || ''),
+          elementId: String(data.payload?.elementId || '')
+        })
+          .then((result) => reply('WEBVPN_BROWSER_ACTION_RESULT', { ok: true, result }))
+          .catch((error) => reply('WEBVPN_BROWSER_ACTION_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_CANCEL_CAPTURE') {
         invoke('webvpn_cancel_capture', { taskId: String(data.payload?.taskId || '') })
           .then(() => { reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: true, result: null }); void invoke('webvpn_sync_capture_ball').catch(() => {}); })

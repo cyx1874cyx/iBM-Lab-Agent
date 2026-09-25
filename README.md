@@ -5,9 +5,9 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta3**：**取消 PPT 生成流程的向后兼容层**，只保留「编译 → 构建」
-一条标准路径（旧的手写 plan 入口会绕过编译期的必填槽/容量/选版式校验，已移除；缺 manifest
-派生件的老模板必须用新 id 重新导入）。
+当前候选版本为 **v0.5.5-beta4**：科研 Agent 可观察当前文献浏览器的下载入口、
+按短期元素引用点击，并调用 WebView2 原生 PDF 保存。文献下载与归档仍由现有捕获链路核验；
+详见 [发布说明](docs/releases/v0.5.5-beta4.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /

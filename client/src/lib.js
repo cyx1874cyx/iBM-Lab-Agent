@@ -289,6 +289,7 @@ const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise
 });
 
 export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
+export const webVpnBrowserActionViaShell = (payload) => webVpnShellRequest("WEBVPN_BROWSER_ACTION", payload, 20000);
 export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 // 打开原生 WebVPN 之前先打开 DSH 右侧栏的「文献浏览器」tab：只有在 tab 正文上报过
 // 矩形之后，Rust 端才切换为「右侧栏接管布局」模式，否则会先执行一次旧的按比例分栏。

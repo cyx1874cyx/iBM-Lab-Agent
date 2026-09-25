@@ -26,7 +26,7 @@ test("Wiley iWAN 下载先等待人机验证，再按正文与 Filename SI 两�
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /WILEY_HUMAN_CHECK_MS = 10000/);
 	assert.match(webvpn, /publisher === 'wiley' && !previewUrl && Date\.now\(\) < wileyReadyAt/);
-	assert.match(webvpn, /if \(publisher === 'wiley'\) return;/, "Wiley 验证页不得提前结束捕获任务");
+	assert.match(webvpn, /if \(publisher === 'wiley'\) \{[\s\S]*?signal\('challenge'\);[\s\S]*?return;/, "Wiley 验证页须保留捕获任务并报告验证状态");
 	assert.match(webvpn, /clickWileySupportingInformation/);
 	assert.match(webvpn, /supporting information/);
 	assert.match(webvpn, /\\bfilename\\b/);
@@ -213,7 +213,9 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	// 原来直接断言 main.rs 里的 webvpn_cancel_capture 函数体，但 `[\s\S]*?` 会一路
 	// 跨到别的命令里去匹配 webview.close()——命令一旦只做转发就会"因为别处有"而通过。
 	assert.match(main, /cancel_capture_and_close\(&app, Some\(&task_id\)\)/, "命令必须转发到唯一实现");
-	assert.match(projectPanel, /正在自动查找并点击对应下载入口/);
+	assert.match(projectPanel, /正在查找出版社下载入口/);
+	assert.match(projectPanel, /已点击下载入口/);
+	assert.match(projectPanel, /等待浏览器确认文件下载/);
 	assert.match(projectPanel, /"wiley"\]\.includes\(publisher\)/);
 	assert.match(projectPanel, /已适配出版社固定在软件内/);
 	assert.match(projectPanel, /tasks_report_delete/);
@@ -450,10 +452,10 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	const ball = webvpn.match(/pub fn capture_ball_json\(&self\) -> String \{[\s\S]*?\n    \}/);
 	assert.ok(ball, "必须存在 capture_ball_json");
 	// 只看真正发给页面的那份 JSON：函数体里读 temp_path 只是为了取文件大小。
-	const payload = ball[0].match(/serde_json::json!\(\{[\s\S]*?\}\)/);
-	assert.ok(payload, "必须能提取小球的 JSON 载荷");
-	assert.match(payload[0], /"phase": phase/);
-	assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
+	const payloads = [...ball[0].matchAll(/serde_json::json!\(\{[\s\S]*?\}\)/g)];
+	assert.equal(payloads.length, 2, "活动任务和短暂完成提示都必须有载荷");
+	assert.match(payloads[1][0], /"phase": phase/);
+	for (const payload of payloads) assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
 });
 
 test("终止捕获只有一条实现：必须关闭 WebView2 且两处共用", async () => {

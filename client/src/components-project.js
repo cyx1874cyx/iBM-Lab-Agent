@@ -24,14 +24,21 @@ const formatCaptureElapsed = (milliseconds) => {
 	return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 };
 
-export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs) => {
+export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage) => {
 	switch (state) {
 		case "opening": return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
 		case "waiting-login": return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
 		case "ready": return { text: "机构访问通道可用，正在打开出版社页面…", tone: "waiting" };
 		case "navigating": return { text: "正在打开出版社页面…", tone: "waiting" };
-		case "waiting-download": return { text: "出版社页面已打开，正在自动查找并点击对应下载入口…", tone: "waiting" };
-		case "downloading": return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
+		case "waiting-download":
+			if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
+			if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
+			if (automationStage === "verification") return { text: "出版社要求人工验证；完成后请在侧栏点击下载", tone: "waiting" };
+			if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
+			return { text: "正在等待出版社页面加载…", tone: "waiting" };
+		case "downloading":
+			if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
+			return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
 		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
 		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
 		case "error": return { text: lastError ? `捕获失败：${lastError}` : "捕获失败，请重试", tone: "error" };
@@ -197,7 +204,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							return;
 						}
 						setCaptureHint((current) => current?.taskId === taskId
-							? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs) }
+							? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage) }
 							: current);
 					} catch { /* shell 暂不可达时静默，下一轮重试 */ }
 					timer = setTimeout(() => void poll(), 1200);

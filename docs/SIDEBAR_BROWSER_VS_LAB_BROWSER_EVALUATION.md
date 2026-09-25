@@ -1,5 +1,8 @@
 # 上游浏览器侧栏 vs 本项目文献浏览器：可行性与取舍
 
+
+> 2026-09-25 更新：本文对 DSH Sidebar Browser 在 Tauri 下退回 iframe、且无模型工具的判断仍可作为上游载体参考；“文献采集只能使用外部 Edge 扩展”的结论已过时。当前项目已有 Tauri WebView2 原生下载捕获，Agent 工具化的新设计见 AGENT_BROWSER_CONTROL_DESIGN.md。下文涉及采集路线的旧建议不能作为当前实现依据。
+
 > 问题：DSH 0.1.7 自带 `@deepseek-ai/dsh-client-ui-sidebar-browser`，
 > 本项目自制的软件内浏览器是否可以删掉，文献获取逻辑能否搬进去？
 >
