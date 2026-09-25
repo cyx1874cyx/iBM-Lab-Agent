@@ -236,6 +236,11 @@
                       必填槽/图片/容量/版式选择），② 再用 lab_ppt_build_from_template 传
                       compiled.json 构建。**禁止手写 plan 直接构建**（旧入口已移除，会直接报错），
                       也禁止用 python-pptx 从空白 Presentation() 自拼版式；
+                    - 产物命名（强制）：成品与符合性报告**必须用契约给出的路径原名写出**
+                      （`<stem> 文献汇报.pptx`、`<stem> PPT符合性.json`）——这两个名字就是用户
+                      下载/另存时看到的文件名，也是条目命名规范的一部分；不得自取
+                      deck.pptx / out.pptx / pres-xxx.pptx，也不要把 plan.json/compiled.json
+                      留在条目目录里；
                     - 模板缺 slots.json/GUIDE.md/lint.json（manifestSource=fallback）时**不能用于
                       生成 PPT**：必须在该环境具备 pptx-cli 后用新 id 重新导入（模板 id 不复用），
                       不要试图按 parse.json 手工凑；

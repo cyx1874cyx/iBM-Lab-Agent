@@ -56,6 +56,7 @@ AM 2017 Yong Taik Lim 术后免疫治疗 Implantable Synthetic Immune Niche for 
 | D12 stem 上限 | `ENTRY_STEM_MAX = 120` 个 Unicode 字符；超长时从 `titleLead` 尾部截断 | Windows 路径长度；旧值 80 装不下五段 |
 | D13 旧数据 | 已固化 `entryStem/entryDir` 的 bundle **不自动改名**；由 R2 的改名工具显式触发 | 用户工作区里的既有目录不能凭空移动 |
 | D14 段序回退 | 任一段缺失只影响该段；不因缺字段退回旧命名 | 命名可预测比字段齐全更重要 |
+| D15 下载/另存名 | 出流文件名（HTTP `x-file-name`、桌面端另存对话框预填名）必须等于条目命名：PPT `<stem> 文献汇报.pptx`、符合性报告 `<stem> PPT符合性.json`；**不得**用 runId（旧实现给 `pres-xxxx.pptx`）或构建期临时名 | 用户下载到本机、转发组内的文件名就是规范名；服务端是文件名的唯一决定者（与 `stageFileIntoEntry`「不接受外部文件名」同一原则） |
 
 ### 2.3 需要 Agent 提供的字段
 

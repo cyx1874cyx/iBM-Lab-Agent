@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, rm, writeFile, readFile, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
 import { buildPptx, defaultLayouts } from "../fixtures/pptx-builder.mjs";
@@ -425,7 +425,10 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		assert.equal(done.status, "under-review");
 		// PPT 同样不再受人工审核门禁限制。
 		const ppt = await tasks.presentationDownload(report.id);
-		assert.equal(ppt.fileName, `${pres.id}.pptx`);
+		// 下载/另存的名字必须遵守条目命名规范：<stem> 文献汇报.pptx（不是 pres-xxxx.pptx）。
+		assert.equal(ppt.fileName, entryFileName(entryStemOf(tasks, bundle.id), "ppt"));
+		assert.ok(ppt.fileName.endsWith("文献汇报.pptx"), `实际文件名 ${ppt.fileName}`);
+		assert.equal(basename(tasks.getPresentationRun(pres.id).pptxPath), ppt.fileName, "磁盘归档名与下载名一致");
 		assert.match(ppt.mime, /presentationml\.presentation/);
 		assert.ok(ppt.base64.length > 0);
 		// 解析回二进制与源一致
@@ -951,6 +954,14 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		assert.match(text, /--compiled/, "构建命令必须走编译产物");
 		assert.doesNotMatch(text, /兼容写法/, "旧字段（title/subtitle/bullets/imageCaption）的兼容说明已移除");
 		assert.doesNotMatch(text, /槽位规范：不可用/, "不再有「槽位规范不可用」的降级分支");
+		// 产物命名（用户下载/另存时看到的就是这些名字）：契约必须给出规范成品名与符合性报告名
+		const stem = entryStemOf(tasks, report.bundleId);
+		const expectedOut = join(tasks.getBundle(report.bundleId).entryDir, entryFileName(stem, "ppt"));
+		const expectedConformance = entryFileName(stem, "ppt-conformance");
+		assert.match(text, /## 产物命名（强制，不得自行改名）/);
+		assert.ok(text.includes(expectedOut), `契约要给出规范成品路径 ${expectedOut}`);
+		assert.ok(text.includes(`--out "${expectedOut}"`), "第二步命令必须用规范成品路径，不给自取名留口子");
+		assert.ok(text.includes(expectedConformance), "契约要给出规范符合性报告名");
 		// 缺派生件的模板：取契约直接报错，要求按标准流程重新导入（不再降级）
 		await rm(join(versionDir, "slots.json"));
 		await assert.rejects(
@@ -965,6 +976,18 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
 		const run = await tasks.createPresentation({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "lab-ppt-contract", templateVersion: "1" });
 		assert.equal(run.contractPath, contract.contractPath);
+
+		// 登记时文件名由服务端按命名规范决定：调用方给的 basename（deck-scratch/conformance）
+		// 不能带进条目目录——成品归档成 `<stem> 文献汇报.pptx`、符合性报告 `<stem> PPT符合性.json`。
+		const scratchPptx = join(dir, "deck-scratch.pptx");
+		await writeFile(scratchPptx, (await buildPptx({ name: "p", slides: 1 })).buffer);
+		const scratchConformance = join(dir, "conformance.json");
+		await writeFile(scratchConformance, `${JSON.stringify({ ok: true, findings: [], summary: { slideCount: 1 } })}\n`);
+		const staged = await tasks.completePresentation({ runId: run.id, pptxPath: scratchPptx, conformancePath: scratchConformance });
+		const entryDir = tasks.getBundle(report.bundleId).entryDir;
+		assert.equal(basename(staged.pptxPath), entryFileName(stem, "ppt"), "成品按条目命名归档");
+		assert.equal(dirname(staged.pptxPath), entryDir, "成品落在条目目录");
+		assert.equal(basename(staged.conformancePath), expectedConformance, "符合性报告按条目命名归档");
 
 		// 缺编译产物 → 明确失败，不静默降级
 		await assert.rejects(
