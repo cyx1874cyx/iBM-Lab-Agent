@@ -253,7 +253,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         ? '正在归档' + kind + (size ? ' · ' + size : '')
         : payload.phase === 'searching' ? '正在查找' + kind + '下载入口'
         : payload.phase === 'clicked' ? '已点击' + kind + '入口，等待下载响应'
-        : payload.phase === 'verification' ? '页面验证中，通过后继续查找下载入口'
+        : payload.phase === 'verification' ? '需要人机验证：请在页面点一下验证框'
         : payload.phase === 'manual' ? '未确认自动入口，请手动保存' + kind
         : payload.phase === 'opening' ? '正在打开出版社页面'
         : payload.phase === 'completed' ? kind + '已归档'
@@ -474,26 +474,35 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     return forwarded || patterns[publisher]?.test(evidence) === true;
   };
   const challengePresent = () => {
-    const sample = clean(`${document.title} ${(document.body?.innerText || '').slice(0, 5000)}`);
-    if (/captcha|verify you are human|security check|unusual traffic|机器人验证|安全验证|访问验证/.test(sample)) return true;
-    // Cloudflare 插页的正文在挑战脚本注入之前是空的，标题却已经是「请稍候…」/
-    // 「Just a moment...」。只看正文关键词会把这种页面当成文章页：16 次尝试全打在
-    // 挑战页上，最后谎报「已进入 PDF 预览器」（2026-09-25 science.org 实测）。
+    // 1) 挑战插页的**标题**是强特征：正常文章页不会是「请稍候…／Just a moment…」。
     const title = clean(document.title);
-    if (/just a moment|请稍候|attention required|checking your browser|ddos protection|正在验证|人机验证|verify human/.test(title)) return true;
-    // 标题也可能被站点改写，所以再认一次挑战脚本/组件本身。
+    if (/just a moment|请稍候|attention required|checking your browser|ddos protection|正在验证|人机验证|verify (?:you are )?human/.test(title)) return true;
+    const bodyText = clean((document.body?.innerText || '').slice(0, 4000));
+    // 2) 文章页优先。有 citation 元数据、或正文已经足够长时，后面那些"验证"字样只可能是
+    //    站点自带的文案（页脚合规声明、Cloudflare 注入脚本），不是挑战插页。
+    const articleLike = Boolean(document.querySelector('meta[name="citation_doi"],meta[name="citation_title"],meta[name="dc.identifier"]'))
+      || bodyText.length > 1200;
+    if (articleLike) return false;
+    if (/正在进行安全验证|请验证您是真人|verify you are human|security check|unusual traffic|机器人验证|captcha/.test(bodyText)) return true;
+    // 3) 只有**可见的**验证组件才算。仅仅存在 challenge-platform / challenges.cloudflare.com
+    //    这类脚本或资源**不算**：Cloudflare 保护的普通文章页同样会带它们。
+    //    2026-09-25 实测：文章页被这些标记误判成验证页，扫描器于是永远停在"等待验证"，
+    //    再也不会去找下载入口（nextAction 一直是 wait-and-poll，任务卡死）。
     const markers = [
-      'script[src*="challenge-platform"]',
-      'script[src*="challenges.cloudflare.com"]',
       'iframe[src*="challenges.cloudflare.com"]',
       'input[name="cf-turnstile-response"]',
       '#challenge-form',
       '#challenge-running',
-      '#cf-challenge-running',
-      '[class*="cf-chl"]'
+      '#cf-challenge-running'
     ];
     return markers.some((selector) => {
-      try { return Boolean(document.querySelector(selector)); } catch { return false; }
+      try {
+        const element = document.querySelector(selector);
+        if (!element) return false;
+        const rect = typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null;
+        if (!rect) return false;
+        return rect.width > 40 && rect.height > 40;
+      } catch { return false; }
     });
   };
   /**

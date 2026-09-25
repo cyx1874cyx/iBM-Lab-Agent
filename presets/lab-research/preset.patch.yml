@@ -121,8 +121,11 @@
                    - 通用出版社文献下载调用 lab_publisher_browser_download 后，以 taskId
                      持续调用 lab_publisher_browser_download_status，直到 completed 或
                      明确的 failed/expired/cancelled。queued 表示排队，不要再次创建同类任务；
-                     verification 表示页面正在自动验证，保持等待并复查，不要让用户手动
-                     点击、不要结束操作。状态返回 nextAction=wait-and-poll 时继续查询，
+                     verification 表示出版社要求人机验证，这一步**只能由人完成**：状态会返回
+                     nextAction=complete-verification，此时必须把「请在软件侧栏点一下
+                     『请验证您是真人』」明确告诉用户，然后继续查询状态等待其完成；
+                     不要自行点击、不要结束或取消任务，也不要反复重开页面。
+                     状态返回 nextAction=wait-and-poll 时继续查询，
                      nextAction=observe-or-save-pdf 或 observe-or-click 时先用
                      lab_browser_observe 查看页面；若正文页是顶层原生 PDF（或页面观察
                      因原生查看器无法读取）则调用 lab_browser_save_current_pdf；否则按观察

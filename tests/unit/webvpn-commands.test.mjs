@@ -179,6 +179,64 @@ test("Cloudflare 验证插页按验证处理，不被误判为已进入 PDF 预�
  * 同一实测的另一半：文档停在 loading、正文为空时，消耗尝试次数只会得到错误结论。
  * 现在改为只等待，约 30 秒后才退回人工处理。
  */
+/**
+ * 2026-09-25 实测的误判：Cloudflare 会给**所有受保护页面**注入
+ * `challenge-platform` 脚本，普通文章页同样带着它。把它当作"这是验证页"的判据，
+ * 扫描器就会永远停在验证分支，再也不会去找下载入口（状态恒为
+ * wait-and-poll，任务卡死）。文章页必须优先按文章页处理。
+ */
+test("带 Cloudflare 脚本的普通文章页不得被判为验证页", async () => {
+	const source = await webvpnSource();
+	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "science");
+	assert.ok(script);
+	let tick;
+	let clicks = 0;
+	const signals = [];
+	const document = {
+		title: "Senescence-directed nanotherapy ameliorates fibrosis | Science",
+		readyState: "complete",
+		body: { innerText: "Editor's summary ".repeat(120) },
+		querySelector: (selector) => {
+			// Cloudflare 的注入脚本在正常文章页上同样存在 —— 误判的来源。
+			if (selector.includes("challenge-platform")) return {};
+			// 文章页自带 citation 元数据。
+			if (selector.includes("citation_doi")) return {};
+			return null;
+		},
+		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' ? [link] : [],
+		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+	};
+	// 候选必须带 ownerDocument，否则 visible() 判为不可见（与真实页面一致）。
+	const link = {
+		nodeType: 1, ownerDocument: document,
+		innerText: "Download PDF", textContent: "Download PDF",
+		getBoundingClientRect: () => ({ width: 80, height: 20 }),
+		getAttribute: () => null, closest: () => link, matches: () => true,
+		click: () => { clicks += 1; },
+	};
+	const location = {
+		hostname: "www.science.org",
+		pathname: "/doi/10.1126/science.aeg4791",
+		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
+		set href(value) { signals.push(value); },
+	};
+	runInNewContext(script, {
+		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
+		setInterval: (callback) => { tick = callback; return 1; },
+		clearInterval: () => { },
+		setTimeout: () => 1,
+	});
+	for (let index = 0; index < 4; index += 1) tick();
+	assert.equal(
+		signals.filter((item) => item.endsWith("/challenge")).length,
+		0,
+		"带 Cloudflare 脚本的文章页不得上报验证中",
+	);
+	assert.ok(clicks >= 1, "文章页必须继续点击下载入口，而不是停在验证分支");
+});
+
 test("停在加载中或空白的文档不消耗尝试次数，超时后才退回人工", async () => {
 	const source = await webvpnSource();
 	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]

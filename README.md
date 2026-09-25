@@ -5,14 +5,14 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta7**：白屏的真正成因是**内部命令走了导航**。
-文献侧栏把状态发回壳时用了 `location.href = 'ibm-webvpn://…'`——在 WebView2 里那是一次
-真实导航，会把正在加载的出版社页面打成"JS 还活着、却一个像素都不画"的白屏（实测：document
-就是真正的文章页、标题正确、脚本照常执行、注入的工具栏也已挂载，但表面纯白一片）。
-现在内部命令一律改走 `window.open`（只触发宿主的新窗口请求，当前文档不受影响），Rust 侧由
-`handle_internal_command` 在 `on_new_window` 与 `on_navigation` 两条路径上统一处理。
-beta6 的工具栏立即挂载、验证页识别、位移只在确证是 PDF 时打开等修复保持不变。
-详见 [发布说明](docs/releases/v0.5.5-beta7.md)。
+当前候选版本为 **v0.5.5-beta8**：beta7 之后页面已经能正常渲染（工具栏与正文都在），但状态
+被卡在「正在等待页面自动验证」——根因是**验证页误判**：Cloudflare 会给所有受保护页面注入
+`challenge-platform` 脚本，普通文章页同样带着它，而 beta6 把它当成了"这是验证页"的判据，
+于是扫描器永远停在验证分支、再也不会去找下载入口（`nextAction` 恒为 wait-and-poll）。
+现在只有**挑战插页标题**、或**非文章页上的可见验证组件**才算验证；文章页（有 citation
+元数据或正文足够长）一律按文章页继续扫描。同时验证阶段的状态改为
+`nextAction=complete-verification`，明确要求用户去侧栏点一下「请验证您是真人」，
+不再让人无限等待。详见 [发布说明](docs/releases/v0.5.5-beta8.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
