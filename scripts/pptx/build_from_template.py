@@ -8,13 +8,10 @@ Role → layout precedence (the `layout_resolution` finding): plan.roles[role]
 when mapped to an existing layout; else cover → the title layout, other roles
 → the previous slide's layout, else slide_layouts[0].
 
-Writing into placeholders (0.1.16+):
-  * legacy: item.title / item.subtitle / item.bullets / item.image —
-    addressed by placeholder *kind* (first match wins).
-  * `item.texts`: [{ idx | name, paragraphs: [...], mode: "paragraph"|"bullets",
-    sizePt? }] — addressed by placeholder **idx** (or shape name). Required for
-    templates whose cover has several body placeholders and no title, and for
-    summary pages with more than one body placeholder.
+Writing into placeholders:
+  * `item.texts`: [{ prompt | idx | name, paragraphs: [...], mode: "paragraph"|"bullets",
+    align?, sizePt? }] — 定位优先用**提示文字**，其次 idx，最后形状名。
+    compiled.json 由编译器生成，Agent 只写 plan.json 的槽位写法。
   * Every written run gets latin/ea/cs typefaces (default Arial / 微软雅黑 /
     Arial) and a size floor (`placeholderRules.minFontPt`, default 20pt), so a
     Chinese body never inherits a 14pt template default.
@@ -25,13 +22,14 @@ Writing into placeholders (0.1.16+):
     占位符比例，且两个渲染器表现不一致（PowerPoint 裁切 / LibreOffice 撑高溢出）。
     `placeholderRules.cropMode="cover"` 可切回裁切填满（行为未变）。
 
-Input (0.5.4+): 二选一 ——
-  * `--plan plan.json`：Agent 手写的语义计划（向后兼容，行为不变）；
-  * `--compiled compiled.json`：`scripts/compile-ppt-plan.mjs` 的产物
-    （kind=compiled-plan：角色→版式、槽位→texts[] 带 prompt+idx/mode/align/sizePt）。
-    编译期诊断会并入符合性报告（前缀 `compiled_`），error 同样使退出码为 1。
+Input: **只有一条标准路径** —— `--compiled compiled.json`，即
+`scripts/compile-ppt-plan.mjs` 的产物（kind=compiled-plan：角色→版式、槽位→texts[]
+带 prompt+idx/mode/align/sizePt）。编译期诊断会并入符合性报告（前缀 `compiled_`），
+error 同样使退出码为 1。
+旧的手写计划入口 `item.title/subtitle/bullets` 与 `--plan` 已**移除**：它们绕过编译期的
+必填槽/容量/选版式校验，正是 0.5.4 试用复盘里"溢出磨 10 轮"的成因。
 
-CLI: --template <source.pptx> --parse <parse.json> (--plan <plan.json> | --compiled <compiled.json>)
+CLI: --template <source.pptx> --parse <parse.json> --compiled <compiled.json>
      [--out <deck.pptx>] [--report <conformance.json>] [--check] [--max-pages N]
      [--required cover,summary] [--ratio 16:9] [--notes-required true|false]
 Output: conformance JSON on stdout (and in --report).  Exit codes: 0 clean,
@@ -108,20 +106,24 @@ def load_plan(args):
     （roles/slides[].role/texts[]/image/notes），所以构建路径完全复用，只是多了一层
     来源校验 + 编译期诊断并入报告。
     """
-    if args.plan and args.compiled:
-        raise BuildError("give either --plan or --compiled, not both")
-    if args.compiled:
-        compiled = read_json(args.compiled, "compiled.json")
-        kind = compiled.get("kind")
-        if kind != "compiled-plan":
-            raise BuildError(
-                f"not a compiled plan (kind={kind!r}); regenerate it with "
-                "scripts/compile-ppt-plan.mjs"
-            )
-        return compiled, "compiled"
-    if not args.plan:
-        raise BuildError("--plan is required unless --compiled is used")
-    return read_json(args.plan, "plan.json"), "plan"
+    if args.plan:
+        # 旧的手写计划入口已移除：它不经过编译期校验（必填槽/容量/按图片比例选版式），
+        # 正是 0.5.4 试用复盘里"溢出磨 10 轮"的成因。这里明确报出该怎么走。
+        raise BuildError(
+            "--plan 旧路径已移除：请先编译 —— "
+            "node scripts/compile-ppt-plan.mjs --plan <plan.json> --template <模板目录> "
+            "--out <compiled.json>，再用 --compiled 构建"
+        )
+    if not args.compiled:
+        raise BuildError("--compiled is required（编译产物 compiled.json；不要手写 plan 直接构建）")
+    compiled = read_json(args.compiled, "compiled.json")
+    kind = compiled.get("kind")
+    if kind != "compiled-plan":
+        raise BuildError(
+            f"not a compiled plan (kind={kind!r}); regenerate it with "
+            "scripts/compile-ppt-plan.mjs"
+        )
+    return compiled, "compiled"
 
 
 def apply_compiled_diagnostics(report, compiled):
@@ -274,11 +276,13 @@ def evaluate(parsed, plan, args, template_path, template_sha):
         resolved, code, mapping = resolve_role_layout(role, roles_map, by_id, previous_id, title_id, order)
         previous_id = resolved
         notes = slide.get("notes") if isinstance(slide.get("notes"), str) else ""
+        texts = slide.get("texts") if isinstance(slide.get("texts"), list) else []
+        paragraphs = [p for entry in texts if isinstance(entry, dict) for p in (entry.get("paragraphs") or []) if isinstance(p, str)]
         rows.append({
             "index": index + 1, "role": role, "layoutId": resolved,
             "layoutName": by_id[resolved].get("name") or resolved, "notesChars": len(notes),
-            "titleChars": len(slide["title"]) if isinstance(slide.get("title"), str) else 0,
-            "bulletCount": len(slide["bullets"]) if isinstance(slide.get("bullets"), list) else 0
+            "slotCount": len(texts), "paragraphCount": len(paragraphs),
+            "textChars": sum(len(p) for p in paragraphs)
         })
         if code == "role_unmapped":
             add("error", code, f"slide {index + 1} role '{role}' is not mapped in plan.roles; using fallback '{resolved}'")
@@ -619,20 +623,8 @@ def build_deck(template_path, parsed, plan, findings):
         previous_id = resolved
         placeholders = list(slide.placeholders)
         title_shape = slide.shapes.title or next((ph for ph in placeholders if kind_of(ph) == "title"), None)
-        for key, shape in (("title", title_shape), ("subtitle", next((ph for ph in placeholders if kind_of(ph) == "subtitle"), None))):
-            if isinstance(item.get(key), str) and item[key] and shape is not None and shape.has_text_frame:
-                shape.text_frame.text = item[key]
-                style_paragraphs(shape)
-        body_shape = next((ph for ph in placeholders if kind_of(ph) == "body"), None)
-        bullets = item.get("bullets") if isinstance(item.get("bullets"), list) else []
-        if bullets and body_shape is not None and body_shape.has_text_frame:
-            body_shape.text_frame.clear()
-            frame = body_shape.text_frame
-            frame.word_wrap = True
-            for position, bullet in enumerate(bullets):
-                (frame.paragraphs[0] if position == 0 else frame.add_paragraph()).text = str(bullet)
-            style_paragraphs(body_shape)
-        # 定点写入：按占位符 idx（或形状名）写多段文字，用于封面多占位符与总结页多段。
+        # 定点写入：按提示文字（优先）/ idx / 形状名写多段文字。compiled.json 的 texts[]
+        # 是唯一的内容来源（旧字段 title/subtitle/bullets 已移除）。
         texts = item.get("texts")
         if isinstance(texts, list):
             for entry in texts:
@@ -640,7 +632,7 @@ def build_deck(template_path, parsed, plan, findings):
                     write_into_placeholder(slide, entry, index, findings)
         if item.get("image"):
             try:
-                place_picture(slide, item["image"], item.get("imageCaption"), title_shape, index)
+                place_picture(slide, item["image"], None, title_shape, index)
             except Exception as exc:  # noqa: BLE001 - one bad image must not abort the deck
                 findings.append({"level": "warning", "code": "image_unreadable",
                                  "message": f"slide {index + 1}: cannot insert image {item['image']}: {type(exc).__name__}: {exc}"})
