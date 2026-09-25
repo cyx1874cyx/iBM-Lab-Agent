@@ -5,12 +5,14 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta6**：修掉 beta5 在已登录 iWAN 下把文献侧栏变成白屏的问题。
-出版社验证页（Cloudflare「请稍候…／安全验证」）此前被误当成正文页，扫描 16 次后谎报
-「已进入 PDF 预览器」，并对普通文章页施加了只该给整屏 PDF 预览器的页面位移；注入的工具栏
-又只等 `DOMContentLoaded`，被拦页面因此连地址栏和关闭按钮都没有。现在工具栏立即挂载并重试、
-验证页按验证处理、页面位移只在确证顶层文档是 PDF 时打开。
-详见 [发布说明](docs/releases/v0.5.5-beta6.md)。
+当前候选版本为 **v0.5.5-beta7**：白屏的真正成因是**内部命令走了导航**。
+文献侧栏把状态发回壳时用了 `location.href = 'ibm-webvpn://…'`——在 WebView2 里那是一次
+真实导航，会把正在加载的出版社页面打成"JS 还活着、却一个像素都不画"的白屏（实测：document
+就是真正的文章页、标题正确、脚本照常执行、注入的工具栏也已挂载，但表面纯白一片）。
+现在内部命令一律改走 `window.open`（只触发宿主的新窗口请求，当前文档不受影响），Rust 侧由
+`handle_internal_command` 在 `on_new_window` 与 `on_navigation` 两条路径上统一处理。
+beta6 的工具栏立即挂载、验证页识别、位移只在确证是 PDF 时打开等修复保持不变。
+详见 [发布说明](docs/releases/v0.5.5-beta7.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
