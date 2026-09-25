@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta6",
-    "commit": "3f587d2",
-    "note": "0.5.5-beta5 turned the literature sidebar into a blank white surface on Cloudflare-protected publisher pages: the injected chrome only mounted on DOMContentLoaded (so a page that never finished loading had no address bar at all), the challenge interstitial was not recognised, and the page-offset meant for a fullscreen PDF previewer was applied to an ordinary article page. beta6 mounts the chrome immediately with retries, recognises Cloudflare challenges by title and by challenge-platform/Turnstile markers, refuses to count attempts while the document is still loading or empty, and only offsets when the top-level document really is a PDF. Live selector verification is still pending: no publisher rule was promoted from an unverified page."
+    "version": "0.5.5-beta7",
+    "commit": "0552955",
+    "note": "The blank literature sidebar was finally traced to the internal protocol: the injected page script reported state with location.href = 'ibm-webvpn://...', which in WebView2 is a real navigation and leaves the publisher page with its document, scripts and injected toolbar intact but no first paint at all. Replaying the app's own scripts against a copy of its WebView2 profile in Edge reproduced it exactly, and switching that single call to window.open made the same page render. beta7 therefore sends every internal command through window.open (handled by handle_internal_command from on_new_window, with on_navigation as a fallback). Live selector verification is still pending: no publisher rule was promoted from an unverified page."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
