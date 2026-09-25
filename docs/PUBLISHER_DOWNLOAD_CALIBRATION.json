@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta8",
-    "commit": "ba3b538",
-    "note": "beta7 fixed the blank sidebar (internal commands no longer navigate the webview). beta8 fixes what that exposed: Cloudflare injects its challenge-platform script into every protected page, so keying verification on that script made ordinary article pages look like interstitials and the scanner sat in the verification branch forever (nextAction stayed wait-and-poll). challengePresent now requires the interstitial title, or a visible challenge widget on a page that is not article-like. Verification also reports nextAction=complete-verification, because a Turnstile box can only be solved by a human. Live selector verification is still pending: no publisher rule was promoted from an unverified page."
+    "version": "0.5.5-beta9",
+    "commit": "e9f76a3",
+    "note": "beta7 stopped the internal protocol from navigating the webview (the blank sidebar), beta8 stopped counting Cloudflare's ubiquitous challenge-platform script as an interstitial (which had wedged the scanner in verification), and beta9 routes the native PDF viewer to the save tool: entering WebView2's built-in PDF viewer now sets the manual stage so the status returns nextAction=observe-or-save-pdf and lab_browser_save_current_pdf writes straight to the archive path with SetSuppressDefaultDialog (no dialog, no right-click). is_pdf_document_url also recognises publisher endpoints that do not end in .pdf (/doi/pdf/..., /pdfft, /stampPDF/getPDF.jsp). Live selector verification is still pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
