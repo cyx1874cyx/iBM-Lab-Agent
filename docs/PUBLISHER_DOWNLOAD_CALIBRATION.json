@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta7",
-    "commit": "0552955",
-    "note": "The blank literature sidebar was finally traced to the internal protocol: the injected page script reported state with location.href = 'ibm-webvpn://...', which in WebView2 is a real navigation and leaves the publisher page with its document, scripts and injected toolbar intact but no first paint at all. Replaying the app's own scripts against a copy of its WebView2 profile in Edge reproduced it exactly, and switching that single call to window.open made the same page render. beta7 therefore sends every internal command through window.open (handled by handle_internal_command from on_new_window, with on_navigation as a fallback). Live selector verification is still pending: no publisher rule was promoted from an unverified page."
+    "version": "0.5.5-beta8",
+    "commit": "ba3b538",
+    "note": "beta7 fixed the blank sidebar (internal commands no longer navigate the webview). beta8 fixes what that exposed: Cloudflare injects its challenge-platform script into every protected page, so keying verification on that script made ordinary article pages look like interstitials and the scanner sat in the verification branch forever (nextAction stayed wait-and-poll). challengePresent now requires the interstitial title, or a visible challenge widget on a page that is not article-like. Verification also reports nextAction=complete-verification, because a Turnstile box can only be solved by a human. Live selector verification is still pending: no publisher rule was promoted from an unverified page."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
