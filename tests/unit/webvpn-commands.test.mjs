@@ -92,6 +92,104 @@ test("空白弹窗不能覆盖唯一文献 WebView", async () => {
 	assert.match(webvpn, /on_new_window[\s\S]*?if !matches!\(url\.scheme\(\), "http" \| "https"\)[\s\S]*?return NewWindowResponse::Deny;/);
 });
 
+/**
+ * 2026-09-25 science.org 实测：站点在 WebView2 里返回 Cloudflare 插页
+ * （标题「请稍候…」，正文在挑战脚本注入前是空的）。原实现只认正文关键词，
+ * 于是把这个空挑战页当成文章页，16 次尝试全打在上面，最后谎报「已进入 PDF
+ * 预览器」，用户看到的却是一个全白、连工具栏都没有的侧栏。
+ */
+test("Cloudflare 验证插页按验证处理，不被误判为已进入 PDF 预览器", async () => {
+	const source = await webvpnSource();
+	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "science");
+	assert.ok(script);
+	let tick;
+	let stopped = 0;
+	const signals = [];
+	const window = {};
+	const document = {
+		title: "请稍候…",
+		readyState: "complete",
+		body: { innerText: "" },
+		querySelector: (selector) => (selector === 'script[src*="challenge-platform"]' ? {} : null),
+		querySelectorAll: () => [],
+		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+	};
+	const location = {
+		hostname: "www.science.org",
+		pathname: "/doi/10.1126/science.aeg4791",
+		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
+		set href(value) { signals.push(value); },
+	};
+	runInNewContext(script, {
+		window, document, location, URL,
+		setInterval: (callback) => { tick = callback; return 1; },
+		clearInterval: () => { stopped += 1; },
+		setTimeout: () => 1,
+	});
+	for (let index = 0; index < 40; index += 1) tick();
+	assert.ok(signals.some((item) => item.endsWith("/challenge")), "必须上报正在验证");
+	assert.equal(
+		signals.filter((item) => item.endsWith("pdf-manual")).length,
+		0,
+		"挑战页不得被判为已进入 PDF 预览器",
+	);
+	assert.equal(stopped, 0, "验证期间不得停止扫描");
+});
+
+/**
+ * 同一实测的另一半：文档停在 loading、正文为空时，消耗尝试次数只会得到错误结论。
+ * 现在改为只等待，约 30 秒后才退回人工处理。
+ */
+test("停在加载中或空白的文档不消耗尝试次数，超时后才退回人工", async () => {
+	const source = await webvpnSource();
+	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "science");
+	assert.ok(script);
+	let tick;
+	let stopped = 0;
+	let clicks = 0;
+	const signals = [];
+	const link = {
+		nodeType: 1,
+		innerText: "Download PDF",
+		textContent: "Download PDF",
+		getBoundingClientRect: () => ({ width: 80, height: 20 }),
+		getAttribute: () => null,
+		click: () => { clicks += 1; },
+	};
+	const document = {
+		title: "www.science.org",
+		readyState: "loading",
+		body: { innerText: "" },
+		querySelector: () => null,
+		querySelectorAll: () => [link],
+		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+	};
+	const location = {
+		hostname: "www.science.org",
+		pathname: "/doi/10.1126/science.aeg4791",
+		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
+		set href(value) { signals.push(value); },
+	};
+	runInNewContext(script, {
+		window: {}, document, location, URL,
+		setInterval: (callback) => { tick = callback; return 1; },
+		clearInterval: () => { stopped += 1; },
+		setTimeout: () => 1,
+	});
+	// 前 38 拍（加上脚本自己那一拍共 39）：一直等待，既不点候选也不下"已进入预览器"的结论。
+	for (let index = 0; index < 38; index += 1) tick();
+	assert.equal(clicks, 0, "空白文档不得点击候选入口");
+	assert.equal(signals.filter((item) => item.endsWith("pdf-manual")).length, 0, "空白文档不得提前退回人工");
+	// 第 40 拍：超过等待预算，退回人工处理（此时 Rust 不会再据此做页面位移）。
+	tick();
+	assert.equal(signals.filter((item) => item.endsWith("pdf-manual")).length, 1, "超时后必须退回人工");
+	assert.equal(stopped, 1, "退回人工后停止扫描");
+});
+
 /** `invoke('name', ...)` 里的命令名。辅助函数本身是 `invoke(command, args)`，不含引号，不会被收录。 */
 const invokedCommands = (shell) =>
 	[...new Set([...shell.matchAll(/invoke\('([^']+)'/g)].map((match) => match[1]))];
@@ -479,9 +577,18 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	assert.match(webvpn, /ibm-webvpn:\/\/offset-reverted\//);
 	const mountBody = webvpn.split("const mount = () => {")[1].split("if (document.readyState")[0];
 	assert.doesNotMatch(mountBody, /applyPageOffset/, "mount() 不得对所有页面无条件位移");
-	// Rust 侧只在出版社 pdf-manual 信号与直接 .pdf 时打开开关。
-	assert.match(webvpn, /"pdf-manual" => Some\(/);
+	// Rust 侧只在**确证顶层文档是 PDF** 时才打开位移。`pdf-manual` 只代表扫描失败，
+	// 不再单独触发位移，否则普通文章页会被加上整页 transform（两次白屏的成因）。
+	assert.match(
+		webvpn,
+		/if result == "pdf-manual" \{[\s\S]*?is_pdf_document_url[\s\S]*?__ibmWebVpnSetPageOffset/,
+		"pdf-manual 必须先确认是 PDF 文档才开位移",
+	);
 	assert.match(webvpn, /is_pdf_document_url/);
+	// 工具栏不能只等 DOMContentLoaded：验证页/被拦页面不会触发它，用户会连地址栏都看不到。
+	assert.match(webvpn, /const mountNow = \(\) =>/, "工具栏必须能立即挂载并重试");
+	assert.match(webvpn, /if \(document\.readyState === 'loading'\) document\.addEventListener\('DOMContentLoaded', mountNow/);
+	assert.match(webvpn, /mountNow\(\);\s*\n\s*\[250, 1200, 4000\]\.forEach/);
 	// 工具栏自身必须等量反向抵消，否则会跟着 html 一起下移出屏幕。
 	assert.match(webvpn, /translateY\(-\$\{CHROME_HEIGHT\}px\)/);
 	assert.match(webvpn, /const syncChromeShift = \(\) =>/);

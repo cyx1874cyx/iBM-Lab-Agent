@@ -388,8 +388,21 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     setTimeout(reportAuthenticatedPortal, 800);
     setTimeout(() => observer.disconnect(), 30000);
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
-  else mount();
+  /**
+   * 工具栏必须尽早出现，不能只等 DOMContentLoaded。
+   *
+   * 验证页、被反爬拦下的空文档、以及长时间停在 loading 的页面都不会（或很晚才）
+   * 触发 DOMContentLoaded。只等它会让整个侧栏看起来是白屏：用户既看不到页面，
+   * 也看不到地址栏和关闭按钮，连手动绕过都做不到（2026-09-25 实测，Cloudflare
+   * 插页 + science.org）。
+   */
+  const mountNow = () => {
+    try { mount(); } catch { /* documentElement 尚未建立：等下一次重试 */ }
+    return Boolean(document.getElementById('__ibm_webvpn_chrome'));
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountNow, { once: true });
+  mountNow();
+  [250, 1200, 4000].forEach((delay) => setTimeout(mountNow, delay));
 })();
 "#;
 
@@ -406,6 +419,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
   const WILEY_HUMAN_CHECK_MS = 10000;
   const wileyReadyAt = Date.now() + WILEY_HUMAN_CHECK_MS;
   let attempts = 0;
+  let stalledTicks = 0;
   let expanded = false;
   let reportedSearch = false;
   let reportedChallenge = false;
@@ -446,7 +460,40 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
   };
   const challengePresent = () => {
     const sample = clean(`${document.title} ${(document.body?.innerText || '').slice(0, 5000)}`);
-    return /captcha|verify you are human|security check|unusual traffic|机器人验证|安全验证|访问验证/.test(sample);
+    if (/captcha|verify you are human|security check|unusual traffic|机器人验证|安全验证|访问验证/.test(sample)) return true;
+    // Cloudflare 插页的正文在挑战脚本注入之前是空的，标题却已经是「请稍候…」/
+    // 「Just a moment...」。只看正文关键词会把这种页面当成文章页：16 次尝试全打在
+    // 挑战页上，最后谎报「已进入 PDF 预览器」（2026-09-25 science.org 实测）。
+    const title = clean(document.title);
+    if (/just a moment|请稍候|attention required|checking your browser|ddos protection|正在验证|人机验证|verify human/.test(title)) return true;
+    // 标题也可能被站点改写，所以再认一次挑战脚本/组件本身。
+    const markers = [
+      'script[src*="challenge-platform"]',
+      'script[src*="challenges.cloudflare.com"]',
+      'iframe[src*="challenges.cloudflare.com"]',
+      'input[name="cf-turnstile-response"]',
+      '#challenge-form',
+      '#challenge-running',
+      '#cf-challenge-running',
+      '[class*="cf-chl"]'
+    ];
+    return markers.some((selector) => {
+      try { return Boolean(document.querySelector(selector)); } catch { return false; }
+    });
+  };
+  /**
+   * 文档还在加载、或正文里还没有任何可交互内容时，它不构成「已确认的出版社文章页」。
+   *
+   * 挑战插页、被反爬拦下的空文档、以及解析被卡住的页面都属于这一类：此时消耗尝试
+   * 次数只会在 12 秒后得出「已进入 PDF 预览器」这种错误结论，并把普通文章页当成
+   * 整屏预览器去做页面位移。所以这种情况只等待，不计数。
+   */
+  const publisherContentReady = () => {
+    if (document.readyState === 'loading') return false;
+    const body = document.body;
+    if (!body) return false;
+    if (String(body.innerText || '').trim().length > 0) return true;
+    return Boolean(body.querySelector?.('img,svg,canvas,video,iframe,embed,object,a[href],button'));
   };
   const automationRoots = () => {
     const roots = [document];
@@ -603,6 +650,14 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
       return;
     }
     if (reportedChallenge) { reportedChallenge = false; signal('searching'); }
+    // 空白或还没加载完的文档先等：挑战页/被拦页面不应该消耗自动化重试次数。
+    // 超过约 30 秒仍无内容才退回人工处理，避免任务永远停在"正在查找入口"。
+    if (!publisherContentReady()) {
+      stalledTicks += 1;
+      if (stalledTicks >= 40) { clearInterval(timer); signal(kind === 'si' ? 'si-manual' : 'pdf-manual'); }
+      return;
+    }
+    stalledTicks = 0;
     if (lastClickAt && Date.now() - lastClickAt < 4000) return;
     attempts += 1;
     if (attempts >= 2 && forceDownload(previewUrl)) return;
@@ -2644,24 +2699,46 @@ pub fn open_window(
                         let _ = push_capture_ball(&navigation_app, &webview);
                     }
                 }
-                let waiting_message = match result {
-                    "si-manual" => {
-                        Some("自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料")
-                    }
-                    "pdf-manual" => Some("已进入 PDF 预览器并保持捕获；可手动点击右上角保存"),
-                    _ => None,
-                };
-                if let Some(message) = waiting_message {
-                    // 出版社 HTML PDF 预览器是整屏 fixed 容器：只有这时才开启页面位移，
-                    // 否则其「保存/下载」工具栏会被我们的 76px 工具栏盖住。
-                    if result == "pdf-manual" {
+                // `pdf-manual` 只代表扫描若干轮没找到入口——它并不证明页面是预览器。
+                // 页面位移只对「整屏 fixed 的预览器/原生 PDF 查看器」有意义，据此给
+                // 普通文章页加 transform 正是两次白屏的成因（2026-09-23 ScienceDirect、
+                // 2026-09-25 science.org），所以这里要求正向证据：只有顶层文档确实
+                // 是 PDF 才开位移，否则只如实报告"没找到入口"。
+                if result == "pdf-manual" {
+                    let pdf_document = navigation_app
+                        .get_webview(WINDOW_LABEL)
+                        .and_then(|webview| webview.url().ok())
+                        .map(|url| is_pdf_document_url(&url))
+                        .unwrap_or(false);
+                    if pdf_document {
                         if let Some(webview) = navigation_app.get_webview(WINDOW_LABEL) {
                             let _ = webview.eval(
                                 "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
                             );
                         }
+                        record(
+                            &navigation_app,
+                            "automation",
+                            "",
+                            "已进入 PDF 预览器并保持捕获；可手动点击右上角保存",
+                        );
+                    } else {
+                        record(
+                            &navigation_app,
+                            "automation",
+                            "",
+                            "未能自动识别正文下载入口；捕获仍有效，请在页面中手动打开并保存",
+                        );
                     }
-                    record(&navigation_app, "automation", "", message);
+                    return false;
+                }
+                if result == "si-manual" {
+                    record(
+                        &navigation_app,
+                        "automation",
+                        "",
+                        "自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料",
+                    );
                     return false;
                 }
                 if result == "challenge" {

@@ -5,10 +5,12 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta5**：文献浏览器在自动验证通过后继续寻找下载入口，
-下载点击不再与内部状态导航争用页面，空白弹窗不覆盖正文；正文任务结束或过期后
-SI 队列继续接管，Agent 状态明确给出下一步操作。
-详见 [发布说明](docs/releases/v0.5.5-beta5.md)。
+当前候选版本为 **v0.5.5-beta6**：修掉 beta5 在已登录 iWAN 下把文献侧栏变成白屏的问题。
+出版社验证页（Cloudflare「请稍候…／安全验证」）此前被误当成正文页，扫描 16 次后谎报
+「已进入 PDF 预览器」，并对普通文章页施加了只该给整屏 PDF 预览器的页面位移；注入的工具栏
+又只等 `DOMContentLoaded`，被拦页面因此连地址栏和关闭按钮都没有。现在工具栏立即挂载并重试、
+验证页按验证处理、页面位移只在确证顶层文档是 PDF 时打开。
+详见 [发布说明](docs/releases/v0.5.5-beta6.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
