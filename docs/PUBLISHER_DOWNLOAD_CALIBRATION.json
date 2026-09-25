@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta5",
-    "commit": "74d637a",
-    "note": "Automation behaviour changed in this build: the scanner now survives an in-page verification challenge, a blank popup no longer replaces the article page, and the status tool reports nextAction plus a queue position so a queued SI can take over after the article task ends. The pending live checks below refer to this build; no publisher rule was promoted from an unverified page."
+    "version": "0.5.5-beta6",
+    "commit": "3f587d2",
+    "note": "0.5.5-beta5 turned the literature sidebar into a blank white surface on Cloudflare-protected publisher pages: the injected chrome only mounted on DOMContentLoaded (so a page that never finished loading had no address bar at all), the challenge interstitial was not recognised, and the page-offset meant for a fullscreen PDF previewer was applied to an ordinary article page. beta6 mounts the chrome immediately with retries, recognises Cloudflare challenges by title and by challenge-platform/Turnstile markers, refuses to count attempts while the document is still loading or empty, and only offsets when the top-level document really is a PDF. Live selector verification is still pending: no publisher rule was promoted from an unverified page."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
@@ -191,6 +191,9 @@
     "Record final publisher URL, visible PDF/SI control text, element type, and whether a native PDF viewer opens.",
     "Record automation signals opening/searching/clicked/verification/manual/saving and confirm DownloadEvent::Requested.",
     "Confirm that a publisher verification page clears on its own and the scanner returns from verification to searching without cancelling the task.",
+    "Confirm that a Cloudflare interstitial (title '请稍候…' / 'Just a moment...', challenge-platform or Turnstile markers) is reported as verification and never as '已进入 PDF 预览器'.",
+    "Confirm that the injected address bar and close button are present even while the page is stuck on a challenge or still loading.",
+    "Confirm that an ordinary article page is never given the html page offset (it must only appear for a real top-level PDF).",
     "Confirm that an about:blank or other non-HTTP(S) popup does not replace the single article page.",
     "Queue an SI task behind an article task and confirm SI takes over only after the article task is completed, failed, expired or cancelled, with no leftover webvpn_status.pendingTaskId.",
     "Read lab_publisher_browser_download_status nextAction per phase and confirm it matches what the Agent should do next (wait-and-poll, observe-or-save-pdf, observe-or-click, ask-user, done).",
