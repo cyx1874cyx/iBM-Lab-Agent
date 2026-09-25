@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,6 +25,7 @@ import {
 	STAMP_VERSION,
 	checkStamp,
 	computeInputs,
+	digestFile,
 	writeStamp,
 } from "../../scripts/bundled-python-inputs.mjs";
 
@@ -40,7 +42,7 @@ function makeFixture() {
 	put("desktop/scripts/build-bundled-python.ps1", "param()\nWrite-Host 'x'\n");
 	put("src/markitdown-patch.js", "export const MARKITDOWN_PATCH_VERSION = '0.1.7';\n");
 	put("scripts/patch-markitdown.mjs", "// cli\n");
-	put("runtime/versions.env", "NODE_VERSION=24.16.0\n");
+	put("runtime/versions.env", "IBM_LAB_AGENT_VERSION=0.5.5-beta4\nPYTHON_VERSION=3.12.11\nNODE_VERSION=24.16.0\n");
 	put("vendor/mnova-mcp/pyproject.toml", "[project]\nname = 'mnova-mcp'\n");
 	put("vendor/mnova-mcp/src/mnova_mcp/__init__.py", "__version__ = '0.3.1'\n");
 	mkdirSync(join(root, "stamp-dir"), { recursive: true });
@@ -101,7 +103,7 @@ test("写指纹后判定为 current，改任一输入都会判为过期并指名
 		});
 
 		// 逐个输入验证：每个都必须能独立触发重建（而不是只有 lock 有效）
-		for (const rel of INPUT_FILES) {
+		for (const rel of INPUT_FILES.filter((item) => item !== "runtime/versions.env")) {
 			const original = readFileSync(join(fx.root, rel), "utf8");
 			fx.put(rel, `${original}# touched\n`);
 			const verdict = checkStamp(fx.root, fx.stampDir);
@@ -120,6 +122,49 @@ test("写指纹后判定为 current，改任一输入都会判为过期并指名
 		const removed = checkStamp(fx.root, fx.stampDir);
 		assert.equal(removed.current, false, "vendor 树删除跟踪文件必须判为过期");
 		assert.ok(removed.changed.includes("vendor/mnova-mcp/"), "应指名是 vendor 树变了");
+	} finally {
+		fx.cleanup();
+	}
+});
+
+test("应用版本号不影响 Python 指纹，Python pin 变化必须触发重建", () => {
+	const fx = makeFixture();
+	try {
+		writeStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.11" });
+		fx.put("runtime/versions.env", "IBM_LAB_AGENT_VERSION=0.5.5-beta5\nPYTHON_VERSION=3.12.11\nNODE_VERSION=24.16.0\n");
+		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.11" }).current, true);
+		fx.put("runtime/versions.env", "IBM_LAB_AGENT_VERSION=0.5.5-beta5\nPYTHON_VERSION=3.12.12\nNODE_VERSION=24.16.0\n");
+		const changed = checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.11" });
+		assert.equal(changed.current, false);
+		assert.ok(changed.changed.includes("runtime/versions.env"));
+	} finally {
+		fx.cleanup();
+	}
+});
+
+test("beta4 的 v2 缓存可跨应用版本复用，其他输入变化仍触发重建", () => {
+	const fx = makeFixture();
+	try {
+		writeStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.10" });
+		execFileSync("git", [
+			"-c", "user.name=Test", "-c", "user.email=test@local",
+			"commit", "-qm", "beta4",
+		], { cwd: fx.root });
+		const stampPath = join(fx.stampDir, STAMP_NAME);
+		const stamp = JSON.parse(readFileSync(stampPath, "utf8"));
+		stamp.stampVersion = 2;
+		stamp.files["runtime/versions.env"] = digestFile(join(fx.root, "runtime/versions.env"));
+		stamp.fingerprint = createHash("sha256").update(JSON.stringify({
+			version: 2, files: stamp.files, trees: stamp.trees, missing: stamp.missing,
+		})).digest("hex");
+		writeFileSync(stampPath, JSON.stringify(stamp));
+		fx.put("runtime/versions.env", "IBM_LAB_AGENT_VERSION=0.5.5-beta5\nPYTHON_VERSION=3.12.11\nNODE_VERSION=24.16.0\n");
+		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.10" }).current, true);
+		fx.put("python/requirements.lock", "rdkit==2026.3.6\n");
+		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.10" }).current, false);
+		fx.put("python/requirements.lock", "rdkit==2026.3.5\n");
+		fx.put("runtime/versions.env", "IBM_LAB_AGENT_VERSION=0.5.5-beta5\nPYTHON_VERSION=3.12.12\nNODE_VERSION=24.16.0\n");
+		assert.equal(checkStamp(fx.root, fx.stampDir, { pythonVersion: "3.12.10" }).current, false);
 	} finally {
 		fx.cleanup();
 	}

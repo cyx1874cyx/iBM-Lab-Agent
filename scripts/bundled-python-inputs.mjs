@@ -44,8 +44,8 @@ import { pythonLockSha256 } from "../src/python-lock-hash.js";
  */
 export const STAMP_NAME = "bundled-python.stamp.json";
 
-/** 指纹方案版本：规则本身变了就 +1，使所有旧产物自动判为过期。 */
-export const STAMP_VERSION = 2;
+/** 指纹方案版本：规则本身变了就 +1，v2 可在确认 Python pin 未变后复用。 */
+export const STAMP_VERSION = 3;
 
 /** 单文件输入：任一变化都意味着 dist 需要重建。 */
 export const INPUT_FILES = [
@@ -57,7 +57,7 @@ export const INPUT_FILES = [
 	"src/markitdown-patch.js",
 	// 应用补丁的 CLI（参数契约变了也要重建）
 	"scripts/patch-markitdown.mjs",
-	// 版本 pin（python/node/tauri 等）
+	// 只读取 PYTHON_VERSION；应用/Node/DSH 版本不影响捆绑 Python
 	"runtime/versions.env",
 ];
 
@@ -72,11 +72,45 @@ const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
  * 指纹应当标识"内容"，而不是检出时的行尾转换：否则同一份代码在 Windows（CRLF）与
  * WSL（LF）会得出不同指纹，或因为一次 core.autocrlf 变更就整树重建。
  */
-export function digestFile(absPath) {
-	const raw = readFileSync(absPath);
-	if (raw.includes(0)) return `bin:${sha256(raw)}`;
+function parsePinnedPythonVersion(content) {
+	const lines = content.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n").split("\n");
+	const values = lines
+		.filter((line) => /^PYTHON_VERSION\s*=/.test(line))
+		.map((line) => line.slice(line.indexOf("=") + 1).trim());
+	if (values.length !== 1 || !/^\d+\.\d+\.\d+$/.test(values[0])) {
+		throw new Error("runtime/versions.env must contain exactly one PYTHON_VERSION=x.y.z");
+	}
+	return values[0];
+}
+
+export function pinnedPythonVersion(absPath) {
+	return parsePinnedPythonVersion(readFileSync(absPath, "utf8"));
+}
+
+function digestContent(raw) {
+	if (raw.includes(0)) return "bin:" + sha256(raw);
 	const text = raw.toString("utf8").replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
-	return `txt:${sha256(Buffer.from(text, "utf8"))}`;
+	return "txt:" + sha256(Buffer.from(text, "utf8"));
+}
+
+export function digestFile(absPath) {
+	return digestContent(readFileSync(absPath));
+}
+
+/** Find the Python pin recorded by a v2 full-file digest in committed release history. */
+function legacyPythonPin(repoRoot, legacyDigest) {
+	const currentPath = join(repoRoot, "runtime/versions.env");
+	if (digestFile(currentPath) === legacyDigest) return pinnedPythonVersion(currentPath);
+	const revisions = execFileSync("git", [
+		"-C", repoRoot, "log", "--all", "--format=%H", "--", "runtime/versions.env",
+	], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).trim().split("\n").filter(Boolean);
+	for (const revision of revisions) {
+		const content = execFileSync("git", [
+			"-C", repoRoot, "show", revision + ":runtime/versions.env",
+		], { maxBuffer: 1024 * 1024 });
+		if (digestContent(content) === legacyDigest) return parsePinnedPythonVersion(content.toString("utf8"));
+	}
+	return null;
 }
 
 /**
@@ -134,8 +168,10 @@ export function computeInputs(repoRoot) {
 		// requirements.lock 走项目既有的 LF 归一化工具，保持与 vendor.lock 一致
 		files[rel] =
 			rel === "python/requirements.lock"
-				? `lock:${pythonLockSha256(readFileSync(abs))}`
-				: digestFile(abs);
+				? "lock:" + pythonLockSha256(readFileSync(abs))
+				: rel === "runtime/versions.env"
+					? "python-pin:" + pinnedPythonVersion(abs)
+					: digestFile(abs);
 	}
 	for (const rel of INPUT_TREES) {
 		if (!existsSync(join(repoRoot, rel))) {
@@ -212,10 +248,11 @@ export function checkStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion
 	} catch (error) {
 		return { current: false, reason: `stamp unreadable: ${error.message}`, changed: ["<stamp>"] };
 	}
-	if (stamp?.stampVersion !== STAMP_VERSION) {
+	const legacyStamp = stamp?.stampVersion === 2;
+	if (!legacyStamp && stamp?.stampVersion !== STAMP_VERSION) {
 		return {
 			current: false,
-			reason: `stamp scheme changed: ${stamp?.stampVersion} -> ${STAMP_VERSION}`,
+			reason: "stamp scheme changed: " + stamp?.stampVersion + " -> " + STAMP_VERSION,
 			changed: ["<stampVersion>"],
 		};
 	}
@@ -225,9 +262,28 @@ export function checkStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion
 		return { current: false, reason: `inputs missing: ${missing.join(", ")}`, changed: missing };
 	}
 
+	const pythonVersionNow = resolvePythonVersion({ pythonVersion, pythonExe });
+	const stampFiles = { ...stamp.files };
+	if (legacyStamp) {
+		// v2 hashed all of versions.env. Resolve that committed file by digest,
+		// then compare its Python pin; other version changes can reuse the dist.
+		const legacyFingerprint = sha256(Buffer.from(JSON.stringify({
+			version: 2, files: stamp.files, trees: stamp.trees, missing: stamp.missing,
+		}), "utf8"));
+		if (stamp.fingerprint !== legacyFingerprint) {
+			return { current: false, reason: "legacy stamp fingerprint mismatch", changed: ["<fingerprint>"] };
+		}
+		const oldPin = stampFiles["runtime/versions.env"]?.startsWith("txt:")
+			? legacyPythonPin(repoRoot, stampFiles["runtime/versions.env"])
+			: null;
+		const pin = pinnedPythonVersion(join(repoRoot, "runtime/versions.env"));
+		if (oldPin && oldPin === pin) {
+			stampFiles["runtime/versions.env"] = files["runtime/versions.env"];
+		}
+	}
 	const changed = [];
 	for (const [rel, digest] of Object.entries(files)) {
-		if (stamp.files?.[rel] !== digest) changed.push(rel);
+		if (stampFiles[rel] !== digest) changed.push(rel);
 	}
 	for (const [rel, digest] of Object.entries(trees)) {
 		if (stamp.trees?.[rel] !== digest) changed.push(`${rel}/`);
@@ -239,7 +295,6 @@ export function checkStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion
 		if (!(rel in trees)) changed.push(`removed:${rel}/`);
 	}
 
-	const pythonVersionNow = resolvePythonVersion({ pythonVersion, pythonExe });
 	if (pythonVersionNow && stamp.pythonVersion && pythonVersionNow !== stamp.pythonVersion) {
 		changed.push(`pythonVersion:${stamp.pythonVersion}->${pythonVersionNow}`);
 	}
@@ -247,10 +302,14 @@ export function checkStamp(repoRoot, stampDir, { pythonExe = null, pythonVersion
 	if (changed.length > 0) {
 		return { current: false, reason: `inputs changed: ${changed.join(", ")}`, changed };
 	}
-	if (stamp.fingerprint !== fingerprint) {
+	if (!legacyStamp && stamp.fingerprint !== fingerprint) {
 		return { current: false, reason: "fingerprint mismatch (未识别的差异)", changed: ["<fingerprint>"] };
 	}
-	return { current: true, reason: "fingerprint matches", changed: [] };
+	return {
+		current: true,
+		reason: legacyStamp ? "legacy stamp compatible; Python pin unchanged" : "fingerprint matches",
+		changed: [],
+	};
 }
 
 function parseArgs(argv) {

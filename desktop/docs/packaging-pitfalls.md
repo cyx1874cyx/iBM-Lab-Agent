@@ -194,7 +194,7 @@ foreach ($f in $files) { if (Test-Path $f) { [Microsoft.VisualBasic.FileIO.FileS
 ## 15. 0.4.x Windows 单命令发布与防假死约定
 
 - 唯一推荐入口为 `scripts/build-windows-release.ps1`。它为测试、prepare、Web smoke、Tauri/NSIS 和安装包验证分别写日志，并每 20 秒输出 PID、CPU、日志大小与累计耗时。
-- `prepare-runtime.ps1` 默认从根 pnpm workspace 的 `node_modules` 解析 DSH，并用源码/锁文件/Node 指纹跳过未变化且完整的资源快照；需要排查缓存时显式传 `-Force`。
+- 捆绑 Python 的输入指纹只读取 `runtime/versions.env` 中的 `PYTHON_VERSION`；仅更新应用 beta 版本不重建 Python。依赖锁、构建配方、补丁、vendored mnova-mcp 或 Python pin 变化仍重建。旧 v2 指纹会从已提交版本历史核对原 Python pin 后复用，无法核对时保守重建。\n- `prepare-runtime.ps1` 默认从根 pnpm workspace 的 `node_modules` 解析 DSH，并用源码/锁文件/Node 指纹跳过未变化且完整的资源快照；需要排查缓存时显式传 `-Force`。
 - 两个脚本均使用独占锁。看到“already running”时先确认已有任务，而不是删除锁文件后并发启动；只有确认没有对应进程的遗留锁才可人工处理。
 - prepare 默认上限 60 分钟，Tauri/NSIS 默认上限 120 分钟。超时会终止本次启动的进程树并保留日志，不会无限等待。
 - Ketcher 引用在删除旧资源前检查。`index.html` 指向不存在的哈希文件时立即停止，先重新构建/提交 Ketcher 产物，禁止在 resources 快照中临时补文件。
