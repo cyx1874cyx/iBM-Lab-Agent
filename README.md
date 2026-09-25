@@ -231,6 +231,16 @@ dsh --profile ibm-lab
   并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
   `verify`/`patch`/`revert` 三态都经过实测前端校验。
 
+v0.5.5-beta3 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
+打包后真实启动的回环 Web 冒烟），`publishable: true`；Linux 侧预检闸门全绿。产物：
+
+| 产物 | 字节 | SHA-256 |
+|---|---|---|
+| `iBM Lab Agent_0.5.5-beta3_x64-setup.exe` | 259,051,719 | `C8DC709B…1A6E0EDA` |
+| `ibm-lab-agent-v0.5.5-beta3-linux.tar.gz` | 24,368,753 | `7fe4b9a9…427e8b81` |
+
+两者均由提交 `86327eb` 构建。详见 [`docs/releases/v0.5.5-beta3.md`](docs/releases/v0.5.5-beta3.md)。
+
 v0.5.5-beta2 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
 打包后真实启动的回环 Web 冒烟），`publishable: true`；Linux 侧预检闸门全绿。产物：
 
