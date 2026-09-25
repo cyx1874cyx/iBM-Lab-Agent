@@ -72,6 +72,18 @@ const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 /// 关闭。页面每次导航后都会重新注入。
 const WEBVPN_CHROME_SCRIPT: &str = r#"
 (() => {
+  /**
+   * 把内部状态送回壳。
+   *
+   * **绝不能用 `location.href`**：那在 WebView2 里是一次真实导航，会把正在加载的
+   * 出版社页面打成"JS 还活着、却一个像素都不画"的白屏——注入的工具栏也一起消失
+   * （2026-09-25 science.org 实测：文档、标题、脚本都还在，表面却是纯白一片）。
+   * `window.open` 只触发宿主的新窗口请求，当前文档完全不受影响；壳一律拒绝该窗口，
+   * 并从 URL 里读回命令（见 webvpn.rs 的 handle_internal_command）。
+   */
+  const notifyShell = (target) => {
+    try { window.open(`ibm-webvpn://${target}`, '_blank'); return true; } catch { return false; }
+  };
   const reportAuthenticatedPortal = () => {
     if (window.__ibmWebVpnAuthenticated) return;
     const inputs = Array.from(document.querySelectorAll('input'));
@@ -86,7 +98,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     const isPortalHome = hasAddressInput && /webvpn/i.test(pageText);
     if (!hasPassword && (isPortalHome || isForwardedPage)) {
       window.__ibmWebVpnAuthenticated = true;
-      location.href = 'ibm-webvpn://session/ready';
+      notifyShell('session/ready');
     }
   };
   const CHROME_HEIGHT = 76;
@@ -161,7 +173,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         if (!document.getElementById('__ibm_webvpn_offset') || !looksBlank()) return;
         removePageOffset();
         syncChromeShift();
-        location.href = 'ibm-webvpn://offset-reverted/';
+        notifyShell('offset-reverted/');
       }, 2500);
     }
     return applied;
@@ -204,7 +216,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     ball.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      location.href = 'ibm-webvpn://cancel-capture/';
+      notifyShell('cancel-capture/');
     });
     (document.documentElement || document.body).appendChild(host);
     // showPopover 必须在入 DOM 之后调用；重复调用会抛，用 :popover-open 先判。
@@ -314,7 +326,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     };
     const closeTab = (tab, event) => {
       event.stopPropagation();
-      if (tabState.tabs.length === 1) { location.href = 'ibm-webvpn://close/'; return; }
+      if (tabState.tabs.length === 1) { notifyShell('close/'); return; }
       const wasActive = tab.id === tabState.active;
       tabState.tabs = tabState.tabs.filter((item) => item.id !== tab.id);
       if (wasActive) tabState.active = tabState.tabs.at(-1).id;
@@ -356,7 +368,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     root.querySelector('[data-action="back"]').addEventListener('click', () => history.back());
     root.querySelector('[data-action="forward"]').addEventListener('click', () => history.forward());
     root.querySelector('[data-action="reload"]').addEventListener('click', () => location.reload());
-    root.querySelector('.window-close').addEventListener('click', () => { location.href = 'ibm-webvpn://close/'; });
+    root.querySelector('.window-close').addEventListener('click', () => { notifyShell('close/'); });
     root.querySelector('.new-tab').addEventListener('click', () => {
       const tab = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url: '', title: '新标签页' };
       tabState.tabs.push(tab);
@@ -439,7 +451,10 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     return clean(owner?.href || element.getAttribute?.('href'));
   };
   const clickTarget = (element) => element.closest?.('a[href],button,[role="button"]') || element;
-  const signal = (result) => { location.href = `ibm-webvpn://automation/${result}`; };
+  /** 同 WEBVPN_CHROME_SCRIPT：只能走 window.open，导航会打白页面。 */
+  const signal = (result) => {
+    try { window.open(`ibm-webvpn://automation/${result}`, '_blank'); } catch { /* 弹窗被拒：本次状态不上报，页面照常 */ }
+  };
   const confirmedPublisherPage = () => {
     const host = clean(location.hostname);
     const doi = clean(document.querySelector('meta[name="citation_doi"],meta[name="dc.identifier"]')?.content);
@@ -2546,6 +2561,129 @@ pub fn resize_sidebar(app: &AppHandle) {
     }
 }
 
+/// 处理文献载体页面发回的内部命令（`ibm-webvpn://…`）。
+///
+/// 返回 `true` 表示这条 URL 是一条内部命令并已处理，调用方必须拒绝这次导航/弹窗。
+///
+/// **页面绝不能再用 `location.href` 发这些命令**：在 WebView2 里那是一次真实导航，
+/// 会把正在加载的出版社页面打成"JS 还活着、却一个像素都不画"的白屏，注入的工具栏
+/// 也一起消失（2026-09-25 science.org 实测：document 是真的文章页、标题正确、脚本
+/// 照常执行，可表面就是纯白）。所以页面改用 `window.open`，命令经 `on_new_window`
+/// 到达这里；`on_navigation` 仍调用同一实现，作为其它路径的兜底。
+fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
+    if url.scheme() != "ibm-webvpn" {
+        return false;
+    }
+    if url.host_str() == Some("session") && url.path() == "/ready" {
+        if let Some(state) = app.try_state::<WebVpnState>() {
+            state.mark_authenticated();
+        }
+        record(app, "session", "", "已识别登录后的 WebVPN 门户");
+        return true;
+    }
+    if url.host_str() == Some("cancel-capture") {
+        // 与 close 同理：不在回调栈里销毁自身，调度到主线程的下一拍。
+        let scheduled_app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(10));
+            let action_app = scheduled_app.clone();
+            let _ = scheduled_app.run_on_main_thread(move || {
+                let _ = cancel_capture_and_close(&action_app, None);
+            });
+        });
+        record(app, "capture", "", "用户从捕获小球终止了本次捕获");
+        return true;
+    }
+    if url.host_str() == Some("close") {
+        // 避免在 WebView 回调栈中直接隐藏自身；调度到主线程的下一拍。
+        let scheduled_app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(10));
+            let action_app = scheduled_app.clone();
+            let _ = scheduled_app.run_on_main_thread(move || {
+                let _ = hide_sidebar(&action_app);
+            });
+        });
+        return true;
+    }
+    if url.host_str() == Some("offset-reverted") {
+        // 页面位移的看门狗判定白屏并自行撤销（见 WEBVPN_CHROME_SCRIPT）。
+        record(
+            app,
+            "offset",
+            "",
+            "页面疑似被整屏固定遮罩盖住，已自动撤销 html 位移",
+        );
+        return true;
+    }
+    if url.host_str() == Some("automation") {
+        let result = url.path().trim_matches('/');
+        let stage = match result {
+            "searching" => Some("searching"),
+            "clicked" => Some("clicked"),
+            "si-manual" | "pdf-manual" => Some("manual"),
+            "challenge" => Some("verification"),
+            _ => None,
+        };
+        if let Some(stage) = stage {
+            if let Some(state) = app.try_state::<WebVpnState>() {
+                state.set_automation_stage(stage);
+            }
+            if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+                let _ = push_capture_ball(app, &webview);
+            }
+        }
+        // `pdf-manual` 只代表扫描若干轮没找到入口——它并不证明页面是预览器。
+        // 页面位移只对「整屏 fixed 的预览器/原生 PDF 查看器」有意义，据此给
+        // 普通文章页加 transform 正是两次白屏的成因（2026-09-23 ScienceDirect、
+        // 2026-09-25 science.org），所以这里要求正向证据：只有顶层文档确实
+        // 是 PDF 才开位移，否则只如实报告"没找到入口"。
+        if result == "pdf-manual" {
+            let pdf_document = app
+                .get_webview(WINDOW_LABEL)
+                .and_then(|webview| webview.url().ok())
+                .map(|url| is_pdf_document_url(&url))
+                .unwrap_or(false);
+            if pdf_document {
+                if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+                    let _ = webview.eval(
+                        "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
+                    );
+                }
+                record(
+                    app,
+                    "automation",
+                    "",
+                    "已进入 PDF 预览器并保持捕获；可手动点击右上角保存",
+                );
+            } else {
+                record(
+                    app,
+                    "automation",
+                    "",
+                    "未能自动识别正文下载入口；捕获仍有效，请在页面中手动打开并保存",
+                );
+            }
+            return true;
+        }
+        if result == "si-manual" {
+            record(
+                app,
+                "automation",
+                "",
+                "自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料",
+            );
+            return true;
+        }
+        if result == "challenge" {
+            let message = "出版社页面正在验证访问；捕获有效，通过后自动继续查找入口";
+            record(app, "automation", "", message);
+        }
+        return true;
+    }
+    false
+}
+
 /// 创建（或复用）WebVPN 单例子 WebView。
 pub fn open_window(
     app: &AppHandle,
@@ -2613,39 +2751,7 @@ pub fn open_window(
             }
         })
         .on_navigation(move |url| {
-            if url.scheme() == "ibm-webvpn"
-                && url.host_str() == Some("session")
-                && url.path() == "/ready"
-            {
-                if let Some(state) = navigation_app.try_state::<WebVpnState>() {
-                    state.mark_authenticated();
-                }
-                record(&navigation_app, "session", "", "已识别登录后的 WebVPN 门户");
-                return false;
-            }
-            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("cancel-capture") {
-                // 与 close 同理：不在导航回调栈里销毁自身，调度到主线程的下一拍。
-                let scheduled_app = navigation_app.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(10));
-                    let action_app = scheduled_app.clone();
-                    let _ = scheduled_app.run_on_main_thread(move || {
-                        let _ = cancel_capture_and_close(&action_app, None);
-                    });
-                });
-                record(&navigation_app, "capture", "", "用户从捕获小球终止了本次捕获");
-                return false;
-            }
-            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("close") {
-                // 避免在 WebView 导航回调栈中直接隐藏自身；调度到主线程的下一拍。
-                let scheduled_app = navigation_app.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(10));
-                    let action_app = scheduled_app.clone();
-                    let _ = scheduled_app.run_on_main_thread(move || {
-                        let _ = hide_sidebar(&action_app);
-                    });
-                });
+            if handle_internal_command(&navigation_app, &url) {
                 return false;
             }
             let direct_si = navigation_app
@@ -2672,81 +2778,6 @@ pub fn open_window(
                     return false;
                 }
             }
-            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("offset-reverted") {
-                // 页面位移的看门狗判定白屏并自行撤销（见 WEBVPN_CHROME_SCRIPT）。
-                record(
-                    &navigation_app,
-                    "offset",
-                    "",
-                    "页面疑似被整屏固定遮罩盖住，已自动撤销 html 位移",
-                );
-                return false;
-            }
-            if url.scheme() == "ibm-webvpn" && url.host_str() == Some("automation") {
-                let result = url.path().trim_matches('/');
-                let stage = match result {
-                    "searching" => Some("searching"),
-                    "clicked" => Some("clicked"),
-                    "si-manual" | "pdf-manual" => Some("manual"),
-                    "challenge" => Some("verification"),
-                    _ => None,
-                };
-                if let Some(stage) = stage {
-                    if let Some(state) = navigation_app.try_state::<WebVpnState>() {
-                        state.set_automation_stage(stage);
-                    }
-                    if let Some(webview) = navigation_app.get_webview(WINDOW_LABEL) {
-                        let _ = push_capture_ball(&navigation_app, &webview);
-                    }
-                }
-                // `pdf-manual` 只代表扫描若干轮没找到入口——它并不证明页面是预览器。
-                // 页面位移只对「整屏 fixed 的预览器/原生 PDF 查看器」有意义，据此给
-                // 普通文章页加 transform 正是两次白屏的成因（2026-09-23 ScienceDirect、
-                // 2026-09-25 science.org），所以这里要求正向证据：只有顶层文档确实
-                // 是 PDF 才开位移，否则只如实报告"没找到入口"。
-                if result == "pdf-manual" {
-                    let pdf_document = navigation_app
-                        .get_webview(WINDOW_LABEL)
-                        .and_then(|webview| webview.url().ok())
-                        .map(|url| is_pdf_document_url(&url))
-                        .unwrap_or(false);
-                    if pdf_document {
-                        if let Some(webview) = navigation_app.get_webview(WINDOW_LABEL) {
-                            let _ = webview.eval(
-                                "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
-                            );
-                        }
-                        record(
-                            &navigation_app,
-                            "automation",
-                            "",
-                            "已进入 PDF 预览器并保持捕获；可手动点击右上角保存",
-                        );
-                    } else {
-                        record(
-                            &navigation_app,
-                            "automation",
-                            "",
-                            "未能自动识别正文下载入口；捕获仍有效，请在页面中手动打开并保存",
-                        );
-                    }
-                    return false;
-                }
-                if result == "si-manual" {
-                    record(
-                        &navigation_app,
-                        "automation",
-                        "",
-                        "自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料",
-                    );
-                    return false;
-                }
-                if result == "challenge" {
-                    let message = "出版社页面正在验证访问；捕获仍有效，通过后自动继续查找入口";
-                    record(&navigation_app, "automation", "", message);
-                }
-                return false;
-            }
             let host = host_of(url.as_str());
             let allowed = navigation_app
                 .try_state::<WebVpnState>()
@@ -2760,6 +2791,11 @@ pub fn open_window(
             true
         })
         .on_new_window(move |url, _features| {
+            // 页面用 window.open 送回内部命令（不能用 location.href：那会把正在加载
+            // 的出版社页面打成白屏）。命中内部命令就按命令处理，并拒绝这个窗口。
+            if handle_internal_command(&window_app, &url) {
+                return NewWindowResponse::Deny;
+            }
             // Some download buttons open about:blank first and assign the real URL
             // later. Navigating our only WebView to that placeholder strands both
             // the PDF task and the queued SI task on a white page.
@@ -2948,7 +2984,10 @@ mod tests {
     fn chrome_script_does_not_offset_pages_by_default() {
         assert!(WEBVPN_CHROME_SCRIPT.contains("__ibmWebVpnSetPageOffset"));
         assert!(WEBVPN_CHROME_SCRIPT.contains("looksBlank"));
-        assert!(WEBVPN_CHROME_SCRIPT.contains("ibm-webvpn://offset-reverted/"));
+        assert!(WEBVPN_CHROME_SCRIPT.contains("notifyShell('offset-reverted/')"));
+        // 内部命令必须走 window.open；导航会把正在加载的出版社页面打成白屏。
+        assert!(!WEBVPN_CHROME_SCRIPT.contains("location.href = 'ibm-webvpn"));
+        assert!(!WEBVPN_CHROME_SCRIPT.contains("location.href = `ibm-webvpn"));
         assert!(!WEBVPN_CHROME_SCRIPT.contains("ensurePageOffset"));
         let mount_body = WEBVPN_CHROME_SCRIPT
             .split("const mount = () => {")

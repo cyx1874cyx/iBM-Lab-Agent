@@ -87,6 +87,43 @@ test("自动验证自行通过后继续点击正文入口，点击不触发内�
 	assert.equal(stopped, 1, "真实下载开始后才停止页面扫描");
 });
 
+/**
+ * 2026-09-25 science.org 白屏回归：内部命令曾经用
+ * `location.href = 'ibm-webvpn://…'` 发送。在 WebView2 里那是一次真实导航，会把正在
+ * 加载的出版社页面打成"JS 还活着、却一个像素都不画"的白屏——实测 document 就是真正的
+ * 文章页、标题正确、脚本照常执行，可表面纯白，注入的工具栏也一起消失。现在一律走
+ * `window.open`：只触发宿主的新窗口请求，当前文档完全不受影响。
+ */
+test("内部命令不得用 location.href 导航，必须走 window.open", async () => {
+	const webvpn = await webvpnSource();
+	const chrome = webvpn.match(/const WEBVPN_CHROME_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1];
+	assert.ok(chrome, "必须能提取注入的工具栏脚本");
+	assert.doesNotMatch(chrome, /location\.href = 'ibm-webvpn/, "不得再用导航发送内部命令");
+	assert.doesNotMatch(chrome, /location\.href = `ibm-webvpn/, "不得再用导航发送内部命令");
+	assert.match(
+		chrome,
+		/const notifyShell = \(target\) => \{[\s\S]*?window\.open\(`ibm-webvpn:\/\/\$\{target\}`, '_blank'\)/,
+		"工具栏壳必须用 window.open 送回内部命令",
+	);
+	// 自动扫描脚本是独立注入的，必须自己带一份 window.open 版本。
+	const auto = webvpn.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1];
+	assert.ok(auto);
+	assert.match(
+		auto,
+		/const signal = \(result\) => \{[\s\S]*?window\.open\(`ibm-webvpn:\/\/automation\/\$\{result\}`, '_blank'\)/,
+		"自动化状态必须用 window.open 上报",
+	);
+	assert.doesNotMatch(auto, /location\.href\s*=/, "自动化脚本不得给当前文档赋值 location.href");
+	// 命令要能在新窗口路径上被处理（页面改用 window.open 后走 on_new_window）。
+	assert.match(webvpn, /fn handle_internal_command\(app: &AppHandle, url: &url::Url\) -> bool/);
+	assert.match(
+		webvpn,
+		/on_new_window[\s\S]*?handle_internal_command\(&window_app, &url\)[\s\S]*?NewWindowResponse::Deny/,
+		"on_new_window 必须处理内部命令并拒绝弹窗",
+	);
+	assert.match(webvpn, /on_navigation[\s\S]*?handle_internal_command\(&navigation_app, &url\)/);
+});
+
 test("空白弹窗不能覆盖唯一文献 WebView", async () => {
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /on_new_window[\s\S]*?if !matches!\(url\.scheme\(\), "http" \| "https"\)[\s\S]*?return NewWindowResponse::Deny;/);
@@ -107,7 +144,7 @@ test("Cloudflare 验证插页按验证处理，不被误判为已进入 PDF 预�
 	let tick;
 	let stopped = 0;
 	const signals = [];
-	const window = {};
+	const window = { open: (url) => { signals.push(String(url)); return null; } };
 	const document = {
 		title: "请稍候…",
 		readyState: "complete",
@@ -175,7 +212,7 @@ test("停在加载中或空白的文档不消耗尝试次数，超时后才退�
 		set href(value) { signals.push(value); },
 	};
 	runInNewContext(script, {
-		window: {}, document, location, URL,
+		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
 		setInterval: (callback) => { tick = callback; return 1; },
 		clearInterval: () => { stopped += 1; },
 		setTimeout: () => 1,
@@ -304,7 +341,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /download_elapsed_ms/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
 	assert.match(webvpn, /WEBVPN_CHROME_SCRIPT/);
-	assert.match(webvpn, /ibm-webvpn:\/\/session\/ready/);
+	assert.match(webvpn, /notifyShell\('session\/ready'\)/);
 	assert.match(webvpn, /isForwardedPage/);
 	assert.match(webvpn, /state\.mark_authenticated\(\)/);
 	assert.match(webvpn, /PUBLISHER_DOWNLOAD_AUTOMATION/);
@@ -333,7 +370,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /data-action="forward"/);
 	assert.match(webvpn, /data-action="reload"/);
 	assert.match(webvpn, /关闭浏览器/);
-	assert.match(webvpn, /ibm-webvpn:\/\/close\//);
+	assert.match(webvpn, /notifyShell\('close\/'\)/);
 	assert.match(webvpn, /width \/ 3\.0/, "文献浏览器应占主窗口宽度的三分之一");
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
@@ -574,7 +611,7 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	);
 	// 默认不位移：只能由显式开关打开，mount() 不得直接调用；白屏看门狗要能撤销。
 	assert.match(webvpn, /window\.__ibmWebVpnSetPageOffset = \(enabled\) =>/);
-	assert.match(webvpn, /ibm-webvpn:\/\/offset-reverted\//);
+	assert.match(webvpn, /notifyShell\('offset-reverted\/'\)/);
 	const mountBody = webvpn.split("const mount = () => {")[1].split("if (document.readyState")[0];
 	assert.doesNotMatch(mountBody, /applyPageOffset/, "mount() 不得对所有页面无条件位移");
 	// Rust 侧只在**确证顶层文档是 PDF** 时才打开位移。`pdf-manual` 只代表扫描失败，
@@ -596,7 +633,7 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	// 捕获小球：独立浮标（不放在被反向位移的工具栏里）+ 状态入口 + 点击终止。
 	assert.match(webvpn, /id = '__ibm_webvpn_capture'/);
 	assert.match(webvpn, /window\.__ibmWebVpnCapture = \(payload\) =>/);
-	assert.match(webvpn, /location\.href = 'ibm-webvpn:\/\/cancel-capture\/'/);
+	assert.match(webvpn, /notifyShell\('cancel-capture\/'\)/);
 	// 小球必须相对**窗口**固定在左下角。页面根元素有 transform，position:fixed 的后代
 	// 会改以 html 为包含块（跟着页面滚动）；popover 的 top layer 不受祖先 transform
 	// 影响，用它跳出。位置与逃逸方式都要被钉住——只改位置不改逃逸仍会滚走。
