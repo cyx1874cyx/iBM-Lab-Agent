@@ -140,7 +140,7 @@ test("runPptxCli：超时会杀进程并返回 timeout 诊断", async () => {
 	assert.equal(calls.length, 1);
 });
 
-test("runPptxCli：没有可用解释器时返回 available=false 的降级说明", async () => {
+test("runPptxCli：没有可用解释器时返回 available=false 的不可用说明", async () => {
 	const result = await runPptxCli(["doctor"], { python: undefined, platform: "linux", venvPython: "/nonexistent/python", spawnImpl: fakeSpawn({}).impl });
 	// 测试机有 python3 时这里可能是 available=true；两种都必须是"不抛异常 + 有诊断字段"。
 	assert.equal(typeof result.available, "boolean");
@@ -148,7 +148,9 @@ test("runPptxCli：没有可用解释器时返回 available=false 的降级说�
 		assert.equal(result.failure, "unavailable");
 		assert.match(result.hint ?? result.error, /pptx-cli/);
 	}
-	assert.match(describeCliUnavailable({ error: "no python interpreter available" }), /降级/);
+	// 取消兼容层后，说明必须点明"该模板不能用于生成 PPT"，而不是"降级到旧路径"。
+	assert.match(describeCliUnavailable({ error: "no python interpreter available" }), /不能用于生成 PPT/);
+	assert.match(describeCliUnavailable({ error: "no python interpreter available" }), /重新导入/);
 });
 
 test("命令封装拼出正确的 argv（init/layouts/placeholders/theme/validate/diff/doctor）", async () => {

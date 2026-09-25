@@ -977,9 +977,7 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 			/plan\.json missing/
 		);
 		// 手写 plan（不是编译产物）→ 明确拒绝并给出「先编译」的迁移指引。
-		// 注：拒绝来自构建脚本的 kind 校验（buildPresentationFromTemplate 里那句
-		// "不是编译产物" 因为 isCompiled 初始化为 Boolean(compiledPath) 而不可达，
-		// 所以这里按**可观测行为**断言：退出码 2 + 指名 kind 与编译脚本）。
+		// 拒绝发生在**服务层**（按 kind 判定），不会走到构建脚本再报 exit 2。
 		const handWritten = join(dir, "hand-written-plan.json");
 		await writeFile(handWritten, JSON.stringify({ roles: {}, slides: [{ role: "cover", texts: [] }] }));
 		await assert.rejects(
@@ -990,8 +988,8 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 				outPath: join(dir, "deck.pptx")
 			}),
 			(error) => {
-				assert.match(error.message, /exit 2/);
-				assert.match(error.message, /not a compiled plan/);
+				assert.match(error.message, /不是编译产物/);
+				assert.match(error.message, /kind=compiled-plan/);
 				assert.match(error.message, /compile-ppt-plan\.mjs/);
 				return true;
 			}
