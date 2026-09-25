@@ -24,6 +24,22 @@ import { entryFileName } from "../../lib/entry-layout.js";
 const entryStemOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryStem;
 const entryDirOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryDir;
 
+/**
+ * manifest 派生件（slots.json）的测试替身。
+ *
+ * 标准流程要求模板必须带 slots.json/GUIDE.md/lint.json —— 真实环境由导入时的
+ * pptx-cli 生成，而 CI 没有 pptx-cli，所以这里补一份形状正确的替身写进版本目录，
+ * 让集成测试能在「标准流程」下跑通契约生成。
+ */
+function slotSpecFixture(mapping) {
+	return {
+		schemaVersion: 1,
+		roles: Object.fromEntries(Object.entries(mapping).map(([role, value]) => [role, value.layoutId])),
+		layouts: Object.values(mapping).map((value) => ({ layoutId: value.layoutId, slots: [] })),
+		capacityModel: { version: 1, source: "template-xml" }
+	};
+}
+
 const skillsRoot = fileURLToPath(new URL("../../vendor/nature-skills/skills", import.meta.url));
 const vendorRoot = fileURLToPath(new URL("../../vendor/nature-skills", import.meta.url));
 const fixtures = fileURLToPath(new URL("../fixtures", import.meta.url));
@@ -902,6 +918,14 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		const mapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => [role, { layoutId: suggestion.layoutId }]));
 		assert.equal((await handle.ctx.labTemplates.confirmMapping("lab-ppt-contract", "1", mapping)).ok, true);
 
+		// 标准流程（0.5.5-beta3 起取消向后兼容）：模板缺 slots.json 时取契约会**直接报错**，
+		// 所以先把导入时本应生成的派生件补齐（CI 没有 pptx-cli，导入只能拿到 parse.json）。
+		const row = await handle.ctx.labTemplates.resolve("lab-ppt-contract", "1");
+		const versionDir = dirname(row.source.file);
+		await writeFile(join(versionDir, "slots.json"), `${JSON.stringify(slotSpecFixture(mapping), null, 2)}\n`);
+		await writeFile(join(versionDir, "GUIDE.md"), "# 填充指南（测试替身）\n");
+		await writeFile(join(versionDir, "lint.json"), `${JSON.stringify({ schemaVersion: 1, summary: { blocking: 0 }, findings: [] }, null, 2)}\n`);
+
 		// 元数据登记即可拿到 bundle/report（无需下载 PDF）
 		const meta = await tasks.registerPaperMeta({ projectId: "proj-ppt-tpl", title: "PPT contract paper", doi: "10.1000/ppt.1" });
 		const report = meta.report;
@@ -919,6 +943,21 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		assert.match(text, /主题名|字体：major=/);
 		assert.match(text, /--max-pages 12/);
 		assert.match(text, /--required cover,summary/);
+		// 标准流程是**唯一**路径：契约必须点名派生件与「编译 → 构建」两步
+		assert.match(text, /slots\.json/, "契约要给出槽位规范路径");
+		assert.match(text, /GUIDE\.md/, "契约要给出填充指南路径");
+		assert.match(text, /lint\.json/, "契约要给出模板体检路径");
+		assert.match(text, /node scripts\/compile-ppt-plan\.mjs/, "契约要给出编译步骤");
+		assert.match(text, /--compiled/, "构建命令必须走编译产物");
+		assert.doesNotMatch(text, /兼容写法/, "旧字段（title/subtitle/bullets/imageCaption）的兼容说明已移除");
+		assert.doesNotMatch(text, /槽位规范：不可用/, "不再有「槽位规范不可用」的降级分支");
+		// 缺派生件的模板：取契约直接报错，要求按标准流程重新导入（不再降级）
+		await rm(join(versionDir, "slots.json"));
+		await assert.rejects(
+			() => tasks.materializePptContract({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "lab-ppt-contract", templateVersion: "1" }),
+			/缺少槽位规范（slots\.json）/
+		);
+		await writeFile(join(versionDir, "slots.json"), `${JSON.stringify(slotSpecFixture(mapping), null, 2)}\n`);
 		// nature-default 无 source.pptx → 不产出契约（走 skill 默认流程）
 		assert.equal(await tasks.materializePptContract({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "nature-default", templateVersion: "1" }), undefined);
 
@@ -927,15 +966,35 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		const run = await tasks.createPresentation({ projectId: "proj-ppt-tpl", reportId: report.id, templateId: "lab-ppt-contract", templateVersion: "1" });
 		assert.equal(run.contractPath, contract.contractPath);
 
-		// 缺 plan.json → 明确失败，不静默降级
+		// 缺编译产物 → 明确失败，不静默降级
 		await assert.rejects(
 			() => tasks.buildPresentationFromTemplate({
 				templateId: "lab-ppt-contract",
 				templateVersion: "1",
-				planPath: join(dir, "no-such-plan.json"),
+				compiledPath: join(dir, "no-such-compiled.json"),
 				outPath: join(dir, "deck.pptx")
 			}),
 			/plan\.json missing/
+		);
+		// 手写 plan（不是编译产物）→ 明确拒绝并给出「先编译」的迁移指引。
+		// 注：拒绝来自构建脚本的 kind 校验（buildPresentationFromTemplate 里那句
+		// "不是编译产物" 因为 isCompiled 初始化为 Boolean(compiledPath) 而不可达，
+		// 所以这里按**可观测行为**断言：退出码 2 + 指名 kind 与编译脚本）。
+		const handWritten = join(dir, "hand-written-plan.json");
+		await writeFile(handWritten, JSON.stringify({ roles: {}, slides: [{ role: "cover", texts: [] }] }));
+		await assert.rejects(
+			() => tasks.buildPresentationFromTemplate({
+				templateId: "lab-ppt-contract",
+				templateVersion: "1",
+				compiledPath: handWritten,
+				outPath: join(dir, "deck.pptx")
+			}),
+			(error) => {
+				assert.match(error.message, /exit 2/);
+				assert.match(error.message, /not a compiled plan/);
+				assert.match(error.message, /compile-ppt-plan\.mjs/);
+				return true;
+			}
 		);
 	} finally {
 		await handle.dispose();
