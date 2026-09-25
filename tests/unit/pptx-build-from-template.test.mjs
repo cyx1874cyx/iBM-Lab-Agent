@@ -1,10 +1,15 @@
 /**
- * Unit: scripts/pptx/build_from_template.py —— 模板化构建脚本的 --check 契约。
+ * Unit: scripts/pptx/build_from_template.py —— 模板化构建脚本的 `--check` 契约。
  *
- * 覆盖：合法计划通过（模板 pass finding + 版式解析）；未映射角色 / 缺失必选页 /
- * 超页 / 缺备注的 error 与退出码 1；finding 形状；python-pptx 缺失时构建模式
- * 退出码 2 且 JSON error 提到 python-pptx；坏 JSON / 缺文件的退出码 2 且无 traceback。
- * 真实构建（python-pptx）不在本机跑（环境未安装，符合预期）。
+ * 标准流程只有一条：`plan.json`（语义计划）→ `compile-ppt-plan.mjs` → `compiled.json`
+ * → `build_from_template.py --compiled`。旧的手写计划入口 `--plan`、以及
+ * `title/subtitle/bullets/imageCaption` 字段都已移除（0.5.5-beta3 起），所以本文件的
+ * 输入一律用 `tests/fixtures/pptx-compiled-plan.mjs` 造编译产物形态。
+ *
+ * 覆盖：合法编译产物通过（模板 pass finding + 版式解析）；未映射角色 / 缺失必选页 /
+ * 超页 / 缺备注的 error 与退出码 1；比例不符的 warning；finding 形状；`texts[]` 定点写入；
+ * python-pptx 缺失时构建模式退出码 2 且 JSON error 提到 python-pptx；坏 JSON / 缺文件的
+ * 退出码 2 且无 traceback。真实构建（python-pptx）不在本机跑（环境未安装，符合预期）。
  */
 
 import { test } from "node:test";
@@ -14,6 +19,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { compiledPlan, compiledSlide, slotText } from "../fixtures/pptx-compiled-plan.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../../scripts/pptx/build_from_template.py", import.meta.url));
 const FINDING_LEVELS = new Set(["error", "warning", "pass"]);
@@ -36,40 +43,53 @@ function parseFixture(overrides = {}) {
 	};
 }
 
-function validPlan(overrides = {}) {
-	return {
+/** 默认的合法编译产物：cover 一页 + summary 一页，各带 texts[] 与讲稿。 */
+function validCompiled(overrides = {}) {
+	return compiledPlan({
 		roles: { cover: "slideLayout1", summary: "slideLayout2" },
 		requiredPages: ["cover", "summary"],
 		maxPages: 20,
 		notesRequired: true,
 		slides: [
-			{ role: "cover", title: "标题", subtitle: "副标题", bullets: [], notes: "开场讲稿" },
-			{ role: "summary", title: "总结", bullets: ["要点一", "要点二"], notes: "总结讲稿" }
+			compiledSlide({
+				role: "cover",
+				layoutId: "slideLayout1",
+				layoutName: "Title Slide",
+				texts: [slotText({ idx: 0, paragraphs: ["标题"] }), slotText({ idx: 1, paragraphs: ["副标题"] })],
+				notes: "开场讲稿"
+			}),
+			compiledSlide({
+				role: "summary",
+				layoutId: "slideLayout2",
+				layoutName: "Title and Content",
+				texts: [slotText({ idx: 1, paragraphs: ["要点一", "要点二"], mode: "bullets" })],
+				notes: "总结讲稿"
+			})
 		],
 		...overrides
-	};
+	});
 }
 
 /** 在 os.tmpdir() 下造一份 fixture 目录，测试结束自动清理。 */
-function writeFixtures(t, { plan, parse, templateBytes = "not-a-real-pptx" } = {}) {
+function writeFixtures(t, { compiled, parse, templateBytes = "not-a-real-pptx" } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), "pptx-build-"));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const files = {
 		dir,
 		template: join(dir, "source.pptx"),
 		parsePath: join(dir, "parse.json"),
-		planPath: join(dir, "plan.json"),
+		compiledPath: join(dir, "compiled.json"),
 		report: join(dir, "conformance.json"),
 		out: join(dir, "deck.pptx")
 	};
 	writeFileSync(files.template, templateBytes);
 	writeFileSync(files.parsePath, JSON.stringify(parse ?? parseFixture()));
-	writeFileSync(files.planPath, typeof plan === "string" ? plan : JSON.stringify(plan ?? validPlan()));
+	writeFileSync(files.compiledPath, typeof compiled === "string" ? compiled : JSON.stringify(compiled ?? validCompiled()));
 	return files;
 }
 
 function runCheck(files, extra = []) {
-	return spawnSync("python3", [SCRIPT, "--template", files.template, "--parse", files.parsePath, "--plan", files.planPath, "--check", ...extra], { encoding: "utf8" });
+	return spawnSync("python3", [SCRIPT, "--template", files.template, "--parse", files.parsePath, "--compiled", files.compiledPath, "--check", ...extra], { encoding: "utf8" });
 }
 
 function checkReport(result) {
@@ -88,13 +108,14 @@ function assertFindingShape(findings) {
 	}
 }
 
-test("--check passes for a valid plan and resolves each role to its layout", (t) => {
+test("--check passes for a valid compiled plan and resolves each role to its layout", (t) => {
 	const files = writeFixtures(t);
 	const result = runCheck(files, ["--max-pages", "20", "--required", "cover,summary", "--notes-required", "true", "--report", files.report]);
 	assert.equal(result.status, 0, result.stderr);
 	const report = checkReport(result);
 	assert.equal(report.ok, true);
 	assert.equal(report.mode, "check");
+	assert.equal(report.planKind, "compiled");
 	assert.equal(report.summary.slideCount, 2);
 	assert.equal(report.summary.errors, 0);
 	assert.equal(report.template.ratio, "16:9");
@@ -103,15 +124,19 @@ test("--check passes for a valid plan and resolves each role to its layout", (t)
 	assert.deepEqual(report.slides.map((slide) => slide.role), ["cover", "summary"]);
 	assert.deepEqual(report.slides.map((slide) => slide.layoutId), ["slideLayout1", "slideLayout2"]);
 	assert.equal(report.slides[1].layoutName, "Title and Content");
-	assert.equal(report.slides[1].bulletCount, 2);
+	// 页面摘要字段：slotCount / paragraphCount / textChars（titleChars / bulletCount 已移除）
+	assert.equal(report.slides[1].slotCount, 1, "一页里写了几个槽位");
+	assert.equal(report.slides[1].paragraphCount, 2, "要点两条 → 两个自然段");
+	assert.ok(report.slides[1].textChars > 0);
+	assert.equal(report.slides[0].slotCount, 2);
 	assert.ok(report.slides[1].notesChars > 0);
 	assert.deepEqual(JSON.parse(readFileSync(files.report, "utf8")), report, "--report 必须与 stdout 一致");
 	assert.equal(existsSync(files.out), false, "--check 不得写 --out");
 });
 
 test("--check fails for an unmapped role and falls back to the previous layout", (t) => {
-	const plan = validPlan({ roles: { cover: "slideLayout1" }, requiredPages: [] });
-	const files = writeFixtures(t, { plan });
+	const compiled = validCompiled({ roles: { cover: "slideLayout1" }, requiredPages: [] });
+	const files = writeFixtures(t, { compiled });
 	const result = runCheck(files);
 	assert.equal(result.status, 1);
 	const report = checkReport(result);
@@ -121,11 +146,16 @@ test("--check fails for an unmapped role and falls back to the previous layout",
 });
 
 test("--check falls back to the title layout for an unmapped cover", (t) => {
-	const plan = validPlan({ roles: {}, requiredPages: [], notesRequired: false, slides: [
-		{ role: "cover", title: "封面", bullets: [], notes: "" },
-		{ role: "summary", title: "总结", bullets: [], notes: "" }
-	] });
-	const files = writeFixtures(t, { plan });
+	const compiled = validCompiled({
+		roles: {},
+		requiredPages: [],
+		notesRequired: false,
+		slides: [
+			compiledSlide({ role: "cover", texts: [slotText({ idx: 0, paragraphs: ["封面"] })], notes: "" }),
+			compiledSlide({ role: "summary", texts: [slotText({ idx: 1, paragraphs: ["总结"] })], notes: "" })
+		]
+	});
+	const files = writeFixtures(t, { compiled });
 	const result = runCheck(files);
 	assert.equal(result.status, 1);
 	const report = checkReport(result);
@@ -134,8 +164,8 @@ test("--check falls back to the title layout for an unmapped cover", (t) => {
 });
 
 test("--check flags a role mapped to an unknown layout", (t) => {
-	const plan = validPlan({ roles: { cover: "slideLayout9", summary: "slideLayout2" }, requiredPages: [] });
-	const files = writeFixtures(t, { plan });
+	const compiled = validCompiled({ roles: { cover: "slideLayout9", summary: "slideLayout2" }, requiredPages: [] });
+	const files = writeFixtures(t, { compiled });
 	const result = runCheck(files);
 	assert.equal(result.status, 1);
 	const report = checkReport(result);
@@ -144,11 +174,16 @@ test("--check flags a role mapped to an unknown layout", (t) => {
 });
 
 test("--check fails for a missing required page and too many pages", (t) => {
-	const plan = validPlan({ requiredPages: ["cover", "appendix"], maxPages: 1, notesRequired: false, slides: [
-		{ role: "cover", title: "封面", bullets: [], notes: "" },
-		{ role: "summary", title: "总结", bullets: [], notes: "" }
-	] });
-	const files = writeFixtures(t, { plan });
+	const compiled = validCompiled({
+		requiredPages: ["cover", "appendix"],
+		maxPages: 1,
+		notesRequired: false,
+		slides: [
+			compiledSlide({ role: "cover", texts: [slotText({ idx: 0, paragraphs: ["封面"] })], notes: "" }),
+			compiledSlide({ role: "summary", texts: [slotText({ idx: 1, paragraphs: ["总结"] })], notes: "" })
+		]
+	});
+	const files = writeFixtures(t, { compiled });
 	const result = runCheck(files);
 	assert.equal(result.status, 1);
 	const report = checkReport(result);
@@ -159,11 +194,13 @@ test("--check fails for a missing required page and too many pages", (t) => {
 });
 
 test("--check fails when notes are required but a slide has none", (t) => {
-	const plan = validPlan({ slides: [
-		{ role: "cover", title: "封面", bullets: [], notes: "有备注" },
-		{ role: "summary", title: "总结", bullets: [], notes: "" }
-	] });
-	const files = writeFixtures(t, { plan });
+	const compiled = validCompiled({
+		slides: [
+			compiledSlide({ role: "cover", texts: [slotText({ idx: 0, paragraphs: ["封面"] })], notes: "有备注" }),
+			compiledSlide({ role: "summary", texts: [slotText({ idx: 1, paragraphs: ["总结"] })], notes: "" })
+		]
+	});
+	const files = writeFixtures(t, { compiled });
 	const result = runCheck(files, ["--notes-required", "true"]);
 	assert.equal(result.status, 1);
 	const report = checkReport(result);
@@ -184,38 +221,42 @@ test("--check warns (but does not fail) on a page ratio mismatch", (t) => {
 test("every finding is well formed for both passing and failing plans", (t) => {
 	const passReport = checkReport(runCheck(writeFixtures(t), ["--max-pages", "5"]));
 	assertFindingShape(passReport.findings);
-	const failingPlan = validPlan({ roles: {}, requiredPages: ["appendix"], maxPages: 1, notesRequired: true, slides: [
-		{ role: "cover", title: "封面", bullets: [], notes: "" }
-	] });
-	const failReport = checkReport(runCheck(writeFixtures(t, { plan: failingPlan })));
+	const failing = validCompiled({
+		roles: {},
+		requiredPages: ["appendix"],
+		maxPages: 1,
+		notesRequired: true,
+		slides: [compiledSlide({ role: "cover", texts: [slotText({ idx: 0, paragraphs: ["封面"] })], notes: "" })]
+	});
+	const failReport = checkReport(runCheck(writeFixtures(t, { compiled: failing })));
 	assert.ok(failReport.findings.some((finding) => finding.level === "error"));
 	assertFindingShape(failReport.findings);
 });
 
-test("定点写入契约：--check 接受 texts（按 idx 写多段）并保持 finding 形状", (t) => {
+test("定点写入契约：--check 接受 texts（按 idx 与提示文字写多段）并保持 finding 形状", (t) => {
 	// 模板2 的封面没有 title 占位符（4 个 body/10..13），总结页有 3 个 body；
 	// 只按"第一个 body"写会把标题写错位置。texts 是这类模板的唯一正确入口。
 	const files = writeFixtures(t, {
-		plan: validPlan({
+		compiled: validCompiled({
 			roles: { cover: "slideLayout1", summary: "slideLayout2" },
 			slides: [
-				{
+				compiledSlide({
 					role: "cover",
 					texts: [
-						{ idx: 10, paragraphs: ["论文中文标题"], sizePt: 32 },
-						{ idx: 11, paragraphs: ["English Paper Title"], sizePt: 24 },
-						{ idx: 12, paragraphs: ["讲解人：张三"], sizePt: 20 }
+						slotText({ idx: 10, paragraphs: ["论文中文标题"], sizePt: 32, align: "center" }),
+						slotText({ prompt: "English Paper Title", paragraphs: ["English Paper Title"], sizePt: 24 }),
+						slotText({ idx: 12, paragraphs: ["讲解人：张三"], sizePt: 20 })
 					],
 					notes: "开场"
-				},
-				{
+				}),
+				compiledSlide({
 					role: "summary",
 					texts: [
-						{ idx: 11, paragraphs: ["第一段总结"], mode: "paragraph" },
-						{ idx: 12, paragraphs: ["创新点一", "创新点二"], mode: "bullets" }
+						slotText({ idx: 11, paragraphs: ["第一段总结"], mode: "paragraph" }),
+						slotText({ idx: 12, paragraphs: ["创新点一", "创新点二"], mode: "bullets" })
 					],
 					notes: "总结"
-				}
+				})
 			]
 		})
 	});
@@ -223,6 +264,8 @@ test("定点写入契约：--check 接受 texts（按 idx 写多段）并保持 
 	assert.equal(result.status, 0, result.stderr);
 	const report = checkReport(result);
 	assert.equal(report.ok, true);
+	assert.equal(report.slides[0].slotCount, 3, "cover 三个槽位都要落进摘要");
+	assert.equal(report.slides[1].paragraphCount, 3, "一段 + 两条要点");
 	assertFindingShape(report.findings);
 });
 
@@ -253,6 +296,9 @@ test("构建脚本保留定点写入/去项目符号/字体统一/删除模板�
 	assert.match(source, /def placeholder_by_prompt\(/, "应支持按版式提示文字定位占位符");
 	assert.match(source, /shape = placeholder_by_prompt\(slide, entry\.get\("prompt"\)\)/, "prompt 必须优先于 idx/name");
 	assert.match(source, /no placeholder for prompt=\{entry\.get\('prompt'\)!r\}/, "缺位警告要带上 prompt 便于排查");
+	// 旧路径必须真的没了：`--plan` 明确报错、内容只来自 texts[]
+	assert.match(source, /--plan 旧路径已移除/, "旧入口要给出迁移指引");
+	assert.doesNotMatch(source, /item\.get\("bullets"\)/, "不再支持 plan 里的 bullets 字段");
 });
 
 test("build mode without python-pptx exits 2 with a JSON error mentioning python-pptx", (t) => {
@@ -262,7 +308,7 @@ test("build mode without python-pptx exits 2 with a JSON error mentioning python
 		return;
 	}
 	const files = writeFixtures(t);
-	const result = spawnSync("python3", [SCRIPT, "--template", files.template, "--parse", files.parsePath, "--plan", files.planPath, "--out", files.out], { encoding: "utf8" });
+	const result = spawnSync("python3", [SCRIPT, "--template", files.template, "--parse", files.parsePath, "--compiled", files.compiledPath, "--out", files.out], { encoding: "utf8" });
 	assert.equal(result.status, 2, result.stderr);
 	assert.doesNotMatch(result.stderr, /Traceback/);
 	const payload = JSON.parse(result.stdout);
@@ -271,15 +317,15 @@ test("build mode without python-pptx exits 2 with a JSON error mentioning python
 	assert.equal(existsSync(files.out), false, "python-pptx 缺失时不得产出伪 deck");
 });
 
-test("bad plan JSON exits 2 with a JSON error and no traceback", (t) => {
-	const files = writeFixtures(t, { plan: "{ this is not json" });
+test("坏 compiled JSON 退出码 2、报错指名文件且无 traceback", (t) => {
+	const files = writeFixtures(t, { compiled: "{ this is not json" });
 	const result = runCheck(files);
 	assert.equal(result.status, 2);
 	assert.doesNotMatch(result.stderr, /Traceback/);
 	const payload = JSON.parse(result.stdout);
 	assert.equal(payload.ok, false);
 	assert.equal(typeof payload.error, "string");
-	assert.match(payload.error, /plan\.json/);
+	assert.match(payload.error, /compiled\.json/);
 });
 
 test("missing input files exit 2 with a JSON error and no traceback", (t) => {
@@ -296,15 +342,22 @@ test("missing input files exit 2 with a JSON error and no traceback", (t) => {
 	assert.equal(missingParse.status, 2);
 	assert.doesNotMatch(missingParse.stderr, /Traceback/);
 	assert.match(JSON.parse(missingParse.stdout).error, /parse\.json/);
+
+	const noCompiled = writeFixtures(t);
+	rmSync(noCompiled.compiledPath);
+	const missingCompiled = runCheck(noCompiled);
+	assert.equal(missingCompiled.status, 2);
+	assert.doesNotMatch(missingCompiled.stderr, /Traceback/);
+	assert.match(JSON.parse(missingCompiled.stdout).error, /compiled\.json/);
 });
 
 test("an empty plan or bad slide role exits 2 without a traceback", (t) => {
-	const emptyPlan = runCheck(writeFixtures(t, { plan: { roles: {}, slides: [] } }));
+	const emptyPlan = runCheck(writeFixtures(t, { compiled: compiledPlan({ roles: {}, slides: [] }) }));
 	assert.equal(emptyPlan.status, 2);
 	assert.doesNotMatch(emptyPlan.stderr, /Traceback/);
 	assert.equal(JSON.parse(emptyPlan.stdout).ok, false);
 
-	const badRole = runCheck(writeFixtures(t, { plan: { roles: {}, slides: [{ title: "无角色" }] } }));
+	const badRole = runCheck(writeFixtures(t, { compiled: compiledPlan({ roles: {}, slides: [{ texts: [] }] }) }));
 	assert.equal(badRole.status, 2);
 	assert.doesNotMatch(badRole.stderr, /Traceback/);
 	assert.equal(JSON.parse(badRole.stdout).ok, false);

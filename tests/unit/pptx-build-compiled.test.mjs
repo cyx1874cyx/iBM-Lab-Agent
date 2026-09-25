@@ -1,9 +1,12 @@
 /**
- * Unit: scripts/pptx/build_from_template.py 的 `--compiled` 入口（0.5.4）。
+ * Unit: scripts/pptx/build_from_template.py 的 `--compiled` 入口。
+ *
+ * 标准流程只有一条（0.5.5-beta3 起取消向后兼容）：`plan.json` → `compile-ppt-plan.mjs`
+ * → `compiled.json` → `build_from_template.py --compiled`。
  *
  * 只跑 `--check`（不需要 python-pptx）：验证
  *   * compiled.json 的 `kind` 校验（不是 compiled-plan 就明确报错）；
- *   * `--plan` 与 `--compiled` 互斥；
+ *   * `--plan` 旧入口已移除（明确报错并给出迁移指引）、只给 `--compiled` 才通过；
  *   * 编译期诊断并入符合性报告（前缀 compiled_），error 使退出码为 1；
  *   * 版式按**版式名**解析（pptx-cli manifest 的 slug id 与 parse.json 的
  *     slideLayoutN 不是同一套 id 空间，这是两者之间的桥）。
@@ -12,7 +15,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,7 +63,7 @@ function fixtures(t, { compiled = COMPILED } = {}) {
 	writeFileSync(template, "not-a-real-pptx");
 	writeFileSync(parsePath, JSON.stringify(PARSE));
 	writeFileSync(compiledPath, JSON.stringify(compiled));
-	return { dir, template, parsePath, compiledPath, planPath: compiledPath };
+	return { dir, template, parsePath, compiledPath };
 }
 
 function run(files, extra) {
@@ -116,18 +119,25 @@ test("--compiled：kind 不对时明确报错（退出码 2，不是 JSON error 
 	assert.match(payload.error, /compile-ppt-plan\.mjs/);
 });
 
-test("--plan 与 --compiled 互斥；两者都不给时提示必需（退出码 2）", (t) => {
+test("--plan 旧入口已移除；不给 --compiled 时报必填（退出码 2）", (t) => {
 	const files = fixtures(t);
-	const both = run(files, ["--plan", files.planPath, "--compiled", files.compiledPath]);
-	assert.equal(both.status, 2);
-	assert.match(JSON.parse(both.stdout).error, /either --plan or --compiled/);
+	// 旧入口：单独给 --plan 就会被明确拒绝（它绕过编译期门禁）
+	const legacy = run(files, ["--plan", join(files.dir, "plan.json")]);
+	assert.equal(legacy.status, 2);
+	assert.match(JSON.parse(legacy.stdout).error, /--plan 旧路径已移除/);
 
+	// 与 --compiled 一起给也不行：旧入口先被拒绝，不会静默挑一个用
+	const both = run(files, ["--plan", join(files.dir, "plan.json"), "--compiled", files.compiledPath]);
+	assert.equal(both.status, 2);
+	assert.match(JSON.parse(both.stdout).error, /--plan 旧路径已移除/);
+
+	// 什么都不给：提示 --compiled 是必需的
 	const neither = run(files, []);
 	assert.equal(neither.status, 2);
-	assert.match(JSON.parse(neither.stdout).error, /--plan is required/);
+	assert.match(JSON.parse(neither.stdout).error, /--compiled is required/);
 });
 
-test("--plan 旧路径行为不变（roles 用 parse.json 的 layout id）", (t) => {
+test("手写 plan 直接构建被拒：报错给出「先编译再 --compiled」的迁移指引", (t) => {
 	const files = fixtures(t);
 	const planPath = join(files.dir, "plan.json");
 	writeFileSync(planPath, JSON.stringify({
@@ -136,11 +146,18 @@ test("--plan 旧路径行为不变（roles 用 parse.json 的 layout id）", (t)
 		slides: [{ role: "cover", title: "标题", bullets: [], notes: "n" }]
 	}));
 	const result = spawnSync("python3", [SCRIPT, "--template", files.template, "--parse", files.parsePath, "--plan", planPath, "--check"], { encoding: "utf8" });
-	assert.equal(result.status, 0);
-	const report = JSON.parse(result.stdout);
-	assert.equal(report.planKind, "plan");
-	assert.equal(report.findings.some((finding) => finding.code.startsWith("compiled_")), false);
-	assert.equal(report.slides[0].layoutId, "slideLayout1");
+	assert.equal(result.status, 2, "旧路径不得再产出报告（不静默降级）");
+	assert.doesNotMatch(result.stderr, /Traceback/);
+	const payload = JSON.parse(result.stdout);
+	assert.equal(payload.ok, false);
+	assert.match(payload.error, /--plan 旧路径已移除/);
+	// 指引必须能照着做：编译命令 + 模板目录 + --compiled
+	assert.match(payload.error, /compile-ppt-plan\.mjs/);
+	assert.match(payload.error, /--compiled/);
+	// 手写计划里的 title/bullets 也不再是合法内容来源
+	const source = readFileSync(SCRIPT, "utf8");
+	assert.doesNotMatch(source, /item\.get\("bullets"\)/);
+	assert.doesNotMatch(source, /item\.get\("imageCaption"\)/);
 });
 
 test("--check 不写成品文件（compiled 路径同样不写）", (t) => {
