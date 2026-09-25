@@ -2760,7 +2760,9 @@ pub fn open_window(
                 }
                 _ => {}
             }
-            let _ = push_capture_ball(&download_app, webview);
+            // `on_download` hands the closure an owned `Webview`, while the helper
+            // borrows one; pass a reference instead of moving the handle in.
+            let _ = push_capture_ball(&download_app, &webview);
             allow
         });
     let webview = main_window
