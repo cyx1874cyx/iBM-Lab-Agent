@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -26,15 +27,69 @@ test("Wiley iWAN 下载先等待人机验证，再按正文与 Filename SI 两�
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /WILEY_HUMAN_CHECK_MS = 10000/);
 	assert.match(webvpn, /publisher === 'wiley' && !previewUrl && Date\.now\(\) < wileyReadyAt/);
-	assert.match(webvpn, /if \(publisher === 'wiley'\) \{[\s\S]*?signal\('challenge'\);[\s\S]*?return;/, "Wiley 验证页须保留捕获任务并报告验证状态");
+	assert.match(webvpn, /if \(challengePresent\(\)\) \{\s*if \(!reportedChallenge\).*?signal\('challenge'\);.*?return;\s*\}/s, "所有验证页须保留扫描计时器并报告状态");
 	assert.match(webvpn, /clickWileySupportingInformation/);
 	assert.match(webvpn, /supporting information/);
 	assert.match(webvpn, /\\bfilename\\b/);
 	assert.match(webvpn, /kind !== 'pdf' && publisher !== 'wiley'/, "Wiley SI 预览页也必须支持捕获保存");
 	assert.ok(
-		webvpn.indexOf("clickWileySupportingInformation(items)") < webvpn.indexOf("const scored = items.map"),
+		webvpn.indexOf("clickWileySupportingInformation(items)") < webvpn.indexOf("const scored = items.filter"),
 		"Wiley SI 必须先展开并选择 Filename，不能让通用评分器误点折叠标题",
 	);
+});
+
+test("自动验证自行通过后继续点击正文入口，点击不触发内部导航或停止扫描", async () => {
+	const source = await webvpnSource();
+	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "acs");
+	assert.ok(script);
+	let challenge = true;
+	let tick;
+	let clicks = 0;
+	let stopped = 0;
+	const signals = [];
+	const window = {};
+	const document = {
+		title: "Security Check",
+		body: { get innerText() { return challenge ? "verify you are human" : "Article"; } },
+		querySelector: () => null,
+		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' && !challenge ? [link] : [],
+		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+	};
+	const link = {
+		nodeType: 1, ownerDocument: document, href: "https://pubs.acs.org/doi/pdf/10.1021/test",
+		innerText: "Download PDF", textContent: "Download PDF",
+		getBoundingClientRect: () => ({ width: 80, height: 20 }),
+		getAttribute: () => null, closest: () => link, matches: () => true,
+		click: () => { clicks += 1; },
+	};
+	const location = {
+		hostname: "pubs.acs.org", pathname: "/doi/10.1021/test",
+		get href() { return "https://pubs.acs.org/doi/10.1021/test"; },
+		set href(value) { signals.push(value); },
+	};
+	runInNewContext(script, {
+		window, document, location, URL,
+		setInterval: (callback) => { tick = callback; return 1; },
+		clearInterval: () => { stopped += 1; },
+		setTimeout: () => 1,
+	});
+	assert.equal(clicks, 0);
+	challenge = false;
+	document.title = "Article";
+	tick();
+	assert.equal(clicks, 1, "自动验证通过后应继续点击 PDF 入口");
+	assert.equal(stopped, 0, "点击后应继续观察下载响应，而不是停止扫描");
+	assert.equal(signals.filter((item) => item.endsWith("/clicked")).length, 0, "点击后不应导航到内部状态协议");
+	window.__ibmWebVpnDownloadStarted = true;
+	tick();
+	assert.equal(stopped, 1, "真实下载开始后才停止页面扫描");
+});
+
+test("空白弹窗不能覆盖唯一文献 WebView", async () => {
+	const webvpn = await webvpnSource();
+	assert.match(webvpn, /on_new_window[\s\S]*?if !matches!\(url\.scheme\(\), "http" \| "https"\)[\s\S]*?return NewWindowResponse::Deny;/);
 });
 
 /** `invoke('name', ...)` 里的命令名。辅助函数本身是 `invoke(command, args)`，不含引号，不会被收录。 */

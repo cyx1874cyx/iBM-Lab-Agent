@@ -1,6 +1,6 @@
 # Agent 浏览器控制：本地实现设计
 
-状态：设计稿，未实现。目标版本：0.5.5-beta3 之后。本文只规定现有 DSH 科研 Agent、文献 WebView2 和右侧栏 Browser 的接线与验收，不改变当前捕获任务、登录资料或发布流程。
+状态：WebView2 Agent 工具已于 0.5.5-beta4 实现；0.5.5-beta5 修正验证恢复、下载点击与队列接管。本文记录接线与验收边界，不改变登录资料或发布流程。
 
 ## 1. 现有边界
 
@@ -62,7 +62,15 @@ UI 和 Agent 状态使用同一组可证实的事实：queued、opening、search
 
 WSL 中实现、运行单元与回归、lint、preset/client 检查并提交。测试覆盖任务归属、旧 elementId 被拒、导航失效、重复回包、超时、敏感字段不出现在模型输出、下载与另存为两条完成路径。Windows 侧只按既有发行脚本打包并做安装包真机验收：已登录 iWAN 下至少验证 Nature、Springer、ScienceDirect、Wiley 的正文及一例 SI；逐项记录页面观察、点击、下载事件、原生 PDF 保存和最终课题归档。任何一项未实测，应在标定文件保持 pending。
 
-## 8. 实施顺序
+## 8. 验证、点击与 SI 队列状态
+
+- 验证页进入 verification 时保持扫描计时器；页面自行通过后返回 searching，不消耗验证期间的下载入口尝试次数。Agent 对 wait-and-poll 继续查状态，不向用户索取本来无需操作的验证。
+- 点击入口后保持当前 WebView 的导航与下载事件独立运行。页面脚本不再立刻跳转内部状态协议，也不强行给出版社链接加 download 属性；若页面不跳转且未下载，短暂冷却后尝试其他候选入口，最终进入 manual。clicked 只表示已点击。
+- 非 HTTP(S) 弹窗（尤其 about:blank）不覆盖唯一文献页。普通 HTTP(S) 新窗口仍收敛到该 WebView。
+- 正文任务占用浏览器时 SI 保持 queued；前项完成、失败、取消或过期后释放本地 pending，再由下一次轮询领取 SI。状态工具给 Agent 返回 phase、queuePosition 与 nextAction；只有归档 completed 才算成功。
+- 已登录 iWAN 的出版社验证页、PDF 原生保存与 SI 真正下载仍须安装版人工验收；标定文件不因模拟测试自动改为通过。
+
+## 9. 实施顺序
 
 1. 编译小样确认锁定的 Tauri/webview2-com 能调用 CDP 回调和 ShowSaveAsUI/SaveAsUIShowing；不改现有下载行为。
 2. 加服务操作队列、远程方法和桌面桥，完成 observe、click 与状态回传。

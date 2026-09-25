@@ -149,12 +149,25 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								}
 							}
 						} catch { /* 桌面桥暂不可达；操作超时后由服务标记失败 */ }
+						// 忙时也必须读取队列：这一步会淘汰过期任务。若浏览器还持有已经
+						// 结束的一次性令牌，先清掉它，否则后面的 SI 永远不能接管。
+						const listed = await call("manual_capture_list", { request: { projectId } });
+						const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
+						if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status)
+							|| ["error", "expired"].includes(shellStatus?.state))) {
+							if (activeTask.status === "armed") {
+								await call("manual_capture_cancel", { request: {
+									taskId: activeTask.id, reason: shellStatus?.lastError || "文献浏览器任务已中断"
+								} }).catch(() => {});
+							}
+							await cancelWebVpnCaptureViaShell(activeTask.id).catch(() => {});
+							return;
+						}
 						// 单个软件内浏览器只处理一个捕获。上一个任务仍在导航、下载或归档时
 						// 不领取下一枚一次性令牌，避免新任务被 busy 错误取消并留在僵尸队列。
 						const shellBusy = Boolean(shellStatus?.pendingTaskId)
 							|| ["navigating", "waiting-download", "downloading", "uploading"].includes(shellStatus?.state);
 						if (shellBusy) return;
-						const listed = await call("manual_capture_list", { request: { projectId } });
 						const queued = (listed?.tasks || [])
 							.filter((item) => item.requestedBy === "agent" && item.status === "armed")
 							.sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));

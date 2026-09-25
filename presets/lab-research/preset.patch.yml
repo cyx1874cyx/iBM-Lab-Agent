@@ -118,6 +118,18 @@
                      返回 requiresUserAction=true，必须把 question 原样询问用户；只有用户明确
                      确认终止后，才调用 lab_publisher_browser_download_cancel(taskId)，不得因
                      一次获取失败擅自取消，也不得让失败任务继续占据队列；
+                   - 通用出版社文献下载调用 lab_publisher_browser_download 后，以 taskId
+                     持续调用 lab_publisher_browser_download_status，直到 completed 或
+                     明确的 failed/expired/cancelled。queued 表示排队，不要再次创建同类任务；
+                     verification 表示页面正在自动验证，保持等待并复查，不要让用户手动
+                     点击、不要结束操作。状态返回 nextAction=wait-and-poll 时继续查询，
+                     nextAction=observe-or-save-pdf 或 observe-or-click 时先用
+                     lab_browser_observe 查看页面；若正文页是顶层原生 PDF（或页面观察
+                     因原生查看器无法读取）则调用 lab_browser_save_current_pdf；否则按观察
+                     返回的短期元素引用调用 lab_browser_click。每个浏览器动作都要用
+                     lab_browser_operation_status 等结果，点击不等于文件已归档，最终
+                     仍以下载状态 completed 为准。正文未结束时 SI 可排队，必须等正文
+                     释放文献浏览器后再处理 SI；
                    - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
                      无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
                      RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接

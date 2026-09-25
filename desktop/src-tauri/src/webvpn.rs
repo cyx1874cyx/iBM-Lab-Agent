@@ -225,6 +225,12 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       captureBall.dataset.visible = 'false';
       return;
     }
+    if (['downloading', 'saving', 'uploading', 'completed', 'error'].includes(payload.phase))
+      window.__ibmWebVpnDownloadStarted = true;
+    // A local click is observable before WebView2 emits DownloadStarting. Do
+    // not repaint it as searching during the short response window.
+    if (payload.phase === 'searching' && Date.now() - (window.__ibmWebVpnLocalClickAt || 0) < 15000)
+      payload = { ...payload, phase: 'clicked' };
     const kind = payload.kind === 'si' ? '补充材料' : '正文';
     const size = formatBytes(payload.bytes);
     const text = payload.phase === 'saving'
@@ -235,7 +241,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         ? '正在归档' + kind + (size ? ' · ' + size : '')
         : payload.phase === 'searching' ? '正在查找' + kind + '下载入口'
         : payload.phase === 'clicked' ? '已点击' + kind + '入口，等待下载响应'
-        : payload.phase === 'verification' ? '页面需要人工验证；完成后请点击下载'
+        : payload.phase === 'verification' ? '页面验证中，通过后继续查找下载入口'
         : payload.phase === 'manual' ? '未确认自动入口，请手动保存' + kind
         : payload.phase === 'opening' ? '正在打开出版社页面'
         : payload.phase === 'completed' ? kind + '已归档'
@@ -461,16 +467,24 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
     .flatMap((root) => [...(root.querySelectorAll?.('a[href],button,[role="button"]') || [])])
     .filter(visible)
     .map((element) => ({ element: clickTarget(element), text: description(element), href: hrefOf(element) }));
+  const attempted = new Set();
+  let lastClickAt = 0;
+  const candidateKey = (item) => item.href + '|' + item.text;
+  const markClicked = (item) => {
+    if (item) attempted.add(candidateKey(item));
+    lastClickAt = Date.now();
+    window.__ibmWebVpnLocalClickAt = lastClickAt;
+    window.__ibmWebVpnCapture?.({ phase: 'clicked', kind });
+  };
   const forceDownload = (href) => {
-    if (!href || window[`${runKey}_forced`]) return false;
+    if (!href || window[runKey + '_forced']) return false;
     const anchor = document.createElement('a');
     anchor.href = href;
-    anchor.download = 'article.pdf';
     anchor.style.display = 'none';
     document.documentElement.appendChild(anchor);
-    window[`${runKey}_forced`] = true;
+    window[runKey + '_forced'] = true;
+    markClicked();
     anchor.click();
-    signal('clicked');
     setTimeout(() => anchor.remove(), 1000);
     return true;
   };
@@ -498,6 +512,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
       }
     }
     if (wileyPreviewPage) {
+      if (current.searchParams.get('download') === 'true') return '';
       current.searchParams.set('download', 'true');
       return current.href;
     }
@@ -561,7 +576,7 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
 
     const filenameLink = items.find(({ element, text, href }) => {
       const anchor = element.closest?.('a[href]') || (element.matches?.('a[href]') ? element : null);
-      if (!anchor || !href || /^#|^javascript:/i.test(href)) return false;
+      if (!anchor || !href || /^#|^javascript:/i.test(href) || attempted.has(candidateKey({ text, href }))) return false;
       const row = anchor.closest?.('tr');
       const table = anchor.closest?.('table');
       const region = anchor.closest?.('section,article,[role="region"],div');
@@ -570,44 +585,36 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
         && !/^supporting information$/i.test(String(anchor.innerText || '').trim());
     });
     if (!filenameLink) return false;
-    clearInterval(timer);
-    window[`${runKey}_clicked`] = true;
+    markClicked(filenameLink);
     // 正常进入 Wiley 的 PDF 预览页；下一次页面加载会注入本脚本并捕获保存。
     filenameLink.element.click();
-    signal('clicked');
     return true;
   };
   const scan = () => {
+    if (window.__ibmWebVpnDownloadStarted) { clearInterval(timer); return; }
     if (!confirmedPublisherPage()) return;
     if (!reportedSearch) { reportedSearch = true; signal('searching'); }
     const previewUrl = previewDownloadUrl();
-    // Wiley 首次进入文章页时为人工验证预留至少 10 秒。验证未完成时继续
+    // Wiley 首次进入文章页时为自动验证预留至少 10 秒。验证未完成时继续
     // 等待，不消耗自动化重试次数，也不提前把任务判为失败。
     if (publisher === 'wiley' && !previewUrl && Date.now() < wileyReadyAt) return;
     if (challengePresent()) {
-      if (publisher === 'wiley') {
-        if (!reportedChallenge) { reportedChallenge = true; signal('challenge'); }
-        return;
-      }
-      clearInterval(timer);
-      signal('challenge');
+      if (!reportedChallenge) { reportedChallenge = true; signal('challenge'); }
       return;
     }
     if (reportedChallenge) { reportedChallenge = false; signal('searching'); }
+    if (lastClickAt && Date.now() - lastClickAt < 4000) return;
     attempts += 1;
-    if (attempts >= 2 && forceDownload(previewUrl)) { clearInterval(timer); return; }
+    if (attempts >= 2 && forceDownload(previewUrl)) return;
     const items = candidates();
     if (clickWileySupportingInformation(items)) return;
-    const scored = items.map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
+    const scored = items.filter((item) => !attempted.has(candidateKey(item)))
+      .map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
       .sort((a, b) => b.score - a.score);
     const threshold = kind === 'pdf' ? 8 : 10;
     if (scored[0]?.score >= threshold) {
-      clearInterval(timer);
-      window[`${runKey}_clicked`] = true;
-      const anchor = scored[0].element.closest?.('a[href]') || (scored[0].element.matches?.('a[href]') ? scored[0].element : null);
-      if (anchor) anchor.setAttribute('download', kind === 'pdf' ? 'article.pdf' : 'supporting-information');
+      markClicked(scored[0]);
       scored[0].element.click();
-      signal('clicked');
       return;
     }
     if (kind === 'si' && !expanded) {
@@ -2658,7 +2665,7 @@ pub fn open_window(
                     return false;
                 }
                 if result == "challenge" {
-                    let message = "出版社页面出现验证码或安全检查；捕获仍有效，请人工完成验证后点击下载";
+                    let message = "出版社页面正在验证访问；捕获仍有效，通过后自动继续查找入口";
                     record(&navigation_app, "automation", "", message);
                 }
                 return false;
@@ -2676,6 +2683,16 @@ pub fn open_window(
             true
         })
         .on_new_window(move |url, _features| {
+            // Some download buttons open about:blank first and assign the real URL
+            // later. Navigating our only WebView to that placeholder strands both
+            // the PDF task and the queued SI task on a white page.
+            if !matches!(url.scheme(), "http" | "https") {
+                record(&window_app, "newWindow", url.as_str(), "忽略空白或非网页弹窗，保留当前文献页面");
+                if let Some(state) = window_app.try_state::<WebVpnState>() {
+                    state.set_automation_stage("manual");
+                }
+                return NewWindowResponse::Deny;
+            }
             // USTC 快速跳转和部分出版社链接会请求新窗口。统一收敛回单例窗口，
             // 避免额外窗口脱离下载处理器与专属会话状态机。
             record(
@@ -2689,7 +2706,7 @@ pub fn open_window(
             }
             NewWindowResponse::Deny
         })
-        .on_download(move |_webview, event| {
+        .on_download(move |webview, event| {
             let mut allow = true;
             match event {
                 DownloadEvent::Requested { url, destination } => {
@@ -2743,6 +2760,7 @@ pub fn open_window(
                 }
                 _ => {}
             }
+            let _ = push_capture_ball(&download_app, webview);
             allow
         });
     let webview = main_window

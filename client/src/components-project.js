@@ -33,7 +33,7 @@ export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapse
 		case "waiting-download":
 			if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
 			if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
-			if (automationStage === "verification") return { text: "出版社要求人工验证；完成后请在侧栏点击下载", tone: "waiting" };
+			if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
 			if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
 			return { text: "正在等待出版社页面加载…", tone: "waiting" };
 		case "downloading":

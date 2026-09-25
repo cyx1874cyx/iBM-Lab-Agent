@@ -2881,7 +2881,7 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
     case "waiting-download":
       if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
       if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
-      if (automationStage === "verification") return { text: "出版社要求人工验证；完成后请在侧栏点击下载", tone: "waiting" };
+      if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
       if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
       return { text: "正在等待出版社页面加载…", tone: "waiting" };
     case "downloading":
@@ -3835,9 +3835,22 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
           }
         } catch {
         }
+        const listed = await call("manual_capture_list", { request: { projectId } });
+        const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
+        if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status) || ["error", "expired"].includes(shellStatus?.state))) {
+          if (activeTask.status === "armed") {
+            await call("manual_capture_cancel", { request: {
+              taskId: activeTask.id,
+              reason: shellStatus?.lastError || "文献浏览器任务已中断"
+            } }).catch(() => {
+            });
+          }
+          await cancelWebVpnCaptureViaShell(activeTask.id).catch(() => {
+          });
+          return;
+        }
         const shellBusy = Boolean(shellStatus?.pendingTaskId) || ["navigating", "waiting-download", "downloading", "uploading"].includes(shellStatus?.state);
         if (shellBusy) return;
-        const listed = await call("manual_capture_list", { request: { projectId } });
         const queued = (listed?.tasks || []).filter((item) => item.requestedBy === "agent" && item.status === "armed").sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
         const routeNeedsVpn = (item) => item.kind === "pdf" || !(item.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(item.publisherUrl || ""));
         const task = queued.find((item) => iwanStatus?.usable || !routeNeedsVpn(item) || shellStatus?.windowOpen && shellStatus?.authenticated) || queued[0];
