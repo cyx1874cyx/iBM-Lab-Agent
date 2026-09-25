@@ -230,7 +230,15 @@
                     slots.json / GUIDE.md / lint.json。
                     - 生成 PPT 前先 lab_ppt_templates_get 拿 guidePath，用 read 读完
                       GUIDE.md：按它给出的「角色 → 版式」和「每个槽位填什么」写 plan，
-                      再用 lab_ppt_templates_contract 取契约按契约构建；
+                      再用 lab_ppt_templates_contract 取契约；
+                    - **必须走契约里的两步**：① `node scripts/compile-ppt-plan.mjs --plan
+                      <plan.json> --template <模板版本目录> --out <compiled.json>`（编译期会校验
+                      必填槽/图片/容量/版式选择），② 再用 lab_ppt_build_from_template 传
+                      compiled.json 构建。**禁止手写 plan 直接构建**（旧入口已移除，会直接报错），
+                      也禁止用 python-pptx 从空白 Presentation() 自拼版式；
+                    - 模板缺 slots.json/GUIDE.md/lint.json（manifestSource=fallback）时**不能用于
+                      生成 PPT**：必须在该环境具备 pptx-cli 后用新 id 重新导入（模板 id 不复用），
+                      不要试图按 parse.json 手工凑；
                     - 新增或修改模板后**必须**调用 lab_ppt_template_lint：ok=false 时按
                       findings 里 compensated=false 的条目改模板（compensated=true 的
                       构建器会兜住，只需登记），改完重新导入；未过门控不得直接用该模板出正式
