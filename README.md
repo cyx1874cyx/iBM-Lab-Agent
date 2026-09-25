@@ -5,14 +5,14 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta8**：beta7 之后页面已经能正常渲染（工具栏与正文都在），但状态
-被卡在「正在等待页面自动验证」——根因是**验证页误判**：Cloudflare 会给所有受保护页面注入
-`challenge-platform` 脚本，普通文章页同样带着它，而 beta6 把它当成了"这是验证页"的判据，
-于是扫描器永远停在验证分支、再也不会去找下载入口（`nextAction` 恒为 wait-and-poll）。
-现在只有**挑战插页标题**、或**非文章页上的可见验证组件**才算验证；文章页（有 citation
-元数据或正文足够长）一律按文章页继续扫描。同时验证阶段的状态改为
-`nextAction=complete-verification`，明确要求用户去侧栏点一下「请验证您是真人」，
-不再让人无限等待。详见 [发布说明](docs/releases/v0.5.5-beta8.md)。
+当前候选版本为 **v0.5.5-beta9**：文章页能正常扫描之后，剩下的最后一环是**原生 PDF 预览器**。
+WebView2 的内置查看器不是网页文档：注入的浏览器栏不会在里面执行（所以预览时「没有上面那条
+bar」），页面上也没有可点元素，自动化点不到查看器的保存按钮。现在进入原生 PDF 时会把阶段切到
+`manual`，状态返回 `nextAction=observe-or-save-pdf`，Agent 即可调用
+`lab_browser_save_current_pdf` —— 它用 `ShowSaveAsUI` + `SetSuppressDefaultDialog` 直接存到
+归档路径，**不弹对话框、也不需要右键另存**。同时 `is_pdf_document_url` 认出了
+`/doi/pdf/…`、`/pdfft` 这类不以 `.pdf` 结尾的出版社端点。详见
+[发布说明](docs/releases/v0.5.5-beta9.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /

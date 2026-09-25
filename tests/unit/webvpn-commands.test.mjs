@@ -180,6 +180,26 @@ test("Cloudflare 验证插页按验证处理，不被误判为已进入 PDF 预�
  * 现在改为只等待，约 30 秒后才退回人工处理。
  */
 /**
+ * 2026-09-26 实测：点击 PDF 后是 WebView2 **原生查看器**——它不是网页 DOM，注入的工具栏
+ * 不会执行、页面上也没有可点的元素（用户截图里那条带保存图标的栏属于查看器 UI）。
+ * 因此加载完成时就必须把阶段切成 manual，状态工具才会返回
+ * nextAction=observe-or-save-pdf，调用方才会去用 lab_browser_save_current_pdf
+ * （内部 ShowSaveAsUI + SetSuppressDefaultDialog，直接存到归档路径、不弹对话框）。
+ * 少了这一步，状态停在 clicked/wait-and-poll，用户只能右键另存。
+ */
+test("进入原生 PDF 预览器要切到 manual 并指向保存工具", async () => {
+	const webvpn = await webvpnSource();
+	assert.match(
+		webvpn,
+		/let pdf_document = webview[\s\S]*?is_pdf_document_url[\s\S]*?set_automation_stage\("manual"\)/,
+		"PDF 文档加载完成必须切到 manual 阶段",
+	);
+	assert.match(webvpn, /保存工具归档/, "文案必须指向保存工具，而不是让人右键另存");
+	// 出版社的原生 PDF 端点不以 .pdf 结尾（Science 的 /doi/pdf/10.1126/…）。
+	assert.match(webvpn, /path\.contains\("\/doi\/pdf"\)/);
+});
+
+/**
  * 2026-09-25 实测的误判：Cloudflare 会给**所有受保护页面**注入
  * `challenge-platform` 脚本，普通文章页同样带着它。把它当作"这是验证页"的判据，
  * 扫描器就会永远停在验证分支，再也不会去找下载入口（状态恒为

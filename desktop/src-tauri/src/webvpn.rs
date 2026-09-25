@@ -931,10 +931,21 @@ pub fn is_nature_article(target: &url::Url) -> bool {
         || host.ends_with(".nature.com")
 }
 
-/// 直接以 `.pdf` 结尾的文档地址：WebView2 内置查看器会占满窗口，其顶部工具栏
-/// 会被我们的 76px 工具栏盖住，因此这类页面需要开启页面位移。
+/// 顶层文档就是原生 PDF 的地址：WebView2 内置查看器会占满窗口，其顶部工具栏
+/// 会被我们的 76px 工具栏盖住，因此这类页面需要开启页面位移；同时也是"该调保存
+/// 工具、而不是继续找入口"的判据。
 pub fn is_pdf_document_url(target: &url::Url) -> bool {
-    target.path().to_ascii_lowercase().ends_with(".pdf")
+    let path = target.path().to_ascii_lowercase();
+    if path.ends_with(".pdf") {
+        return true;
+    }
+    // 出版社把原生 PDF 挂在这些端点上，路径并不以 .pdf 结尾：Science 的
+    // `/doi/pdf/10.1126/…`、Elsevier 的 `/pdfft`、IEEE 的 `/stampPDF/getPDF.jsp`。
+    // 判据与页面脚本 previewDownloadUrl() 用的那一组保持一致。
+    path.contains("/doi/pdf")
+        || path.contains("/pdfft")
+        || path.contains("/content/pdf/")
+        || path.contains("/stamppdf/getpdf.jsp")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2743,13 +2754,27 @@ pub fn open_window(
         .initialization_script(WEBVPN_CHROME_SCRIPT)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
-                // 直接落到 .pdf（WebView2 内置查看器）时也开启位移，避免查看器
-                // 自带的保存/下载工具栏被我们的 76px 工具栏盖住。
-                if webview
+                let pdf_document = webview
                     .url()
                     .map(|url| is_pdf_document_url(&url))
-                    .unwrap_or(false)
-                {
+                    .unwrap_or(false);
+                if pdf_document {
+                    // 原生 PDF 查看器**不是网页 DOM**：注入的工具栏不会执行，页面上也
+                    // 没有可点的元素。必须把阶段切到 manual，让状态工具返回
+                    // nextAction=observe-or-save-pdf，Agent 才会去调
+                    // lab_browser_save_current_pdf（内部用 ShowSaveAsUI +
+                    // SetSuppressDefaultDialog 直接存到归档路径，不弹对话框）。
+                    // 少了这一步，状态会停在 clicked/wait-and-poll，用户只能右键另存。
+                    if let Some(state) = page_app.try_state::<WebVpnState>() {
+                        state.set_automation_stage("manual");
+                    }
+                    record(
+                        &page_app,
+                        "automation",
+                        "",
+                        "已进入原生 PDF 预览器；可直接调用保存工具归档，无需右键另存",
+                    );
+                    // 位移：避免查看器自带的保存/下载工具栏被我们的 76px 工具栏盖住。
                     let _ = webview.eval(
                         "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
                     );
@@ -2979,6 +3004,13 @@ mod tests {
     fn pdf_document_urls_are_recognized_for_page_offset() {
         let pdf = url::Url::parse("https://www.example.org/a/b/paper.PDF?download=1").unwrap();
         assert!(is_pdf_document_url(&pdf));
+        // 出版社的原生 PDF 端点不以 .pdf 结尾，也必须认出来（Science 实测地址）。
+        let science_pdf =
+            url::Url::parse("https://www.science.org/doi/pdf/10.1126/science.aeg4791?download=true")
+                .unwrap();
+        assert!(is_pdf_document_url(&science_pdf));
+        let elsevier_pdfft = url::Url::parse("https://www.sciencedirect.com/science/article/pii/S1/pdfft?isDTMRedir=true").unwrap();
+        assert!(is_pdf_document_url(&elsevier_pdfft));
         let landing = url::Url::parse("https://www.sciencedirect.com/science/article/pii/S1")
             .unwrap();
         assert!(!is_pdf_document_url(&landing));
