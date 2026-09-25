@@ -127,8 +127,10 @@ test("templates: import three templates, suggest, confirm, validate, preview, de
 		const confirmed = await templates.confirmMapping("lab-template-1", "1", mapping);
 		assert.equal(confirmed.ok, true);
 		assert.equal(confirmed.profile.status, "ready");
-		// validate 现在会带上 manifestSource：合成 fixture 没有 pptx-cli manifest，
-		// 因此走 parse.json 降级路径（manifestSource=fallback），ok/problems 语义不变。
+		// validate 会带上 manifestSource：合成 fixture 没有 pptx-cli manifest，
+		// 所以是 fallback 状态（导入本身仍然成功、validate 的 ok/problems 语义不变），
+		// 但**这样的模板不能用于生成 PPT** —— 取生成契约时会直接报"缺少槽位规范"。
+		// 详见 tests/integration/tasks.test.mjs 里那条契约测试。
 		const validation = await templates.validate("lab-template-1");
 		assert.deepEqual({ ok: validation.ok, problems: validation.problems }, { ok: true, problems: [] });
 		assert.equal(validation.manifestSource, "fallback");
