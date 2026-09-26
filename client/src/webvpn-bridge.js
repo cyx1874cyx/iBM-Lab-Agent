@@ -87,6 +87,31 @@ export function sendWebVpnRect(payload) {
 }
 
 /**
+ * 把当前捕获队列快照交给桌面壳（壳再转给 Rust，最终画在捕获小球上）。
+ *
+ * 队列的真源在插件里，所以只能由客户端主动上报；小球用它显示排队序列，
+ * 并对每条排队任务提供"删除"入口。
+ *
+ * @param tasks - 插件返回的任务数组（只取展示与删除需要的字段）。
+ */
+export function sendWebVpnBallQueue(tasks) {
+	if (typeof window === "undefined" || !window.parent || window.parent === window) return;
+	const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => ({
+		id: String(task?.id ?? ""),
+		kind: String(task?.kind ?? ""),
+		status: String(task?.status ?? ""),
+		requestedBy: String(task?.requestedBy ?? "")
+	})).filter((entry) => entry.id);
+	try {
+		window.parent.postMessage({
+			source: "ibm-lab-agent",
+			type: "WEBVPN_BALL_QUEUE",
+			payload: { tasks: entries }
+		}, "*");
+	} catch { /* 壳未就绪：下一轮轮询会重发 */ }
+}
+
+/**
  * 打开（或聚焦）右侧栏的「文献浏览器」tab，并等到首次矩形上报完成。
  *
  * 必须等首个矩形：`webvpn_open_login` 会走 show_sidebar，而 Rust 端只有在收到过

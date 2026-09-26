@@ -623,6 +623,29 @@ async fn webvpn_open_capture(
     Ok(webvpn::status_of(&app, &config.webvpn))
 }
 
+/// DSH 右侧栏上报捕获队列快照（小球据此显示排队序列与逐条删除）。
+///
+/// 页面/客户端都可能不可信，所以这里做长度与条数清洗：只保留够用的短字符串，
+/// 且最多 50 条，避免小球被超大负载拖死。
+#[tauri::command]
+fn webvpn_set_capture_queue(app: tauri::AppHandle, tasks: Vec<webvpn::CaptureQueueEntry>) {
+    let clamp = |value: &str, max: usize| value.chars().take(max).collect::<String>();
+    let entries = tasks
+        .into_iter()
+        .take(50)
+        .map(|entry| webvpn::CaptureQueueEntry {
+            id: clamp(&entry.id, 64),
+            kind: clamp(&entry.kind, 16),
+            status: clamp(&entry.status, 24),
+            requested_by: clamp(&entry.requested_by, 16),
+        })
+        .collect();
+    if let Some(state) = app.try_state::<webvpn::WebVpnState>() {
+        state.set_capture_queue(entries);
+    }
+    webvpn::push_capture_ball_if_open(&app);
+}
+
 #[tauri::command]
 async fn webvpn_browser_action(
     task_id: String,
@@ -886,6 +909,7 @@ fn main() {
             webvpn_status,
             webvpn_show,
             webvpn_set_rect,
+            webvpn_set_capture_queue,
             webvpn_hide,
             webvpn_probe_events,
             webvpn_probe_clear,

@@ -183,6 +183,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
    * 状态由壳经 `window.__ibmWebVpnCapture(payload)` 推进来；`null` 表示隐藏。
    */
   let captureBall = null;
+  let captureQueueNode = null;
   const mountCaptureBall = () => {
     if (document.getElementById('__ibm_webvpn_capture')) return;
     const host = document.createElement('div');
@@ -197,8 +198,15 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     host.style.cssText = 'all:initial;display:block;position:fixed;left:16px;bottom:16px;top:auto;right:auto;margin:0;padding:0;border:0;background:transparent;width:auto;height:auto;max-width:none;max-height:none;overflow:visible;z-index:2147483646;';
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
-      .ball{all:initial;box-sizing:border-box;display:none;max-width:300px;padding:9px 14px;border-radius:999px;background:#0f172a;color:#f8fafc;font:600 12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;align-items:center;gap:8px}
+      .ball{all:initial;box-sizing:border-box;display:none;max-width:320px;padding:9px 14px;border-radius:14px;background:#0f172a;color:#f8fafc;font:600 12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;align-items:center;gap:8px}
       .ball[data-visible="true"]{display:inline-flex}
+      /* 队列：小球里直接看到排队序列，每条可单独删除（删的是队列，不是当前任务）。 */
+      .queue{all:initial;display:block;margin:6px 0 0;padding:6px 0 0;border-top:1px solid rgba(148,163,184,.35);max-height:150px;overflow:auto}
+      .queue[hidden]{display:none}
+      .queue-item{all:initial;display:flex;align-items:center;gap:6px;padding:2px 0;color:#e2e8f0;font:500 11px/1.3 "Segoe UI","Microsoft YaHei",sans-serif}
+      .queue-item .label{all:initial;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 11px/1.3 "Segoe UI","Microsoft YaHei",sans-serif;color:#e2e8f0}
+      .queue-item .kill{all:initial;box-sizing:border-box;width:18px;height:18px;border-radius:5px;text-align:center;font:600 12px/18px "Segoe UI",sans-serif;color:#cbd5e1;cursor:pointer}
+      .queue-item .kill:hover{background:#e81123;color:#fff}
       .ball[data-phase="armed"],.ball[data-phase="waiting"],.ball[data-phase="opening"],.ball[data-phase="searching"],.ball[data-phase="clicked"]{background:#b45309}
       .ball[data-phase="manual"],.ball[data-phase="verification"]{background:#9a3412}
       .ball[data-phase="downloading"],.ball[data-phase="saving"]{background:#1d4ed8}
@@ -211,13 +219,38 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       .hint{opacity:.72;font-weight:500}
       @keyframes ibm-ball-pulse{50%{opacity:.3}}
       @media (prefers-reduced-motion: reduce){.ball .dot{animation:none}}
-    </style><button class="ball" type="button"><i class="dot" aria-hidden="true"></i><span class="text">文献捕获</span><span class="hint">点击终止</span></button>`;
+    </style><button class="ball" type="button"><i class="dot" aria-hidden="true"></i><span class="text">文献捕获</span><span class="hint">点击终止</span></button><div class="queue" hidden></div>`;
     const ball = root.querySelector('.ball');
+    const queueNode = root.querySelector('.queue');
+    captureQueueNode = queueNode;
     ball.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      // 结束态下这一下是"关闭小球"；进行中才是"终止本次捕获"。
+      if (ball.dataset.settled === 'true') {
+        notifyShell('notice-dismiss/');
+        host.style.display = 'none';
+        return;
+      }
       notifyShell('cancel-capture/');
     });
+    // 逐条删除：只把 id 交给壳，真正的取消由插件执行（壳会校验 id 在不在队列里）。
+    queueNode.addEventListener('click', (event) => {
+      const kill = event.target && event.target.closest ? event.target.closest('.kill') : null;
+      if (!kill) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const id = kill.dataset.taskId || '';
+      if (!id) return;
+      notifyShell('cancel-task/' + encodeURIComponent(id));
+      const row = kill.closest('.queue-item');
+      if (row) row.remove();
+      syncQueueVisibility();
+    });
+    const syncQueueVisibility = () => {
+      if (!queueNode) return;
+      queueNode.hidden = queueNode.children.length === 0;
+    };
     (document.documentElement || document.body).appendChild(host);
     // showPopover 必须在入 DOM 之后调用；重复调用会抛，用 :popover-open 先判。
     if (canPopover) {
@@ -258,14 +291,47 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         : payload.phase === 'opening' ? '正在打开出版社页面'
         : payload.phase === 'completed' ? kind + '已归档'
         : payload.phase === 'error' ? kind + '下载或归档失败，请重试'
+        : payload.phase === 'idle' ? '队列中还有任务等待捕获'
         : '等待' + kind + '下载入口';
+    // 结束后**不隐藏**：用户要能看到结果与队列，点一下小球才关闭（2026-09-26 反馈）。
     const finished = payload.phase === 'completed' || payload.phase === 'error';
-    captureBall.disabled = finished;
-    captureBall.querySelector('.hint').textContent = finished ? '' : '点击终止';
+    captureBall.dataset.settled = finished ? 'true' : 'false';
+    captureBall.querySelector('.hint').textContent = finished ? '点击关闭' : '点击终止';
     captureBall.querySelector('.text').textContent = text;
+    // 队列：显示排队序列与各自状态；"正在跑的那条"不给删除按钮。
+    const entries = Array.isArray(payload.queue) ? payload.queue : [];
+    if (captureQueueNode) {
+      const rows = entries.map((entry) => {
+        const row = document.createElement('div');
+        row.className = 'queue-item';
+        const running = Boolean(entry.id) && entry.id === payload.pendingId;
+        const label = document.createElement('span');
+        label.className = 'label';
+        const kindText = entry.kind === 'si' ? '补充材料' : '正文';
+        const statusText = {
+          armed: '排队中', running: '进行中', completed: '已完成', failed: '失败',
+          cancelled: '已取消', expired: '已过期'
+        }[entry.status] ?? String(entry.status || '');
+        label.textContent = (running ? '▶ ' : '') + kindText + ' · ' + statusText;
+        row.appendChild(label);
+        if (!running) {
+          const kill = document.createElement('button');
+          kill.type = 'button';
+          kill.className = 'kill';
+          kill.dataset.taskId = entry.id;
+          kill.title = '从队列删除该任务';
+          kill.setAttribute('aria-label', '从队列删除该任务');
+          kill.textContent = '×';
+          row.appendChild(kill);
+        }
+        return row;
+      });
+      captureQueueNode.replaceChildren(...rows);
+      captureQueueNode.hidden = rows.length === 0;
+    }
     captureBall.dataset.phase = payload.phase;
     captureBall.dataset.visible = 'true';
-    captureBall.setAttribute('title', finished ? text : text + '；点击终止本次捕获');
+    captureBall.setAttribute('title', finished ? text + '；点击关闭' : text + '；点击终止本次捕获');
   };
   const mount = () => {
     mountCaptureBall();
@@ -512,6 +578,15 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
    * 次数只会在 12 秒后得出「已进入 PDF 预览器」这种错误结论，并把普通文章页当成
    * 整屏预览器去做页面位移。所以这种情况只等待，不计数。
    */
+  /**
+   * 文档是否**已经加载完**。动手（点入口 / 触发下载）之前必须为真。
+   *
+   * 2026-09-26 实测：预览器/大 PDF 还在加载时就触发下载，拿到的文件根本还没落盘
+   * （日志里是 `downloadRequested` 紧接 `系统找不到指定的文件`）。而"第几次扫描"
+   * 与页面就绪无关——它等价于一个固定延时，正是问题来源。所以改成事件驱动：
+   * 只有 `readyState === 'complete'` 才动手。
+   */
+  const documentLoaded = () => document.readyState === 'complete';
   const publisherContentReady = () => {
     if (document.readyState === 'loading') return false;
     const body = document.body;
@@ -674,9 +749,10 @@ const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
       return;
     }
     if (reportedChallenge) { reportedChallenge = false; signal('searching'); }
-    // 空白或还没加载完的文档先等：挑战页/被拦页面不应该消耗自动化重试次数。
-    // 超过约 30 秒仍无内容才退回人工处理，避免任务永远停在"正在查找入口"。
-    if (!publisherContentReady()) {
+    // 空白、没加载完、或还没到 complete 的文档一律只等待：挑战页、被拦页面、
+    // 以及"大 PDF 还在拉"的预览器都属于这一类。超过约 30 秒仍没就绪才退回人工，
+    // 避免任务永远停在"正在查找入口"，也避免在没就绪的页面上动手。
+    if (!publisherContentReady() || !documentLoaded()) {
       stalledTicks += 1;
       if (stalledTicks >= 40) { clearInterval(timer); signal(kind === 'si' ? 'si-manual' : 'pdf-manual'); }
       return;
@@ -1032,6 +1108,19 @@ pub fn allow_direct_nature_si_hosts(policy: &mut WebVpnPolicy) {
     policy.allowed_hosts.dedup();
 }
 
+/// 队列条目：由 DSH 右侧栏客户端上报，**仅用于捕获小球的展示与逐条删除**。
+///
+/// 任务调度的真源在插件（manual-capture 存储）里，这里只是一份只读快照；
+/// 删除请求会原样转回客户端，由插件真正取消。
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureQueueEntry {
+    pub id: String,
+    pub kind: String,
+    pub status: String,
+    pub requested_by: String,
+}
+
 /// 会话内部状态。所有字段共用一个 Mutex，避免多锁的加锁顺序问题。
 #[derive(Debug, Default)]
 struct Session {
@@ -1060,6 +1149,8 @@ struct Session {
     last_error: Option<String>,
     pending: Option<PendingCapture>,
     capture_notice: Option<CaptureNotice>,
+    /// DSH 右侧栏上报的队列快照（小球据此显示排队序列并允许逐条删除）。
+    capture_queue: Vec<CaptureQueueEntry>,
     generation: u64,
 }
 
@@ -1435,7 +1526,7 @@ impl WebVpnState {
         session.capture_notice = Some(CaptureNotice {
             kind,
             phase: if result.is_ok() { "completed" } else { "error" },
-            expires_at: Instant::now() + Duration::from_secs(8),
+            expires_at: Instant::now() + Duration::from_secs(30 * 60),
         });
         session.pending = None;
         match result {
@@ -1460,7 +1551,7 @@ impl WebVpnState {
                 session.capture_notice = Some(CaptureNotice {
                     kind: pending.kind.clone(),
                     phase: "error",
-                    expires_at: Instant::now() + Duration::from_secs(8),
+                    expires_at: Instant::now() + Duration::from_secs(30 * 60),
                 });
             }
             let path = pending.map(|pending| pending.temp_path);
@@ -1472,6 +1563,28 @@ impl WebVpnState {
         };
         if let Some(path) = path {
             let _ = fs::remove_file(path);
+        }
+    }
+
+    /// 覆盖队列快照。调用方已做长度/字段清洗，这里只负责落库。
+    pub fn set_capture_queue(&self, entries: Vec<CaptureQueueEntry>) {
+        if let Ok(mut session) = self.session.lock() {
+            session.capture_queue = entries;
+        }
+    }
+
+    /// 该 id 是否在当前队列快照里（小球发来的删除请求必须据此校验，页面不可信）。
+    pub fn queue_contains(&self, task_id: &str) -> bool {
+        self.session
+            .lock()
+            .map(|session| session.capture_queue.iter().any(|entry| entry.id == task_id))
+            .unwrap_or(false)
+    }
+
+    /// 清掉完成/失败提示（小球上的"关闭"按钮）。
+    pub fn dismiss_capture_notice(&self) {
+        if let Ok(mut session) = self.session.lock() {
+            session.capture_notice = None;
         }
     }
 
@@ -1516,14 +1629,37 @@ impl WebVpnState {
         let Ok(session) = self.session.lock() else {
             return "null".to_string();
         };
+        let queue: Vec<serde_json::Value> = session
+            .capture_queue
+            .iter()
+            .map(|entry| {
+                serde_json::json!({
+                    "id": entry.id,
+                    "kind": entry.kind,
+                    "status": entry.status,
+                    "requestedBy": entry.requested_by,
+                })
+            })
+            .collect();
         let Some(pending) = session.pending.as_ref() else {
-            return session.capture_notice.as_ref()
+            // 没有在跑的任务：提示保留（小球"下载完就消失"是实测反馈的问题），
+            // 只要还有排队任务也不隐藏，便于用户看到队列并逐条删除。
+            if let Some(notice) = session
+                .capture_notice
+                .as_ref()
                 .filter(|notice| notice.expires_at > Instant::now())
-                .map(|notice| serde_json::json!({
+            {
+                return serde_json::json!({
                     "phase": notice.phase,
                     "kind": notice.kind,
-                }).to_string())
-                .unwrap_or_else(|| "null".to_string());
+                    "queue": queue,
+                })
+                .to_string();
+            }
+            if queue.is_empty() {
+                return "null".to_string();
+            }
+            return serde_json::json!({ "phase": "idle", "kind": "", "queue": queue }).to_string();
         };
         let bytes = pending
             .download_started_at
@@ -1540,6 +1676,8 @@ impl WebVpnState {
             "phase": phase,
             "kind": pending.kind,
             "bytes": bytes,
+            "queue": queue,
+            "pendingId": pending.task_id,
         })
         .to_string()
     }
@@ -1914,8 +2052,28 @@ fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destinat
     }
 }
 
+/// 等文件真正落盘再读。
+///
+/// WebView2 报下载完成后，文件仍可能由下载进程延迟写出——紧接着 `fs::read` 会得到
+/// `系统找不到指定的文件 (os error 2)`，整次捕获因此失败（2026-09-26 实测）。
+/// 这里按**存在性**轮询而不是固定 sleep：文件一出现就读，正常路径不引入额外延时。
+fn read_captured_file(path: &Path) -> Result<Vec<u8>, String> {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        match fs::read(path) {
+            Ok(body) => return Ok(body),
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound && Instant::now() < deadline =>
+            {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(error) => return Err(format!("无法读取 WebVPN 下载文件: {error}")),
+        }
+    }
+}
+
 pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
-    let body = fs::read(&upload.path).map_err(|error| format!("无法读取 WebVPN 下载文件: {error}"));
+    let body = read_captured_file(&upload.path);
     let result = body.and_then(|body| {
         let extension = if body.starts_with(b"%PDF-") {
             "pdf"
@@ -2561,6 +2719,13 @@ pub fn push_capture_ball(app: &AppHandle, webview: &Webview) -> Result<(), Strin
         .map_err(|error| error.to_string())
 }
 
+/// 侧栏已打开时把最新状态推给捕获小球；没打开就什么也不做。
+pub fn push_capture_ball_if_open(app: &AppHandle) {
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        let _ = push_capture_ball(app, &webview);
+    }
+}
+
 /// 主窗口缩放时更新当前可见侧栏；隐藏状态不改变。
 ///
 /// 右侧栏接管后这里直接返回：窗口尺寸变化会先反映到 DSH 的布局上，再由 tab 正文的
@@ -2634,6 +2799,32 @@ fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
             "",
             "页面疑似被整屏固定遮罩盖住，已自动撤销 html 位移",
         );
+        return true;
+    }
+    if url.host_str() == Some("cancel-task") {
+        // 小球上的逐条删除。页面是远端内容、不可信：只接受**当前队列快照里存在**的 id，
+        // 其余一律忽略；真正的取消由插件执行，这里只负责转交给客户端。
+        let task_id = url.path().trim_matches('/').to_string();
+        if task_id.is_empty() || !app.try_state::<WebVpnState>().map(|state| state.queue_contains(&task_id)).unwrap_or(false) {
+            return true;
+        }
+        record(app, "capture", "", "用户从捕获小球请求删除队列中的任务");
+        if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
+            let script = format!(
+                "window.__ibmBallCancelTask && window.__ibmBallCancelTask({})",
+                serde_json::to_string(&task_id).unwrap_or_else(|_| "\"\"".to_string())
+            );
+            let _ = main.eval(script);
+        }
+        return true;
+    }
+    if url.host_str() == Some("notice-dismiss") {
+        if let Some(state) = app.try_state::<WebVpnState>() {
+            state.dismiss_capture_notice();
+        }
+        if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+            let _ = push_capture_ball(app, &webview);
+        }
         return true;
     }
     if url.host_str() == Some("automation") {

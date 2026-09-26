@@ -107,7 +107,10 @@ test("WebVPN 模块不得读取或导出浏览器 profile 内容", async () => {
 		);
 	}
 	// 下载捕获允许读取 on_download 生成的精确临时文件；不得用 profile 路径读取。
-	assert.match(webvpn, /fs::read\(&upload\.path\)/, "捕获上传应只读取下载回调确认的临时文件");
+	// 读取走 read_captured_file：它按存在性重试（WebView2 报完成后文件可能稍后才落盘），
+	// 但路径仍然只来自下载回调确认的那一个。
+	assert.match(webvpn, /read_captured_file\(&upload\.path\)/, "捕获上传应只读取下载回调确认的临时文件");
+	assert.match(webvpn, /fn read_captured_file\(path: &Path\)/, "必须有按存在性重试的读取入口");
 	assert.doesNotMatch(webvpn, /fs::read\([^\n]*(profile|PROFILE_DIR_NAME)/i);
 	// 唯一允许的目录操作是整体删除（清除登录状态）。删除动作在命令层
 	// （main.rs::webvpn_clear_session），webvpn.rs 只负责解析并校验路径。

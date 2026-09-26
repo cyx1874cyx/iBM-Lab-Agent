@@ -334,6 +334,23 @@ function sendWebVpnRect(payload) {
   } catch {
   }
 }
+function sendWebVpnBallQueue(tasks) {
+  if (typeof window === "undefined" || !window.parent || window.parent === window) return;
+  const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => ({
+    id: String(task?.id ?? ""),
+    kind: String(task?.kind ?? ""),
+    status: String(task?.status ?? ""),
+    requestedBy: String(task?.requestedBy ?? "")
+  })).filter((entry) => entry.id);
+  try {
+    window.parent.postMessage({
+      source: "ibm-lab-agent",
+      type: "WEBVPN_BALL_QUEUE",
+      payload: { tasks: entries }
+    }, "*");
+  } catch {
+  }
+}
 async function openWebVpnTab() {
   if (!openTabAction) return false;
   try {
@@ -635,15 +652,27 @@ var confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN"
 var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3), { armingCapture: true });
 var showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
 var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
+var onCancelTaskFromBall = null;
+function setBallTaskCancelHandler(handler) {
+  onCancelTaskFromBall = typeof handler === "function" ? handler : null;
+}
 function installShellRequestBridge() {
   if (typeof window === "undefined" || window.parent === window) return () => {
   };
   const onMessage = (event) => {
     if (event.source !== window.parent) return;
     const data = event.data;
-    if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_WEBVPN_REQUEST") return;
-    void openWebVpnLoginViaShell().catch(() => {
-    });
+    if (!data || data.source !== "ibm-lab-agent-shell") return;
+    if (data.type === "OPEN_WEBVPN_REQUEST") {
+      void openWebVpnLoginViaShell().catch(() => {
+      });
+      return;
+    }
+    if (data.type === "WEBVPN_CANCEL_TASK") {
+      const taskId = String(data.payload?.taskId || "");
+      if (!taskId) return;
+      void onCancelTaskFromBall?.(taskId);
+    }
   };
   window.addEventListener("message", onMessage);
   return () => window.removeEventListener("message", onMessage);
@@ -3778,6 +3807,20 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
   }, [bound?.project?.id]);
   (0, import_react8.useEffect)(() => {
     const projectId = bound?.project?.id;
+    if (!projectId) return void 0;
+    setBallTaskCancelHandler(async (taskId) => {
+      await call("manual_capture_cancel", { request: {
+        taskId,
+        reason: "用户从捕获小球删除队列任务"
+      } }).catch(() => {
+      });
+      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
+      });
+    });
+    return () => setBallTaskCancelHandler(null);
+  }, [bound?.project?.id, call]);
+  (0, import_react8.useEffect)(() => {
+    const projectId = bound?.project?.id;
     if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
     let disposed = false;
     let timer;
@@ -3836,6 +3879,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
         } catch {
         }
         const listed = await call("manual_capture_list", { request: { projectId } });
+        sendWebVpnBallQueue(listed?.tasks || []);
         const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
         if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status) || ["error", "expired"].includes(shellStatus?.state))) {
           if (activeTask.status === "armed") {

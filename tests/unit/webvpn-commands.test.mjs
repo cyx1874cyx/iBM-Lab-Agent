@@ -52,6 +52,7 @@ test("自动验证自行通过后继续点击正文入口，点击不触发内�
 	const window = {};
 	const document = {
 		title: "Security Check",
+		readyState: "complete",
 		body: { get innerText() { return challenge ? "verify you are human" : "Article"; } },
 		querySelector: () => null,
 		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' && !challenge ? [link] : [],
@@ -122,6 +123,85 @@ test("内部命令不得用 location.href 导航，必须走 window.open", async
 		"on_new_window 必须处理内部命令并拒绝弹窗",
 	);
 	assert.match(webvpn, /on_navigation[\s\S]*?handle_internal_command\(&navigation_app, &url\)/);
+});
+
+/**
+ * 2026-09-26 实测：预览器/大 PDF 还在加载时就触发下载，拿到的文件还没落盘
+ * （日志：`downloadRequested` 紧接 `系统找不到指定的文件`）。"第几次扫描"与页面是否
+ * 就绪无关，等价于固定延时；所以动作必须等 `readyState === 'complete'`。
+ */
+test("文档未加载完成时不得动手，complete 之后才点击入口", async () => {
+	const source = await webvpnSource();
+	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
+		.replaceAll("__IBM_PUBLISHER__", "science");
+	assert.ok(script);
+	assert.match(script, /const documentLoaded = \(\) => document\.readyState === 'complete';/);
+	let tick;
+	let clicks = 0;
+	const signals = [];
+	const document = {
+		title: "Senescence-directed nanotherapy | Science",
+		readyState: "interactive",
+		body: { innerText: "Editor's summary ".repeat(120) },
+		querySelector: (selector) => (selector.includes("citation_doi") ? {} : null),
+		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' ? [link] : [],
+		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+	};
+	const link = {
+		nodeType: 1, ownerDocument: document, href: "https://www.science.org/doi/pdf/10.1126/x",
+		innerText: "Download PDF", textContent: "Download PDF",
+		getBoundingClientRect: () => ({ width: 80, height: 20 }),
+		getAttribute: () => null, closest: () => link, matches: () => true,
+		click: () => { clicks += 1; },
+	};
+	const location = {
+		hostname: "www.science.org", pathname: "/doi/10.1126/science.aeg4791",
+		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
+		set href(value) { signals.push(value); },
+	};
+	runInNewContext(script, {
+		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
+		setInterval: (callback) => { tick = callback; return 1; },
+		clearInterval: () => { },
+		setTimeout: () => 1,
+	});
+	for (let index = 0; index < 5; index += 1) tick();
+	assert.equal(clicks, 0, "还没加载完就不能点入口");
+	document.readyState = "complete";
+	tick();
+	assert.equal(clicks, 1, "加载完成后应当点击下载入口");
+});
+
+/**
+ * 用户要求：小球里能看到排队序列与状态、可逐条删除，并且**下载完不消失**。
+ * 队列真源在插件，所以由客户端上报给壳 → Rust → 小球；删除请求走同一条通道反向
+ * 回到客户端，由插件真正取消（页面是远端内容，Rust 只接受队列里已有的 id）。
+ */
+test("捕获小球显示队列、可逐条删除、完成后不消失", async () => {
+	const [webvpn, shell, main, client] = await Promise.all([
+		webvpnSource(), shellSource(), mainSource(), read("client/src/components-literature.js"),
+	]);
+	// 小球：队列 DOM、逐条删除、结束态保留并可关闭。
+	assert.match(webvpn, /class="queue"/);
+	assert.match(webvpn, /captureBall\.dataset\.settled = finished \? 'true' : 'false'/);
+	assert.match(webvpn, /notifyShell\('cancel-task\/' \+ encodeURIComponent\(id\)\)/);
+	assert.match(webvpn, /notifyShell\('notice-dismiss\/'\)/);
+	assert.doesNotMatch(webvpn, /captureBall\.disabled = finished/, "结束后不能禁用小球（否则关不掉）");
+	// Rust：负载带队列与 pendingId；队列非空时不再返回 null。
+	assert.match(webvpn, /"queue": queue,/);
+	assert.match(webvpn, /"pendingId": pending\.task_id/);
+	assert.match(webvpn, /pub fn set_capture_queue/);
+	assert.match(webvpn, /if queue\.is_empty\(\) \{\s*return "null"\.to_string\(\);/);
+	// 通道：客户端上报 → 壳 invoke → Rust 命令已注册；删除 → 壳钩子 → 客户端 → 插件。
+	assert.match(shell, /invoke\('webvpn_set_capture_queue'/);
+	assert.match(shell, /window\.__ibmBallCancelTask/);
+	assert.match(main, /fn webvpn_set_capture_queue\(/);
+	assert.match(client, /sendWebVpnBallQueue\(listed\?\.tasks \|\| \[\]\)/);
+	assert.match(await read("client/src/lib.js"), /WEBVPN_CANCEL_TASK/);
+	// 页面不可信：删除只接受当前队列快照里的 id。
+	assert.match(webvpn, /url\.host_str\(\) == Some\("cancel-task"\)/);
+	assert.match(webvpn, /state\.queue_contains\(&task_id\)/);
 });
 
 test("空白弹窗不能覆盖唯一文献 WebView", async () => {
@@ -730,8 +810,11 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	assert.ok(ball, "必须存在 capture_ball_json");
 	// 只看真正发给页面的那份 JSON：函数体里读 temp_path 只是为了取文件大小。
 	const payloads = [...ball[0].matchAll(/serde_json::json!\(\{[\s\S]*?\}\)/g)];
-	assert.equal(payloads.length, 2, "活动任务和短暂完成提示都必须有载荷");
-	assert.match(payloads[1][0], /"phase": phase/);
+	// 4 份载荷 = 队列条目映射 1 份 + 小球形态 3 份（活动任务 / 完成提示 / 只剩排队任务）。
+	assert.equal(payloads.length, 4, "队列条目映射与三种小球形态都要有载荷");
+	const shapes = payloads.filter((payload) => /"queue": queue/.test(payload[0]));
+	assert.equal(shapes.length, 3, "三种小球形态都必须带队列");
+	assert.ok(shapes.some((shape) => /"phase": phase/.test(shape[0])), "活动任务形态必须带实际阶段");
 	for (const payload of payloads) assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
 });
 

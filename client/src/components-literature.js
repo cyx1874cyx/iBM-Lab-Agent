@@ -3,6 +3,8 @@ import { h } from "./h.js";
 import { downloadState } from "./constants.js";
 import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
+import { sendWebVpnBallQueue } from "./webvpn-bridge.js";
+import { setBallTaskCancelHandler } from "./lib.js";
 
 // 文献相关组件：FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
 export function FullTextDownloader({ call, notify }) {
@@ -92,6 +94,19 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 					}
 				};
 			}, [bound?.project?.id]);
+			// 小球上的"删除队列任务"：真正的取消在插件里做，桌面壳只负责转交。
+			useEffect(() => {
+				const projectId = bound?.project?.id;
+				if (!projectId) return undefined;
+				setBallTaskCancelHandler(async (taskId) => {
+					await call("manual_capture_cancel", { request: {
+						taskId, reason: "用户从捕获小球删除队列任务"
+					} }).catch(() => {});
+					// 若它正好是浏览器里挂着的那一个，一并关掉载体；否则 Rust 会拒绝。
+					await cancelWebVpnCaptureViaShell(taskId).catch(() => {});
+				});
+				return () => setBallTaskCancelHandler(null);
+			}, [bound?.project?.id, call]);
 			// AI Tool 在当前对话中排入下载任务后，由始终挂载的课题标识领取。
 			// 明文一次性令牌只从本地服务交给桌面 WebVPN 壳，不进入模型上下文。
 			useEffect(() => {
@@ -152,6 +167,8 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 						// 忙时也必须读取队列：这一步会淘汰过期任务。若浏览器还持有已经
 						// 结束的一次性令牌，先清掉它，否则后面的 SI 永远不能接管。
 						const listed = await call("manual_capture_list", { request: { projectId } });
+						// 每一轮都把队列快照交给小球：用户才能在侧栏看到排队序列并逐条删除。
+						sendWebVpnBallQueue(listed?.tasks || []);
 						const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
 						if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status)
 							|| ["error", "expired"].includes(shellStatus?.state))) {

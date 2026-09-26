@@ -5,14 +5,13 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta9**：文章页能正常扫描之后，剩下的最后一环是**原生 PDF 预览器**。
-WebView2 的内置查看器不是网页文档：注入的浏览器栏不会在里面执行（所以预览时「没有上面那条
-bar」），页面上也没有可点元素，自动化点不到查看器的保存按钮。现在进入原生 PDF 时会把阶段切到
-`manual`，状态返回 `nextAction=observe-or-save-pdf`，Agent 即可调用
-`lab_browser_save_current_pdf` —— 它用 `ShowSaveAsUI` + `SetSuppressDefaultDialog` 直接存到
-归档路径，**不弹对话框、也不需要右键另存**。同时 `is_pdf_document_url` 认出了
-`/doi/pdf/…`、`/pdfft` 这类不以 `.pdf` 结尾的出版社端点。详见
-[发布说明](docs/releases/v0.5.5-beta9.md)。
+当前候选版本为 **v0.5.5-beta10**：两处修 bug + 一处体验。
+**① 下载不再"抢跑"**：以前用「第几次扫描」当延时，预览器/大 PDF 还没加载完就触发下载，
+日志里表现为 `downloadRequested` 紧接 `系统找不到指定的文件`；现在所有动手时机都等
+`readyState === 'complete'`（事件驱动，不是固定延时）。**② 读文件按存在性重试**：
+WebView2 报下载完成后文件可能稍后才落盘，之前紧接着就读会让整次捕获失败。
+**③ 捕获小球升级**：直接显示排队序列与每条状态、可逐条删除，并且**下载完不再消失**
+（结束后点一下才关闭）。详见 [发布说明](docs/releases/v0.5.5-beta10.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /

@@ -324,13 +324,32 @@ export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR
  *
  * @returns 卸载函数；不在桌面壳内时是空操作。
  */
+/**
+ * "从小球删除队列任务"的实现由 UI 层注册（它才拿得到插件调用与课题上下文）。
+ * 未注册时忽略该请求，不影响其它 shell 桥能力。
+ */
+let onCancelTaskFromBall = null;
+export function setBallTaskCancelHandler(handler) {
+	onCancelTaskFromBall = typeof handler === "function" ? handler : null;
+}
+
 export function installShellRequestBridge() {
 	if (typeof window === "undefined" || window.parent === window) return () => {};
 	const onMessage = (event) => {
 		if (event.source !== window.parent) return;
 		const data = event.data;
-		if (!data || data.source !== "ibm-lab-agent-shell" || data.type !== "OPEN_WEBVPN_REQUEST") return;
-		void openWebVpnLoginViaShell().catch(() => {});
+		if (!data || data.source !== "ibm-lab-agent-shell") return;
+		if (data.type === "OPEN_WEBVPN_REQUEST") {
+			void openWebVpnLoginViaShell().catch(() => {});
+			return;
+		}
+		// 小球上的逐条删除：任务调度的真源在插件里，所以先让插件取消，再清掉
+		// 浏览器里可能还挂着的那一次（只有它是当前 pending 时才会真的关闭载体）。
+		if (data.type === "WEBVPN_CANCEL_TASK") {
+			const taskId = String(data.payload?.taskId || "");
+			if (!taskId) return;
+			void onCancelTaskFromBall?.(taskId);
+		}
 	};
 	window.addEventListener("message", onMessage);
 	return () => window.removeEventListener("message", onMessage);
