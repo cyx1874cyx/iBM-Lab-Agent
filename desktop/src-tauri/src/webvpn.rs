@@ -1861,6 +1861,7 @@ impl WebVpnState {
                 last_error: session.last_error.clone(),
                 pending: session.pending.clone(),
                 capture_notice: session.capture_notice.clone(),
+                capture_queue: session.capture_queue.clone(),
                 generation: session.generation,
             })
             .unwrap_or_default();
