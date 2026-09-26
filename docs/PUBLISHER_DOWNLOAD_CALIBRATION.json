@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta9",
-    "commit": "e9f76a3",
-    "note": "beta7 stopped the internal protocol from navigating the webview (the blank sidebar), beta8 stopped counting Cloudflare's ubiquitous challenge-platform script as an interstitial (which had wedged the scanner in verification), and beta9 routes the native PDF viewer to the save tool: entering WebView2's built-in PDF viewer now sets the manual stage so the status returns nextAction=observe-or-save-pdf and lab_browser_save_current_pdf writes straight to the archive path with SetSuppressDefaultDialog (no dialog, no right-click). is_pdf_document_url also recognises publisher endpoints that do not end in .pdf (/doi/pdf/..., /pdfft, /stampPDF/getPDF.jsp). Live selector verification is still pending."
+    "version": "0.5.5-beta10",
+    "commit": "83b348d",
+    "note": "beta10 addresses the installed-beta9 feedback. Downloads no longer fire on a tick count (which was a fixed delay in disguise and started the fetch before a big or slow PDF was ready, producing '系统找不到指定的文件'); every action now waits for document.readyState === 'complete', and the captured file is read with an existence-based retry. The capture ball shows the queue with per-item state and a delete button and no longer disappears once a download completes. Live selector verification is still pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
