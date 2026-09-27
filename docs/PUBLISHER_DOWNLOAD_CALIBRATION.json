@@ -5,7 +5,7 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta14",
+    "version": "0.5.5-beta15",
     "commit": "978c23f",
     "note": "beta14 makes PDF payload completeness a positive proof and fixes the truncation the beta13 field report reproduced: the response reader no longer treats an empty IStream::Read as EOF, `complete` requires either a satisfied Content-Length or a %%EOF tail, the shell verifies head/tail/size before archiving and reports \"载荷未收全（已接收 X / 共 Y）\" instead of handing a 256 KiB fragment to the upload endpoint (which answered HTTP 400 and hid the real cause), and the stream is marshalled to a worker thread so a long read cannot freeze the UI. `ready` now means \"bytes have arrived\" while `complete` means \"proven whole\", the archive gate requires both, progress reports {receivedBytes,totalBytes,percent,speedBps,etaSeconds} on both delivery paths, and the wait fingerprint carries the completeness dimension. Live selector verification against authenticated iWAN publishers is still pending for every entry below."
   },

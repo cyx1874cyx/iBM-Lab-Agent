@@ -408,3 +408,42 @@ test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
 	// 第二个响应绝不能和第一个共享载荷文件。
 	assert.match(rust, /if existing\.error\.is_none\(\) \{\s*return false;/);
 });
+
+test("R1-A：页内右下角「保存到课题」浮层（壳注入、壳响应，模型给不了选择器）", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// 独立宿主 + 自己的阴影根：与小球分开，不能复用被反向位移的工具栏。
+	assert.match(rust, /id = '__ibm_webvpn_save'/);
+	assert.match(rust, /syncCaptureSaveButton/);
+	// 位置：右下角；且必须用 popover 逃逸（PDF 页被施加 html transform 时，
+	// position:fixed 的后代以 html 为包含块，会跟着页面滚走）。
+	assert.match(rust, /right:16px;bottom:16px;left:auto;top:auto/);
+	assert.match(rust, /host\.setAttribute\('popover', 'manual'\)/);
+	// 点击走内部命令（绝不能用 location.href：那是一次真实导航，会打白屏）。
+	assert.match(rust, /notifyShell\('save-pdf\/'/);
+	assert.match(rust, /url\.host_str\(\) == Some\("save-pdf"\)/);
+	// 用户触发与 Agent 触发必须同一条实现（等终态 + 归档前三道校验）。
+	assert.match(rust, /pub fn request_native_save/);
+	assert.match(rust, /save_current_pdf\(&task_app, &task_id, &webview\)\.await/);
+	// 载荷没收全之前按钮必须是禁用的（不能引诱人去归档半个文件）。
+	assert.match(rust, /payloadReady === true/);
+	assert.match(rust, /PDF 正在接收/);
+	// 点过之后不再放开：避免重复归档。
+	assert.match(rust, /button\.dataset\.busy = 'true'/);
+	// 归档中拒绝第二次保存（侧栏按钮可能在浮层之后被按下）。
+	assert.match(rust, /matches!\(session\.state, WebVpnSessionState::Uploading\)/);
+});
+
+test("R1-B：侧栏兜底按钮——不在上报矩形内，因此不会被原生子 WebView 盖住", async () => {
+	const tab = await readFile(new URL("../../client/src/webvpn-tab.js", import.meta.url), "utf8");
+	// 工具行与上报矩形的容器必须分开：hostRef 只能挂在 stage 上。
+	assert.match(tab, /className: "ib-webvpn-bar"/);
+	assert.match(tab, /ref: hostRef, className: "ib-webvpn-stage"/);
+	assert.doesNotMatch(tab, /ref: hostRef, className: "ib-webvpn-tab"/);
+	// 按钮走与 Agent 同一条 shell 动作；不给它开新的桥。
+	assert.match(tab, /webVpnBrowserActionViaShell\(\{ taskId, action: "save-pdf"/);
+	// 状态与浮层同源：都读 webvpn_status。
+	assert.match(tab, /useSaveToProject/);
+	assert.match(tab, /status\?\.pdfPayload/);
+	// 没证到完整时不放行。
+	assert.match(tab, /payload\?\.ready === true && payload\?\.complete === true/);
+});

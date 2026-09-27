@@ -127,7 +127,7 @@ function injectStyles() {
   css += ".sw-struct-edit[data-layer=ketcher]{z-index:3200}.sw04-structure-candidate{display:grid;gap:10px;padding:12px;border:1px solid rgba(81,212,163,.42);border-radius:12px;background:rgba(81,212,163,.07)}.sw04-structure-candidate-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.sw04-structure-candidate-head>div{display:grid;gap:3px}.sw04-structure-candidate-head b{font-size:12px;color:var(--ib-text)}.sw04-structure-candidate-head small{font-size:9.5px;color:var(--ib-muted);line-height:1.5}.sw04-structure-candidate>.sw-struct-card{width:min(280px,100%);max-width:280px}.sw04-structure-candidate>.sw-struct-card img,.sw04-structure-candidate>.sw-struct-card .sw-struct-fallback{height:190px}.sw04-review-feedback{padding:9px 12px;border:1px solid var(--ib-line);border-radius:9px;font-size:10.5px;font-weight:650;line-height:1.5}.sw04-review-feedback[data-state=saving]{border-color:#6da8df;background:rgba(80,148,211,.12);color:#baddff;animation:sw04-pulse 1.1s ease-in-out infinite}.sw04-review-feedback[data-state=saved]{border-color:#51d4a3;background:rgba(81,212,163,.13);color:#b7f4d8}.sw04-review-feedback[data-state=error]{border-color:#ef7282;background:rgba(239,114,130,.12);color:#ffd0d6}.sw04-review-foot .sw-mini-btn[data-selected=true]{border-color:#51d4a3;background:#17684e;color:#fff;box-shadow:0 0 0 2px rgba(81,212,163,.16)}@keyframes sw04-pulse{50%{opacity:.62}}@media(max-width:640px){.sw04-structure-candidate-head{align-items:flex-start;flex-direction:column}.sw04-structure-candidate-head .sw-mini-btn{width:100%}}";
   css += "body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden],body.ib-research-chat [class*='_flowItem'][hidden]{margin-block:0!important;padding:0!important;border:0!important;min-height:0!important}body.ib-research-chat [class*='_flowItem'][data-turn-process-hidden]+[class*='_flowItem']{margin-top:0!important}";
   css += "body.ib-research-chat [class*='_markdown']{min-width:0!important;max-width:100%!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'],body.ib-research-chat [class*='_markdown'] [class*='_tableFill']{display:block!important;position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:100%!important;margin:14px 0!important;overflow-x:auto!important;overflow-y:hidden!important;padding-bottom:0!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] table,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] table{box-sizing:border-box!important;width:100%!important;min-width:100%!important;max-width:100%!important;margin:0!important;table-layout:auto!important}body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableScroll'] td,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] th,body.ib-research-chat [class*='_markdown'] [class*='_tableFill'] td{min-width:72px!important;max-width:min(30vw,320px)!important;border-bottom-width:1px!important;padding-inline:12px!important;white-space:normal!important;overflow-wrap:break-word!important;word-break:normal!important}";
-  css += ".ib-webvpn-tab{position:relative;display:grid;place-items:center;width:100%;height:100%;min-height:160px;box-sizing:border-box;padding:18px;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-secondary,var(--ib-muted));text-align:center}.ib-webvpn-tab-note{max-width:280px;display:grid;gap:6px}.ib-webvpn-tab-note b{font-size:12.5px;color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-webvpn-tab-note p{margin:0;font-size:10.5px;line-height:1.7}";
+  css += ".ib-webvpn-tab{position:relative;display:flex;flex-direction:column;width:100%;height:100%;min-height:160px;box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-secondary,var(--ib-muted));text-align:center}.ib-webvpn-bar{flex:none;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-secondary,rgba(148,163,184,.28));min-height:32px;box-sizing:border-box}.ib-webvpn-save{font:600 11.5px/1.3 'Segoe UI','Microsoft YaHei',sans-serif;padding:5px 10px;border-radius:8px;border:1px solid transparent;background:var(--dsw-alias-bg-layer-2,rgba(148,163,184,.18));color:var(--dsw-alias-label-primary,var(--ib-text));cursor:pointer}.ib-webvpn-save[data-ready=true]{background:#0f172a;color:#f8fafc;cursor:pointer}.ib-webvpn-save:disabled{cursor:default;opacity:.72}.ib-webvpn-bar-note{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-webvpn-stage{flex:1;min-height:0;display:grid;place-items:center;box-sizing:border-box;padding:18px}.ib-webvpn-tab-note{max-width:280px;display:grid;gap:6px}.ib-webvpn-tab-note b{font-size:12.5px;color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-webvpn-tab-note p{margin:0;font-size:10.5px;line-height:1.7}";
   css += ".ib-project-tab{display:flex;flex-direction:column;gap:12px;height:100%;min-height:160px;box-sizing:border-box;padding:14px;overflow:auto;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-project-tab-note{justify-content:flex-start;color:var(--dsw-alias-label-secondary,var(--ib-muted));font-size:11px;line-height:1.7}.ib-project-tab-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ib-project-tab-head b{min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-rows{display:grid;gap:7px;border:1px solid var(--dsw-alias-border-l2,var(--ib-line));border-radius:10px;padding:10px 11px;background:var(--dsw-alias-bg-layer-2,var(--ib-panel2))}.ib-project-tab-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:10.5px}.ib-project-tab-row span{flex:none;color:var(--dsw-alias-label-secondary,var(--ib-muted))}.ib-project-tab-row b{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:560}.ib-project-tab-foot{margin-top:auto;display:flex;justify-content:flex-end}.ib-project-tab-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-btn{flex:none;margin-left:4px}";
   css += ".ib-overlay.ib-panel-embed{position:static;inset:auto;z-index:auto;height:100%;min-height:0;overflow:auto;box-sizing:border-box}.ib-project-tab-embed{height:100%;min-height:0}.ib-panel-embed .ib-main{max-width:none;margin:0;padding:12px 12px 28px}.ib-panel-embed .ib-grid,.ib-panel-embed .ib-artifacts,.ib-panel-embed .ib-memory,.ib-panel-embed .ib-tm-wrap,.ib-panel-embed .ib-form-grid,.ib-panel-embed .ib-lit{grid-template-columns:minmax(0,1fr)}.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:8px;margin-bottom:14px}.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}.ib-panel-embed .ib-project-copy h1{font-size:19px}.ib-panel-embed .ib-head{flex-direction:column;align-items:flex-start;gap:10px}.ib-panel-embed .ib-head h1{font-size:20px}.ib-panel-embed .ib-tabs{gap:6px}.ib-panel-embed .ib-tab{padding:9px 8px}.ib-panel-embed .ib-tab strong{font-size:11px}.ib-panel-embed .ib-tab span{font-size:8.5px;line-height:1.35}.ib-panel-embed .ib-preview-drawer{width:min(560px,94vw)}.ib-panel-embed .ib-section-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 62px 24px}";
   css += themeCss;
@@ -4094,10 +4094,85 @@ var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
 var import_react9 = require("react");
 var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 var WEBVPN_TAB_KIND = "lab-webvpn";
+var formatBytes = (bytes) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+function useSaveToProject(enabled) {
+  const [state, setState] = (0, import_react9.useState)({ loading: true, taskId: "", documentType: "", payload: null, busy: false, note: "" });
+  (0, import_react9.useEffect)(() => {
+    if (!enabled) return void 0;
+    let disposed = false;
+    let timer;
+    const poll = async () => {
+      try {
+        const status = await webVpnStatusViaShell();
+        if (disposed) return;
+        setState((current) => ({
+          ...current,
+          loading: false,
+          taskId: status?.pendingTaskId || "",
+          documentType: status?.documentType || "",
+          payload: status?.pdfPayload || null
+        }));
+      } catch {
+      }
+      timer = setTimeout(() => void poll(), 1500);
+    };
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [enabled]);
+  const save = async () => {
+    const taskId = state.taskId;
+    if (!taskId || state.busy) return;
+    setState((current) => ({ ...current, busy: true, note: "正在保存并归档…" }));
+    try {
+      const result = await webVpnBrowserActionViaShell({ taskId, action: "save-pdf", observationId: "", elementId: "", scope: "download" });
+      const bytes = Number(result?.bytes) || 0;
+      setState((current) => ({ ...current, busy: false, note: bytes ? `已归档 ${formatBytes(bytes)}` : "已归档到课题" }));
+    } catch (reason) {
+      setState((current) => ({ ...current, busy: false, note: String(reason?.message || reason) }));
+    }
+  };
+  const payload = state.payload;
+  const ready = payload?.ready === true && payload?.complete === true;
+  let label = "保存到课题";
+  let disabled = true;
+  if (state.loading) {
+    label = "保存到课题";
+    disabled = true;
+  } else if (!state.taskId) {
+    label = "保存到课题";
+    disabled = true;
+  } else if (state.busy) {
+    label = state.note || "正在归档…";
+    disabled = true;
+  } else if (state.note.startsWith("已归档")) {
+    label = state.note;
+    disabled = true;
+  } else if (payload && !ready) {
+    const received = formatBytes(payload.receivedBytes);
+    const total = formatBytes(payload.contentLength);
+    label = total ? `正在接收 ${received} / ${total}…` : received ? `正在接收 ${received}…` : "等待 PDF 载荷…";
+    disabled = true;
+  } else if (!ready && state.documentType !== "application/pdf") {
+    label = "当前页面不是 PDF";
+    disabled = true;
+  } else {
+    label = "保存到课题";
+    disabled = false;
+  }
+  return { label, disabled, save, note: state.note, hasTask: Boolean(state.taskId), ready };
+}
 function WebVpnTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const visible = tab?.visible === true;
   const hostRef = (0, import_react9.useRef)(null);
+  const inShell = typeof window !== "undefined" && window.parent !== window;
+  const save = useSaveToProject(visible && inShell);
   (0, import_react9.useEffect)(() => {
     if (!visible) {
       sendWebVpnRect({ visible: false });
@@ -4142,7 +4217,6 @@ function WebVpnTabBody({ useTabInfo }) {
       sendWebVpnRect({ visible: false });
     };
   }, [visible]);
-  const inShell = typeof window !== "undefined" && window.parent !== window;
   const portalSeeded = (0, import_react9.useRef)(false);
   (0, import_react9.useEffect)(() => {
     if (!visible || portalSeeded.current || !inShell) return;
@@ -4161,12 +4235,30 @@ function WebVpnTabBody({ useTabInfo }) {
   }, [visible, inShell]);
   return h(
     "div",
-    { ref: hostRef, className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
+    { className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
+    // 工具行：不在上报矩形内，因此不会被原生子 WebView 覆盖。
     h(
       "div",
-      { className: "ib-webvpn-tab-note" },
-      h("b", null, "文献浏览器"),
-      h("p", null, inShell ? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。" : "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。")
+      { className: "ib-webvpn-bar" },
+      h("button", {
+        className: "ib-webvpn-save",
+        type: "button",
+        disabled: save.disabled,
+        "data-ready": save.ready ? "true" : "false",
+        title: save.hasTask ? "把当前 PDF 归档到课题（与本机文献浏览器同一条归档流程）" : "当前没有进行中的文献捕获任务",
+        onClick: () => void save.save()
+      }, save.label),
+      save.note ? h("span", { className: "ib-webvpn-bar-note" }, save.note) : null
+    ),
+    h(
+      "div",
+      { ref: hostRef, className: "ib-webvpn-stage" },
+      h(
+        "div",
+        { className: "ib-webvpn-tab-note" },
+        h("b", null, "文献浏览器"),
+        h("p", null, inShell ? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。" : "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。")
+      )
     )
   );
 }

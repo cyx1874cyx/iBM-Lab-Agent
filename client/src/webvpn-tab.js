@@ -9,9 +9,9 @@
 //   * DSH 负责让位——push presentation 由右侧栏自己收窄对话列；
 //   * 本模块只负责量出 tab 正文的矩形并上报（逻辑在 webvpn-bridge.js）；
 //   * 原生子 WebView 由 Rust 端 set_bounds 摆到该矩形上，不再改动主 WebView 宽度。
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { h } from "./h.js";
-import { iwanStatusViaShell, openWebVpnPortalViaShell, webVpnStatusViaShell } from "./lib.js";
+import { iwanStatusViaShell, openWebVpnPortalViaShell, webVpnBrowserActionViaShell, webVpnStatusViaShell } from "./lib.js";
 import { WEBVPN_MIN_RECT, isWebVpnCaptureArmed, markWebVpnRectReported, sendWebVpnRect, setWebVpnTabOpener } from "./webvpn-bridge.js";
 
 /** tab 类型身份：同时是 sidebar.right.pane.tab 座位上的派发 key。 */
@@ -19,14 +19,91 @@ export const WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 /** 页面类型的 kind：ctx.sidebarRight.openTab 用它打开。 */
 export const WEBVPN_TAB_KIND = "lab-webvpn";
 
+const formatBytes = (bytes) => {
+	if (!Number.isFinite(bytes) || bytes <= 0) return "";
+	return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+
+/**
+ * 侧栏里的「保存到课题」按钮（B 方案）。
+ *
+ * 为什么需要它：页内浮层依赖把脚本注入到**当前文档**，而 PDF 页面、被 CSP 限制的
+ * 页面、以及注入时序异常的页面都可能让浮层缺席。这个按钮由 DSH 右侧栏自己渲染，
+ * 走的是同一条 shell 动作，所以"用户想保存时总有一个地方能点"。
+ *
+ * 状态与页内浮层同源（都读 `webvpn_status`），所以两者不会互相矛盾。
+ */
+function useSaveToProject(enabled) {
+	const [state, setState] = useState({ loading: true, taskId: "", documentType: "", payload: null, busy: false, note: "" });
+	useEffect(() => {
+		if (!enabled) return undefined;
+		let disposed = false;
+		let timer;
+		const poll = async () => {
+			try {
+				const status = await webVpnStatusViaShell();
+				if (disposed) return;
+				setState((current) => ({
+					...current,
+					loading: false,
+					taskId: status?.pendingTaskId || "",
+					documentType: status?.documentType || "",
+					payload: status?.pdfPayload || null
+				}));
+			} catch { /* 壳暂不可达：保留上一次状态，下一轮重试 */ }
+			timer = setTimeout(() => void poll(), 1500);
+		};
+		void poll();
+		return () => { disposed = true; clearTimeout(timer); };
+	}, [enabled]);
+
+	const save = async () => {
+		const taskId = state.taskId;
+		if (!taskId || state.busy) return;
+		setState((current) => ({ ...current, busy: true, note: "正在保存并归档…" }));
+		try {
+			// 与 Agent 的保存完全同一条实现：等到归档完成才返回 {path,bytes}，失败给原因。
+			const result = await webVpnBrowserActionViaShell({ taskId, action: "save-pdf", observationId: "", elementId: "", scope: "download" });
+			const bytes = Number(result?.bytes) || 0;
+			setState((current) => ({ ...current, busy: false, note: bytes ? `已归档 ${formatBytes(bytes)}` : "已归档到课题" }));
+		} catch (reason) {
+			setState((current) => ({ ...current, busy: false, note: String(reason?.message || reason) }));
+		}
+	};
+
+	const payload = state.payload;
+	const ready = payload?.ready === true && payload?.complete === true;
+	let label = "保存到课题";
+	let disabled = true;
+	if (state.loading) { label = "保存到课题"; disabled = true; }
+	else if (!state.taskId) { label = "保存到课题"; disabled = true; }
+	else if (state.busy) { label = state.note || "正在归档…"; disabled = true; }
+	else if (state.note.startsWith("已归档")) { label = state.note; disabled = true; }
+	else if (payload && !ready) {
+		const received = formatBytes(payload.receivedBytes);
+		const total = formatBytes(payload.contentLength);
+		label = total ? `正在接收 ${received} / ${total}…` : (received ? `正在接收 ${received}…` : "等待 PDF 载荷…");
+		disabled = true;
+	}
+	else if (!ready && state.documentType !== "application/pdf") { label = "当前页面不是 PDF"; disabled = true; }
+	else { label = "保存到课题"; disabled = false; }
+
+	return { label, disabled, save, note: state.note, hasTask: Boolean(state.taskId), ready };
+}
+
 /**
  * tab 正文。原生子 WebView 会覆盖这一区域，因此这里的 DOM 只在
  * 「桌面壳未接管」或「WebVPN 尚未打开」时可见。
+ *
+ * 顶部那条工具行**不在**上报给壳的矩形里，所以它不会被原生子 WebView 盖住 ——
+ * 这正是「保存到课题」兜底按钮能一直可点的原因。
  */
 export function WebVpnTabBody({ useTabInfo }) {
 	const { tab } = useTabInfo();
 	const visible = tab?.visible === true;
 	const hostRef = useRef(null);
+	const inShell = typeof window !== "undefined" && window.parent !== window;
+	const save = useSaveToProject(visible && inShell);
 
 	useEffect(() => {
 		if (!visible) { sendWebVpnRect({ visible: false }); return undefined; }
@@ -63,7 +140,6 @@ export function WebVpnTabBody({ useTabInfo }) {
 		};
 	}, [visible]);
 
-	const inShell = typeof window !== "undefined" && window.parent !== window;
 	// 初始页：从「+」→ 类型列表选「文献浏览器」时，用户并没有指定目标地址，
 	// 这时把原生载体打开到配置的 WebVPN 门户（默认中国科大）。载体已存在
 	// （登录态保留、或正在看某个出版社页面）时绝不重新导航，否则会打断用户。
@@ -86,12 +162,24 @@ export function WebVpnTabBody({ useTabInfo }) {
 		})();
 	}, [visible, inShell]);
 
-	return h("div", { ref: hostRef, className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
-		h("div", { className: "ib-webvpn-tab-note" },
-			h("b", null, "文献浏览器"),
-			h("p", null, inShell
-				? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。"
-				: "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。")));
+	return h("div", { className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
+		// 工具行：不在上报矩形内，因此不会被原生子 WebView 覆盖。
+		h("div", { className: "ib-webvpn-bar" },
+			h("button", {
+				className: "ib-webvpn-save",
+				type: "button",
+				disabled: save.disabled,
+				"data-ready": save.ready ? "true" : "false",
+				title: save.hasTask ? "把当前 PDF 归档到课题（与本机文献浏览器同一条归档流程）" : "当前没有进行中的文献捕获任务",
+				onClick: () => void save.save()
+			}, save.label),
+			save.note ? h("span", { className: "ib-webvpn-bar-note" }, save.note) : null),
+		h("div", { ref: hostRef, className: "ib-webvpn-stage" },
+			h("div", { className: "ib-webvpn-tab-note" },
+				h("b", null, "文献浏览器"),
+				h("p", null, inShell
+					? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。"
+					: "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。"))));
 }
 
 /**

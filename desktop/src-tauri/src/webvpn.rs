@@ -286,6 +286,93 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     }
     captureBall = ball;
   };
+  /**
+   * 右下角「保存到课题」浮层。与小球同一套机制（壳注入 + 壳推送 + 内部命令），
+   * 但它解决的是"人在预览器上够不到保存"这件事：原生 PDF 的查看器 UI 不在文档
+   * DOM 里，没有任何可点元素，所以由壳自己给一个按钮。
+   *
+   * 只在存在 PDF 捕获任务时出现；载荷没被证明收全前它是禁用的（并显示进度），
+   * 因此它不可能引诱用户去归档一个还没下完的文件。
+   */
+  let captureSaveButton = null;
+  const mountCaptureSaveButton = () => {
+    if (document.getElementById('__ibm_webvpn_save')) return;
+    const host = document.createElement('div');
+    host.id = '__ibm_webvpn_save';
+    // 与小球同一个理由：PDF 预览页会被施加 html transform（见 __ibmWebVpnSetPageOffset），
+    // 那会让 position:fixed 的后代改以 html 为包含块，按钮就跟着页面滚走。用 popover 的
+    // top layer 跳出来，位置才真的是"相对窗口固定在右下角"。
+    const canPopover = typeof host.showPopover === 'function';
+    if (canPopover) host.setAttribute('popover', 'manual');
+    const root = host.attachShadow({ mode: 'closed' });
+    root.innerHTML = `<style>
+      .save{all:initial;box-sizing:border-box;display:block;padding:10px 16px;border-radius:12px;background:#0f172a;color:#f8fafc;font:600 12.5px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;box-shadow:0 8px 24px rgba(15,23,42,.38);cursor:pointer;max-width:280px;text-align:center}
+      .save[data-tone="busy"]{background:#1d4ed8;cursor:default}
+      .save[data-tone="complete"]{background:#047857;cursor:default}
+      .save[data-tone="error"]{background:#b91c1c;cursor:default}
+      .save[data-tone="waiting"]{background:#475569;cursor:default}
+    </style><button class="save" type="button" data-tone="waiting">保存到课题</button>`;
+    const button = root.querySelector('.save');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (button.disabled) return;
+      // 一次性：点过之后不再放开，避免重复触发第二次归档。
+      button.dataset.busy = 'true';
+      button.disabled = true;
+      button.textContent = '正在保存并归档…';
+      button.dataset.tone = 'busy';
+      notifyShell('save-pdf/');
+    });
+    // 定位在右下角：与左下角的小球分开，且避开查看器顶部的工具栏。
+    host.style.cssText = 'all:initial;position:fixed;right:16px;bottom:16px;left:auto;top:auto;margin:0;padding:0;border:0;background:transparent;width:auto;height:auto;max-width:none;max-height:none;overflow:visible;z-index:2147483646;';
+    (document.documentElement || document.body).appendChild(host);
+    if (canPopover) {
+      try { if (!host.matches(':popover-open')) host.showPopover(); } catch { /* 引擎不支持：留在普通层 */ }
+    }
+    captureSaveButton = button;
+  };
+  /** 用与小球同一份载荷更新保存按钮；`null`/非 PDF 时隐藏。 */
+  const syncCaptureSaveButton = (payload) => {
+    const wanted = Boolean(payload) && payload.kind === 'pdf'
+      && payload.pendingId
+      && !['completed', 'idle'].includes(payload.phase);
+    if (!wanted) {
+      if (captureSaveButton) captureSaveButton.parentNode.host.style.display = 'none';
+      return;
+    }
+    if (!captureSaveButton || !captureSaveButton.isConnected) mountCaptureSaveButton();
+    if (!captureSaveButton) return;
+    const host = captureSaveButton.parentNode.host;
+    host.style.display = 'block';
+    const bytes = (n) => (Number.isFinite(n) && n > 0 ? (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB') : '');
+    const received = Number(payload.payloadReceived) || 0;
+    const total = Number(payload.payloadTotal) || 0;
+    if (captureSaveButton.dataset.busy === 'true') {
+      // 已经点过了：只更新进度文案，绝不重新启用。
+      captureSaveButton.disabled = true;
+      captureSaveButton.dataset.tone = 'busy';
+      captureSaveButton.textContent = payload.payloadReady === true
+        ? '正在归档到课题…'
+        : '正在保存，等待载荷…';
+      return;
+    }
+    if (payload.phase === 'uploading' || payload.phase === 'saving') {
+      captureSaveButton.disabled = true;
+      captureSaveButton.dataset.tone = 'busy';
+      captureSaveButton.textContent = '正在归档到课题…';
+    } else if (payload.payloadReady === true) {
+      captureSaveButton.disabled = false;
+      captureSaveButton.dataset.tone = '';
+      captureSaveButton.textContent = '保存到课题';
+    } else {
+      captureSaveButton.disabled = true;
+      captureSaveButton.dataset.tone = 'waiting';
+      captureSaveButton.textContent = total > 0
+        ? `PDF 正在接收 ${bytes(received)} / ${bytes(total)}…`
+        : (received > 0 ? `PDF 正在接收 ${bytes(received)}…` : '等待 PDF 载荷…');
+    }
+  };
   const formatBytes = (bytes) => {
     if (!Number.isFinite(bytes) || bytes <= 0) return '';
     if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -296,6 +383,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     if (!captureBall) return;
     if (!payload || !payload.phase) {
       captureBall.dataset.visible = 'false';
+      syncCaptureSaveButton(null);
       return;
     }
     if (['downloading', 'saving', 'uploading', 'completed', 'error'].includes(payload.phase))
@@ -341,6 +429,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     if (redo) redo.hidden = !(payload.canRecreate === true);
     captureBall.querySelector('.text').textContent =
       typeof payload.ballText === 'string' && payload.ballText ? payload.ballText : text;
+    syncCaptureSaveButton(payload);
     // 队列：显示排队序列与各自状态；"正在跑的那条"不给删除按钮。
     const entries = Array.isArray(payload.queue) ? payload.queue : [];
     if (captureQueueNode) {
@@ -1992,7 +2081,12 @@ impl WebVpnState {
                 .as_ref()
                 .map(|payload| payload.path == path)
                 .unwrap_or(false);
-        if pending.task_id != task_id || !owned_by_task || pending.expires_at <= Instant::now() {
+        // 已经在归档就别再起一次：侧栏按钮可能在浮层之后被按下。
+        if pending.task_id != task_id
+            || !owned_by_task
+            || pending.expires_at <= Instant::now()
+            || matches!(session.state, WebVpnSessionState::Uploading)
+        {
             return None;
         }
         let upload = PendingUpload {
@@ -2210,6 +2304,9 @@ impl WebVpnState {
             "canRecreate": can_recreate,
             "canCancel": active.map(|entry| entry.ball_can_cancel).unwrap_or(true),
             "payloadReady": payload_ready,
+            // 右下角「保存到课题」用它显示"正在接收 X / Y"。
+            "payloadReceived": pending.pdf_payload.as_ref().map(|payload| payload.received_bytes).unwrap_or(0),
+            "payloadTotal": pending.pdf_payload.as_ref().and_then(|payload| payload.content_length),
         })
         .to_string()
     }
@@ -3650,6 +3747,43 @@ fn tail_has_eof(body: &[u8]) -> bool {
     tail.windows(5).any(|window| window == b"%%EOF")
 }
 
+/// 由用户从浮层按钮触发的「保存并归档」。
+///
+/// 与 Agent 走 `lab_browser_save_current_pdf` 完全同一条实现（等终态、归档前三道校验），
+/// 区别只是发起者是人：结果写进日志与任务行，不需要调用方再查操作状态。
+#[cfg(windows)]
+pub fn request_native_save(app: &AppHandle) {
+    let Some(webview) = app.get_webview(WINDOW_LABEL) else {
+        return;
+    };
+    let Some(task_id) = app
+        .try_state::<WebVpnState>()
+        .and_then(|state| state.pending_task_id())
+    else {
+        record(app, "capture", "", "浮层保存被忽略：当前没有进行中的捕获任务");
+        return;
+    };
+    let task_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        match save_current_pdf(&task_app, &task_id, &webview).await {
+            Ok(value) => {
+                let bytes = value.get("bytes").and_then(|item| item.as_u64()).unwrap_or(0);
+                record(
+                    &task_app,
+                    "captureCompleted",
+                    "",
+                    &format!("用户从浮层保存并归档完成（{bytes} 字节）"),
+                );
+            }
+            Err(error) => record(&task_app, "error", "", &format!("浮层保存失败：{error}")),
+        }
+        let _ = push_capture_ball(&task_app, &webview);
+    });
+}
+
+#[cfg(not(windows))]
+pub fn request_native_save(_app: &AppHandle) {}
+
 #[cfg(windows)]
 async fn save_current_pdf(
     app: &AppHandle,
@@ -4084,6 +4218,17 @@ fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
             );
             let _ = main.eval(script);
         }
+        return true;
+    }
+    if url.host_str() == Some("save-pdf") {
+        // 右下角浮层「保存到课题」。与 cancel-capture 同理：不在 WebView2 的回调栈里
+        // 直接跑长任务，先调度到下一拍，再由 request_native_save 起一个异步任务。
+        let scheduled_app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(10));
+            request_native_save(&scheduled_app);
+        });
+        record(app, "capture", "", "用户从右下角浮层请求保存并归档");
         return true;
     }
     if url.host_str() == Some("notice-dismiss") {
