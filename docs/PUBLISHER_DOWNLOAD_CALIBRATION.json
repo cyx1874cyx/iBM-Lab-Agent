@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta10",
-    "commit": "83b348d",
-    "note": "beta10 addresses the installed-beta9 feedback. Downloads no longer fire on a tick count (which was a fixed delay in disguise and started the fetch before a big or slow PDF was ready, producing '系统找不到指定的文件'); every action now waits for document.readyState === 'complete', and the captured file is read with an existence-based retry. The capture ball shows the queue with per-item state and a delete button and no longer disappears once a download completes. Live selector verification is still pending."
+    "version": "0.5.5-beta11",
+    "commit": "213a7be",
+    "note": "beta11 fixes two field bugs (the injected shell mounted once per frame, so same-origin iframes each got an address bar; and DSH's Windows file-association query throws on machines where Shell returns E_FAIL for every extension, which broke the sidebar's Open-with control - the packaged DSH now degrades to 'no applications' so Reveal in Explorer keeps working) and acts on four items from the in-app report: observe candidates carry a redacted target and file name, the stray downloads bubble is filtered, the observation lasts two minutes and dies when the page URL changes, and the 100 MB capture limit is surfaced in the status. Live selector verification is still pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
