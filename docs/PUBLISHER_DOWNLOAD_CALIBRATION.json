@@ -5,7 +5,7 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta15",
+    "version": "0.5.5-beta16",
     "commit": "0f837ff",
     "note": "beta15 gives R1 a reachable save entry. A probe against the built-in viewer first established that injected scripts DO run in a native PDF document (the beta13 report's own observation JSON proves it) and that an injected position:fixed element paints above the PDF and receives trusted input in every cell of a {transform} x {popover} x {left/right} matrix. Two entries were added, both calling the same terminal save implementation: an in-page bottom-right overlay injected by the shell (disabled until the payload is proven whole, latched after one click, popover-escaped so a page transform cannot scroll it away), and a sidebar tool-row button that deliberately sits outside the rect reported to the shell so the native child WebView cannot cover it. Live selector verification against authenticated iWAN publishers is still pending for every entry below."
   },

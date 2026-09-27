@@ -447,3 +447,76 @@ test("R1-B：侧栏兜底按钮——不在上报矩形内，因此不会被原�
 	// 没证到完整时不放行。
 	assert.match(tab, /payload\?\.ready === true && payload\?\.complete === true/);
 });
+
+test("B1：declaredTotalBytes / idleSeconds 是显式字段，percent 不许恒为 100", () => {
+	const receiving = view({
+		downloadedBytes: 302200,
+		pdfPayload: { ready: true, complete: false, contentLength: 2744110, receivedBytes: 302200 }
+	});
+	assert.equal(receiving.progress.declaredTotalBytes, 2744110);
+	assert.equal(receiving.progress.totalBytes, 2744110);
+	assert.equal(receiving.progress.percent, 11, "percent 必须是真实比例，不能因为分片被算成 100");
+	assert.equal(receiving.progress.idleSeconds, 0);
+	assert.notEqual(receiving.nextAction, "save-pdf-ready");
+});
+
+test("B5：终态任务不再占用队列位次，但仍然是列表里的一条记录", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.desktopLastPendingTaskId = null;
+	service.captureProgressSamples = new Map();
+	service.desktopWebVpnStatus = null;
+	// createdAt 必须在"排队宽限期"内，否则会按"从未被接管"判成 orphaned（那是另一条规则）。
+	const recent = (seconds) => new Date(Date.now() - seconds * 1000).toISOString();
+	const rows = [
+		{ id: "capture-a", projectId: "p", requestedBy: "agent", status: "armed", kind: "pdf", createdAt: recent(4), publisherUrl: "https://www.science.org/doi/10.1126/science.adz5300" },
+		{ id: "capture-b", projectId: "p", requestedBy: "agent", status: "armed", kind: "pdf", createdAt: recent(2), publisherUrl: "https://www.science.org/doi/10.1126/science.adz5300" }
+	];
+	service.table = { keys: () => rows.map((row) => row.id), get: (id) => rows.find((row) => row.id === id) };
+	// 浏览器正忙着 capture-a，capture-b 是真排队；把 capture-a 判成 orphaned（交还过）
+	service.getDesktopWebVpnStatus = () => ({
+		stale: false, pendingTaskId: undefined, lastPendingTaskId: "capture-a", releaseReason: "已交还",
+		state: "ready", ready: true, iwanReady: true
+	});
+	const views = service.listTaskViews("p");
+	assert.equal(views.length, 2, "终态任务仍要在列表里（历史记录不该消失）");
+	const a = views.find((item) => item.task.id === "capture-a");
+	const b = views.find((item) => item.task.id === "capture-b");
+	assert.equal(a.view.phase, "orphaned");
+	assert.equal(a.view.queuePosition, undefined, "终态任务不占位");
+	assert.equal(b.view.queuePosition, 1, "活着的那条从第 1 位开始重新排");
+});
+
+test("bug1 回归：CoGetInterfaceAndReleaseStream 之后绝不能再 Drop 那个流", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// MSDN：Releases the stream pointer. Even if the unmarshaling fails, the stream is
+	// still released. 让 Rust 包装器再 Drop 一次 = 双重释放 = 一进 PDF 页就崩
+	// （2026-09-27 现场："ibm-lab-desktop has stopped working"）。
+	assert.match(rust, /ManuallyDrop::new\(unsafe \{\s*IStream::from_raw/, "必须用 ManuallyDrop 接管生命周期");
+	assert.match(rust, /CoGetInterfaceAndReleaseStream/);
+	// 退化路径（在 UI 线程上读）必须有更短的上限，不能冻住界面几分钟。
+	assert.match(rust, /INLINE_STREAM_MAX_WAIT/);
+	assert.match(rust, /max_wait\.min\(PDF_STREAM_MAX_WAIT\)/);
+});
+
+test("B1 回归：状态与归档共用同一个完整性判据，且分段响应不进入载荷路径", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	assert.match(rust, /fn payload_is_whole\(bytes: &\[u8\], declared_total: Option<u64>\) -> bool/);
+	// 两处都必须用它（状态上报 + 归档校验），不许各写一份。
+	const uses = rust.match(/payload_is_whole\(/g) ?? [];
+	assert.ok(uses.length >= 3, `payload_is_whole 必须被定义一次、使用两处，实际出现 ${uses.length} 次`);
+	assert.match(rust, /fn is_partial_response\(status: Option<u16>, content_range: Option<&str>\) -> bool/);
+	assert.match(rust, /if is_partial_response\(status, content_range\.as_deref\(\)\)/);
+	// 分段响应被跳过时必须留下记录（否则现场无法解释"为什么没有载荷"）。
+	assert.match(rust, /跳过 PDF 分段响应/);
+});
+
+test("B2 回归：进 failed 之前先验产物，完整就归档；不完整也保留文件", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	const fn = rust.match(/fn fail_pending_download\(&self, app: &AppHandle, message: &str\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+	assert.ok(fn, "fail_pending_download 必须拿到 AppHandle（否则无法改成归档）");
+	assert.match(fn, /if file_is_whole\(&pending\.temp_path\)/, "失败前必须先验产物");
+	assert.match(fn, /upload_capture\(app\.clone\(\), upload\)/, "产物完整时要归档而不是报失败");
+	assert.match(fn, /preserve_failed_download/, "不完整时要保留证据文件");
+	assert.doesNotMatch(fn, /fs::remove_file\(path\)/, "失败时不得再删掉用户的文件");
+	assert.match(rust, /fn file_is_whole\(path: &Path\) -> bool/);
+});

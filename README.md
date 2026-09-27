@@ -5,12 +5,12 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta15**：**把文献浏览器的主动权交给 AI**。
+当前候选版本为 **v0.5.5-beta16**：**把文献浏览器的主动权交给 AI**。
 `lab_publisher_browser_download` 新增 `mode`，**默认 `ai`** —— 只打开页面并布防捕获，
 壳内脚本不再抢着点，由 Agent 自己 observe（scope=all，带页面文本与加载状态）→ click →
 **`lab_browser_wait` 等页面变化**（不再盲轮询）→ 需要时 save 归档；`mode=auto` 保留脚本快路径。
 这同时化解了「自动化识别不出版社入口」那类问题：入口由模型从页面里挑，候选带 `target`/`file`
-可分同名 DOWNLOAD。详见 [发布说明](docs/releases/v0.5.5-beta15.md)。
+可分同名 DOWNLOAD。详见 [发布说明](docs/releases/v0.5.5-beta16.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /

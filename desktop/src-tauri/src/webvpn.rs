@@ -81,6 +81,8 @@ const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 const PDF_STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(5);
 /// 单次载荷读取的总上限，防止一个不结束的流把保存永远挂住。
 const PDF_STREAM_MAX_WAIT: Duration = Duration::from_secs(180);
+/// 退化成"在 UI 线程上读"时的总上限：宁可少拿一点字节，也不能把界面冻住几分钟。
+const INLINE_STREAM_MAX_WAIT: Duration = Duration::from_secs(20);
 
 /// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
 /// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
@@ -2108,40 +2110,98 @@ impl WebVpnState {
         Some(upload)
     }
 
-    fn fail_pending_download(&self, message: &str) {
+    /// 把当前捕获判为失败——但**先验产物**（B2/B5）。
+    ///
+    /// 2026-09-27 现场：`capture-mujvdn4aa999ea` 报 `failed`，而盘上文件其实是完整的
+    /// 2,716,662 B（`%PDF-1.4` + `%%EOF` + 可解析 8 页）。调用方无法区分"失败但文件
+    /// 完整"与"失败且文件残缺"，而失败路径还会把完整文件删掉——那次没丢件纯属运气
+    /// （磁盘上恰好还有一份更早的副本）。所以：
+    ///
+    ///   1. 文件已经是完整 PDF → **归档它**，不报失败；
+    ///   2. 确实不完整 → 保留成 `*-未归档.pdf`（不删），并把确切原因与路径写进状态。
+    fn fail_pending_download(&self, app: &AppHandle, message: &str) {
         let pending = {
             let Ok(mut session) = self.session.lock() else {
                 return;
             };
-            let pending = session.pending.take();
-            if let Some(ref pending) = pending {
-                // C4/C3：失败也是终态，必须能被等待方读到，并如实记录交还原因。
-                session.last_outcome = Some(CaptureOutcome {
-                    generation: pending.generation,
-                    ok: false,
-                    path: Some(pending.temp_path.clone()),
-                    bytes: fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()),
-                    sha256: None,
-                    error: Some(message.to_string()),
-                });
-                session.last_pending_task_id = Some(pending.task_id.clone());
-                session.release_reason = Some(message.to_string());
-                session.progress_sample = None;
-                session.capture_notice = Some(CaptureNotice {
-                    kind: pending.kind.clone(),
-                    phase: "error",
-                    expires_at: Instant::now() + Duration::from_secs(30 * 60),
-                });
-            }
-            let had_pending = pending.is_some();
-            if had_pending {
-                session.state = WebVpnSessionState::Error;
-                session.last_error = Some(message.to_string());
-            }
-            pending
+            session.pending.take()
         };
-        if let Some(pending) = pending.as_ref() {
-            Self::remove_pending_files(pending);
+        let Some(pending) = pending else {
+            // 没有待捕获任务：这句失败没有对象，不要污染会话状态。
+            return;
+        };
+
+        // 1) 产物完整 → 归档，而不是失败。
+        if file_is_whole(&pending.temp_path) {
+            if let Some(upload) = self.begin_upload(&pending.temp_path) {
+                record(
+                    app,
+                    "automation",
+                    "",
+                    &format!("{message}；但盘上文件已完整，改为直接归档"),
+                );
+                upload_capture(app.clone(), upload);
+                return;
+            }
+        }
+
+        // 2) 保留证据文件（B5）：失败时默认不删，并把路径写进原因。
+        let preserved = preserve_failed_download(&pending.temp_path, &pending.task_id, &pending.kind);
+        let detail = format!("{message}；文件已保留在 {}", preserved.display());
+        let bytes = fs::metadata(&preserved).ok().map(|meta| meta.len());
+        if let Ok(mut session) = self.session.lock() {
+            session.last_outcome = Some(CaptureOutcome {
+                generation: pending.generation,
+                ok: false,
+                path: Some(preserved),
+                bytes,
+                sha256: None,
+                error: Some(detail.clone()),
+            });
+            session.last_pending_task_id = Some(pending.task_id.clone());
+            session.release_reason = Some(detail.clone());
+            session.progress_sample = None;
+            session.capture_notice = Some(CaptureNotice {
+                kind: pending.kind.clone(),
+                phase: "error",
+                expires_at: Instant::now() + Duration::from_secs(30 * 60),
+            });
+            session.state = WebVpnSessionState::Error;
+            session.last_error = Some(detail.clone());
+        }
+        record(app, "error", "", &detail);
+    }
+
+    /// 仅供测试/无 AppHandle 场景：与 `fail_pending_download` 同样的语义，
+    /// 但没有 app 就没法归档，直接走"保留证据 + 失败"。
+    #[cfg(test)]
+    fn fail_pending_download_without_app(&self, message: &str) {
+        let pending = {
+            let Ok(mut session) = self.session.lock() else {
+                return;
+            };
+            session.pending.take()
+        };
+        let Some(pending) = pending else {
+            return;
+        };
+        let preserved = preserve_failed_download(&pending.temp_path, &pending.task_id, &pending.kind);
+        let detail = format!("{message}；文件已保留在 {}", preserved.display());
+        let bytes = fs::metadata(&preserved).ok().map(|meta| meta.len());
+        if let Ok(mut session) = self.session.lock() {
+            session.last_outcome = Some(CaptureOutcome {
+                generation: pending.generation,
+                ok: false,
+                path: Some(preserved),
+                bytes,
+                sha256: None,
+                error: Some(detail.clone()),
+            });
+            session.last_pending_task_id = Some(pending.task_id);
+            session.release_reason = Some(detail.clone());
+            session.progress_sample = None;
+            session.state = WebVpnSessionState::Error;
+            session.last_error = Some(detail);
         }
     }
 
@@ -2828,12 +2888,12 @@ fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destinat
             if let Some(upload) = upload {
                 upload_capture(app, upload);
             } else if let Some(state) = app.try_state::<WebVpnState>() {
-                state.fail_pending_download("Springer 系 SI 下载与当前捕获任务不匹配，请重试");
+                state.fail_pending_download(&app, "Springer 系 SI 下载与当前捕获任务不匹配，请重试");
             }
         }
         Err(message) => {
             if let Some(state) = app.try_state::<WebVpnState>() {
-                state.fail_pending_download(&message);
+                state.fail_pending_download(&app, &message);
             }
             record(&app, "error", "", &message);
         }
@@ -2942,6 +3002,17 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
 ///
 /// 改名失败时退回原路径（文件仍在原地，只是没改成带标记的名字），
 /// 无论如何都不主动删除用户的下载。
+/// 盘上的文件是不是一个**完整的 PDF**（B2：进 failed 之前必须能回答这个问题）。
+///
+/// 判据与载荷/归档完全一致：`%PDF-` 头 + 尾部 `%%EOF`。不看任务状态——状态可能是错的，
+/// 盘上的字节不会骗人。
+fn file_is_whole(path: &Path) -> bool {
+    let Ok(bytes) = fs::read(path) else {
+        return false;
+    };
+    bytes.starts_with(b"%PDF-") && tail_has_eof(&bytes)
+}
+
 fn preserve_failed_download(path: &Path, task_id: &str, kind: &str) -> PathBuf {
     let preserved = path.with_file_name(format!("{task_id}-{kind}-未归档.pdf"));
     if fs::rename(path, &preserved).is_ok() {
@@ -3479,10 +3550,30 @@ fn handle_response_received(
     if !lowered.contains("application/pdf") || attachment {
         return;
     }
+    let content_range = response_header(&response, "content-range");
+    if is_partial_response(status, content_range.as_deref()) {
+        record(
+            app,
+            "automation",
+            "",
+            &format!(
+                "跳过 PDF 分段响应（status={:?}，content-range={:?}）：分段不是整份文件，不能当载荷",
+                status,
+                content_range.unwrap_or_else(|| "-".to_string())
+            ),
+        );
+        return;
+    }
     let Some((task_id, path)) = state.pending_pdf_target() else {
         return;
     };
-    if !state.begin_pdf_payload(&task_id, path.clone(), content_length) {
+    // 只有整份响应（200）的 Content-Length 才是"声明总长"；分段响应已经在上面跳过。
+    let declared_total = if status == Some(200) || status.is_none() {
+        content_length
+    } else {
+        None
+    };
+    if !state.begin_pdf_payload(&task_id, path.clone(), declared_total) {
         return;
     }
     let payload_app = app.clone();
@@ -3541,12 +3632,16 @@ fn write_stream_to_file(
     task_id: &str,
     app: &AppHandle,
     content_length: Option<u64>,
+    max_wait: Duration,
 ) -> Result<PdfBodyResult, String> {
     let limit = CAPTURE_MAX_BYTES;
     let mut buffer: Vec<u8> = Vec::new();
     let mut chunk = vec![0_u8; 64 * 1024];
     let started = Instant::now();
     let mut last_progress = Instant::now();
+    // 封送失败时会退回"在 UI 线程上读"，那条路必须更短：读满一整个大文件会把
+    // 界面冻住。工作者线程上才用得上完整的 PDF_STREAM_MAX_WAIT。
+    let max_wait = max_wait.min(PDF_STREAM_MAX_WAIT);
     loop {
         let mut read: u32 = 0;
         let hr = unsafe {
@@ -3602,7 +3697,7 @@ fn write_stream_to_file(
             break;
         }
         let idle = last_progress.elapsed();
-        if idle >= PDF_STREAM_STALL_TIMEOUT || started.elapsed() >= PDF_STREAM_MAX_WAIT {
+        if idle >= PDF_STREAM_STALL_TIMEOUT || started.elapsed() >= max_wait {
             let total_note = match content_length {
                 Some(total) => format!("{total} 字节"),
                 None => "未知总长".to_string(),
@@ -3621,17 +3716,18 @@ fn write_stream_to_file(
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    let complete = match content_length {
-        Some(total) => buffer.len() as u64 >= total,
-        // 没有 Content-Length 时必须靠结构证据：PDF 一定以 %%EOF 结尾。
-        None => tail_has_eof(&buffer),
-    };
+    // 完整性只由 payload_is_whole 判定（与归档路径同一个函数）。
+    let complete = payload_is_whole(&buffer, content_length);
     let note = if complete {
         String::new()
     } else {
-        match content_length {
-            Some(total) => format!("已接收 {} / {} 字节", buffer.len(), total),
-            None => format!("已接收 {} 字节，且尾部没有 %%EOF", buffer.len()),
+        match (content_length, tail_has_eof(&buffer)) {
+            (Some(total), false) => {
+                format!("已接收 {} / {} 字节，且尾部没有 %%EOF", buffer.len(), total)
+            }
+            (Some(total), true) => format!("已接收 {} / {} 字节", buffer.len(), total),
+            (None, false) => format!("已接收 {} 字节，且尾部没有 %%EOF", buffer.len()),
+            (None, true) => format!("已接收 {} 字节（声明总长未知）", buffer.len()),
         }
     };
     Ok(PdfBodyResult {
@@ -3675,14 +3771,20 @@ fn spawn_payload_read(
             std::thread::spawn(move || {
                 let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
                 let result = (|| -> Result<PdfBodyResult, String> {
-                    let marshaled = unsafe {
+                    // **ManuallyDrop 不是可选的**：CoGetInterfaceAndReleaseStream 会释放
+                    // 传入的那个流（MSDN：Releases the stream pointer. Even if the
+                    // unmarshaling fails, the stream is still released）。如果让 Rust
+                    // 包装器在作用域结束再 Drop 一次，就是对同一个流 Release 两次
+                    // ——引用计数下溢、堆损坏，进程直接崩（2026-09-27 现场：一进原生
+                    // PDF 页就 "ibm-lab-desktop has stopped working"）。
+                    let marshaled = core::mem::ManuallyDrop::new(unsafe {
                         IStream::from_raw(raw as *mut core::ffi::c_void)
-                    };
-                    let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(&marshaled) }
+                    });
+                    let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(&*marshaled) }
                         .map_err(|error| {
                             format!("无法在工作线程还原 PDF 响应流（0x{:08X}）", error.code().0 as u32)
                         })?;
-                    write_stream_to_file(&stream, &task_id, &app, content_length)
+                    write_stream_to_file(&stream, &task_id, &app, content_length, PDF_STREAM_MAX_WAIT)
                 })();
                 unsafe { CoUninitialize() };
                 finish_payload_read(&app, &task_id, &payload_path, result);
@@ -3698,7 +3800,8 @@ fn spawn_payload_read(
                     error.code().0 as u32
                 ),
             );
-            let result = write_stream_to_file(&stream, &task_id, &app, content_length);
+            let result =
+                write_stream_to_file(&stream, &task_id, &app, content_length, INLINE_STREAM_MAX_WAIT);
             finish_payload_read(&app, &task_id, &payload_path, result);
         }
     }
@@ -3737,6 +3840,37 @@ fn finish_payload_read(
     if let Some(webview) = app.get_webview(WINDOW_LABEL) {
         let _ = push_capture_ball(app, &webview);
     }
+}
+
+/// 载荷是否**被证明完整**——状态上报与归档校验必须用同一个函数。
+///
+/// 2026-09-27 现场 B1：这两处曾经各判各的 —— 状态按"收满这一次响应的
+/// Content-Length"判定（一个 256 KiB 的**分段响应**也能满足），归档按"尾部有
+/// %%EOF"判定。于是状态喊 `save-pdf-ready`、归档却拒收，契约与实现互相打架。
+/// 现在只有这一个判据：PDF 头 + `%%EOF` 尾 + （声明总长已知时）收满。
+#[cfg(windows)]
+fn payload_is_whole(bytes: &[u8], declared_total: Option<u64>) -> bool {
+    if !bytes.starts_with(b"%PDF-") {
+        return false;
+    }
+    if !tail_has_eof(bytes) {
+        return false;
+    }
+    match declared_total {
+        Some(total) => bytes.len() as u64 >= total,
+        // 声明总长未知时 `%%EOF` 就是唯一的正向证据（PDF 必须以此结束）。
+        None => true,
+    }
+}
+
+/// 响应是不是"分段/区间"响应。
+///
+/// 浏览器的 PDF 查看器会用 Range 请求分段取数，第一段常常正好是 256 KiB —— 把它当成
+/// 整份文件，就会出现"256 KB 就报已完整"的那种事故（B1）。分段响应一律不进入载荷
+/// 路径：宁可不提供保存支路，也不能给一个假的完成信号。
+#[cfg(windows)]
+fn is_partial_response(status: Option<u16>, content_range: Option<&str>) -> bool {
+    status == Some(206) || content_range.is_some()
 }
 
 /// PDF 是否以 `%%EOF` 结束（结构完整的最后一道证据）。
@@ -3869,23 +4003,21 @@ async fn finalize_native_save(
     let head = fs::read(path).map_err(|error| format!("无法读取已落盘的 PDF: {error}"))?;
     if !head.starts_with(b"%PDF-") {
         let reason = "响应体不是 PDF（页面可能只是 HTML 预览），不能作为原文归档".to_string();
-        state.fail_pending_download(&reason);
+        state.fail_pending_download(app, &reason);
         return Err(reason);
     }
-    if !tail_has_eof(&head) {
+    // 与状态上报同一个判据：头 + %%EOF + 声明总长。两处曾经各判各的，于是
+    // 状态喊"已完整"、这里拒收（B1）。
+    let declared_total = state.pdf_payload_total(task_id);
+    if !payload_is_whole(&head, declared_total) {
         return Err(format!(
-            "PDF 载荷不完整（已接收 {} 字节，尾部没有 %%EOF），未归档；请重试保存，或改用带 ?download=true 的下载入口",
-            head.len()
+            "PDF 载荷不完整（已接收 {} 字节{}{}），未归档；请重试保存，或改用带 ?download=true 的下载入口",
+            head.len(),
+            declared_total
+                .map(|total| format!(" / {total}"))
+                .unwrap_or_default(),
+            if tail_has_eof(&head) { "" } else { "，尾部没有 %%EOF" }
         ));
-    }
-    if let Some(total) = state.pdf_payload_total(task_id) {
-        if head.len() as u64 != total {
-            return Err(format!(
-                "PDF 载荷不完整（已接收 {} / {} 字节），未归档；请重试保存，或改用带 ?download=true 的下载入口",
-                head.len(),
-                total
-            ));
-        }
     }
     let bytes = head.len() as u64;
     let sha256 = sha256_of_file(path);
@@ -3980,12 +4112,12 @@ async fn save_pdf_via_viewer(
                             if let Some(upload) = state.begin_upload(&completion_path) {
                                 upload_capture(completion_app, upload);
                             } else {
-                                state.fail_pending_download("原生 PDF 保存与当前捕获任务不匹配");
+                                state.fail_pending_download(&completion_app, "原生 PDF 保存与当前捕获任务不匹配");
                             }
                         }
                     });
                 } else if let Some(state) = completion_app.try_state::<WebVpnState>() {
-                    state.fail_pending_download("原生 PDF 保存未完成；请改用带 ?download=true 的下载入口重试");
+                    state.fail_pending_download(&completion_app, "原生 PDF 保存未完成；请改用带 ?download=true 的下载入口重试");
                 }
                 Ok(())
             }));
@@ -4001,7 +4133,7 @@ async fn save_pdf_via_viewer(
         .await.map_err(|error| error.to_string())?
         .map_err(|_| "原生 PDF 保存启动超时".to_string())?;
     if let Err(error) = setup {
-        state.fail_pending_download(&error);
+        state.fail_pending_download(app, &error);
         return Err(error);
     }
     let _ = push_capture_ball(app, webview);
@@ -4501,7 +4633,7 @@ pub fn open_window(
                     if !success {
                         if let Some(state) = state {
                             if !state.should_ignore_failed_finish() {
-                                state.fail_pending_download("WebVPN 页面下载失败，请重新发起捕获");
+                                state.fail_pending_download(&download_app, "WebVPN 页面下载失败，请重新发起捕获");
                             }
                         }
                     } else if let Some(path) = path.as_deref() {
@@ -4510,12 +4642,13 @@ pub fn open_window(
                             std::thread::spawn(move || upload_capture(upload_app, upload));
                         } else if let Some(state) = download_app.try_state::<WebVpnState>() {
                             state.fail_pending_download(
+                                &download_app,
                                 "WebVPN 下载文件与当前捕获任务不匹配，请重试",
                             );
                         }
                     } else if let Some(state) = state {
                         state
-                            .fail_pending_download("WebVPN 下载完成，但系统未返回文件路径，请重试");
+                            .fail_pending_download(&download_app, "WebVPN 下载完成，但系统未返回文件路径，请重试");
                     }
                 }
                 _ => {}
@@ -5404,8 +5537,44 @@ mod tests {
         assert!(!tail_has_eof(b""));
     }
 
+    /// 完整性只有一个判据，而且必须是**正向证明**（2026-09-27 现场 B1：一个 256 KiB
+    /// 的分段响应被当成整份文件，状态喊 save-pdf-ready、归档却拒收）。
     #[test]
-    fn failed_download_clears_pending_capture_and_enters_error() {
+    fn payload_completeness_is_one_positive_predicate() {
+        let mut whole = b"%PDF-1.4\n".to_vec();
+        whole.extend_from_slice(&vec![b'x'; 40_000]);
+        whole.extend_from_slice(b"\nstartxref\n123\n%%EOF\n");
+
+        // 完整 + 收满声明总长 → 完整
+        assert!(payload_is_whole(&whole, Some(whole.len() as u64)));
+        // 完整但没到声明总长（服务器说了更大的数）→ 不算完整
+        assert!(!payload_is_whole(&whole, Some(whole.len() as u64 + 1)));
+        // 声明总长未知时，%%EOF 是唯一的正向证据
+        assert!(payload_is_whole(&whole, None));
+
+        // 半截载荷：有 PDF 头、没有 %%EOF，哪怕"收满"了那一次响应的 Content-Length 也不算
+        let mut partial = b"%PDF-1.3\n".to_vec();
+        partial.extend_from_slice(&vec![0_u8; 262_144 - partial.len()]);
+        assert!(!payload_is_whole(&partial, Some(partial.len() as u64)));
+        assert!(!payload_is_whole(&partial, None));
+        // 不是 PDF：直接否
+        assert!(!payload_is_whole(b"<html>preview</html>", None));
+        assert!(!payload_is_whole(b"", None));
+    }
+
+    #[test]
+    fn partial_responses_are_never_treated_as_the_payload() {
+        // 浏览器 PDF 查看器用 Range 分段取数：第一段常常正好 256 KiB
+        assert!(is_partial_response(Some(206), None));
+        assert!(is_partial_response(Some(200), Some("bytes 0-262143/2744110")));
+        assert!(is_partial_response(None, Some("bytes 0-1/9")));
+        // 整份响应才放行
+        assert!(!is_partial_response(Some(200), None));
+        assert!(!is_partial_response(None, None));
+    }
+
+    #[test]
+    fn incomplete_download_fails_and_keeps_the_evidence_file() {
         let state = WebVpnState::default();
         state.transition(WebVpnSessionState::Opening).unwrap();
         state.transition(WebVpnSessionState::Ready).unwrap();
@@ -5423,10 +5592,16 @@ mod tests {
                 path.clone(),
             )
             .unwrap();
-        state.fail_pending_download("下载失败");
+        // 半截/非 PDF：必须判失败，并且**保留文件**（B5）而不是删掉。
+        state.fail_pending_download_without_app("下载失败");
         let status = state.status(&WebVpnConfig::default(), true);
         assert_eq!(status.state, WebVpnSessionState::Error);
-        assert_eq!(status.last_error.as_deref(), Some("下载失败"));
+        assert!(status
+            .last_error
+            .as_deref()
+            .unwrap_or_default()
+            .starts_with("下载失败"), "失败原因要保留原句并附上证据文件路径");
+        let _ = std::fs::remove_file(&path);
         assert!(status.pending_task_id.is_none());
         assert!(!path.exists());
     }
