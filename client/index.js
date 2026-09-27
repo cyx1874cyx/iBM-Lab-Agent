@@ -154,7 +154,7 @@ function buildDescriptors() {
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -336,12 +336,23 @@ function sendWebVpnRect(payload) {
 }
 function sendWebVpnBallQueue(tasks) {
   if (typeof window === "undefined" || !window.parent || window.parent === window) return;
-  const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => ({
-    id: String(task?.id ?? ""),
-    kind: String(task?.kind ?? ""),
-    status: String(task?.status ?? ""),
-    requestedBy: String(task?.requestedBy ?? "")
-  })).filter((entry) => entry.id);
+  const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => {
+    const ball = task?.view?.ball;
+    return {
+      id: String(task?.id ?? ""),
+      kind: String(task?.kind ?? ""),
+      status: String(task?.status ?? ""),
+      requestedBy: String(task?.requestedBy ?? ""),
+      ball: ball ? {
+        phase: String(ball.phase ?? ""),
+        text: String(ball.text ?? "").slice(0, 160),
+        tone: String(ball.tone ?? ""),
+        stalled: Boolean(ball.stalled),
+        canRecreate: Boolean(ball.canRecreate),
+        canCancel: Boolean(ball.canCancel)
+      } : void 0
+    };
+  }).filter((entry) => entry.id);
   try {
     window.parent.postMessage({
       source: "ibm-lab-agent",
@@ -639,7 +650,11 @@ var webVpnShellRequest = (type, payload = {}, timeoutMs = 8e3) => new Promise((r
   }
 });
 var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
-var webVpnBrowserActionViaShell = (payload) => webVpnShellRequest("WEBVPN_BROWSER_ACTION", payload, 2e4);
+var webVpnBrowserActionViaShell = (payload) => webVpnShellRequest(
+  "WEBVPN_BROWSER_ACTION",
+  payload,
+  payload?.action === "save-pdf" ? 14e4 : 2e4
+);
 var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 var withWebVpnTab = async (request, { armingCapture = false } = {}) => {
   if (armingCapture) armWebVpnCaptureWindow();
@@ -655,6 +670,10 @@ var cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_
 var onCancelTaskFromBall = null;
 function setBallTaskCancelHandler(handler) {
   onCancelTaskFromBall = typeof handler === "function" ? handler : null;
+}
+var onRecreateTaskFromBall = null;
+function setBallTaskRecreateHandler(handler) {
+  onRecreateTaskFromBall = typeof handler === "function" ? handler : null;
 }
 function installShellRequestBridge() {
   if (typeof window === "undefined" || window.parent === window) return () => {
@@ -672,6 +691,11 @@ function installShellRequestBridge() {
       const taskId = String(data.payload?.taskId || "");
       if (!taskId) return;
       void onCancelTaskFromBall?.(taskId);
+    }
+    if (data.type === "WEBVPN_RECREATE_TASK") {
+      const taskId = String(data.payload?.taskId || "");
+      if (!taskId) return;
+      void onRecreateTaskFromBall?.(taskId);
     }
   };
   window.addEventListener("message", onMessage);
@@ -2897,7 +2921,7 @@ var formatCaptureElapsed = (milliseconds) => {
   const seconds = Math.max(0, Math.floor(Number(milliseconds) / 1e3) || 0);
   return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 };
-var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage) => {
+var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage, extra = {}) => {
   switch (state) {
     case "opening":
       return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
@@ -2911,13 +2935,30 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
       if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
       if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
       if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
-      if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
+      if (automationStage === "manual") {
+        if (extra.saveReady) return { text: "PDF 已就绪，正在归档到课题…", tone: "busy", progress: true };
+        return {
+          text: extra.alternateEntry ? `保存支路不可用；请改用带 ?download=true 的下载入口重新进入（${extra.alternateEntry}）` : "保存支路不可用；请重新观察页面并选择带 ?download=true 的下载入口",
+          tone: "error",
+          actionable: true
+        };
+      }
       return { text: "正在等待出版社页面加载…", tone: "waiting" };
     case "downloading":
+      if (extra.stalled) {
+        return { text: `下载已 ${Math.round((extra.stalledMs || 0) / 1e3)} 秒没有进度，任务疑似卡住`, tone: "error", actionable: true };
+      }
       if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
       return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
     case "uploading":
       return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
+    // C6/C17：失去接管不是「排队」，必须如实显示成终态并给出可执行动作。
+    case "heartbeat-lost":
+      return { text: "与文献浏览器失去心跳，任务已中断；可重建或终止", tone: "error", actionable: true };
+    case "orphaned":
+      return { text: "文献浏览器已释放该任务，任务已中断；可重建或终止", tone: "error", actionable: true };
+    case "stalled":
+      return { text: `任务已 ${Math.round((extra.stalledMs || 0) / 1e3)} 秒没有进度，疑似卡住；可重建或终止`, tone: "error", actionable: true };
     case "expired":
       return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
     case "error":
@@ -3072,9 +3113,33 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     let timer;
     const poll = async () => {
       try {
-        const status = await webVpnStatusViaShell();
+        const [status, taskResult] = await Promise.all([
+          webVpnStatusViaShell(),
+          call("manual_capture_get", { request: { taskId } }).catch(() => null)
+        ]);
         if (disposed || !status) return;
-        if (status.state === "error") {
+        const view = taskResult?.view;
+        if (view) {
+          setCaptureHint((current) => current?.taskId === taskId ? {
+            ...current,
+            phase: {
+              text: view.message,
+              tone: view.ball?.tone === "complete" ? "complete" : view.ball?.tone === "error" ? "error" : view.ball?.tone === "busy" ? "busy" : "waiting",
+              progress: ["busy", "complete"].includes(view.ball?.tone),
+              complete: view.ball?.tone === "complete",
+              actionable: view.requiresUserAction || view.ball?.stalled
+            },
+            canRecreate: Boolean(view.ball?.canRecreate),
+            canCancel: Boolean(view.ball?.canCancel)
+          } : current);
+          if (view.phase === "completed") {
+            timer = setTimeout(() => void poll(), 1200);
+            return;
+          }
+          if (view.requiresUserAction && view.phase !== "cancelled") {
+            return;
+          }
+        } else if (status.state === "error") {
           const message = status.lastError || "页面自动下载失败，请重试";
           await call("manual_capture_cancel", { request: { taskId, reason: message } }).catch(() => {
           });
@@ -3082,8 +3147,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           setCaptureHint(null);
           notify(message);
           return;
+        } else {
+          setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage, {
+            stalled: status.stalled,
+            stalledMs: status.stalledMs,
+            saveReady: status.pdfPayload?.ready,
+            alternateEntry: status.alternateEntry
+          }) } : current);
         }
-        setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage) } : current);
       } catch {
       }
       timer = setTimeout(() => void poll(), 1200);
@@ -3094,6 +3165,23 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, captureHint?.route]);
+  const recreateCapture = async (event) => {
+    event?.stopPropagation?.();
+    const taskId = captureHint?.taskId;
+    if (!taskId || captureStopping) return;
+    setCaptureStopping(true);
+    try {
+      const rebuilt = await call("manual_capture_recreate", { request: { taskId, reason: "用户从提示条重建文献获取" } });
+      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
+      });
+      setCaptureHint((current) => current?.taskId === taskId ? { ...current, taskId: rebuilt?.task?.id || taskId, canRecreate: false, route: "webvpn", phase: { text: "已重建获取任务，正在重新接管…", tone: "waiting" } } : current);
+      notify("已用同一篇文献重建获取任务");
+    } catch (reason) {
+      notify(reason?.message || "重建获取任务失败，请重试");
+    } finally {
+      setCaptureStopping(false);
+    }
+  };
   const cancelCapture = async (event) => {
     event?.stopPropagation?.();
     const taskId = captureHint?.taskId;
@@ -3615,6 +3703,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 "div",
                 { className: "ib-capture-head" },
                 h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+                // C19：失去接管/停滞时最需要的是「重来一次」，所以给重建按钮，
+                // 而不是只留一个「终止下载」。
+                captureHint?.canRecreate ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void recreateCapture(event) }, "重建任务") : null,
                 !captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
               ),
               captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : void 0, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : void 0, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
@@ -3817,7 +3908,19 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       await cancelWebVpnCaptureViaShell(taskId).catch(() => {
       });
     });
-    return () => setBallTaskCancelHandler(null);
+    setBallTaskRecreateHandler(async (taskId) => {
+      await call("manual_capture_recreate", { request: {
+        taskId,
+        reason: "用户从捕获小球重建获取任务"
+      } }).catch(() => {
+      });
+      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
+      });
+    });
+    return () => {
+      setBallTaskCancelHandler(null);
+      setBallTaskRecreateHandler(null);
+    };
   }, [bound?.project?.id, call]);
   (0, import_react8.useEffect)(() => {
     const projectId = bound?.project?.id;
@@ -3825,6 +3928,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
     let disposed = false;
     let timer;
     let starting = false;
+    let runningOperation = false;
     const poll = async () => {
       if (disposed || starting) return;
       let claimedTask;
@@ -3844,6 +3948,18 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
             downloadedBytes: shellStatus?.downloadedBytes,
             downloadElapsedMs: shellStatus?.downloadElapsedMs,
             maxCaptureBytes: shellStatus?.maxCaptureBytes,
+            // 页面级事实与接管关系（C2/C3）：wait 的指纹与
+            // heartbeat-lost/orphaned 判定都靠这两组字段。
+            pageUrl: shellStatus?.pageUrl,
+            documentType: shellStatus?.documentType,
+            httpStatus: shellStatus?.httpStatus,
+            readyState: shellStatus?.readyState,
+            pageSeq: shellStatus?.pageSeq,
+            contentLength: shellStatus?.contentLength,
+            pdfPayload: shellStatus?.pdfPayload,
+            lastPendingTaskId: shellStatus?.lastPendingTaskId,
+            releaseReason: shellStatus?.releaseReason,
+            takenOverAt: shellStatus?.takenOverAt,
             iwanInstalled: iwanStatus?.installed,
             iwanConnected: iwanStatus?.connected,
             iwanUsable: iwanStatus?.usable,
@@ -3858,26 +3974,34 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
           }
         } catch {
         }
-        try {
-          const next = await call("browser_operation_claim", { request: { projectId } });
-          if (next?.operation && !disposed) {
-            const operation = next.operation;
-            try {
-              const result = await webVpnBrowserActionViaShell(operation);
-              await call("browser_operation_complete", { request: {
-                projectId,
-                id: operation.id,
-                result
-              } });
-            } catch (reason) {
-              await call("browser_operation_complete", { request: {
-                projectId,
-                id: operation.id,
-                error: String(reason?.message || reason)
-              } });
+        if (!runningOperation && !disposed) {
+          try {
+            const next = await call("browser_operation_claim", { request: { projectId } });
+            if (next?.operation && !disposed) {
+              const operation = next.operation;
+              runningOperation = true;
+              void (async () => {
+                try {
+                  const result = await webVpnBrowserActionViaShell(operation);
+                  await call("browser_operation_complete", { request: {
+                    projectId,
+                    id: operation.id,
+                    result
+                  } });
+                } catch (reason) {
+                  await call("browser_operation_complete", { request: {
+                    projectId,
+                    id: operation.id,
+                    error: String(reason?.message || reason)
+                  } }).catch(() => {
+                  });
+                } finally {
+                  runningOperation = false;
+                }
+              })();
             }
+          } catch {
           }
-        } catch {
         }
         const listed = await call("manual_capture_list", { request: { projectId } });
         sendWebVpnBallQueue(listed?.tasks || []);

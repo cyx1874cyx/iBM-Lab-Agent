@@ -180,6 +180,16 @@
         }, frameOrigin() ?? '*');
       } catch { /* 壳未就绪：下一次重绘会重试 */ }
     };
+    // 小球上的「重建任务」（C19）：任务调度的真源同样在插件里，壳只转交。
+    window.__ibmBallRecreateTask = (taskId) => {
+      try {
+        frame.contentWindow?.postMessage({
+          source: 'ibm-lab-agent-shell',
+          type: 'WEBVPN_RECREATE_TASK',
+          payload: { taskId: String(taskId || '') }
+        }, frameOrigin() ?? '*');
+      } catch { /* 壳未就绪：下一次重绘会重试 */ }
+    };
     const postToFrame = (type, payload) => {
       const origin = frameOrigin();
       if (!origin || !frame.contentWindow) return;
@@ -568,7 +578,21 @@
           .catch((error) => reply('WEBVPN_CANCEL_CAPTURE_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_BALL_QUEUE') {
         // 客户端把当前队列快照交上来，壳转给 Rust 存进会话状态，小球据此显示排队序列。
-        invoke('webvpn_set_capture_queue', { tasks: Array.isArray(data.payload?.tasks) ? data.payload.tasks : [] })
+        // 每条还带插件推导好的 ball（相位/文案/色调/可重建），小球直接渲染，
+        // 不再自己按 state 猜一遍 —— 这是「工具说 queued、小球说失败」的根治（C20）。
+        const tasks = (Array.isArray(data.payload?.tasks) ? data.payload.tasks : []).map((task) => ({
+          id: String(task?.id || ''),
+          kind: String(task?.kind || ''),
+          status: String(task?.status || ''),
+          requestedBy: String(task?.requestedBy || ''),
+          ballPhase: String(task?.ball?.phase || ''),
+          ballText: String(task?.ball?.text || ''),
+          ballTone: String(task?.ball?.tone || ''),
+          ballStalled: Boolean(task?.ball?.stalled),
+          ballCanRecreate: Boolean(task?.ball?.canRecreate),
+          ballCanCancel: Boolean(task?.ball?.canCancel)
+        }));
+        invoke('webvpn_set_capture_queue', { tasks })
           .catch((error) => reply('WEBVPN_BALL_QUEUE_RESULT', { ok: false, error: String(error) }));
       } else if (data.type === 'WEBVPN_SET_RECT') {
         // DSH 右侧栏接管布局：客户端上报「文献浏览器」tab 正文的矩形（相对它自己

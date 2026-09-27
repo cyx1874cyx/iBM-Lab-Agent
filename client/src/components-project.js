@@ -24,7 +24,7 @@ const formatCaptureElapsed = (milliseconds) => {
 	return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 };
 
-export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage) => {
+export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, automationStage, extra = {}) => {
 	switch (state) {
 		case "opening": return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
 		case "waiting-login": return { text: "正在自动核验 WebVPN 会话；若出现登录页，请在侧栏完成登录", tone: "waiting" };
@@ -34,12 +34,31 @@ export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapse
 			if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
 			if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
 			if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
-			if (automationStage === "manual") return { text: "未确认自动下载入口；请在侧栏手动点击保存", tone: "waiting" };
+			// C18：提示必须可执行。旧的「请在侧栏手动点击保存」指向一个失效动作
+			// （原生 PDF 查看器里没有可点元素），用户照做也没用。
+			if (automationStage === "manual") {
+				if (extra.saveReady) return { text: "PDF 已就绪，正在归档到课题…", tone: "busy", progress: true };
+				return {
+					text: extra.alternateEntry
+						? `保存支路不可用；请改用带 ?download=true 的下载入口重新进入（${extra.alternateEntry}）`
+						: "保存支路不可用；请重新观察页面并选择带 ?download=true 的下载入口",
+					tone: "error",
+					actionable: true
+				};
+			}
 			return { text: "正在等待出版社页面加载…", tone: "waiting" };
 		case "downloading":
+			// C17：长期没有字节增长不能再显示「正在保存」。
+			if (extra.stalled) {
+				return { text: `下载已 ${Math.round((extra.stalledMs || 0) / 1000)} 秒没有进度，任务疑似卡住`, tone: "error", actionable: true };
+			}
 			if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
 			return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
 		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
+		// C6/C17：失去接管不是「排队」，必须如实显示成终态并给出可执行动作。
+		case "heartbeat-lost": return { text: "与文献浏览器失去心跳，任务已中断；可重建或终止", tone: "error", actionable: true };
+		case "orphaned": return { text: "文献浏览器已释放该任务，任务已中断；可重建或终止", tone: "error", actionable: true };
+		case "stalled": return { text: `任务已 ${Math.round((extra.stalledMs || 0) / 1000)} 秒没有进度，疑似卡住；可重建或终止`, tone: "error", actionable: true };
 		case "expired": return { text: "捕获任务已过期，请重新点击文献按钮", tone: "error" };
 		case "error": return { text: lastError ? `捕获失败：${lastError}` : "捕获失败，请重试", tone: "error" };
 		case "completed": return { text: `下载并归档完成 · ${formatCaptureBytes(downloadedBytes)}`, tone: "complete", progress: true, complete: true };
@@ -193,19 +212,51 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				let timer;
 				const poll = async () => {
 					try {
-						const status = await webVpnStatusViaShell();
+						const [status, taskResult] = await Promise.all([
+							webVpnStatusViaShell(),
+							call("manual_capture_get", { request: { taskId } }).catch(() => null)
+						]);
 						if (disposed || !status) return;
-						if (status.state === "error") {
+						// C20：插件的 view 是「同一份真相」，能拿到就直接用它 ——
+						// 前端不再按 shell state 自己猜一遍，双源矛盾就没有来源了。
+						const view = taskResult?.view;
+						if (view) {
+							setCaptureHint((current) => current?.taskId === taskId
+								? {
+									...current,
+									phase: {
+										text: view.message,
+										tone: view.ball?.tone === "complete" ? "complete" : view.ball?.tone === "error" ? "error" : view.ball?.tone === "busy" ? "busy" : "waiting",
+										progress: ["busy", "complete"].includes(view.ball?.tone),
+										complete: view.ball?.tone === "complete",
+										actionable: view.requiresUserAction || view.ball?.stalled
+									},
+									canRecreate: Boolean(view.ball?.canRecreate),
+									canCancel: Boolean(view.ball?.canCancel)
+								}
+								: current);
+							if (view.phase === "completed") { timer = setTimeout(() => void poll(), 1200); return; }
+							if (view.requiresUserAction && view.phase !== "cancelled") {
+								// 终态：不再空转轮询，交给提示条上的「重建 / 终止」。
+								return;
+							}
+						} else if (status.state === "error") {
 							const message = status.lastError || "页面自动下载失败，请重试";
 							await call("manual_capture_cancel", { request: { taskId, reason: message } }).catch(() => {});
 							if (disposed) return;
 							setCaptureHint(null);
 							notify(message);
 							return;
+						} else {
+							setCaptureHint((current) => current?.taskId === taskId
+								? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage, {
+									stalled: status.stalled,
+									stalledMs: status.stalledMs,
+									saveReady: status.pdfPayload?.ready,
+									alternateEntry: status.alternateEntry
+								}) }
+								: current);
 						}
-						setCaptureHint((current) => current?.taskId === taskId
-							? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage) }
-							: current);
 					} catch { /* shell 暂不可达时静默，下一轮重试 */ }
 					timer = setTimeout(() => void poll(), 1200);
 				};
@@ -217,6 +268,28 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			 * 页面交给外部 Edge；扩展只在 handoff 页面完成布防。普通 Web 宿主不再
 			 * 直接与扩展通信。
 			 */
+			/**
+			 * C19：用同一篇文献重建获取任务。旧任务被作废并写明原因，新任务立刻排队；
+			 * 重建不需要用户再次确认（AI 已获授权），这是现场最需要的一步。
+			 */
+			const recreateCapture = async (event) => {
+				event?.stopPropagation?.();
+				const taskId = captureHint?.taskId;
+				if (!taskId || captureStopping) return;
+				setCaptureStopping(true);
+				try {
+					const rebuilt = await call("manual_capture_recreate", { request: { taskId, reason: "用户从提示条重建文献获取" } });
+					await cancelWebVpnCaptureViaShell(taskId).catch(() => {});
+					setCaptureHint((current) => current?.taskId === taskId
+						? { ...current, taskId: rebuilt?.task?.id || taskId, canRecreate: false, route: "webvpn", phase: { text: "已重建获取任务，正在重新接管…", tone: "waiting" } }
+						: current);
+					notify("已用同一篇文献重建获取任务");
+				} catch (reason) {
+					notify(reason?.message || "重建获取任务失败，请重试");
+				} finally {
+					setCaptureStopping(false);
+				}
+			};
 			const cancelCapture = async (event) => {
 				event?.stopPropagation?.();
 				const taskId = captureHint?.taskId;
@@ -653,6 +726,9 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
 								h("div", { className: "ib-capture-head" },
 									h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+									// C19：失去接管/停滞时最需要的是「重来一次」，所以给重建按钮，
+									// 而不是只留一个「终止下载」。
+									captureHint?.canRecreate ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void recreateCapture(event) }, "重建任务") : null,
 									!captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
 								),
 								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : undefined, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : undefined, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null

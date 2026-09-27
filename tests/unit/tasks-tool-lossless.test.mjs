@@ -213,7 +213,11 @@ test("failed publisher download asks before the Agent cancels it", async () => {
 	const status = registered.find((item) => item.name === "lab_publisher_browser_download_status");
 	const failed = await status.execute({ projectId: "proj-test", taskId: "capture-failed123" }, {});
 	assert.equal(failed.requiresUserAction, true);
-	assert.match(failed.question, /是否终止/);
+	// C7（2026-09-27 需求）：终态必须给出「重建 / 终止」两个选项。
+	// 旧契约只问「是否终止」，于是失败后唯一的出路是取消，重建得靠用户手动再来一次。
+	assert.equal(failed.nextAction, "recreate-or-cancel");
+	assert.match(failed.question, /重建/);
+	assert.match(failed.question, /终止/);
 	const cancel = registered.find((item) => item.name === "lab_publisher_browser_download_cancel");
 	assert.ok(cancel);
 	const stopped = await cancel.execute({ projectId: "proj-test", taskId: "capture-failed123", reason: "用户确认终止" }, {});

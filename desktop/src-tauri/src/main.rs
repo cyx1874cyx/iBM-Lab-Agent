@@ -638,6 +638,13 @@ fn webvpn_set_capture_queue(app: tauri::AppHandle, tasks: Vec<webvpn::CaptureQue
             kind: clamp(&entry.kind, 16),
             status: clamp(&entry.status, 24),
             requested_by: clamp(&entry.requested_by, 16),
+            // 小球文案来自插件（C20）：这里只做长度清洗，不改语义。
+            ball_phase: clamp(&entry.ball_phase, 32),
+            ball_text: clamp(&entry.ball_text, 200),
+            ball_tone: clamp(&entry.ball_tone, 16),
+            ball_stalled: entry.ball_stalled,
+            ball_can_recreate: entry.ball_can_recreate,
+            ball_can_cancel: entry.ball_can_cancel,
         })
         .collect();
     if let Some(state) = app.try_state::<webvpn::WebVpnState>() {

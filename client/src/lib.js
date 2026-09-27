@@ -289,7 +289,11 @@ const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise
 });
 
 export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
-export const webVpnBrowserActionViaShell = (payload) => webVpnShellRequest("WEBVPN_BROWSER_ACTION", payload, 20000);
+// 保存原生 PDF 要等字节流落盘 + 归档上传才回终态（C4），20 秒的默认超时会在
+// 归档还没结束时就先报「桌面客户端未响应」；这里给足 140 秒。
+export const webVpnBrowserActionViaShell = (payload) => webVpnShellRequest(
+	"WEBVPN_BROWSER_ACTION", payload, payload?.action === "save-pdf" ? 140000 : 20000
+);
 export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 // 打开原生 WebVPN 之前先打开 DSH 右侧栏的「文献浏览器」tab：只有在 tab 正文上报过
 // 矩形之后，Rust 端才切换为「右侧栏接管布局」模式，否则会先执行一次旧的按比例分栏。
@@ -333,6 +337,17 @@ export function setBallTaskCancelHandler(handler) {
 	onCancelTaskFromBall = typeof handler === "function" ? handler : null;
 }
 
+/**
+ * "从小球重建任务"的实现同样由 UI 层注册（C19）。
+ *
+ * 失去接管的任务不能只给「终止」：现场最需要的是「用同一篇文献重来一次」，
+ * 而且不需要用户重新确认（AI 已获授权）。
+ */
+let onRecreateTaskFromBall = null;
+export function setBallTaskRecreateHandler(handler) {
+	onRecreateTaskFromBall = typeof handler === "function" ? handler : null;
+}
+
 export function installShellRequestBridge() {
 	if (typeof window === "undefined" || window.parent === window) return () => {};
 	const onMessage = (event) => {
@@ -349,6 +364,12 @@ export function installShellRequestBridge() {
 			const taskId = String(data.payload?.taskId || "");
 			if (!taskId) return;
 			void onCancelTaskFromBall?.(taskId);
+		}
+		// 小球上的「重建任务」：同一个桥，动作不同（C19）。
+		if (data.type === "WEBVPN_RECREATE_TASK") {
+			const taskId = String(data.payload?.taskId || "");
+			if (!taskId) return;
+			void onRecreateTaskFromBall?.(taskId);
 		}
 	};
 	window.addEventListener("message", onMessage);

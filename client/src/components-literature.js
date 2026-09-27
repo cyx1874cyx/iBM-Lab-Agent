@@ -4,7 +4,7 @@ import { downloadState } from "./constants.js";
 import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 import { sendWebVpnBallQueue } from "./webvpn-bridge.js";
-import { setBallTaskCancelHandler } from "./lib.js";
+import { setBallTaskCancelHandler, setBallTaskRecreateHandler } from "./lib.js";
 
 // 文献相关组件：FullTextDownloader/useBoundProject/ProjectBadge/ResearchFileUpload
 export function FullTextDownloader({ call, notify }) {
@@ -105,7 +105,18 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 					// 若它正好是浏览器里挂着的那一个，一并关掉载体；否则 Rust 会拒绝。
 					await cancelWebVpnCaptureViaShell(taskId).catch(() => {});
 				});
-				return () => setBallTaskCancelHandler(null);
+				// 小球上的"重建任务"（C19）：失去接管的任务最需要的是重来一次，
+				// 而不是只能终止。重建不需要用户重新确认。
+				setBallTaskRecreateHandler(async (taskId) => {
+					await call("manual_capture_recreate", { request: {
+						taskId, reason: "用户从捕获小球重建获取任务"
+					} }).catch(() => {});
+					await cancelWebVpnCaptureViaShell(taskId).catch(() => {});
+				});
+				return () => {
+					setBallTaskCancelHandler(null);
+					setBallTaskRecreateHandler(null);
+				};
 			}, [bound?.project?.id, call]);
 			// AI Tool 在当前对话中排入下载任务后，由始终挂载的课题标识领取。
 			// 明文一次性令牌只从本地服务交给桌面 WebVPN 壳，不进入模型上下文。
@@ -115,6 +126,8 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 				let disposed = false;
 				let timer;
 				let starting = false;
+				// 浏览器动作（observe/click/save-pdf）在独立任务里跑（见下方注释）。
+				let runningOperation = false;
 				const poll = async () => {
 					if (disposed || starting) return;
 					let claimedTask;
@@ -134,6 +147,18 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								downloadedBytes: shellStatus?.downloadedBytes,
 								downloadElapsedMs: shellStatus?.downloadElapsedMs,
 								maxCaptureBytes: shellStatus?.maxCaptureBytes,
+								// 页面级事实与接管关系（C2/C3）：wait 的指纹与
+								// heartbeat-lost/orphaned 判定都靠这两组字段。
+								pageUrl: shellStatus?.pageUrl,
+								documentType: shellStatus?.documentType,
+								httpStatus: shellStatus?.httpStatus,
+								readyState: shellStatus?.readyState,
+								pageSeq: shellStatus?.pageSeq,
+								contentLength: shellStatus?.contentLength,
+								pdfPayload: shellStatus?.pdfPayload,
+								lastPendingTaskId: shellStatus?.lastPendingTaskId,
+								releaseReason: shellStatus?.releaseReason,
+								takenOverAt: shellStatus?.takenOverAt,
 								iwanInstalled: iwanStatus?.installed,
 								iwanConnected: iwanStatus?.connected,
 								iwanUsable: iwanStatus?.usable,
@@ -149,22 +174,34 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 						} catch { /* 桌面壳暂不可达；SI 队列仍可继续尝试领取 */ }
 						// Agent 页面观察/点击/保存动作复用同一个桌面桥。操作结果经服务返回，
 						// 模型侧只收到有限的候选入口和状态，不接触 WebView2 profile。
-						try {
-							const next = await call("browser_operation_claim", { request: { projectId } });
-							if (next?.operation && !disposed) {
-								const operation = next.operation;
-								try {
-									const result = await webVpnBrowserActionViaShell(operation);
-									await call("browser_operation_complete", { request: {
-										projectId, id: operation.id, result
-									} });
-								} catch (reason) {
-									await call("browser_operation_complete", { request: {
-										projectId, id: operation.id, error: String(reason?.message || reason)
-									} });
+						//
+						// 这里**绝不能 await 动作本身**：保存原生 PDF 要等字节流落盘 + 归档
+						// 上传，可能几十秒。以前是内联 await，于是整个 1.8 秒轮询被卡住 ——
+						// 期间队列快照不再上报，小球就停在旧状态上不动（现场「小球没反应」
+						// 的直接原因）。动作改到独立任务里跑，轮询继续上报。
+						if (!runningOperation && !disposed) {
+							try {
+								const next = await call("browser_operation_claim", { request: { projectId } });
+								if (next?.operation && !disposed) {
+									const operation = next.operation;
+									runningOperation = true;
+									void (async () => {
+										try {
+											const result = await webVpnBrowserActionViaShell(operation);
+											await call("browser_operation_complete", { request: {
+												projectId, id: operation.id, result
+											} });
+										} catch (reason) {
+											await call("browser_operation_complete", { request: {
+												projectId, id: operation.id, error: String(reason?.message || reason)
+											} }).catch(() => {});
+										} finally {
+											runningOperation = false;
+										}
+									})();
 								}
-							}
-						} catch { /* 桌面桥暂不可达；操作超时后由服务标记失败 */ }
+							} catch { /* 桌面桥暂不可达；操作超时后由服务标记失败 */ }
+						}
 						// 忙时也必须读取队列：这一步会淘汰过期任务。若浏览器还持有已经
 						// 结束的一次性令牌，先清掉它，否则后面的 SI 永远不能接管。
 						const listed = await call("manual_capture_list", { request: { projectId } });

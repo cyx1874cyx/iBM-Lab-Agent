@@ -34,14 +34,19 @@ use crate::runtime::WebVpnConfig;
 
 #[cfg(windows)]
 use webview2_com::{
-    take_pwstr, CoTaskMemPWSTR, ExecuteScriptCompletedHandler,
-    SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler,
+    take_pwstr, CoTaskMemPWSTR, ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
+    SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler, SourceChangedEventHandler,
+    WebResourceResponseReceivedEventHandler, WebResourceResponseViewGetContentCompletedHandler,
     Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2_25, COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS,
+        ICoreWebView2_2, ICoreWebView2_25, COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS,
     },
 };
 #[cfg(windows)]
-use windows::core::{Interface, PWSTR};
+use windows::core::{Interface, PCWSTR, PWSTR};
+#[cfg(windows)]
+use windows::core::BOOL;
+#[cfg(windows)]
+use windows::Win32::System::Com::IStream;
 
 
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
@@ -220,15 +225,25 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       .ball[data-phase="downloading"] .dot{background:#bfdbfe;box-shadow:0 0 0 3px rgba(191,219,254,.25);animation:ibm-ball-pulse 1.1s ease-in-out infinite}
       .ball[data-phase="uploading"] .dot{background:#a7f3d0;box-shadow:0 0 0 3px rgba(167,243,208,.25)}
       .hint{opacity:.72;font-weight:500}
+      /* C19：失去接管/停滞时给出的「重建」入口。 */
+      .redo{all:initial;box-sizing:border-box;padding:1px 7px;border-radius:8px;background:rgba(248,250,252,.22);color:#f8fafc;font:600 11px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;cursor:pointer}
+      .redo[hidden]{display:none}
+      .redo:hover{background:rgba(248,250,252,.38)}
       @keyframes ibm-ball-pulse{50%{opacity:.3}}
       @media (prefers-reduced-motion: reduce){.ball .dot{animation:none}}
-    </style><button class="ball" type="button"><i class="dot" aria-hidden="true"></i><span class="text">文献捕获</span><span class="hint">点击终止</span></button><div class="queue" hidden></div>`;
+    </style><button class="ball" type="button"><i class="dot" aria-hidden="true"></i><span class="text">文献捕获</span><span class="hint">点击终止</span><span class="redo" hidden>重建</span></button><div class="queue" hidden></div>`;
     const ball = root.querySelector('.ball');
     const queueNode = root.querySelector('.queue');
     captureQueueNode = queueNode;
     ball.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      // C19：灰色小球（失去接管/停滞）上的「重建」优先于终止。
+      const redo = event.target && event.target.closest ? event.target.closest('.redo') : null;
+      if (redo && ball.dataset.canRecreate === 'true' && ball.dataset.pendingId) {
+        notifyShell('recreate-task/' + encodeURIComponent(ball.dataset.pendingId));
+        return;
+      }
       // 结束态下这一下是"关闭小球"；进行中才是"终止本次捕获"。
       if (ball.dataset.settled === 'true') {
         notifyShell('notice-dismiss/');
@@ -297,10 +312,25 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         : payload.phase === 'idle' ? '队列中还有任务等待捕获'
         : '等待' + kind + '下载入口';
     // 结束后**不隐藏**：用户要能看到结果与队列，点一下小球才关闭（2026-09-26 反馈）。
-    const finished = payload.phase === 'completed' || payload.phase === 'error';
+    // C20：插件推导的文案与色调优先。壳只在客户端还没上报过这条任务时兜底，
+    // 这样「工具说 queued、小球说失败」的双源矛盾就不可能再出现。
+    const stalled = payload.stalled === true;
+    const finished = payload.phase === 'completed' || payload.phase === 'error'
+      || payload.phase === 'heartbeat-lost' || payload.phase === 'orphaned' || stalled;
+    const tone = typeof payload.ballTone === 'string' && payload.ballTone ? payload.ballTone : '';
+    const toneBackground = tone === 'error' ? '#b91c1c'
+      : tone === 'complete' ? '#047857'
+      : tone === 'busy' ? '#1d4ed8'
+      : '';
+    if (toneBackground) captureBall.style.background = toneBackground;
     captureBall.dataset.settled = finished ? 'true' : 'false';
+    captureBall.dataset.canRecreate = payload.canRecreate === true ? 'true' : 'false';
+    captureBall.dataset.pendingId = String(payload.pendingId || '');
     captureBall.querySelector('.hint').textContent = finished ? '点击关闭' : '点击终止';
-    captureBall.querySelector('.text').textContent = text;
+    const redo = captureBall.querySelector('.redo');
+    if (redo) redo.hidden = !(payload.canRecreate === true);
+    captureBall.querySelector('.text').textContent =
+      typeof payload.ballText === 'string' && payload.ballText ? payload.ballText : text;
     // 队列：显示排队序列与各自状态；"正在跑的那条"不给删除按钮。
     const entries = Array.isArray(payload.queue) ? payload.queue : [];
     if (captureQueueNode) {
@@ -849,8 +879,17 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
         && !/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
       const id = 'e' + (rows.length + 1);
       elements.push(el);
+      // C12：入口可判别。「点了会直接下载」和「点了只进预览器」必须能区分，
+      // 否则同名入口（Science 的 PDF / Download PDF）只能靠 AI 从 URL 里猜。
+      const autoDownloadable = (() => {
+        const raw = String(href || '');
+        if (!raw) return false;
+        if (/download\s*=\s*true/i.test(raw)) return true;
+        if (el.hasAttribute && el.hasAttribute('download')) return true;
+        return /\.(?:pdf|zip|docx?)(?:[?#]|$)/i.test(raw);
+      })();
       rows.push({ id, role: el.tagName.toLowerCase(), label,
-        target: safeTarget(href), file: safeFileName(href),
+        target: safeTarget(href), file: safeFileName(href), autoDownloadable,
         likely: /supplement|supporting|附件|补充/i.test(label + ' ' + href) ? 'si' : 'pdf' });
       if (rows.length >= 30) break;
     }
@@ -1166,6 +1205,53 @@ pub struct CaptureQueueEntry {
     pub kind: String,
     pub status: String,
     pub requested_by: String,
+    /// 插件推导好的小球相位/文案/色调（C20）。小球直接渲染这些，不再自己按
+    /// `state` 猜一遍 —— 「工具说 queued、小球说失败」的双源矛盾就此消失。
+    pub ball_phase: String,
+    pub ball_text: String,
+    pub ball_tone: String,
+    pub ball_stalled: bool,
+    pub ball_can_recreate: bool,
+    pub ball_can_cancel: bool,
+}
+
+/// 页面级事实快照（C2）。每次导航/加载完成更新一次，`seq` 单调递增，
+/// 让上层的 `wait` 能把「页面跳了」当成状态变化而不是「没有变化」。
+#[derive(Debug, Clone)]
+struct PageSnapshot {
+    url: String,
+    document_type: Option<String>,
+    http_status: Option<u16>,
+    ready_state: String,
+    content_length: Option<u64>,
+    seq: u64,
+}
+
+/// 原生 PDF 的响应体载荷（C1/R2.2）。
+///
+/// 原来只有宿主文档的 `readyState`，无法回答「PDF 字节流到底加载完了没有」；
+/// 这里在响应层把 `application/pdf` 的响应体流式写入本任务的暂存路径，
+/// 于是「载荷是否就绪」和「保存不走 viewer UI」变成同一个事实。
+#[derive(Debug, Clone)]
+struct PdfPayload {
+    /// 响应头声明的总长度（WebView2 不保证给，缺省即为 None）。
+    content_length: Option<u64>,
+    /// 已落盘字节数。
+    received_bytes: u64,
+    path: PathBuf,
+    complete: bool,
+    error: Option<String>,
+}
+
+/// 一次捕获的终态结果（C4）。保存类操作等它，才能给出终态返回值。
+#[derive(Debug, Clone)]
+struct CaptureOutcome {
+    generation: u64,
+    ok: bool,
+    path: Option<PathBuf>,
+    bytes: Option<u64>,
+    sha256: Option<String>,
+    error: Option<String>,
 }
 
 /// 会话内部状态。所有字段共用一个 Mutex，避免多锁的加锁顺序问题。
@@ -1198,7 +1284,26 @@ struct Session {
     capture_notice: Option<CaptureNotice>,
     /// DSH 右侧栏上报的队列快照（小球据此显示排队序列并允许逐条删除）。
     capture_queue: Vec<CaptureQueueEntry>,
+    /// 主文档页面事件快照（C2）。
+    page: Option<PageSnapshot>,
+    /// 接管关系（C3）：最后一次被谁接管、何时、为什么交还。
+    ///
+    /// 「没接管过」和「接管过又交还」是两种处境：前者还在排队，后者任务已经死了。
+    /// 只靠心跳超时被动表达，上层就只能把两者都猜成 `queued`。
+    last_pending_task_id: Option<String>,
+    release_reason: Option<String>,
+    taken_over_at: Option<String>,
+    /// 最近一次捕获的终态（C4）。
+    last_outcome: Option<CaptureOutcome>,
+    /// 停滞检测的采样点（C17）：上次看到的字节数与时刻。
+    progress_sample: Option<ProgressSample>,
     generation: u64,
+}
+
+#[derive(Debug, Clone)]
+struct ProgressSample {
+    bytes: u64,
+    at: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -1225,6 +1330,8 @@ struct PendingCapture {
     intercept_direct_si: bool,
     upload_url: url::Url,
     temp_path: PathBuf,
+    /// 响应层捕获到的 PDF 载荷（C1）；只有它 complete 才允许归档。
+    pdf_payload: Option<PdfPayload>,
     expires_at: Instant,
     download_started_at: Option<Instant>,
     /// WebView2 可能为同一次点击连续发出多个 Requested。只允许第一个请求
@@ -1297,6 +1404,36 @@ pub struct WebVpnStatus {
     pub sidebar_visible: bool,
     /// 探测模式是否可用（仅 debug 构建为 true）。
     pub probe_available: bool,
+    /// 当前主文档 URL（C2）。已按既有规则脱敏：不含 query/fragment 里的票据。
+    pub page_url: Option<String>,
+    /// `application/pdf` / `text/html` …（取自响应头或 URL 推断）。
+    pub document_type: Option<String>,
+    pub http_status: Option<u16>,
+    /// `loading` / `interactive` / `complete`。
+    pub ready_state: Option<String>,
+    /// 页面事件序号：每次导航/加载完成 +1。上层 `wait` 的指纹据此变化。
+    pub page_seq: u64,
+    /// 主文档响应头里的 content-length（C2/R2.2）。
+    pub content_length: Option<u64>,
+    /// PDF 响应体载荷的就绪情况（C1/R2.2）。
+    pub pdf_payload: Option<PdfPayloadStatus>,
+    /// 接管关系（C3）。
+    pub last_pending_task_id: Option<String>,
+    pub release_reason: Option<String>,
+    pub taken_over_at: Option<String>,
+    /// 下载/保存期间「无字节增长」的毫秒数（C17）。
+    pub stalled_ms: Option<u64>,
+}
+
+/// 供 UI/插件读取的 PDF 载荷状态（不含任何路径）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfPayloadStatus {
+    pub ready: bool,
+    pub complete: bool,
+    pub content_length: Option<u64>,
+    pub received_bytes: u64,
+    pub error: Option<String>,
 }
 
 impl WebVpnState {
@@ -1408,11 +1545,22 @@ impl WebVpnState {
         // 稍后手动下载时用已作废的令牌上传 → 409 → 文件被静默删除
         // （本次「点下载没反应」的根因）。
         if let Some(active) = session.pending.take() {
-            let _ = fs::remove_file(&active.temp_path);
+            Self::remove_pending_files(&active);
         }
         session.generation = session.generation.wrapping_add(1).max(1);
         let generation = session.generation;
         session.capture_notice = None;
+        // C3：显式记录接管关系。旧任务若还没交还，先如实写下交还原因，
+        // 这样上层能区分「从未被接管」与「接管过又被换掉」。
+        if let Some(previous) = session.pending.as_ref().map(|pending| pending.task_id.clone()) {
+            session.last_pending_task_id = Some(previous);
+            session.release_reason = Some("新的捕获任务替换了它".to_string());
+        }
+        session.last_pending_task_id = Some(task_id.to_string());
+        session.taken_over_at = Some(now_rfc3339());
+        session.release_reason = None;
+        session.last_outcome = None;
+        session.progress_sample = None;
         session.pending = Some(PendingCapture {
             generation,
             task_id: task_id.to_string(),
@@ -1424,6 +1572,7 @@ impl WebVpnState {
             intercept_direct_si,
             upload_url,
             temp_path,
+            pdf_payload: None,
             expires_at: Instant::now() + CAPTURE_TTL,
             download_started_at: None,
             download_claimed: false,
@@ -1486,12 +1635,12 @@ impl WebVpnState {
             .map(|pending| pending.expires_at <= Instant::now())
             .unwrap_or(false);
         if expired {
-            let path = session.pending.take().map(|pending| pending.temp_path);
+            let pending = session.pending.take();
             session.state = WebVpnSessionState::Expired;
             session.last_error = Some("文献捕获任务已过期，请重新发起".to_string());
             drop(session);
-            if let Some(path) = path {
-                let _ = fs::remove_file(path);
+            if let Some(pending) = pending.as_ref() {
+                Self::remove_pending_files(pending);
             }
             return DownloadDecision::PassThrough;
         }
@@ -1565,7 +1714,7 @@ impl WebVpnState {
         Some(upload)
     }
 
-    pub fn finish_upload(&self, generation: u64, result: Result<(), String>) {
+    pub fn finish_upload(&self, generation: u64, result: Result<(), String>, archived_bytes: Option<u64>) {
         let Ok(mut session) = self.session.lock() else {
             return;
         };
@@ -1573,6 +1722,39 @@ impl WebVpnState {
             return;
         }
         let kind = session.pending.as_ref().map(|pending| pending.kind.clone()).unwrap_or_default();
+        // C4：把终态记下来。保存类操作靠它给出 {path, bytes}，而不是「已开始」之后失联。
+        // 尺寸必须由调用方在删除临时文件**之前**量好传进来：成功归档后文件已经不在，
+        // 那时再 stat 只会得到 None，产物信息就丢了（R5.2）。
+        let (path, bytes) = session
+            .pending
+            .as_ref()
+            .map(|pending| (Some(pending.temp_path.clone()), archived_bytes))
+            .unwrap_or((None, None));
+        let task_id = session.pending.as_ref().map(|pending| pending.task_id.clone());
+        let sha256 = if result.is_ok() {
+            path.as_deref().and_then(sha256_of_file)
+        } else {
+            None
+        };
+        session.last_outcome = Some(CaptureOutcome {
+            generation,
+            ok: result.is_ok(),
+            // 归档成功后临时文件已被删除，路径只作为「它曾经在哪」的记录；
+            // 真正的归档路径在插件任务行里。
+            path,
+            bytes,
+            sha256,
+            error: result.as_ref().err().cloned(),
+        });
+        // C3：任务结束即交还。
+        if let Some(task_id) = task_id {
+            session.last_pending_task_id = Some(task_id);
+        }
+        session.release_reason = Some(match &result {
+            Ok(()) => "归档完成".to_string(),
+            Err(error) => error.clone(),
+        });
+        session.progress_sample = None;
         session.capture_notice = Some(CaptureNotice {
             kind,
             phase: if result.is_ok() { "completed" } else { "error" },
@@ -1591,28 +1773,267 @@ impl WebVpnState {
         }
     }
 
+    /// 等一次捕获到达终态（C4）。保存类操作用它把「保存中」变成确定的成功/失败。
+    fn wait_for_outcome(&self, generation: u64, timeout: Duration) -> Option<CaptureOutcome> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            if let Ok(session) = self.session.lock() {
+                match session.last_outcome.as_ref() {
+                    Some(outcome) if outcome.generation == generation => return Some(outcome.clone()),
+                    // 任务已经不是这一代了（被取消/被替换），也不该继续等。
+                    _ if session.pending.as_ref().map(|pending| pending.generation) != Some(generation)
+                        && session.last_outcome.as_ref().map(|outcome| outcome.generation) != Some(generation) =>
+                    {
+                        return session.last_outcome.clone();
+                    }
+                    _ => {}
+                }
+            }
+            if Instant::now() >= deadline {
+                return None;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }
+
+    /// 记录一次页面事件（C2）。返回新的序号。
+    pub fn record_page_event(&self, url: &str, ready_state: &str) -> u64 {
+        let Ok(mut session) = self.session.lock() else {
+            return 0;
+        };
+        let seq = session.page.as_ref().map(|page| page.seq).unwrap_or(0) + 1;
+        let document_type = document_type_for(url, session.page.as_ref().and_then(|page| page.document_type.clone()));
+        let http_status = session.page.as_ref().and_then(|page| page.http_status);
+        let content_length = session.page.as_ref().and_then(|page| page.content_length);
+        session.page = Some(PageSnapshot {
+            url: url.to_string(),
+            document_type,
+            http_status,
+            ready_state: ready_state.to_string(),
+            content_length,
+            seq,
+        });
+        seq
+    }
+
+    /// 记录主文档响应头（C2）：content-type → document_type，content-length 用于判断 PDF 载荷。
+    pub fn record_document_response(
+        &self,
+        url: &str,
+        content_type: Option<&str>,
+        content_length: Option<u64>,
+        http_status: Option<u16>,
+    ) {
+        let Ok(mut session) = self.session.lock() else {
+            return;
+        };
+        let document_type = content_type
+            .map(|value| value.split(';').next().unwrap_or(value).trim().to_ascii_lowercase())
+            .filter(|value| !value.is_empty())
+            .or_else(|| document_type_for(url, None));
+        // get_or_insert_with 只借一次，避免「match 里改同一个字段」的借用冲突。
+        let page = session.page.get_or_insert_with(|| PageSnapshot {
+            url: url.to_string(),
+            document_type: None,
+            http_status: None,
+            ready_state: "loading".to_string(),
+            content_length: None,
+            seq: 1,
+        });
+        if page.url.is_empty() || page.url == url {
+            page.document_type = document_type;
+            page.content_length = content_length;
+            page.http_status = http_status;
+        }
+    }
+
+    /// 开始接收 PDF 响应体（C1）：登记目标路径与总长度。
+    pub fn begin_pdf_payload(&self, task_id: &str, path: PathBuf, content_length: Option<u64>) -> bool {
+        let Ok(mut session) = self.session.lock() else {
+            return false;
+        };
+        let Some(pending) = session.pending.as_mut() else {
+            return false;
+        };
+        if pending.task_id != task_id || pending.kind != "pdf" {
+            return false;
+        }
+        if pending
+            .pdf_payload
+            .as_ref()
+            .map(|payload| payload.complete && payload.received_bytes > 0)
+            .unwrap_or(false)
+        {
+            // 已经拿到完整载荷：不要用第二个响应覆盖它。
+            return false;
+        }
+        pending.pdf_payload = Some(PdfPayload {
+            content_length,
+            received_bytes: 0,
+            path,
+            complete: false,
+            error: None,
+        });
+        true
+    }
+
+    pub fn note_pdf_payload_progress(&self, task_id: &str, received_bytes: u64) {
+        if let Ok(mut session) = self.session.lock() {
+            if let Some(pending) = session.pending.as_mut() {
+                if pending.task_id == task_id {
+                    if let Some(payload) = pending.pdf_payload.as_mut() {
+                        payload.received_bytes = received_bytes;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn finish_pdf_payload(&self, task_id: &str, result: Result<u64, String>) {
+        if let Ok(mut session) = self.session.lock() {
+            if let Some(pending) = session.pending.as_mut() {
+                if pending.task_id == task_id {
+                    if let Some(payload) = pending.pdf_payload.as_mut() {
+                        match result {
+                            Ok(bytes) => {
+                                payload.received_bytes = bytes;
+                                payload.complete = bytes > 0;
+                                payload.error = None;
+                            }
+                            Err(error) => {
+                                payload.complete = false;
+                                payload.error = Some(error);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// 供响应层拿「当前是否需要一个 PDF 载荷」以及载荷暂存路径。
+    ///
+    /// 载荷**不与下载共用文件**：下载路径写 `temp_path`，响应层写 `*.payload.pdf`。
+    /// 两个写入者共用一个文件会在「响应既是文档体又触发下载事件」时互相截断，
+    /// 归档出一个损坏的 PDF；分成两个文件后两条路互不影响。
+    fn pending_pdf_target(&self) -> Option<(String, PathBuf)> {
+        let session = self.session.lock().ok()?;
+        let pending = session.pending.as_ref()?;
+        if pending.kind != "pdf" {
+            return None;
+        }
+        Some((
+            pending.task_id.clone(),
+            pdf_payload_path(&pending.temp_path),
+        ))
+    }
+
+    /// PDF 载荷是否已完整落盘（C1/R2.2）。
+    pub fn pdf_payload_ready(&self, task_id: &str) -> Option<PathBuf> {
+        let session = self.session.lock().ok()?;
+        let pending = session.pending.as_ref()?;
+        if pending.task_id != task_id {
+            return None;
+        }
+        let payload = pending.pdf_payload.as_ref()?;
+        (payload.complete && payload.received_bytes > 0).then(|| payload.path.clone())
+    }
+
+    /// PDF 载荷的接收进度：`(是否完整, 已收字节, 错误)`。
+    ///
+    /// `None` 表示这个任务还没有任何载荷。保存类操作靠它区分「还没开始」与
+    /// 「正在收」，而不是两者都当成「再等等」。
+    #[allow(dead_code)]
+    pub fn pdf_payload_progress(&self, task_id: &str) -> Option<(bool, u64, Option<String>)> {
+        let session = self.session.lock().ok()?;
+        let pending = session.pending.as_ref()?;
+        if pending.task_id != task_id {
+            return None;
+        }
+        let payload = pending.pdf_payload.as_ref()?;
+        Some((payload.complete, payload.received_bytes, payload.error.clone()))
+    }
+
+    /// 当前捕获的世代号（C4：终态等待按世代对齐，避免读到上一次的结果）。
+    #[allow(dead_code)]
+    pub fn pending_generation(&self, task_id: &str) -> Option<u64> {
+        let session = self.session.lock().ok()?;
+        let pending = session.pending.as_ref()?;
+        (pending.task_id == task_id).then_some(pending.generation)
+    }
+
+    /// 把响应层落盘的 PDF 载荷交给归档流程（C1）。
+    ///
+    /// 与 `begin_upload` 的区别：这条路是「保存原生 PDF」，所以同时把阶段标成
+    /// `saving`，小球与状态工具才会显示「正在保存/归档」。
+    #[allow(dead_code)]
+    pub fn begin_native_upload(&self, task_id: &str, path: &Path) -> Option<PendingUpload> {
+        let Ok(mut session) = self.session.lock() else {
+            return None;
+        };
+        let pending = session.pending.as_ref()?;
+        let owned_by_task = pending.temp_path == path
+            || pending
+                .pdf_payload
+                .as_ref()
+                .map(|payload| payload.path == path)
+                .unwrap_or(false);
+        if pending.task_id != task_id || !owned_by_task || pending.expires_at <= Instant::now() {
+            return None;
+        }
+        let upload = PendingUpload {
+            generation: pending.generation,
+            task_id: pending.task_id.clone(),
+            kind: pending.kind.clone(),
+            upload_url: pending.upload_url.clone(),
+            path: path.to_path_buf(),
+        };
+        if let Some(pending) = session.pending.as_mut() {
+            pending.native_saving = true;
+            pending.automation_stage = "saving".to_string();
+            if pending.download_started_at.is_none() {
+                pending.download_started_at = Some(Instant::now());
+            }
+        }
+        session.state = WebVpnSessionState::Uploading;
+        session.last_error = None;
+        Some(upload)
+    }
+
     fn fail_pending_download(&self, message: &str) {
-        let path = {
+        let pending = {
             let Ok(mut session) = self.session.lock() else {
                 return;
             };
             let pending = session.pending.take();
             if let Some(ref pending) = pending {
+                // C4/C3：失败也是终态，必须能被等待方读到，并如实记录交还原因。
+                session.last_outcome = Some(CaptureOutcome {
+                    generation: pending.generation,
+                    ok: false,
+                    path: Some(pending.temp_path.clone()),
+                    bytes: fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()),
+                    sha256: None,
+                    error: Some(message.to_string()),
+                });
+                session.last_pending_task_id = Some(pending.task_id.clone());
+                session.release_reason = Some(message.to_string());
+                session.progress_sample = None;
                 session.capture_notice = Some(CaptureNotice {
                     kind: pending.kind.clone(),
                     phase: "error",
                     expires_at: Instant::now() + Duration::from_secs(30 * 60),
                 });
             }
-            let path = pending.map(|pending| pending.temp_path);
-            if path.is_some() {
+            let had_pending = pending.is_some();
+            if had_pending {
                 session.state = WebVpnSessionState::Error;
                 session.last_error = Some(message.to_string());
             }
-            path
+            pending
         };
-        if let Some(path) = path {
-            let _ = fs::remove_file(path);
+        if let Some(pending) = pending.as_ref() {
+            Self::remove_pending_files(pending);
         }
     }
 
@@ -1642,16 +2063,38 @@ impl WebVpnState {
         let Ok(mut session) = self.session.lock() else {
             return Err("WebVPN 状态不可用".to_string());
         };
-        if let Some(pending) = session.pending.as_ref() {
-            if pending.task_id != task_id {
+        // 先把需要的字段取出来，再改 session：同一个不可变借用里改 `session.pending`
+        // 会被借用检查器拒绝，而先克隆代价只有一个小结构体。
+        let facts = session.pending.as_ref().map(|pending| {
+            (
+                pending.task_id.clone(),
+                pending.generation,
+                pending.temp_path.clone(),
+            )
+        });
+        if let Some((pending_task, generation, path)) = facts {
+            if pending_task != task_id {
                 return Err("当前 WebVPN 捕获任务与请求不匹配".to_string());
             }
-            let path = pending.temp_path.clone();
+            // C3/C4：取消也是终态，并把交还原因写清楚（上层据此显示「已取消」而不是
+            // 把任务当成「还在排队」）。
+            session.last_outcome = Some(CaptureOutcome {
+                generation,
+                ok: false,
+                path: Some(path.clone()),
+                bytes: fs::metadata(&path).ok().map(|meta| meta.len()),
+                sha256: None,
+                error: Some("捕获任务已被取消".to_string()),
+            });
+            session.last_pending_task_id = Some(pending_task);
+            session.release_reason = Some("捕获任务已被取消".to_string());
+            session.progress_sample = None;
             session.pending = None;
             session.capture_notice = None;
             session.state = WebVpnSessionState::Ready;
             session.last_error = None;
-            let _ = fs::remove_file(path);
+            let _ = fs::remove_file(&path);
+            let _ = fs::remove_file(pdf_payload_path(&path));
         }
         Ok(())
     }
@@ -1688,6 +2131,12 @@ impl WebVpnState {
                     "kind": entry.kind,
                     "status": entry.status,
                     "requestedBy": entry.requested_by,
+                    "ballPhase": entry.ball_phase,
+                    "ballText": entry.ball_text,
+                    "ballTone": entry.ball_tone,
+                    "ballStalled": entry.ball_stalled,
+                    "canRecreate": entry.ball_can_recreate,
+                    "canCancel": entry.ball_can_cancel,
                 })
             })
             .collect();
@@ -1722,14 +2171,43 @@ impl WebVpnState {
             WebVpnSessionState::Navigating => "opening",
             _ => "waiting",
         };
+        // C20：当前任务的小球文案直接取插件推导的结果（同一条队列快照里），
+        // 壳不再自己按 state 猜一遍，双源矛盾就没有来源了。壳自己的 phase 仅在
+        // 客户端还没上报过这条任务时兜底。
+        let active = session
+            .capture_queue
+            .iter()
+            .find(|entry| entry.id == pending.task_id)
+            .filter(|entry| !entry.ball_text.is_empty());
+        let stalled = active.map(|entry| entry.ball_stalled).unwrap_or(false);
+        let can_recreate = active.map(|entry| entry.ball_can_recreate).unwrap_or(false);
+        let payload_ready = pending
+            .pdf_payload
+            .as_ref()
+            .map(|payload| payload.complete && payload.received_bytes > 0)
+            .unwrap_or(false);
         serde_json::json!({
-            "phase": phase,
+            "phase": active.map(|entry| entry.ball_phase.as_str()).filter(|phase| !phase.is_empty()).unwrap_or(phase),
             "kind": pending.kind,
             "bytes": bytes,
             "queue": queue,
             "pendingId": pending.task_id,
+            "ballText": active.map(|entry| entry.ball_text.clone()),
+            "ballTone": active.map(|entry| entry.ball_tone.clone()),
+            "stalled": stalled,
+            "canRecreate": can_recreate,
+            "canCancel": active.map(|entry| entry.ball_can_cancel).unwrap_or(true),
+            "payloadReady": payload_ready,
         })
         .to_string()
+    }
+
+    /// 清掉一个捕获任务的全部落盘文件（下载目标 + 响应层载荷）。
+    fn remove_pending_files(pending: &PendingCapture) {
+        let _ = fs::remove_file(&pending.temp_path);
+        if let Some(payload) = pending.pdf_payload.as_ref() {
+            let _ = fs::remove_file(&payload.path);
+        }
     }
 
     pub fn fail(&self, message: &str) {
@@ -1912,6 +2390,12 @@ impl WebVpnState {
                 pending: session.pending.clone(),
                 capture_notice: session.capture_notice.clone(),
                 capture_queue: session.capture_queue.clone(),
+                page: session.page.clone(),
+                last_pending_task_id: session.last_pending_task_id.clone(),
+                release_reason: session.release_reason.clone(),
+                taken_over_at: session.taken_over_at.clone(),
+                last_outcome: session.last_outcome.clone(),
+                progress_sample: session.progress_sample.clone(),
                 generation: session.generation,
             })
             .unwrap_or_default();
@@ -1925,6 +2409,9 @@ impl WebVpnState {
                 .download_started_at
                 .map(|started| started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64)
         });
+        // C17：停滞检测。下载/保存期间字节数长时间不动，就该显示成异常，
+        // 而不是永远「正在保存」。
+        let stalled_ms = self.stalled_ms_now(downloaded_bytes);
         WebVpnStatus {
             state: session.state,
             authenticated: window_open && session.authenticated,
@@ -1948,7 +2435,57 @@ impl WebVpnState {
             window_open,
             sidebar_visible: window_open && session.sidebar_visible,
             probe_available: Self::probe_available(),
+            // 页面级事实（C2）。URL 走既有脱敏规则：票据类参数一律剥掉，
+            // 但 DOI / ?download=true 这类业务参数必须留下，否则上层无法判别入口。
+            page_url: session.page.as_ref().map(|page| redact_for_log(&page.url)),
+            document_type: session.page.as_ref().and_then(|page| page.document_type.clone()),
+            http_status: session.page.as_ref().and_then(|page| page.http_status),
+            ready_state: session.page.as_ref().map(|page| page.ready_state.clone()),
+            page_seq: session.page.as_ref().map(|page| page.seq).unwrap_or(0),
+            content_length: session.page.as_ref().and_then(|page| page.content_length),
+            pdf_payload: session
+                .pending
+                .as_ref()
+                .and_then(|pending| pending.pdf_payload.as_ref())
+                .map(|payload| PdfPayloadStatus {
+                    ready: payload.complete && payload.received_bytes > 0,
+                    complete: payload.complete,
+                    content_length: payload.content_length,
+                    received_bytes: payload.received_bytes,
+                    error: payload.error.clone(),
+                }),
+            last_pending_task_id: session.last_pending_task_id,
+            release_reason: session.release_reason,
+            taken_over_at: session.taken_over_at,
+            stalled_ms,
         }
+    }
+
+    /// 下载/保存期间「无字节增长」的毫秒数（C17）。非长耗时阶段返回 None。
+    fn stalled_ms_now(&self, downloaded_bytes: Option<u64>) -> Option<u64> {
+        let Ok(mut session) = self.session.lock() else {
+            return None;
+        };
+        if !matches!(session.state, WebVpnSessionState::Downloading)
+            && !matches!(session.state, WebVpnSessionState::Uploading)
+        {
+            session.progress_sample = None;
+            return None;
+        }
+        let bytes = downloaded_bytes.unwrap_or(0);
+        let unchanged_since = session
+            .progress_sample
+            .as_ref()
+            .filter(|sample| sample.bytes == bytes)
+            .map(|sample| sample.at);
+        let Some(unchanged_since) = unchanged_since else {
+            session.progress_sample = Some(ProgressSample {
+                bytes,
+                at: Instant::now(),
+            });
+            return Some(0);
+        };
+        Some(unchanged_since.elapsed().as_millis().min(u128::from(u64::MAX)) as u64)
     }
 
     /// 探测模式是否可用。release 构建必须为 false：探测期不拦截导航，
@@ -1962,6 +2499,60 @@ type Aes128CfbEnc = cfb_mode::Encryptor<Aes128>;
 
 fn hex_bytes(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// 文件的 SHA-256（C4/R5.2：产物的可核验信息）。读不到就返回 None，不伪造。
+fn sha256_of_file(path: &Path) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    let body = fs::read(path).ok()?;
+    let mut hasher = Sha256::new();
+    hasher.update(&body);
+    Some(hex_bytes(&hasher.finalize()))
+}
+
+/// 当前时间的 ISO-8601（UTC）表示。只用于「何时接管」这类展示字段，
+/// 不引入额外的时间依赖：由 Unix 秒做 civil-from-days 换算。
+fn now_rfc3339() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0);
+    let days = seconds.div_euclid(86_400);
+    let rest = seconds.rem_euclid(86_400);
+    // Howard Hinnant 的 civil_from_days：把「距 1970-01-01 的天数」换成公历日期。
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rest / 3600,
+        (rest % 3600) / 60,
+        rest % 60
+    )
+}
+
+/// 从 URL/响应头推断文档类型（C2）。
+fn document_type_for(url: &str, known: Option<String>) -> Option<String> {
+    if let Some(known) = known.filter(|value| !value.is_empty()) {
+        return Some(known);
+    }
+    match url::Url::parse(url) {
+        Ok(parsed) => {
+            if is_pdf_document_url(&parsed) {
+                Some("application/pdf".to_string())
+            } else {
+                Some("text/html".to_string())
+            }
+        }
+        Err(_) => None,
+    }
 }
 
 /// 构造网瑞达 WebVPN 的代理 URL。阶段 0 已用 USTC Nature、ACS、ScienceDirect
@@ -2000,6 +2591,18 @@ pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<
     let dir = data_root.join(DOWNLOAD_DIR_NAME);
     fs::create_dir_all(&dir).map_err(|error| format!("无法创建 WebVPN 下载临时目录: {error}"))?;
     Ok(dir.join(format!("{task_id}-{kind}.pdf")))
+}
+
+/// 响应层 PDF 载荷的暂存路径（与下载目标同目录、不同文件）。
+///
+/// 分开是必须的：`DownloadEvent::Requested` 把同一个 `temp_path` 交给 WebView2 写，
+/// 如果响应层也往它里面写，两个写入者会互相截断，最后归档出一个损坏的 PDF。
+fn pdf_payload_path(temp_path: &Path) -> PathBuf {
+    let stem = temp_path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_else(|| "capture".to_string());
+    temp_path.with_file_name(format!("{stem}.payload.pdf"))
 }
 
 fn is_springer_family_si_url(target: &url::Url) -> bool {
@@ -2126,6 +2729,8 @@ fn read_captured_file(path: &Path) -> Result<Vec<u8>, String> {
 
 pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
     let body = read_captured_file(&upload.path);
+    // 归档成功后临时文件会被删除，尺寸必须现在量（R5.2：产物要可核验）。
+    let measured_bytes = body.as_ref().ok().map(|body| body.len() as u64);
     let result = body.and_then(|body| {
         let extension = if body.starts_with(b"%PDF-") {
             "pdf"
@@ -2183,7 +2788,7 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
     };
     let outcome = result.map(|_| ()).map_err(|_| detail.clone());
     if let Some(state) = app.try_state::<WebVpnState>() {
-        state.finish_upload(upload.generation, outcome);
+        state.finish_upload(upload.generation, outcome, measured_bytes);
         if let Some(webview) = app.get_webview(WINDOW_LABEL) {
             let _ = push_capture_ball(&app, &webview);
         }
@@ -2617,6 +3222,230 @@ async fn eval_agent_script(webview: &Webview, script: String) -> Result<serde_js
     serde_json::from_str(&response).map_err(|_| "页面操作返回值无效".to_string())
 }
 
+
+/// 安装「页面事件 + 响应层」观察器（C1/C2）。
+///
+/// 两个能力共用同一套 WebView2 事件：
+///   * `SourceChanged` / `NavigationCompleted` → 页面级事实（url/readyState），
+///     让上层的 `wait` 能把「页面跳了」当成状态变化；
+///   * `WebResourceResponseReceived` → 主文档的 content-type/content-length，
+///     以及 `application/pdf` 的**响应体**。拿到响应体才谈得上「PDF 载荷就绪」，
+///     也才能不依赖查看器的「另存为」界面完成归档。
+///
+/// 这里只消费 WebView2 自己那次请求的响应；**不读、不导出、不缓存任何 Cookie**，
+/// 认证材料始终留在 WebView2 profile 内（见文件头纪律）。
+#[cfg(windows)]
+pub fn install_capture_observers(webview: &Webview, app: &AppHandle) -> Result<(), String> {
+    let events_app = app.clone();
+    let response_app = app.clone();
+    webview
+        .with_webview(move |platform| {
+            let core = match unsafe { platform.controller().CoreWebView2() } {
+                Ok(core) => core,
+                Err(_) => return,
+            };
+            let source_app = events_app.clone();
+            let source = SourceChangedEventHandler::create(Box::new(move |_sender, _args| {
+                note_page_event(&source_app, "loading");
+                Ok(())
+            }));
+            let mut source_token = 0_i64;
+            let _ = unsafe { core.add_SourceChanged(&source, &mut source_token) };
+
+            let navigation_app = events_app.clone();
+            let navigation = NavigationCompletedEventHandler::create(Box::new(move |_sender, args| {
+                let success = args
+                    .as_ref()
+                    .and_then(|args| {
+                        let mut success = BOOL::default();
+                        unsafe { args.IsSuccess(&mut success) }.ok()?;
+                        Some(success.as_bool())
+                    })
+                    .unwrap_or(false);
+                note_page_event(&navigation_app, if success { "complete" } else { "failed" });
+                Ok(())
+            }));
+            let mut navigation_token = 0_i64;
+            let _ = unsafe { core.add_NavigationCompleted(&navigation, &mut navigation_token) };
+
+            let Ok(core2) = core.cast::<ICoreWebView2_2>() else {
+                return;
+            };
+            let response = WebResourceResponseReceivedEventHandler::create(Box::new(move |_sender, args| {
+                if let Some(args) = args {
+                    handle_response_received(&response_app, &args);
+                }
+                Ok(())
+            }));
+            let mut response_token = 0_i64;
+            let _ = unsafe { core2.add_WebResourceResponseReceived(&response, &mut response_token) };
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(windows))]
+pub fn install_capture_observers(_webview: &Webview, _app: &AppHandle) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(windows)]
+fn note_page_event(app: &AppHandle, ready_state: &str) {
+    let Some(webview) = app.get_webview(WINDOW_LABEL) else {
+        return;
+    };
+    let Ok(url) = webview.url() else {
+        return;
+    };
+    if let Some(state) = app.try_state::<WebVpnState>() {
+        state.record_page_event(url.as_str(), ready_state);
+    }
+    // 刻意不在这里 push 小球：页面事件只更新事实，客户端 1.8 秒的轮询会取走它。
+    // 在 WebView2 事件回调里多做一次 eval 只会增加白屏风险，换不来任何信息。
+}
+
+#[cfg(windows)]
+fn handle_response_received(
+    app: &AppHandle,
+    args: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebResourceResponseReceivedEventArgs,
+) {
+    let Some(state) = app.try_state::<WebVpnState>() else {
+        return;
+    };
+    let Ok(request) = (unsafe { args.Request() }) else {
+        return;
+    };
+    let mut uri = PWSTR::null();
+    if unsafe { request.Uri(&mut uri) }.is_err() {
+        return;
+    }
+    let url = take_pwstr(uri);
+    let Ok(response) = (unsafe { args.Response() }) else {
+        return;
+    };
+    let content_type = response_header(&response, "content-type");
+    let content_length = response_header(&response, "content-length")
+        .and_then(|value| value.trim().parse::<u64>().ok());
+    // 附件型响应（Content-Disposition: attachment）会走 WebView2 的下载事件，
+    // 那条路已经拥有暂存文件；响应层不要同时插手。
+    let attachment = response_header(&response, "content-disposition")
+        .map(|value| value.to_ascii_lowercase().contains("attachment"))
+        .unwrap_or(false);
+    let status = {
+        let mut code = 0_i32;
+        let _ = unsafe { response.StatusCode(&mut code) };
+        (code > 0).then_some(code as u16)
+    };
+    // 主文档的响应头 → 页面级事实（C2）。
+    let lowered = content_type
+        .as_deref()
+        .map(|value| value.to_ascii_lowercase())
+        .unwrap_or_default();
+    if lowered.contains("text/html") || lowered.contains("application/pdf") {
+        state.record_document_response(&url, content_type.as_deref(), content_length, status);
+    }
+    if !lowered.contains("application/pdf") || attachment {
+        return;
+    }
+    let Some((task_id, path)) = state.pending_pdf_target() else {
+        return;
+    };
+    if !state.begin_pdf_payload(&task_id, path.clone(), content_length) {
+        return;
+    }
+    let payload_app = app.clone();
+    let payload_task = task_id.clone();
+    let payload_path = path.clone();
+    let content = WebResourceResponseViewGetContentCompletedHandler::create(Box::new(
+        move |error, stream| {
+            let Some(stream) = stream.filter(|_| error.is_ok()) else {
+                // 第一个参数在 webview2-com 的封装里已经是 Result<()>，不是裸 HRESULT。
+                let code = error
+                    .as_ref()
+                    .err()
+                    .map(|error| error.code().0 as u32)
+                    .unwrap_or(0);
+                if let Some(state) = payload_app.try_state::<WebVpnState>() {
+                    state.finish_pdf_payload(
+                        &payload_task,
+                        Err(format!("WebView2 未提供 PDF 响应体（0x{code:08X}）")),
+                    );
+                }
+                return Ok(());
+            };
+            // 就地读取，不丢到别的线程：`IStream` 不是 Send（内部是裸指针），
+            // 而 `GetContent` 的回调只在响应体**已经收完**之后才触发，所以这里
+            // 读的是本地内存/临时文件，不是网络；再叠加 CAPTURE_MAX_BYTES 上限，
+            // 阻塞时间是可控的。
+            let result = write_stream_to_file(&stream, &payload_path, &payload_task, &payload_app);
+            if let Some(state) = payload_app.try_state::<WebVpnState>() {
+                state.finish_pdf_payload(&payload_task, result);
+            }
+            Ok(())
+        },
+    ));
+    let _ = unsafe { response.GetContent(&content) };
+}
+
+#[cfg(windows)]
+fn response_header(
+    response: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebResourceResponseView,
+    name: &str,
+) -> Option<String> {
+    let headers = unsafe { response.Headers() }.ok()?;
+    let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut value = PWSTR::null();
+    unsafe { headers.GetHeader(PCWSTR(wide.as_ptr()), &mut value) }.ok()?;
+    let text = take_pwstr(value);
+    (!text.is_empty()).then_some(text)
+}
+
+/// 把 WebView2 给的响应体流写到本任务的暂存路径（C1）。
+///
+/// 与上传端同一条判据（只认 `%PDF-`），并且受 `CAPTURE_MAX_BYTES` 约束：
+/// 超过上限立刻中止并如实报错，而不是先写满磁盘再在 413 上失败。
+#[cfg(windows)]
+fn write_stream_to_file(
+    stream: &IStream,
+    path: &Path,
+    task_id: &str,
+    app: &AppHandle,
+) -> Result<u64, String> {
+    let limit = CAPTURE_MAX_BYTES;
+    let mut buffer: Vec<u8> = Vec::new();
+    let mut chunk = vec![0_u8; 64 * 1024];
+    loop {
+        let mut read: u32 = 0;
+        let hr = unsafe {
+            stream.Read(
+                chunk.as_mut_ptr() as *mut core::ffi::c_void,
+                chunk.len() as u32,
+                Some(&mut read),
+            )
+        };
+        if hr.is_err() {
+            return Err(format!("读取 PDF 响应体失败（0x{:08X}）", hr.0 as u32));
+        }
+        if read == 0 {
+            break;
+        }
+        buffer.extend_from_slice(&chunk[..read as usize]);
+        if buffer.len() as u64 > limit {
+            return Err(format!(
+                "PDF 超过 {} MB 捕获上限，已中止保存",
+                limit / 1024 / 1024
+            ));
+        }
+        if let Some(state) = app.try_state::<WebVpnState>() {
+            state.note_pdf_payload_progress(task_id, buffer.len() as u64);
+        }
+    }
+    if buffer.is_empty() {
+        return Err("PDF 响应体为空，未保存任何内容".to_string());
+    }
+    fs::write(path, &buffer).map_err(|error| format!("写入 PDF 暂存文件失败: {error}"))?;
+    Ok(buffer.len() as u64)
+}
+
 #[cfg(windows)]
 async fn save_current_pdf(
     app: &AppHandle,
@@ -2624,7 +3453,135 @@ async fn save_current_pdf(
     webview: &Webview,
 ) -> Result<serde_json::Value, String> {
     let state = app.try_state::<WebVpnState>().ok_or("文献浏览器状态不可用")?;
+    // C1/R5.1：优先用**响应层已经落盘的载荷**归档。这条路不依赖 PDF 查看器的
+    // 「另存为」界面，也不读、不导出任何 Cookie —— 字节是 WebView2 自己那次请求
+    // 的响应体，我们只是把它写到本任务的暂存路径上。
+    // 快速失败：既不在 PDF 上、也没有任何载荷时，等 45 秒再报错毫无意义。
+    let is_pdf_document = webview
+        .url()
+        .ok()
+        .map(|url| is_pdf_document_url(&url))
+        .unwrap_or(false);
+    if !is_pdf_document && state.pdf_payload_progress(task_id).is_none() {
+        return Err(
+            "当前文档不是原生 PDF，也没有取到 PDF 字节流；请先进入正文 PDF，或改用带 ?download=true 的下载入口重新进入"
+                .to_string(),
+        );
+    }
+    let deadline = Instant::now() + Duration::from_secs(45);
+    let mut reissued = false;
+    loop {
+        if let Some(path) = state.pdf_payload_ready(task_id) {
+            return finalize_native_save(app, &state, task_id, &path, webview).await;
+        }
+        match state.pdf_payload_progress(task_id) {
+            // 载荷正在接收：等它写完。
+            Some((false, _received, None)) => {
+                if Instant::now() >= deadline {
+                    break;
+                }
+                sleep_ms(200).await;
+            }
+            Some((false, _received, Some(error))) => {
+                record(app, "automation", "", &format!("PDF 载荷捕获失败: {error}"));
+                break;
+            }
+            _ => {
+                if reissued {
+                    break;
+                }
+                // 还没有载荷：用同一个 WebView2 会话重新请求这个 PDF，让响应层再拿到
+                // 一次响应体。认证材料由浏览器引擎自己带着。
+                let target = webview.url().ok().filter(is_pdf_document_url);
+                let Some(target) = target else { break };
+                reissued = true;
+                if let Err(error) = webview.navigate(target) {
+                    record(app, "automation", "", &format!("重新请求 PDF 失败: {error}"));
+                    break;
+                }
+                sleep_ms(600).await;
+            }
+        }
+    }
+    // 响应层拿不到载荷：退回查看器的「另存为」老机制，但**仍然等到终态**，
+    // 绝不再返回 {started:true} 之后失联（现场静默卡死就是这个形状）。
+    save_pdf_via_viewer(app, &state, task_id, webview).await
+}
+
+#[cfg(windows)]
+async fn sleep_ms(milliseconds: u64) {
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        std::thread::sleep(Duration::from_millis(milliseconds))
+    })
+    .await;
+}
+
+/// 把已经落盘的 PDF 载荷归档到课题，并等到终态（C4）。
+#[cfg(windows)]
+async fn finalize_native_save(
+    app: &AppHandle,
+    state: &WebVpnState,
+    task_id: &str,
+    path: &Path,
+    webview: &Webview,
+) -> Result<serde_json::Value, String> {
+    // 不允许把 HTML 冒充原文：与上传端同一判据，只认 %PDF-。
+    let head = fs::read(path).map_err(|error| format!("无法读取已落盘的 PDF: {error}"))?;
+    if !head.starts_with(b"%PDF-") {
+        let reason = "响应体不是 PDF（页面可能只是 HTML 预览），不能作为原文归档".to_string();
+        state.fail_pending_download(&reason);
+        return Err(reason);
+    }
+    let bytes = head.len() as u64;
+    let sha256 = sha256_of_file(path);
+    let generation = state
+        .pending_generation(task_id)
+        .ok_or("当前文献任务已经结束，无法归档")?;
+    let upload = state
+        .begin_native_upload(task_id, path)
+        .ok_or("当前文献任务不允许归档该文件")?;
+    let upload_app = app.clone();
+    std::thread::spawn(move || upload_capture(upload_app, upload));
+    let _ = push_capture_ball(app, webview);
+    let wait_app = app.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        wait_app
+            .try_state::<WebVpnState>()
+            .and_then(|state| state.wait_for_outcome(generation, Duration::from_secs(100)))
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    match outcome {
+        Some(outcome) if outcome.ok => Ok(serde_json::json!({
+            "status": "completed",
+            "phase": "completed",
+            "path": path.to_string_lossy().to_string(),
+            "bytes": bytes,
+            "sha256": sha256,
+        })),
+        Some(outcome) => Err(outcome.error.unwrap_or_else(|| "归档失败".to_string())),
+        None => Err(format!(
+            "归档未在时限内完成（已取到 {bytes} 字节的 PDF）；可用 lab_publisher_browser_download_status 查看任务状态"
+        )),
+    }
+}
+
+/// 查看器「另存为」兜底（老机制），同样等到终态才返回（C4）。
+#[cfg(windows)]
+async fn save_pdf_via_viewer(
+    app: &AppHandle,
+    state: &WebVpnState,
+    task_id: &str,
+    webview: &Webview,
+) -> Result<serde_json::Value, String> {
+    let is_pdf = webview.url().ok().map(|url| is_pdf_document_url(&url)).unwrap_or(false);
+    if !is_pdf {
+        return Err(
+            "当前文档不是原生 PDF，也没有取到 PDF 字节流；请改用带 ?download=true 的下载入口重新进入".to_string(),
+        );
+    }
     let destination = state.claim_native_save_destination(task_id)?;
+    let generation = state.pending_generation(task_id).ok_or("当前文献任务已经结束")?;
     let path_text = destination.to_string_lossy().to_string();
     let app_for_save = app.clone();
     let (sender, receiver) = std::sync::mpsc::channel::<Result<(), String>>();
@@ -2673,7 +3630,7 @@ async fn save_current_pdf(
                         }
                     });
                 } else if let Some(state) = completion_app.try_state::<WebVpnState>() {
-                    state.fail_pending_download("原生 PDF 保存未完成；请在侧栏手动保存或重试");
+                    state.fail_pending_download("原生 PDF 保存未完成；请改用带 ?download=true 的下载入口重试");
                 }
                 Ok(())
             }));
@@ -2693,7 +3650,25 @@ async fn save_current_pdf(
         return Err(error);
     }
     let _ = push_capture_ball(app, webview);
-    Ok(serde_json::json!({ "started": true, "phase": "saving" }))
+    let wait_app = app.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        wait_app
+            .try_state::<WebVpnState>()
+            .and_then(|state| state.wait_for_outcome(generation, Duration::from_secs(100)))
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    match outcome {
+        Some(outcome) if outcome.ok => Ok(serde_json::json!({
+            "status": "completed",
+            "phase": "completed",
+            "path": outcome.path.map(|path| path.to_string_lossy().to_string()),
+            "bytes": outcome.bytes,
+            "sha256": outcome.sha256,
+        })),
+        Some(outcome) => Err(outcome.error.unwrap_or_else(|| "原生 PDF 保存失败".to_string())),
+        None => Err("原生 PDF 保存未在时限内完成；可用 lab_publisher_browser_download_status 查看任务状态".to_string()),
+    }
 }
 
 #[cfg(not(windows))]
@@ -2873,6 +3848,23 @@ fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
         }
         return true;
     }
+    if url.host_str() == Some("recreate-task") {
+        // 小球上的「重建任务」（C19）。与逐条删除同理：页面不可信，只接受当前
+        // 队列快照里存在的 id；真正的重建由插件执行，这里只转交给客户端。
+        let task_id = url.path().trim_matches('/').to_string();
+        if task_id.is_empty() || !app.try_state::<WebVpnState>().map(|state| state.queue_contains(&task_id)).unwrap_or(false) {
+            return true;
+        }
+        record(app, "capture", "", "用户从捕获小球请求重建该项获取任务");
+        if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
+            let script = format!(
+                "window.__ibmBallRecreateTask && window.__ibmBallRecreateTask({})",
+                serde_json::to_string(&task_id).unwrap_or_else(|_| "\"\"".to_string())
+            );
+            let _ = main.eval(script);
+        }
+        return true;
+    }
     if url.host_str() == Some("notice-dismiss") {
         if let Some(state) = app.try_state::<WebVpnState>() {
             state.dismiss_capture_notice();
@@ -3026,6 +4018,15 @@ pub fn open_window(
                     );
                 }
                 start_pending_publisher_automation(&page_app, &webview);
+                // C2：页面每次加载完成都落一个快照，上层的 wait 才有「页面跳了」
+                // 这个信号（旧指纹里导航不改变任何一项，于是永远报「没有变化」）。
+                if let Some(state) = page_app.try_state::<WebVpnState>() {
+                    if let Ok(url) = webview.url() {
+                        // document_type 由 URL 推断；真正的 content-type 会由响应层
+                        // 在下一次事件里覆盖它。
+                        state.record_page_event(url.as_str(), "complete");
+                    }
+                }
                 // 脚本每次导航都会重新注入，小球随之重建：必须再推一次状态。
                 let _ = push_capture_ball(&page_app, &webview);
             }
@@ -3178,6 +4179,16 @@ pub fn open_window(
             error.to_string()
         })?;
 
+    // C1/C2：装上页面事件与响应层观察器。失败不致命（页面事件会退化成只有
+    // 「加载完成」一个采样点，PDF 保存会退回查看器兜底），但必须留下记录。
+    if let Err(error) = install_capture_observers(&webview, app) {
+        record(
+            app,
+            "error",
+            target.as_str(),
+            &format!("页面事件观察器安装失败: {error}"),
+        );
+    }
     if let Err(error) = show_sidebar(app, &webview) {
         let _ = webview.close();
         let _ = hide_sidebar(app);
@@ -3979,9 +4990,9 @@ mod tests {
         assert!(state.should_ignore_failed_finish());
         let pending = state.begin_upload(&second).expect("匹配下载应开始上传");
         assert_eq!(pending.generation, second_generation);
-        state.finish_upload(second_generation.wrapping_add(1), Ok(()));
+        state.finish_upload(second_generation.wrapping_add(1), Ok(()), None);
         assert_eq!(state.state(), WebVpnSessionState::Uploading);
-        state.finish_upload(second_generation, Ok(()));
+        state.finish_upload(second_generation, Ok(()), None);
         assert_eq!(state.state(), WebVpnSessionState::Ready);
         assert!(state
             .status(&WebVpnConfig::default(), true)

@@ -5,7 +5,7 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta12",
+    "version": "0.5.5-beta13",
     "commit": "c3dd99e",
     "note": "beta12 flips the literature browser to AI-driven by default: lab_publisher_browser_download mode=ai opens the page and arms capture without injecting the auto-click script, so the agent observes (scope=all, with a page summary), clicks, waits for a change with lab_browser_wait, and saves when needed; mode=auto keeps the script as a fast path. This dissolves the earlier 'automation cannot recognise the entry' blocker, since the model picks the entry itself using the target/file fields on candidates. Live selector verification is still pending."
   },

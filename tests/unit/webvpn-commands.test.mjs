@@ -814,7 +814,16 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	assert.equal(payloads.length, 4, "队列条目映射与三种小球形态都要有载荷");
 	const shapes = payloads.filter((payload) => /"queue": queue/.test(payload[0]));
 	assert.equal(shapes.length, 3, "三种小球形态都必须带队列");
-	assert.ok(shapes.some((shape) => /"phase": phase/.test(shape[0])), "活动任务形态必须带实际阶段");
+	// 活动任务形态必须带实际阶段：优先用插件推导的 ballPhase（C20，工具与小球同源），
+	// 客户端还没上报过这条任务时兜底成壳自己的 phase。
+	assert.ok(
+		shapes.some((shape) => /unwrap_or\(phase\)/.test(shape[0])),
+		"活动任务形态必须带实际阶段"
+	);
+	assert.ok(
+		shapes.some((shape) => /"ballText":/.test(shape[0])),
+		"活动任务形态必须带插件推导的小球文案"
+	);
 	for (const payload of payloads) assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
 });
 

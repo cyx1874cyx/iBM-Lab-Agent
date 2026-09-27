@@ -90,18 +90,32 @@ export function sendWebVpnRect(payload) {
  * 把当前捕获队列快照交给桌面壳（壳再转给 Rust，最终画在捕获小球上）。
  *
  * 队列的真源在插件里，所以只能由客户端主动上报；小球用它显示排队序列，
- * 并对每条排队任务提供"删除"入口。
+ * 并对每条排队任务提供"删除 / 重建"入口。
  *
- * @param tasks - 插件返回的任务数组（只取展示与删除需要的字段）。
+ * `view.ball` 是插件按「同一份真相」推导好的文案/色调（C20）：壳只负责渲染，
+ * 不再自己按 state 猜一遍，否则工具说 queued、小球说失败这种矛盾又会回来。
+ *
+ * @param tasks - 插件返回的任务数组（含 view.ball）。
  */
 export function sendWebVpnBallQueue(tasks) {
 	if (typeof window === "undefined" || !window.parent || window.parent === window) return;
-	const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => ({
-		id: String(task?.id ?? ""),
-		kind: String(task?.kind ?? ""),
-		status: String(task?.status ?? ""),
-		requestedBy: String(task?.requestedBy ?? "")
-	})).filter((entry) => entry.id);
+	const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => {
+		const ball = task?.view?.ball;
+		return {
+			id: String(task?.id ?? ""),
+			kind: String(task?.kind ?? ""),
+			status: String(task?.status ?? ""),
+			requestedBy: String(task?.requestedBy ?? ""),
+			ball: ball ? {
+				phase: String(ball.phase ?? ""),
+				text: String(ball.text ?? "").slice(0, 160),
+				tone: String(ball.tone ?? ""),
+				stalled: Boolean(ball.stalled),
+				canRecreate: Boolean(ball.canRecreate),
+				canCancel: Boolean(ball.canCancel)
+			} : undefined
+		};
+	}).filter((entry) => entry.id);
 	try {
 		window.parent.postMessage({
 			source: "ibm-lab-agent",
