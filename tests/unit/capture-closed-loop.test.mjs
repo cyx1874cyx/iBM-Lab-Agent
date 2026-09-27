@@ -520,3 +520,68 @@ test("B2 回归：进 failed 之前先验产物，完整就归档；不完整也
 	assert.doesNotMatch(fn, /fs::remove_file\(path\)/, "失败时不得再删掉用户的文件");
 	assert.match(rust, /fn file_is_whole\(path: &Path\) -> bool/);
 });
+
+test("R1（beta16 报告）：下载事件说 success 之后必须等到文件写完才上传", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// 旧实现一次 fs::read 成功就返回 → 可能把还在写的文件当整份上传 → 捕获服务 400。
+	// 现场：同一序列 3 次失败（上传半截）+ 1 次成功，落盘文件其实完整。
+	assert.match(rust, /fn read_captured_file\(path: &Path, kind: &str\)/);
+	assert.match(rust, /captured_body_defect\(kind, &body\)/, "必须校验结构完整（%PDF- 头 + %%EOF）");
+	assert.match(rust, /previous_len == Some\(body\.len\(\)\)/, "必须要求长度稳定才交出去");
+	assert.match(rust, /CAPTURE_READ_TIMEOUT/, "必须有等待上限，不能无限等");
+	// 交给上传的必须是下载回调确认的那一个路径。
+	assert.match(rust, /read_captured_file\(&upload\.path, &upload\.kind\)/);
+});
+
+test("R2/R4：服务端拒绝原因与已救回的产物必须可达（不能只进日志）", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// R2：把响应体读出来写进错误（以前只有状态码）
+	assert.match(rust, /捕获服务拒绝了文件（HTTP \{status\}）：\{detail\}/);
+	assert.match(rust, /response\s*\n?\.text\(\)/, "必须读取响应体");
+	// R4：状态里带上 salvaged 产物
+	assert.match(rust, /pub struct FailureNotice/);
+	assert.match(rust, /pub salvaged_path: Option<String>/);
+	assert.match(rust, /pub salvaged_sha256: Option<String>/);
+	assert.match(rust, /pub last_failure: Option<FailureNotice>/);
+	// 只有"文件确实是完整 PDF"才给 sha256，避免误导调用方去救半截文件
+	assert.match(rust, /filter\(\|path\| file_is_whole\(path\)\)/);
+
+	// 客户端要把这两个字段上报（以前根本没传）
+	const client = await readFile(new URL("../../client/src/components-literature.js", import.meta.url), "utf8");
+	assert.match(client, /lastError: shellStatus\?\.lastError/);
+	assert.match(client, /lastFailure: shellStatus\?\.lastFailure/);
+});
+
+test("R5：失败原因不许被藏起来，也不许被 cancel 吃掉", async () => {
+	const phase = await readFile(new URL("../../lib/capture-phase.js", import.meta.url), "utf8");
+	// 旧写法 `task.error && !requiresUserAction` —— 恰恰在失败时把原因藏掉。
+	assert.doesNotMatch(phase, /task\.error && !requiresUserAction/);
+	assert.match(phase, /const reasons = \[task\.error, desktop\.lastError, desktop\.lastFailure\?\.message\]/);
+	assert.match(phase, /本地已保住完整文件/);
+
+	const capture = await readFile(new URL("../../lib/manual-capture.js", import.meta.url), "utf8");
+	assert.match(capture, /cancelReason,/, "取消原因要单独存");
+	assert.match(capture, /error: previous \?\? cancelReason/, "已有失败原因不许被取消覆盖");
+	assert.match(capture, /errorHistory/, "要留历史便于事后回溯");
+});
+
+test("R3：400 的返回体带可判别 code 与收到的字节数", async () => {
+	const [src, capture] = await Promise.all([
+		readFile(new URL("../../src/manual-capture.js", import.meta.url), "utf8"),
+		readFile(new URL("../../lib/manual-capture.js", import.meta.url), "utf8")
+	]);
+	for (const code of ["payload-too-small", "missing-pdf-header", "missing-eof", "kind-mismatch"]) {
+		assert.match(src, new RegExp(`captureValidationError\\("${code}"`), `校验失败必须带 code ${code}`);
+	}
+	assert.match(src, /export function captureValidationError\(code, message\)/);
+	assert.match(capture, /code: error\?\.code/, "上传失败要回传 code");
+	assert.match(capture, /receivedBytes:/, "上传失败要回传 receivedBytes");
+});
+
+test("R7：预设把「先读原因、再决定」写成了固定顺序", async () => {
+	const preset = await readFile(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url), "utf8");
+	assert.match(preset, /先读原因，再决定/);
+	assert.match(preset, /不要先 cancel/);
+	assert.match(preset, /本地已保住完整文件/);
+	assert.match(preset, /连续 400\/失败超过 2 次就停止自动重试/);
+});

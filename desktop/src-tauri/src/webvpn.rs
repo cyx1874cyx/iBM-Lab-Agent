@@ -83,6 +83,8 @@ const PDF_STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(5);
 const PDF_STREAM_MAX_WAIT: Duration = Duration::from_secs(180);
 /// 退化成"在 UI 线程上读"时的总上限：宁可少拿一点字节，也不能把界面冻住几分钟。
 const INLINE_STREAM_MAX_WAIT: Duration = Duration::from_secs(20);
+/// 等下载文件写完的上限（下载事件说 success 时文件可能还在写）。
+const CAPTURE_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
 /// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
@@ -1524,6 +1526,21 @@ pub struct WebVpnStatus {
     pub taken_over_at: Option<String>,
     /// 下载/保存期间「无字节增长」的毫秒数（C17）。
     pub stalled_ms: Option<u64>,
+    /// 最近一次失败的原因，以及（若适用）已经保住的那份产物（R4）。
+    ///
+    /// 以前这类信息只进 `webvpn.log`：调用方看不到，只能自己去读盘推断。
+    pub last_failure: Option<FailureNotice>,
+}
+
+/// 一次失败的可见描述：原因 + 可救回的产物。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FailureNotice {
+    pub message: String,
+    /// 失败时保留下来的完整文件（`*-未归档.pdf`）。本地文件完整时才有。
+    pub salvaged_path: Option<String>,
+    pub salvaged_bytes: Option<u64>,
+    pub salvaged_sha256: Option<String>,
 }
 
 /// 供 UI/插件读取的 PDF 载荷状态（不含任何路径）。
@@ -2577,6 +2594,8 @@ impl WebVpnState {
         // C17：停滞检测。下载/保存期间字节数长时间不动，就该显示成异常，
         // 而不是永远「正在保存」。
         let stalled_ms = self.stalled_ms_now(downloaded_bytes);
+        // 先算好 last_failure 再构造结构体：last_outcome/last_error 稍后会被 move 进去。
+        let last_failure = failure_notice_of(session.last_outcome.as_ref(), session.last_error.as_deref());
         WebVpnStatus {
             state: session.state,
             authenticated: window_open && session.authenticated,
@@ -2627,6 +2646,7 @@ impl WebVpnState {
             release_reason: session.release_reason,
             taken_over_at: session.taken_over_at,
             stalled_ms,
+            last_failure,
         }
     }
 
@@ -2763,6 +2783,28 @@ pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<
     let dir = data_root.join(DOWNLOAD_DIR_NAME);
     fs::create_dir_all(&dir).map_err(|error| format!("无法创建 WebVPN 下载临时目录: {error}"))?;
     Ok(dir.join(format!("{task_id}-{kind}.pdf")))
+}
+
+/// 把最近一次失败整理成对调用方可见的提示（R4）。
+///
+/// 只有"这次真的失败了"才给：成功、没跑过、或上一次是别的原因都不报。
+fn failure_notice_of(outcome: Option<&CaptureOutcome>, last_error: Option<&str>) -> Option<FailureNotice> {
+    let outcome = outcome.filter(|outcome| !outcome.ok)?;
+    let message = outcome
+        .error
+        .clone()
+        .or_else(|| last_error.map(|value| value.to_string()))
+        .unwrap_or_else(|| "捕获失败".to_string());
+    let salvaged = outcome.path.as_ref().filter(|path| path.is_file());
+    Some(FailureNotice {
+        message,
+        salvaged_path: salvaged.map(|path| path.to_string_lossy().to_string()),
+        salvaged_bytes: salvaged.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len())),
+        // 只有"文件是完整的 PDF"才值得让调用方去救——不完整的别给 sha256 造成误导。
+        salvaged_sha256: salvaged
+            .filter(|path| file_is_whole(path))
+            .and_then(|path| sha256_of_file(path)),
+    })
 }
 
 /// 一个捕获任务当前已接收的字节数：下载目标与响应层载荷取较大者。
@@ -2905,23 +2947,77 @@ fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destinat
 /// WebView2 报下载完成后，文件仍可能由下载进程延迟写出——紧接着 `fs::read` 会得到
 /// `系统找不到指定的文件 (os error 2)`，整次捕获因此失败（2026-09-26 实测）。
 /// 这里按**存在性**轮询而不是固定 sleep：文件一出现就读，正常路径不引入额外延时。
-fn read_captured_file(path: &Path) -> Result<Vec<u8>, String> {
-    let deadline = Instant::now() + Duration::from_secs(20);
+/// 读下载产物——**等到内容被证明完整才交出去**。
+///
+/// 2026-09-27 现场（issue-0.5.5-beta16.md）：`DownloadEvent::Finished { success: true }`
+/// 到达时，文件**还在被 WebView2 写**。旧实现第一次 `fs::read` 成功就返回，于是把一个
+/// 前缀当成整份上传，捕获服务按规矩回 400；同一序列第 5 次又成功——因为那次竞态刚好
+/// 没输。报告把它归因于"上传了响应体载荷"，那是推断；真正的机制就是这里**读得比写完早**。
+///
+/// 所以判据与载荷/归档一致：`%PDF-` 头 + `%%EOF` 尾（SI 另认 zip/docx），
+/// 且**连续两次读到的长度一致**（证明写完了），超时则带着"读到了多少、差哪一项"报错。
+fn read_captured_file(path: &Path, kind: &str) -> Result<Vec<u8>, String> {
+    let deadline = Instant::now() + CAPTURE_READ_TIMEOUT;
+    let mut previous_len: Option<usize> = None;
     loop {
         match fs::read(path) {
-            Ok(body) => return Ok(body),
+            Ok(body) => {
+                let stable = previous_len == Some(body.len());
+                if let Some(reason) = captured_body_defect(kind, &body) {
+                    // 还没写完/内容不对：继续等，直到超时。
+                    previous_len = Some(body.len());
+                    if Instant::now() >= deadline {
+                        return Err(format!(
+                            "下载文件未在 {} 秒内写完（已读取 {} 字节，{reason}）",
+                            CAPTURE_READ_TIMEOUT.as_secs(),
+                            body.len()
+                        ));
+                    }
+                } else if stable {
+                    return Ok(body);
+                } else {
+                    // 结构已经对，但长度还在长：再确认一次，避免把"刚好写到这里"当成写完。
+                    previous_len = Some(body.len());
+                }
+            }
             Err(error)
                 if error.kind() == std::io::ErrorKind::NotFound && Instant::now() < deadline =>
             {
-                std::thread::sleep(Duration::from_millis(100));
+                previous_len = None;
             }
             Err(error) => return Err(format!("无法读取 WebVPN 下载文件: {error}")),
         }
+        std::thread::sleep(Duration::from_millis(150));
     }
 }
 
+/// 交出去的字节还差什么；`None` 表示"结构上已经是完整产物"。
+///
+/// 与捕获服务的校验（`validateCapturedFile`）保持同一组判据，这样本地就不会把
+/// 一份注定被 400 拒绝的 body 发出去——失败发生在本地，原因也留在本地。
+fn captured_body_defect(kind: &str, bytes: &[u8]) -> Option<String> {
+    if bytes.is_empty() {
+        return Some("文件为空".to_string());
+    }
+    if bytes.starts_with(b"%PDF-") {
+        if !tail_has_eof(bytes) {
+            return Some("尾部还没有 %%EOF".to_string());
+        }
+        return None;
+    }
+    // SI 允许 pdf / docx / zip：zip 与 docx 都以 PK 开头。
+    if kind == "si" && bytes.starts_with(b"PK") {
+        return None;
+    }
+    if kind == "si"
+    {
+        return Some("既不是 PDF（缺 %PDF- 头）也不是 zip/docx（缺 PK 头）".to_string());
+    }
+    Some("缺少 PDF 文件头（%PDF-）".to_string())
+}
+
 pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
-    let body = read_captured_file(&upload.path);
+    let body = read_captured_file(&upload.path, &upload.kind);
     // 归档成功后临时文件会被删除，尺寸必须现在量（R5.2：产物要可核验）。
     let measured_bytes = body.as_ref().ok().map(|body| body.len() as u64);
     let result = body.and_then(|body| {
@@ -2963,7 +3059,18 @@ pub fn upload_capture(app: AppHandle, upload: PendingUpload) {
             // 因此这里只返回固定文案，详细 URL 永不进入日志或 UI。
             .map_err(|_| "WebVPN 下载已完成，但上传失败".to_string())?;
         if !response.status().is_success() {
-            return Err(format!("捕获服务拒绝了文件（HTTP {}）", response.status()));
+            // R2：把服务端的响应体读出来。只记状态码等于把原因扔掉——2026-09-27 现场
+            // 三条失败的具体校验文案就是这么永久丢失的（报告 §4）。
+            let status = response.status();
+            let detail = response
+                .text()
+                .map(|text| text.chars().take(300).collect::<String>())
+                .unwrap_or_default();
+            return Err(if detail.is_empty() {
+                format!("捕获服务拒绝了文件（HTTP {status}）")
+            } else {
+                format!("捕获服务拒绝了文件（HTTP {status}）：{detail}")
+            });
         }
         Ok(())
     });

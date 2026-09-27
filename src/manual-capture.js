@@ -66,6 +66,14 @@ export const labCaptureTaskSchema = z.object({
 	size: z.number().int().nonnegative().optional(),
 	fileSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	error: z.string().optional(),
+	/** 取消原因单独存：`error` 要留给真正的失败原因（R5b）。 */
+	cancelReason: z.string().optional(),
+	/** 最近若干条错误/取消历史，便于事后回溯（取消不再覆盖诊断信息）。 */
+	errorHistory: z.array(z.object({
+		at: z.string(),
+		kind: z.enum(["upload-failed", "browser-operation", "cancel", "restart"]),
+		message: z.string()
+	})).optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });
@@ -119,6 +127,19 @@ export function kindMatchesFileName(kind, fileName) {
  * 所有格式都执行大小与 SHA-256 校验。
  * @returns {{ sha256: string, byteLength: number }}
  */
+/**
+ * 带稳定 code 的校验错误（R3）。
+ *
+ * 200-9-27 现场：400 只给一句中文，而 `captureHttpStatusFor` 又把它压成状态码，
+ * 事后无法判断到底是"过小""缺头"还是"缺 EOF"。code 是给机器看的，message 是给人看的。
+ */
+export function captureValidationError(code, message) {
+	const error = new Error(message);
+	error.code = code;
+	error.captureBytes = undefined;
+	return error;
+}
+
 export function validateCapturedFile({ kind, buffer, fileName }) {
 	const bytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer ?? []);
 	if (bytes.byteLength > CAPTURE_MAX_BYTES) {
@@ -128,14 +149,19 @@ export function validateCapturedFile({ kind, buffer, fileName }) {
 		throw new Error(`未知捕获类型：${kind}`);
 	}
 	const ext = extensionOf(fileName);
-	if (!kindMatchesFileName(kind, fileName)) throw new Error(`${kind === "pdf" ? "正文" : "SI"}任务不接受 .${ext || "?"} 文件`);
+	if (!kindMatchesFileName(kind, fileName)) {
+		throw captureValidationError("kind-mismatch", `${kind === "pdf" ? "正文" : "SI"}任务不接受 .${ext || "?"} 文件`);
+	}
 	if (ext === "pdf") {
-		if (bytes.byteLength < CAPTURE_PDF_MIN_BYTES) throw new Error(`PDF 文件过小（${bytes.byteLength} 字节），疑似错误页`);
+		// R3：每条判据都带稳定 code，调用方不必靠中文文案猜失败原因。
+		if (bytes.byteLength < CAPTURE_PDF_MIN_BYTES) {
+			throw captureValidationError("payload-too-small", `PDF 文件过小（${bytes.byteLength} 字节），疑似错误页`);
+		}
 		if (!bytes.subarray(0, Math.min(bytes.byteLength, 1024)).includes(Buffer.from("%PDF-"))) {
-			throw new Error("下载内容不是有效 PDF（缺少 PDF 文件头）");
+			throw captureValidationError("missing-pdf-header", "下载内容不是有效 PDF（缺少 PDF 文件头）");
 		}
 		if (!bytes.subarray(Math.max(0, bytes.byteLength - 4096)).includes(Buffer.from("%%EOF"))) {
-			throw new Error("PDF 结尾不完整（缺少 EOF 标记）");
+			throw captureValidationError("missing-eof", "PDF 结尾不完整（缺少 EOF 标记）");
 		}
 	} else {
 		if (bytes.byteLength < 22) throw new Error(`${ext.toUpperCase()} 文件过小，疑似错误页`);

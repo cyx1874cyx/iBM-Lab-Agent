@@ -5,7 +5,7 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta16",
+    "version": "0.5.5-beta17",
     "commit": "0f079b0",
     "note": "beta16 fixes the beta15 crash on native PDF pages and unifies the payload completeness predicate. Crash: CoGetInterfaceAndReleaseStream releases the stream it is handed, and the worker then dropped its Rust IStream wrapper too - a double Release, so the process died the moment a PDF response arrived; the wrapper is now ManuallyDrop. Completeness: the status path called a payload whole once that response's Content-Length was read, while the archive path demanded a %%EOF tail - and the browser's PDF viewer fetches by Range, whose first chunk is often exactly 256 KiB, so a fragment satisfied the former and violated the latter (\"save-pdf-ready\" next to \"载荷不完整\", percent pinned at 100). One predicate now serves both, partial responses (206 / Content-Range) are skipped with a log line, and fail_pending_download verifies the product before declaring failure: a complete PDF on disk is archived, an incomplete one is preserved as *-未归档.pdf with its path in the reason. Terminal tasks no longer occupy queue slots. Live selector verification against authenticated iWAN publishers is still pending for every entry below."
   },

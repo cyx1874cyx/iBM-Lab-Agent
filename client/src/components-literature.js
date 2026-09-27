@@ -159,6 +159,10 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								lastPendingTaskId: shellStatus?.lastPendingTaskId,
 								releaseReason: shellStatus?.releaseReason,
 								takenOverAt: shellStatus?.takenOverAt,
+								// 壳侧的失败原因与"已保住的产物"必须上报，否则调用方
+								// 只能靠读日志/读盘反推（2026-09-27 现场 §4）。
+								lastError: shellStatus?.lastError,
+								lastFailure: shellStatus?.lastFailure,
 								iwanInstalled: iwanStatus?.installed,
 								iwanConnected: iwanStatus?.connected,
 								iwanUsable: iwanStatus?.usable,

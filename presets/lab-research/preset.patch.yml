@@ -145,13 +145,18 @@
                        mode=auto 是快路径（壳内脚本先自动点，失败再由你按上面的闭环接管），只在明确想省事时使用。
                        任务状态一律以 lab_publisher_browser_download_status 为准：
                        · completed 才代表已归档；
-                       · requiresUserAction=true（heartbeat-lost / orphaned / stalled / failed / expired）表示任务
-                         已经中断，**不要再等**：把 question 原样问用户，并用
-                         lab_publisher_browser_download_cancel(taskId, recreate=true) 走「重建」——它用同一篇文献
-                         立刻重建任务并返回新 taskId，不需要用户重新确认；
-                       · queued 表示排队，但若同时没有页面事件且排队已久，先用
-                         lab_publisher_browser_capture_list 盘点，再 observe 确认，不要无限等待；
-                       · 用 lab_publisher_browser_capture_list 随时找回 taskId 与队列全貌。
+                       - requiresUserAction=true（heartbeat-lost / orphaned / stalled / failed / expired）表示任务
+                           已经中断，**不要再等**。处置顺序是固定的：
+                           ① **先读原因，再决定**：失败后立刻读一次 lab_publisher_browser_download_status——
+                              消息里会给出壳侧的失败原话（含捕获服务返回的 code/receivedBytes）。
+                              **不要先 cancel**：取消会把诊断信息挤到后面，你会在最需要原因的时候把它关掉。
+                           ② 若消息里出现「本地已保住完整文件 …」：那份文件是完整的，直接用
+                              lab_tasks_update_bundle_file(kind=pdf) 登记进条目，**不要**为了拿同一份字节再抓一次。
+                           ③ 同一篇文献连续 400/失败超过 2 次就停止自动重试，把情况告诉用户。
+                           ④ 真正要重来时用 lab_publisher_browser_download_cancel(taskId, recreate=true)：
+                              它用同一篇文献立刻重建任务并返回新 taskId，不需要用户重新确认；
+                              把 question 原样问用户。
+                         · 用 lab_publisher_browser_capture_list 随时找回 taskId 与队列全貌。
                        正文未结束时 SI 可排队，等正文释放文献浏览器后再处理 SI；
                    - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
                      无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
