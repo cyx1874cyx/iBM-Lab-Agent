@@ -301,6 +301,14 @@ fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
             "必须使用软件内置 Python 3.12.x；安装包不完整，请重新安装 iBM Lab Agent。",
         );
     }
+    if !is_plausible_pe(&python) {
+        return warning(
+            "python",
+            "内置 Python",
+            format!("捆绑的 python.exe 不是有效的可执行文件（{}）", python.display()),
+            "安装文件不完整或被安全软件截断；请重新安装 iBM Lab Agent。",
+        );
+    }
     let command = python.to_string_lossy();
     match probe_python(&command, &["--version"]) {
         Some(version) if version.starts_with("Python 3.12.") || version == "Python 3.12" => ok(
@@ -378,9 +386,39 @@ fn powershell_status() -> DependencyStatus {
     )
 }
 
+/// 交付物里的可执行文件是否**看起来**是真正的 Windows PE。
+///
+/// 为什么必须挡一道：直接 `Command::new(path)` 一个 4 字节的伪文件时，Windows 不是
+/// 返回一个错误码，而是弹一个「不支持的 16 位应用程序」模态框——在无人值守的探测
+/// 里它会一直挡着（实测把单元测试拖到 5 分钟以上），而用户看到的是一句和病因毫无
+/// 关系的提示。真正需要诊断的是「安装包不完整 / 被安全软件截断」，所以这里先看
+/// 文件头，不满足就如实报告，绝不交给系统去执行。
+fn is_plausible_pe(path: &std::path::Path) -> bool {
+    const MIN_PE_BYTES: u64 = 64 * 1024;
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() || metadata.len() < MIN_PE_BYTES {
+        return false;
+    }
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut magic = [0_u8; 2];
+    std::io::Read::read_exact(&mut file, &mut magic).is_ok() && &magic == b"MZ"
+}
+
 fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
     let node = layout.node_exe();
     if node.exists() {
+        if !is_plausible_pe(&node) {
+            return warning(
+                "node",
+                "内置 Node.js",
+                format!("捆绑的 node.exe 不是有效的可执行文件（{}）", node.display()),
+                "安装文件不完整或被安全软件截断；请重新安装 iBM Lab Agent，不要把该文件加入杀软隔离。",
+            );
+        }
         let version = std::process::Command::new(&node)
             .arg("--version")
             .output()
@@ -798,6 +836,33 @@ mod tests {
         let layout = RuntimeLayout::new(sandbox.join("data"), resources);
         layout.create_user_directories().unwrap();
         (layout, sandbox)
+    }
+
+    /// 探测**绝不能**把非 PE 文件交给系统执行。
+    ///
+    /// 2026-09-27 现场：`probe_reports_all_dependencies_with_valid_states` 在沙箱里写了
+    /// 一个 4 字节的假 `node.exe`，`node_status` 直接 `Command::new()` 它，Windows 于是
+    /// 弹出「不支持的 16 位应用程序」模态框并挡住整个探测（那一个测试跑了 5 分钟以上）。
+    /// 用户看到的提示和真实病因（安装不完整/被安全软件截断）毫无关系。
+    #[test]
+    fn probes_never_hand_a_non_pe_binary_to_windows() {
+        let dir = std::env::temp_dir().join(format!("ibm-pe-guard-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let fake = dir.join("node.exe");
+        // 4 字节伪文件（旧测试的形状）
+        fs::write(&fake, "node").unwrap();
+        assert!(!is_plausible_pe(&fake), "伪文件必须被文件头检查拦住");
+        // 体积够但没有 MZ 头
+        fs::write(&fake, vec![0_u8; 128 * 1024]).unwrap();
+        assert!(!is_plausible_pe(&fake), "没有 MZ 头就不是 PE");
+        // MZ 头 + 合理体积
+        let mut bytes = vec![0_u8; 128 * 1024];
+        bytes[0] = b'M';
+        bytes[1] = b'Z';
+        fs::write(&fake, &bytes).unwrap();
+        assert!(is_plausible_pe(&fake), "MZ 头 + 足够体积应当放行");
+        assert!(!is_plausible_pe(&dir.join("missing.exe")), "缺失文件不算 PE");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
