@@ -400,4 +400,11 @@ test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
 	assert.match(rust, /pdf_payload_total\(task_id\)/);
 	// 进度要两条路一起算。
 	assert.match(rust, /fn pending_progress_bytes/);
+	// 读取必须在工作线程上：这个流由网络响应驱动，在 UI 线程读完会把整应用冻住。
+	assert.match(rust, /CoMarshalInterThreadInterfaceInStream/, "必须按 COM 规矩封送，而不是硬搬裸指针");
+	assert.match(rust, /CoGetInterfaceAndReleaseStream/);
+	assert.match(rust, /std::thread::spawn\(move \|\| \{/);
+	assert.match(rust, /fn spawn_payload_read/);
+	// 第二个响应绝不能和第一个共享载荷文件。
+	assert.match(rust, /if existing\.error\.is_none\(\) \{\s*return false;/);
 });

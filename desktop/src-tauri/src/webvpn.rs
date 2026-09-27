@@ -47,6 +47,12 @@ use windows::core::{Interface, PCWSTR, PWSTR};
 use windows::core::BOOL;
 #[cfg(windows)]
 use windows::Win32::System::Com::IStream;
+#[cfg(windows)]
+use windows::Win32::System::Com::Marshal::CoMarshalInterThreadInterfaceInStream;
+#[cfg(windows)]
+use windows::Win32::System::Com::StructuredStorage::CoGetInterfaceAndReleaseStream;
+#[cfg(windows)]
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 
 
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
@@ -1862,14 +1868,12 @@ impl WebVpnState {
         if pending.task_id != task_id || pending.kind != "pdf" {
             return false;
         }
-        if pending
-            .pdf_payload
-            .as_ref()
-            .map(|payload| payload.complete && payload.received_bytes > 0)
-            .unwrap_or(false)
-        {
-            // 已经拿到完整载荷：不要用第二个响应覆盖它。
-            return false;
+        if let Some(existing) = pending.pdf_payload.as_ref() {
+            // 只有"上一次尝试已经明确失败"才允许换一次响应重试；否则（完整、或仍在
+            // 接收）都必须拒绝，不然两个读取者会同时写同一个载荷文件。
+            if existing.error.is_none() {
+                return false;
+            }
         }
         pending.pdf_payload = Some(PdfPayload {
             content_length,
@@ -3406,36 +3410,11 @@ fn handle_response_received(
                 }
                 return Ok(());
             };
-            // 就地读取，不丢到别的线程：`IStream` 不是 Send（内部是裸指针）。
-            // 读完（收满 Content-Length / 尾部 %%EOF / 停滞超时）才落定结果。
-            let body = write_stream_to_file(&stream, &payload_task, &payload_app, content_length);
-            if let Some(state) = payload_app.try_state::<WebVpnState>() {
-                match body {
-                    Ok(body) => {
-                        // 部分字节也落盘：现场诊断需要能直接看文件，但**只有被证明完整
-                        // 的载荷才可能被归档**（下面的 finish 里 complete 决定一切）。
-                        let _ = fs::write(&payload_path, &body.partial);
-                        state.finish_pdf_payload(
-                            &payload_task,
-                            body.bytes,
-                            body.complete,
-                            body.note.clone(),
-                        );
-                        if !body.complete {
-                            record(
-                                &payload_app,
-                                "automation",
-                                "",
-                                &format!("PDF 载荷未收全：{}", body.note),
-                            );
-                        }
-                    }
-                    Err(error) => {
-                        state.finish_pdf_payload(&payload_task, 0, false, error.clone());
-                        record(&payload_app, "error", "", &error);
-                    }
-                }
-            }
+            // 读取放到工作线程：这个流由网络响应驱动，在 UI 线程上把它读完会把整个
+            // 应用冻住（2.6 MB 也要好几秒，107 MB 的 SI 更不用说）。`IStream` 不是
+            // Send，所以按 COM 的规矩用 CoMarshalInterThreadInterfaceInStream 把接口
+            // 封送过去，而不是硬搬指针。
+            spawn_payload_read(stream, payload_task, payload_path, payload_app, content_length);
             Ok(())
         },
     ));
@@ -3573,6 +3552,94 @@ struct PdfBodyResult {
     complete: bool,
     note: String,
     partial: Vec<u8>,
+}
+
+/// 在工作线程上读完 PDF 响应流，然后把结果落定到任务上。
+///
+/// 为什么必须离开 UI 线程：`GetContent` 的流由网络响应驱动，边到边读；在 UI 线程上
+/// 读完等于把整个应用冻住到下载结束。`IStream` 不是 `Send`，所以按 COM 的规矩封送：
+/// 源线程（STA）用 `CoMarshalInterThreadInterfaceInStream` 生成一个流对象，把它的
+/// 裸指针（`usize`，Send）交给工作线程，工作线程 `CoInitializeEx(MTA)` 之后用
+/// `CoGetInterfaceAndReleaseStream` 还原接口再读。
+///
+/// 封送失败时退回当前线程读取（并在日志里写明），而不是静默丢掉这条保存路径。
+#[cfg(windows)]
+fn spawn_payload_read(
+    stream: IStream,
+    task_id: String,
+    payload_path: PathBuf,
+    app: AppHandle,
+    content_length: Option<u64>,
+) {
+    match unsafe { CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream) } {
+        Ok(marshaled) => {
+            // into_raw 把包装器"漏"成一个裸指针，所有权转交给工作线程。
+            let raw = Interface::into_raw(marshaled) as usize;
+            std::thread::spawn(move || {
+                let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+                let result = (|| -> Result<PdfBodyResult, String> {
+                    let marshaled = unsafe {
+                        IStream::from_raw(raw as *mut core::ffi::c_void)
+                    };
+                    let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(&marshaled) }
+                        .map_err(|error| {
+                            format!("无法在工作线程还原 PDF 响应流（0x{:08X}）", error.code().0 as u32)
+                        })?;
+                    write_stream_to_file(&stream, &task_id, &app, content_length)
+                })();
+                unsafe { CoUninitialize() };
+                finish_payload_read(&app, &task_id, &payload_path, result);
+            });
+        }
+        Err(error) => {
+            record(
+                &app,
+                "error",
+                "",
+                &format!(
+                    "PDF 响应流无法封送到工作线程（0x{:08X}），改在当前线程读取",
+                    error.code().0 as u32
+                ),
+            );
+            let result = write_stream_to_file(&stream, &task_id, &app, content_length);
+            finish_payload_read(&app, &task_id, &payload_path, result);
+        }
+    }
+}
+
+/// 把一次载荷读取的结果落定：部分字节也落盘（现场诊断要看得到文件），
+/// 但**只有被证明完整的载荷才会被归档**（`complete` 决定一切）。
+#[cfg(windows)]
+fn finish_payload_read(
+    app: &AppHandle,
+    task_id: &str,
+    payload_path: &Path,
+    result: Result<PdfBodyResult, String>,
+) {
+    let Some(state) = app.try_state::<WebVpnState>() else {
+        return;
+    };
+    match result {
+        Ok(body) => {
+            let _ = fs::write(payload_path, &body.partial);
+            state.finish_pdf_payload(task_id, body.bytes, body.complete, body.note.clone());
+            if !body.complete {
+                record(
+                    app,
+                    "automation",
+                    "",
+                    &format!("PDF 载荷未收全：{}", body.note),
+                );
+            }
+        }
+        Err(error) => {
+            state.finish_pdf_payload(task_id, 0, false, error.clone());
+            record(app, "error", "", &error);
+        }
+    }
+    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
+        let _ = push_capture_ball(app, &webview);
+    }
 }
 
 /// PDF 是否以 `%%EOF` 结束（结构完整的最后一道证据）。
