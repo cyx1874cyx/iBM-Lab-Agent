@@ -937,6 +937,10 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
   for (let i = 0; i < roots.length && roots.length < 20; i++) {
     for (const el of roots[i].querySelectorAll('*')) {
       if (el.shadowRoot) roots.push(el.shadowRoot);
+      if (el.matches?.('iframe,frame')) {
+        try { if (el.contentDocument) roots.push(el.contentDocument); }
+        catch { /* A cross-origin frame is not readable from its parent. */ }
+      }
       if (roots.length >= 20) break;
     }
   }
@@ -1440,6 +1444,8 @@ struct PendingCapture {
     /// WebView2 可能为同一次点击连续发出多个 Requested。只允许第一个请求
     /// 占用捕获目标，后续请求直接取消，避免多个下载同时写同一个文件。
     download_claimed: bool,
+    /// 每个任务最多尝试一次 Science 的受限备用入口。
+    fallback_navigation_attempted: bool,
     /// 取消重复 Requested 后，WebView2 仍可能补发 success=false 的 Finished。
     /// 这些回调不能误伤仍在进行的首个下载。
     duplicate_failures_to_ignore: u32,
@@ -1496,6 +1502,8 @@ pub struct WebVpnStatus {
     /// 当前下载目标文件已经写入的字节数。WebView2 不提供总大小，因此该值
     /// 用于显示真实接收量与不确定进度条，不伪造百分比。
     pub downloaded_bytes: Option<u64>,
+    /// 仅下载事件目标文件的字节数；与响应层载荷分别上报，避免混算。
+    pub download_event_bytes: Option<u64>,
     /// 自 DownloadEvent::Requested 起经过的毫秒数。
     pub download_elapsed_ms: Option<u64>,
     /// 单次捕获的体积上限（字节）。调用方据此在下载前/中判断会不会白跑一趟 ——
@@ -1694,6 +1702,7 @@ impl WebVpnState {
             expires_at: Instant::now() + CAPTURE_TTL,
             download_started_at: None,
             download_claimed: false,
+            fallback_navigation_attempted: false,
             duplicate_failures_to_ignore: 0,
         });
         session.state = WebVpnSessionState::Navigating;
@@ -2292,6 +2301,29 @@ impl WebVpnState {
             .and_then(|session| session.pending.as_ref().map(|pending| pending.task_id.clone()))
     }
 
+    /// 备用入口只能从状态工具刚报告的页面发起，且同一任务只尝试一次。
+    fn claim_science_fallback(&self, task_id: &str, expected_page_seq: u64, current: &url::Url) -> Result<(), String> {
+        let mut session = self.session.lock().map_err(|_| "文献浏览器状态不可用")?;
+        let page = session.page.as_ref().ok_or("尚未观察到当前页面")?;
+        if page.seq != expected_page_seq || page.url != current.as_str() {
+            return Err("备用入口已失效，请重新查询任务状态".to_string());
+        }
+        if !matches!(session.state, WebVpnSessionState::WaitingDownload | WebVpnSessionState::Navigating) {
+            return Err("当前正在下载或归档，不能切换入口".to_string());
+        }
+        let pending = session.pending.as_mut().ok_or("没有待捕获的文献任务")?;
+        if pending.task_id != task_id || pending.kind != "pdf" || pending.publisher != PublisherAdapter::Science {
+            return Err("当前任务不支持此备用入口".to_string());
+        }
+        if pending.download_claimed || pending.fallback_navigation_attempted {
+            return Err("当前任务已开始下载或已尝试备用入口".to_string());
+        }
+        pending.fallback_navigation_attempted = true;
+        pending.pdf_payload = None;
+        session.state = WebVpnSessionState::Navigating;
+        Ok(())
+    }
+
     /// 取消当前待捕获任务，不管它的 id 是什么（页面里的小球只知道「有一个任务在跑」）。
     pub fn cancel_pending_capture(&self) -> Result<(), String> {
         match self.pending_task_id() {
@@ -2586,6 +2618,9 @@ impl WebVpnState {
             })
             .unwrap_or_default();
         let downloaded_bytes = session.pending.as_ref().and_then(pending_progress_bytes);
+        let download_event_bytes = session.pending.as_ref().and_then(|pending| {
+            pending.download_started_at.and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()))
+        });
         let download_elapsed_ms = session.pending.as_ref().and_then(|pending| {
             pending
                 .download_started_at
@@ -2614,6 +2649,7 @@ impl WebVpnState {
             pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
             automation_stage: session.pending.as_ref().map(|pending| pending.automation_stage.clone()),
             downloaded_bytes,
+            download_event_bytes,
             download_elapsed_ms,
             max_capture_bytes: CAPTURE_MAX_BYTES,
             window_open,
@@ -3700,7 +3736,11 @@ fn handle_response_received(
                         &payload_task,
                         0,
                         false,
-                        format!("WebView2 未提供 PDF 响应体（0x{code:08X}）"),
+                        if error.is_err() {
+                            format!("get-content-failed: WebView2 响应体读取失败（0x{code:08X}）")
+                        } else {
+                            "no-body: WebView2 未提供 PDF 响应体".to_string()
+                        },
                     );
                 }
                 return Ok(());
@@ -3713,7 +3753,14 @@ fn handle_response_received(
             Ok(())
         },
     ));
-    let _ = unsafe { response.GetContent(&content) };
+    if let Err(error) = unsafe { response.GetContent(&content) } {
+        state.finish_pdf_payload(
+            &task_id,
+            0,
+            false,
+            format!("get-content-failed: WebView2 无法启动响应体读取（0x{:08X}）", error.code().0 as u32),
+        );
+    }
 }
 
 #[cfg(windows)]
@@ -3770,6 +3817,19 @@ fn write_stream_to_file(
         if read > 0 {
             buffer.extend_from_slice(&chunk[..read as usize]);
             last_progress = Instant::now();
+            if buffer.len() >= 5 && !buffer.starts_with(b"%PDF-") {
+                let html = buffer.starts_with(b"<!doctype html") || buffer.starts_with(b"<html");
+                return Ok(PdfBodyResult {
+                    bytes: buffer.len() as u64,
+                    complete: false,
+                    note: if html {
+                        "wrong-object-html: 响应体是 HTML 查看器页面，不是 PDF".to_string()
+                    } else {
+                        "wrong-object: 响应体缺少 PDF 文件头".to_string()
+                    },
+                    partial: buffer,
+                });
+            }
             if buffer.len() as u64 > limit {
                 return Ok(PdfBodyResult {
                     bytes: buffer.len() as u64,
@@ -4274,6 +4334,34 @@ async fn save_current_pdf(
     Err("原生 PDF 保存仅在 Windows 桌面端可用".to_string())
 }
 
+/// 只从当前 Science 正文/预览页构造本篇 DOI 的附件入口。其他出版社不猜 URL。
+fn science_pdf_download_route(current: &url::Url) -> Result<url::Url, String> {
+    if current.scheme() != "https" || current.port().is_some()
+        || !matches!(current.host_str(), Some("science.org" | "www.science.org")) {
+        return Err("备用入口仅支持 Science 官方页面".to_string());
+    }
+    let path = current.path();
+    let doi = ["/doi/epdf/", "/doi/reader/", "/doi/pdf/", "/doi/"]
+        .iter()
+        .find_map(|prefix| path.strip_prefix(prefix))
+        .ok_or("当前页面不是 Science 正文或预览页")?;
+    let suffix = doi.strip_prefix("10.1126/").ok_or("当前页面 DOI 不是 Science 论文")?;
+    if suffix.is_empty() || !suffix.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_')) {
+        return Err("Science DOI 路径不符合备用入口规则".to_string());
+    }
+    let mut target = current.clone();
+    if current.path().starts_with("/doi/pdf/") && current.query_pairs().any(|(key, value)| key == "download" && value == "true") {
+        return Err("当前已经是备用下载入口".to_string());
+    }
+    target.set_path(&format!("/doi/pdf/{doi}"));
+    target.set_query(Some("download=true"));
+    target.set_fragment(None);
+    if target == *current {
+        return Err("当前已经是备用下载入口".to_string());
+    }
+    Ok(target)
+}
+
 pub async fn browser_action(
     app: &AppHandle,
     task_id: &str,
@@ -4281,6 +4369,8 @@ pub async fn browser_action(
     observation_id: &str,
     element_id: &str,
     scope: &str,
+    route_id: &str,
+    expected_page_seq: u64,
 ) -> Result<serde_json::Value, String> {
     let state = app.try_state::<WebVpnState>().ok_or("文献浏览器状态不可用")?;
     if state.pending_task_id().as_deref() != Some(task_id) {
@@ -4288,6 +4378,16 @@ pub async fn browser_action(
     }
     let webview = app.get_webview(WINDOW_LABEL).ok_or("文献浏览器尚未打开")?;
     match action {
+        "navigate" => {
+            if route_id != "science-pdf" {
+                return Err("未知备用入口".to_string());
+            }
+            let current = webview.url().map_err(|error| error.to_string())?;
+            let target = science_pdf_download_route(&current)?;
+            state.claim_science_fallback(task_id, expected_page_seq, &current)?;
+            webview.navigate(target).map_err(|error| error.to_string())?;
+            Ok(serde_json::json!({ "navigated": true, "routeId": route_id }))
+        }
         "observe" | "click" => {
             #[cfg(windows)]
             {
@@ -4855,6 +4955,23 @@ pub fn status_of(app: &AppHandle, config: &WebVpnConfig) -> WebVpnStatus {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn science_fallback_stays_on_the_same_article_and_off_other_hosts() {
+        let reader = url::Url::parse("https://www.science.org/doi/epdf/10.1126/science.adz5300").unwrap();
+        assert_eq!(
+            science_pdf_download_route(&reader).unwrap().as_str(),
+            "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true"
+        );
+        for rejected in [
+            "https://www.nature.com/doi/epdf/10.1126/science.adz5300",
+            "https://evilscience.org/doi/epdf/10.1126/science.adz5300",
+            "https://www.science.org/doi/epdf/10.1126/science.adz5300/other",
+            "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true",
+        ] {
+            assert!(science_pdf_download_route(&url::Url::parse(rejected).unwrap()).is_err(), "{rejected}");
+        }
+    }
 
     fn policy(hosts: &[&str]) -> WebVpnPolicy {
         WebVpnPolicy {

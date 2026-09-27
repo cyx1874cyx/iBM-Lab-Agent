@@ -108,13 +108,17 @@ test("R4.3/C7：终态给「重建 / 终止」两个可执行选项", () => {
 test("R2.3/C8：预览器里没有可点元素时改走 ?download=true 的备用入口", () => {
 	const entry = normalizeDownloadEntry("https://www.science.org/doi/epdf/10.1126/science.adz5300");
 	assert.equal(entry, "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true");
-	const manual = view({ automationStage: "manual", pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300" });
+	const manual = view({ automationStage: "manual", pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300", pageSeq: 7 });
 	assert.equal(manual.nextAction, "retry-download-entry");
 	assert.equal(manual.alternateEntry, entry);
+	assert.equal(manual.alternateRouteId, "science-pdf");
+	assert.equal(manual.page.pageSeq, 7);
 	// 不再返回那个会静默失败的动作名。
 	assert.notEqual(manual.nextAction, "observe-or-save-pdf");
 	// 无效 DOI 时不伪造入口。
 	assert.equal(normalizeDownloadEntry("https://example.org/no-doi-here"), undefined);
+	assert.equal(normalizeDownloadEntry("https://www.nature.com/articles/s41586-test", "10.1038/s41586-test"), undefined);
+	assert.equal(normalizeDownloadEntry("https://webvpn.example.edu/doi/epdf/10.1126/science.adz5300"), undefined);
 });
 
 test("R2.2/C1：PDF 载荷就绪才给 save-pdf-ready，且方向由同一份推导决定", () => {
@@ -137,6 +141,7 @@ test("R6.2/C17：长时间没有字节增长就是 stalled，不再永远显示�
 		task: TASK, desktop: desktop(saving), stalledMs: CAPTURE_STALL_MS + 1, now: Date.parse(TASK.createdAt) + 1000
 	});
 	assert.equal(stalled.phase, "stalled");
+	assert.equal(stalled.nextAction, "recreate-or-cancel");
 	assert.equal(stalled.requiresUserAction, true);
 	assert.equal(stalled.ball.stalled, true);
 	assert.equal(stalled.ball.tone, "error");
@@ -340,12 +345,46 @@ test("D2/D5：载荷未收全是一个可执行的失败分支，不是「再等
 	const failed = view({
 		automationStage: "manual",
 		pageUrl: "https://www.science.org/doi/pdf/10.1126/science.adz5300",
+		pageSeq: 9,
 		pdfPayload: { ready: true, complete: false, contentLength: 2716668, receivedBytes: 262144, error: "已接收 262144 / 2716668 字节" }
 	});
 	assert.equal(failed.nextAction, "retry-download-entry");
 	assert.match(failed.message, /未收全/);
 	assert.match(failed.message, /256\.0 KB \/ 2\.6 MB/);
-	assert.match(failed.message, /\?download=true/);
+	assert.match(failed.message, /lab_browser_navigate/);
+	assert.equal(failed.alternateRouteId, "science-pdf");
+});
+
+test("Science 双通路：下载事件运行时，失败的响应载荷不抢走下一步", () => {
+	const active = view({
+		state: "downloading", downloadedBytes: 1_000_000,
+		pageUrl: "https://www.science.org/doi/pdf/10.1126/science.adz5300", pageSeq: 10,
+		pdfPayload: { ready: true, complete: false, contentLength: 348, receivedBytes: 348, error: "HTML viewer shell" }
+	});
+	assert.equal(active.nextAction, "wait-and-poll");
+	assert.equal(active.progress.receivedBytes, 1_000_000);
+	// 下载事件通路没有声明总长：不许编造百分比（拿载荷的 348 B 当总量更糟）。
+	assert.equal(active.progress.totalBytes, undefined);
+	assert.equal(active.progress.percent, undefined);
+	// 断言行为而不是内部术语：文案要说清"正在下载 + 会自动归档"，并且不得引导归档。
+	assert.match(active.message, /正在下载/);
+	assert.match(active.message, /自动归档/);
+	assert.notEqual(active.nextAction, "save-pdf-ready");
+	const tooLarge = view({ maxCaptureBytes: 100, downloadedBytes: 101 });
+	assert.match(tooLarge.message, /超过/);
+});
+
+test("Science 备用入口用过后转人工接管，空壳和空流有不同原因码", () => {
+	const pageUrl = "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true";
+	for (const [error, code] of [
+		["wrong-object-html: 响应体是 HTML 查看器页面", "wrong-object-html"],
+		["no-body: WebView2 未提供 PDF 响应体", "no-body"]
+	]) {
+		const result = view({ pageUrl, pageSeq: 20, pdfPayload: { ready: true, complete: false, receivedBytes: 348, error } });
+		assert.equal(result.reasonCode, code);
+		assert.equal(result.nextAction, "manual-handoff");
+		assert.equal(result.alternateRouteId, undefined);
+	}
 });
 
 test("D6：总量未知时不给假的百分比，速度由相邻两次采样给出", () => {

@@ -125,8 +125,8 @@
                        用 wait/observe 返回的新状态决定下一步，不要空转轮询，也不要连点同一个元素；
                        每个动作返回的 operationId 用 lab_browser_operation_status 取结果（要等终态就传 waitMs）。
                        候选里带 target/file/autoDownloadable：Science 那三个同名 DOWNLOAD 靠 file
-                       （…_sm.pdf 与 …tables_s1_to_s6.zip）区分，**优先点 autoDownloadable=true 的入口**，
-                       它才会直接触发下载，而不是只进预览器。
+                       （…_sm.pdf 与 …tables_s1_to_s6.zip）区分。autoDownloadable 是入口提示，
+                       点击后仍以下载事件和归档状态判定是否成功。
                        - 正文进入原生 PDF 时严格按 nextAction 办事（**判据是 nextAction，不是 saveReady 布尔值**）：
                            · nextAction=save-pdf-ready：只有它才代表"载荷已被证明收全"，此时才调用
                              lab_browser_save_current_pdf；它**等到归档完成才返回**：成功给 {path,bytes}，失败给原因。
@@ -135,10 +135,13 @@
                              半个 PDF 一定会在归档时被拒。状态里的 progress 给出 receivedBytes/totalBytes/percent/
                              speedBps/etaSeconds；总量未知时不给百分比，按"还在下"处理。任何恰好是 2 的整次幂的
                              字节数（262144、524288、1048576…）先按"截断"处理，不要当成下完了。
-                           · nextAction=retry-download-entry 表示保存支路拿不到完整字节流（预览器里没有可点元素，
-                             或载荷未收全）：**改用状态里的 alternateEntry**（形如
-                             https://<出版社>/doi/pdf/<DOI>?download=true）重新进入；不要让人右键另存，
-                             也不要反复重试保存工具。
+                           · nextAction=retry-download-entry 且有 alternateRouteId：调用
+                             lab_browser_navigate(taskId, routeId=alternateRouteId,
+                             expectedPageSeq=page.pageSeq)，取操作结果后 lab_browser_wait。
+                             当前仅 Science 官方正文页提供这条受限备用入口；不要将
+                             alternateEntry 当作 elementId，也不要反复调用保存工具。
+                           · nextAction=manual-handoff：当前任务没有可执行的备用入口，请用户在侧栏
+                             手动保存或终止；不要循环 observe/save。
                        verification（人机验证）只能由人完成：nextAction=complete-verification 时把
                        「请在软件侧栏点一下『请验证您是真人』」告诉用户，用 lab_browser_wait 等它通过，
                        不要自行取消或反复重开页面。

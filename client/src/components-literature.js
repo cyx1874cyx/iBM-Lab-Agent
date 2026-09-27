@@ -145,6 +145,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								pendingTaskId: shellStatus?.pendingTaskId,
 								automationStage: shellStatus?.automationStage,
 								downloadedBytes: shellStatus?.downloadedBytes,
+								downloadEventBytes: shellStatus?.downloadEventBytes,
 								downloadElapsedMs: shellStatus?.downloadElapsedMs,
 								maxCaptureBytes: shellStatus?.maxCaptureBytes,
 								// 页面级事实与接管关系（C2/C3）：wait 的指纹与

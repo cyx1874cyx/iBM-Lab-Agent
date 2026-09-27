@@ -660,11 +660,14 @@ async fn webvpn_browser_action(
     observation_id: String,
     element_id: String,
     scope: Option<String>,
+    route_id: Option<String>,
+    expected_page_seq: Option<u64>,
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     // scope 只影响 observe：download=只给下载入口（旧行为），all=整页可交互元素（AI 主导）。
     let scope = scope.unwrap_or_else(|| "download".to_string());
-    webvpn::browser_action(&app, &task_id, &action, &observation_id, &element_id, &scope).await
+    webvpn::browser_action(&app, &task_id, &action, &observation_id, &element_id, &scope,
+        route_id.as_deref().unwrap_or(""), expected_page_seq.unwrap_or(0)).await
 }
 
 #[tauri::command]

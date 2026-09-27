@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
 import { LabCaptureService } from "../../lib/manual-capture.js";
 
 const source = () => readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
@@ -49,4 +50,48 @@ test("浏览器动作只接受当前课题的活动 Agent 捕获任务", () => {
 	});
 	assert.equal(retry.status, "queued");
 	assert.equal(service.getBrowserOperation(stale.id, "p1").status, "failed");
+});
+
+test("scope 与受限 Science 导航参数从队列完整传给桌面壳", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map();
+	service.getTask = () => ({ id: "capture-1", projectId: "p1", kind: "pdf", requestedBy: "agent", status: "armed", publisherUrl: "https://doi.org/10.1126/science.adz5300" });
+	service.getDesktopWebVpnStatus = () => ({ stale: false, pendingTaskId: "capture-1", pageSeq: 14, pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300" });
+	const observed = service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "observe", scope: "all" });
+	assert.equal(service.claimBrowserOperation("p1").scope, "all");
+	service.completeBrowserOperation({ projectId: "p1", id: observed.id, result: { candidates: [] } });
+	assert.throws(() => service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "navigate", routeId: "science-pdf", expectedPageSeq: 13 }), /失效/);
+	const navigation = service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "navigate", routeId: "science-pdf", expectedPageSeq: 14 });
+	const claimed = service.claimBrowserOperation("p1");
+	assert.deepEqual({ routeId: claimed.routeId, expectedPageSeq: claimed.expectedPageSeq }, { routeId: "science-pdf", expectedPageSeq: 14 });
+	service.completeBrowserOperation({ projectId: "p1", id: navigation.id, result: { navigated: true } });
+	service.getDesktopWebVpnStatus = () => ({ stale: false, pendingTaskId: "capture-1", pageSeq: 15, pageUrl: "https://www.science.org/doi/epdf/10.1126/science.other" });
+	assert.throws(() => service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "navigate", routeId: "science-pdf", expectedPageSeq: 15 }), /不支持/);
+});
+
+test("scope=all 的页面观察能看到同源 iframe 内的下载按钮", async () => {
+	const rust = await source();
+	const script = rust.match(/const AGENT_OBSERVE_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replace("__OBSERVE_SCOPE__", "'all'");
+	const button = {
+		tagName: "BUTTON", innerText: "Download PDF", textContent: "Download PDF", shadowRoot: null,
+		getBoundingClientRect: () => ({ width: 80, height: 20 }),
+		getAttribute: () => null, closest: () => null, hasAttribute: () => false
+	};
+	const frameDocument = { querySelectorAll: (selector) => selector === "*" ? [] : [button] };
+	const frame = { shadowRoot: null, matches: () => true, contentDocument: frameDocument };
+	const document = {
+		querySelector: () => null,
+		querySelectorAll: (selector) => selector === "*" ? [frame] : [],
+		contentType: "text/html", readyState: "complete", title: "Science",
+		body: { innerText: "Article" }, documentElement: { scrollHeight: 100 }
+	};
+	const location = { href: "https://www.science.org/doi/10.1126/science.adz5300", hostname: "www.science.org" };
+	const result = runInNewContext(script, {
+		document, location, window: { scrollY: 0 },
+		getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+		crypto: { randomUUID: () => "00000000-0000-0000-0000-000000000001" }, URL
+	});
+	assert.equal(result.candidates.length, 1);
+	assert.equal(result.candidates[0].label, "Download PDF");
 });

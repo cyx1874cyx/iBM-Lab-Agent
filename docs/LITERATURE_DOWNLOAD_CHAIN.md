@@ -1,6 +1,10 @@
 # 文献下载链路规格（给 Agent 的操作手册）
 
-适用版本：`dsh-lab-agent` / 桌面壳 **0.5.5-beta17** 及以后。
+适用版本：`dsh-lab-agent` / 桌面壳 **0.5.5-beta18** 及以后。
+`lab_browser_navigate`、`alternateRouteId`、`reasonCode` 与独立的 `downloadEventBytes` 自
+**0.5.5-beta18** 起可用（beta17 安装包不含这些接口）——插件与桌面壳必须同版本，
+否则 `navigate` 会被壳拒绝。
+Science 校园网下载入口仍待安装包真机回归。
 本文是**操作手册**：另一个 Agent 读完应能独立驱动一条下载、判断失败、并在正确的地方取证。
 实现细节与历史坑见 `docs/HANDOFF_LITERATURE_DOWNLOAD_BETA*.md`；本文件只在必要处引用它们。
 
@@ -71,6 +75,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 |---|---|---|
 | `lab_browser_observe` | `taskId`(必), `scope`(`download` 是默认；**`all` 才是 AI 主导该用的**), `projectId` | 返回 `operationId`；结果含 `url/documentType/readyState/text(1200字)/scroll/candidates[]`。候选：`{id, role, label, target, file, autoDownloadable, likely}` |
 | `lab_browser_click` | `taskId`(必), `observationId`(必), `elementId`(必) | 只能点**上一次 observe 刚返回**的元素；页面 URL 一变即失效 |
+| `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
 | `lab_browser_wait` | `taskId`(必), `timeoutMs`(默认 8000，上限 20000) | 等"阶段/页面/载荷/进度"任一变化即返回；已是终态则立即返回 |
 | `lab_browser_save_current_pdf` | `taskId`(必) | **等到归档终态**：成功 `{path,bytes,sha256}`，失败给原因；工具超时 120 s |
@@ -92,6 +97,7 @@ pdf:   { ready, complete, contentLength, receivedBytes, error },
 progress: { receivedBytes, totalBytes, declaredTotalBytes, percent, speedBps, etaSeconds, idleSeconds },
 heartbeat: { stale, ageMs, pendingTaskId, lastPendingTaskId, releaseReason },
 queuePosition, fileName, size, downloadedBytes, updatedAt, stalled,
+downloadEventBytes, reasonCode, alternateRouteId,
 saveReady, payloadReady, payloadComplete
 ```
 
@@ -107,7 +113,8 @@ saveReady, payloadReady, payloadComplete
 | `observe-or-click` | 页面等你操作（`mode=ai`） | `lab_browser_observe(scope=all)` → `click` |
 | `wait-and-poll` | 还在进行（含"载荷正在接收"） | `lab_browser_wait`；**不要**归档 |
 | `save-pdf-ready` | **载荷已被证明收全** | 调 `lab_browser_save_current_pdf`（会等到终态） |
-| `retry-download-entry` | 保存支路拿不到完整字节流 | 改用 `alternateEntry`（形如 `…/doi/pdf/<DOI>?download=true`） |
+| `retry-download-entry` | 保存支路拿不到完整字节流，且有备用路线 | 用 `lab_browser_navigate(taskId, alternateRouteId, page.pageSeq)` 执行；`alternateEntry` 只供说明，不传给 `click` |
+| `manual-handoff` | 保存支路失败且没有可执行的备用入口 | 告知用户在侧栏手动处理，不要重复调用保存或重建任务 |
 | `complete-verification` | 人机验证 | 让**用户**去侧栏点一下，然后 `lab_browser_wait` |
 | `recreate-or-cancel` | 终态：`heartbeat-lost`/`orphaned`/`stalled`/`failed`/`expired` | 把 `question` 原样问用户；重建用 `cancel(recreate:true)` |
 | `done` | `completed` 或 `cancelled` | 结束 |
