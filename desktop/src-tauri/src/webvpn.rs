@@ -843,7 +843,10 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
       // 历史下载气泡（"Downloads: 981,"）与本次下载无关，却总占候选首位且看着像进度。
       if (/^downloads?:?\s*\d/i.test(label)) continue;
       const href = el.closest('a[href]')?.getAttribute('href') || '';
-      if (!/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
+      // scope=download 只给下载相关入口（旧行为）；scope=all 给整页可交互元素，
+      // 供 AI 主导流程自己判断该点哪里（2026-09-27 需求：提高 AI 主动性）。
+      if (__OBSERVE_SCOPE__ === 'download'
+        && !/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
       const id = 'e' + (rows.length + 1);
       elements.push(el);
       rows.push({ id, role: el.tagName.toLowerCase(), label,
@@ -856,8 +859,16 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
   const observationId = crypto.randomUUID().replace(/-/g, '');
   // 记下当时的 URL：页面一变，元素引用就失效（比单纯靠 TTL 更准）。
   window.__ibmAgentObservation = { observationId, at: Date.now(), href: location.href, elements };
+  // 页面摘要：AI 主导流程要先知道"这是哪一页、处于什么阶段"，再决定点哪里。
+  const bodyText = String(document.body?.innerText || '').replace(/\s+/g, ' ').trim();
   return { observationId, host: location.hostname.slice(0, 100),
-    documentType: document.contentType || '', candidates: rows };
+    documentType: document.contentType || '',
+    readyState: document.readyState,
+    url: location.href.split('?')[0].slice(0, 200),
+    title: String(document.title || '').slice(0, 160),
+    text: bodyText.slice(0, 1200),
+    scroll: { y: Math.round(window.scrollY || 0), height: Math.round(document.documentElement?.scrollHeight || 0) },
+    candidates: rows };
 })()
 "#;
 
@@ -2700,6 +2711,7 @@ pub async fn browser_action(
     action: &str,
     observation_id: &str,
     element_id: &str,
+    scope: &str,
 ) -> Result<serde_json::Value, String> {
     let state = app.try_state::<WebVpnState>().ok_or("文献浏览器状态不可用")?;
     if state.pending_task_id().as_deref() != Some(task_id) {
@@ -2711,7 +2723,9 @@ pub async fn browser_action(
             #[cfg(windows)]
             {
                 let script = if action == "observe" {
-                    AGENT_OBSERVE_SCRIPT.to_string()
+                    AGENT_OBSERVE_SCRIPT
+                        .replace("__OBSERVE_SCOPE__", if scope == "download" { "'download'" } else { "'all'" })
+                        .to_string()
                 } else {
                     if !observation_id.bytes().all(|byte| byte.is_ascii_alphanumeric())
                         || !element_id.starts_with('e')
@@ -2735,7 +2749,7 @@ pub async fn browser_action(
             }
             #[cfg(not(windows))]
             {
-                let _ = (webview, observation_id, element_id);
+                let _ = (webview, observation_id, element_id, scope);
                 Err("文献浏览器页面操作仅在 Windows 桌面端可用".to_string())
             }
         }

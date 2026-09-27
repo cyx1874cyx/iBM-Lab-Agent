@@ -118,21 +118,22 @@
                      返回 requiresUserAction=true，必须把 question 原样询问用户；只有用户明确
                      确认终止后，才调用 lab_publisher_browser_download_cancel(taskId)，不得因
                      一次获取失败擅自取消，也不得让失败任务继续占据队列；
-                   - 通用出版社文献下载调用 lab_publisher_browser_download 后，以 taskId
-                     持续调用 lab_publisher_browser_download_status，直到 completed 或
-                     明确的 failed/expired/cancelled。queued 表示排队，不要再次创建同类任务；
-                     verification 表示出版社要求人机验证，这一步**只能由人完成**：状态会返回
-                     nextAction=complete-verification，此时必须把「请在软件侧栏点一下
-                     『请验证您是真人』」明确告诉用户，然后继续查询状态等待其完成；
-                     不要自行点击、不要结束或取消任务，也不要反复重开页面。
-                     状态返回 nextAction=wait-and-poll 时继续查询，
-                     nextAction=observe-or-save-pdf 或 observe-or-click 时先用
-                     lab_browser_observe 查看页面；若正文页是顶层原生 PDF（或页面观察
-                     因原生查看器无法读取）则调用 lab_browser_save_current_pdf；否则按观察
-                     返回的短期元素引用调用 lab_browser_click。每个浏览器动作都要用
-                     lab_browser_operation_status 等结果，点击不等于文件已归档，最终
-                     仍以下载状态 completed 为准。正文未结束时 SI 可排队，必须等正文
-                     释放文献浏览器后再处理 SI；
+                   - 通用出版社文献下载调用 lab_publisher_browser_download（**默认 mode=ai**：
+                     页面打开后由你直接操作，壳内脚本不点击）。随后**由你驱动浏览器闭环**：
+                     lab_publisher_browser_download_status 读状态 → lab_browser_observe（scope=all）
+                     看清页面 → lab_browser_click 点入口 → lab_browser_wait 等页面变化 → 再观察。
+                     用 wait/observe 返回的新状态决定下一步，不要空转轮询，也不要连点同一个元素；
+                     每个动作返回的 operationId 用 lab_browser_operation_status 取结果。
+                     候选里带 target/file：Science 那三个同名 DOWNLOAD 靠 file
+                     （…_sm.pdf 与 …tables_s1_to_s6.zip）区分，不要盲点。
+                     正文落到顶层原生 PDF（observe 报 documentType=application/pdf，或状态说
+                     「已进入原生 PDF 预览器」）时调用 lab_browser_save_current_pdf 直接归档，
+                     不要让人右键另存。verification（人机验证）只能由人完成：nextAction=
+                     complete-verification 时把「请在软件侧栏点一下『请验证您是真人』」告诉用户，
+                     用 lab_browser_wait 等它通过，不要自行取消或反复重开页面。
+                     mode=auto 是快路径（壳内脚本先自动点，失败再由你按上面的闭环接管），
+                     只在明确想省事时使用。completed 才代表已归档；queued 表示排队，
+                     不要重复创建同类任务。正文未结束时 SI 可排队，等正文释放文献浏览器后再处理 SI；
                    - 完成文献检索 → lab_tasks_register_search（多源检索并登记）。同一会话
                      无论检索多少轮都重复使用此工具，系统会自动合并为一个条目和一个
                      RIS；entryTitle 必须用一句简短中文概括本会话累计检索主题，不能直接

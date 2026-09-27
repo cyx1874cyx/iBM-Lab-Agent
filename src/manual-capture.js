@@ -50,6 +50,12 @@ export const labCaptureTaskSchema = z.object({
 	requestedBy: z.enum(["user", "agent"]).default("user"),
 	/** AI 仅在用户明确回复“我已登录”后置 true；桌面端据此执行确认并继续。 */
 	loginConfirmedByUser: z.boolean().default(false),
+	/**
+	 * 谁来点页面上的入口。
+	 *   ai   —— Agent 直接操作页面（观察 → 点击 → 等待 → 保存），默认；
+	 *   auto —— 壳内注入脚本自动点击，失败后仍可由 Agent 接管（旧行为，作为快路径保留）。
+	 */
+	mode: z.enum(["ai", "auto"]).default("ai"),
 	/** 用户手工下载前同步打开的出版社页面（DOI 存在时为 https://doi.org/<doi>）。 */
 	publisherUrl: z.string().url().optional(),
 	status: z.enum(CAPTURE_STATUSES).default("armed"),

@@ -557,7 +557,8 @@
           taskId: String(data.payload?.taskId || ''),
           action: String(data.payload?.action || ''),
           observationId: String(data.payload?.observationId || ''),
-          elementId: String(data.payload?.elementId || '')
+          elementId: String(data.payload?.elementId || ''),
+          scope: String(data.payload?.scope || 'download')
         })
           .then((result) => reply('WEBVPN_BROWSER_ACTION_RESULT', { ok: true, result }))
           .catch((error) => reply('WEBVPN_BROWSER_ACTION_RESULT', { ok: false, error: String(error) }));
