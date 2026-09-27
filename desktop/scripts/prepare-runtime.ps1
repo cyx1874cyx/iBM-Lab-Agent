@@ -287,6 +287,13 @@ try {
   $refreshPlugin = [bool]$Force -or -not (Test-PluginSnapshot) -or -not $previousState -or $previousState.pluginFingerprint -ne $pluginFingerprint
   if (-not $refreshNode -and -not $refreshDsh -and -not $refreshPlugin) {
     Write-Phase 'All runtime components are unchanged and complete; skipping delete/copy. Use -Force to rebuild them.'
+    # 即便如此也要把 Windows 侧的 DSH 补丁补齐：该补丁不进 DSH 指纹，所以"全部未变"
+    # 这条路径不会经过换入后的补丁步骤，而正式树可能是打补丁之前铺的。
+    $staleDshRoot = Join-Path $resourceRoot 'dsh'
+    if (Test-Path -LiteralPath $staleDshRoot) {
+      & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-native-file-associations.mjs') patch --root $staleDshRoot
+      if ($LASTEXITCODE -ne 0) { throw "DSH native file-association degradation patch failed for $staleDshRoot" }
+    }
     return
   }
   Write-Phase "Refresh plan: node=$refreshNode, dsh=$refreshDsh, plugin=$refreshPlugin."
@@ -401,14 +408,6 @@ if ($refreshDsh) {
   $webFrontendRoot = Join-Path $tempResourceRoot 'dsh\node_modules\@deepseek-ai\dsh-web-frontend'
   & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-web-frontend.mjs') patch --root $webFrontendRoot
   if ($LASTEXITCODE -ne 0) { throw "DSH web frontend clipboard patch failed for $webFrontendRoot" }
-  # Windows-only: Shell file-association enumeration fails with E_FAIL on machines
-  # whose Shell will not enumerate handlers (2026-09-27 field report), and DSH turns
-  # that into "cannot list applications" for the sidebar's Open-with control. The
-  # patch makes the query degrade to "no applications", keeping Reveal in Explorer
-  # (explorer.exe /select, - no COM) usable. See scripts/patch-dsh-native-file-associations.mjs.
-  $nativeCommandRoot = Join-Path $tempResourceRoot 'dsh'
-  & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-native-file-associations.mjs') patch --root $nativeCommandRoot
-  if ($LASTEXITCODE -ne 0) { throw "DSH native file-association degradation patch failed for $nativeCommandRoot" }
   Write-Phase ("DSH tree copied in {0:n1}s." -f $dshCopyWatch.Elapsed.TotalSeconds)
 }
 if ($refreshPlugin) {
@@ -583,6 +582,24 @@ try {
   throw "prepare-runtime swap aborted and rolled back: $($_.Exception.Message)"
 }
 Write-Phase ("Transactional swap completed in {0:n1}s. Old snapshots kept at $backupRoot" -f $swapWatch.Elapsed.TotalSeconds)
+
+# Windows-only DSH patch, applied to the FORMAL tree unconditionally.
+#
+# It must not live inside `if ($refreshDsh)`: the DSH copy is skipped whenever the
+# DSH fingerprint matches, and this patch deliberately does not change that
+# fingerprint — so a conditional step silently shipped an unpatched DSH (caught
+# 2026-09-27 by checking the staged tree). The patch is idempotent, so running it
+# on every prepare is cheap.
+#
+# Why: Shell's SHAssocEnumHandlers returns E_FAIL for every extension on some
+# machines, DSH declares it PreserveSig=false so the failure becomes an exception,
+# and the sidebar's "Open with" then reports "cannot list applications". Degrading
+# to "no applications" keeps Reveal in Explorer (explorer.exe /select, no COM).
+$formalDshRoot = Join-Path $resourceRoot 'dsh'
+if (Test-Path -LiteralPath $formalDshRoot) {
+  & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-native-file-associations.mjs') patch --root $formalDshRoot
+  if ($LASTEXITCODE -ne 0) { throw "DSH native file-association degradation patch failed for $formalDshRoot" }
+}
 
 # 备份保留策略：只保留最近 2 个 backup 快照
 Get-ChildItem -LiteralPath $buildStateRoot -Directory -Filter 'prepare-runtime.backup-*' -ErrorAction SilentlyContinue |
