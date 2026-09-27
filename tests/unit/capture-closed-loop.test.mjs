@@ -585,3 +585,25 @@ test("R7：预设把「先读原因、再决定」写成了固定顺序", async 
 	assert.match(preset, /本地已保住完整文件/);
 	assert.match(preset, /连续 400\/失败超过 2 次就停止自动重试/);
 });
+
+test("saveReady 必须与 nextAction=save-pdf-ready 同义（348 B 空壳那条假阳性）", async () => {
+	const tools = harness(captureStub({
+		task: { ...TASK, status: "armed" },
+		desktop: desktop({
+			state: "waiting-download",
+			automationStage: "manual",
+			// 348 B 的 HTML 空壳：进来了字节（ready）但没被证明完整（complete=false）
+			pdfPayload: { ready: true, complete: false, receivedBytes: 348, error: "已接收 348 字节，且尾部没有 %%EOF" }
+		})
+	}));
+	const status = tools.find((item) => item.name === "lab_publisher_browser_download_status");
+	const value = await status.execute({ projectId: "proj-test", taskId: "capture-1" }, {});
+	assert.equal(value.saveReady, false, "没收全就不许说 saveReady");
+	assert.equal(value.payloadReady, true, "有字节了就是 ready");
+	assert.equal(value.payloadComplete, false);
+	assert.notEqual(value.nextAction, "save-pdf-ready");
+	assert.ok(
+		value.saveReady === (value.nextAction === "save-pdf-ready"),
+		"saveReady 与 nextAction 必须同义，否则调用方会被自相矛盾的字段误导"
+	);
+});
