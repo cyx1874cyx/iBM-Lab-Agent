@@ -401,6 +401,14 @@ if ($refreshDsh) {
   $webFrontendRoot = Join-Path $tempResourceRoot 'dsh\node_modules\@deepseek-ai\dsh-web-frontend'
   & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-web-frontend.mjs') patch --root $webFrontendRoot
   if ($LASTEXITCODE -ne 0) { throw "DSH web frontend clipboard patch failed for $webFrontendRoot" }
+  # Windows-only: Shell file-association enumeration fails with E_FAIL on machines
+  # whose Shell will not enumerate handlers (2026-09-27 field report), and DSH turns
+  # that into "cannot list applications" for the sidebar's Open-with control. The
+  # patch makes the query degrade to "no applications", keeping Reveal in Explorer
+  # (explorer.exe /select, - no COM) usable. See scripts/patch-dsh-native-file-associations.mjs.
+  $nativeCommandRoot = Join-Path $tempResourceRoot 'dsh'
+  & $NodeExe (Join-Path $sourceRoot 'scripts\patch-dsh-native-file-associations.mjs') patch --root $nativeCommandRoot
+  if ($LASTEXITCODE -ne 0) { throw "DSH native file-association degradation patch failed for $nativeCommandRoot" }
   Write-Phase ("DSH tree copied in {0:n1}s." -f $dshCopyWatch.Elapsed.TotalSeconds)
 }
 if ($refreshPlugin) {

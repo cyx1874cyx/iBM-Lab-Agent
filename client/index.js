@@ -3843,6 +3843,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
             automationStage: shellStatus?.automationStage,
             downloadedBytes: shellStatus?.downloadedBytes,
             downloadElapsedMs: shellStatus?.downloadElapsedMs,
+            maxCaptureBytes: shellStatus?.maxCaptureBytes,
             iwanInstalled: iwanStatus?.installed,
             iwanConnected: iwanStatus?.connected,
             iwanUsable: iwanStatus?.usable,

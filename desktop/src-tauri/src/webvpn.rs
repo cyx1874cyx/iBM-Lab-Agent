@@ -72,6 +72,9 @@ const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
 /// 关闭。页面每次导航后都会重新注入。
 const WEBVPN_CHROME_SCRIPT: &str = r#"
 (() => {
+  // 初始化脚本会在**每个 frame** 里执行。publisher 页面常有同源 iframe，各挂一套壳
+  // 就会出现"多个地址栏 + 前进后退横条"（2026-09-27 实测）。只在最外层文档挂。
+  if (window.top !== window.self) return;
   /**
    * 把内部状态送回壳。
    *
@@ -804,6 +807,32 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
       if (roots.length >= 20) break;
     }
   }
+  /**
+   * 候选必须带"能区分彼此"的目标信息：Science 文章页上 PDF / Download PDF / 三个
+   * DOWNLOAD 同名同 role，却在下载完全不同的东西（2026-09-27 实测：三个 DOWNLOAD 分别是
+   * sm.pdf 与 tables zip）。只给 label 时调用方只能盲点、再从日志反查 URL。
+   *
+   * 同时**不能把带票据的 URL 送进模型上下文**：只保留少数"说明这是哪个入口"的参数，
+   * 其余（ticket/token/session/code 等）一律丢弃。
+   */
+  const KEEP_PARAMS = ['file', 'filename', 'name', 'type', 'format', 'download', 'isdtmredir', 'doi'];
+  const safeTarget = (raw) => {
+    try {
+      const url = new URL(raw, location.href);
+      const kept = [...url.searchParams.entries()]
+        .filter(([key]) => KEEP_PARAMS.includes(key.toLowerCase()))
+        .map(([key, value]) => encodeURIComponent(key) + '=' + encodeURIComponent(String(value).slice(0, 80)));
+      return (url.host + url.pathname + (kept.length ? '?' + kept.join('&') : '')).slice(0, 180);
+    } catch { return ''; }
+  };
+  const safeFileName = (raw) => {
+    try {
+      const url = new URL(raw, location.href);
+      const fromQuery = url.searchParams.get('file') || url.searchParams.get('filename') || '';
+      const base = String(fromQuery || url.pathname).split('/').pop() || '';
+      return /^[\w.\- ]{1,60}$/.test(base) ? base : '';
+    } catch { return ''; }
+  };
   const rows = [];
   const elements = [];
   for (const root of roots) {
@@ -811,18 +840,22 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
       if (!visible(el)) continue;
       const label = String(el.getAttribute('aria-label') || el.innerText || el.textContent || '')
         .replace(/\s+/g, ' ').trim().slice(0, 100);
+      // 历史下载气泡（"Downloads: 981,"）与本次下载无关，却总占候选首位且看着像进度。
+      if (/^downloads?:?\s*\d/i.test(label)) continue;
       const href = el.closest('a[href]')?.getAttribute('href') || '';
       if (!/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
       const id = 'e' + (rows.length + 1);
       elements.push(el);
       rows.push({ id, role: el.tagName.toLowerCase(), label,
+        target: safeTarget(href), file: safeFileName(href),
         likely: /supplement|supporting|附件|补充/i.test(label + ' ' + href) ? 'si' : 'pdf' });
       if (rows.length >= 30) break;
     }
     if (rows.length >= 30) break;
   }
   const observationId = crypto.randomUUID().replace(/-/g, '');
-  window.__ibmAgentObservation = { observationId, at: Date.now(), elements };
+  // 记下当时的 URL：页面一变，元素引用就失效（比单纯靠 TTL 更准）。
+  window.__ibmAgentObservation = { observationId, at: Date.now(), href: location.href, elements };
   return { observationId, host: location.hostname.slice(0, 100),
     documentType: document.contentType || '', candidates: rows };
 })()
@@ -831,8 +864,11 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
 const AGENT_CLICK_SCRIPT: &str = r#"
 (() => {
   const snapshot = window.__ibmAgentObservation;
-  if (!snapshot || snapshot.observationId !== __OBSERVATION_ID__ || Date.now() - snapshot.at > 15000)
-    return { error: '页面观察已过期，请重新观察' };
+  // 15 秒对"模型一次工具往返"太紧（实测经常来不及点）。延长到 2 分钟，并额外要求
+  // 页面 URL 没变 —— 变了说明元素引用已经失效，这比单看时间更准。
+  if (!snapshot || snapshot.observationId !== __OBSERVATION_ID__ || Date.now() - snapshot.at > 120000
+    || snapshot.href !== location.href)
+    return { error: '页面观察已过期（页面已变化或超时），请重新观察' };
   const index = Number(String(__ELEMENT_ID__).slice(1)) - 1;
   const element = snapshot.elements[index];
   if (!element || !element.isConnected) return { error: '入口已变化，请重新观察' };
@@ -1241,6 +1277,9 @@ pub struct WebVpnStatus {
     pub downloaded_bytes: Option<u64>,
     /// 自 DownloadEvent::Requested 起经过的毫秒数。
     pub download_elapsed_ms: Option<u64>,
+    /// 单次捕获的体积上限（字节）。调用方据此在下载前/中判断会不会白跑一趟 ——
+    /// 超过它只会在最后的上传阶段被 413 拒绝（2026-09-27 实测 107 MB 的 SI）。
+    pub max_capture_bytes: u64,
     /// WebVPN 窗口当前是否已创建（隐藏也算已创建）。
     pub window_open: bool,
     /// WebVPN 子 WebView 当前是否在主窗口右侧可见。
@@ -1894,6 +1933,7 @@ impl WebVpnState {
             automation_stage: session.pending.as_ref().map(|pending| pending.automation_stage.clone()),
             downloaded_bytes,
             download_elapsed_ms,
+            max_capture_bytes: CAPTURE_MAX_BYTES,
             window_open,
             sidebar_visible: window_open && session.sidebar_visible,
             probe_available: Self::probe_available(),
