@@ -5,9 +5,9 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta11",
-    "commit": "213a7be",
-    "note": "beta11 fixes two field bugs (the injected shell mounted once per frame, so same-origin iframes each got an address bar; and DSH's Windows file-association query throws on machines where Shell returns E_FAIL for every extension, which broke the sidebar's Open-with control - the packaged DSH now degrades to 'no applications' so Reveal in Explorer keeps working) and acts on four items from the in-app report: observe candidates carry a redacted target and file name, the stray downloads bubble is filtered, the observation lasts two minutes and dies when the page URL changes, and the 100 MB capture limit is surfaced in the status. Live selector verification is still pending."
+    "version": "0.5.5-beta12",
+    "commit": "c3dd99e",
+    "note": "beta12 flips the literature browser to AI-driven by default: lab_publisher_browser_download mode=ai opens the page and arms capture without injecting the auto-click script, so the agent observes (scope=all, with a page summary), clicks, waits for a change with lab_browser_wait, and saves when needed; mode=auto keeps the script as a fast path. This dissolves the earlier 'automation cannot recognise the entry' blocker, since the model picks the entry itself using the target/file fields on candidates. Live selector verification is still pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
