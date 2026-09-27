@@ -293,3 +293,29 @@ test("R7.1/C21/C22：预设不再把模型引向失效支路", async () => {
 	assert.match(preset, /recreate=true/, "失败后要能直接重建");
 	assert.match(preset, /lab_publisher_browser_capture_list/);
 });
+
+test("C19/C20 接线：list 带 view，客户端把 ball 交给壳，壳渲染插件文案", async () => {
+	const [remote, bridge, shell, ball] = await Promise.all([
+		readFile(new URL("../../lib/remote.js", import.meta.url), "utf8"),
+		readFile(new URL("../../client/src/webvpn-bridge.js", import.meta.url), "utf8"),
+		readFile(new URL("../../desktop/src/index.html", import.meta.url), "utf8"),
+		readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8")
+	]);
+	// 队列的每一行都带同一份真相。
+	assert.match(remote, /listTaskViews\(request\.projectId\)/);
+	assert.match(remote, /\{ \.\.\.task, view \}/);
+	// 客户端把 ball 原样交给壳（含 canRecreate），壳再转给 Rust。
+	assert.match(bridge, /task\?\.view\?\.ball/);
+	assert.match(bridge, /canRecreate: Boolean\(ball\.canRecreate\)/);
+	assert.match(shell, /ballPhase: String\(task\?\.ball\?\.phase \|\| ''\)/);
+	assert.match(shell, /ballCanRecreate: Boolean\(task\?\.ball\?\.canRecreate\)/);
+	// Rust 状态里带上这些字段，并且小球优先用插件文案。
+	assert.match(ball, /ball_can_recreate: bool/);
+	assert.match(ball, /"ballText": active\.map/);
+	// 重建入口：小球 → 壳钩子 → 客户端 → 插件 RPC，一路都在。
+	assert.match(ball, /url\.host_str\(\) == Some\("recreate-task"\)/);
+	assert.match(ball, /window\.__ibmBallRecreateTask/);
+	assert.match(shell, /window\.__ibmBallRecreateTask = /);
+	assert.match(shell, /type: 'WEBVPN_RECREATE_TASK'/);
+	assert.match(remote, /async manual_capture_recreate\(request\)/);
+});

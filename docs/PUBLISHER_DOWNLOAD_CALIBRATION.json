@@ -6,8 +6,8 @@
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
     "version": "0.5.5-beta13",
-    "commit": "c3dd99e",
-    "note": "beta12 flips the literature browser to AI-driven by default: lab_publisher_browser_download mode=ai opens the page and arms capture without injecting the auto-click script, so the agent observes (scope=all, with a page summary), clicks, waits for a change with lab_browser_wait, and saves when needed; mode=auto keeps the script as a fast path. This dissolves the earlier 'automation cannot recognise the entry' blocker, since the model picks the entry itself using the target/file fields on candidates. Live selector verification is still pending."
+    "commit": "e750887",
+    "note": "beta13 closes the AI-driven loop: lib/capture-phase.js is now the single derivation read by the tools, the status tool and the capture ball, so armed + (stale heartbeat | released by the shell) reports heartbeat-lost/orphaned with a rebuild-or-terminate question instead of pretending to be queued. The shell captures application/pdf response bodies at the resource layer (WebResourceResponseReceived + GetContent) into a staging file of its own, so saving no longer depends on the PDF viewer's Save-As UI, and lab_browser_save_current_pdf waits for the terminal result ({path,bytes,sha256} or a reason) instead of returning a bare started:true. Page events (url/documentType/httpStatus/readyState/pageSeq) now reach the wait fingerprint, takeover/release is reported explicitly, candidates carry autoDownloadable, and the preset only saves on save-pdf-ready and rebuilds via cancel(recreate:true). Live selector verification against authenticated iWAN publishers is still pending for every entry below."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
