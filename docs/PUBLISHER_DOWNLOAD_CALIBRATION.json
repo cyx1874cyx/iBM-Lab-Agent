@@ -5,7 +5,7 @@
   "implementation": "desktop/src-tauri/src/webvpn.rs PUBLISHER_DOWNLOAD_AUTOMATION",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta13",
+    "version": "0.5.5-beta14",
     "commit": "e750887",
     "note": "beta13 closes the AI-driven loop: lib/capture-phase.js is now the single derivation read by the tools, the status tool and the capture ball, so armed + (stale heartbeat | released by the shell) reports heartbeat-lost/orphaned with a rebuild-or-terminate question instead of pretending to be queued. The shell captures application/pdf response bodies at the resource layer (WebResourceResponseReceived + GetContent) into a staging file of its own, so saving no longer depends on the PDF viewer's Save-As UI, and lab_browser_save_current_pdf waits for the terminal result ({path,bytes,sha256} or a reason) instead of returning a bare started:true. Page events (url/documentType/httpStatus/readyState/pageSeq) now reach the wait fingerprint, takeover/release is reported explicitly, candidates carry autoDownloadable, and the preset only saves on save-pdf-ready and rebuilds via cancel(recreate:true). Live selector verification against authenticated iWAN publishers is still pending for every entry below."
   },

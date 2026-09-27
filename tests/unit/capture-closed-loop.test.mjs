@@ -319,3 +319,85 @@ test("C19/C20 接线：list 带 view，客户端把 ball 交给壳，壳渲染�
 	assert.match(shell, /type: 'WEBVPN_RECREATE_TASK'/);
 	assert.match(remote, /async manual_capture_recreate\(request\)/);
 });
+
+test("D5：只要载荷没被证明收全，就绝不允许引导去归档（治 HTTP 400 那条）", () => {
+	const receiving = view({ automationStage: "manual", pdfPayload: { ready: true, complete: false, contentLength: 2716668, receivedBytes: 262144 } });
+	assert.notEqual(receiving.nextAction, "save-pdf-ready");
+	assert.equal(receiving.nextAction, "wait-and-poll");
+	assert.equal(receiving.pdf.complete, false);
+	assert.match(receiving.message, /正在接收/);
+	// 分片绝不能冒充总长（现场原话是「已就绪（256.0 KB）」，真实 2.6 MB）。
+	assert.match(receiving.message, /256\.0 KB \/ 2\.6 MB/);
+	assert.equal(receiving.progress.percent, 10);
+	assert.equal(receiving.progress.totalBytes, 2716668);
+
+	const complete = view({ automationStage: "manual", pdfPayload: { ready: true, complete: true, contentLength: 2716668, receivedBytes: 2716668 } });
+	assert.equal(complete.nextAction, "save-pdf-ready");
+	assert.match(complete.message, /已完整接收（2\.6 MB）/);
+});
+
+test("D2/D5：载荷未收全是一个可执行的失败分支，不是「再等等」", () => {
+	const failed = view({
+		automationStage: "manual",
+		pageUrl: "https://www.science.org/doi/pdf/10.1126/science.adz5300",
+		pdfPayload: { ready: true, complete: false, contentLength: 2716668, receivedBytes: 262144, error: "已接收 262144 / 2716668 字节" }
+	});
+	assert.equal(failed.nextAction, "retry-download-entry");
+	assert.match(failed.message, /未收全/);
+	assert.match(failed.message, /256\.0 KB \/ 2\.6 MB/);
+	assert.match(failed.message, /\?download=true/);
+});
+
+test("D6：总量未知时不给假的百分比，速度由相邻两次采样给出", () => {
+	const unknown = view({ pdfPayload: { ready: true, complete: false, receivedBytes: 512 * 1024 } });
+	assert.equal(unknown.progress.totalBytes, undefined);
+	assert.equal(unknown.progress.percent, undefined);
+	assert.match(unknown.message, /总大小未知/);
+	const withSpeed = view({ pdfPayload: { ready: true, complete: false, contentLength: 4 * 1024 * 1024, receivedBytes: 1024 * 1024 } }, {}, undefined);
+	assert.equal(withSpeed.progress.percent, 25);
+	// progressBps 走第四参数注入（服务层按两次采样算）
+	const svc = Object.create(LabCaptureService.prototype);
+	svc.captureProgressSamples = new Map();
+	svc.desktopLastPendingTaskId = null;
+	svc.desktopReleaseReason = null;
+	svc.desktopWebVpnStatus = null;
+	svc.reportDesktopWebVpnStatus({ state: "waiting-download", windowOpen: true, pendingTaskId: "capture-1", automationStage: "manual", downloadedBytes: 1024 * 1024, pdfPayload: { ready: true, complete: false, contentLength: 4 * 1024 * 1024, receivedBytes: 1024 * 1024 } });
+	svc.speedBps = () => 1024 * 1024;
+	svc.stalledMs = () => 0;
+	const described = svc.describeTask(TASK, 1);
+	assert.equal(described.progress.speedBps, 1024 * 1024);
+	assert.equal(described.progress.etaSeconds, 3);
+});
+
+test("D7：指纹含载荷完整性维度，wait 才能在「收完」那一刻返回", async () => {
+	const source = await readFile(new URL("../../lib/tasks-tool.js", import.meta.url), "utf8");
+	const fingerprint = source.match(/const fingerprint = \(value\) => \[([\s\S]*?)\]/)?.[1] ?? "";
+	for (const field of ["pdf?.complete", "pdf?.contentLength", "progress?.receivedBytes"]) {
+		assert.match(fingerprint, new RegExp(field.replace(/[?.]/g, "\\$&")), `指纹必须含 ${field}`);
+	}
+	// 终态必须直接返回，不允许空转到超时。
+	assert.match(source, /if \(before\.requiresUserAction \|\| before\.nextAction === "done"\) return before/);
+});
+
+test("D9：预设只说 nextAction，不再教模型看 saveReady 布尔值", async () => {
+	const preset = await readFile(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url), "utf8");
+	assert.doesNotMatch(preset, /saveReady=true/, "不要再教模型看 saveReady");
+	assert.match(preset, /判据是 nextAction/);
+	assert.match(preset, /只等，不要归档/);
+	assert.match(preset, /2 的整次幂/);
+});
+
+test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
+	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// ready 的语义边界必须写明，且 complete 不能写成「有字节就算完整」。
+	assert.match(rust, /ready: payload\.received_bytes > 0/);
+	assert.doesNotMatch(rust, /payload\.complete = bytes > 0/);
+	// 读流不能把一次空读当成 EOF。
+	assert.match(rust, /read == 0 \*\*不等于\*\* EOF|read == 0 \*\*不等于\*\*/);
+	assert.match(rust, /PDF_STREAM_STALL_TIMEOUT/);
+	// 归档前的三道校验。
+	assert.match(rust, /tail_has_eof\(&head\)/);
+	assert.match(rust, /pdf_payload_total\(task_id\)/);
+	// 进度要两条路一起算。
+	assert.match(rust, /fn pending_progress_bytes/);
+});

@@ -71,6 +71,10 @@ const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
 const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
+/// 响应体流「多少秒没有新字节」就不再等（之后如实报未收全）。
+const PDF_STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(5);
+/// 单次载荷读取的总上限，防止一个不结束的流把保存永远挂住。
+const PDF_STREAM_MAX_WAIT: Duration = Duration::from_secs(180);
 
 /// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
 /// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
@@ -1889,22 +1893,17 @@ impl WebVpnState {
         }
     }
 
-    pub fn finish_pdf_payload(&self, task_id: &str, result: Result<u64, String>) {
+    /// 落定载荷结果。**完整性必须来自正向证明**（收满 Content-Length，或尾部有
+    /// `%%EOF`），绝不能再写成「有字节就算完整」——那正是把半个 PDF 送进归档服务的成因。
+    #[allow(dead_code)]
+    pub fn finish_pdf_payload(&self, task_id: &str, bytes: u64, complete: bool, note: String) {
         if let Ok(mut session) = self.session.lock() {
             if let Some(pending) = session.pending.as_mut() {
                 if pending.task_id == task_id {
                     if let Some(payload) = pending.pdf_payload.as_mut() {
-                        match result {
-                            Ok(bytes) => {
-                                payload.received_bytes = bytes;
-                                payload.complete = bytes > 0;
-                                payload.error = None;
-                            }
-                            Err(error) => {
-                                payload.complete = false;
-                                payload.error = Some(error);
-                            }
-                        }
+                        payload.received_bytes = bytes;
+                        payload.complete = complete;
+                        payload.error = if note.is_empty() { None } else { Some(note) };
                     }
                 }
             }
@@ -1952,6 +1951,17 @@ impl WebVpnState {
         }
         let payload = pending.pdf_payload.as_ref()?;
         Some((payload.complete, payload.received_bytes, payload.error.clone()))
+    }
+
+    /// 载荷声明的总长度（D1/D2：归档前据此核对大小）。
+    #[allow(dead_code)]
+    pub fn pdf_payload_total(&self, task_id: &str) -> Option<u64> {
+        let session = self.session.lock().ok()?;
+        let pending = session.pending.as_ref()?;
+        if pending.task_id != task_id {
+            return None;
+        }
+        pending.pdf_payload.as_ref()?.content_length
     }
 
     /// 当前捕获的世代号（C4：终态等待按世代对齐，避免读到上一次的结果）。
@@ -2160,9 +2170,7 @@ impl WebVpnState {
             }
             return serde_json::json!({ "phase": "idle", "kind": "", "queue": queue }).to_string();
         };
-        let bytes = pending
-            .download_started_at
-            .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()));
+        let bytes = pending_progress_bytes(pending);
         let phase = match session.state {
             WebVpnSessionState::Downloading if pending.native_saving => "saving",
             WebVpnSessionState::Downloading => "downloading",
@@ -2399,11 +2407,7 @@ impl WebVpnState {
                 generation: session.generation,
             })
             .unwrap_or_default();
-        let downloaded_bytes = session.pending.as_ref().and_then(|pending| {
-            pending
-                .download_started_at
-                .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()))
-        });
+        let downloaded_bytes = session.pending.as_ref().and_then(pending_progress_bytes);
         let download_elapsed_ms = session.pending.as_ref().and_then(|pending| {
             pending
                 .download_started_at
@@ -2448,7 +2452,11 @@ impl WebVpnState {
                 .as_ref()
                 .and_then(|pending| pending.pdf_payload.as_ref())
                 .map(|payload| PdfPayloadStatus {
-                    ready: payload.complete && payload.received_bytes > 0,
+                    // 语义边界（D1）：`ready` = 至少进来了一个字节，`complete` = 已被
+                    // 正向证明收全（收满 Content-Length，或尾部有 %%EOF）。
+                    // 两者曾经被写成同一个条件，于是"正在接收"这个状态对外不存在，
+                    // 调用方只能看到"已就绪"。
+                    ready: payload.received_bytes > 0,
                     complete: payload.complete,
                     content_length: payload.content_length,
                     received_bytes: payload.received_bytes,
@@ -2462,6 +2470,9 @@ impl WebVpnState {
     }
 
     /// 下载/保存期间「无字节增长」的毫秒数（C17）。非长耗时阶段返回 None。
+    ///
+    /// 采样的是 `pending_progress_bytes`（下载目标与载荷取较大者），所以走响应层
+    /// 时也能正确判定停滞，不会因为只看 `temp_path` 而永远显示"正在保存"。
     fn stalled_ms_now(&self, downloaded_bytes: Option<u64>) -> Option<u64> {
         let Ok(mut session) = self.session.lock() else {
             return None;
@@ -2591,6 +2602,27 @@ pub fn capture_temp_path(data_root: &Path, task_id: &str, kind: &str) -> Result<
     let dir = data_root.join(DOWNLOAD_DIR_NAME);
     fs::create_dir_all(&dir).map_err(|error| format!("无法创建 WebVPN 下载临时目录: {error}"))?;
     Ok(dir.join(format!("{task_id}-{kind}.pdf")))
+}
+
+/// 一个捕获任务当前已接收的字节数：下载目标与响应层载荷取较大者。
+///
+/// 两条路各自写自己的文件，调用方只关心"总共进来多少"。取 max 保证这个数字单调，
+/// 不会因为某条路暂时没有数据而回退。
+fn pending_progress_bytes(pending: &PendingCapture) -> Option<u64> {
+    let download_bytes = pending
+        .download_started_at
+        .and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()));
+    let payload_bytes = pending
+        .pdf_payload
+        .as_ref()
+        .map(|payload| payload.received_bytes)
+        .filter(|bytes| *bytes > 0);
+    match (download_bytes, payload_bytes) {
+        (Some(download), Some(payload)) => Some(download.max(payload)),
+        (Some(download), None) => Some(download),
+        (None, Some(payload)) => Some(payload),
+        (None, None) => None,
+    }
 }
 
 /// 响应层 PDF 载荷的暂存路径（与下载目标同目录、不同文件）。
@@ -3367,18 +3399,42 @@ fn handle_response_received(
                 if let Some(state) = payload_app.try_state::<WebVpnState>() {
                     state.finish_pdf_payload(
                         &payload_task,
-                        Err(format!("WebView2 未提供 PDF 响应体（0x{code:08X}）")),
+                        0,
+                        false,
+                        format!("WebView2 未提供 PDF 响应体（0x{code:08X}）"),
                     );
                 }
                 return Ok(());
             };
-            // 就地读取，不丢到别的线程：`IStream` 不是 Send（内部是裸指针），
-            // 而 `GetContent` 的回调只在响应体**已经收完**之后才触发，所以这里
-            // 读的是本地内存/临时文件，不是网络；再叠加 CAPTURE_MAX_BYTES 上限，
-            // 阻塞时间是可控的。
-            let result = write_stream_to_file(&stream, &payload_path, &payload_task, &payload_app);
+            // 就地读取，不丢到别的线程：`IStream` 不是 Send（内部是裸指针）。
+            // 读完（收满 Content-Length / 尾部 %%EOF / 停滞超时）才落定结果。
+            let body = write_stream_to_file(&stream, &payload_task, &payload_app, content_length);
             if let Some(state) = payload_app.try_state::<WebVpnState>() {
-                state.finish_pdf_payload(&payload_task, result);
+                match body {
+                    Ok(body) => {
+                        // 部分字节也落盘：现场诊断需要能直接看文件，但**只有被证明完整
+                        // 的载荷才可能被归档**（下面的 finish 里 complete 决定一切）。
+                        let _ = fs::write(&payload_path, &body.partial);
+                        state.finish_pdf_payload(
+                            &payload_task,
+                            body.bytes,
+                            body.complete,
+                            body.note.clone(),
+                        );
+                        if !body.complete {
+                            record(
+                                &payload_app,
+                                "automation",
+                                "",
+                                &format!("PDF 载荷未收全：{}", body.note),
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        state.finish_pdf_payload(&payload_task, 0, false, error.clone());
+                        record(&payload_app, "error", "", &error);
+                    }
+                }
             }
             Ok(())
         },
@@ -3406,13 +3462,15 @@ fn response_header(
 #[cfg(windows)]
 fn write_stream_to_file(
     stream: &IStream,
-    path: &Path,
     task_id: &str,
     app: &AppHandle,
-) -> Result<u64, String> {
+    content_length: Option<u64>,
+) -> Result<PdfBodyResult, String> {
     let limit = CAPTURE_MAX_BYTES;
     let mut buffer: Vec<u8> = Vec::new();
     let mut chunk = vec![0_u8; 64 * 1024];
+    let started = Instant::now();
+    let mut last_progress = Instant::now();
     loop {
         let mut read: u32 = 0;
         let hr = unsafe {
@@ -3423,27 +3481,106 @@ fn write_stream_to_file(
             )
         };
         if hr.is_err() {
-            return Err(format!("读取 PDF 响应体失败（0x{:08X}）", hr.0 as u32));
+            // 已经收到的字节仍然返回：调用方需要 receivedBytes 才能如实报告"卡在哪"。
+            return Ok(PdfBodyResult {
+                bytes: buffer.len() as u64,
+                complete: false,
+                note: format!("读取 PDF 响应体失败（0x{:08X}）", hr.0 as u32),
+                partial: buffer,
+            });
         }
-        if read == 0 {
+        if read > 0 {
+            buffer.extend_from_slice(&chunk[..read as usize]);
+            last_progress = Instant::now();
+            if buffer.len() as u64 > limit {
+                return Ok(PdfBodyResult {
+                    bytes: buffer.len() as u64,
+                    complete: false,
+                    note: format!("PDF 超过 {} MB 捕获上限，已中止", limit / 1024 / 1024),
+                    partial: buffer,
+                });
+            }
+            if let Some(state) = app.try_state::<WebVpnState>() {
+                state.note_pdf_payload_progress(task_id, buffer.len() as u64);
+            }
+            if let Some(total) = content_length {
+                if buffer.len() as u64 >= total {
+                    break;
+                }
+            }
+            if content_length.is_none() && tail_has_eof(&buffer) {
+                break;
+            }
+            continue;
+        }
+        // read == 0 **不等于** EOF：这个流由网络响应驱动，暂时没数据时会返回 0。
+        // 早期版本直接 break，于是在 256 KiB 的缓冲边界上把半个 PDF 当成了完整载荷
+        // （2026-09-27 现场：262144 B、有 %PDF- 头、没有 %%EOF，却被标成"已就绪"，
+        // 一路送到归档服务换回一个 HTTP 400）。
+        if let Some(total) = content_length {
+            if buffer.len() as u64 >= total {
+                break;
+            }
+        }
+        if tail_has_eof(&buffer) {
             break;
         }
-        buffer.extend_from_slice(&chunk[..read as usize]);
-        if buffer.len() as u64 > limit {
-            return Err(format!(
-                "PDF 超过 {} MB 捕获上限，已中止保存",
-                limit / 1024 / 1024
-            ));
+        let idle = last_progress.elapsed();
+        if idle >= PDF_STREAM_STALL_TIMEOUT || started.elapsed() >= PDF_STREAM_MAX_WAIT {
+            let total_note = match content_length {
+                Some(total) => format!("{total} 字节"),
+                None => "未知总长".to_string(),
+            };
+            return Ok(PdfBodyResult {
+                bytes: buffer.len() as u64,
+                complete: false,
+                note: format!(
+                    "已接收 {} 字节 / {}，{} 秒没有新数据",
+                    buffer.len(),
+                    total_note,
+                    idle.as_secs()
+                ),
+                partial: buffer,
+            });
         }
-        if let Some(state) = app.try_state::<WebVpnState>() {
-            state.note_pdf_payload_progress(task_id, buffer.len() as u64);
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let complete = match content_length {
+        Some(total) => buffer.len() as u64 >= total,
+        // 没有 Content-Length 时必须靠结构证据：PDF 一定以 %%EOF 结尾。
+        None => tail_has_eof(&buffer),
+    };
+    let note = if complete {
+        String::new()
+    } else {
+        match content_length {
+            Some(total) => format!("已接收 {} / {} 字节", buffer.len(), total),
+            None => format!("已接收 {} 字节，且尾部没有 %%EOF", buffer.len()),
         }
-    }
-    if buffer.is_empty() {
-        return Err("PDF 响应体为空，未保存任何内容".to_string());
-    }
-    fs::write(path, &buffer).map_err(|error| format!("写入 PDF 暂存文件失败: {error}"))?;
-    Ok(buffer.len() as u64)
+    };
+    Ok(PdfBodyResult {
+        bytes: buffer.len() as u64,
+        complete,
+        note,
+        partial: buffer,
+    })
+}
+
+/// 响应体读取结果（C1/R2.2）：字节数、是否已被证明完整、以及不完整时的原因。
+#[cfg(windows)]
+struct PdfBodyResult {
+    bytes: u64,
+    complete: bool,
+    note: String,
+    partial: Vec<u8>,
+}
+
+/// PDF 是否以 `%%EOF` 结束（结构完整的最后一道证据）。
+///
+/// 只看尾部 4 KiB：线性化 PDF 的 `%%EOF` 也在文件末尾，前面还有一段 startxref。
+fn tail_has_eof(body: &[u8]) -> bool {
+    let tail = if body.len() > 4096 { &body[body.len() - 4096..] } else { body };
+    tail.windows(5).any(|window| window == b"%%EOF")
 }
 
 #[cfg(windows)]
@@ -3525,12 +3662,29 @@ async fn finalize_native_save(
     path: &Path,
     webview: &Webview,
 ) -> Result<serde_json::Value, String> {
-    // 不允许把 HTML 冒充原文：与上传端同一判据，只认 %PDF-。
+    // 归档前的三道校验（C1/D2）：头是 PDF、尾有 %%EOF、大小对得上 Content-Length。
+    // 少了任何一道，半个文件就会被送到归档服务，换回一个 HTTP 400 —— 调用方看到的
+    // 却是"保存失败"，而真正的原因（载荷没下完）已经丢失。
     let head = fs::read(path).map_err(|error| format!("无法读取已落盘的 PDF: {error}"))?;
     if !head.starts_with(b"%PDF-") {
         let reason = "响应体不是 PDF（页面可能只是 HTML 预览），不能作为原文归档".to_string();
         state.fail_pending_download(&reason);
         return Err(reason);
+    }
+    if !tail_has_eof(&head) {
+        return Err(format!(
+            "PDF 载荷不完整（已接收 {} 字节，尾部没有 %%EOF），未归档；请重试保存，或改用带 ?download=true 的下载入口",
+            head.len()
+        ));
+    }
+    if let Some(total) = state.pdf_payload_total(task_id) {
+        if head.len() as u64 != total {
+            return Err(format!(
+                "PDF 载荷不完整（已接收 {} / {} 字节），未归档；请重试保存，或改用带 ?download=true 的下载入口",
+                head.len(),
+                total
+            ));
+        }
     }
     let bytes = head.len() as u64;
     let sha256 = sha256_of_file(path);
@@ -5016,6 +5170,26 @@ mod tests {
         );
         std::fs::remove_file(&preserved).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// 载荷完整性必须来自正向证明（2026-09-27 现场：262144 B 的半截 PDF 被标成
+    /// "已就绪"，一路送到归档服务换回 HTTP 400，而真实原因已经丢失）。
+    #[test]
+    fn pdf_payload_completeness_requires_positive_proof() {
+        // 尾部有 %%EOF：结构完整。
+        let mut body = b"%PDF-1.4\n".to_vec();
+        body.extend_from_slice(&vec![b'x'; 40_000]);
+        body.extend_from_slice(b"\nstartxref\n123\n%%EOF\n");
+        assert!(tail_has_eof(&body), "%%EOF 在尾部 4 KiB 内必须被认出来");
+
+        // 半截载荷（恰好 256 KiB，有头没有尾）：绝不完整。
+        let mut partial = b"%PDF-1.3\n".to_vec();
+        partial.extend_from_slice(&vec![0_u8; 262_144 - partial.len()]);
+        assert!(!tail_has_eof(&partial), "没有 %%EOF 就不能算完整");
+
+        // 只有头部字节：连 PDF 都不是。
+        assert!(!tail_has_eof(b"%PDF-"));
+        assert!(!tail_has_eof(b""));
     }
 
     #[test]
