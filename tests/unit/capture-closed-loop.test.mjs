@@ -147,6 +147,71 @@ test("Nature SI 已在 PDF 查看器但未捕获载荷时给出可执行保存�
 	assert.equal(article.nextAction, "observe-or-click");
 });
 
+test("ScienceDirect 查看器动作连续失败两次后交给用户 Ctrl+S，禁止第三次重试", async () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map();
+	service.captureProgressSamples = new Map();
+	service.getTask = () => TASK;
+	service.listTasks = () => [TASK];
+	service.sweepExpired = async () => {};
+	service.getDesktopWebVpnStatus = () => desktop({ documentType: "application/pdf", pageUrl: "https://www.sciencedirect.com/science/article/pii/S095656631300849X/pdfft",
+		pdfPayload: { ready: true, complete: false, receivedBytes: 348, error: "wrong-object-html: 响应体是 HTML 查看器页面" } });
+	for (let index = 0; index < 2; index++) {
+		const operation = service.createBrowserOperation({ projectId: "proj-test", taskId: TASK.id, action: "viewer-download" });
+		service.claimBrowserOperation("proj-test");
+		service.completeBrowserOperation({ projectId: "proj-test", id: operation.id, error: "查看器未响应" });
+		assert.match(service.getBrowserOperation(operation.id, "proj-test").error, /Ctrl\+S.*自动捕获并归档/);
+	}
+	const status = harness(service).find((item) => item.name === "lab_publisher_browser_download_status");
+	const result = await status.execute({ projectId: "proj-test", taskId: TASK.id }, {});
+	assert.equal(result.nextAction, "manual-handoff");
+	assert.equal(result.requiresUserAction, true);
+	assert.equal(result.downloadReady, false);
+	assert.equal(result.payloadReady, false);
+	assert.equal(result.payloadVerdict, "html-viewer");
+	assert.equal(result.viewerDownloadFailure.count, 2);
+	assert.match(result.question, /Ctrl\+S.*无需回传路径/);
+	assert.throws(() => service.createBrowserOperation({ projectId: "proj-test", taskId: TASK.id, action: "viewer-download" }), /不可继续/);
+});
+
+test("主窗口句柄不可用属于永久错误，一次失败后直接提示 Ctrl+S", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed", error: "主窗口句柄不可用" }]]);
+	assert.equal(service.viewerDownloadFailure(TASK.id).terminal, true);
+	const result = view({ documentType: "application/pdf", viewerDownloadFailure: {
+		count: 1, error: "主窗口句柄不可用", terminal: true
+	} });
+	assert.equal(result.nextAction, "manual-handoff");
+	assert.match(result.message, /Ctrl\+S.*自动捕获并归档/);
+});
+
+test("人工 Ctrl+S 归档后，状态报告真实文件大小而非 348 B 预览缓存", () => {
+	const archived = view({ pendingTaskId: undefined, pdfPayload: { ready: true, complete: false, receivedBytes: 348, error: "wrong-object-html: HTML" } },
+		{ status: "completed", size: 2_151_364, fileName: "article.pdf" });
+	assert.equal(archived.nextAction, "done");
+	assert.equal(archived.progress.source, "archived-file");
+	assert.equal(archived.progress.receivedBytes, 2_151_364);
+	assert.equal(archived.progress.percent, 100);
+	assert.equal(archived.payloadVerdict, "html-viewer");
+});
+
+test("归档终态向 Agent 返回条目文件路径与哈希，不再要求用户回传路径", async () => {
+	const task = { ...TASK, status: "completed", size: 2_151_364, fileName: "article.pdf", fileSha256: "a".repeat(64) };
+	const registered = [];
+	apply({
+		tools: { register: (tool) => registered.push(tool) },
+		labCapture: captureStub({ task, desktop: desktop({ pendingTaskId: undefined, pdfPayload: { ready: true, complete: false, receivedBytes: 348, error: "wrong-object-html: HTML" } }) }),
+		labTasks: { getProject: () => ({ id: "proj-test" }), getBundle: () => ({ id: "bundle-1", projectId: "proj-test", pdfPath: "C:\\literature\\article.pdf" }) }
+	});
+	const status = registered.find((item) => item.name === "lab_publisher_browser_download_status");
+	const result = await status.execute({ projectId: "proj-test", taskId: TASK.id }, {});
+	assert.equal(result.status, "completed");
+	assert.equal(result.filePath, "C:\\literature\\article.pdf");
+	assert.equal(result.fileSha256, "a".repeat(64));
+	assert.equal(result.downloadedBytes, 2_151_364);
+	assert.equal(result.progress.source, "archived-file");
+});
+
 test("原生 PDF 保存指令只发一次，操作进行时状态转为等待真实下载", () => {
 	const saving = view({ automationStage: "saving", documentType: "application/pdf", contentLength: 3_200_000 });
 	assert.equal(saving.nextAction, "wait-and-poll");

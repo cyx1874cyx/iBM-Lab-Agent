@@ -5,9 +5,9 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta21",
+    "version": "0.5.5-beta22",
     "commit": "f852574",
-    "note": "beta21 makes the preview page's own save usable, which beta20 failed to do (it stopped producing 1 KB files but the download still never finished). The native PDF viewer has no toolbar in the DOM, so the shell now drives the viewer's own save: focus the main window and child webview, confirm the foreground window belongs to this process, then send Ctrl+S; the save becomes an ordinary download into the task's temp path and is archived by the verified download path, with the registered SaveAsUIShowing handler as the dialog fallback (SetAllowReplace for retries). downloadTotalBytes is reported only while that save runs and only from a 200 application/pdf document. For publisher HTML preview pages - where the Download control IS in the DOM - the status no longer parks at 'receiving' when the response layer only saw an HTML shell or range fragments; it returns to observe-or-click so the agent clicks the real entry, progress.source distinguishes browser-download from viewer-buffer, and download progress counts only bytes the browser wrote. The in-page overlay says '请点击页面的 Download PDF' until the viewer has actually loaded a PDF. Per-publisher entry shape (DOM toolbar / cross-origin iframe / native viewer) and every publisher, SI channel and campus-network route below remain pending."
+    "note": "beta21 introduced native viewer Ctrl+S automation, but the 2026-09-28 ScienceDirect live check exposed a P0 defect: get_webview_window(\"main\") returns none for the actual Tauri Window with a child WebView, so four Agent viewer-download actions failed before sending any key. User Ctrl+S did trigger DownloadEvent and archived a verified 2,151,364-byte PDF. The follow-up source fix uses get_window(\"main\"), adds bounded failure handoff, and distinguishes HTML preview buffers from verified downloads; the revised Agent path still needs installed-app acceptance."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
@@ -291,7 +291,7 @@
     "Confirm that an ordinary article page is never given the html page offset (it must only appear for a real top-level PDF).",
     "Confirm that an about:blank or other non-HTTP(S) popup does not replace the single article page.",
     "Queue an SI task behind an article task and confirm SI takes over only after the article task is completed, failed, expired or cancelled, with no leftover webvpn_status.pendingTaskId.",
-    "Read lab_publisher_browser_download_status nextAction per phase and confirm it matches what the Agent should do next (wait-and-poll, observe-or-click, save-from-viewer, save-pdf-ready, ask-user, done).",
+    "Read lab_publisher_browser_download_status nextAction per phase and confirm it matches what the Agent should do next (wait-and-poll, observe-or-click, download-viewer-pdf, manual-handoff, done); two viewer-action failures or one permanent main-window failure must hand off to manual Ctrl+S.",
     "Verify file signature, size, final bundle path, and whether SI has multiple files.",
     "Keep authentication and anti-bot completion manual; never store credentials or cookies in this file."
   ]

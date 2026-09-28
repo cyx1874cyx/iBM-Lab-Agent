@@ -257,6 +257,16 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(literaturePanel, /iwanUsable/, "AI 下载队列仍要按 iWAN 可用性选择路由");
 });
 
+test("PDF 查看器保存聚焦真实主窗口，而非不存在的 WebviewWindow", async () => {
+	const webvpn = await webvpnSource();
+	const body = webvpn.match(/fn press_native_pdf_save\([\s\S]*?\n\}/)?.[0];
+	assert.ok(body);
+	assert.match(body, /app\.get_window\(MAIN_WINDOW_LABEL\)/);
+	assert.doesNotMatch(body, /app\.get_webview_window\(MAIN_WINDOW_LABEL\)/);
+	assert.match(body, /webview\.set_focus\(\)/);
+	assert.match(body, /Ctrl\+S.*自动捕获并归档/);
+});
+
 /**
  * 2026-09-11 实测缺陷：点「打开 WebVPN」跳出一个**纯白、看不到任何 UI** 的窗口。
  *

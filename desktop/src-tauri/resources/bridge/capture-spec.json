@@ -6,9 +6,9 @@
   "taskIdPattern": "^capture-[a-z0-9]+$",
   "maxFileBytes": 104857600,
   "_captureSemantics": {
-    "viewerIsNotCapture": "documentType=application/pdf and contentLength describe the displayed response, not saved bytes. Agent may trigger native viewer download; publisher HTML preview requires clicking its download element.",
+    "viewerIsNotCapture": "documentType=application/pdf and contentLength describe the displayed response, not saved bytes. Agent may trigger native viewer download; publisher HTML preview requires clicking its download element. A wrong-object-html verdict means the preview buffer is not a ready PDF payload.",
     "captureStarts": "An active task receives a WebView2 DownloadEvent::Requested, or the response collector receives a complete non-206 application/pdf body; Nature/Springer public SI may be intercepted before preview navigation.",
     "progress": "Browser-download received bytes come from the actual destination file. Viewer response buffers are separate and never counted as downloaded bytes. Unknown total means no percent or ETA.",
-    "completion": "Only validated upload and bundle registration complete the task. Native viewer saving is initiated through the viewer action and tracked to that terminal state."
+    "completion": "Only validated upload and bundle registration complete the task. Native viewer saving is initiated through the viewer action and tracked to that terminal state. Manual Ctrl+S in the native viewer uses the same automatic capture and archive path; no user-supplied file path is needed."
   }
 }

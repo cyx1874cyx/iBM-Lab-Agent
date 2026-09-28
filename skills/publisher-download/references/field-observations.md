@@ -1,15 +1,16 @@
 # 人工实测记录（2026-09-28）
 
-以下 11 篇来自用户手工下载反馈。本机 `C:\Users\admin\AppData\Local\iBM-Lab-Agent\logs\webvpn.log` 中对应页面的成功路线还记录了 `downloadRequested`、`downloadFinished success=true` 和 `captureCompleted`；Wiley 正文没有完成记录。访问模式、最终课题文件路径和文件哈希仍未核对。日志能佐证壳捕获完成，不能证明新版 `lab_browser_download_viewer_pdf` 已通过真机测试。入口文字和位置只适用于所列页面，不能当作整站稳定选择器。没有 SI 表示用户报告该篇未见 SI。
+前 11 篇来自用户手工下载反馈；下方另补 1 篇 ScienceDirect 的 beta21 故障实测。本机 `C:\Users\admin\AppData\Local\iBM-Lab-Agent\logs\webvpn.log` 中对应页面的成功路线还记录了 `downloadRequested`、`downloadFinished success=true` 和 `captureCompleted`；Wiley 正文没有完成记录。前 11 篇的访问模式、最终课题文件路径和文件哈希仍未全部核对。日志能佐证壳捕获完成，不能证明修订后的 `lab_browser_download_viewer_pdf` 已通过真机测试。入口文字和位置只适用于所列页面，不能当作整站稳定选择器。没有 SI 表示用户报告该篇未见 SI。
 
 ## IEEE Xplore（1 篇）
 
 - [document/9175387](https://ieeexplore.ieee.org/document/9175387)：文章页红色 **PDF** 按钮 → 原生 PDF 预览页。查看器工具栏未加载，壳捕获进度一直约 1 KB；用户通过**右键保存**报告已归档。该篇未见 SI。右键是人工兜底，不能写成 `lab_browser_click` 可操作的元素，也不能把 1 KB 判作完整 PDF。
 
-## Elsevier：ClinicalKey 与 ScienceDirect（2 篇）
+## Elsevier：ClinicalKey 与 ScienceDirect（3 篇）
 
 - [ClinicalKey 文章，PII S2475037924000621](https://www.clinicalkey.com/#!/content/playContent/1-s2.0-S2475037924000621)：标题旁 **下载 PDF** → 原生预览页。壳显示约 **1 KB / 1.4 MB** 后卡住，但查看器工具栏出现；用户点击工具栏保存，报告正文已归档。文章页的 [mmc1.docx](https://www.clinicalkey.com/ui/service/content/url?section=static%2fimage&eid=1-s2.0-S2475037924000621&path=24750379%2FS2475037924X00035%2FS2475037924000621%2Fmmc1.docx) 直接下载，报告 SI 已归档。ClinicalKey 是独立站点路径，不要套用 ScienceDirect 页面控件。
 - [ScienceDirect 文章，PII S0956566311006075](https://www.sciencedirect.com/science/article/pii/S0956566311006075?via=ihub)：**View PDF** → 默认 PDF 预览页 → 工具栏保存，报告正文已归档。文章页 **Appendix A. Supplementary data** 下的 [mmc1.pdf](https://ars.els-cdn.com/content/image/1-s2.0-S0956566311006075-mmc1.pdf) → 默认 PDF 预览页 → 工具栏保存，报告 SI 已归档。
+- [10.1016/j.bios.2013.11.059，PII S095656631300849X](https://www.sciencedirect.com/science/article/pii/S095656631300849X)：iWAN 直访，文章页 **View PDF** → `…/pdfft` 原生查看器。beta21 的 Agent 查看器保存动作 4 次均报“主窗口不可用”，没有触发下载；348 B 响应缓存被判为 `wrong-object-html`。用户在同一查看器按 **Ctrl+S** 后，壳的下载事件自动捕获并归档正文：2,151,364 B，SHA256 `68a0b404832e8ba546a5d9f235c6f6f08578b3c16134695545b9b2c53c1260d7`，任务 `completed`。因此遇到查看器动作失败时，人工兜底应明确告诉用户按 Ctrl+S，随后重新查任务，不要求回传路径。修订后的 Agent 动作尚待该页实机复测；原始证据保存在用户的 ScienceDirect 查看器保存 issue 中。
 
 ## SAGE / CNPeReading（1 篇；当前工具未配置 DOI 前缀）
 

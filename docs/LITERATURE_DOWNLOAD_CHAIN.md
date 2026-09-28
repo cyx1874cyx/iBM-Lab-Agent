@@ -92,15 +92,16 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 ok, taskId, bundleId, kind, status, phase, message, nextAction,
 requiresUserAction, question, alternateEntry,
 page:  { url, documentType, httpStatus, readyState, pageSeq, contentLength },
-pdf:   { ready, complete, contentLength, receivedBytes, error },
-progress: { receivedBytes, totalBytes, declaredTotalBytes, percent, speedBps, etaSeconds, idleSeconds },
+pdf:   { ready, complete, contentLength, receivedBytes, error, verdict },
+progress: { source, receivedBytes, totalBytes, declaredTotalBytes, percent, speedBps, etaSeconds, idleSeconds },
 heartbeat: { stale, ageMs, pendingTaskId, lastPendingTaskId, releaseReason },
-queuePosition, fileName, size, downloadedBytes, updatedAt, stalled,
+queuePosition, fileName, filePath, fileSha256, size, downloadedBytes, updatedAt, stalled,
 downloadEventBytes, reasonCode, alternateRouteId,
-downloadReady, payloadReady, payloadComplete
+downloadReady, payloadReady, payloadComplete, payloadVerdict,
+viewerDownloadFailure: { count, error }
 ```
 
-`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义；`payloadReady`/`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.source=browser-download` 和 `downloadEventBytes`。`viewer-buffer` 是预览缓存，不能当成文件已下载。
+`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可触发查看器下载。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.source=browser-download` 和 `downloadEventBytes`。`viewer-buffer` 是预览缓存，不能当成文件已下载。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
 原生 PDF 只有拿到完整 `200` 响应声明的长度才显示总量和百分比；`206` 分段长度不会冒充整份文件大小。
 
 `nextAction` 取值与含义（**这是唯一该用来决策的字段**）：
@@ -111,7 +112,7 @@ downloadReady, payloadReady, payloadComplete
 | `wait-and-poll` | 浏览器正在下载或归档 | `lab_browser_wait`，查看真实字节变化 |
 | `download-viewer-pdf` | 顶层为原生 PDF，或完整 PDF 响应已采集 | 调 `lab_browser_download_viewer_pdf`，再查 `operation_status` 和任务状态；只以 `completed` 为成功 |
 | `retry-download-entry` | 保存支路拿不到完整字节流，且有备用路线 | 用 `lab_browser_navigate(taskId, alternateRouteId, page.pageSeq)` 执行；`alternateEntry` 只供说明，不传给 `click` |
-| `manual-handoff` | 保存支路失败且没有可执行的备用入口 | 告知用户在侧栏手动处理，不要重复调用保存或重建任务 |
+| `manual-handoff` | 保存支路连续失败，或没有可执行的备用入口 | 按 `question` 告知用户具体动作；原生 PDF 可在侧栏按 Ctrl+S，浏览器自动捕获归档，无需回传路径。随后重新查询任务状态 |
 | `complete-verification` | 人机验证 | 让**用户**去侧栏点一下，然后 `lab_browser_wait` |
 | `recreate-or-cancel` | 终态：`heartbeat-lost`/`orphaned`/`stalled`/`failed`/`expired` | 把 `question` 原样问用户；重建用 `cancel(recreate:true)` |
 | `done` | `completed` 或 `cancelled` | 结束 |

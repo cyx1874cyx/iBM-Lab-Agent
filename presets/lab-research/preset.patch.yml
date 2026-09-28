@@ -134,14 +134,18 @@
                          lab_browser_download_viewer_pdf；用 lab_browser_operation_status 等操作终态，
                          用 lab_publisher_browser_download_status 看真实下载进度与归档结果。
                          progress.source=viewer-buffer 是预览缓存，不是下载进度；browser-download
-                         才是实际落盘字节。总量未知时不推算百分比，不重复触发保存。
+                         才是实际落盘字节。payloadVerdict=html-viewer 表示响应缓存不是 PDF。
+                         总量未知时不推算百分比。动作失败先读状态，最多再试一次；
+                         连续两次失败后按 manual-handoff 请用户在侧栏原生 PDF 查看器按 Ctrl+S。
+                         浏览器会自动捕获并按条目归档，不要让用户回传文件路径；用户操作后
+                         再查任务状态，若 completed 就报告成功，不沿用先前的动作失败结论。
                            · nextAction=retry-download-entry 且有 alternateRouteId：调用
                              lab_browser_navigate(taskId, routeId=alternateRouteId,
                              expectedPageSeq=page.pageSeq)，取操作结果后 lab_browser_wait。
                              当前仅 Science 官方正文页提供这条受限备用入口；不要将
                              alternateEntry 当作 elementId，也不要反复调用下载工具。
-                           · nextAction=manual-handoff：当前任务没有可执行的备用入口，请用户在侧栏
-                             手动保存或终止；不要循环 observe/download。
+                           · nextAction=manual-handoff：按 question 告知用户具体动作，原生 PDF
+                             请按 Ctrl+S；不要循环 observe/download，也不要要求回传文件路径。
                        人机验证只能由人完成：若 nextAction=complete-verification，**或**你从 observe 的页面文本
                        看出这是验证页（如 Cloudflare「Verify you are human」/「请验证您是真人」），
                        立即停止点击，把「请在软件侧栏完成验证」告诉用户，用 lab_browser_wait 等它通过，

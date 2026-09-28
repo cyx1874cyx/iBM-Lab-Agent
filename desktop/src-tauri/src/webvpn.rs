@@ -4115,9 +4115,17 @@ async fn finalize_native_save(
 /// ShowSaveAsUI 只保存顶层 HTML 壳，不能代替查看器的下载动作。
 #[cfg(windows)]
 fn press_native_pdf_save(app: &AppHandle, webview: &Webview) -> Result<(), String> {
-    let main = app.get_webview_window(MAIN_WINDOW_LABEL).ok_or("主窗口不可用")?;
-    main.set_focus().map_err(|error| format!("无法聚焦主窗口: {error}"))?;
-    webview.set_focus().map_err(|error| format!("无法聚焦 PDF 查看器: {error}"))?;
+    // main 是 Tauri Window，PDF 是挂在它上面的子 WebView；这里不能用
+    // get_webview_window("main")，该查询只接受 WebviewWindow，实机永远返回 None。
+    let main = app.get_window(MAIN_WINDOW_LABEL).ok_or(
+        "主窗口句柄不可用；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
+    )?;
+    main.set_focus().map_err(|error| format!(
+        "无法聚焦主窗口: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
+    ))?;
+    webview.set_focus().map_err(|error| format!(
+        "无法聚焦 PDF 查看器: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
+    ))?;
     let focused = (0..5).any(|_| {
         let mut foreground_pid = 0_u32;
         unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut foreground_pid)); }
@@ -4127,7 +4135,7 @@ fn press_native_pdf_save(app: &AppHandle, webview: &Webview) -> Result<(), Strin
         }
     });
     if !focused {
-        return Err("PDF 查看器未获得前台焦点，已取消快捷键以免操作其他窗口".to_string());
+        return Err("PDF 查看器未获得前台焦点，已取消快捷键以免操作其他窗口；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径".to_string());
     }
     let key = |code, up| INPUT {
         r#type: INPUT_KEYBOARD,
