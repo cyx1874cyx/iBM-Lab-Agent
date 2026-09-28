@@ -108,7 +108,7 @@ test("R4.3/C7：终态给「重建 / 终止」两个可执行选项", () => {
 test("R2.3/C8：预览器里没有可点元素时改走 ?download=true 的备用入口", () => {
 	const entry = normalizeDownloadEntry("https://www.science.org/doi/epdf/10.1126/science.adz5300");
 	assert.equal(entry, "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true");
-	const manual = view({ automationStage: "manual", pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300", pageSeq: 7 });
+	const manual = view({ automationStage: "manual", documentType: "application/pdf", pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300", pageSeq: 7 });
 	assert.equal(manual.nextAction, "retry-download-entry");
 	assert.equal(manual.alternateEntry, entry);
 	assert.equal(manual.alternateRouteId, "science-pdf");
@@ -132,6 +132,19 @@ test("R2.2/C1：PDF 载荷就绪才给 save-pdf-ready，且方向由同一份推
 	assert.equal(ready.nextAction, "save-pdf-ready");
 	assert.equal(ready.pdf.ready, true);
 	assert.match(ready.message, /lab_browser_save_current_pdf/);
+});
+
+test("Nature SI 已在 PDF 查看器但未捕获载荷时给出可执行保存动作", () => {
+	const si = view({
+		automationStage: "manual", documentType: "application/pdf", contentLength: 452463,
+		pageUrl: "https://media.springernature.com/full/springer-static/41586_2026_11032_MOESM1_ESM.pdf"
+	}, { kind: "si", publisherUrl: "https://doi.org/10.1038/s41586-026-11032" });
+	assert.equal(si.nextAction, "save-from-viewer");
+	assert.equal(si.pdf.ready, false);
+	assert.match(si.message, /lab_browser_save_current_pdf/);
+	const article = view({ automationStage: "manual", documentType: "text/html", pageUrl: "https://www.nature.com/articles/s41586-026-11032" },
+		{ publisherUrl: "https://doi.org/10.1038/s41586-026-11032" });
+	assert.equal(article.nextAction, "observe-or-click");
 });
 
 test("R6.2/C17：长时间没有字节增长就是 stalled，不再永远显示「正在保存」", () => {

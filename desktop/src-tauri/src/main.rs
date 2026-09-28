@@ -525,7 +525,6 @@ async fn webvpn_open_capture(
     target_url: String,
     token: String,
     direct_access: bool,
-    automate: bool,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<webvpn::WebVpnStatus, String> {
@@ -603,7 +602,6 @@ async fn webvpn_open_capture(
         &kind,
         target.host_str().unwrap_or_default(),
         publisher,
-        automate,
         direct_springer_si,
         upload_url,
         temp_path,
@@ -619,7 +617,6 @@ async fn webvpn_open_capture(
     webvpn::show_sidebar(&app, &webview)?;
     // 新建直连 WebView 可能在布防前就完成首屏加载；这里补启动一次。后续导航
     // 仍由 on_page_load 自动重启扫描。
-    webvpn::start_pending_publisher_automation(&app, &webview);
     Ok(webvpn::status_of(&app, &config.webvpn))
 }
 

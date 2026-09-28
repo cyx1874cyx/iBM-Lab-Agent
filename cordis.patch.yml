@@ -31,6 +31,16 @@
         customSkillDirs:
           - !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
 
+    # First-party publisher browser guidance ships with this plugin, separate
+    # from the pinned third-party Nature Skills tree and its version registry.
+    - id: lab-publisher-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-publisher
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('profiles/ibm-lab/node_modules/dsh-lab-agent/skills')
+
     # ── Mnova NMR Skill discovery (global skill layer, 0.2.0) ────────────────
     #
     # 独立 provider 实例只读 $DSH_HOME/lab-agent/vendor/mnova-mcp/skill/

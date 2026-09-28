@@ -620,309 +620,6 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
 })();
 "#;
 
-/// 已适配出版社页面内自动寻找下载入口。脚本只在页面能由 DOI 或站点域名
-/// 确认出版社时运行；只把固定结果码送回 Rust，不读取或传出正文、Cookie、
-/// 登录信息。每次导航都会重新执行，因此可覆盖“文章页 → PDF 预览器 → 保存”。
-const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"
-(() => {
-  const kind = '__IBM_CAPTURE_KIND__';
-  const publisher = '__IBM_PUBLISHER__';
-  const runKey = `__ibm_publisher_download_${publisher}_${kind}`;
-  if (window[runKey]) return;
-  window[runKey] = true;
-  const WILEY_HUMAN_CHECK_MS = 10000;
-  const wileyReadyAt = Date.now() + WILEY_HUMAN_CHECK_MS;
-  let attempts = 0;
-  let stalledTicks = 0;
-  let expanded = false;
-  let reportedSearch = false;
-  let reportedChallenge = false;
-  const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const visible = (element) => {
-    if (!element || element.nodeType !== 1) return false;
-    const style = element.ownerDocument?.defaultView?.getComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    return style && style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-  };
-  const description = (element) => clean([
-    element.innerText, element.textContent, element.getAttribute('aria-label'),
-    element.getAttribute('title'), element.getAttribute('data-track-action')
-  ].filter(Boolean).join(' '));
-  const hrefOf = (element) => {
-    const owner = element.closest?.('a[href]') || (element.matches?.('a[href]') ? element : null);
-    return clean(owner?.href || element.getAttribute?.('href'));
-  };
-  const clickTarget = (element) => element.closest?.('a[href],button,[role="button"]') || element;
-  /** 同 WEBVPN_CHROME_SCRIPT：只能走 window.open，导航会打白页面。 */
-  const signal = (result) => {
-    try { window.open(`ibm-webvpn://automation/${result}`, '_blank'); } catch { /* 弹窗被拒：本次状态不上报，页面照常 */ }
-  };
-  const confirmedPublisherPage = () => {
-    const host = clean(location.hostname);
-    const doi = clean(document.querySelector('meta[name="citation_doi"],meta[name="dc.identifier"]')?.content);
-    const canonical = clean(document.querySelector('link[rel="canonical"]')?.href);
-    const evidence = `${host} ${doi} ${canonical}`;
-    const forwarded = /^\/https?\/[0-9a-f]{16,}(?:\/|$)/i.test(location.pathname);
-    const patterns = {
-      nature: /nature\.com|10\.1038\//,
-      springer: /springer(?:link)?\.com|10\.1007\//,
-      science: /science\.org|10\.1126\//,
-      elsevier: /sciencedirect\.com|elsevier\.com|10\.1016\//,
-      acs: /pubs\.acs\.org|10\.1021\//,
-      rsc: /pubs\.rsc\.org|10\.1039\//,
-      ieee: /ieeexplore\.ieee\.org|10\.1109\//,
-      wiley: /(?:onlinelibrary\.)?wiley\.com|10\.(?:1002|1111)\//
-    };
-    return forwarded || patterns[publisher]?.test(evidence) === true;
-  };
-  const challengePresent = () => {
-    // 1) 挑战插页的**标题**是强特征：正常文章页不会是「请稍候…／Just a moment…」。
-    const title = clean(document.title);
-    if (/just a moment|请稍候|attention required|checking your browser|ddos protection|正在验证|人机验证|verify (?:you are )?human/.test(title)) return true;
-    const bodyText = clean((document.body?.innerText || '').slice(0, 4000));
-    // 2) 文章页优先。有 citation 元数据、或正文已经足够长时，后面那些"验证"字样只可能是
-    //    站点自带的文案（页脚合规声明、Cloudflare 注入脚本），不是挑战插页。
-    const articleLike = Boolean(document.querySelector('meta[name="citation_doi"],meta[name="citation_title"],meta[name="dc.identifier"]'))
-      || bodyText.length > 1200;
-    if (articleLike) return false;
-    if (/正在进行安全验证|请验证您是真人|verify you are human|security check|unusual traffic|机器人验证|captcha/.test(bodyText)) return true;
-    // 3) 只有**可见的**验证组件才算。仅仅存在 challenge-platform / challenges.cloudflare.com
-    //    这类脚本或资源**不算**：Cloudflare 保护的普通文章页同样会带它们。
-    //    2026-09-25 实测：文章页被这些标记误判成验证页，扫描器于是永远停在"等待验证"，
-    //    再也不会去找下载入口（nextAction 一直是 wait-and-poll，任务卡死）。
-    const markers = [
-      'iframe[src*="challenges.cloudflare.com"]',
-      'input[name="cf-turnstile-response"]',
-      '#challenge-form',
-      '#challenge-running',
-      '#cf-challenge-running'
-    ];
-    return markers.some((selector) => {
-      try {
-        const element = document.querySelector(selector);
-        if (!element) return false;
-        const rect = typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null;
-        if (!rect) return false;
-        return rect.width > 40 && rect.height > 40;
-      } catch { return false; }
-    });
-  };
-  /**
-   * 文档还在加载、或正文里还没有任何可交互内容时，它不构成「已确认的出版社文章页」。
-   *
-   * 挑战插页、被反爬拦下的空文档、以及解析被卡住的页面都属于这一类：此时消耗尝试
-   * 次数只会在 12 秒后得出「已进入 PDF 预览器」这种错误结论，并把普通文章页当成
-   * 整屏预览器去做页面位移。所以这种情况只等待，不计数。
-   */
-  /**
-   * 文档是否**已经加载完**。动手（点入口 / 触发下载）之前必须为真。
-   *
-   * 2026-09-26 实测：预览器/大 PDF 还在加载时就触发下载，拿到的文件根本还没落盘
-   * （日志里是 `downloadRequested` 紧接 `系统找不到指定的文件`）。而"第几次扫描"
-   * 与页面就绪无关——它等价于一个固定延时，正是问题来源。所以改成事件驱动：
-   * 只有 `readyState === 'complete'` 才动手。
-   */
-  const documentLoaded = () => document.readyState === 'complete';
-  const publisherContentReady = () => {
-    if (document.readyState === 'loading') return false;
-    const body = document.body;
-    if (!body) return false;
-    if (String(body.innerText || '').trim().length > 0) return true;
-    return Boolean(body.querySelector?.('img,svg,canvas,video,iframe,embed,object,a[href],button'));
-  };
-  const automationRoots = () => {
-    const roots = [document];
-    const visit = (root) => {
-      for (const element of root.querySelectorAll?.('*') || []) {
-        if (element.shadowRoot) { roots.push(element.shadowRoot); visit(element.shadowRoot); }
-        if (element.matches?.('iframe,frame')) {
-          try {
-            if (element.contentDocument) { roots.push(element.contentDocument); visit(element.contentDocument); }
-          } catch { /* WebVPN 转发后的跨源 frame 由其自己的页面加载回调处理。 */ }
-        }
-      }
-    };
-    visit(document);
-    return roots;
-  };
-  const candidates = () => automationRoots()
-    .flatMap((root) => [...(root.querySelectorAll?.('a[href],button,[role="button"]') || [])])
-    .filter(visible)
-    .map((element) => ({ element: clickTarget(element), text: description(element), href: hrefOf(element) }));
-  const attempted = new Set();
-  let lastClickAt = 0;
-  const candidateKey = (item) => item.href + '|' + item.text;
-  const markClicked = (item) => {
-    if (item) attempted.add(candidateKey(item));
-    lastClickAt = Date.now();
-    window.__ibmWebVpnLocalClickAt = lastClickAt;
-    window.__ibmWebVpnCapture?.({ phase: 'clicked', kind });
-  };
-  const forceDownload = (href) => {
-    if (!href || window[runKey + '_forced']) return false;
-    const anchor = document.createElement('a');
-    anchor.href = href;
-    anchor.style.display = 'none';
-    document.documentElement.appendChild(anchor);
-    window[runKey + '_forced'] = true;
-    markClicked();
-    anchor.click();
-    setTimeout(() => anchor.remove(), 1000);
-    return true;
-  };
-  const previewDownloadUrl = () => {
-    // Wiley 的正文和 SI 都会先进入 PDF 预览页。SI 预览页同样要把实际
-    // PDF 地址交给下载捕获器，避免再生成一份浏览器默认下载副本。
-    if (kind !== 'pdf' && publisher !== 'wiley') return '';
-    const current = new URL(location.href);
-    const path = current.pathname;
-    const wileyPreviewPage = publisher === 'wiley'
-      && (/\/doi\/pdf(?:direct)?\//i.test(path)
-        || /\/action\/downloadsupplement|\/suppinfo\/|\/asset\//i.test(path)
-        || /\.pdf(?:[/?#]|$)/i.test(path));
-    if (kind === 'pdf' || wileyPreviewPage) {
-      for (const root of automationRoots()) {
-        for (const element of root.querySelectorAll?.('iframe[src],embed[src],object[data]') || []) {
-          const raw = element.getAttribute('src') || element.getAttribute('data');
-          if (!raw) continue;
-          const resolved = new URL(raw, location.href);
-          if (/\/stampPDF\/getPDF\.jsp|\/doi\/pdf\/|\/pdfft(?:[/?#]|$)|\/content\/pdf\/|\.pdf(?:[?#]|$)/i.test(resolved.href)) {
-            if (/\/pdfft(?:[/?#]|$)/i.test(resolved.pathname)) resolved.searchParams.set('download', 'true');
-            return resolved.href;
-          }
-        }
-      }
-    }
-    if (wileyPreviewPage) {
-      if (current.searchParams.get('download') === 'true') return '';
-      current.searchParams.set('download', 'true');
-      return current.href;
-    }
-    if (publisher === 'ieee' && /\/stamp\/stamp\.jsp$/i.test(path)) {
-      current.pathname = path.replace(/\/stamp\/stamp\.jsp$/i, '/stampPDF/getPDF.jsp');
-      return current.href;
-    }
-    if ((publisher === 'science' || publisher === 'acs') && /\/doi\/(?:reader|epdf)\//i.test(path)) {
-      current.pathname = path.replace(/\/doi\/(?:reader|epdf)\//i, '/doi/pdf/');
-      current.searchParams.set('download', 'true');
-      return current.href;
-    }
-    if (publisher === 'elsevier' && /\/pdfft(?:\/|$)/i.test(path)) {
-      current.searchParams.set('download', 'true');
-      current.searchParams.set('isDTMRedir', 'true');
-      return current.href;
-    }
-    return '';
-  };
-  const pdfScore = ({ text, href }) => {
-    if (/supplement|supporting|supp[\s._-]|additional file|source data|methods?|moesm|mediaobjects/.test(`${text} ${href}`)) return -100;
-    let score = 0;
-    if (/download pdf|view pdf|article pdf|全文\s*pdf|下载\s*pdf/.test(text)) score += 10;
-    if (/open pdf|read pdf|pdf full text/.test(text)) score += 10;
-    if (/download|save|保存|下载/.test(text) && /pdf|viewer|epdf|pdfft/.test(clean(location.href))) score += 12;
-    if (/\bpdf\b/.test(text)) score += 3;
-    if (/\/articles?\/[^?#/]+\.pdf(?:[?#]|$)|\/content\/pdf\/|articlepdf|downloadpdf/.test(href)) score += 9;
-    if (/\.pdf(?:[?#]|$)/.test(href)) score += 5;
-    return score;
-  };
-  const siScore = ({ text, href }) => {
-    const combined = `${text} ${href}`;
-    if (/source data/.test(combined)) return -20;
-    let score = 0;
-    if (/supplementary methods?|supplemental methods?|supplyment methods?/.test(text)) score += 14;
-    if (/supplementary information|supporting information|supplementary material|supporting material/.test(text)) score += 12;
-    if (/supplement|supporting|supp[\s._-]|additional file|\besm\b/.test(text)) score += 6;
-    if (/supplement|suppl|moesm|mediaobjects|additional[-_ ]file|static-content\.springer/.test(href)) score += 8;
-    if (/download|下载/.test(text)) score += 3;
-    if (/\.pdf(?:[?#]|$)|\bpdf\b/.test(`${href} ${text}`)) score += 5;
-    if (/\.(?:docx?|zip)(?:[?#]|$)/.test(href)) score += 7;
-    return score;
-  };
-  const clickWileySupportingInformation = (items) => {
-    if (publisher !== 'wiley' || kind !== 'si') return false;
-
-    // Wiley 的 Supporting Information 是折叠区标题，不是文件下载入口。
-    // 先只展开折叠区，再从带有 Filename 表头的区域中选择真实文件链接。
-    const expander = items.find(({ element, text, href }) =>
-      /supporting information/.test(text)
-      && (element.matches('button,[role="button"]')
-        || element.hasAttribute('aria-expanded')
-        || /^#/.test(element.getAttribute('href') || '')
-        || /#.*support/i.test(href)));
-    if (expander && !expanded) {
-      expanded = true;
-      if (expander.element.getAttribute('aria-expanded') !== 'true') expander.element.click();
-      return true;
-    }
-    expanded = true;
-
-    const filenameLink = items.find(({ element, text, href }) => {
-      const anchor = element.closest?.('a[href]') || (element.matches?.('a[href]') ? element : null);
-      if (!anchor || !href || /^#|^javascript:/i.test(href) || attempted.has(candidateKey({ text, href }))) return false;
-      const row = anchor.closest?.('tr');
-      const table = anchor.closest?.('table');
-      const region = anchor.closest?.('section,article,[role="region"],div');
-      const context = clean(`${text} ${row?.innerText || ''} ${table?.innerText || ''} ${region?.innerText || ''}`);
-      return /\bfilename\b/.test(context)
-        && !/^supporting information$/i.test(String(anchor.innerText || '').trim());
-    });
-    if (!filenameLink) return false;
-    markClicked(filenameLink);
-    // 正常进入 Wiley 的 PDF 预览页；下一次页面加载会注入本脚本并捕获保存。
-    filenameLink.element.click();
-    return true;
-  };
-  const scan = () => {
-    if (window.__ibmWebVpnDownloadStarted) { clearInterval(timer); return; }
-    if (!confirmedPublisherPage()) return;
-    if (!reportedSearch) { reportedSearch = true; signal('searching'); }
-    const previewUrl = previewDownloadUrl();
-    // Wiley 首次进入文章页时为自动验证预留至少 10 秒。验证未完成时继续
-    // 等待，不消耗自动化重试次数，也不提前把任务判为失败。
-    if (publisher === 'wiley' && !previewUrl && Date.now() < wileyReadyAt) return;
-    if (challengePresent()) {
-      if (!reportedChallenge) { reportedChallenge = true; signal('challenge'); }
-      return;
-    }
-    if (reportedChallenge) { reportedChallenge = false; signal('searching'); }
-    // 空白、没加载完、或还没到 complete 的文档一律只等待：挑战页、被拦页面、
-    // 以及"大 PDF 还在拉"的预览器都属于这一类。超过约 30 秒仍没就绪才退回人工，
-    // 避免任务永远停在"正在查找入口"，也避免在没就绪的页面上动手。
-    if (!publisherContentReady() || !documentLoaded()) {
-      stalledTicks += 1;
-      if (stalledTicks >= 40) { clearInterval(timer); signal(kind === 'si' ? 'si-manual' : 'pdf-manual'); }
-      return;
-    }
-    stalledTicks = 0;
-    if (lastClickAt && Date.now() - lastClickAt < 4000) return;
-    attempts += 1;
-    if (attempts >= 2 && forceDownload(previewUrl)) return;
-    const items = candidates();
-    if (clickWileySupportingInformation(items)) return;
-    const scored = items.filter((item) => !attempted.has(candidateKey(item)))
-      .map((item) => ({ ...item, score: kind === 'pdf' ? pdfScore(item) : siScore(item) }))
-      .sort((a, b) => b.score - a.score);
-    const threshold = kind === 'pdf' ? 8 : 10;
-    if (scored[0]?.score >= threshold) {
-      markClicked(scored[0]);
-      scored[0].element.click();
-      return;
-    }
-    if (kind === 'si' && !expanded) {
-      const expander = items.find(({ element, text }) =>
-        /supplementary information|supporting information|supplementary methods?|supplyment methods?/.test(text)
-        && (element.matches('button,[role="button"]') || element.getAttribute('aria-expanded') === 'false'));
-      if (expander) { expanded = true; expander.element.click(); return; }
-    }
-    // 原生 PDF 查看器的工具栏不属于网页 DOM，脚本无法替用户点击。此时只上报
-    // “等待人工保存”，不能清除捕获任务；用户随后点击保存仍由 on_download 接管。
-    if (attempts >= 16) { clearInterval(timer); signal(kind === 'si' ? 'si-manual' : 'pdf-manual'); }
-  };
-  const timer = setInterval(scan, 750);
-  scan();
-})();
-"#;
-
 /// 主窗口的 label（由 `tauri.conf.json` 的 `app.windows[0]` 定义）。
 /// Agent 只观察候选下载入口，不读整页正文、Cookie 或表单值。
 const AGENT_OBSERVE_SCRIPT: &str = r#"
@@ -930,8 +627,23 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
   if (document.querySelector('input[type="password"]')) return { error: '登录页请由用户操作' };
   const visible = (el) => {
     const r = el.getBoundingClientRect();
-    const style = getComputedStyle(el);
+    const style = el.ownerDocument?.defaultView?.getComputedStyle?.(el) || getComputedStyle(el);
     return r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+  };
+  const inViewport = (el) => {
+    const r = el.getBoundingClientRect();
+    let top = Number(r.top) || 0;
+    let left = Number(r.left) || 0;
+    let frame = el.ownerDocument?.defaultView?.frameElement;
+    while (frame) {
+      const parent = frame.getBoundingClientRect();
+      top += Number(parent.top) || 0;
+      left += Number(parent.left) || 0;
+      frame = frame.ownerDocument?.defaultView?.frameElement;
+    }
+    const width = window.innerWidth || 1280;
+    const height = window.innerHeight || 800;
+    return top < height && top + r.height > 0 && left < width && left + r.width > 0;
   };
   const roots = [document];
   for (let i = 0; i < roots.length && roots.length < 20; i++) {
@@ -970,8 +682,7 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
       return /^[\w.\- ]{1,60}$/.test(base) ? base : '';
     } catch { return ''; }
   };
-  const rows = [];
-  const elements = [];
+  const found = [];
   for (const root of roots) {
     for (const el of root.querySelectorAll('a[href],button,[role="button"]')) {
       if (!visible(el)) continue;
@@ -984,8 +695,6 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
       // 供 AI 主导流程自己判断该点哪里（2026-09-27 需求：提高 AI 主动性）。
       if (__OBSERVE_SCOPE__ === 'download'
         && !/pdf|download|supplement|supporting|附件|补充|下载|保存|全文|article/i.test(label + ' ' + href)) continue;
-      const id = 'e' + (rows.length + 1);
-      elements.push(el);
       // C12：入口可判别。「点了会直接下载」和「点了只进预览器」必须能区分，
       // 否则同名入口（Science 的 PDF / Download PDF）只能靠 AI 从 URL 里猜。
       const autoDownloadable = (() => {
@@ -995,13 +704,28 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
         if (el.hasAttribute && el.hasAttribute('download')) return true;
         return /\.(?:pdf|zip|docx?)(?:[?#]|$)/i.test(raw);
       })();
-      rows.push({ id, role: el.tagName.toLowerCase(), label,
-        target: safeTarget(href), file: safeFileName(href), autoDownloadable,
-        likely: /supplement|supporting|附件|补充/i.test(label + ' ' + href) ? 'si' : 'pdf' });
-      if (rows.length >= 30) break;
+      const target = safeTarget(href);
+      const downloadHint = /pdf|download|supplement|supporting|moesm|mediaobjects|\.docx?|\.zip|附件|补充|下载|全文/i
+        .test(label + ' ' + target);
+      found.push({ el, role: el.tagName.toLowerCase(), label, target,
+        file: safeFileName(href), autoDownloadable,
+        likely: /supplement|supporting|moesm|mediaobjects|附件|补充/i.test(label + ' ' + target) ? 'si' : 'pdf',
+        viewport: inViewport(el), downloadHint });
     }
-    if (rows.length >= 30) break;
   }
+  // 长文章的导航和作者链接会占满 DOM 前 30 项。优先给当前视口内的下载入口，
+  // 其次给其他位置的下载入口；没有入口时才给当前视口内的普通元素。
+  found.sort((a, b) => {
+    const rank = (item) => item.downloadHint ? item.viewport ? 0 : 1 : item.viewport ? 2 : 3;
+    return rank(a) - rank(b);
+  });
+  const selected = found.slice(0, 30);
+  const elements = selected.map((item) => item.el);
+  const rows = selected.map((item, index) => ({
+    id: 'e' + (index + 1), role: item.role, label: item.label, target: item.target,
+    file: item.file, autoDownloadable: item.autoDownloadable, likely: item.likely,
+    inViewport: item.viewport
+  }));
   const observationId = crypto.randomUUID().replace(/-/g, '');
   // 记下当时的 URL：页面一变，元素引用就失效（比单纯靠 TTL 更准）。
   window.__ibmAgentObservation = { observationId, at: Date.now(), href: location.href, elements };
@@ -1014,7 +738,7 @@ const AGENT_OBSERVE_SCRIPT: &str = r#"
     title: String(document.title || '').slice(0, 160),
     text: bodyText.slice(0, 1200),
     scroll: { y: Math.round(window.scrollY || 0), height: Math.round(document.documentElement?.scrollHeight || 0) },
-    candidates: rows };
+    candidateCount: found.length, truncated: found.length > 30, candidates: rows };
 })()
 "#;
 
@@ -1263,24 +987,6 @@ impl PublisherAdapter {
         }
     }
 
-    fn key(self) -> &'static str {
-        match self {
-            Self::Nature => "nature",
-            Self::Springer => "springer",
-            Self::Science => "science",
-            Self::Elsevier => "elsevier",
-            Self::Acs => "acs",
-            Self::Rsc => "rsc",
-            Self::Ieee => "ieee",
-            Self::WileyPaused => "wiley",
-            Self::Other => "other",
-        }
-    }
-
-    fn supports_automation(self) -> bool {
-        !matches!(self, Self::Other)
-    }
-
     pub fn direct_si(self, kind: &str) -> bool {
         kind == "si" && matches!(self, Self::Nature | Self::Springer)
     }
@@ -1426,9 +1132,7 @@ struct PendingCapture {
     task_id: String,
     kind: String,
     publisher: PublisherAdapter,
-    /// Agent 任务自动点击；面板任务只布防捕获并交给用户手动操作。
-    automate: bool,
-    /// 只描述自动化已观察到的阶段；不把点击冒充为下载已开始。
+    /// 只描述 Agent 操作后的阶段；不把点击冒充为下载已开始。
     automation_stage: String,
     native_saving: bool,
     /// 仅在未启用 iWAN 时，对公开的 Nature/Springer SI 预览链接使用后端直取。
@@ -1645,7 +1349,6 @@ impl WebVpnState {
         kind: &str,
         target_host: &str,
         publisher: PublisherAdapter,
-        automate: bool,
         intercept_direct_si: bool,
         upload_url: url::Url,
         temp_path: PathBuf,
@@ -1692,8 +1395,7 @@ impl WebVpnState {
             task_id: task_id.to_string(),
             kind: kind.to_string(),
             publisher,
-            automate,
-            automation_stage: if automate { "opening" } else { "manual" }.to_string(),
+            automation_stage: "manual".to_string(),
             native_saving: false,
             intercept_direct_si,
             upload_url,
@@ -1711,27 +1413,13 @@ impl WebVpnState {
         Ok(generation)
     }
 
-    fn pending_automation(&self) -> Option<(String, PublisherAdapter)> {
-        self.session
-            .lock()
-            .ok()?
-            .pending
-            .as_ref()
-            .and_then(|pending| {
-                (pending.automate
-                    && pending.publisher.supports_automation()
-                    && !pending.download_claimed)
-                    .then(|| (pending.kind.clone(), pending.publisher))
-            })
-    }
-
     fn set_automation_stage(&self, stage: &str) {
         if !matches!(stage, "searching" | "clicked" | "manual" | "verification") {
             return;
         }
         if let Ok(mut session) = self.session.lock() {
             if let Some(pending) = session.pending.as_mut() {
-                if pending.automate && !pending.download_claimed {
+                if !pending.download_claimed {
                     pending.automation_stage = stage.to_string();
                 }
             }
@@ -1745,8 +1433,7 @@ impl WebVpnState {
         let Some(pending) = session.pending.as_ref() else {
             return false;
         };
-        pending.automate
-            && pending.intercept_direct_si
+        pending.intercept_direct_si
             && pending.publisher.direct_si(&pending.kind)
             && !pending.download_claimed
             && is_springer_family_si_url(target)
@@ -1795,7 +1482,7 @@ impl WebVpnState {
         let Some(pending) = session.pending.as_mut() else {
             return Err("没有待保存的文献任务".to_string());
         };
-        if pending.task_id != task_id || pending.kind != "pdf" || pending.download_claimed {
+        if pending.task_id != task_id || !matches!(pending.kind.as_str(), "pdf" | "si") || pending.download_claimed {
             return Err("当前任务不允许保存原生 PDF".to_string());
         }
         pending.download_claimed = true;
@@ -2036,16 +1723,31 @@ impl WebVpnState {
     /// 载荷**不与下载共用文件**：下载路径写 `temp_path`，响应层写 `*.payload.pdf`。
     /// 两个写入者共用一个文件会在「响应既是文档体又触发下载事件」时互相截断，
     /// 归档出一个损坏的 PDF；分成两个文件后两条路互不影响。
-    fn pending_pdf_target(&self) -> Option<(String, PathBuf)> {
+    fn pending_pdf_target(&self, response_url: &str) -> Option<(String, PathBuf)> {
         let session = self.session.lock().ok()?;
         let pending = session.pending.as_ref()?;
-        if pending.kind != "pdf" {
+        if pending.kind == "si" {
+            let target = url::Url::parse(response_url).ok()?;
+            if !pending.publisher.direct_si("si") || !is_springer_family_si_url(&target)
+                || !target.path().to_ascii_lowercase().ends_with(".pdf") {
+                return None;
+            }
+        } else if pending.kind != "pdf" {
             return None;
         }
         Some((
             pending.task_id.clone(),
             pdf_payload_path(&pending.temp_path),
         ))
+    }
+
+    fn is_current_pdf_document(&self, task_id: &str, current: &url::Url) -> bool {
+        self.session.lock().ok().and_then(|session| {
+            let pending = session.pending.as_ref()?;
+            let page = session.page.as_ref()?;
+            Some(pending.task_id == task_id && page.url == current.as_str()
+                && page.document_type.as_deref().is_some_and(|kind| kind.starts_with("application/pdf")))
+        }).unwrap_or(false)
     }
 
     /// PDF 载荷是否已完整落盘（C1/R2.2）。
@@ -3707,7 +3409,7 @@ fn handle_response_received(
         );
         return;
     }
-    let Some((task_id, path)) = state.pending_pdf_target() else {
+    let Some((task_id, path)) = state.pending_pdf_target(&url) else {
         return;
     };
     // 只有整份响应（200）的 Content-Length 才是"声明总长"；分段响应已经在上面跳过。
@@ -4096,10 +3798,8 @@ async fn save_current_pdf(
     // 「另存为」界面，也不读、不导出任何 Cookie —— 字节是 WebView2 自己那次请求
     // 的响应体，我们只是把它写到本任务的暂存路径上。
     // 快速失败：既不在 PDF 上、也没有任何载荷时，等 45 秒再报错毫无意义。
-    let is_pdf_document = webview
-        .url()
-        .ok()
-        .map(|url| is_pdf_document_url(&url))
+    let is_pdf_document = webview.url().ok()
+        .map(|url| is_pdf_document_url(&url) || state.is_current_pdf_document(task_id, &url))
         .unwrap_or(false);
     if !is_pdf_document && state.pdf_payload_progress(task_id).is_none() {
         return Err(
@@ -4131,7 +3831,9 @@ async fn save_current_pdf(
                 }
                 // 还没有载荷：用同一个 WebView2 会话重新请求这个 PDF，让响应层再拿到
                 // 一次响应体。认证材料由浏览器引擎自己带着。
-                let target = webview.url().ok().filter(is_pdf_document_url);
+                let target = webview.url().ok().filter(|url| {
+                    is_pdf_document_url(url) || state.is_current_pdf_document(task_id, url)
+                });
                 let Some(target) = target else { break };
                 reissued = true;
                 if let Err(error) = webview.navigate(target) {
@@ -4228,7 +3930,9 @@ async fn save_pdf_via_viewer(
     task_id: &str,
     webview: &Webview,
 ) -> Result<serde_json::Value, String> {
-    let is_pdf = webview.url().ok().map(|url| is_pdf_document_url(&url)).unwrap_or(false);
+    let is_pdf = webview.url().ok()
+        .map(|url| is_pdf_document_url(&url) || state.is_current_pdf_document(task_id, &url))
+        .unwrap_or(false);
     if !is_pdf {
         return Err(
             "当前文档不是原生 PDF，也没有取到 PDF 字节流；请改用带 ?download=true 的下载入口重新进入".to_string(),
@@ -4579,71 +4283,6 @@ fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
         }
         return true;
     }
-    if url.host_str() == Some("automation") {
-        let result = url.path().trim_matches('/');
-        let stage = match result {
-            "searching" => Some("searching"),
-            "clicked" => Some("clicked"),
-            "si-manual" | "pdf-manual" => Some("manual"),
-            "challenge" => Some("verification"),
-            _ => None,
-        };
-        if let Some(stage) = stage {
-            if let Some(state) = app.try_state::<WebVpnState>() {
-                state.set_automation_stage(stage);
-            }
-            if let Some(webview) = app.get_webview(WINDOW_LABEL) {
-                let _ = push_capture_ball(app, &webview);
-            }
-        }
-        // `pdf-manual` 只代表扫描若干轮没找到入口——它并不证明页面是预览器。
-        // 页面位移只对「整屏 fixed 的预览器/原生 PDF 查看器」有意义，据此给
-        // 普通文章页加 transform 正是两次白屏的成因（2026-09-23 ScienceDirect、
-        // 2026-09-25 science.org），所以这里要求正向证据：只有顶层文档确实
-        // 是 PDF 才开位移，否则只如实报告"没找到入口"。
-        if result == "pdf-manual" {
-            let pdf_document = app
-                .get_webview(WINDOW_LABEL)
-                .and_then(|webview| webview.url().ok())
-                .map(|url| is_pdf_document_url(&url))
-                .unwrap_or(false);
-            if pdf_document {
-                if let Some(webview) = app.get_webview(WINDOW_LABEL) {
-                    let _ = webview.eval(
-                        "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
-                    );
-                }
-                record(
-                    app,
-                    "automation",
-                    "",
-                    "已进入 PDF 预览器并保持捕获；可手动点击右上角保存",
-                );
-            } else {
-                record(
-                    app,
-                    "automation",
-                    "",
-                    "未能自动识别正文下载入口；捕获仍有效，请在页面中手动打开并保存",
-                );
-            }
-            return true;
-        }
-        if result == "si-manual" {
-            record(
-                app,
-                "automation",
-                "",
-                "自动入口暂未识别，捕获任务保持有效；可在页面手动点击补充材料",
-            );
-            return true;
-        }
-        if result == "challenge" {
-            let message = "出版社页面正在验证访问；捕获有效，通过后自动继续查找入口";
-            record(app, "automation", "", message);
-        }
-        return true;
-    }
     false
 }
 
@@ -4722,7 +4361,6 @@ pub fn open_window(
                         "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
                     );
                 }
-                start_pending_publisher_automation(&page_app, &webview);
                 // C2：页面每次加载完成都落一个快照，上层的 wait 才有「页面跳了」
                 // 这个信号（旧指纹里导航不改变任何一项，于是永远报「没有变化」）。
                 if let Some(state) = page_app.try_state::<WebVpnState>() {
@@ -4915,28 +4553,6 @@ pub fn open_window(
         let _ = state.transition(WebVpnSessionState::WaitingLogin);
     }
     Ok(webview)
-}
-
-/// 在当前文档中启动 Nature 下载入口扫描。页面脚本自身还会检查 citation DOI，
-/// 因而 DOI 跳转页、WebVPN 门户和登录页都不会被误点。
-pub fn start_pending_publisher_automation(app: &AppHandle, webview: &Webview) {
-    let pending = app
-        .try_state::<WebVpnState>()
-        .and_then(|state| state.pending_automation());
-    let Some((kind, publisher)) = pending.filter(|(kind, _)| kind == "pdf" || kind == "si") else {
-        return;
-    };
-    let script = PUBLISHER_DOWNLOAD_AUTOMATION
-        .replace("__IBM_CAPTURE_KIND__", &kind)
-        .replace("__IBM_PUBLISHER__", publisher.key());
-    if let Err(error) = webview.eval(script) {
-        record(
-            app,
-            "automation",
-            "",
-            &format!("页面下载入口扫描启动失败: {error}"),
-        );
-    }
 }
 
 /// 由命令层调用的状态组装：补上"窗口是否存在"与配置。
@@ -5156,7 +4772,6 @@ mod tests {
                 "si",
                 "doi.org",
                 PublisherAdapter::Nature,
-                true,
                 false,
                 upload,
                 std::env::temp_dir().join("capture-iwan-si.pdf"),
@@ -5166,6 +4781,23 @@ mod tests {
             !state.should_capture_direct_si_preview(&target),
             "iWAN 模式应让 WebView2 原生直连 SI，不得交给 reqwest 拦截器"
         );
+        assert!(state.pending_pdf_target(target.as_str()).is_some(),
+            "iWAN 下 SI PDF 的完整响应可走载荷通路");
+        assert!(state.pending_pdf_target("https://evil.example/other.pdf").is_none());
+    }
+
+    #[test]
+    fn agent_clicked_public_nature_si_can_use_direct_capture() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let upload = url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap();
+        state.prepare_capture("capture-agent-si", "si", "doi.org", PublisherAdapter::Nature,
+            true, upload, std::env::temp_dir().join("capture-agent-si.pdf")).unwrap();
+        let target = url::Url::parse("https://media.springernature.com/full/springer-static/41586_2026_11032_MOESM1_ESM.pdf").unwrap();
+        assert!(state.should_capture_direct_si_preview(&target));
+        assert!(state.claim_native_save_destination("capture-agent-si").is_ok(),
+            "SI 任务显示原生 PDF 后也可进入查看器保存通路");
     }
 
     #[test]
@@ -5663,7 +5295,6 @@ mod tests {
                 "pdf",
                 "www.nature.com",
                 PublisherAdapter::Nature,
-                true,
                 false,
                 upload.clone(),
                 first.clone(),
@@ -5683,7 +5314,6 @@ mod tests {
                 "si",
                 "pubs.acs.org",
                 PublisherAdapter::Acs,
-                false,
                 false,
                 upload,
                 second.clone(),
@@ -5810,7 +5440,6 @@ mod tests {
                 "pdf",
                 "www.nature.com",
                 PublisherAdapter::Nature,
-                true,
                 false,
                 url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
                 path.clone(),

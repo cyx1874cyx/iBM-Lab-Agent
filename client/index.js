@@ -3240,7 +3240,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         const token = task?.token;
         if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
         try {
-          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi, automate: false });
+          await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi });
           setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
           notify(iwan?.usable ? `iWAN 全部路由可用，已直访出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口` : directSpringerSi ? "Nature/Springer SI 为公开附件，已在软件侧栏中直连打开，请手动点击下载入口" : `已在 WebVPN 侧栏打开出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`);
         } catch (webvpnError) {
@@ -4051,12 +4051,9 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
             kind: claimedTask.kind,
             targetUrl: claimedTask.publisherUrl,
             token: claimedTask.token,
-            directAccess: directSpringerSi,
-            // mode=ai（默认）：不发自动点击脚本，页面交给 Agent 自己观察/点击/保存；
-            // mode=auto：沿用壳内脚本快路径，失败后 Agent 仍可接管。
-            automate: claimedTask.mode === "auto"
+            directAccess: directSpringerSi
           });
-          toast?.(claimedTask.mode === "auto" ? `AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在通过${iwanStatus?.usable ? " iWAN 直访" : "软件侧栏"}自动处理` : `AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
+          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
         }
       } catch (error) {
         if (claimedTask?.id) {

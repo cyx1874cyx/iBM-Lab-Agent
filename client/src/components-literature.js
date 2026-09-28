@@ -260,14 +260,9 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 								kind: claimedTask.kind,
 								targetUrl: claimedTask.publisherUrl,
 								token: claimedTask.token,
-								directAccess: directSpringerSi,
-								// mode=ai（默认）：不发自动点击脚本，页面交给 Agent 自己观察/点击/保存；
-								// mode=auto：沿用壳内脚本快路径，失败后 Agent 仍可接管。
-								automate: claimedTask.mode === "auto"
+								directAccess: directSpringerSi
 							});
-							toast?.(claimedTask.mode === "auto"
-								? `AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，正在通过${iwanStatus?.usable ? " iWAN 直访" : "软件侧栏"}自动处理`
-								: `AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
+							toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
 						}
 					} catch (error) {
 						// 只有已经成功领取令牌、但桌面壳启动失败时才取消任务；并发领取失败

@@ -118,8 +118,9 @@
                      返回 requiresUserAction=true，必须把 question 原样询问用户；只有用户明确
                      确认终止后，才调用 lab_publisher_browser_download_cancel(taskId)，不得因
                      一次获取失败擅自取消，也不得让失败任务继续占据队列；
-                   - 通用出版社文献下载调用 lab_publisher_browser_download（**默认 mode=ai**：
-                       页面打开后由你直接操作，壳内脚本不点击）。随后**由你驱动浏览器闭环**：
+                   - 通用出版社文献下载先加载 publisher-download skill，按其中的出版社规则表
+                     核对 DOI、页面入口与待测状态，再调用 lab_publisher_browser_download。
+                     页面打开后由你直接操作。随后**由你驱动浏览器闭环**：
                        lab_publisher_browser_download_status 读状态 → lab_browser_observe（scope=all）
                        看清页面 → lab_browser_click 点入口 → lab_browser_wait 等页面变化 → 再观察。
                        用 wait/observe 返回的新状态决定下一步，不要空转轮询，也不要连点同一个元素；
@@ -142,10 +143,12 @@
                              alternateEntry 当作 elementId，也不要反复调用保存工具。
                            · nextAction=manual-handoff：当前任务没有可执行的备用入口，请用户在侧栏
                              手动保存或终止；不要循环 observe/save。
-                       verification（人机验证）只能由人完成：nextAction=complete-verification 时把
-                       「请在软件侧栏点一下『请验证您是真人』」告诉用户，用 lab_browser_wait 等它通过，
-                       不要自行取消或反复重开页面。
-                       mode=auto 是快路径（壳内脚本先自动点，失败再由你按上面的闭环接管），只在明确想省事时使用。
+                           · nextAction=save-from-viewer：原生 PDF 已呈现但尚无完整载荷，调用
+                             lab_browser_save_current_pdf 尝试查看器保存；仍以任务 completed 为成功判据。
+                       人机验证只能由人完成：若 nextAction=complete-verification，**或**你从 observe 的页面文本
+                       看出这是验证页（如 Cloudflare「Verify you are human」/「请验证您是真人」），
+                       立即停止点击，把「请在软件侧栏完成验证」告诉用户，用 lab_browser_wait 等它通过，
+                       不要自行取消、不要反复重开页面、也不要继续点验证页上的元素。
                        任务状态一律以 lab_publisher_browser_download_status 为准：
                        · completed 才代表已归档；
                        - requiresUserAction=true（heartbeat-lost / orphaned / stalled / failed / expired）表示任务

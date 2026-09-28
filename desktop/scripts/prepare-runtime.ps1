@@ -415,7 +415,7 @@ if ($refreshPlugin) {
   $pluginCopyWatch = [System.Diagnostics.Stopwatch]::StartNew()
 $pluginRoot = Join-Path $tempResourceRoot 'plugin\dsh-lab-agent'
 New-Item -ItemType Directory -Force -Path $pluginRoot, (Join-Path $pluginRoot 'node_modules') | Out-Null
-foreach ($item in @('package.json', 'LICENSE', 'lib', 'client', 'cordis.patch.yml', 'presets', 'python', 'scripts', 'bin', 'src', 'vendor', 'vendor.lock.json', 'harness.lock.json')) {
+foreach ($item in @('package.json', 'LICENSE', 'lib', 'client', 'cordis.patch.yml', 'presets', 'skills', 'python', 'scripts', 'bin', 'src', 'vendor', 'vendor.lock.json', 'harness.lock.json')) {
   $from = Join-Path $sourceRoot $item
   $to = Join-Path $pluginRoot $item
   # 构建期依赖（例如 scripts/ketcher-shell/node_modules）不属于桌面运行时。

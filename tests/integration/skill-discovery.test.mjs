@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { bootLite } from "../helpers/boot-lite.mjs";
 
 const skillsDir = fileURLToPath(new URL("../../vendor/nature-skills/skills", import.meta.url));
+const publisherSkillsDir = fileURLToPath(new URL("../../skills", import.meta.url));
 
 test("nature skills are discovered through the lab provider", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-skill-"));
@@ -35,6 +36,15 @@ test("nature skills are discovered through the lab provider", async () => {
 						includeDefaultRoots: false,
 						customSkillDirs: [skillsDir]
 					}
+				},
+				{
+					id: "lab-publisher-skill-filesystem",
+					name: "@deepseek-ai/dsh-skill-filesystem",
+					config: {
+						providerName: "lab-publisher",
+						includeDefaultRoots: false,
+						customSkillDirs: [publisherSkillsDir]
+					}
 				}
 			]
 		});
@@ -42,7 +52,7 @@ test("nature skills are discovered through the lab provider", async () => {
 			const catalog = await handle.ctx.skills.list({});
 			const candidates = Array.isArray(catalog) ? catalog : catalog.candidates;
 			const names = candidates.map((c) => c.name);
-			for (const expected of ["nature-reader", "nature-paper-card", "nature-paper2ppt", "nature-academic-search", "nature-shared"]) {
+			for (const expected of ["nature-reader", "nature-paper-card", "nature-paper2ppt", "nature-academic-search", "nature-shared", "publisher-download"]) {
 				assert.ok(names.includes(expected), `catalog must include ${expected}; got ${names.join(", ")}`);
 			}
 			// the full body of a pinned skill loads through the registry
@@ -50,6 +60,9 @@ test("nature skills are discovered through the lab provider", async () => {
 			assert.ok(loaded, "nature-reader loads");
 			assert.equal(loaded.provider, "lab-nature");
 			assert.match(loaded.content ?? "", /Full-Paper|reader|Reader/);
+			const publisher = await handle.ctx.skills.get("publisher-download");
+			assert.equal(publisher?.provider, "lab-publisher");
+			assert.match(publisher?.content ?? "", /lab_browser_navigate/);
 		} finally {
 			await handle.dispose();
 		}

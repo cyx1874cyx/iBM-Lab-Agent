@@ -4,5 +4,10 @@
   "loopbackHosts": ["127.0.0.1", "localhost", "::1"],
   "scheme": "http",
   "taskIdPattern": "^capture-[a-z0-9]+$",
-  "maxFileBytes": 104857600
+  "maxFileBytes": 104857600,
+  "_captureSemantics": {
+    "viewerIsNotCapture": "documentType=application/pdf and contentLength describe the displayed response, not saved bytes or saveReady.",
+    "captureStarts": "An active task receives a WebView2 DownloadEvent::Requested, or the response collector receives a complete non-206 application/pdf body; Nature/Springer public SI may be intercepted before preview navigation.",
+    "completion": "Only validated upload and bundle registration complete the task; save-from-viewer may attempt native SaveAsUI when a PDF is displayed without captured payload."
+  }
 }

@@ -16,7 +16,7 @@ test("Agent 页面脚本可解析且只含候选入口，不读取认证资料",
 	}
 	const observation = rust.match(/const AGENT_OBSERVE_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1];
 	assert.doesNotMatch(observation, /document\.body\.innerText|document\.cookie|localStorage|sessionStorage/);
-	assert.match(observation, /rows\.length >= 30/);
+	assert.match(observation, /found\.slice\(0, 30\)/);
 });
 
 test("浏览器动作只接受当前课题的活动 Agent 捕获任务", () => {
@@ -94,4 +94,35 @@ test("scope=all 的页面观察能看到同源 iframe 内的下载按钮", async
 	});
 	assert.equal(result.candidates.length, 1);
 	assert.equal(result.candidates[0].label, "Download PDF");
+});
+
+test("Nature 长页面不会让导航和作者链接占满前 30 个候选", async () => {
+	const rust = await source();
+	const script = rust.match(/const AGENT_OBSERVE_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replace("__OBSERVE_SCOPE__", "'all'");
+	const link = (label, href, top) => ({
+		tagName: "A", innerText: label, textContent: label, shadowRoot: null,
+		getBoundingClientRect: () => ({ width: 120, height: 20, top, left: 20 }),
+		getAttribute: (name) => name === "href" ? href : null,
+		closest: () => null, hasAttribute: () => false
+	});
+	const authors = Array.from({ length: 35 }, (_, index) => link(`Author ${index}`, `/authors/${index}`, -100000));
+	const supplement = link("Supplementary information", "https://media.springernature.com/full/springer-static/41586_2026_11032_MOESM1_ESM.pdf", 120);
+	const document = {
+		querySelector: () => null,
+		querySelectorAll: (selector) => selector === "*" ? [] : [...authors, supplement],
+		contentType: "text/html", readyState: "complete", title: "Nature article",
+		body: { innerText: "Article with many authors" }, documentElement: { scrollHeight: 105000 }
+	};
+	const result = runInNewContext(script, {
+		document, location: { href: "https://www.nature.com/articles/s41586-026-11032", hostname: "www.nature.com" },
+		window: { scrollY: 103435, innerWidth: 1280, innerHeight: 800 },
+		getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+		crypto: { randomUUID: () => "00000000-0000-0000-0000-000000000002" }, URL
+	});
+	assert.equal(result.candidateCount, 36);
+	assert.equal(result.truncated, true);
+	assert.equal(result.candidates[0].label, "Supplementary information");
+	assert.equal(result.candidates[0].inViewport, true);
+	assert.equal(result.candidates[0].likely, "si");
 });

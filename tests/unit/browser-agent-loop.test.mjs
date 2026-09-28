@@ -43,7 +43,7 @@ function captureStub({ task, desktop }) {
 	};
 }
 
-test("下载工具默认 mode=ai（页面交给 Agent），显式传 auto 才走脚本快路径", async () => {
+test("下载工具只创建 Agent 操作任务，不再暴露旧自动点击模式", async () => {
 	const calls = [];
 	const tools = harness({
 		getDesktopWebVpnStatus: () => desktopStatus({ iwanReady: true }),
@@ -56,11 +56,9 @@ test("下载工具默认 mode=ai（页面交给 Agent），显式传 auto 才走
 	});
 	const tool = tools.find((item) => item.name === "lab_publisher_browser_download");
 	assert.ok(tool, "必须注册下载工具");
-	assert.equal(tool.parameters.properties.mode.enum.join("/"), "ai/auto", "必须暴露 mode");
+	assert.equal(tool.parameters.properties.mode, undefined);
 	await tool.execute({ projectId: "proj-test", bundleId: "bundle-1", kind: "pdf" }, {});
-	await tool.execute({ projectId: "proj-test", bundleId: "bundle-1", kind: "pdf", mode: "auto" }, {});
-	assert.equal(calls[0].mode, "ai", "不传 mode 必须是 ai");
-	assert.equal(calls[1].mode, "auto", "显式 auto 必须透传");
+	assert.equal(calls[0].mode, "ai");
 });
 
 test("AI 主导的任务：状态直接要求观察+点击，而不是等自动下载", async () => {
@@ -77,7 +75,7 @@ test("AI 主导的任务：状态直接要求观察+点击，而不是等自动�
 	assert.match(value.message, /lab_browser_wait/, "必须给出闭环里的等待工具");
 });
 
-test("脚本快路径（mode=auto）仍按老规则：automationStage=manual 才 observe", async () => {
+test("旧 auto 任务也转交 Agent 操作，不再等待壳内脚本", async () => {
 	const task = {
 		id: "capture-1", projectId: "proj-test", bundleId: "bundle-1", kind: "pdf",
 		requestedBy: "agent", mode: "auto", status: "armed", createdAt: "2026-09-27T00:00:00.000Z"
@@ -85,7 +83,7 @@ test("脚本快路径（mode=auto）仍按老规则：automationStage=manual 才
 	const tools = harness(captureStub({ task, desktop: desktopStatus({ automationStage: "searching" }) }));
 	const tool = tools.find((item) => item.name === "lab_publisher_browser_download_status");
 	const value = await tool.execute({ projectId: "proj-test", taskId: "capture-1" }, {});
-	assert.equal(value.nextAction, "wait-and-poll", "auto 模式下脚本还在找入口，应等待");
+	assert.equal(value.nextAction, "observe-or-click");
 });
 
 test("lab_browser_wait：状态一变就返回，不必让调用方轮询", async () => {
@@ -109,7 +107,7 @@ test("lab_browser_wait：状态一变就返回，不必让调用方轮询", asyn
 	assert.ok(!/秒内没有变化/.test(value.message || ""), "命中变化时不应带超时说明");
 });
 
-test("闭环四处接线：observe scope、wait 工具、客户端按 mode 决定 automate", async () => {
+test("闭环接线：observe scope、wait 工具，客户端不再传旧自动点击参数", async () => {
 	const [rust, shell, plugin, client, capture] = await Promise.all([
 		read("desktop/src-tauri/src/webvpn.rs"),
 		read("desktop/src/index.html"),
@@ -126,6 +124,5 @@ test("闭环四处接线：observe scope、wait 工具、客户端按 mode 决�
 	// 观察结果必须带页面摘要，AI 才知道"这是哪一页、处于什么阶段"。
 	assert.match(rust, /text: bodyText\.slice\(0, 1200\)/, "观察必须带可见文本摘要");
 	assert.match(rust, /readyState: document\.readyState/, "观察必须带加载状态");
-	// 客户端只对 mode=auto 才发自动点击脚本。
-	assert.match(client, /automate: claimedTask\.mode === "auto"/, "automate 必须由任务模式决定");
+	assert.doesNotMatch(client, /automate:/, "客户端不再发起旧自动点击脚本");
 });

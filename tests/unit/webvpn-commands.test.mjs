@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -9,92 +8,6 @@ const shellSource = () => read("desktop/src/index.html");
 const mainSource = () => read("desktop/src-tauri/src/main.rs");
 const webvpnSource = () => read("desktop/src-tauri/src/webvpn.rs");
 
-test("出版社页面自动化脚本保持可执行", async () => {
-	const source = await webvpnSource();
-	const match = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/);
-	assert.ok(match, "必须能提取出版社下载自动化脚本");
-	for (const publisher of ["ieee", "wiley"]) {
-		for (const kind of ["pdf", "si"]) {
-			const script = match[1]
-				.replaceAll("__IBM_CAPTURE_KIND__", kind)
-				.replaceAll("__IBM_PUBLISHER__", publisher);
-			assert.doesNotThrow(() => new Function(script), `${publisher}/${kind} 自动化脚本必须可执行`);
-		}
-	}
-});
-
-test("Wiley iWAN 下载先等待人机验证，再按正文与 Filename SI 两段流程执行", async () => {
-	const webvpn = await webvpnSource();
-	assert.match(webvpn, /WILEY_HUMAN_CHECK_MS = 10000/);
-	assert.match(webvpn, /publisher === 'wiley' && !previewUrl && Date\.now\(\) < wileyReadyAt/);
-	assert.match(webvpn, /if \(challengePresent\(\)\) \{\s*if \(!reportedChallenge\).*?signal\('challenge'\);.*?return;\s*\}/s, "所有验证页须保留扫描计时器并报告状态");
-	assert.match(webvpn, /clickWileySupportingInformation/);
-	assert.match(webvpn, /supporting information/);
-	assert.match(webvpn, /\\bfilename\\b/);
-	assert.match(webvpn, /kind !== 'pdf' && publisher !== 'wiley'/, "Wiley SI 预览页也必须支持捕获保存");
-	assert.ok(
-		webvpn.indexOf("clickWileySupportingInformation(items)") < webvpn.indexOf("const scored = items.filter"),
-		"Wiley SI 必须先展开并选择 Filename，不能让通用评分器误点折叠标题",
-	);
-});
-
-test("自动验证自行通过后继续点击正文入口，点击不触发内部导航或停止扫描", async () => {
-	const source = await webvpnSource();
-	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "acs");
-	assert.ok(script);
-	let challenge = true;
-	let tick;
-	let clicks = 0;
-	let stopped = 0;
-	const signals = [];
-	const window = {};
-	const document = {
-		title: "Security Check",
-		readyState: "complete",
-		body: { get innerText() { return challenge ? "verify you are human" : "Article"; } },
-		querySelector: () => null,
-		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' && !challenge ? [link] : [],
-		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
-	};
-	const link = {
-		nodeType: 1, ownerDocument: document, href: "https://pubs.acs.org/doi/pdf/10.1021/test",
-		innerText: "Download PDF", textContent: "Download PDF",
-		getBoundingClientRect: () => ({ width: 80, height: 20 }),
-		getAttribute: () => null, closest: () => link, matches: () => true,
-		click: () => { clicks += 1; },
-	};
-	const location = {
-		hostname: "pubs.acs.org", pathname: "/doi/10.1021/test",
-		get href() { return "https://pubs.acs.org/doi/10.1021/test"; },
-		set href(value) { signals.push(value); },
-	};
-	runInNewContext(script, {
-		window, document, location, URL,
-		setInterval: (callback) => { tick = callback; return 1; },
-		clearInterval: () => { stopped += 1; },
-		setTimeout: () => 1,
-	});
-	assert.equal(clicks, 0);
-	challenge = false;
-	document.title = "Article";
-	tick();
-	assert.equal(clicks, 1, "自动验证通过后应继续点击 PDF 入口");
-	assert.equal(stopped, 0, "点击后应继续观察下载响应，而不是停止扫描");
-	assert.equal(signals.filter((item) => item.endsWith("/clicked")).length, 0, "点击后不应导航到内部状态协议");
-	window.__ibmWebVpnDownloadStarted = true;
-	tick();
-	assert.equal(stopped, 1, "真实下载开始后才停止页面扫描");
-});
-
-/**
- * 2026-09-25 science.org 白屏回归：内部命令曾经用
- * `location.href = 'ibm-webvpn://…'` 发送。在 WebView2 里那是一次真实导航，会把正在
- * 加载的出版社页面打成"JS 还活着、却一个像素都不画"的白屏——实测 document 就是真正的
- * 文章页、标题正确、脚本照常执行，可表面纯白，注入的工具栏也一起消失。现在一律走
- * `window.open`：只触发宿主的新窗口请求，当前文档完全不受影响。
- */
 test("内部命令不得用 location.href 导航，必须走 window.open", async () => {
 	const webvpn = await webvpnSource();
 	const chrome = webvpn.match(/const WEBVPN_CHROME_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1];
@@ -106,15 +19,6 @@ test("内部命令不得用 location.href 导航，必须走 window.open", async
 		/const notifyShell = \(target\) => \{[\s\S]*?window\.open\(`ibm-webvpn:\/\/\$\{target\}`, '_blank'\)/,
 		"工具栏壳必须用 window.open 送回内部命令",
 	);
-	// 自动扫描脚本是独立注入的，必须自己带一份 window.open 版本。
-	const auto = webvpn.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1];
-	assert.ok(auto);
-	assert.match(
-		auto,
-		/const signal = \(result\) => \{[\s\S]*?window\.open\(`ibm-webvpn:\/\/automation\/\$\{result\}`, '_blank'\)/,
-		"自动化状态必须用 window.open 上报",
-	);
-	assert.doesNotMatch(auto, /location\.href\s*=/, "自动化脚本不得给当前文档赋值 location.href");
 	// 命令要能在新窗口路径上被处理（页面改用 window.open 后走 on_new_window）。
 	assert.match(webvpn, /fn handle_internal_command\(app: &AppHandle, url: &url::Url\) -> bool/);
 	assert.match(
@@ -125,59 +29,6 @@ test("内部命令不得用 location.href 导航，必须走 window.open", async
 	assert.match(webvpn, /on_navigation[\s\S]*?handle_internal_command\(&navigation_app, &url\)/);
 });
 
-/**
- * 2026-09-26 实测：预览器/大 PDF 还在加载时就触发下载，拿到的文件还没落盘
- * （日志：`downloadRequested` 紧接 `系统找不到指定的文件`）。"第几次扫描"与页面是否
- * 就绪无关，等价于固定延时；所以动作必须等 `readyState === 'complete'`。
- */
-test("文档未加载完成时不得动手，complete 之后才点击入口", async () => {
-	const source = await webvpnSource();
-	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "science");
-	assert.ok(script);
-	assert.match(script, /const documentLoaded = \(\) => document\.readyState === 'complete';/);
-	let tick;
-	let clicks = 0;
-	const signals = [];
-	const document = {
-		title: "Senescence-directed nanotherapy | Science",
-		readyState: "interactive",
-		body: { innerText: "Editor's summary ".repeat(120) },
-		querySelector: (selector) => (selector.includes("citation_doi") ? {} : null),
-		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' ? [link] : [],
-		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
-	};
-	const link = {
-		nodeType: 1, ownerDocument: document, href: "https://www.science.org/doi/pdf/10.1126/x",
-		innerText: "Download PDF", textContent: "Download PDF",
-		getBoundingClientRect: () => ({ width: 80, height: 20 }),
-		getAttribute: () => null, closest: () => link, matches: () => true,
-		click: () => { clicks += 1; },
-	};
-	const location = {
-		hostname: "www.science.org", pathname: "/doi/10.1126/science.aeg4791",
-		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
-		set href(value) { signals.push(value); },
-	};
-	runInNewContext(script, {
-		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
-		setInterval: (callback) => { tick = callback; return 1; },
-		clearInterval: () => { },
-		setTimeout: () => 1,
-	});
-	for (let index = 0; index < 5; index += 1) tick();
-	assert.equal(clicks, 0, "还没加载完就不能点入口");
-	document.readyState = "complete";
-	tick();
-	assert.equal(clicks, 1, "加载完成后应当点击下载入口");
-});
-
-/**
- * 用户要求：小球里能看到排队序列与状态、可逐条删除，并且**下载完不消失**。
- * 队列真源在插件，所以由客户端上报给壳 → Rust → 小球；删除请求走同一条通道反向
- * 回到客户端，由插件真正取消（页面是远端内容，Rust 只接受队列里已有的 id）。
- */
 test("捕获小球显示队列、可逐条删除、完成后不消失", async () => {
 	const [webvpn, shell, main, client] = await Promise.all([
 		webvpnSource(), shellSource(), mainSource(), read("client/src/components-literature.js"),
@@ -204,185 +55,10 @@ test("捕获小球显示队列、可逐条删除、完成后不消失", async ()
 	assert.match(webvpn, /state\.queue_contains\(&task_id\)/);
 });
 
+
 test("空白弹窗不能覆盖唯一文献 WebView", async () => {
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /on_new_window[\s\S]*?if !matches!\(url\.scheme\(\), "http" \| "https"\)[\s\S]*?return NewWindowResponse::Deny;/);
-});
-
-/**
- * 2026-09-25 science.org 实测：站点在 WebView2 里返回 Cloudflare 插页
- * （标题「请稍候…」，正文在挑战脚本注入前是空的）。原实现只认正文关键词，
- * 于是把这个空挑战页当成文章页，16 次尝试全打在上面，最后谎报「已进入 PDF
- * 预览器」，用户看到的却是一个全白、连工具栏都没有的侧栏。
- */
-test("Cloudflare 验证插页按验证处理，不被误判为已进入 PDF 预览器", async () => {
-	const source = await webvpnSource();
-	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "science");
-	assert.ok(script);
-	let tick;
-	let stopped = 0;
-	const signals = [];
-	const window = { open: (url) => { signals.push(String(url)); return null; } };
-	const document = {
-		title: "请稍候…",
-		readyState: "complete",
-		body: { innerText: "" },
-		querySelector: (selector) => (selector === 'script[src*="challenge-platform"]' ? {} : null),
-		querySelectorAll: () => [],
-		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
-	};
-	const location = {
-		hostname: "www.science.org",
-		pathname: "/doi/10.1126/science.aeg4791",
-		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
-		set href(value) { signals.push(value); },
-	};
-	runInNewContext(script, {
-		window, document, location, URL,
-		setInterval: (callback) => { tick = callback; return 1; },
-		clearInterval: () => { stopped += 1; },
-		setTimeout: () => 1,
-	});
-	for (let index = 0; index < 40; index += 1) tick();
-	assert.ok(signals.some((item) => item.endsWith("/challenge")), "必须上报正在验证");
-	assert.equal(
-		signals.filter((item) => item.endsWith("pdf-manual")).length,
-		0,
-		"挑战页不得被判为已进入 PDF 预览器",
-	);
-	assert.equal(stopped, 0, "验证期间不得停止扫描");
-});
-
-/**
- * 同一实测的另一半：文档停在 loading、正文为空时，消耗尝试次数只会得到错误结论。
- * 现在改为只等待，约 30 秒后才退回人工处理。
- */
-/**
- * 2026-09-26 实测：点击 PDF 后是 WebView2 **原生查看器**——它不是网页 DOM，注入的工具栏
- * 不会执行、页面上也没有可点的元素（用户截图里那条带保存图标的栏属于查看器 UI）。
- * 因此加载完成时就必须把阶段切成 manual，状态工具才会返回
- * nextAction=observe-or-save-pdf，调用方才会去用 lab_browser_save_current_pdf
- * （内部 ShowSaveAsUI + SetSuppressDefaultDialog，直接存到归档路径、不弹对话框）。
- * 少了这一步，状态停在 clicked/wait-and-poll，用户只能右键另存。
- */
-test("进入原生 PDF 预览器要切到 manual 并指向保存工具", async () => {
-	const webvpn = await webvpnSource();
-	assert.match(
-		webvpn,
-		/let pdf_document = webview[\s\S]*?is_pdf_document_url[\s\S]*?set_automation_stage\("manual"\)/,
-		"PDF 文档加载完成必须切到 manual 阶段",
-	);
-	assert.match(webvpn, /保存工具归档/, "文案必须指向保存工具，而不是让人右键另存");
-	// 出版社的原生 PDF 端点不以 .pdf 结尾（Science 的 /doi/pdf/10.1126/…）。
-	assert.match(webvpn, /path\.contains\("\/doi\/pdf"\)/);
-});
-
-/**
- * 2026-09-25 实测的误判：Cloudflare 会给**所有受保护页面**注入
- * `challenge-platform` 脚本，普通文章页同样带着它。把它当作"这是验证页"的判据，
- * 扫描器就会永远停在验证分支，再也不会去找下载入口（状态恒为
- * wait-and-poll，任务卡死）。文章页必须优先按文章页处理。
- */
-test("带 Cloudflare 脚本的普通文章页不得被判为验证页", async () => {
-	const source = await webvpnSource();
-	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "science");
-	assert.ok(script);
-	let tick;
-	let clicks = 0;
-	const signals = [];
-	const document = {
-		title: "Senescence-directed nanotherapy ameliorates fibrosis | Science",
-		readyState: "complete",
-		body: { innerText: "Editor's summary ".repeat(120) },
-		querySelector: (selector) => {
-			// Cloudflare 的注入脚本在正常文章页上同样存在 —— 误判的来源。
-			if (selector.includes("challenge-platform")) return {};
-			// 文章页自带 citation 元数据。
-			if (selector.includes("citation_doi")) return {};
-			return null;
-		},
-		querySelectorAll: (selector) => selector === 'a[href],button,[role="button"]' ? [link] : [],
-		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
-	};
-	// 候选必须带 ownerDocument，否则 visible() 判为不可见（与真实页面一致）。
-	const link = {
-		nodeType: 1, ownerDocument: document,
-		innerText: "Download PDF", textContent: "Download PDF",
-		getBoundingClientRect: () => ({ width: 80, height: 20 }),
-		getAttribute: () => null, closest: () => link, matches: () => true,
-		click: () => { clicks += 1; },
-	};
-	const location = {
-		hostname: "www.science.org",
-		pathname: "/doi/10.1126/science.aeg4791",
-		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
-		set href(value) { signals.push(value); },
-	};
-	runInNewContext(script, {
-		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
-		setInterval: (callback) => { tick = callback; return 1; },
-		clearInterval: () => { },
-		setTimeout: () => 1,
-	});
-	for (let index = 0; index < 4; index += 1) tick();
-	assert.equal(
-		signals.filter((item) => item.endsWith("/challenge")).length,
-		0,
-		"带 Cloudflare 脚本的文章页不得上报验证中",
-	);
-	assert.ok(clicks >= 1, "文章页必须继续点击下载入口，而不是停在验证分支");
-});
-
-test("停在加载中或空白的文档不消耗尝试次数，超时后才退回人工", async () => {
-	const source = await webvpnSource();
-	const script = source.match(/const PUBLISHER_DOWNLOAD_AUTOMATION: &str = r#"([\s\S]*?)"#;/)?.[1]
-		.replaceAll("__IBM_CAPTURE_KIND__", "pdf")
-		.replaceAll("__IBM_PUBLISHER__", "science");
-	assert.ok(script);
-	let tick;
-	let stopped = 0;
-	let clicks = 0;
-	const signals = [];
-	const link = {
-		nodeType: 1,
-		innerText: "Download PDF",
-		textContent: "Download PDF",
-		getBoundingClientRect: () => ({ width: 80, height: 20 }),
-		getAttribute: () => null,
-		click: () => { clicks += 1; },
-	};
-	const document = {
-		title: "www.science.org",
-		readyState: "loading",
-		body: { innerText: "" },
-		querySelector: () => null,
-		querySelectorAll: () => [link],
-		defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
-	};
-	const location = {
-		hostname: "www.science.org",
-		pathname: "/doi/10.1126/science.aeg4791",
-		get href() { return "https://www.science.org/doi/10.1126/science.aeg4791"; },
-		set href(value) { signals.push(value); },
-	};
-	runInNewContext(script, {
-		window: { open: (url) => { signals.push(String(url)); return null; } }, document, location, URL,
-		setInterval: (callback) => { tick = callback; return 1; },
-		clearInterval: () => { stopped += 1; },
-		setTimeout: () => 1,
-	});
-	// 前 38 拍（加上脚本自己那一拍共 39）：一直等待，既不点候选也不下"已进入预览器"的结论。
-	for (let index = 0; index < 38; index += 1) tick();
-	assert.equal(clicks, 0, "空白文档不得点击候选入口");
-	assert.equal(signals.filter((item) => item.endsWith("pdf-manual")).length, 0, "空白文档不得提前退回人工");
-	// 第 40 拍：超过等待预算，退回人工处理（此时 Rust 不会再据此做页面位移）。
-	tick();
-	assert.equal(signals.filter((item) => item.endsWith("pdf-manual")).length, 1, "超时后必须退回人工");
-	assert.equal(stopped, 1, "退回人工后停止扫描");
 });
 
 /** `invoke('name', ...)` 里的命令名。辅助函数本身是 `invoke(command, args)`，不含引号，不会被收录。 */
@@ -502,18 +178,12 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /notifyShell\('session\/ready'\)/);
 	assert.match(webvpn, /isForwardedPage/);
 	assert.match(webvpn, /state\.mark_authenticated\(\)/);
-	assert.match(webvpn, /PUBLISHER_DOWNLOAD_AUTOMATION/);
-	for (const publisher of ["nature", "springer", "science", "elsevier", "acs", "rsc", "ieee", "wiley"]) assert.match(webvpn, new RegExp(`${publisher}:`));
+	assert.match(webvpn, /AGENT_OBSERVE_SCRIPT/);
+	assert.doesNotMatch(webvpn, /PUBLISHER_DOWNLOAD_AUTOMATION/);
 	assert.match(webvpn, /PageLoadEvent::Finished/);
-	assert.match(webvpn, /supplementary methods\?/i);
-	assert.match(webvpn, /supplyment methods\?/i);
-	assert.match(webvpn, /si-manual/);
-	assert.match(webvpn, /pdf-manual/);
 	assert.match(webvpn, /stampPDF\/getPDF/);
 	assert.match(webvpn, /\/doi\/pdf\//);
 	assert.match(webvpn, /\/pdfft/);
-	assert.match(webvpn, /捕获任务保持有效/);
-	assert.match(webvpn, /challenge/);
 	assert.match(webvpn, /should_capture_direct_si_preview/);
 	assert.match(webvpn, /download_springer_family_si_direct/);
 	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获附件/);
@@ -572,8 +242,8 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(shell, /directAccess:\s*data\.payload\?\.directAccess === true/);
 	assert.match(main, /direct_access:\s*bool/);
 	assert.match(webvpn, /is_direct_springer_family_si/);
-	assert.match(shell, /automate:\s*data\.payload\?\.automate === true/);
-	assert.match(main, /automate:\s*bool/);
+	assert.doesNotMatch(shell, /automate:/);
+	assert.doesNotMatch(main, /automate:\s*bool/);
 	assert.match(shell, /IWAN_STATUS/);
 	assert.match(main, /fn iwan_status/);
 	assert.match(main, /let use_iwan = iwan\.usable/);
@@ -772,12 +442,11 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	assert.match(webvpn, /notifyShell\('offset-reverted\/'\)/);
 	const mountBody = webvpn.split("const mount = () => {")[1].split("if (document.readyState")[0];
 	assert.doesNotMatch(mountBody, /applyPageOffset/, "mount() 不得对所有页面无条件位移");
-	// Rust 侧只在**确证顶层文档是 PDF** 时才打开位移。`pdf-manual` 只代表扫描失败，
-	// 不再单独触发位移，否则普通文章页会被加上整页 transform（两次白屏的成因）。
+	// Rust 侧只在**确证顶层文档是 PDF** 时才打开位移。
 	assert.match(
 		webvpn,
-		/if result == "pdf-manual" \{[\s\S]*?is_pdf_document_url[\s\S]*?__ibmWebVpnSetPageOffset/,
-		"pdf-manual 必须先确认是 PDF 文档才开位移",
+		/\.on_page_load[\s\S]*?is_pdf_document_url[\s\S]*?if pdf_document \{[\s\S]*?__ibmWebVpnSetPageOffset/,
+		"只有 PDF 页面加载完成才开位移",
 	);
 	assert.match(webvpn, /is_pdf_document_url/);
 	// 工具栏不能只等 DOMContentLoaded：验证页/被拦页面不会触发它，用户会连地址栏都看不到。

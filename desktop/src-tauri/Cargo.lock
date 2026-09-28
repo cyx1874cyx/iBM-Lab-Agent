@@ -1715,7 +1715,7 @@ dependencies = [
 
 [[package]]
 name = "ibm-lab-desktop"
-version = "0.5.5-beta18"
+version = "0.5.5-beta19"
 dependencies = [
  "aes",
  "cfb-mode",

@@ -364,7 +364,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							const token = task?.token;
 							if (!task?.id || !token) throw new Error("创建捕获任务失败：响应缺少一次性令牌，请刷新后重试");
 							try {
-								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi, automate: false });
+								await openWebVpnCaptureViaShell({ taskId: task.id, kind: task.kind, targetUrl: publisherUrl, token, directAccess: directSpringerSi });
 								setCaptureHint({ bundleId: bundle.id, kind: task.kind, taskId: task.id, route: "webvpn" });
 								notify(iwan?.usable
 									? `iWAN 全部路由可用，已直访出版社页面，请手动点击${task.kind === "pdf" ? "正文及预览器保存" : "补充材料"}下载入口`

@@ -73,7 +73,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 
 | 工具 | 参数 | 说明 |
 |---|---|---|
-| `lab_browser_observe` | `taskId`(必), `scope`(`download` 是默认；**`all` 才是 AI 主导该用的**), `projectId` | 返回 `operationId`；结果含 `url/documentType/readyState/text(1200字)/scroll/candidates[]`。候选：`{id, role, label, target, file, autoDownloadable, likely}` |
+| `lab_browser_observe` | `taskId`(必), `scope`(`download` 是默认；**`all` 用于 Agent 主导**), `projectId` | 返回 `operationId`；结果含 `url/documentType/readyState/text(1200字)/scroll/candidateCount/truncated/candidates[]`。最多 30 个候选，按视口内下载入口→其他下载入口→视口内普通元素排序，不再按 DOM 前 30 条截断；候选含 `inViewport`、`target`、`file` 等 |
 | `lab_browser_click` | `taskId`(必), `observationId`(必), `elementId`(必) | 只能点**上一次 observe 刚返回**的元素；页面 URL 一变即失效 |
 | `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
@@ -113,6 +113,7 @@ saveReady, payloadReady, payloadComplete
 | `observe-or-click` | 页面等你操作（`mode=ai`） | `lab_browser_observe(scope=all)` → `click` |
 | `wait-and-poll` | 还在进行（含"载荷正在接收"） | `lab_browser_wait`；**不要**归档 |
 | `save-pdf-ready` | **载荷已被证明收全** | 调 `lab_browser_save_current_pdf`（会等到终态） |
+| `save-from-viewer` | 原生 PDF 已显示，但完整载荷尚未采集 | 调一次 `lab_browser_save_current_pdf` 尝试 WebView2 查看器保存；`saveReady` 仍为 false，只有 `completed` 算成功 |
 | `retry-download-entry` | 保存支路拿不到完整字节流，且有备用路线 | 用 `lab_browser_navigate(taskId, alternateRouteId, page.pageSeq)` 执行；`alternateEntry` 只供说明，不传给 `click` |
 | `manual-handoff` | 保存支路失败且没有可执行的备用入口 | 告知用户在侧栏手动处理，不要重复调用保存或重建任务 |
 | `complete-verification` | 人机验证 | 让**用户**去侧栏点一下，然后 `lab_browser_wait` |
@@ -162,18 +163,18 @@ saveReady, payloadReady, payloadComplete
    若返回 webvpn-login-required：把 question 原样问用户，停在这里
 1. lab_browser_observe(taskId, scope=all)                     → operationId + candidates
 2. lab_browser_operation_status(operationId, waitMs=15000)     → 拿候选（只有 completed 才有 result）
-3. 选入口：优先 autoDownloadable=true；同名靠 file 区分
+3. 选入口：结合当前视口、label、target、file 和 DOI；autoDownloadable 只是提示，同名靠 file 区分
 4. lab_browser_click(taskId, observationId, elementId)         → operationId
    lab_browser_operation_status(operationId)                   → 确认点到了
 5. lab_browser_wait(taskId)                                    → 页面/载荷变化
 6. 重复 1–5，直到 status 给出下面之一：
-   · nextAction=save-pdf-ready  → lab_browser_save_current_pdf(taskId)  ← 会等到终态
+   · nextAction=save-pdf-ready 或 save-from-viewer → lab_browser_save_current_pdf(taskId) ← 会等到终态
    · phase=completed            → 结束（fileName 就是归档名）
    · nextAction=recreate-or-cancel / retry-download-entry → 见 §5
 7. 归档成功后按需读条目：lab_tasks_* （登记/更新产物）
 ```
 
-**`mode=auto` 的差异**：第 1–5 步由壳内脚本先做；你只需 `wait` + `status`，失败后按同样方式接管。
+`documentType=application/pdf` 与 `contentLength` 只证明查看器加载了 PDF 响应，不能证明字节已写入捕获文件。响应层收到完整非 206 PDF 体、浏览器产生下载事件，或公开 Nature/Springer SI 被受限拦截后，捕获才会开始；最终还须校验并登记课题文件。
 
 ---
 
@@ -236,8 +237,8 @@ saveReady, payloadReady, payloadComplete
 | 限制 | 说明 | 状态 |
 |---|---|---|
 | 动作延迟 | 每个 `observe/click` 要等客户端 **1.8 秒**轮询节拍领取 | 排队中（claim 长轮询 + 即时动作循环） |
-| 出版社知识在壳里 | 逐社入口规则（Science/ACS/Elsevier/IEEE/Wiley 等）硬编码在注入脚本；`mode=ai` 下模型看不到，只能自己试 | 计划做成 `publisher-download` skill + 单份规则表 |
-| iWAN 标定 | 八家出版社的机构访问**全部未真机标定**（`docs/PUBLISHER_DOWNLOAD_CALIBRATION.json` 全 `pending`） | 需人工逐家验收，**不要声称已支持** |
+| 出版社知识分散 | Agent 端 DOI 分流与 Skill 规则仍需标定 | 试用 `skills/publisher-download/SKILL.md` 和 `references/publishers.md`；后续再把运行时规则统一为数据源 |
+| iWAN 标定 | Science 正文 PDF 已获用户成功反馈；其具体入口/访问模式和 SI，以及其余七家的机构会话仍待逐项记录（`docs/PUBLISHER_DOWNLOAD_CALIBRATION.json`） | 按规则表逐家验收，**不要把待测提示称为已支持** |
 | 无通用下载器 | 只处理已登记 DOI 的出版社页面 | 有意为之 |
 | 候选不预言可用性 | 现在只有 `autoDownloadable`；"这条入口是否直出字节流"仍需点一次才知道 | 排队中（B3） |
 | 同名产物覆盖 | 覆盖既有条目文件时不留版本记录 | 排队中（B8/A2） |
