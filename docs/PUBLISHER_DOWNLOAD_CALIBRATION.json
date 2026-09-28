@@ -6,8 +6,8 @@
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
     "version": "0.5.5-beta20",
-    "commit": "2492446",
-    "note": "beta19 removes the in-shell auto-click path and ships the Agent-driven publisher skill. The 2026-09-28 field observations below were supplied after this build. Local webvpn.log corroborates browser download completion and captureCompleted on reported successful manual routes, but these are not Agent save-tool acceptance results. Access mode, final project paths and hashes were not checked."
+    "commit": "3a1b23b",
+    "note": "beta20 assembles PDF range responses instead of discarding them, fixing both field bugs. The Wiley aiche PDF is 4,594,707 bytes fetched as eighteen 256 KiB ranges; beta16 skipped every 206 (my mistake) so the payload never completed and the status sat at 'receiving 4.4 MB'. PdfPayload now tracks covered segments, each response is written at its Content-Range offset, and completeness means the union covers [0,total) (or a %%EOF-proven tail when the total is unknown); only unparseable Content-Range values are skipped. The second bug ('the shell save tool always produces 1 KB on native PDF previews') was downstream: the fallback used ShowSaveAsUI, which saves the PAGE - and a native PDF's document is the 348-byte HTML viewer shell - so a ~1 KB page was archived as the article; viewer_saved_pdf_is_usable now requires a %PDF- header, a %%EOF tail and at least 8 KiB (the capture service's own threshold) and deletes the junk with a precise reason. The 76px toolbar can now be collapsed to a chip so publisher controls underneath it are reachable, without applying any transform to the publisher page. Per-publisher range behaviour (whole-body 200 vs ranges) and every publisher, SI channel and campus-network route below remain pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
@@ -197,17 +197,83 @@
     "accessMode": "not reported",
     "evidenceLimit": "Local log contains downloadRequested, downloadFinished success=true and captureCompleted for the reported successful routes. Final project paths, hashes and Agent save-tool results were not checked; Wiley article PDF has no captureCompleted.",
     "cases": [
-      { "publisher": "ieee", "article": "https://ieeexplore.ieee.org/document/9175387", "pdf": "red PDF button -> native viewer without toolbar -> user right-click save; archive reported; shell stayed near 1 KB", "si": "none reported for this article" },
-      { "publisher": "elsevier-clinicalkey", "article": "https://www.clinicalkey.com/#!/content/playContent/1-s2.0-S2475037924000621", "pdf": "Download PDF beside title -> native viewer -> user toolbar save; archive reported although shell stalled near 1 KB / 1.4 MB", "si": "article-page mmc1.docx direct download; archive reported", "siUrl": "https://www.clinicalkey.com/ui/service/content/url?section=static%2fimage&eid=1-s2.0-S2475037924000621&path=24750379%2FS2475037924X00035%2FS2475037924000621%2Fmmc1.docx" },
-      { "publisher": "sage-cnpereading", "article": "https://sage.cnpereading.com/doi/10.1177/15910199231175377", "pdf": "Download PDF below DOI -> direct archive reported", "si": "none reported for this article", "toolSupport": "DOI prefix not configured" },
-      { "publisher": "wiley", "article": "https://aiche.onlinelibrary.wiley.com/doi/10.1002/btm2.10616", "pdf": "PDF -> publisher preview; shell showed / 4.4 MB without completion and toolbar did not render; article PDF not archived", "si": "expand Supporting Information -> click DOCX under Filename; direct archive reported", "siUrl": "https://aiche.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1002%2Fbtm2.10616&file=btm210616-sup-0001-Supinfo.docx" },
-      { "publisher": "springer", "article": "https://link.springer.com/article/10.1007/s10439-016-1559-9", "pdf": "user completed Cloudflare challenge -> View PDF -> preview -> user toolbar save; archive reported", "si": "none reported for this article" },
-      { "publisher": "theranostics", "article": "https://www.thno.org/v07p2431.htm", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "Supplementary Material -> Supplementary figures and tables -> PDF preview -> user toolbar save; archive reported", "siUrl": "https://www.thno.org/v07/p2431/thnov07p2431s1.pdf", "toolSupport": "publisher not configured" },
-      { "publisher": "elsevier-sciencedirect", "article": "https://www.sciencedirect.com/science/article/pii/S0956566311006075?via=ihub", "pdf": "View PDF -> default preview -> user toolbar save; archive reported", "si": "Appendix A. Supplementary data -> PDF preview -> user toolbar save; archive reported", "siUrl": "https://ars.els-cdn.com/content/image/1-s2.0-S0956566311006075-mmc1.pdf" },
-      { "publisher": "springer", "article": "https://link.springer.com/article/10.1007/s00395-004-0501-8", "pdf": "Download PDF -> direct archive reported", "si": "none reported for this article" },
-      { "publisher": "nature", "article": "https://www.nature.com/articles/s41598-020-62360-w", "pdf": "Download PDF -> direct archive reported", "si": "Supplementary information -> ZIP direct archive reported", "siUrl": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41598-020-62360-w/MediaObjects/41598_2020_62360_MOESM1_ESM.zip" },
-      { "publisher": "bmj-jnis", "article": "https://jnis.bmj.com/content/15/6/526", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "mid-article Supplemental material link direct archive reported; target URL recovered from local log", "siUrl": "https://jnis.bmj.com/content/neurintsurg/15/6/526/DC1/embed/inline-supplementary-material-1.pdf?download=true", "toolSupport": "publisher not configured" },
-      { "publisher": "bmj-jnis", "article": "https://jnis.bmj.com/content/early/2026/04/30/jnis-2025-024772", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "mid-article Supplemental material link direct archive reported", "siUrl": "https://jnis.bmj.com/content/neurintsurg/early/2026/04/30/jnis-2025-024772/DC1/embed/inline-supplementary-material-1.pdf?download=true", "toolSupport": "publisher not configured" }
+      {
+        "publisher": "ieee",
+        "article": "https://ieeexplore.ieee.org/document/9175387",
+        "pdf": "red PDF button -> native viewer without toolbar -> user right-click save; archive reported; shell stayed near 1 KB",
+        "si": "none reported for this article"
+      },
+      {
+        "publisher": "elsevier-clinicalkey",
+        "article": "https://www.clinicalkey.com/#!/content/playContent/1-s2.0-S2475037924000621",
+        "pdf": "Download PDF beside title -> native viewer -> user toolbar save; archive reported although shell stalled near 1 KB / 1.4 MB",
+        "si": "article-page mmc1.docx direct download; archive reported",
+        "siUrl": "https://www.clinicalkey.com/ui/service/content/url?section=static%2fimage&eid=1-s2.0-S2475037924000621&path=24750379%2FS2475037924X00035%2FS2475037924000621%2Fmmc1.docx"
+      },
+      {
+        "publisher": "sage-cnpereading",
+        "article": "https://sage.cnpereading.com/doi/10.1177/15910199231175377",
+        "pdf": "Download PDF below DOI -> direct archive reported",
+        "si": "none reported for this article",
+        "toolSupport": "DOI prefix not configured"
+      },
+      {
+        "publisher": "wiley",
+        "article": "https://aiche.onlinelibrary.wiley.com/doi/10.1002/btm2.10616",
+        "pdf": "PDF -> publisher preview; shell showed / 4.4 MB without completion and toolbar did not render; article PDF not archived",
+        "si": "expand Supporting Information -> click DOCX under Filename; direct archive reported",
+        "siUrl": "https://aiche.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1002%2Fbtm2.10616&file=btm210616-sup-0001-Supinfo.docx"
+      },
+      {
+        "publisher": "springer",
+        "article": "https://link.springer.com/article/10.1007/s10439-016-1559-9",
+        "pdf": "user completed Cloudflare challenge -> View PDF -> preview -> user toolbar save; archive reported",
+        "si": "none reported for this article"
+      },
+      {
+        "publisher": "theranostics",
+        "article": "https://www.thno.org/v07p2431.htm",
+        "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported",
+        "si": "Supplementary Material -> Supplementary figures and tables -> PDF preview -> user toolbar save; archive reported",
+        "siUrl": "https://www.thno.org/v07/p2431/thnov07p2431s1.pdf",
+        "toolSupport": "publisher not configured"
+      },
+      {
+        "publisher": "elsevier-sciencedirect",
+        "article": "https://www.sciencedirect.com/science/article/pii/S0956566311006075?via=ihub",
+        "pdf": "View PDF -> default preview -> user toolbar save; archive reported",
+        "si": "Appendix A. Supplementary data -> PDF preview -> user toolbar save; archive reported",
+        "siUrl": "https://ars.els-cdn.com/content/image/1-s2.0-S0956566311006075-mmc1.pdf"
+      },
+      {
+        "publisher": "springer",
+        "article": "https://link.springer.com/article/10.1007/s00395-004-0501-8",
+        "pdf": "Download PDF -> direct archive reported",
+        "si": "none reported for this article"
+      },
+      {
+        "publisher": "nature",
+        "article": "https://www.nature.com/articles/s41598-020-62360-w",
+        "pdf": "Download PDF -> direct archive reported",
+        "si": "Supplementary information -> ZIP direct archive reported",
+        "siUrl": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41598-020-62360-w/MediaObjects/41598_2020_62360_MOESM1_ESM.zip"
+      },
+      {
+        "publisher": "bmj-jnis",
+        "article": "https://jnis.bmj.com/content/15/6/526",
+        "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported",
+        "si": "mid-article Supplemental material link direct archive reported; target URL recovered from local log",
+        "siUrl": "https://jnis.bmj.com/content/neurintsurg/15/6/526/DC1/embed/inline-supplementary-material-1.pdf?download=true",
+        "toolSupport": "publisher not configured"
+      },
+      {
+        "publisher": "bmj-jnis",
+        "article": "https://jnis.bmj.com/content/early/2026/04/30/jnis-2025-024772",
+        "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported",
+        "si": "mid-article Supplemental material link direct archive reported",
+        "siUrl": "https://jnis.bmj.com/content/neurintsurg/early/2026/04/30/jnis-2025-024772/DC1/embed/inline-supplementary-material-1.pdf?download=true",
+        "toolSupport": "publisher not configured"
+      }
     ],
     "crossSiteProblems": [
       "Native PDF viewer toolbar sometimes fails to render and the PDF appears over-zoomed.",
