@@ -73,7 +73,7 @@ test("lab_nature_browser_download queues an existing Nature bundle without expos
 	assert.ok(tool);
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "si", mode: "ai" }, {});
 	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "si", mode: "ai" });
-	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", publisher: "Nature Portfolio", status: "queued", accessMode: "direct" });
+	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", publisher: "Nature Portfolio", status: "queued", code: "task-created", taskCreated: true, accessMode: "direct" });
 	assert.equal(JSON.stringify(output).includes("must-not-leak"), false);
 });
 
@@ -141,6 +141,8 @@ test("Nature main PDF is not queued until the desktop WebVPN session is ready", 
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf" }, {});
 	assert.equal(output.ok, true);
 	assert.equal(output.status, "webvpn-login-required");
+	assert.equal(output.code, "webvpn-login-required");
+	assert.equal(output.taskCreated, false);
 	assert.equal(output.requiresUserAction, true);
 	assert.match(output.question, /右侧.*WebVPN.*我已登录/);
 	assert.equal(loginRequest, "proj-test");
@@ -182,7 +184,7 @@ test("Nature browser download status exposes progress without raw storage access
 				{ id: "capture-older", projectId: "proj-test", requestedBy: "agent", status: "armed", createdAt: "2026-09-12T00:00:00.000Z" },
 				{ id: "capture-agent123", projectId: "proj-test", requestedBy: "agent", status: "armed", createdAt: "2026-09-13T00:00:00.000Z" }
 			],
-			getDesktopWebVpnStatus: () => ({ state: "downloading", stale: false, pendingTaskId: "capture-agent123", downloadedBytes: 4096 })
+			getDesktopWebVpnStatus: () => ({ state: "downloading", stale: false, pendingTaskId: "capture-agent123", downloadedBytes: 4096, downloadEventBytes: 4096 })
 		}
 	});
 	const tool = registered.find((item) => item.name === "lab_nature_browser_download_status");

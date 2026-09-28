@@ -1,6 +1,6 @@
 # 出版社规则表（Demo，2026-09-28）
 
-本表汇集工具的 DOI 分流和 [12 篇现场记录](field-observations.md)。前 11 篇的最终课题文件路径和哈希尚未全部核对；新增 ScienceDirect 个案的归档文件大小与哈希已核验，但修订后的 Agent 保存动作仍待实机验证。Science 正文另有一次用户反馈成功，但未提供论文链接和访问路径。只把已观察到的入口作为同类页面的定位线索，不推断整站通用选择器。
+本表汇集工具的 DOI 分流和 [12 篇现场记录](field-observations.md)。前 11 篇的最终课题文件路径和哈希尚未全部核对；ScienceDirect 个案的 beta21、beta22 归档文件大小与哈希已核验，但 Agent 自动保存仍未通过实机验证。Science 正文另有一次用户反馈成功，但未提供论文链接和访问路径。只把已观察到的入口作为同类页面的定位线索，不推断整站通用选择器。
 
 ## 共通判据
 
@@ -13,7 +13,7 @@
 | Nature Portfolio，已配置 | `10.1038/`；`nature.com` | `Download PDF` 可直接下载；其他文章可能进入预览 | `Supplementary information` 栏目下的静态附件；实测为 ZIP，保留类型 | 1 篇正文、SI 用户报告归档 |
 | SpringerLink，已配置 | `10.1007/`；`link.springer.com` | 一篇 `View PDF` → 预览页 → 人工点工具栏保存；另一篇 `Download PDF` 直接下载 | 两篇均未见 SI；遇 Cloudflare 先由用户验证 | 2 篇正文用户报告归档 |
 | Science / AAAS | `10.1126/`；`science.org` | `PDF` / `View PDF`；`/doi/reader/` 或 `/doi/epdf/` 可能只进预览。状态给出 `science-pdf` 时可让壳进入同篇 `/doi/pdf/<DOI>?download=true` | `Supplementary Material`；同名 `DOWNLOAD` 要按 `file` 区分 `_sm.pdf`、表格 ZIP 等 | **正文用户反馈成功**；SI 待测 |
-| Elsevier / ScienceDirect / ClinicalKey，`10.1016/` 已配置 | `sciencedirect.com`、`clinicalkey.com`；先核对条目 DOI | ScienceDirect `View PDF` → 原生预览页；`10.1016/j.bios.2013.11.059` 在 beta21 Agent 保存失败后由用户 Ctrl+S 自动捕获归档。ClinicalKey 标题旁 `下载 PDF` → 原生预览页 → 人工点工具栏，旧壳约 1 KB / 1.4 MB 停滞 | ScienceDirect `Appendix A. Supplementary data` 的 PDF 经预览保存；ClinicalKey 文章页 `mmc1.docx` 直接下载 | 3 篇正文归档记录；Agent 保存修订版待实机验证，ClinicalKey 站点尚未专项接线验证 |
+| Elsevier / ScienceDirect / ClinicalKey，`10.1016/` 已配置 | `sciencedirect.com`、`clinicalkey.com`；先核对条目 DOI | ScienceDirect `View PDF` → 原生预览页；`10.1016/j.bios.2013.11.059` 在 beta21、beta22 Agent 自动保存失败后，均由用户 Ctrl+S 自动捕获归档。ClinicalKey 标题旁 `下载 PDF` → 原生预览页 → 人工点工具栏，旧壳约 1 KB / 1.4 MB 停滞 | ScienceDirect `Appendix A. Supplementary data` 的 PDF 经预览保存；ClinicalKey 文章页 `mmc1.docx` 直接下载 | 3 篇正文归档记录；新一轮窗口激活修复待实机验证，ClinicalKey 尚未专项接线验证 |
 | ACS | `10.1021/`；`pubs.acs.org` | `Open PDF` / `PDF`；`/doi/reader/`、`/doi/epdf/` 可能进预览。没有已验证的 ACS 备用 route，Agent 按状态操作 | `Supporting Information`，通常从文章页进入附件 | 正文、SI 待测 |
 | RSC | `10.1039/`；`pubs.rsc.org` | `PDF`；无站点专用 URL 改写 | 文章页 `Supplementary Information`；可能含 PDF/CIF 等 | 正文、SI 待测 |
 | IEEE Xplore，已配置 | `10.1109/`；`ieeexplore.ieee.org` | 红色 `PDF` → 原生预览页；实测工具栏未渲染，用户右键保存。不要把右键当作可用 Agent 元素 | 实测文章未见 SI | 1 篇正文用户报告归档；壳进度约 1 KB 停滞 |

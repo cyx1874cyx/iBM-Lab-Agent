@@ -58,7 +58,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_CONTROL, VK_S,
 };
 #[cfg(windows)]
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow};
 
 
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
@@ -1400,6 +1400,7 @@ impl WebVpnState {
         upload_url: url::Url,
         temp_path: PathBuf,
     ) -> Result<u64, String> {
+        cleanup_stale_html_viewer_payloads(&temp_path);
         let Ok(mut session) = self.session.lock() else {
             return Err("WebVPN 状态不可用".to_string());
         };
@@ -1471,6 +1472,11 @@ impl WebVpnState {
                 }
             }
         }
+    }
+
+    fn verification_pending(&self) -> bool {
+        self.session.lock().ok().and_then(|session| session.pending.as_ref()
+            .map(|pending| pending.automation_stage == "verification")).unwrap_or(false)
     }
 
     fn should_capture_direct_si_preview(&self, target: &url::Url) -> bool {
@@ -1609,6 +1615,13 @@ impl WebVpnState {
         };
         if session.pending.as_ref().map(|pending| pending.generation) != Some(generation) {
             return;
+        }
+        // 归档成功后响应层缓存只是暂存物。尤其 HTML 查看器的 348 B 空壳
+        // 不能继续留在 webvpn-downloads，也不能被误作后续任务的 PDF。
+        if result.is_ok() {
+            if let Some(payload) = session.pending.as_ref().and_then(|pending| pending.pdf_payload.as_ref()) {
+                let _ = fs::remove_file(&payload.path);
+            }
         }
         let kind = session.pending.as_ref().map(|pending| pending.kind.clone()).unwrap_or_default();
         // C4：把终态记下来。保存类操作靠它给出 {path, bytes}，而不是「已开始」之后失联。
@@ -1972,6 +1985,12 @@ impl WebVpnState {
             // 没有待捕获任务：这句失败没有对象，不要污染会话状态。
             return;
         };
+
+        if let Some(payload) = pending.pdf_payload.as_ref() {
+            if payload.error.as_deref().is_some_and(|error| error.starts_with("wrong-object-html:")) {
+                let _ = fs::remove_file(&payload.path);
+            }
+        }
 
         // 1) 产物完整 → 归档，而不是失败。
         if file_is_whole(&pending.temp_path) {
@@ -2697,6 +2716,27 @@ fn pdf_payload_path(temp_path: &Path) -> PathBuf {
         .map(|stem| stem.to_string_lossy().to_string())
         .unwrap_or_else(|| "capture".to_string());
     temp_path.with_file_name(format!("{stem}.payload.pdf"))
+}
+
+/// 只清理旧版遗留、可明确判定为 HTML 的查看器缓存。真实 PDF、未知内容和
+/// 刚写入的文件一律保留；扫描范围限定在当前任务的应用下载目录。
+fn cleanup_stale_html_viewer_payloads(temp_path: &Path) {
+    let Some(directory) = temp_path.parent() else { return; };
+    let Ok(entries) = fs::read_dir(directory) else { return; };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with("capture-") || !name.ends_with(".payload.pdf") { continue; }
+        if !entry.file_type().is_ok_and(|kind| kind.is_file()) { continue; }
+        let Ok(metadata) = entry.metadata() else { continue; };
+        if metadata.len() == 0 || metadata.len() > 4096 { continue; }
+        if !metadata.modified().ok().and_then(|time| time.elapsed().ok())
+            .is_some_and(|age| age >= Duration::from_secs(300)) { continue; }
+        let Ok(bytes) = fs::read(entry.path()) else { continue; };
+        let head = String::from_utf8_lossy(&bytes).trim_start().to_ascii_lowercase();
+        if head.starts_with("<!doctype html") || head.starts_with("<html") {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 fn is_springer_family_si_url(target: &url::Url) -> bool {
@@ -4120,17 +4160,24 @@ fn press_native_pdf_save(app: &AppHandle, webview: &Webview) -> Result<(), Strin
     let main = app.get_window(MAIN_WINDOW_LABEL).ok_or(
         "主窗口句柄不可用；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
     )?;
+    // Tauri 的 set_focus 只请求焦点；后台窗口在 Windows 前台锁下可能仍不是
+    // foreground window。先恢复并显式激活顶层窗口，再把键盘焦点交给子 WebView。
+    main.show().map_err(|error| format!("无法显示主窗口: {error}"))?;
+    main.unminimize().map_err(|error| format!("无法恢复主窗口: {error}"))?;
+    let hwnd = main.hwnd().map_err(|error| format!("无法获取主窗口句柄: {error}"))?;
+    let _ = unsafe { SetForegroundWindow(hwnd) };
     main.set_focus().map_err(|error| format!(
         "无法聚焦主窗口: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
     ))?;
     webview.set_focus().map_err(|error| format!(
         "无法聚焦 PDF 查看器: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
     ))?;
-    let focused = (0..5).any(|_| {
+    let focused = (0..10).any(|_| {
         let mut foreground_pid = 0_u32;
-        unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut foreground_pid)); }
-        if foreground_pid == std::process::id() { true } else {
-            std::thread::sleep(Duration::from_millis(30));
+        let foreground = unsafe { GetForegroundWindow() };
+        unsafe { GetWindowThreadProcessId(foreground, Some(&mut foreground_pid)); }
+        if foreground == hwnd && foreground_pid == std::process::id() { true } else {
+            std::thread::sleep(Duration::from_millis(50));
             false
         }
     });
@@ -4243,6 +4290,9 @@ async fn download_viewer_pdf(
         press_native_pdf_save(app, webview)?;
         record(app, "viewerSave", current.as_str(), "Agent 已触发原生 PDF 查看器 Ctrl+S；等待实际下载/归档");
         let deadline = Instant::now() + Duration::from_secs(100);
+        // Ctrl+S 若没产生 DownloadEvent，也没有可用文件，尽早交给用户；100 秒
+        // 只留给已经开始下载或上传的文件，不再用于空等浏览器响应。
+        let event_deadline = Instant::now() + Duration::from_secs(12);
         let mut upload_started = false;
         loop {
             if let Some(reason) = rejected.lock().ok().and_then(|slot| slot.clone()) {
@@ -4274,6 +4324,11 @@ async fn download_viewer_pdf(
             }
             if state.pending_generation(task_id) != Some(generation) {
                 return Err("PDF 下载任务已被取消或替换".to_string());
+            }
+            if Instant::now() >= event_deadline && !upload_started
+                && !state.download_claimed_for(task_id)
+                && fs::metadata(&destination).map(|meta| meta.len()).unwrap_or(0) == 0 {
+                return Err("原生 PDF 查看器保存指令未触发下载；请在侧栏点击 PDF 页面并按 Ctrl+S，壳会自动捕获归档，无需回传路径".to_string());
             }
             if Instant::now() >= deadline {
                 return Err("原生 PDF 查看器未在 100 秒内产生可归档的下载；请查询任务状态和浏览器下载进度".to_string());
@@ -4367,9 +4422,23 @@ pub async fn browser_action(
                         .replace("__OBSERVATION_ID__", &serde_json::json!(observation_id).to_string())
                         .replace("__ELEMENT_ID__", &serde_json::json!(element_id).to_string())
                 };
-                let value = eval_agent_script(&webview, script).await?;
+                if action == "click" && state.verification_pending() {
+                    return Err("当前页面需要人机验证；请由用户在侧栏完成，随后重新观察页面".to_string());
+                }
+                let mut value = eval_agent_script(&webview, script).await?;
                 if let Some(error) = value.get("error").and_then(|item| item.as_str()) {
                     return Err(error.to_string());
+                }
+                if action == "observe" {
+                    let challenge = observation_requires_verification(&value);
+                    state.set_automation_stage(if challenge { "verification" } else { "manual" });
+                    if let Some(object) = value.as_object_mut() {
+                        object.insert("verificationRequired".to_string(), serde_json::json!(challenge));
+                        if challenge {
+                            // Agent 不操作验证控件；用户完成后重新观察同一文章页。
+                            object.insert("candidates".to_string(), serde_json::json!([]));
+                        }
+                    }
                 }
                 if action == "click" && value.get("clicked").and_then(|item| item.as_bool()) == Some(true) {
                     state.set_automation_stage("clicked");
@@ -4386,6 +4455,15 @@ pub async fn browser_action(
         "viewer-download" => download_viewer_pdf(app, task_id, &webview).await,
         _ => Err("不支持的浏览器动作".to_string()),
     }
+}
+
+fn observation_requires_verification(value: &serde_json::Value) -> bool {
+    let title = value.get("title").and_then(|item| item.as_str()).unwrap_or("").to_lowercase();
+    let body = value.get("text").and_then(|item| item.as_str()).unwrap_or("").to_lowercase();
+    ["are you a robot", "verify you are human", "confirm you are a human", "completing the captcha challenge", "验证您是人类", "人机验证"]
+        .iter().any(|marker| body.contains(marker))
+        || (title.contains("请稍候") || title.contains("just a moment"))
+            && (body.contains("cloudflare") || body.contains("checking your browser"))
 }
 
 /// 把当前捕获状态推给页面里的捕获小球。
@@ -4824,6 +4902,20 @@ pub fn status_of(app: &AppHandle, config: &WebVpnConfig) -> WebVpnStatus {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn observation_marks_real_human_challenge_without_matching_article_text() {
+        assert!(observation_requires_verification(&serde_json::json!({
+            "title": "请稍候…",
+            "text": "Are you a robot? Please confirm you are a human by completing the captcha challenge below."
+        })));
+        assert!(observation_requires_verification(&serde_json::json!({
+            "title": "Just a moment...", "text": "Checking your browser before accessing Cloudflare"
+        })));
+        assert!(!observation_requires_verification(&serde_json::json!({
+            "title": "Biosensors and Bioelectronics", "text": "This article evaluates a captcha challenge in user testing."
+        })));
+    }
 
     #[test]
     fn science_fallback_stays_on_the_same_article_and_off_other_hosts() {
@@ -5809,5 +5901,50 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         assert!(status.pending_task_id.is_none());
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn successful_archive_removes_html_viewer_payload_cache() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let path = std::env::temp_dir().join(format!("capture-cleanup-{}.pdf", std::process::id()));
+        let payload_path = pdf_payload_path(&path);
+        fs::write(&payload_path, b"<!doctype html><html></html>").unwrap();
+        let generation = state.prepare_capture(
+            "capture-cleanup", "pdf", "www.sciencedirect.com", PublisherAdapter::Elsevier,
+            false,
+            url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap(),
+            path,
+        ).unwrap();
+        state.session.lock().unwrap().pending.as_mut().unwrap().pdf_payload = Some(PdfPayload {
+            content_length: Some(348), received_bytes: 348, segments: vec![],
+            path: payload_path.clone(), complete: false,
+            error: Some("wrong-object-html: HTML 查看器".to_string()),
+        });
+        state.finish_upload(generation, Ok(()), Some(2_151_133));
+        assert!(!payload_path.exists());
+    }
+
+    #[test]
+    fn stale_cleanup_only_removes_small_html_capture_payloads() {
+        let dir = std::env::temp_dir().join(format!("ibm-payload-cleanup-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let html = dir.join("capture-old-pdf.payload.pdf");
+        let pdf = dir.join("capture-good-pdf.payload.pdf");
+        let recent = dir.join("capture-recent-pdf.payload.pdf");
+        fs::write(&html, b"<!doctype html><html></html>").unwrap();
+        fs::write(&pdf, b"%PDF-1.7\n%%EOF").unwrap();
+        fs::write(&recent, b"<!doctype html><html></html>").unwrap();
+        let old = std::time::SystemTime::now() - Duration::from_secs(600);
+        for path in [&html, &pdf] {
+            fs::File::options().write(true).open(path).unwrap()
+                .set_times(fs::FileTimes::new().set_modified(old)).unwrap();
+        }
+        cleanup_stale_html_viewer_payloads(&dir.join("capture-new-pdf.pdf"));
+        assert!(!html.exists());
+        assert!(pdf.exists());
+        assert!(recent.exists());
+        let _ = fs::remove_dir_all(dir);
     }
 }

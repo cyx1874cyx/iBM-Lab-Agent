@@ -178,11 +178,40 @@ test("主窗口句柄不可用属于永久错误，一次失败后直接提示 C
 	const service = Object.create(LabCaptureService.prototype);
 	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed", error: "主窗口句柄不可用" }]]);
 	assert.equal(service.viewerDownloadFailure(TASK.id).terminal, true);
+	const handoff = view({ documentType: "application/pdf", viewerDownloadFailure: service.viewerDownloadFailure(TASK.id) });
+	assert.equal(handoff.nextAction, "manual-handoff");
+	assert.equal(handoff.requiresUserAction, true);
+	assert.equal((handoff.message.match(/Ctrl\+S/g) || []).length, 1, "同一状态文案不应重复人工兜底指引");
 	const result = view({ documentType: "application/pdf", viewerDownloadFailure: {
 		count: 1, error: "主窗口句柄不可用", terminal: true
 	} });
 	assert.equal(result.nextAction, "manual-handoff");
 	assert.match(result.message, /Ctrl\+S.*自动捕获并归档/);
+});
+
+test("前台焦点或保存事件不可用时，一次失败就人工接管；预览缓存不冒充下载字节", async () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed",
+		error: "PDF 查看器未获得前台焦点；请按 Ctrl+S" }]]);
+	assert.equal(service.viewerDownloadFailure(TASK.id).terminal, true);
+	service.browserOperations.set("browser-2", { taskId: "other", action: "viewer-download", status: "failed",
+		error: "原生 PDF 查看器保存指令未触发下载" });
+	assert.equal(service.viewerDownloadFailure("other").terminal, true);
+	const status = harness(captureStub({ desktop: desktop({
+		pdfPayload: { ready: false, complete: false, receivedBytes: 348, contentLength: 2_151_341,
+			error: "wrong-object-html: HTML 查看器" }
+	}) })).find((item) => item.name === "lab_publisher_browser_download_status");
+	const result = await status.execute({ projectId: "proj-test", taskId: TASK.id }, {});
+	assert.equal(result.downloadedBytes, undefined);
+	assert.equal(result.progress.isActualDownload, false);
+	assert.match(result.progress.note, /不是下载进度/);
+});
+
+test("验证页状态要求用户处理，再由 Agent 重新观察", () => {
+	const result = view({ automationStage: "verification", documentType: "text/html" });
+	assert.equal(result.nextAction, "complete-verification");
+	assert.equal(result.requiresUserAction, true);
+	assert.match(result.question, /侧栏完成验证/);
 });
 
 test("人工 Ctrl+S 归档后，状态报告真实文件大小而非 348 B 预览缓存", () => {

@@ -264,7 +264,17 @@ test("PDF 查看器保存聚焦真实主窗口，而非不存在的 WebviewWindo
 	assert.match(body, /app\.get_window\(MAIN_WINDOW_LABEL\)/);
 	assert.doesNotMatch(body, /app\.get_webview_window\(MAIN_WINDOW_LABEL\)/);
 	assert.match(body, /webview\.set_focus\(\)/);
+	assert.match(body, /SetForegroundWindow\(hwnd\)/);
+	assert.match(body, /main\.unminimize\(\)/);
 	assert.match(body, /Ctrl\+S.*自动捕获并归档/);
+});
+
+test("查看器无下载事件时提前终止，并在观察验证页后阻止 Agent 点击", async () => {
+	const webvpn = await webvpnSource();
+	assert.match(webvpn, /event_deadline = Instant::now\(\) \+ Duration::from_secs\(12\)/);
+	assert.match(webvpn, /observation_requires_verification\(&value\)/);
+	assert.match(webvpn, /state\.verification_pending\(\)/);
+	assert.match(webvpn, /"verificationRequired"/);
 });
 
 /**

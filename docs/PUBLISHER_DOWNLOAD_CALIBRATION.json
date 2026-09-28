@@ -5,7 +5,7 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta22",
+    "version": "0.5.5-beta23",
     "commit": "23f456d",
     "note": "beta22 fixes the reason beta21's viewer save never fired: it looked up the main window with app.get_webview_window(\"main\"), but this app's main window is a plain Window with a child WebView, so that query (which only accepts WebviewWindow) always returned None and every attempt failed with '主窗口不可用'. It now uses app.get_window(...), and each failure on that path repeats the human fallback (press Ctrl+S in the sidebar PDF viewer; the browser captures the download and archives it, no path needs reporting). The status side is bounded too: pdf.verdict (html-viewer / non-pdf / complete-pdf / unverified / none) means an HTML shell can never make ready/complete true, repeated viewer-save failures are counted and become manual-handoff with requiresUserAction plus a question telling the user to press Ctrl+S, further viewer-download actions are refused once terminal, and progress.source gains archived-file so a completed task reports the archived size. Per-publisher entry shape and every publisher, SI channel and campus-network route below remain pending."
   },

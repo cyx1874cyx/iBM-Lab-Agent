@@ -99,13 +99,25 @@ test("WebVPN 模块不得读取或导出浏览器 profile 内容", async () => {
 	]);
 	// 登录态只由 WebView2 独占使用：我们的代码可以创建/删除这个目录，
 	// 但一旦开始读取它，就等于把 Cookie / Local Storage 纳入自己的数据面。
-	for (const forbidden of ["read_dir", "read_to_string", "read_to_end", "File::open"]) {
+	//
+	// `read_dir` 不能再一刀切地禁用：捕获目录需要一个**收窄到临时产物**的清理
+	// （只删旧的、小的、明确是 HTML 的 `*.payload.pdf`）。所以这里改成精确断言：
+	// 任何目录枚举/读取的**参数**都不许出现 profile 路径。
+	for (const forbidden of ["read_to_string", "read_to_end", "File::open"]) {
 		assert.doesNotMatch(
 			webvpn,
 			new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
 			`WebVPN 模块不得出现 ${forbidden}：profile 内容不可进入应用数据面`
 		);
 	}
+	const readDirArgs = [...webvpn.matchAll(/fs::read_dir\(([^)]*)\)/g)].map((match) => match[1]);
+	assert.ok(readDirArgs.length > 0, "捕获目录清理需要一次目录枚举（walk 到临时产物）");
+	for (const argument of readDirArgs) {
+		assert.doesNotMatch(argument, /profile|PROFILE_DIR_NAME/i, "目录枚举不得指向 profile");
+	}
+	// 枚举的范围必须来自任务自己的暂存路径（temp_path 的父目录 = 捕获下载目录）。
+	assert.match(webvpn, /fn cleanup_stale_html_viewer_payloads\(temp_path: &Path\)/);
+	assert.match(webvpn, /let Some\(directory\) = temp_path\.parent\(\) else/, "清理范围只能是捕获目录");
 	// 下载捕获允许读取 on_download 生成的精确临时文件；不得用 profile 路径读取。
 	// 读取走 read_captured_file：它等到内容被证明完整且长度稳定（WebView2 报完成后文件
 	// 可能还在写），但路径仍然只来自下载回调确认的那一个。
