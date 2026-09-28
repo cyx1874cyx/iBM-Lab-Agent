@@ -6,8 +6,8 @@
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
     "version": "0.5.5-beta22",
-    "commit": "f852574",
-    "note": "beta21 introduced native viewer Ctrl+S automation, but the 2026-09-28 ScienceDirect live check exposed a P0 defect: get_webview_window(\"main\") returns none for the actual Tauri Window with a child WebView, so four Agent viewer-download actions failed before sending any key. User Ctrl+S did trigger DownloadEvent and archived a verified 2,151,364-byte PDF. The follow-up source fix uses get_window(\"main\"), adds bounded failure handoff, and distinguishes HTML preview buffers from verified downloads; the revised Agent path still needs installed-app acceptance."
+    "commit": "23f456d",
+    "note": "beta22 fixes the reason beta21's viewer save never fired: it looked up the main window with app.get_webview_window(\"main\"), but this app's main window is a plain Window with a child WebView, so that query (which only accepts WebviewWindow) always returned None and every attempt failed with '主窗口不可用'. It now uses app.get_window(...), and each failure on that path repeats the human fallback (press Ctrl+S in the sidebar PDF viewer; the browser captures the download and archives it, no path needs reporting). The status side is bounded too: pdf.verdict (html-viewer / non-pdf / complete-pdf / unverified / none) means an HTML shell can never make ready/complete true, repeated viewer-save failures are counted and become manual-handoff with requiresUserAction plus a question telling the user to press Ctrl+S, further viewer-download actions are refused once terminal, and progress.source gains archived-file so a completed task reports the archived size. Per-publisher entry shape and every publisher, SI channel and campus-network route below remain pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
