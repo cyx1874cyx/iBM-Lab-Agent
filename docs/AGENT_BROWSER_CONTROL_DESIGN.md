@@ -20,7 +20,7 @@
 | --- | --- | --- | --- |
 | lab_browser_observe | taskId | operationId；完成后为页面类别、标题、脱敏来源、候选元素列表、观察版本 | 看当前出版社页的可操作入口 |
 | lab_browser_click | taskId、observationId、elementId | operationId；完成后为 clicked / stale / blocked / failed | 点击上次观察到的一个候选元素 |
-| lab_browser_save_current_pdf | taskId | operationId；完成后为 started / unsupported / failed | 对当前顶层原生 PDF 文档发起 WebView2 另存为 |
+| lab_browser_download_viewer_pdf | taskId | operationId；完成后为归档结果或明确错误 | 对当前顶层原生 PDF 查看器触发保存，按真实下载字节跟踪；HTML 预览页用 observe/click 点击其下载元素 |
 
 共用 lab_browser_operation_status(operationId) 取结果；现有 lab_publisher_browser_download_status 继续报告最终下载与归档状态。工具不接受任意 JavaScript、CSS 选择器、文件路径、URL、Cookie 或请求头。Agent 不获得捕获令牌。
 

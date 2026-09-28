@@ -5,7 +5,7 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta20",
+    "version": "0.5.5-beta21",
     "commit": "3a1b23b",
     "note": "beta20 assembles PDF range responses instead of discarding them, fixing both field bugs. The Wiley aiche PDF is 4,594,707 bytes fetched as eighteen 256 KiB ranges; beta16 skipped every 206 (my mistake) so the payload never completed and the status sat at 'receiving 4.4 MB'. PdfPayload now tracks covered segments, each response is written at its Content-Range offset, and completeness means the union covers [0,total) (or a %%EOF-proven tail when the total is unknown); only unparseable Content-Range values are skipped. The second bug ('the shell save tool always produces 1 KB on native PDF previews') was downstream: the fallback used ShowSaveAsUI, which saves the PAGE - and a native PDF's document is the 348-byte HTML viewer shell - so a ~1 KB page was archived as the article; viewer_saved_pdf_is_usable now requires a %PDF- header, a %%EOF tail and at least 8 KiB (the capture service's own threshold) and deletes the junk with a precise reason. The 76px toolbar can now be collapsed to a chip so publisher controls underneath it are reachable, without applying any transform to the publisher page. Per-publisher range behaviour (whole-body 200 vs ranges) and every publisher, SI channel and campus-network route below remain pending."
   },

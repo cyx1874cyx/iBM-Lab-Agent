@@ -653,7 +653,7 @@ var webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
 var webVpnBrowserActionViaShell = (payload) => webVpnShellRequest(
   "WEBVPN_BROWSER_ACTION",
   payload,
-  payload?.action === "save-pdf" ? 14e4 : 2e4
+  payload?.action === "viewer-download" ? 22e4 : 2e4
 );
 var iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 var withWebVpnTab = async (request, { armingCapture = false } = {}) => {
@@ -2936,10 +2936,10 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
       if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
       if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
       if (automationStage === "manual") {
-        if (extra.saveReady) return { text: "PDF 已就绪，正在归档到课题…", tone: "busy", progress: true };
+        if (extra.documentType === "application/pdf") return { text: "原生 PDF 已打开，可用查看器下载并归档", tone: "waiting", actionable: true };
         return {
-          text: extra.alternateEntry ? `保存支路不可用；请改用带 ?download=true 的下载入口重新进入（${extra.alternateEntry}）` : "保存支路不可用；请重新观察页面并选择带 ?download=true 的下载入口",
-          tone: "error",
+          text: extra.alternateEntry ? `请观察页面下载入口，或使用备用入口（${extra.alternateEntry}）` : "请观察页面并点击实际 Download PDF 入口",
+          tone: "waiting",
           actionable: true
         };
       }
@@ -2948,8 +2948,7 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
       if (extra.stalled) {
         return { text: `下载已 ${Math.round((extra.stalledMs || 0) / 1e3)} 秒没有进度，任务疑似卡住`, tone: "error", actionable: true };
       }
-      if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
-      return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
+      return { text: `正在下载 PDF · 已写入 ${formatCaptureBytes(downloadedBytes)}${extra.downloadTotalBytes ? ` / ${formatCaptureBytes(extra.downloadTotalBytes)}` : "（总量未知）"} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
     case "uploading":
       return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
     // C6/C17：失去接管不是「排队」，必须如实显示成终态并给出可执行动作。
@@ -3148,10 +3147,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           notify(message);
           return;
         } else {
-          setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage, {
+          setCaptureHint((current) => current?.taskId === taskId ? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadEventBytes ?? 0, status.downloadElapsedMs, status.automationStage, {
             stalled: status.stalled,
             stalledMs: status.stalledMs,
-            saveReady: status.pdfPayload?.ready,
+            documentType: status.documentType,
+            downloadTotalBytes: status.downloadTotalBytes,
             alternateEntry: status.alternateEntry
           }) } : current);
         }
@@ -4101,7 +4101,7 @@ var formatBytes = (bytes) => {
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 };
 function useSaveToProject(enabled) {
-  const [state, setState] = (0, import_react9.useState)({ loading: true, taskId: "", documentType: "", payload: null, busy: false, note: "" });
+  const [state, setState] = (0, import_react9.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
   (0, import_react9.useEffect)(() => {
     if (!enabled) return void 0;
     let disposed = false;
@@ -4115,7 +4115,10 @@ function useSaveToProject(enabled) {
           loading: false,
           taskId: status?.pendingTaskId || "",
           documentType: status?.documentType || "",
-          payload: status?.pdfPayload || null
+          payload: status?.pdfPayload || null,
+          shellState: status?.state || "",
+          bytes: Number(status?.downloadEventBytes) || 0,
+          totalBytes: Number(status?.downloadTotalBytes) || 0
         }));
       } catch {
       }
@@ -4130,9 +4133,9 @@ function useSaveToProject(enabled) {
   const save = async () => {
     const taskId = state.taskId;
     if (!taskId || state.busy) return;
-    setState((current) => ({ ...current, busy: true, note: "正在保存并归档…" }));
+    setState((current) => ({ ...current, busy: true, note: "正在由 PDF 查看器下载…" }));
     try {
-      const result = await webVpnBrowserActionViaShell({ taskId, action: "save-pdf", observationId: "", elementId: "", scope: "download" });
+      const result = await webVpnBrowserActionViaShell({ taskId, action: "viewer-download", observationId: "", elementId: "", scope: "download" });
       const bytes = Number(result?.bytes) || 0;
       setState((current) => ({ ...current, busy: false, note: bytes ? `已归档 ${formatBytes(bytes)}` : "已归档到课题" }));
     } catch (reason) {
@@ -4141,30 +4144,26 @@ function useSaveToProject(enabled) {
   };
   const payload = state.payload;
   const ready = payload?.ready === true && payload?.complete === true;
-  let label = "保存到课题";
+  let label = "下载并归档 PDF";
   let disabled = true;
   if (state.loading) {
-    label = "保存到课题";
+    label = "下载并归档 PDF";
     disabled = true;
   } else if (!state.taskId) {
-    label = "保存到课题";
+    label = "下载并归档 PDF";
     disabled = true;
-  } else if (state.busy) {
-    label = state.note || "正在归档…";
+  } else if (state.busy || ["downloading", "uploading"].includes(state.shellState)) {
+    const received = formatBytes(state.bytes) || "0 KB";
+    label = state.shellState === "uploading" ? "正在归档 PDF…" : state.shellState === "downloading" ? `正在下载 ${received}${state.totalBytes ? ` / ${formatBytes(state.totalBytes)}` : "（总量未知）"}…` : state.note || "正在下载…";
     disabled = true;
   } else if (state.note.startsWith("已归档")) {
     label = state.note;
     disabled = true;
-  } else if (payload && !ready) {
-    const received = formatBytes(payload.receivedBytes);
-    const total = formatBytes(payload.contentLength);
-    label = total ? `正在接收 ${received} / ${total}…` : received ? `正在接收 ${received}…` : "等待 PDF 载荷…";
-    disabled = true;
-  } else if (!ready && state.documentType !== "application/pdf") {
-    label = "当前页面不是 PDF";
+  } else if (!ready && !/^application\/pdf(?:;|$)/i.test(state.documentType)) {
+    label = "网页预览请点击 Download PDF";
     disabled = true;
   } else {
-    label = "保存到课题";
+    label = "下载并归档 PDF";
     disabled = false;
   }
   return { label, disabled, save, note: state.note, hasTask: Boolean(state.taskId), ready };

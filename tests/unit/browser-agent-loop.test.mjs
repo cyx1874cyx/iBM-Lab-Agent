@@ -61,6 +61,15 @@ test("下载工具只创建 Agent 操作任务，不再暴露旧自动点击模�
 	assert.equal(calls[0].mode, "ai");
 });
 
+test("旧壳保存工具已移除，原生 PDF 下载以异步操作提供", () => {
+	const tools = harness(captureStub({
+		task: { id: "capture-1", projectId: "proj-test", requestedBy: "agent", status: "armed" },
+		desktop: desktopStatus({ documentType: "application/pdf" })
+	}));
+	assert.equal(tools.some((item) => item.name === "lab_browser_save_current_pdf"), false);
+	assert.ok(tools.some((item) => item.name === "lab_browser_download_viewer_pdf"));
+});
+
 test("AI 主导的任务：状态直接要求观察+点击，而不是等自动下载", async () => {
 	const task = {
 		id: "capture-1", projectId: "proj-test", bundleId: "bundle-1", kind: "pdf",
@@ -71,7 +80,7 @@ test("AI 主导的任务：状态直接要求观察+点击，而不是等自动�
 	assert.ok(tool);
 	const value = await tool.execute({ projectId: "proj-test", taskId: "capture-1" }, {});
 	assert.equal(value.nextAction, "observe-or-click", "AI 主导时不能让调用方干等自动下载");
-	assert.match(value.message, /由你直接操作/, "消息必须说清页面由 Agent 操作");
+	assert.match(value.message, /由你观察并点击真实下载入口/, "消息必须说清页面由 Agent 操作");
 	assert.match(value.message, /lab_browser_wait/, "必须给出闭环里的等待工具");
 });
 

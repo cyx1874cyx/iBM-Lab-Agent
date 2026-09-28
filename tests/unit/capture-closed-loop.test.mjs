@@ -105,11 +105,11 @@ test("R4.3/C7：终态给「重建 / 终止」两个可执行选项", () => {
 	assert.equal(failed.ball.tone, "error");
 });
 
-test("R2.3/C8：预览器里没有可点元素时改走 ?download=true 的备用入口", () => {
+test("R2.3/C8：原生 PDF 优先触发查看器保存，Science 备用入口仍受限", () => {
 	const entry = normalizeDownloadEntry("https://www.science.org/doi/epdf/10.1126/science.adz5300");
 	assert.equal(entry, "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true");
 	const manual = view({ automationStage: "manual", documentType: "application/pdf", pageUrl: "https://www.science.org/doi/epdf/10.1126/science.adz5300", pageSeq: 7 });
-	assert.equal(manual.nextAction, "retry-download-entry");
+	assert.equal(manual.nextAction, "download-viewer-pdf");
 	assert.equal(manual.alternateEntry, entry);
 	assert.equal(manual.alternateRouteId, "science-pdf");
 	assert.equal(manual.page.pageSeq, 7);
@@ -121,17 +121,17 @@ test("R2.3/C8：预览器里没有可点元素时改走 ?download=true 的备用
 	assert.equal(normalizeDownloadEntry("https://webvpn.example.edu/doi/epdf/10.1126/science.adz5300"), undefined);
 });
 
-test("R2.2/C1：PDF 载荷就绪才给 save-pdf-ready，且方向由同一份推导决定", () => {
+test("R2.2/C1：完整 PDF 载荷可归档，原生 PDF 可触发查看器保存", () => {
 	const notReady = view({ automationStage: "manual" });
-	assert.notEqual(notReady.nextAction, "save-pdf-ready");
+	assert.notEqual(notReady.nextAction, "download-viewer-pdf");
 	const ready = view({
 		automationStage: "manual",
 		documentType: "application/pdf",
 		pdfPayload: { ready: true, complete: true, contentLength: 2716660, receivedBytes: 2716660 }
 	});
-	assert.equal(ready.nextAction, "save-pdf-ready");
+	assert.equal(ready.nextAction, "download-viewer-pdf");
 	assert.equal(ready.pdf.ready, true);
-	assert.match(ready.message, /lab_browser_save_current_pdf/);
+	assert.match(ready.message, /lab_browser_download_viewer_pdf/);
 });
 
 test("Nature SI 已在 PDF 查看器但未捕获载荷时给出可执行保存动作", () => {
@@ -139,12 +139,24 @@ test("Nature SI 已在 PDF 查看器但未捕获载荷时给出可执行保存�
 		automationStage: "manual", documentType: "application/pdf", contentLength: 452463,
 		pageUrl: "https://media.springernature.com/full/springer-static/41586_2026_11032_MOESM1_ESM.pdf"
 	}, { kind: "si", publisherUrl: "https://doi.org/10.1038/s41586-026-11032" });
-	assert.equal(si.nextAction, "save-from-viewer");
+	assert.equal(si.nextAction, "download-viewer-pdf");
 	assert.equal(si.pdf.ready, false);
-	assert.match(si.message, /lab_browser_save_current_pdf/);
+	assert.match(si.message, /lab_browser_download_viewer_pdf/);
 	const article = view({ automationStage: "manual", documentType: "text/html", pageUrl: "https://www.nature.com/articles/s41586-026-11032" },
 		{ publisherUrl: "https://doi.org/10.1038/s41586-026-11032" });
 	assert.equal(article.nextAction, "observe-or-click");
+});
+
+test("原生 PDF 保存指令只发一次，操作进行时状态转为等待真实下载", () => {
+	const saving = view({ automationStage: "saving", documentType: "application/pdf", contentLength: 3_200_000 });
+	assert.equal(saving.nextAction, "wait-and-poll");
+	assert.match(saving.message, /等待浏览器开始写入下载文件/);
+	const downloading = view({ state: "downloading", automationStage: "saving", documentType: "application/pdf",
+		contentLength: 3_200_000, downloadEventBytes: 800_000, downloadTotalBytes: 3_200_000 });
+	assert.equal(downloading.nextAction, "wait-and-poll");
+	assert.equal(downloading.progress.source, "browser-download");
+	assert.equal(downloading.progress.receivedBytes, 800_000);
+	assert.equal(downloading.progress.percent, 25);
 });
 
 test("R6.2/C17：长时间没有字节增长就是 stalled，不再永远显示「正在保存」", () => {
@@ -255,7 +267,7 @@ test("R4.1/C15：保存类操作的窗口远大于 30 秒，过期也要写回�
 	service.captureProgressSamples = new Map();
 	service.getTask = () => ({ id: "capture-1", projectId: "p1", requestedBy: "agent", status: "armed" });
 	service.reportDesktopWebVpnStatus({ state: "waiting-download", windowOpen: true, pendingTaskId: "capture-1" });
-	const save = service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "save-pdf" });
+	const save = service.createBrowserOperation({ projectId: "p1", taskId: "capture-1", action: "viewer-download" });
 	const stored = service.browserOperations.get(save.id);
 	assert.ok(stored.expiresAt - stored.createdAt >= SAVE_OPERATION_TTL_MS, "保存操作 TTL 必须远大于 30 秒");
 	// 同一任务已有未结束的动作：串行保证仍然生效（这里会抛）。
@@ -267,7 +279,7 @@ test("R4.1/C15：保存类操作的窗口远大于 30 秒，过期也要写回�
 	service.browserOperations.get(save.id).expiresAt = Date.now() - 1;
 	const expired = service.getBrowserOperation(save.id, "p1");
 	assert.equal(expired.status, "failed");
-	assert.match(expired.error, /保存原生 PDF 超时/);
+	assert.match(expired.error, /PDF 查看器下载超时/);
 });
 
 test("R6.1/C20：小球与工具读同一份推导（同一任务同一个 phase）", () => {
@@ -305,7 +317,7 @@ test("R5.1/C1：壳在响应层取 PDF 载荷，不再只依赖 viewer 工具栏
 test("R7.1/C21/C22：预设不再把模型引向失效支路", async () => {
 	const preset = await readFile(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url), "utf8");
 	assert.doesNotMatch(preset, /observe-or-save-pdf/, "不能再教一个会静默失败的动作名");
-	assert.match(preset, /save-pdf-ready/, "只有载荷就绪才调保存工具");
+	assert.match(preset, /download-viewer-pdf/, "原生 PDF 应触发查看器保存");
 	assert.match(preset, /retry-download-entry/);
 	assert.match(preset, /alternateEntry/);
 	assert.match(preset, /recreate=true/, "失败后要能直接重建");
@@ -338,20 +350,21 @@ test("C19/C20 接线：list 带 view，客户端把 ball 交给壳，壳渲染�
 	assert.match(remote, /async manual_capture_recreate\(request\)/);
 });
 
-test("D5：只要载荷没被证明收全，就绝不允许引导去归档（治 HTTP 400 那条）", () => {
+test("D5：不完整预览缓存不能引导归档，HTML 页仍可寻找下载入口", () => {
 	const receiving = view({ automationStage: "manual", pdfPayload: { ready: true, complete: false, contentLength: 2716668, receivedBytes: 262144 } });
-	assert.notEqual(receiving.nextAction, "save-pdf-ready");
-	assert.equal(receiving.nextAction, "wait-and-poll");
+	assert.notEqual(receiving.nextAction, "download-viewer-pdf");
+	assert.equal(receiving.nextAction, "observe-or-click");
 	assert.equal(receiving.pdf.complete, false);
-	assert.match(receiving.message, /正在接收/);
+	assert.match(receiving.message, /真实下载入口/);
 	// 分片绝不能冒充总长（现场原话是「已就绪（256.0 KB）」，真实 2.6 MB）。
-	assert.match(receiving.message, /256\.0 KB \/ 2\.6 MB/);
+	assert.equal(receiving.progress.source, "viewer-buffer");
+	assert.equal(receiving.progress.receivedBytes, 262144);
 	assert.equal(receiving.progress.percent, 10);
 	assert.equal(receiving.progress.totalBytes, 2716668);
 
 	const complete = view({ automationStage: "manual", pdfPayload: { ready: true, complete: true, contentLength: 2716668, receivedBytes: 2716668 } });
-	assert.equal(complete.nextAction, "save-pdf-ready");
-	assert.match(complete.message, /已完整接收（2\.6 MB）/);
+	assert.equal(complete.nextAction, "download-viewer-pdf");
+	assert.match(complete.message, /已完整接收/);
 });
 
 test("D2/D5：载荷未收全是一个可执行的失败分支，不是「再等等」", () => {
@@ -375,19 +388,19 @@ test("Science 双通路：下载事件运行时，失败的响应载荷不抢走
 		pdfPayload: { ready: true, complete: false, contentLength: 348, receivedBytes: 348, error: "HTML viewer shell" }
 	});
 	assert.equal(active.nextAction, "wait-and-poll");
-	assert.equal(active.progress.receivedBytes, 1_000_000);
+	assert.equal(active.progress.receivedBytes, 0, "没有实际下载文件就不能把响应缓存当进度");
 	// 下载事件通路没有声明总长：不许编造百分比（拿载荷的 348 B 当总量更糟）。
 	assert.equal(active.progress.totalBytes, undefined);
 	assert.equal(active.progress.percent, undefined);
 	// 断言行为而不是内部术语：文案要说清"正在下载 + 会自动归档"，并且不得引导归档。
 	assert.match(active.message, /正在下载/);
 	assert.match(active.message, /自动归档/);
-	assert.notEqual(active.nextAction, "save-pdf-ready");
+	assert.notEqual(active.nextAction, "download-viewer-pdf");
 	const tooLarge = view({ maxCaptureBytes: 100, downloadedBytes: 101 });
 	assert.match(tooLarge.message, /超过/);
 });
 
-test("Science 备用入口用过后转人工接管，空壳和空流有不同原因码", () => {
+test("Science 备用入口用过后仍可观察页面，空壳和空流有不同原因码", () => {
 	const pageUrl = "https://www.science.org/doi/pdf/10.1126/science.adz5300?download=true";
 	for (const [error, code] of [
 		["wrong-object-html: 响应体是 HTML 查看器页面", "wrong-object-html"],
@@ -395,7 +408,7 @@ test("Science 备用入口用过后转人工接管，空壳和空流有不同原
 	]) {
 		const result = view({ pageUrl, pageSeq: 20, pdfPayload: { ready: true, complete: false, receivedBytes: 348, error } });
 		assert.equal(result.reasonCode, code);
-		assert.equal(result.nextAction, "manual-handoff");
+		assert.equal(result.nextAction, "observe-or-click");
 		assert.equal(result.alternateRouteId, undefined);
 	}
 });
@@ -404,7 +417,7 @@ test("D6：总量未知时不给假的百分比，速度由相邻两次采样给
 	const unknown = view({ pdfPayload: { ready: true, complete: false, receivedBytes: 512 * 1024 } });
 	assert.equal(unknown.progress.totalBytes, undefined);
 	assert.equal(unknown.progress.percent, undefined);
-	assert.match(unknown.message, /总大小未知/);
+	assert.equal(unknown.progress.source, "viewer-buffer");
 	const withSpeed = view({ pdfPayload: { ready: true, complete: false, contentLength: 4 * 1024 * 1024, receivedBytes: 1024 * 1024 } }, {}, undefined);
 	assert.equal(withSpeed.progress.percent, 25);
 	// progressBps 走第四参数注入（服务层按两次采样算）
@@ -417,8 +430,8 @@ test("D6：总量未知时不给假的百分比，速度由相邻两次采样给
 	svc.speedBps = () => 1024 * 1024;
 	svc.stalledMs = () => 0;
 	const described = svc.describeTask(TASK, 1);
-	assert.equal(described.progress.speedBps, 1024 * 1024);
-	assert.equal(described.progress.etaSeconds, 3);
+	assert.equal(described.progress.speedBps, undefined, "预览缓存没有下载速度");
+	assert.equal(described.progress.etaSeconds, undefined);
 });
 
 test("D7：指纹含载荷完整性维度，wait 才能在「收完」那一刻返回", async () => {
@@ -431,12 +444,11 @@ test("D7：指纹含载荷完整性维度，wait 才能在「收完」那一刻�
 	assert.match(source, /if \(before\.requiresUserAction \|\| before\.nextAction === "done"\) return before/);
 });
 
-test("D9：预设只说 nextAction，不再教模型看 saveReady 布尔值", async () => {
+test("D9：预设区分预览缓存与实际下载", async () => {
 	const preset = await readFile(new URL("../../presets/lab-research/preset.patch.yml", import.meta.url), "utf8");
-	assert.doesNotMatch(preset, /saveReady=true/, "不要再教模型看 saveReady");
-	assert.match(preset, /判据是 nextAction/);
-	assert.match(preset, /只等，不要归档/);
-	assert.match(preset, /2 的整次幂/);
+	assert.match(preset, /progress.source=viewer-buffer/);
+	assert.match(preset, /browser-download/);
+	assert.match(preset, /lab_browser_download_viewer_pdf/);
 });
 
 test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
@@ -472,14 +484,13 @@ test("R1-A：页内右下角「保存到课题」浮层（壳注入、壳响应�
 	assert.match(rust, /right:16px;bottom:16px;left:auto;top:auto/);
 	assert.match(rust, /host\.setAttribute\('popover', 'manual'\)/);
 	// 点击走内部命令（绝不能用 location.href：那是一次真实导航，会打白屏）。
-	assert.match(rust, /notifyShell\('save-pdf\/'/);
-	assert.match(rust, /url\.host_str\(\) == Some\("save-pdf"\)/);
+	assert.match(rust, /notifyShell\('viewer-download\/'/);
+	assert.match(rust, /url\.host_str\(\) == Some\("viewer-download"\)/);
 	// 用户触发与 Agent 触发必须同一条实现（等终态 + 归档前三道校验）。
 	assert.match(rust, /pub fn request_native_save/);
-	assert.match(rust, /save_current_pdf\(&task_app, &task_id, &webview\)\.await/);
-	// 载荷没收全之前按钮必须是禁用的（不能引诱人去归档半个文件）。
-	assert.match(rust, /payloadReady === true/);
-	assert.match(rust, /PDF 正在接收/);
+	assert.match(rust, /download_viewer_pdf\(&task_app, &task_id, &webview\)\.await/);
+	// 原生 PDF 不必等待预览缓存收全；按钮只能对 PDF 文档启用。
+	assert.match(rust, /payload\.documentType === 'application\/pdf'/);
 	// 点过之后不再放开：避免重复归档。
 	assert.match(rust, /button\.dataset\.busy = 'true'/);
 	// 归档中拒绝第二次保存（侧栏按钮可能在浮层之后被按下）。
@@ -493,12 +504,12 @@ test("R1-B：侧栏兜底按钮——不在上报矩形内，因此不会被原�
 	assert.match(tab, /ref: hostRef, className: "ib-webvpn-stage"/);
 	assert.doesNotMatch(tab, /ref: hostRef, className: "ib-webvpn-tab"/);
 	// 按钮走与 Agent 同一条 shell 动作；不给它开新的桥。
-	assert.match(tab, /webVpnBrowserActionViaShell\(\{ taskId, action: "save-pdf"/);
+	assert.match(tab, /webVpnBrowserActionViaShell\(\{ taskId, action: "viewer-download"/);
 	// 状态与浮层同源：都读 webvpn_status。
 	assert.match(tab, /useSaveToProject/);
 	assert.match(tab, /status\?\.pdfPayload/);
-	// 没证到完整时不放行。
-	assert.match(tab, /payload\?\.ready === true && payload\?\.complete === true/);
+	// 原生 PDF 文档即使预览缓存不完整也可下载。
+	assert.match(tab, /application\\\/pdf/);
 });
 
 test("B1：declaredTotalBytes / idleSeconds 是显式字段，percent 不许恒为 100", () => {
@@ -510,7 +521,7 @@ test("B1：declaredTotalBytes / idleSeconds 是显式字段，percent 不许恒�
 	assert.equal(receiving.progress.totalBytes, 2744110);
 	assert.equal(receiving.progress.percent, 11, "percent 必须是真实比例，不能因为分片被算成 100");
 	assert.equal(receiving.progress.idleSeconds, 0);
-	assert.notEqual(receiving.nextAction, "save-pdf-ready");
+	assert.notEqual(receiving.nextAction, "download-viewer-pdf");
 });
 
 test("B5：终态任务不再占用队列位次，但仍然是列表里的一条记录", () => {
@@ -650,7 +661,7 @@ test("R7：预设把「先读原因、再决定」写成了固定顺序", async 
 	assert.match(preset, /连续 400\/失败超过 2 次就停止自动重试/);
 });
 
-test("saveReady 必须与 nextAction=save-pdf-ready 同义（348 B 空壳那条假阳性）", async () => {
+test("downloadReady 必须与 nextAction=download-viewer-pdf 同义（348 B 空壳不可保存）", async () => {
 	const tools = harness(captureStub({
 		task: { ...TASK, status: "armed" },
 		desktop: desktop({
@@ -662,12 +673,12 @@ test("saveReady 必须与 nextAction=save-pdf-ready 同义（348 B 空壳那条�
 	}));
 	const status = tools.find((item) => item.name === "lab_publisher_browser_download_status");
 	const value = await status.execute({ projectId: "proj-test", taskId: "capture-1" }, {});
-	assert.equal(value.saveReady, false, "没收全就不许说 saveReady");
+	assert.equal(value.downloadReady, false, "HTML 空壳不能触发原生查看器保存");
 	assert.equal(value.payloadReady, true, "有字节了就是 ready");
 	assert.equal(value.payloadComplete, false);
-	assert.notEqual(value.nextAction, "save-pdf-ready");
+	assert.notEqual(value.nextAction, "download-viewer-pdf");
 	assert.ok(
-		value.saveReady === (value.nextAction === "save-pdf-ready"),
-		"saveReady 与 nextAction 必须同义，否则调用方会被自相矛盾的字段误导"
+		value.downloadReady === (value.nextAction === "download-viewer-pdf"),
+		"downloadReady 与 nextAction 必须同义"
 	);
 });

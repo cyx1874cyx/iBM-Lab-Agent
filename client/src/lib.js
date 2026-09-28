@@ -289,10 +289,9 @@ const webVpnShellRequest = (type, payload = {}, timeoutMs = 8000) => new Promise
 });
 
 export const webVpnStatusViaShell = () => webVpnShellRequest("WEBVPN_STATUS");
-// 保存原生 PDF 要等字节流落盘 + 归档上传才回终态（C4），20 秒的默认超时会在
-// 归档还没结束时就先报「桌面客户端未响应」；这里给足 140 秒。
+// 原生 PDF 查看器下载会等实际文件落盘和归档，桥接超时须覆盖两段过程。
 export const webVpnBrowserActionViaShell = (payload) => webVpnShellRequest(
-	"WEBVPN_BROWSER_ACTION", payload, payload?.action === "save-pdf" ? 140000 : 20000
+	"WEBVPN_BROWSER_ACTION", payload, payload?.action === "viewer-download" ? 220000 : 20000
 );
 export const iwanStatusViaShell = () => webVpnShellRequest("IWAN_STATUS");
 // 打开原生 WebVPN 之前先打开 DSH 右侧栏的「文献浏览器」tab：只有在 tab 正文上报过

@@ -1,6 +1,6 @@
 # 人工实测记录（2026-09-28）
 
-以下 11 篇来自用户手工下载反馈。本机 `C:\Users\admin\AppData\Local\iBM-Lab-Agent\logs\webvpn.log` 中对应页面的成功路线还记录了 `downloadRequested`、`downloadFinished success=true` 和 `captureCompleted`；Wiley 正文没有完成记录。访问模式、最终课题文件路径和文件哈希仍未核对。日志能佐证壳捕获完成，不能证明 Agent 的 `lab_browser_save_current_pdf` 这一按钮已通过测试。入口文字和位置只适用于所列页面，不能当作整站稳定选择器。没有 SI 表示用户报告该篇未见 SI。
+以下 11 篇来自用户手工下载反馈。本机 `C:\Users\admin\AppData\Local\iBM-Lab-Agent\logs\webvpn.log` 中对应页面的成功路线还记录了 `downloadRequested`、`downloadFinished success=true` 和 `captureCompleted`；Wiley 正文没有完成记录。访问模式、最终课题文件路径和文件哈希仍未核对。日志能佐证壳捕获完成，不能证明新版 `lab_browser_download_viewer_pdf` 已通过真机测试。入口文字和位置只适用于所列页面，不能当作整站稳定选择器。没有 SI 表示用户报告该篇未见 SI。
 
 ## IEEE Xplore（1 篇）
 

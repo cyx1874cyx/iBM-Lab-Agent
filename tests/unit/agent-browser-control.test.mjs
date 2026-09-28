@@ -96,6 +96,42 @@ test("scope=all 的页面观察能看到同源 iframe 内的下载按钮", async
 	assert.equal(result.candidates[0].label, "Download PDF");
 });
 
+test("Wiley HTML 预览器的右上角 pdfdirect 链接可被观察并点击", async () => {
+	const rust = await source();
+	const observe = rust.match(/const AGENT_OBSERVE_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replace("__OBSERVE_SCOPE__", "'all'");
+	const click = rust.match(/const AGENT_CLICK_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1]
+		.replaceAll("__OBSERVATION_ID__", '"00000000000000000000000000000003"')
+		.replaceAll("__ELEMENT_ID__", '"e1"');
+	let clicked = 0;
+	const anchor = {
+		tagName: "A", isConnected: true, innerText: "", textContent: "get_app", shadowRoot: null,
+		getBoundingClientRect: () => ({ width: 40, height: 40, top: 10, left: 1200 }),
+		getAttribute: (name) => ({
+			"aria-label": "Download PDF • 3.2 MB",
+			href: "/doi/pdfdirect/10.1002/btm2.10677?download=true"
+		})[name] ?? null,
+		closest: () => anchor, hasAttribute: () => false, click: () => { clicked++; }
+	};
+	const document = {
+		querySelector: () => null,
+		querySelectorAll: (selector) => selector === "*" ? [] : [anchor],
+		contentType: "text/html", readyState: "complete", title: "Wiley PDF",
+		body: { innerText: "PDF preview" }, documentElement: { scrollHeight: 800 }
+	};
+	const location = { href: "https://aiche.onlinelibrary.wiley.com/doi/epdf/10.1002/btm2.10677", hostname: "aiche.onlinelibrary.wiley.com" };
+	const window = { scrollY: 0, innerWidth: 1280, innerHeight: 800 };
+	const context = { document, location, window, getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+		crypto: { randomUUID: () => "00000000-0000-0000-0000-000000000003" }, URL };
+	const result = runInNewContext(observe, context);
+	assert.equal(result.candidates[0].label, "Download PDF • 3.2 MB");
+	assert.equal(result.candidates[0].autoDownloadable, true);
+	assert.match(result.candidates[0].target, /pdfdirect\/10\.1002\/btm2\.10677\?download=true/);
+	const action = runInNewContext(click, context);
+	assert.equal(action.clicked, true);
+	assert.equal(clicked, 1);
+});
+
 test("Nature 长页面不会让导航和作者链接占满前 30 个候选", async () => {
 	const rust = await source();
 	const script = rust.match(/const AGENT_OBSERVE_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1]

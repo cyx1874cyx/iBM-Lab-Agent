@@ -126,7 +126,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 				let disposed = false;
 				let timer;
 				let starting = false;
-				// 浏览器动作（observe/click/save-pdf）在独立任务里跑（见下方注释）。
+				// 浏览器动作（observe/click/viewer-download）在独立任务里跑（见下方注释）。
 				let runningOperation = false;
 				const poll = async () => {
 					if (disposed || starting) return;

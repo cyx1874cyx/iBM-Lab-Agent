@@ -25,7 +25,7 @@ const formatBytes = (bytes) => {
 };
 
 /**
- * 侧栏里的「保存到课题」按钮（B 方案）。
+ * 侧栏里的原生 PDF 查看器下载入口。
  *
  * 为什么需要它：页内浮层依赖把脚本注入到**当前文档**，而 PDF 页面、被 CSP 限制的
  * 页面、以及注入时序异常的页面都可能让浮层缺席。这个按钮由 DSH 右侧栏自己渲染，
@@ -34,7 +34,7 @@ const formatBytes = (bytes) => {
  * 状态与页内浮层同源（都读 `webvpn_status`），所以两者不会互相矛盾。
  */
 function useSaveToProject(enabled) {
-	const [state, setState] = useState({ loading: true, taskId: "", documentType: "", payload: null, busy: false, note: "" });
+	const [state, setState] = useState({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
 	useEffect(() => {
 		if (!enabled) return undefined;
 		let disposed = false;
@@ -48,7 +48,10 @@ function useSaveToProject(enabled) {
 					loading: false,
 					taskId: status?.pendingTaskId || "",
 					documentType: status?.documentType || "",
-					payload: status?.pdfPayload || null
+					payload: status?.pdfPayload || null,
+					shellState: status?.state || "",
+					bytes: Number(status?.downloadEventBytes) || 0,
+					totalBytes: Number(status?.downloadTotalBytes) || 0
 				}));
 			} catch { /* 壳暂不可达：保留上一次状态，下一轮重试 */ }
 			timer = setTimeout(() => void poll(), 1500);
@@ -60,10 +63,9 @@ function useSaveToProject(enabled) {
 	const save = async () => {
 		const taskId = state.taskId;
 		if (!taskId || state.busy) return;
-		setState((current) => ({ ...current, busy: true, note: "正在保存并归档…" }));
+		setState((current) => ({ ...current, busy: true, note: "正在由 PDF 查看器下载…" }));
 		try {
-			// 与 Agent 的保存完全同一条实现：等到归档完成才返回 {path,bytes}，失败给原因。
-			const result = await webVpnBrowserActionViaShell({ taskId, action: "save-pdf", observationId: "", elementId: "", scope: "download" });
+			const result = await webVpnBrowserActionViaShell({ taskId, action: "viewer-download", observationId: "", elementId: "", scope: "download" });
 			const bytes = Number(result?.bytes) || 0;
 			setState((current) => ({ ...current, busy: false, note: bytes ? `已归档 ${formatBytes(bytes)}` : "已归档到课题" }));
 		} catch (reason) {
@@ -73,20 +75,21 @@ function useSaveToProject(enabled) {
 
 	const payload = state.payload;
 	const ready = payload?.ready === true && payload?.complete === true;
-	let label = "保存到课题";
+	let label = "下载并归档 PDF";
 	let disabled = true;
-	if (state.loading) { label = "保存到课题"; disabled = true; }
-	else if (!state.taskId) { label = "保存到课题"; disabled = true; }
-	else if (state.busy) { label = state.note || "正在归档…"; disabled = true; }
-	else if (state.note.startsWith("已归档")) { label = state.note; disabled = true; }
-	else if (payload && !ready) {
-		const received = formatBytes(payload.receivedBytes);
-		const total = formatBytes(payload.contentLength);
-		label = total ? `正在接收 ${received} / ${total}…` : (received ? `正在接收 ${received}…` : "等待 PDF 载荷…");
+	if (state.loading) { label = "下载并归档 PDF"; disabled = true; }
+	else if (!state.taskId) { label = "下载并归档 PDF"; disabled = true; }
+	else if (state.busy || ["downloading", "uploading"].includes(state.shellState)) {
+		const received = formatBytes(state.bytes) || "0 KB";
+		label = state.shellState === "uploading" ? "正在归档 PDF…"
+			: state.shellState === "downloading"
+				? `正在下载 ${received}${state.totalBytes ? ` / ${formatBytes(state.totalBytes)}` : "（总量未知）"}…`
+				: state.note || "正在下载…";
 		disabled = true;
 	}
-	else if (!ready && state.documentType !== "application/pdf") { label = "当前页面不是 PDF"; disabled = true; }
-	else { label = "保存到课题"; disabled = false; }
+	else if (state.note.startsWith("已归档")) { label = state.note; disabled = true; }
+	else if (!ready && !/^application\/pdf(?:;|$)/i.test(state.documentType)) { label = "网页预览请点击 Download PDF"; disabled = true; }
+	else { label = "下载并归档 PDF"; disabled = false; }
 
 	return { label, disabled, save, note: state.note, hasTask: Boolean(state.taskId), ready };
 }

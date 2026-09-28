@@ -128,23 +128,20 @@
                        候选里带 target/file/autoDownloadable：Science 那三个同名 DOWNLOAD 靠 file
                        （…_sm.pdf 与 …tables_s1_to_s6.zip）区分。autoDownloadable 是入口提示，
                        点击后仍以下载事件和归档状态判定是否成功。
-                       - 正文进入原生 PDF 时严格按 nextAction 办事（**判据是 nextAction，不是 saveReady 布尔值**）：
-                           · nextAction=save-pdf-ready：只有它才代表"载荷已被证明收全"，此时才调用
-                             lab_browser_save_current_pdf；它**等到归档完成才返回**：成功给 {path,bytes}，失败给原因。
-                             不要因为"它还没返回"就重复调用。
-                           · phase=downloading 或消息里出现「PDF 正在接收（X / Y，Z%）」：**只等，不要归档**——
-                             半个 PDF 一定会在归档时被拒。状态里的 progress 给出 receivedBytes/totalBytes/percent/
-                             speedBps/etaSeconds；总量未知时不给百分比，按"还在下"处理。任何恰好是 2 的整次幂的
-                             字节数（262144、524288、1048576…）先按"截断"处理，不要当成下完了。
+                       - 出版社 HTML PDF 预览页：observe 后点击实际 Download PDF 元素（例如
+                         Wiley 的 /doi/pdfdirect/<DOI>?download=true），再等待下载事件和归档结果。
+                       - 原生 PDF 预览页：nextAction=download-viewer-pdf 时调用一次
+                         lab_browser_download_viewer_pdf；用 lab_browser_operation_status 等操作终态，
+                         用 lab_publisher_browser_download_status 看真实下载进度与归档结果。
+                         progress.source=viewer-buffer 是预览缓存，不是下载进度；browser-download
+                         才是实际落盘字节。总量未知时不推算百分比，不重复触发保存。
                            · nextAction=retry-download-entry 且有 alternateRouteId：调用
                              lab_browser_navigate(taskId, routeId=alternateRouteId,
                              expectedPageSeq=page.pageSeq)，取操作结果后 lab_browser_wait。
                              当前仅 Science 官方正文页提供这条受限备用入口；不要将
-                             alternateEntry 当作 elementId，也不要反复调用保存工具。
+                             alternateEntry 当作 elementId，也不要反复调用下载工具。
                            · nextAction=manual-handoff：当前任务没有可执行的备用入口，请用户在侧栏
-                             手动保存或终止；不要循环 observe/save。
-                           · nextAction=save-from-viewer：原生 PDF 已呈现但尚无完整载荷，调用
-                             lab_browser_save_current_pdf 尝试查看器保存；仍以任务 completed 为成功判据。
+                             手动保存或终止；不要循环 observe/download。
                        人机验证只能由人完成：若 nextAction=complete-verification，**或**你从 observe 的页面文本
                        看出这是验证页（如 Cloudflare「Verify you are human」/「请验证您是真人」），
                        立即停止点击，把「请在软件侧栏完成验证」告诉用户，用 lab_browser_wait 等它通过，

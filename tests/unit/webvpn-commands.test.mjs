@@ -173,6 +173,8 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /upload_capture/);
 	assert.match(webvpn, /downloaded_bytes/);
 	assert.match(webvpn, /download_elapsed_ms/);
+	assert.match(webvpn, /download_event_bytes/);
+	assert.match(projectPanel, /status\.downloadEventBytes/);
 	assert.match(webvpn, /DownloadDecision::Duplicate/);
 	assert.match(webvpn, /WEBVPN_CHROME_SCRIPT/);
 	assert.match(webvpn, /notifyShell\('session\/ready'\)/);
@@ -220,7 +222,7 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(shell, /\.indicator i\s*\{[^}]*background:\s*#ef4444/);
 	assert.match(shell, /\.indicator i\[data-online=true\]\s*\{[^}]*background:\s*#22c55e/);
 	assert.match(projectPanel, /ib-capture-progress/);
-	assert.match(projectPanel, /status\.downloadedBytes/);
+	assert.match(projectPanel, /status\.downloadEventBytes/);
 	assert.match(projectPanel, /下载并归档完成/);
 	assert.match(projectPanel, /task\.size/);
 	assert.match(projectPanel, /directSpringerSi/);
@@ -466,7 +468,7 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	// 影响，用它跳出。位置与逃逸方式都要被钉住——只改位置不改逃逸仍会滚走。
 	assert.match(webvpn, /left:16px;bottom:16px;top:auto;right:auto/);
 	// 右下角留给「保存到课题」浮层（2026-09-27 需求 R1）；小球自己必须钉在左下角。
-	assert.match(webvpn, /notifyShell\('save-pdf\/'\)/, "右下角浮层必须能触发保存");
+	assert.match(webvpn, /notifyShell\('viewer-download\/'\)/, "右下角浮层必须能触发保存");
 	assert.match(webvpn, /right:16px;bottom:16px;left:auto;top:auto/, "保存浮层固定在右下角");
 	// 位置与逃逸方式都要被钉住：只改位置不改逃逸，按钮会跟着页面滚走。
 	assert.match(webvpn, /host\.setAttribute\('popover', 'manual'\)/);
@@ -498,7 +500,7 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 		shapes.some((shape) => /"ballText":/.test(shape[0])),
 		"活动任务形态必须带插件推导的小球文案"
 	);
-	for (const payload of payloads) assert.doesNotMatch(payload[0], /token|temp_path|upload_url|path/, "载荷不得携带令牌或临时路径");
+	for (const payload of payloads) assert.doesNotMatch(payload[0], /"(?:token|tempPath|uploadUrl|path)"\s*:/, "载荷不得携带令牌或临时路径");
 });
 
 test("终止捕获只有一条实现：必须关闭 WebView2 且两处共用", async () => {

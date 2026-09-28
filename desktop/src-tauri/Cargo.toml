@@ -1,6 +1,6 @@
 [package]
 name = "ibm-lab-desktop"
-version = "0.5.5-beta20"
+version = "0.5.5-beta21"
 description = "iBM Lab Agent Windows desktop client"
 authors = ["iBM Lab"]
 edition = "2021"
@@ -42,7 +42,9 @@ windows = { version = "0.61.3", features = [
   "Win32_System_Com",
   # 封送 PDF 响应流到工作线程要用 Marshal/StructuredStorage 两个子模块
   "Win32_System_Com_Marshal",
-  "Win32_System_Com_StructuredStorage"
+  "Win32_System_Com_StructuredStorage",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging"
 ] }
 
 [profile.release]

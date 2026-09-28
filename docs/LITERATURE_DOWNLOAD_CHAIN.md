@@ -12,8 +12,7 @@ Science 校园网下载入口仍待安装包真机回归。
 
 ## 0. 一句话
 
-**软件内浏览器（WebView2 单例）打开出版社页面 → Agent 自己观察并点击入口 → 字节经"下载事件"或
-"响应层载荷"两条路之一落到应用临时目录 → 上传到本机捕获服务 → 按条目规则原子归档到课题目录。**
+**软件内浏览器（WebView2 单例）打开出版社页面 → Agent 点击出版社预览页的下载元素，或触发原生 PDF 查看器保存 → 浏览器实际下载到临时目录 → 上传并归档到课题目录。** 完整的响应层 PDF 仍可直接归档；预览缓存不是下载进度。
 
 Agent 的职责是**驱动页面**与**判断状态**；**不要**自己发 HTTP、不要读浏览器 profile、
 不要给 CSS 选择器。
@@ -26,7 +25,7 @@ Agent 的职责是**驱动页面**与**判断状态**；**不要**自己发 HTTP
 模型
  └─ 工具层（插件 lib/tasks-tool.js）
      ├─ 任务类：lab_publisher_browser_download / _status / _cancel / capture_list
-     └─ 页面类：lab_browser_observe / _click / _operation_status / _wait / _save_current_pdf
+     └─ 页面类：lab_browser_observe / _click / _operation_status / _wait / _download_viewer_pdf
           │  写入"操作队列"（lib/manual-capture.js 的 browserOperations）
           ▼
 DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
@@ -35,8 +34,8 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
           ▼
 桌面壳（Rust, desktop/src-tauri/src/webvpn.rs）
      ├─ 单例子 WebView2（专属 profile），注入工具栏 + 捕获小球 + 右下角"保存到课题"
-     ├─ 下载事件 / 响应层载荷（GetContent）/ 页面事件（源变化、导航完成）
-     ├─ 内部命令：ibm-webvpn://save-pdf/ · cancel-capture/ · recreate-task/ · cancel-task/<id>
+     ├─ 浏览器下载事件 / 完整响应层 PDF / 页面事件（源变化、导航完成）
+     ├─ 内部命令：ibm-webvpn://viewer-download/ · cancel-capture/ · recreate-task/ · cancel-task/<id>
      └─ 上传：PUT http://127.0.0.1:<port>/api/lab-capture-upload?token=<一次性令牌>
           ▼
 捕获服务（插件内 loopback 端点，lib/manual-capture.js）
@@ -78,7 +77,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 | `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
 | `lab_browser_wait` | `taskId`(必), `timeoutMs`(默认 8000，上限 20000) | 等"阶段/页面/载荷/进度"任一变化即返回；已是终态则立即返回 |
-| `lab_browser_save_current_pdf` | `taskId`(必) | **等到归档终态**：成功 `{path,bytes,sha256}`，失败给原因；工具超时 120 s |
+| `lab_browser_download_viewer_pdf` | `taskId`(必) | 原生 PDF 查看器触发 Ctrl+S；立即返回 `operationId`，再查操作结果与任务下载进度。出版社 HTML 预览页用 `observe`/`click` 点击真实下载元素。 |
 
 **候选字段怎么用**：
 
@@ -98,22 +97,19 @@ progress: { receivedBytes, totalBytes, declaredTotalBytes, percent, speedBps, et
 heartbeat: { stale, ageMs, pendingTaskId, lastPendingTaskId, releaseReason },
 queuePosition, fileName, size, downloadedBytes, updatedAt, stalled,
 downloadEventBytes, reasonCode, alternateRouteId,
-saveReady, payloadReady, payloadComplete
+downloadReady, payloadReady, payloadComplete
 ```
 
-**字段语义陷阱（现场踩过）**：`saveReady` 与 `nextAction === "save-pdf-ready"` **同义**；
-`payloadReady` 只表示"有字节进来了"，`payloadComplete` 才是"已被证明收全"。
-2026-09-27 现场出现过「同一次返回里 `saveReady=true`、消息却说载荷未收全（348 B）」——
-现在前者已经与 `nextAction` 对齐，但**决策仍然只应看 `nextAction`**。
+`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义；`payloadReady`/`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.source=browser-download` 和 `downloadEventBytes`。`viewer-buffer` 是预览缓存，不能当成文件已下载。
+原生 PDF 只有拿到完整 `200` 响应声明的长度才显示总量和百分比；`206` 分段长度不会冒充整份文件大小。
 
 `nextAction` 取值与含义（**这是唯一该用来决策的字段**）：
 
 | `nextAction` | 含义 | 该做什么 |
 |---|---|---|
 | `observe-or-click` | 页面等你操作（`mode=ai`） | `lab_browser_observe(scope=all)` → `click` |
-| `wait-and-poll` | 还在进行（含"载荷正在接收"） | `lab_browser_wait`；**不要**归档 |
-| `save-pdf-ready` | **载荷已被证明收全** | 调 `lab_browser_save_current_pdf`（会等到终态） |
-| `save-from-viewer` | 原生 PDF 已显示，但完整载荷尚未采集 | 调一次 `lab_browser_save_current_pdf` 尝试 WebView2 查看器保存；`saveReady` 仍为 false，只有 `completed` 算成功 |
+| `wait-and-poll` | 浏览器正在下载或归档 | `lab_browser_wait`，查看真实字节变化 |
+| `download-viewer-pdf` | 顶层为原生 PDF，或完整 PDF 响应已采集 | 调 `lab_browser_download_viewer_pdf`，再查 `operation_status` 和任务状态；只以 `completed` 为成功 |
 | `retry-download-entry` | 保存支路拿不到完整字节流，且有备用路线 | 用 `lab_browser_navigate(taskId, alternateRouteId, page.pageSeq)` 执行；`alternateEntry` 只供说明，不传给 `click` |
 | `manual-handoff` | 保存支路失败且没有可执行的备用入口 | 告知用户在侧栏手动处理，不要重复调用保存或重建任务 |
 | `complete-verification` | 人机验证 | 让**用户**去侧栏点一下，然后 `lab_browser_wait` |
@@ -171,13 +167,14 @@ saveReady, payloadReady, payloadComplete
    lab_browser_operation_status(operationId)                   → 确认点到了
 5. lab_browser_wait(taskId)                                    → 页面/载荷变化
 6. 重复 1–5，直到 status 给出下面之一：
-   · nextAction=save-pdf-ready 或 save-from-viewer → lab_browser_save_current_pdf(taskId) ← 会等到终态
+   · 出版社 HTML 预览页 → 重新 observe，点击 Download PDF（含 pdfdirect/download=true 等）
+   · nextAction=download-viewer-pdf → lab_browser_download_viewer_pdf(taskId) → operation_status(waitMs=0) + lab_browser_wait / download_status 逐次看真实字节 → 操作和任务终态
    · phase=completed            → 结束（fileName 就是归档名）
    · nextAction=recreate-or-cancel / retry-download-entry → 见 §5
 7. 归档成功后按需读条目：lab_tasks_* （登记/更新产物）
 ```
 
-`documentType=application/pdf` 与 `contentLength` 只证明查看器加载了 PDF 响应，不能证明字节已写入捕获文件。响应层收到完整非 206 PDF 体、浏览器产生下载事件，或公开 Nature/Springer SI 被受限拦截后，捕获才会开始；最终还须校验并登记课题文件。
+`documentType=application/pdf` 与 `contentLength` 只证明查看器加载了 PDF 响应，不表示已下载；此时工具主动让查看器保存。状态持续显示目标文件的实际已写入字节、已知总量与停滞时间。最终还须校验并登记课题文件。
 
 ---
 
@@ -267,8 +264,7 @@ saveReady, payloadReady, payloadComplete
 
 ## 10. 最小可用记忆（如果只记三句话）
 
-1. **决策只看 `nextAction`**，`phase`/`saveReady`/`percent` 都是辅助信息。
-2. **载荷没被证明收全（`pdf.complete=false`）就不许归档**；`phase=downloading` 只等。
-   `saveReady` 不是判据，`nextAction` 才是。
+1. **决策只看 `nextAction`**；HTML 预览页点页面下载元素，原生 PDF 调 `lab_browser_download_viewer_pdf`。
+2. **预览缓存不是下载进度**；`phase=downloading` 看 `progress.source=browser-download`、已写入字节及停滞时间，只等归档终态。
 3. **失败先读原因、再看有没有保住的文件、连环两次就停**；重建用
    `cancel(recreate=true)`，人机验证只能由用户完成。

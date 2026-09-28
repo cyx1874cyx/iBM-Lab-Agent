@@ -34,15 +34,13 @@ export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapse
 			if (automationStage === "searching") return { text: "正在查找出版社下载入口…", tone: "waiting" };
 			if (automationStage === "clicked") return { text: "已点击下载入口，等待浏览器确认文件下载…", tone: "waiting" };
 			if (automationStage === "verification") return { text: "出版社页面验证中；通过后自动继续查找下载入口", tone: "waiting" };
-			// C18：提示必须可执行。旧的「请在侧栏手动点击保存」指向一个失效动作
-			// （原生 PDF 查看器里没有可点元素），用户照做也没用。
 			if (automationStage === "manual") {
-				if (extra.saveReady) return { text: "PDF 已就绪，正在归档到课题…", tone: "busy", progress: true };
+				if (extra.documentType === "application/pdf") return { text: "原生 PDF 已打开，可用查看器下载并归档", tone: "waiting", actionable: true };
 				return {
 					text: extra.alternateEntry
-						? `保存支路不可用；请改用带 ?download=true 的下载入口重新进入（${extra.alternateEntry}）`
-						: "保存支路不可用；请重新观察页面并选择带 ?download=true 的下载入口",
-					tone: "error",
+						? `请观察页面下载入口，或使用备用入口（${extra.alternateEntry}）`
+						: "请观察页面并点击实际 Download PDF 入口",
+					tone: "waiting",
 					actionable: true
 				};
 			}
@@ -52,8 +50,7 @@ export const capturePhaseOf = (state, lastError, downloadedBytes, downloadElapse
 			if (extra.stalled) {
 				return { text: `下载已 ${Math.round((extra.stalledMs || 0) / 1000)} 秒没有进度，任务疑似卡住`, tone: "error", actionable: true };
 			}
-			if (automationStage === "saving") return { text: "正在保存原生 PDF，随后归档到课题…", tone: "busy", progress: true };
-			return { text: `正在下载文件 · 已接收 ${formatCaptureBytes(downloadedBytes)} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
+			return { text: `正在下载 PDF · 已写入 ${formatCaptureBytes(downloadedBytes)}${extra.downloadTotalBytes ? ` / ${formatCaptureBytes(extra.downloadTotalBytes)}` : "（总量未知）"} · 用时 ${formatCaptureElapsed(downloadElapsedMs)}`, tone: "busy", progress: true };
 		case "uploading": return { text: `文件已下载（${formatCaptureBytes(downloadedBytes)}），正在归档到课题…`, tone: "busy", progress: true };
 		// C6/C17：失去接管不是「排队」，必须如实显示成终态并给出可执行动作。
 		case "heartbeat-lost": return { text: "与文献浏览器失去心跳，任务已中断；可重建或终止", tone: "error", actionable: true };
@@ -249,10 +246,11 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							return;
 						} else {
 							setCaptureHint((current) => current?.taskId === taskId
-								? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadedBytes, status.downloadElapsedMs, status.automationStage, {
+					? { ...current, phase: capturePhaseOf(status.state, status.lastError, status.downloadEventBytes ?? 0, status.downloadElapsedMs, status.automationStage, {
 									stalled: status.stalled,
 									stalledMs: status.stalledMs,
-									saveReady: status.pdfPayload?.ready,
+									documentType: status.documentType,
+									downloadTotalBytes: status.downloadTotalBytes,
 									alternateEntry: status.alternateEntry
 								}) }
 								: current);
