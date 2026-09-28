@@ -134,12 +134,15 @@ saveReady, payloadReady, payloadComplete
 | 通路 | 触发 | 落盘文件 | 何时算"完整" |
 |---|---|---|---|
 | **A 下载事件** | 点了带 `?download=true` 的入口，或 `Content-Disposition: attachment` | `<taskId>-<kind>.pdf` | 上传前由 `captured_body_defect` 证明：`%PDF-` 头 ∧ `%%EOF` 尾（SI 另认 `PK`），**且连续两次读到的长度一致** |
-| **B 响应层载荷** | 导航到 `application/pdf` 文档（原生查看器） | `<taskId>-<kind>.payload.pdf`（**与 A 分开写**，避免两个写入者互相截断） | `payload_is_whole`：`%PDF-` 头 ∧ `%%EOF` 尾 ∧（有 `Content-Length` 时）收满 |
+| **B 响应层载荷** | 导航到 `application/pdf` 文档（原生查看器）｜**分段装配**：多次 Range 响应写同一个文件的各自偏移 | `<taskId>-<kind>.payload.pdf`（**与 A 分开写**，避免两个写入者互相截断） | 区间并集从 0 连续覆盖到声明总长；总长未知时要求尾部 `%%EOF` |
 
 补充规则（都是踩出来的，别当成可选）：
 
-- **分段响应（`206` / `Content-Range`）一律不进载荷通路**：浏览器的 PDF 查看器用 Range 取数，
-  第一段常常正好 256 KiB；把它当整份，就会得到"256 KB 就报已完整"的假信号。
+- **分段响应（`206` / `Content-Range`）要装配，不是丢弃**：浏览器的 PDF 查看器用 Range 取数
+  （实测一份 4.4 MB 的 Wiley PDF 是 18 个 256 KiB 请求）。按 `Content-Range` 的起始偏移写进同一个
+  载荷文件，等区间并集**从 0 连续覆盖到总长**才算完整。曾经的"跳过所有分段"是错的：那会让载荷
+  永远收不全、状态永远停在"正在接收"。
+  只有**无法解析**的 `Content-Range` 才跳过（并记日志）。
 - **`ready` ≠ `complete`**：`ready`=已经进来字节；`complete`=**已被正向证明收全**。只有
   `complete` 才能归档。
 - 归档前三道校验：`%PDF-` 头 ∧ `%%EOF` 尾 ∧ 大小等于声明总长；不满足就报

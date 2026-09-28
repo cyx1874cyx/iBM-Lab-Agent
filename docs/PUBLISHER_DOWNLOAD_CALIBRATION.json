@@ -5,9 +5,9 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta19",
+    "version": "0.5.5-beta20",
     "commit": "2492446",
-    "note": "beta19 removes the in-shell auto-click path entirely (PUBLISHER_DOWNLOAD_AUTOMATION and its mode=auto plumbing) so the agent is the only one that picks entries, and ships the per-publisher knowledge as the publisher-download skill (own skill-filesystem provider, own plugin copy entry). observe ranks candidates with viewport awareness (30 items, candidateCount/truncated, inViewport each) and walks same-origin iframes; nextAction gains save-from-viewer for a displayed native PDF with no captured payload, still requiring completed; capture-spec.json documents that a displayed viewer is not a capture and that only a validated upload plus bundle registration completes one. Note for reviewers: deleting the automation also removed the only producer of automationStage=verification, so the preset and skill now also detect a verification page from the observed page text. Science article PDF success is user-reported without a URL or access mode; every publisher, SI channel and campus-network route below remains pending."
+    "note": "beta19 removes the in-shell auto-click path and ships the Agent-driven publisher skill. The 2026-09-28 field observations below were supplied after this build. Local webvpn.log corroborates browser download completion and captureCompleted on reported successful manual routes, but these are not Agent save-tool acceptance results. Access mode, final project paths and hashes were not checked."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
@@ -27,7 +27,9 @@
     "article-and-docx-si-visible": "Public page showed article and DOCX supplementary link; institutional PDF was not tested",
     "article-visible": "Public article page loaded; authenticated controls were not inspected",
     "minimal-public-page": "Only a minimal page was available through read-only inspection",
-    "public-page-unavailable": "Read-only page fetch failed; no selector claims were made"
+    "public-page-unavailable": "Read-only page fetch failed; no selector claims were made",
+    "user-reported-archive": "User reports manual archive success; task completion and stored file were not independently checked",
+    "user-reported-failure": "User reports the manual route failed; keep article and SI outcomes separate"
   },
   "publishers": [
     {
@@ -189,6 +191,30 @@
       "notes": "Hints describe current shared scoring and URL rules; they are not verified selectors for an authenticated page."
     }
   ],
+  "manualFieldObservations": {
+    "date": "2026-09-28",
+    "source": "User's manual download report in this conversation, cross-checked against C:/Users/admin/AppData/Local/iBM-Lab-Agent/logs/webvpn.log",
+    "accessMode": "not reported",
+    "evidenceLimit": "Local log contains downloadRequested, downloadFinished success=true and captureCompleted for the reported successful routes. Final project paths, hashes and Agent save-tool results were not checked; Wiley article PDF has no captureCompleted.",
+    "cases": [
+      { "publisher": "ieee", "article": "https://ieeexplore.ieee.org/document/9175387", "pdf": "red PDF button -> native viewer without toolbar -> user right-click save; archive reported; shell stayed near 1 KB", "si": "none reported for this article" },
+      { "publisher": "elsevier-clinicalkey", "article": "https://www.clinicalkey.com/#!/content/playContent/1-s2.0-S2475037924000621", "pdf": "Download PDF beside title -> native viewer -> user toolbar save; archive reported although shell stalled near 1 KB / 1.4 MB", "si": "article-page mmc1.docx direct download; archive reported", "siUrl": "https://www.clinicalkey.com/ui/service/content/url?section=static%2fimage&eid=1-s2.0-S2475037924000621&path=24750379%2FS2475037924X00035%2FS2475037924000621%2Fmmc1.docx" },
+      { "publisher": "sage-cnpereading", "article": "https://sage.cnpereading.com/doi/10.1177/15910199231175377", "pdf": "Download PDF below DOI -> direct archive reported", "si": "none reported for this article", "toolSupport": "DOI prefix not configured" },
+      { "publisher": "wiley", "article": "https://aiche.onlinelibrary.wiley.com/doi/10.1002/btm2.10616", "pdf": "PDF -> publisher preview; shell showed / 4.4 MB without completion and toolbar did not render; article PDF not archived", "si": "expand Supporting Information -> click DOCX under Filename; direct archive reported", "siUrl": "https://aiche.onlinelibrary.wiley.com/action/downloadSupplement?doi=10.1002%2Fbtm2.10616&file=btm210616-sup-0001-Supinfo.docx" },
+      { "publisher": "springer", "article": "https://link.springer.com/article/10.1007/s10439-016-1559-9", "pdf": "user completed Cloudflare challenge -> View PDF -> preview -> user toolbar save; archive reported", "si": "none reported for this article" },
+      { "publisher": "theranostics", "article": "https://www.thno.org/v07p2431.htm", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "Supplementary Material -> Supplementary figures and tables -> PDF preview -> user toolbar save; archive reported", "siUrl": "https://www.thno.org/v07/p2431/thnov07p2431s1.pdf", "toolSupport": "publisher not configured" },
+      { "publisher": "elsevier-sciencedirect", "article": "https://www.sciencedirect.com/science/article/pii/S0956566311006075?via=ihub", "pdf": "View PDF -> default preview -> user toolbar save; archive reported", "si": "Appendix A. Supplementary data -> PDF preview -> user toolbar save; archive reported", "siUrl": "https://ars.els-cdn.com/content/image/1-s2.0-S0956566311006075-mmc1.pdf" },
+      { "publisher": "springer", "article": "https://link.springer.com/article/10.1007/s00395-004-0501-8", "pdf": "Download PDF -> direct archive reported", "si": "none reported for this article" },
+      { "publisher": "nature", "article": "https://www.nature.com/articles/s41598-020-62360-w", "pdf": "Download PDF -> direct archive reported", "si": "Supplementary information -> ZIP direct archive reported", "siUrl": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41598-020-62360-w/MediaObjects/41598_2020_62360_MOESM1_ESM.zip" },
+      { "publisher": "bmj-jnis", "article": "https://jnis.bmj.com/content/15/6/526", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "mid-article Supplemental material link direct archive reported; target URL recovered from local log", "siUrl": "https://jnis.bmj.com/content/neurintsurg/15/6/526/DC1/embed/inline-supplementary-material-1.pdf?download=true", "toolSupport": "publisher not configured" },
+      { "publisher": "bmj-jnis", "article": "https://jnis.bmj.com/content/early/2026/04/30/jnis-2025-024772", "pdf": "top-right PDF -> default preview -> user toolbar save; archive reported", "si": "mid-article Supplemental material link direct archive reported", "siUrl": "https://jnis.bmj.com/content/neurintsurg/early/2026/04/30/jnis-2025-024772/DC1/embed/inline-supplementary-material-1.pdf?download=true", "toolSupport": "publisher not configured" }
+    ],
+    "crossSiteProblems": [
+      "Native PDF viewer toolbar sometimes fails to render and the PDF appears over-zoomed.",
+      "Shell payload progress can stall around 1 KB, or show a declared total without ever completing; IEEE preview produced an HTML shell, while Wiley PDF returned 206 range chunks skipped by the current whole-payload collector.",
+      "User reports the shell save control failed in this manual session; successful manual toolbar or right-click saves and captureCompleted logs must not be recorded as Agent save-tool acceptance."
+    ]
+  },
   "nextLiveCheck": [
     "Open each sample in the installed app with iWAN global route enabled.",
     "Record final publisher URL, visible PDF/SI control text, element type, and whether a native PDF viewer opens.",

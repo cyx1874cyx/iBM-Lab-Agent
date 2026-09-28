@@ -457,8 +457,9 @@ test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
 	assert.match(rust, /CoGetInterfaceAndReleaseStream/);
 	assert.match(rust, /std::thread::spawn\(move \|\| \{/);
 	assert.match(rust, /fn spawn_payload_read/);
-	// 第二个响应绝不能和第一个共享载荷文件。
-	assert.match(rust, /if existing\.error\.is_none\(\) \{\s*return false;/);
+	// 多个响应现在**必须**能共享载荷文件（分段装配）；但已完整的载荷不再接受新段。
+	assert.match(rust, /pub fn ensure_pdf_payload\(&self, task_id: &str, path: PathBuf, total_hint: Option<u64>\) -> bool/);
+	assert.match(rust, /!payload\.complete/, "载荷已完整后不再接受新段");
 });
 
 test("R1-A：页内右下角「保存到课题」浮层（壳注入、壳响应，模型给不了选择器）", async () => {
@@ -556,10 +557,21 @@ test("B1 回归：状态与归档共用同一个完整性判据，且分段响�
 	// 两处都必须用它（状态上报 + 归档校验），不许各写一份。
 	const uses = rust.match(/payload_is_whole\(/g) ?? [];
 	assert.ok(uses.length >= 3, `payload_is_whole 必须被定义一次、使用两处，实际出现 ${uses.length} 次`);
-	assert.match(rust, /fn is_partial_response\(status: Option<u16>, content_range: Option<&str>\) -> bool/);
-	assert.match(rust, /if is_partial_response\(status, content_range\.as_deref\(\)\)/);
-	// 分段响应被跳过时必须留下记录（否则现场无法解释"为什么没有载荷"）。
-	assert.match(rust, /跳过 PDF 分段响应/);
+	// 分段响应不再被跳过，而是**装配**进同一个载荷文件（2026-09-28 现场：Wiley 的
+	// 4.4 MB PDF 由 18 个 Range 请求组成，跳过它们等于永远收不全）。
+	assert.match(rust, /fn parse_content_range\(value: &str\) -> Option<\(u64, u64, Option<u64>\)>/);
+	assert.match(rust, /fn covered_bytes\(segments: &\[\(u64, u64\)\]\) -> u64/);
+	assert.match(rust, /fn covers_from_zero\(segments: &\[\(u64, u64\)\], total: u64\) -> bool/);
+	assert.match(rust, /fn write_segment_at\(path: &Path, offset: u64, bytes: &\[u8\]\)/);
+	// 只有**无法解析**的分段才跳过，并留下记录。
+	assert.match(rust, /is_partial_response\(status, content_range\.as_deref\(\)\) && parsed_range\.is_none\(\)/);
+	assert.match(rust, /跳过无法解析的 PDF 分段响应/);
+	// 查看器保存必须先验产物：ShowSaveAsUI 保存的是**页面**，不是 PDF。
+	assert.match(rust, /fn viewer_saved_pdf_is_usable\(path: &Path\) -> Result<u64, String>/);
+	assert.match(rust, /查看器保存得到的是页面/);
+	// 工具栏可收起：出版社自己的保存按钮在右上角，被我们的固定条压住过。
+	assert.match(rust, /__ibmWebVpnSetChromeCollapsed/);
+	assert.match(rust, /展开工具栏/);
 });
 
 test("B2 回归：进 failed 之前先验产物，完整就归档；不完整也保留文件", async () => {

@@ -85,6 +85,8 @@ const PDF_STREAM_MAX_WAIT: Duration = Duration::from_secs(180);
 const INLINE_STREAM_MAX_WAIT: Duration = Duration::from_secs(20);
 /// 等下载文件写完的上限（下载事件说 success 时文件可能还在写）。
 const CAPTURE_READ_TIMEOUT: Duration = Duration::from_secs(30);
+/// 正文 PDF 的最小可信体积（与插件端 `CAPTURE_PDF_MIN_BYTES` 保持一致）。
+const CAPTURE_PDF_MIN_BYTES: u64 = 8 * 1024;
 
 /// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
 /// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
@@ -496,9 +498,15 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       input:focus{background:#fff;border-color:#60a5fa}
       .new-tab,.tab-close,.window-close{width:26px;height:25px;font:17px/25px "Segoe UI",sans-serif;text-align:center;flex:0 0 auto}
       .window-close{margin-left:auto}
+      /* 收起后只留一枚把手：出版社预览器的保存按钮常在右上角，被我们的固定条压住
+         （2026-09-28 现场：Wiley 预览页"工具栏渲染不出来"）。收起而不是给页面加位移，
+         免得重演 transform 引发的白屏。 */
+      .collapse{margin-left:6px;width:26px;height:25px;font:15px/25px "Segoe UI",sans-serif;flex:0 0 auto}
+      #restore{all:initial;box-sizing:border-box;position:fixed;top:0;left:0;z-index:2147483647;display:none;padding:2px 9px;border-radius:0 0 9px 0;background:#0f172a;color:#f8fafc;font:600 11px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.35)}
+      #restore[data-visible="true"]{display:block}
     </style>
     <div class="shell">
-      <div class="tabs"><div class="tabs-list"></div><button class="new-tab" type="button" title="新建标签页" aria-label="新建标签页">＋</button><button class="window-close" type="button" title="关闭浏览器" aria-label="关闭浏览器">×</button></div>
+      <div class="tabs"><div class="tabs-list"></div><button class="new-tab" type="button" title="新建标签页" aria-label="新建标签页">＋</button><button class="collapse" type="button" title="收起工具栏（让出页面顶部的出版社按钮）" aria-label="收起工具栏">▲</button><button class="window-close" type="button" title="关闭浏览器" aria-label="关闭浏览器">×</button></div>
       <div class="bar">
         <button data-action="back" type="button" title="后退" aria-label="后退">←</button>
         <button data-action="forward" type="button" title="前进" aria-label="前进">→</button>
@@ -506,6 +514,31 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         <form><input type="text" spellcheck="false" aria-label="网址" /></form>
       </div>
     </div>`;
+    // 收起/展开我们的工具栏。收起只影响我们自己的 DOM，不给页面加任何 transform。
+    const shellNode = root.querySelector('.shell');
+    const collapseButton = root.querySelector('.collapse');
+    const restoreChip = document.createElement('button');
+    restoreChip.id = 'restore';
+    restoreChip.type = 'button';
+    restoreChip.textContent = '展开工具栏 ▼';
+    document.documentElement.appendChild(restoreChip);
+    const setCollapsed = (collapsed) => {
+      shellNode.style.display = collapsed ? 'none' : '';
+      // host 本身是 76px 的固定层：不把它的高度让出来，收起也仍然挡着点击。
+      host.style.height = collapsed ? '0' : `${CHROME_HEIGHT}px`;
+      host.style.pointerEvents = collapsed ? 'none' : 'auto';
+      restoreChip.dataset.visible = collapsed ? 'true' : 'false';
+      syncChromeShift();
+    };
+    window.__ibmWebVpnSetChromeCollapsed = setCollapsed;
+    collapseButton.addEventListener('click', (event) => {
+      event.preventDefault(); event.stopPropagation();
+      setCollapsed(true);
+    });
+    restoreChip.addEventListener('click', (event) => {
+      event.preventDefault(); event.stopPropagation();
+      setCollapsed(false);
+    });
     const input = root.querySelector('input');
     const tabsList = root.querySelector('.tabs-list');
     const stateKey = '__ibm_lab_browser_tabs__';
@@ -1047,10 +1080,18 @@ struct PageSnapshot {
 /// 于是「载荷是否就绪」和「保存不走 viewer UI」变成同一个事实。
 #[derive(Debug, Clone)]
 struct PdfPayload {
-    /// 响应头声明的总长度（WebView2 不保证给，缺省即为 None）。
+    /// 声明的总长度（`Content-Range` 的 total 或 200 的 Content-Length）。
     content_length: Option<u64>,
-    /// 已落盘字节数。
+    /// 已落盘字节数（**区间的并集**，不是某一次响应的长度）。
     received_bytes: u64,
+    /// 已经写进文件的区间，半开 `[start, end)`。
+    ///
+    /// 2026-09-28 现场（Wiley `btm2.10616`）：这份 PDF 是 4,594,707 字节，浏览器的
+    /// PDF 查看器用 **18 个 256 KiB 的 Range 请求**把它拉下来。β16 为了避免"256 KiB
+    /// 被当成整份"而把所有 206 响应丢掉了 —— 结果是载荷永远收不全、状态永远停在
+    /// "正在接收"，只能退回查看器保存，而查看器保存交出的是页面（≈1 KB）而不是 PDF。
+    /// 分段不是要丢弃的东西，是要**装配**的东西。
+    segments: Vec<(u64, u64)>,
     path: PathBuf,
     complete: bool,
     error: Option<String>,
@@ -1662,7 +1703,11 @@ impl WebVpnState {
     }
 
     /// 开始接收 PDF 响应体（C1）：登记目标路径与总长度。
-    pub fn begin_pdf_payload(&self, task_id: &str, path: PathBuf, content_length: Option<u64>) -> bool {
+    /// 确保这个任务有一个载荷文件可以写，并登记声明总长。
+    ///
+    /// 与旧版不同：**允许多个响应同时写**（分段装配的前提）。每个写入者写自己的
+    /// 偏移，落定后由 `finish_pdf_segment` 合并区间。
+    pub fn ensure_pdf_payload(&self, task_id: &str, path: PathBuf, total_hint: Option<u64>) -> bool {
         let Ok(mut session) = self.session.lock() else {
             return false;
         };
@@ -1672,46 +1717,80 @@ impl WebVpnState {
         if pending.task_id != task_id || pending.kind != "pdf" {
             return false;
         }
-        if let Some(existing) = pending.pdf_payload.as_ref() {
-            // 只有"上一次尝试已经明确失败"才允许换一次响应重试；否则（完整、或仍在
-            // 接收）都必须拒绝，不然两个读取者会同时写同一个载荷文件。
-            if existing.error.is_none() {
-                return false;
+        match pending.pdf_payload.as_mut() {
+            Some(payload) => {
+                // 总长以"新知道的"为准；已经完整的载荷不再接受新段。
+                if payload.content_length.is_none() {
+                    payload.content_length = total_hint;
+                }
+                !payload.complete
+            }
+            None => {
+                pending.pdf_payload = Some(PdfPayload {
+                    content_length: total_hint,
+                    received_bytes: 0,
+                    segments: Vec::new(),
+                    path,
+                    complete: false,
+                    error: None,
+                });
+                true
             }
         }
-        pending.pdf_payload = Some(PdfPayload {
-            content_length,
-            received_bytes: 0,
-            path,
-            complete: false,
-            error: None,
-        });
-        true
     }
 
+    /// 读取过程中的粗粒度进度（只增不减，供状态显示）。
     pub fn note_pdf_payload_progress(&self, task_id: &str, received_bytes: u64) {
         if let Ok(mut session) = self.session.lock() {
             if let Some(pending) = session.pending.as_mut() {
                 if pending.task_id == task_id {
                     if let Some(payload) = pending.pdf_payload.as_mut() {
-                        payload.received_bytes = received_bytes;
+                        if received_bytes > payload.received_bytes {
+                            payload.received_bytes = received_bytes;
+                        }
                     }
                 }
             }
         }
     }
 
-    /// 落定载荷结果。**完整性必须来自正向证明**（收满 Content-Length，或尾部有
-    /// `%%EOF`），绝不能再写成「有字节就算完整」——那正是把半个 PDF 送进归档服务的成因。
-    #[allow(dead_code)]
-    pub fn finish_pdf_payload(&self, task_id: &str, bytes: u64, complete: bool, note: String) {
+    /// 落定**一段**载荷：把它并入已覆盖区间，并重算完整性。
+    ///
+    /// 完整性判据（正向证明，二者取一）：
+    ///   * 声明总长已知 → 区间并集从 0 连续覆盖到总长；
+    ///   * 声明总长未知（chunked / `*`）→ 由读取器给出的结构证据决定（尾部 `%%EOF`）。
+    pub fn finish_pdf_segment(
+        &self,
+        task_id: &str,
+        start: u64,
+        bytes: u64,
+        body_complete_hint: bool,
+        note: String,
+    ) {
         if let Ok(mut session) = self.session.lock() {
             if let Some(pending) = session.pending.as_mut() {
                 if pending.task_id == task_id {
                     if let Some(payload) = pending.pdf_payload.as_mut() {
-                        payload.received_bytes = bytes;
-                        payload.complete = complete;
-                        payload.error = if note.is_empty() { None } else { Some(note) };
+                        if bytes > 0 {
+                            payload.segments.push((start, start.saturating_add(bytes)));
+                            // 上限保护：区间过多说明响应异常，只留最近的若干段。
+                            if payload.segments.len() > 4096 {
+                                payload.segments.drain(0..1024);
+                            }
+                        }
+                        let covered = covered_bytes(&payload.segments);
+                        if covered > payload.received_bytes {
+                            payload.received_bytes = covered;
+                        }
+                        payload.complete = match payload.content_length {
+                            Some(total) => covers_from_zero(&payload.segments, total),
+                            None => body_complete_hint && covered > 0,
+                        };
+                        payload.error = if !note.is_empty() && !payload.complete {
+                            Some(note)
+                        } else {
+                            None
+                        };
                     }
                 }
             }
@@ -3396,13 +3475,15 @@ fn handle_response_received(
         return;
     }
     let content_range = response_header(&response, "content-range");
-    if is_partial_response(status, content_range.as_deref()) {
+    // 分段响应 = 这份 PDF 的一段，**不是**要丢掉的噪声（见 PdfPayload::segments 的注释）。
+    let parsed_range = content_range.as_deref().and_then(parse_content_range);
+    if is_partial_response(status, content_range.as_deref()) && parsed_range.is_none() {
         record(
             app,
             "automation",
             "",
             &format!(
-                "跳过 PDF 分段响应（status={:?}，content-range={:?}）：分段不是整份文件，不能当载荷",
+                "跳过无法解析的 PDF 分段响应（status={:?}，content-range={:?}）",
                 status,
                 content_range.unwrap_or_else(|| "-".to_string())
             ),
@@ -3412,13 +3493,14 @@ fn handle_response_received(
     let Some((task_id, path)) = state.pending_pdf_target(&url) else {
         return;
     };
-    // 只有整份响应（200）的 Content-Length 才是"声明总长"；分段响应已经在上面跳过。
-    let declared_total = if status == Some(200) || status.is_none() {
-        content_length
-    } else {
-        None
+    // 声明总长：分段响应取 total；整份响应取 Content-Length。
+    let declared_total = match parsed_range {
+        Some((_start, _end, total)) => total,
+        None if status == Some(200) || status.is_none() => content_length,
+        None => None,
     };
-    if !state.begin_pdf_payload(&task_id, path.clone(), declared_total) {
+    let offset = parsed_range.map(|(start, _end, _total)| start).unwrap_or(0);
+    if !state.ensure_pdf_payload(&task_id, path.clone(), declared_total) {
         return;
     }
     let payload_app = app.clone();
@@ -3434,8 +3516,9 @@ fn handle_response_received(
                     .map(|error| error.code().0 as u32)
                     .unwrap_or(0);
                 if let Some(state) = payload_app.try_state::<WebVpnState>() {
-                    state.finish_pdf_payload(
+                    state.finish_pdf_segment(
                         &payload_task,
+                        offset,
                         0,
                         false,
                         if error.is_err() {
@@ -3451,13 +3534,14 @@ fn handle_response_received(
             // 应用冻住（2.6 MB 也要好几秒，107 MB 的 SI 更不用说）。`IStream` 不是
             // Send，所以按 COM 的规矩用 CoMarshalInterThreadInterfaceInStream 把接口
             // 封送过去，而不是硬搬指针。
-            spawn_payload_read(stream, payload_task, payload_path, payload_app, content_length);
+            spawn_payload_read(stream, payload_task, payload_path, payload_app, content_length, offset);
             Ok(())
         },
     ));
     if let Err(error) = unsafe { response.GetContent(&content) } {
-        state.finish_pdf_payload(
+        state.finish_pdf_segment(
             &task_id,
+            offset,
             0,
             false,
             format!("get-content-failed: WebView2 无法启动响应体读取（0x{:08X}）", error.code().0 as u32),
@@ -3489,6 +3573,7 @@ fn write_stream_to_file(
     app: &AppHandle,
     content_length: Option<u64>,
     max_wait: Duration,
+    offset: u64,
 ) -> Result<PdfBodyResult, String> {
     let limit = CAPTURE_MAX_BYTES;
     let mut buffer: Vec<u8> = Vec::new();
@@ -3585,8 +3670,9 @@ fn write_stream_to_file(
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    // 完整性只由 payload_is_whole 判定（与归档路径同一个函数）。
-    let complete = payload_is_whole(&buffer, content_length);
+    // 这一段自身的完整性：只有"从 0 开始、且声明总长已知、且收满"时才能由它单独判定；
+    // 其余情况交给 `finish_pdf_segment` 用区间并集判断（分段装配）。
+    let complete = offset == 0 && payload_is_whole(&buffer, content_length);
     let note = if complete {
         String::new()
     } else {
@@ -3632,6 +3718,7 @@ fn spawn_payload_read(
     payload_path: PathBuf,
     app: AppHandle,
     content_length: Option<u64>,
+    offset: u64,
 ) {
     match unsafe { CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream) } {
         Ok(marshaled) => {
@@ -3653,10 +3740,17 @@ fn spawn_payload_read(
                         .map_err(|error| {
                             format!("无法在工作线程还原 PDF 响应流（0x{:08X}）", error.code().0 as u32)
                         })?;
-                    write_stream_to_file(&stream, &task_id, &app, content_length, PDF_STREAM_MAX_WAIT)
+                    write_stream_to_file(
+                        &stream,
+                        &task_id,
+                        &app,
+                        content_length,
+                        PDF_STREAM_MAX_WAIT,
+                        offset,
+                    )
                 })();
                 unsafe { CoUninitialize() };
-                finish_payload_read(&app, &task_id, &payload_path, result);
+                finish_payload_read(&app, &task_id, &payload_path, result, offset);
             });
         }
         Err(error) => {
@@ -3669,9 +3763,15 @@ fn spawn_payload_read(
                     error.code().0 as u32
                 ),
             );
-            let result =
-                write_stream_to_file(&stream, &task_id, &app, content_length, INLINE_STREAM_MAX_WAIT);
-            finish_payload_read(&app, &task_id, &payload_path, result);
+            let result = write_stream_to_file(
+                &stream,
+                &task_id,
+                &app,
+                content_length,
+                INLINE_STREAM_MAX_WAIT,
+                offset,
+            );
+            finish_payload_read(&app, &task_id, &payload_path, result, offset);
         }
     }
 }
@@ -3684,14 +3784,16 @@ fn finish_payload_read(
     task_id: &str,
     payload_path: &Path,
     result: Result<PdfBodyResult, String>,
+    offset: u64,
 ) {
     let Some(state) = app.try_state::<WebVpnState>() else {
         return;
     };
     match result {
         Ok(body) => {
-            let _ = fs::write(payload_path, &body.partial);
-            state.finish_pdf_payload(task_id, body.bytes, body.complete, body.note.clone());
+            // 把这一段写到它在文件里的位置（不再整文件覆盖：那是分段装配的前提）。
+            write_segment_at(payload_path, offset, &body.partial);
+            state.finish_pdf_segment(task_id, offset, body.bytes, body.complete, body.note.clone());
             if !body.complete {
                 record(
                     app,
@@ -3702,7 +3804,7 @@ fn finish_payload_read(
             }
         }
         Err(error) => {
-            state.finish_pdf_payload(task_id, 0, false, error.clone());
+            state.finish_pdf_segment(task_id, offset, 0, false, error.clone());
             record(app, "error", "", &error);
         }
     }
@@ -3740,6 +3842,113 @@ fn payload_is_whole(bytes: &[u8], declared_total: Option<u64>) -> bool {
 #[cfg(windows)]
 fn is_partial_response(status: Option<u16>, content_range: Option<&str>) -> bool {
     status == Some(206) || content_range.is_some()
+}
+
+/// 解析 `Content-Range: bytes <start>-<end>/<total|*>`，返回起始偏移与总长。
+fn parse_content_range(value: &str) -> Option<(u64, u64, Option<u64>)> {
+    let rest = value.trim().strip_prefix("bytes")?.trim();
+    let (range, total) = rest.split_once('/')?;
+    let (start, end) = range.trim().split_once('-')?;
+    let start = start.trim().parse::<u64>().ok()?;
+    let end = end.trim().parse::<u64>().ok()?;
+    if end < start {
+        return None;
+    }
+    // total 可能是 `*`（未知）。
+    let total = total.trim().parse::<u64>().ok();
+    Some((start, end, total))
+}
+
+/// 查看器「另存为」产生的文件能不能当正文用。
+///
+/// 不能只看"保存成功"：原生 PDF 的文档壳是一段 HTML 查看器页面，`ShowSaveAsUI`
+/// 保存的是**页面**，于是过去会把 ~1 KB 的 HTML 当 PDF 交上去（用户看到的就是
+/// "保存工具全部无法正常保存，始终是 1KB"）。判据与插件端校验一致：
+/// `%PDF-` 头 + 尾部 `%%EOF` + 至少 8 KiB。
+#[cfg(windows)]
+fn viewer_saved_pdf_is_usable(path: &Path) -> Result<u64, String> {
+    let Ok(bytes) = fs::read(path) else {
+        return Err("查看器保存没有产生文件；该站点请改用下载入口".to_string());
+    };
+    let size = bytes.len() as u64;
+    if !bytes.starts_with(b"%PDF-") {
+        let html = bytes.starts_with(b"<!doctype html") || bytes.starts_with(b"<html");
+        return Err(if html {
+            format!(
+                "查看器保存得到的是页面（{size} 字节），不是 PDF；该站点的 PDF 需要从下载事件或响应体获取"
+            )
+        } else {
+            format!("查看器保存得到的不是 PDF（{size} 字节）；请改用下载入口")
+        });
+    }
+    if !tail_has_eof(&bytes) {
+        return Err(format!("查看器保存得到的 PDF 不完整（{size} 字节，尾部没有 %%EOF）"));
+    }
+    if size < CAPTURE_PDF_MIN_BYTES {
+        return Err(format!("查看器保存得到的 PDF 只有 {size} 字节，疑似空文档；该站点请改用下载入口"));
+    }
+    Ok(size)
+}
+
+/// 把一段字节写到载荷文件的指定偏移（稀疏写；不截断已写入的其他段）。
+#[cfg(windows)]
+fn write_segment_at(path: &Path, offset: u64, bytes: &[u8]) {
+    use std::io::{Seek, SeekFrom};
+    let Ok(mut file) = fs::OpenOptions::new().create(true).write(true).open(path) else {
+        return;
+    };
+    if file.seek(SeekFrom::Start(offset)).is_err() {
+        return;
+    }
+    let _ = file.write_all(bytes);
+}
+
+/// 区间并集覆盖的字节数。
+fn covered_bytes(segments: &[(u64, u64)]) -> u64 {
+    let mut sorted = segments.to_vec();
+    sorted.sort_unstable();
+    let mut covered = 0_u64;
+    let mut cursor: Option<(u64, u64)> = None;
+    for (start, end) in sorted {
+        if end <= start {
+            continue;
+        }
+        match cursor {
+            Some((current_start, current_end)) if start <= current_end => {
+                cursor = Some((current_start, current_end.max(end)));
+            }
+            Some((current_start, current_end)) => {
+                covered = covered.saturating_add(current_end - current_start);
+                cursor = Some((start, end));
+            }
+            None => cursor = Some((start, end)),
+        }
+    }
+    if let Some((current_start, current_end)) = cursor {
+        covered = covered.saturating_add(current_end - current_start);
+    }
+    covered
+}
+
+/// 区间并集是否**从 0 开始连续覆盖到 total**——这才是"整份文件都在手上"的正向证明。
+fn covers_from_zero(segments: &[(u64, u64)], total: u64) -> bool {
+    let mut sorted = segments.to_vec();
+    sorted.sort_unstable();
+    let mut reach = 0_u64;
+    for (start, end) in sorted {
+        if end <= start || start > reach {
+            // 中间有洞（或起点在已覆盖范围之后）：不连续。
+            if start > reach {
+                return false;
+            }
+            continue;
+        }
+        reach = reach.max(end);
+        if reach >= total {
+            return true;
+        }
+    }
+    reach >= total
 }
 
 /// PDF 是否以 `%%EOF` 结束（结构完整的最后一道证据）。
@@ -3980,10 +4189,23 @@ async fn save_pdf_via_viewer(
                 if status.is_ok() && result == COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS {
                     tauri::async_runtime::spawn_blocking(move || {
                         if let Some(state) = completion_app.try_state::<WebVpnState>() {
-                            if let Some(upload) = state.begin_upload(&completion_path) {
-                                upload_capture(completion_app, upload);
-                            } else {
-                                state.fail_pending_download(&completion_app, "原生 PDF 保存与当前捕获任务不匹配");
+                            // **先验产物再上传**：`ShowSaveAsUI` 是"保存页面"，而原生 PDF
+                            // 的文档壳是那段 348 B 的查看器 HTML —— 于是以前会把一个
+                            // 约 1 KB 的页面当成 PDF 归档（2026-09-28 现场："壳保存工具
+                            // 全部无法正常保存，始终是 1KB"）。
+                            match viewer_saved_pdf_is_usable(&completion_path) {
+                                Ok(_bytes) => {
+                                    if let Some(upload) = state.begin_upload(&completion_path) {
+                                        upload_capture(completion_app, upload);
+                                    } else {
+                                        state.fail_pending_download(&completion_app, "原生 PDF 保存与当前捕获任务不匹配");
+                                    }
+                                }
+                                Err(reason) => {
+                                    // 把这份没用的产物删掉，别让它混进"未归档"证据里。
+                                    let _ = fs::remove_file(&completion_path);
+                                    state.fail_pending_download(&completion_app, &reason);
+                                }
                             }
                         }
                     });
@@ -5414,6 +5636,90 @@ mod tests {
         // 不是 PDF：直接否
         assert!(!payload_is_whole(b"<html>preview</html>", None));
         assert!(!payload_is_whole(b"", None));
+    }
+
+    /// 分段不是噪声，是要装配的东西（2026-09-28 现场：Wiley 的 4.4 MB PDF 由 18 个
+    /// 256 KiB 的 Range 请求组成；旧实现把它们全部跳过 → 载荷永远收不全）。
+    #[test]
+    fn content_range_is_parsed_and_ranges_are_assembled() {
+        assert_eq!(parse_content_range("bytes 0-262143/4594707"), Some((0, 262143, Some(4594707))));
+        assert_eq!(
+            parse_content_range("bytes 4456448-4594706/4594707"),
+            Some((4456448, 4594706, Some(4594707)))
+        );
+        assert_eq!(parse_content_range("bytes 253889-253889/536963"), Some((253889, 253889, Some(536963))));
+        // 总长未知（`*`）与畸形输入
+        assert_eq!(parse_content_range("bytes 0-99/*"), Some((0, 99, None)));
+        assert_eq!(parse_content_range("bytes 100-99/200"), None);
+        assert_eq!(parse_content_range("items 0-99/200"), None);
+        assert_eq!(parse_content_range(""), None);
+
+        // 18 段拼起来必须被认出"整份都在手上"
+        let total = 4_594_707_u64;
+        let mut segments = Vec::new();
+        let mut start = 0_u64;
+        while start < total {
+            let end = (start + 262_144).min(total);
+            segments.push((start, end));
+            start = end;
+        }
+        assert_eq!(covered_bytes(&segments), total);
+        assert!(covers_from_zero(&segments, total));
+
+        // 乱序到达也一样
+        let mut shuffled = segments.clone();
+        shuffled.rotate_left(7);
+        assert!(covers_from_zero(&shuffled, total));
+
+        // 缺中间一段 → 不算完整（这正是"永远收不全"的形状）
+        let mut holed = segments.clone();
+        holed.remove(9);
+        assert!(!covers_from_zero(&holed, total));
+        assert!(covered_bytes(&holed) < total);
+
+        // 只有尾部那段 → 不完整（旧实现会把它当成"有内容了"）
+        assert!(!covers_from_zero(&[(4_456_448, total)], total));
+        // 重复段不重复计数
+        assert_eq!(covered_bytes(&[(0, 100), (0, 100), (50, 150)]), 150);
+        assert_eq!(covered_bytes(&[]), 0);
+    }
+
+    #[test]
+    fn viewer_save_that_returns_a_page_is_not_a_pdf() {
+        let dir = std::env::temp_dir().join(format!("ibm-viewer-save-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+
+        // 原生 PDF 的文档壳就是这段 HTML（348 字节）——以前会被当成 PDF 归档（“始终是 1KB”）。
+        let shell = dir.join("viewer-shell.pdf");
+        fs::write(
+            &shell,
+            b"<!doctype html><html><body><embed src='about:blank' type='application/pdf'></body></html>",
+        )
+        .unwrap();
+        let reason = viewer_saved_pdf_is_usable(&shell).unwrap_err();
+        assert!(reason.contains("页面"), "{reason}");
+
+        // 头尾都对但太小：空文档，也不能当正文。
+        let tiny = dir.join("tiny.pdf");
+        fs::write(&tiny, b"%PDF-1.4\ntrailer\n%%EOF\n").unwrap();
+        assert!(viewer_saved_pdf_is_usable(&tiny).unwrap_err().contains("空文档"));
+
+        // 缺 %%EOF：不完整。
+        let truncated = dir.join("truncated.pdf");
+        let mut body = b"%PDF-1.4\n".to_vec();
+        body.extend_from_slice(&vec![b'x'; 20_000]);
+        fs::write(&truncated, &body).unwrap();
+        assert!(viewer_saved_pdf_is_usable(&truncated).unwrap_err().contains("%%EOF"));
+
+        // 正常 PDF：放行并给出体积。
+        let good = dir.join("good.pdf");
+        let mut body = b"%PDF-1.4\n".to_vec();
+        body.extend_from_slice(&vec![b'x'; 20_000]);
+        body.extend_from_slice(b"\nstartxref\n1\n%%EOF\n");
+        fs::write(&good, &body).unwrap();
+        assert_eq!(viewer_saved_pdf_is_usable(&good).unwrap(), body.len() as u64);
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
