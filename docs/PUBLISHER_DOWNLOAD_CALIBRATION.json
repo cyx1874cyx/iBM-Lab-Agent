@@ -6,8 +6,8 @@
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
     "version": "0.5.5-beta19",
-    "commit": "7189db8",
-    "note": "beta18 is the Science hotfix. The response-layer reader rejects an HTML viewer shell; payload and download-event bytes are separate; saveReady follows nextAction. The fallback is the restricted lab_browser_navigate science-pdf route. On 2026-09-28 the user reported a successful Science article PDF download with this hotfix. Exact URL, access mode, selector, and SI result were not supplied, so detailed route calibration remains pending."
+    "commit": "2492446",
+    "note": "beta19 removes the in-shell auto-click path entirely (PUBLISHER_DOWNLOAD_AUTOMATION and its mode=auto plumbing) so the agent is the only one that picks entries, and ships the per-publisher knowledge as the publisher-download skill (own skill-filesystem provider, own plugin copy entry). observe ranks candidates with viewport awareness (30 items, candidateCount/truncated, inViewport each) and walks same-origin iframes; nextAction gains save-from-viewer for a displayed native PDF with no captured payload, still requiring completed; capture-spec.json documents that a displayed viewer is not a capture and that only a validated upload plus bundle registration completes one. Note for reviewers: deleting the automation also removed the only producer of automationStage=verification, so the preset and skill now also detect a verification page from the observed page text. Science article PDF success is user-reported without a URL or access mode; every publisher, SI channel and campus-network route below remains pending."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
