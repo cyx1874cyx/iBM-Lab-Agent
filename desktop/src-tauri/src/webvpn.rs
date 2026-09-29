@@ -43,7 +43,7 @@ use webview2_com::{
     ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
     SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler,
     SourceChangedEventHandler,
-    WebResourceResponseReceivedEventHandler, WebResourceResponseViewGetContentCompletedHandler,
+    WebResourceResponseReceivedEventHandler,
     Microsoft::Web::WebView2::Win32::{
         ICoreWebView2, ICoreWebView2_2, ICoreWebView2_25,
         COREWEBVIEW2_SAVE_AS_KIND_DEFAULT, COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS,
@@ -53,16 +53,6 @@ use webview2_com::{
 use windows::core::{Interface, PCWSTR, PWSTR};
 #[cfg(windows)]
 use windows::core::BOOL;
-#[cfg(windows)]
-use windows::Win32::System::Com::IStream;
-#[cfg(windows)]
-use windows::Win32::System::Com::Marshal::CoMarshalInterThreadInterfaceInStream;
-#[cfg(windows)]
-use windows::Win32::System::Com::StructuredStorage::CoGetInterfaceAndReleaseStream;
-#[cfg(windows)]
-use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
-#[cfg(windows)]
-
 
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
 pub const WINDOW_LABEL: &str = "webvpn";
@@ -86,12 +76,6 @@ const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
 const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
 const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
-/// 响应体流「多少秒没有新字节」就不再等（之后如实报未收全）。
-const PDF_STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(5);
-/// 单次载荷读取的总上限，防止一个不结束的流把保存永远挂住。
-const PDF_STREAM_MAX_WAIT: Duration = Duration::from_secs(180);
-/// 退化成"在 UI 线程上读"时的总上限：宁可少拿一点字节，也不能把界面冻住几分钟。
-const INLINE_STREAM_MAX_WAIT: Duration = Duration::from_secs(20);
 /// 等下载文件写完的上限（下载事件说 success 时文件可能还在写）。
 const CAPTURE_READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// 正文 PDF 的最小可信体积（与插件端 `CAPTURE_PDF_MIN_BYTES` 保持一致）。
@@ -1731,21 +1715,6 @@ impl WebVpnState {
         }
     }
 
-    /// 读取过程中的粗粒度进度（只增不减，供状态显示）。
-    pub fn note_pdf_payload_progress(&self, task_id: &str, received_bytes: u64) {
-        if let Ok(mut session) = self.session.lock() {
-            if let Some(pending) = session.pending.as_mut() {
-                if pending.task_id == task_id {
-                    if let Some(payload) = pending.pdf_payload.as_mut() {
-                        if received_bytes > payload.received_bytes {
-                            payload.received_bytes = received_bytes;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// 落定**一段**载荷：把它并入已覆盖区间，并重算完整性。
     ///
     /// 完整性判据（正向证明，二者取一）：
@@ -2144,10 +2113,29 @@ impl WebVpnState {
                 .as_ref()
                 .filter(|notice| notice.expires_at > Instant::now())
             {
+                // C20/R3：任务刚结束时壳已经没有 pending，但队列里仍留着**插件推导好的
+                // 那条文案**（例如归档冲突的「已有文件：…」）。小球必须显示插件的话，
+                // 而不是壳按 state 猜出来的"下载或归档失败，请重试"——否则用户看到的是
+                // 一句无法处置的泛泛失败，而真正的原因（已有文件、未覆盖）就丢了。
+                let tail = session
+                    .capture_queue
+                    .iter()
+                    .rev()
+                    .find(|entry| {
+                        !entry.ball_text.is_empty()
+                            && (Some(entry.id.as_str()) == session.last_pending_task_id.as_deref()
+                                || entry.kind == notice.kind)
+                    });
                 return serde_json::json!({
                     "phase": notice.phase,
                     "kind": notice.kind,
                     "queue": queue,
+                    "pendingId": tail.map(|entry| entry.id.clone()),
+                    "ballText": tail.map(|entry| entry.ball_text.clone()),
+                    "ballTone": tail.map(|entry| entry.ball_tone.clone()),
+                    "stalled": tail.map(|entry| entry.ball_stalled).unwrap_or(false),
+                    "canRecreate": tail.map(|entry| entry.ball_can_recreate).unwrap_or(false),
+                    "canCancel": tail.map(|entry| entry.ball_can_cancel).unwrap_or(true),
                 })
                 .to_string();
             }
@@ -2397,16 +2385,19 @@ impl WebVpnState {
                 generation: session.generation,
             })
             .unwrap_or_default();
-        let downloaded_bytes = session.pending.as_ref().and_then(pending_progress_bytes);
-        let download_event_bytes = session.pending.as_ref().and_then(|pending| {
+        // 窗口已关闭时，一切"正在下载/正在写入多少字节"的数字都失去意义：保留它
+        // 只会让上层看到一个永远不动的进度。这里统一按"没有进行中的任务"上报。
+        let pending_view = window_open.then(|| session.pending.as_ref()).flatten();
+        let downloaded_bytes = pending_view.and_then(pending_progress_bytes);
+        let download_event_bytes = pending_view.and_then(|pending| {
             pending.download_started_at.and_then(|_| fs::metadata(&pending.temp_path).ok().map(|meta| meta.len()))
         });
-        let download_elapsed_ms = session.pending.as_ref().and_then(|pending| {
+        let download_elapsed_ms = pending_view.and_then(|pending| {
             pending
                 .download_started_at
                 .map(|started| started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64)
         });
-        let download_total_bytes = session.pending.as_ref().and_then(|pending| {
+        let download_total_bytes = pending_view.and_then(|pending| {
             (pending.native_saving && pending.download_started_at.is_some())
                 .then(|| session.page.as_ref())
                 .flatten()
@@ -2416,9 +2407,35 @@ impl WebVpnState {
         });
         // C17：停滞检测。下载/保存期间字节数长时间不动，就该显示成异常，
         // 而不是永远「正在保存」。
-        let stalled_ms = self.stalled_ms_now(downloaded_bytes);
+        let stalled_ms = pending_view.and_then(|_| self.stalled_ms_now(downloaded_bytes));
         // 先算好 last_failure 再构造结构体：last_outcome/last_error 稍后会被 move 进去。
         let last_failure = failure_notice_of(session.last_outcome.as_ref(), session.last_error.as_deref());
+        // 窗口已关闭（子 WebView2 被销毁，例如用户关掉文献浏览器）时，会话不可能再
+        // 推进这个任务：**不允许**继续对外声称"该任务仍被本浏览器持有"。
+        //
+        // 曾经的现场问题：`pending_task_id` 不看 `window_open`，于是关掉浏览器之后
+        // 任务仍被判为 held，`phase` 停在旧值，调用方只能一直等一个不会到来的变化。
+        // 这里不改内部 pending（保留 TTL 与重启语义），只把对外事实改成"已交还"。
+        let window_closed_pending = (!window_open)
+            .then(|| session.pending.as_ref().map(|pending| pending.task_id.clone()))
+            .flatten();
+        let (pending_task_id, pending_kind, automation_stage, last_pending_task_id, release_reason) =
+            match window_closed_pending {
+                Some(task_id) => (
+                    None,
+                    None,
+                    None,
+                    Some(task_id),
+                    Some("文献浏览器窗口已关闭".to_string()),
+                ),
+                None => (
+                    session.pending.as_ref().map(|pending| pending.task_id.clone()),
+                    session.pending.as_ref().map(|pending| pending.kind.clone()),
+                    session.pending.as_ref().map(|pending| pending.automation_stage.clone()),
+                    session.last_pending_task_id.clone(),
+                    session.release_reason.clone(),
+                ),
+            };
         WebVpnStatus {
             state: session.state,
             authenticated: window_open && session.authenticated,
@@ -2430,12 +2447,9 @@ impl WebVpnState {
             target_host: session.target_host,
             denied_hosts: session.denied_hosts,
             last_error: session.last_error,
-            pending_task_id: session
-                .pending
-                .as_ref()
-                .map(|pending| pending.task_id.clone()),
-            pending_kind: session.pending.as_ref().map(|pending| pending.kind.clone()),
-            automation_stage: session.pending.as_ref().map(|pending| pending.automation_stage.clone()),
+            pending_task_id,
+            pending_kind,
+            automation_stage,
             downloaded_bytes,
             download_event_bytes,
             download_total_bytes,
@@ -2467,8 +2481,8 @@ impl WebVpnState {
                     received_bytes: payload.received_bytes,
                     error: payload.error.clone(),
                 }),
-            last_pending_task_id: session.last_pending_task_id,
-            release_reason: session.release_reason,
+            last_pending_task_id,
+            release_reason,
             taken_over_at: session.taken_over_at,
             stalled_ms,
             last_failure,
@@ -3522,8 +3536,9 @@ fn continue_pdf_fetch(core: &ICoreWebView2, app: &AppHandle, request_id: &str) -
     .map_err(|error| error.to_string())
 }
 
-/// WebView2 的 GetContent 在原生 PDF 导航上可能返回 348 B 的 HTML embed 占位页。
-/// Fetch 的 Response 阶段位于替换之前；只有通过完整性验证的同次请求正文才落盘。
+/// 原生 PDF 导航上，WebView2 交给查看器的响应视图可能只有 348 B 的 HTML embed 占位页
+/// （这正是已退役的 `GetContent` 取体路径的死因）。CDP Fetch 的 Response 阶段位于那次
+/// 替换**之前**，因此能拿到原始正文；只有通过完整性验证的同次请求正文才落盘。
 #[cfg(windows)]
 fn decode_fetch_pdf_body(reply: &str, declared_length: Option<u64>) -> Result<Vec<u8>, String> {
     let value: serde_json::Value = serde_json::from_str(reply)
@@ -3577,8 +3592,9 @@ fn store_fetch_pdf_body(
     Ok(bytes.len() as u64)
 }
 
-/// 只拦当前捕获任务的 200/application/pdf。HTML 挑战页、206 Range 和其他资源
-/// 立即放行，让现有下载/分段路径继续工作；任何错误都不能把浏览器导航挂在暂停态。
+/// 只拦当前捕获任务的 200/application/pdf。HTML 挑战页、206 Range 与其他资源一律
+/// 立即放行（R2 之后分段不再装配，206 交给下载事件通路）；任何错误都不能把浏览器
+/// 导航挂在暂停态。
 #[cfg(windows)]
 fn handle_fetch_response(
     app: &AppHandle,
@@ -3676,9 +3692,9 @@ fn handle_fetch_response(
 /// 两个能力共用同一套 WebView2 事件：
 ///   * `SourceChanged` / `NavigationCompleted` → 页面级事实（url/readyState），
 ///     让上层的 `wait` 能把「页面跳了」当成状态变化；
-///   * `WebResourceResponseReceived` → 主文档的 content-type/content-length，
-///     以及 `application/pdf` 的**响应体**。拿到响应体才谈得上「PDF 载荷就绪」，
-///     也才能不依赖查看器的「另存为」界面完成归档。
+///   * `WebResourceResponseReceived` → 主文档的 content-type/content-length/status
+///     （**只上报事实，不取响应体**）。PDF 正文由 CDP `Fetch.requestPaused` 的
+///     Response 阶段获取，见 `handle_fetch_response`。
 ///
 /// 这里只消费 WebView2 自己那次请求的响应；**不读、不导出、不缓存任何 Cookie**，
 /// 认证材料始终留在 WebView2 profile 内（见文件头纪律）。
@@ -3822,11 +3838,6 @@ fn handle_response_received(
     let content_type = response_header(&response, "content-type");
     let content_length = response_header(&response, "content-length")
         .and_then(|value| value.trim().parse::<u64>().ok());
-    // 附件型响应（Content-Disposition: attachment）会走 WebView2 的下载事件，
-    // 那条路已经拥有暂存文件；响应层不要同时插手。
-    let attachment = response_header(&response, "content-disposition")
-        .map(|value| value.to_ascii_lowercase().contains("attachment"))
-        .unwrap_or(false);
     let status = {
         let mut code = 0_i32;
         let _ = unsafe { response.StatusCode(&mut code) };
@@ -3849,82 +3860,17 @@ fn handle_response_received(
                 content_length.map(|value| value.to_string()).unwrap_or_else(|| "unknown".to_string())),
         });
     }
-    if !lowered.contains("application/pdf") || attachment {
-        return;
-    }
-    let content_range = response_header(&response, "content-range");
-    // 分段响应 = 这份 PDF 的一段，**不是**要丢掉的噪声（见 PdfPayload::segments 的注释）。
-    let parsed_range = content_range.as_deref().and_then(parse_content_range);
-    if is_partial_response(status, content_range.as_deref()) && parsed_range.is_none() {
-        record(
-            app,
-            "automation",
-            "",
-            &format!(
-                "跳过无法解析的 PDF 分段响应（status={:?}，content-range={:?}）",
-                status,
-                content_range.unwrap_or_else(|| "-".to_string())
-            ),
-        );
-        return;
-    }
-    let Some((task_id, path)) = state.pending_pdf_target(&url) else {
-        return;
-    };
-    // 声明总长：分段响应取 total；整份响应取 Content-Length。
-    let declared_total = match parsed_range {
-        Some((_start, _end, total)) => total,
-        None if status == Some(200) || status.is_none() => content_length,
-        None => None,
-    };
-    let offset = parsed_range.map(|(start, _end, _total)| start).unwrap_or(0);
-    if !state.ensure_pdf_payload(&task_id, path.clone(), declared_total) {
-        return;
-    }
-    let payload_app = app.clone();
-    let payload_task = task_id.clone();
-    let payload_path = path.clone();
-    let content = WebResourceResponseViewGetContentCompletedHandler::create(Box::new(
-        move |error, stream| {
-            let Some(stream) = stream.filter(|_| error.is_ok()) else {
-                // 第一个参数在 webview2-com 的封装里已经是 Result<()>，不是裸 HRESULT。
-                let code = error
-                    .as_ref()
-                    .err()
-                    .map(|error| error.code().0 as u32)
-                    .unwrap_or(0);
-                if let Some(state) = payload_app.try_state::<WebVpnState>() {
-                    state.finish_pdf_segment(
-                        &payload_task,
-                        offset,
-                        0,
-                        false,
-                        if error.is_err() {
-                            format!("get-content-failed: WebView2 响应体读取失败（0x{code:08X}）")
-                        } else {
-                            "no-body: WebView2 未提供 PDF 响应体".to_string()
-                        },
-                    );
-                }
-                return Ok(());
-            };
-            // 读取放到工作线程：这个流由网络响应驱动，在 UI 线程上把它读完会把整个
-            // 应用冻住（2.6 MB 也要好几秒，107 MB 的 SI 更不用说）。`IStream` 不是
-            // Send，所以按 COM 的规矩用 CoMarshalInterThreadInterfaceInStream 把接口
-            // 封送过去，而不是硬搬指针。
-            spawn_payload_read(stream, payload_task, payload_path, payload_app, content_length, offset);
-            Ok(())
-        },
-    ));
-    if let Err(error) = unsafe { response.GetContent(&content) } {
-        state.finish_pdf_segment(
-            &task_id,
-            offset,
-            0,
-            false,
-            format!("get-content-failed: WebView2 无法启动响应体读取（0x{:08X}）", error.code().0 as u32),
-        );
-    }
+    // R2（0.5.6-beta1）：响应层**只上报事实**，不再取体。
+    //
+    // 实机结论：出版社定制 PDF 预览页靠点击页面上的下载控件（下载事件通路 A），
+    // 浏览器原生 PDF 由 CDP `Fetch.requestPaused` 的 Response 阶段取正文（通路 C）。
+    // 因此 `WebResourceResponseReceived` + `GetContent` 的取体路径（通路 B）退役：
+    // 它唯一独有的能力是 206 分段装配，而实测中不存在"只给 Range、不给整份"的站点；
+    // 保留它的代价却是两个写入者同写 `.payload.pdf`，外加一段必须跨线程封送的 COM
+    // 流读取代码（历史上那次双重 Release 崩溃就出在这里）。
+    //
+    // 但 `content-type / content-length / status` **必须**继续在这里上报：
+    // `documentType`、`httpStatus`、`contentLength` 与"顶层是 PDF 文档"的判定都靠它。
 }
 
 #[cfg(windows)]
@@ -3938,257 +3884,6 @@ fn response_header(
     unsafe { headers.GetHeader(PCWSTR(wide.as_ptr()), &mut value) }.ok()?;
     let text = take_pwstr(value);
     (!text.is_empty()).then_some(text)
-}
-
-/// 把 WebView2 给的响应体流写到本任务的暂存路径（C1）。
-///
-/// 与上传端同一条判据（只认 `%PDF-`），并且受 `CAPTURE_MAX_BYTES` 约束：
-/// 超过上限立刻中止并如实报错，而不是先写满磁盘再在 413 上失败。
-#[cfg(windows)]
-fn write_stream_to_file(
-    stream: &IStream,
-    task_id: &str,
-    app: &AppHandle,
-    content_length: Option<u64>,
-    max_wait: Duration,
-    offset: u64,
-) -> Result<PdfBodyResult, String> {
-    let limit = CAPTURE_MAX_BYTES;
-    let mut buffer: Vec<u8> = Vec::new();
-    let mut chunk = vec![0_u8; 64 * 1024];
-    let started = Instant::now();
-    let mut last_progress = Instant::now();
-    // 封送失败时会退回"在 UI 线程上读"，那条路必须更短：读满一整个大文件会把
-    // 界面冻住。工作者线程上才用得上完整的 PDF_STREAM_MAX_WAIT。
-    let max_wait = max_wait.min(PDF_STREAM_MAX_WAIT);
-    loop {
-        let mut read: u32 = 0;
-        let hr = unsafe {
-            stream.Read(
-                chunk.as_mut_ptr() as *mut core::ffi::c_void,
-                chunk.len() as u32,
-                Some(&mut read),
-            )
-        };
-        if hr.is_err() {
-            // 已经收到的字节仍然返回：调用方需要 receivedBytes 才能如实报告"卡在哪"。
-            return Ok(PdfBodyResult {
-                bytes: buffer.len() as u64,
-                complete: false,
-                note: format!("读取 PDF 响应体失败（0x{:08X}）", hr.0 as u32),
-                partial: buffer,
-            });
-        }
-        if read > 0 {
-            buffer.extend_from_slice(&chunk[..read as usize]);
-            last_progress = Instant::now();
-            if buffer.len() >= 5 && !buffer.starts_with(b"%PDF-") {
-                let html = buffer.starts_with(b"<!doctype html") || buffer.starts_with(b"<html");
-                return Ok(PdfBodyResult {
-                    bytes: buffer.len() as u64,
-                    complete: false,
-                    note: if html {
-                        "wrong-object-html: 响应体是 HTML 查看器页面，不是 PDF".to_string()
-                    } else {
-                        "wrong-object: 响应体缺少 PDF 文件头".to_string()
-                    },
-                    partial: buffer,
-                });
-            }
-            if buffer.len() as u64 > limit {
-                return Ok(PdfBodyResult {
-                    bytes: buffer.len() as u64,
-                    complete: false,
-                    note: format!("PDF 超过 {} MB 捕获上限，已中止", limit / 1024 / 1024),
-                    partial: buffer,
-                });
-            }
-            if let Some(state) = app.try_state::<WebVpnState>() {
-                state.note_pdf_payload_progress(task_id, buffer.len() as u64);
-            }
-            if let Some(total) = content_length {
-                if buffer.len() as u64 >= total {
-                    break;
-                }
-            }
-            if content_length.is_none() && tail_has_eof(&buffer) {
-                break;
-            }
-            continue;
-        }
-        // read == 0 **不等于** EOF：这个流由网络响应驱动，暂时没数据时会返回 0。
-        // 早期版本直接 break，于是在 256 KiB 的缓冲边界上把半个 PDF 当成了完整载荷
-        // （2026-09-27 现场：262144 B、有 %PDF- 头、没有 %%EOF，却被标成"已就绪"，
-        // 一路送到归档服务换回一个 HTTP 400）。
-        if let Some(total) = content_length {
-            if buffer.len() as u64 >= total {
-                break;
-            }
-        }
-        if tail_has_eof(&buffer) {
-            break;
-        }
-        let idle = last_progress.elapsed();
-        if idle >= PDF_STREAM_STALL_TIMEOUT || started.elapsed() >= max_wait {
-            let total_note = match content_length {
-                Some(total) => format!("{total} 字节"),
-                None => "未知总长".to_string(),
-            };
-            return Ok(PdfBodyResult {
-                bytes: buffer.len() as u64,
-                complete: false,
-                note: format!(
-                    "已接收 {} 字节 / {}，{} 秒没有新数据",
-                    buffer.len(),
-                    total_note,
-                    idle.as_secs()
-                ),
-                partial: buffer,
-            });
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    // 这一段自身的完整性：只有"从 0 开始、且声明总长已知、且收满"时才能由它单独判定；
-    // 其余情况交给 `finish_pdf_segment` 用区间并集判断（分段装配）。
-    let complete = offset == 0 && payload_is_whole(&buffer, content_length);
-    let note = if complete {
-        String::new()
-    } else {
-        match (content_length, tail_has_eof(&buffer)) {
-            (Some(total), false) => {
-                format!("已接收 {} / {} 字节，且尾部没有 %%EOF", buffer.len(), total)
-            }
-            (Some(total), true) => format!("已接收 {} / {} 字节", buffer.len(), total),
-            (None, false) => format!("已接收 {} 字节，且尾部没有 %%EOF", buffer.len()),
-            (None, true) => format!("已接收 {} 字节（声明总长未知）", buffer.len()),
-        }
-    };
-    Ok(PdfBodyResult {
-        bytes: buffer.len() as u64,
-        complete,
-        note,
-        partial: buffer,
-    })
-}
-
-/// 响应体读取结果（C1/R2.2）：字节数、是否已被证明完整、以及不完整时的原因。
-#[cfg(windows)]
-struct PdfBodyResult {
-    bytes: u64,
-    complete: bool,
-    note: String,
-    partial: Vec<u8>,
-}
-
-/// 在工作线程上读完 PDF 响应流，然后把结果落定到任务上。
-///
-/// 为什么必须离开 UI 线程：`GetContent` 的流由网络响应驱动，边到边读；在 UI 线程上
-/// 读完等于把整个应用冻住到下载结束。`IStream` 不是 `Send`，所以按 COM 的规矩封送：
-/// 源线程（STA）用 `CoMarshalInterThreadInterfaceInStream` 生成一个流对象，把它的
-/// 裸指针（`usize`，Send）交给工作线程，工作线程 `CoInitializeEx(MTA)` 之后用
-/// `CoGetInterfaceAndReleaseStream` 还原接口再读。
-///
-/// 封送失败时退回当前线程读取（并在日志里写明），而不是静默丢掉这条保存路径。
-#[cfg(windows)]
-fn spawn_payload_read(
-    stream: IStream,
-    task_id: String,
-    payload_path: PathBuf,
-    app: AppHandle,
-    content_length: Option<u64>,
-    offset: u64,
-) {
-    match unsafe { CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream) } {
-        Ok(marshaled) => {
-            // into_raw 把包装器"漏"成一个裸指针，所有权转交给工作线程。
-            let raw = Interface::into_raw(marshaled) as usize;
-            std::thread::spawn(move || {
-                let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
-                let result = (|| -> Result<PdfBodyResult, String> {
-                    // **ManuallyDrop 不是可选的**：CoGetInterfaceAndReleaseStream 会释放
-                    // 传入的那个流（MSDN：Releases the stream pointer. Even if the
-                    // unmarshaling fails, the stream is still released）。如果让 Rust
-                    // 包装器在作用域结束再 Drop 一次，就是对同一个流 Release 两次
-                    // ——引用计数下溢、堆损坏，进程直接崩（2026-09-27 现场：一进原生
-                    // PDF 页就 "ibm-lab-desktop has stopped working"）。
-                    let marshaled = core::mem::ManuallyDrop::new(unsafe {
-                        IStream::from_raw(raw as *mut core::ffi::c_void)
-                    });
-                    let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(&*marshaled) }
-                        .map_err(|error| {
-                            format!("无法在工作线程还原 PDF 响应流（0x{:08X}）", error.code().0 as u32)
-                        })?;
-                    write_stream_to_file(
-                        &stream,
-                        &task_id,
-                        &app,
-                        content_length,
-                        PDF_STREAM_MAX_WAIT,
-                        offset,
-                    )
-                })();
-                unsafe { CoUninitialize() };
-                finish_payload_read(&app, &task_id, &payload_path, result, offset);
-            });
-        }
-        Err(error) => {
-            record(
-                &app,
-                "error",
-                "",
-                &format!(
-                    "PDF 响应流无法封送到工作线程（0x{:08X}），改在当前线程读取",
-                    error.code().0 as u32
-                ),
-            );
-            let result = write_stream_to_file(
-                &stream,
-                &task_id,
-                &app,
-                content_length,
-                INLINE_STREAM_MAX_WAIT,
-                offset,
-            );
-            finish_payload_read(&app, &task_id, &payload_path, result, offset);
-        }
-    }
-}
-
-/// 把一次载荷读取的结果落定：部分字节也落盘（现场诊断要看得到文件），
-/// 但**只有被证明完整的载荷才会被归档**（`complete` 决定一切）。
-#[cfg(windows)]
-fn finish_payload_read(
-    app: &AppHandle,
-    task_id: &str,
-    payload_path: &Path,
-    result: Result<PdfBodyResult, String>,
-    offset: u64,
-) {
-    let Some(state) = app.try_state::<WebVpnState>() else {
-        return;
-    };
-    match result {
-        Ok(body) => {
-            // 把这一段写到它在文件里的位置（不再整文件覆盖：那是分段装配的前提）。
-            write_segment_at(payload_path, offset, &body.partial);
-            state.finish_pdf_segment(task_id, offset, body.bytes, body.complete, body.note.clone());
-            if !body.complete {
-                record(
-                    app,
-                    "automation",
-                    "",
-                    &format!("PDF 载荷未收全：{}", body.note),
-                );
-            }
-        }
-        Err(error) => {
-            state.finish_pdf_segment(task_id, offset, 0, false, error.clone());
-            record(app, "error", "", &error);
-        }
-    }
-    if let Some(webview) = app.get_webview(WINDOW_LABEL) {
-        let _ = push_capture_ball(app, &webview);
-    }
 }
 
 /// 载荷是否**被证明完整**——状态上报与归档校验必须用同一个函数。
@@ -4210,31 +3905,6 @@ fn payload_is_whole(bytes: &[u8], declared_total: Option<u64>) -> bool {
         // 声明总长未知时 `%%EOF` 就是唯一的正向证据（PDF 必须以此结束）。
         None => true,
     }
-}
-
-/// 响应是不是"分段/区间"响应。
-///
-/// 浏览器的 PDF 查看器会用 Range 请求分段取数，第一段常常正好是 256 KiB —— 把它当成
-/// 整份文件，就会出现"256 KB 就报已完整"的那种事故（B1）。分段响应一律不进入载荷
-/// 路径：宁可不提供保存支路，也不能给一个假的完成信号。
-#[cfg(windows)]
-fn is_partial_response(status: Option<u16>, content_range: Option<&str>) -> bool {
-    status == Some(206) || content_range.is_some()
-}
-
-/// 解析 `Content-Range: bytes <start>-<end>/<total|*>`，返回起始偏移与总长。
-fn parse_content_range(value: &str) -> Option<(u64, u64, Option<u64>)> {
-    let rest = value.trim().strip_prefix("bytes")?.trim();
-    let (range, total) = rest.split_once('/')?;
-    let (start, end) = range.trim().split_once('-')?;
-    let start = start.trim().parse::<u64>().ok()?;
-    let end = end.trim().parse::<u64>().ok()?;
-    if end < start {
-        return None;
-    }
-    // total 可能是 `*`（未知）。
-    let total = total.trim().parse::<u64>().ok();
-    Some((start, end, total))
 }
 
 /// 查看器「另存为」产生的文件能不能当正文用。
@@ -4266,19 +3936,6 @@ fn viewer_saved_pdf_is_usable(path: &Path) -> Result<u64, String> {
         return Err(format!("查看器保存得到的 PDF 只有 {size} 字节，疑似空文档；该站点请改用下载入口"));
     }
     Ok(size)
-}
-
-/// 把一段字节写到载荷文件的指定偏移（稀疏写；不截断已写入的其他段）。
-#[cfg(windows)]
-fn write_segment_at(path: &Path, offset: u64, bytes: &[u8]) {
-    use std::io::{Seek, SeekFrom};
-    let Ok(mut file) = fs::OpenOptions::new().create(true).write(true).open(path) else {
-        return;
-    };
-    if file.seek(SeekFrom::Start(offset)).is_err() {
-        return;
-    }
-    let _ = file.write_all(bytes);
 }
 
 /// 区间并集覆盖的字节数。
@@ -5224,6 +4881,40 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    /// R3/R9：任务结束后壳已经没有 pending，但小球必须显示**插件推导的那句话**
+    /// （归档冲突就是「已有文件：…」），而不是壳按 state 猜出来的泛泛失败文案。
+    #[test]
+    fn released_ball_keeps_the_plugin_wording() {
+        let state = WebVpnState::default();
+        {
+            let mut session = state.session.lock().unwrap();
+            session.capture_queue = vec![CaptureQueueEntry {
+                id: "capture-ci".to_string(),
+                kind: "pdf".to_string(),
+                status: "failed".to_string(),
+                requested_by: "agent".to_string(),
+                ball_phase: "failed".to_string(),
+                ball_text: "已有文件：条目已归档正文「某文献.pdf」；本次未覆盖它，归档失败".to_string(),
+                ball_tone: "error".to_string(),
+                ball_stalled: false,
+                ball_can_recreate: true,
+                ball_can_cancel: true,
+            }];
+            session.last_pending_task_id = Some("capture-ci".to_string());
+            session.capture_notice = Some(CaptureNotice {
+                kind: "pdf".to_string(),
+                phase: "error",
+                expires_at: Instant::now() + Duration::from_secs(600),
+            });
+        }
+        let payload = state.capture_ball_json();
+        assert!(payload.contains("已有文件"), "小球文案必须来自插件：{payload}");
+        assert!(payload.contains("\"ballTone\":\"error\""), "{payload}");
+        assert!(payload.contains("\"canRecreate\":true"), "{payload}");
+        // phase 仍用 notice 的终态（error），否则前端会把结束态判成"点击终止"。
+        assert!(payload.contains("\"phase\":\"error\""), "{payload}");
+    }
+
     #[test]
     fn observation_marks_real_human_challenge_without_matching_article_text() {
         assert!(observation_requires_verification(&serde_json::json!({
@@ -6151,23 +5842,14 @@ mod tests {
         assert!(decode_fetch_pdf_body(r#"{"error":{"message":"No resource"}}"#, None).is_err());
     }
 
-    /// 分段不是噪声，是要装配的东西（2026-09-28 现场：Wiley 的 4.4 MB PDF 由 18 个
-    /// 256 KiB 的 Range 请求组成；旧实现把它们全部跳过 → 载荷永远收不全）。
+    /// 载荷"收全了没有"的判据只有一处：区间并集必须从 0 连续覆盖到声明总长。
+    ///
+    /// R2（0.5.6-beta1）退役了响应层的 206 分段装配，但这条**覆盖判据**保留：
+    /// 通路 C（CDP Fetch）同样按"整段 0..len + 声明总长"落定，两条路共用同一实现。
     #[test]
-    fn content_range_is_parsed_and_ranges_are_assembled() {
-        assert_eq!(parse_content_range("bytes 0-262143/4594707"), Some((0, 262143, Some(4594707))));
-        assert_eq!(
-            parse_content_range("bytes 4456448-4594706/4594707"),
-            Some((4456448, 4594706, Some(4594707)))
-        );
-        assert_eq!(parse_content_range("bytes 253889-253889/536963"), Some((253889, 253889, Some(536963))));
-        // 总长未知（`*`）与畸形输入
-        assert_eq!(parse_content_range("bytes 0-99/*"), Some((0, 99, None)));
-        assert_eq!(parse_content_range("bytes 100-99/200"), None);
-        assert_eq!(parse_content_range("items 0-99/200"), None);
-        assert_eq!(parse_content_range(""), None);
-
-        // 18 段拼起来必须被认出"整份都在手上"
+    fn payload_segments_must_cover_the_whole_file() {
+        // 18 段拼起来必须被认出"整份都在手上"（2026-09-28 现场：Wiley 的 4.4 MB PDF
+        // 正是 18 个 256 KiB 的 Range 请求组成的形状）。
         let total = 4_594_707_u64;
         let mut segments = Vec::new();
         let mut start = 0_u64;
@@ -6233,17 +5915,6 @@ mod tests {
         assert_eq!(viewer_saved_pdf_is_usable(&good).unwrap(), body.len() as u64);
 
         let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn partial_responses_are_never_treated_as_the_payload() {
-        // 浏览器 PDF 查看器用 Range 分段取数：第一段常常正好 256 KiB
-        assert!(is_partial_response(Some(206), None));
-        assert!(is_partial_response(Some(200), Some("bytes 0-262143/2744110")));
-        assert!(is_partial_response(None, Some("bytes 0-1/9")));
-        // 整份响应才放行
-        assert!(!is_partial_response(Some(200), None));
-        assert!(!is_partial_response(None, None));
     }
 
     #[test]

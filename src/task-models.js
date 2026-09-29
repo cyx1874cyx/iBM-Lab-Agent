@@ -323,6 +323,15 @@ export const artifactProvenanceSchema = z.object({
 	).default([]),
 	model: z.string().optional(),
 	source: z.string().min(1),
+	/**
+	 * R3：一次"用户确认替换"的留证。归档槽位被替换时，旧文件会改名保留，
+	 * 这条关系必须进审计链——否则"这份 PDF 是哪一版、上一版去哪了"事后无从查起。
+	 * 可选字段：历史行没有它。
+	 */
+	replaced: z.object({
+		fileName: z.string().min(1),
+		sha256: z.string().optional()
+	}).optional(),
 	createdAt: z.string()
 });
 

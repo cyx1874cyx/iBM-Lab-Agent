@@ -5,13 +5,16 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.5.6**。这一版把软件内浏览器收敛成"一个导航栏 + 一个浏览区"：
-去掉了页面里重复的标签栏，导航栏从 76px 收到 **42px**，收起后只留一枚不占位的"导航栏 ⌄"把手；
-**归档按钮移到浏览区底部**，且只在下载任务进行时出现。Agent 侧新增只读工具
-`lab_browser_debug`：一次拿到主文档状态、最近事件与 CDP Target 清单，
-用来判断当前到底是 PDF 文档、HTML 验证页，还是独立查看器目标。
-同时**暂停了 PDF 响应层截取工作**——这条路线的结论与遗留问题见发布说明。
-详见 [发布说明](docs/releases/v0.5.6.md)。
+当前候选版本为 **v0.5.6-beta1**（0.5.7 需求集的候选构建）。这一版把文献捕获的
+字节来路收敛成**两条真机确认过的通路**：出版社定制 PDF 预览页点页面上的下载控件（下载事件），
+浏览器原生 PDF 由 CDP `Fetch` 在响应阶段取原始正文；旧的响应层取体（含 `206` 分段装配）**退役**。
+归档行为同时收紧：条目已有同类型文件时**明确失败**而不再静默覆盖，Agent 拿到成表的
+`reasonCode`，用户确认替换时旧文件改名 `.previous-<sha8>` 留一份；**关掉文献浏览器窗口即任务终止**。
+Agent 侧另有只读调试工具 `lab_browser_debug`（主文档状态 / 最近事件 / CDP Target 清单）。
+需求与技术方案见 [`docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md`](docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md)，
+操作手册见 [`docs/LITERATURE_DOWNLOAD_CHAIN.md`](docs/LITERATURE_DOWNLOAD_CHAIN.md)；
+发布说明见 [`docs/releases/v0.5.6-beta1.md`](docs/releases/v0.5.6-beta1.md)，
+上一稳定版说明见 [`docs/releases/v0.5.6.md`](docs/releases/v0.5.6.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /

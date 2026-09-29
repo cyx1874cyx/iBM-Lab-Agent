@@ -5,9 +5,9 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.6",
-    "commit": "66d7766",
-    "note": "0.5.6 stops the PDF response-layer capture work and makes the in-app browser legible instead. The duplicate tab strip inside the page is gone and the toolbar is a single 42px navigation bar; collapsing it leaves a small '导航栏 ⌄' chip that hides itself on the next mount, so the expand affordance no longer occupies the page and the collapsed host no longer covers clicks; the archive action moved to the bottom of the browsing area and appears only while a download task is running (pdf/si with a pending task, excluding completed/idle). A new read-only tool lab_browser_debug returns the main document's host/documentType/httpStatus/readyState/contentLength/pageSeq, the last 24 events and the WebView2 CDP target list (type/host/pdfViewer/attached) - it is what tells a PDF document, an HTML verification page and a standalone viewer target apart when a flow stalls. Its surface is deliberately narrow: no Cookie, no raw request URL, no response body; CDP targets carry hosts only and event URLs go through the same redact_for_log the log uses. The viewer download path (lab_browser_download_viewer_pdf) still exists but no new real-device verification was done on it, the new UI has NOT been visually accepted on the user's iWAN pages, and every publisher, SI channel and campus-network route below remains pending."
+    "version": "0.5.6-beta1",
+    "commit": "PENDING",
+    "note": "0.5.6-beta1 (candidate build of the 0.5.7 requirement set) retires the response-layer PDF body capture: PDF text now arrives only through the two paths the user confirmed on real devices - clicking the download control on a publisher's own PDF preview page (download event), or the CDP Fetch Response stage for a browser-native PDF document. The 206/Content-Range assembly that belonged to the retired path goes with it. Archiving onto an entry that already holds the same kind now fails explicitly (already-archived) instead of silently overwriting, the agent gets a machine-readable reasonCode table, and a user-confirmed replacement keeps the previous file as .previous-<sha8>. Closing the literature browser window now terminates its task (window-closed) instead of leaving it looking held. Every per-publisher row below is still pending: only the two capture paths themselves are confirmed, not any publisher's institutional channel."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",
@@ -294,5 +294,33 @@
     "Read lab_publisher_browser_download_status nextAction per phase and confirm it matches what the Agent should do next (wait-and-poll, observe-or-click, download-viewer-pdf, manual-handoff, done); two viewer-action failures or one permanent main-window failure must hand off to manual Ctrl+S.",
     "Verify file signature, size, final bundle path, and whether SI has multiple files.",
     "Keep authentication and anti-bot completion manual; never store credentials or cookies in this file."
-  ]
+  ],
+  "capturePaths": {
+    "verifiedOnRealDevice": true,
+    "note": "Two acquisition paths confirmed working on the user's real device (2026-09-30). Everything else is a direct download.",
+    "paths": [
+      {
+        "id": "publisher-preview-control",
+        "page": "Publisher's own HTML/JS PDF preview page",
+        "mechanism": "Agent clicks the page's download control; WebView2 raises DownloadEvent::Requested",
+        "file": "<taskId>-<kind>.pdf",
+        "verified": "real-device"
+      },
+      {
+        "id": "browser-native-pdf",
+        "page": "Browser default PDF viewer (top-level document is application/pdf)",
+        "mechanism": "CDP Fetch.requestPaused at the Response stage; Fetch.getResponseBody captures the original body, then Fetch.continueRequest releases the navigation",
+        "file": "<taskId>-<kind>.payload.pdf",
+        "verified": "real-device"
+      }
+    ],
+    "retired": [
+      {
+        "id": "response-layer-getcontent",
+        "was": "WebResourceResponseReceived + GetContent body capture, including 206/Content-Range assembly",
+        "reason": "No real site needed range-only assembly, and it made two writers share one payload file",
+        "since": "0.5.6-beta1"
+      }
+    ]
+  }
 }

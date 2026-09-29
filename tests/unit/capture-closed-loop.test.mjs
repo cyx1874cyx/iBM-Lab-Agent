@@ -97,6 +97,48 @@ test("R3.3/C6：心跳过期是「失去接管」，绝不能伪装成排队", (
 	assert.match(lost.message, /心跳/);
 });
 
+test("R3：归档冲突时小球显示「已有文件」，而不是含糊的「下载失败」", () => {
+	const conflict = {
+		kind: "pdf", fileName: "某文献.pdf", size: 1_682_985,
+		sha256: "b".repeat(64), archivedAt: "2026-09-30T00:00:00.000Z"
+	};
+	const blocked = view({}, { status: "failed", reasonCode: "already-archived", archiveConflict: conflict, error: "条目已归档正文（某文献.pdf）" });
+	assert.equal(blocked.phase, "failed");
+	assert.equal(blocked.reasonCode, "already-archived");
+	assert.equal(blocked.ball.state, "conflict");
+	assert.match(blocked.message, /已有文件/);
+	assert.match(blocked.message, /某文献\.pdf/);
+	assert.equal(blocked.requiresUserAction, true);
+	assert.match(blocked.question, /替换|保留/);
+	assert.deepEqual(blocked.archiveConflict, conflict);
+
+	// 完整载荷就绪、等待保存仍然是 searching/archiving 的正常态，不能被误判成冲突。
+	const searching = view({ automationStage: "manual" });
+	assert.equal(searching.ball.state, "searching");
+	const archiving = view({ pendingTaskId: "capture-1", state: "downloading" }, {}, undefined);
+	assert.equal(archiving.ball.state, "archiving");
+});
+
+test("R9：窗口关闭即终止，不再伪装成「被持有」", () => {
+	// 关窗是"确定结束"，不是"不知道"：必须立刻进终态并给出重建/清理两条路。
+	const closed = view({ windowOpen: false, pendingTaskId: undefined, releaseReason: "文献浏览器窗口已关闭" });
+	assert.equal(closed.phase, "window-closed");
+	assert.equal(closed.requiresUserAction, true);
+	assert.equal(closed.nextAction, "recreate-or-cancel");
+	assert.match(closed.message, /窗口已关闭/);
+	assert.equal(closed.ball.canRecreate, true);
+	assert.match(closed.question, /重建/);
+
+	// 过渡帧：壳已经把 pendingTaskId 抹掉，但本进程还记着它 —— 也必须是终止。
+	const transitional = view({ windowOpen: false, pendingTaskId: "capture-1" });
+	assert.equal(transitional.phase, "window-closed");
+	assert.notEqual(transitional.phase, "queued");
+
+	// 窗口在、心跳在，才是 held。
+	const open = view({ windowOpen: true, pendingTaskId: "capture-1" });
+	assert.equal(open.phase, "waiting-download");
+});
+
 test("R3.3/C6：接管过又被交还 = orphaned，从未被接管才可能还在排队", () => {
 	const released = view({ pendingTaskId: undefined, lastPendingTaskId: "capture-1", releaseReason: "新的捕获任务替换了它" });
 	assert.equal(released.phase, "orphaned");
@@ -439,11 +481,14 @@ test("R6.1/C20：小球与工具读同一份推导（同一任务同一个 phase
 	assert.equal(described.ball.canRecreate, true);
 });
 
-test("R5.1/C1：壳在响应层取 PDF 载荷，不再只依赖 viewer 工具栏", async () => {
+test("R5.1/C1（R2 后）：壳经 CDP Fetch 取 PDF 正文，不再只依赖 viewer 工具栏", async () => {
 	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
+	// 响应层继续监听——但只用于上报事实（documentType/httpStatus/contentLength）。
 	assert.match(rust, /add_WebResourceResponseReceived/, "必须监听响应");
-	assert.match(rust, /GetContent/, "必须取响应体");
-	assert.match(rust, /write_stream_to_file/, "响应体必须落盘成载荷");
+	assert.doesNotMatch(rust, /\.GetContent\(/, "R2：响应层不得再取响应体");
+	// 正文由 CDP Fetch 的 Response 阶段取出并落盘成载荷。
+	assert.match(rust, /Fetch\.enable/, "必须启用 CDP Fetch 拦截");
+	assert.match(rust, /fn store_fetch_pdf_body/, "Fetch 正文必须落盘成载荷");
 	assert.match(rust, /pdf_payload_ready/, "保存必须先看载荷是否就绪");
 	assert.match(rust, /starts_with\(b"%PDF-"\)/, "归档前必须校验是真 PDF");
 	// 保存必须等到终态，不能只回 started。
@@ -598,20 +643,17 @@ test("D1/D2 壳侧接线：正向证明 + 归档前三道校验", async () => {
 	// ready 的语义边界必须写明，且 complete 不能写成「有字节就算完整」。
 	assert.match(rust, /ready: payload\.received_bytes > 0/);
 	assert.doesNotMatch(rust, /payload\.complete = bytes > 0/);
-	// 读流不能把一次空读当成 EOF。
-	assert.match(rust, /read == 0 \*\*不等于\*\* EOF|read == 0 \*\*不等于\*\*/);
-	assert.match(rust, /PDF_STREAM_STALL_TIMEOUT/);
+	// R2（0.5.6-beta1）之后正文只有两条来路：下载事件与 CDP Fetch。
+	// 取体那条路（含它"空读不等于 EOF"的读取循环与跨线程封送）已整体退役，
+	// 判据本身（`payload_is_whole`）与进度仍留在载荷状态里。
+	assert.doesNotMatch(rust, /PDF_STREAM_STALL_TIMEOUT/);
+	assert.doesNotMatch(rust, /fn spawn_payload_read/);
 	// 归档前的三道校验。
 	assert.match(rust, /tail_has_eof\(&head\)/);
 	assert.match(rust, /pdf_payload_total\(task_id\)/);
 	// 进度要两条路一起算。
 	assert.match(rust, /fn pending_progress_bytes/);
-	// 读取必须在工作线程上：这个流由网络响应驱动，在 UI 线程读完会把整应用冻住。
-	assert.match(rust, /CoMarshalInterThreadInterfaceInStream/, "必须按 COM 规矩封送，而不是硬搬裸指针");
-	assert.match(rust, /CoGetInterfaceAndReleaseStream/);
-	assert.match(rust, /std::thread::spawn\(move \|\| \{/);
-	assert.match(rust, /fn spawn_payload_read/);
-	// 多个响应现在**必须**能共享载荷文件（分段装配）；但已完整的载荷不再接受新段。
+	// 载荷文件仍必须按任务隔离并可复用一个（C 落定整段），完整的载荷不再接受新段。
 	assert.match(rust, /pub fn ensure_pdf_payload\(&self, task_id: &str, path: PathBuf, total_hint: Option<u64>\) -> bool/);
 	assert.match(rust, /!payload\.complete/, "载荷已完整后不再接受新段");
 });
@@ -692,16 +734,50 @@ test("B5：终态任务不再占用队列位次，但仍然是列表里的一条
 	assert.equal(b.view.queuePosition, 1, "活着的那条从第 1 位开始重新排");
 });
 
-test("bug1 回归：CoGetInterfaceAndReleaseStream 之后绝不能再 Drop 那个流", async () => {
+test("R4：手册里的 reasonCode 表与实现保持同步（含 bundle-missing 这类新码）", async () => {
+	const impl = await readFile(new URL("../../src/manual-capture.js", import.meta.url), "utf8");
+	const manual = await readFile(new URL("../../docs/LITERATURE_DOWNLOAD_CHAIN.md", import.meta.url), "utf8");
+	// 实现侧：HTTP 状态映射表的键 + 直接抛出的 code + 兜底值。
+	const mapped = [...impl.matchAll(/"([a-z][a-z-]+)":\s*\d{3}/g)].map((match) => match[1]);
+	const thrown = [...impl.matchAll(/captureValidationError\("([a-z][a-z-]+)"/g)].map((match) => match[1]);
+	// 兜底值 + 由载荷错误前缀推导出来的那个名字（lib/capture-phase.js，不在服务端映射表里）。
+	const implemented = new Set([...mapped, ...thrown, "upload-failed", "transfer-incomplete"]);
+	assert.ok(implemented.has("bundle-missing"), "条目不存在必须有稳定的 code");
+	assert.ok(implemented.has("already-archived"), "归档冲突必须有稳定的 code");
+
+	// 手册侧：reasonCode 表**第一列**里的取值（第二列是"该做什么"，会提到别的标识符）。
+	const start = manual.indexOf("`reasonCode`（机器可读");
+	assert.ok(start >= 0, "手册必须有一张 reasonCode 表");
+	const rows = [];
+	for (const line of manual.slice(start).split("\n")) {
+		if (line.startsWith("|")) { rows.push(line); continue; }
+		if (rows.length > 0) break;
+	}
+	assert.ok(rows.length > 3, "reasonCode 表必须有内容");
+	const firstColumn = rows.map((line) => line.split("|")[1] ?? "").join(" ");
+	const documented = new Set([...firstColumn.matchAll(/`([a-z][a-z-]+)`/g)].map((match) => match[1]));
+	const missingInDoc = [...implemented].filter((code) => !documented.has(code));
+	const missingInCode = [...documented].filter((code) => !implemented.has(code));
+	assert.deepEqual(missingInDoc, [], `手册缺少这些 code：${missingInDoc.join(", ")}`);
+	assert.deepEqual(missingInCode, [], `手册写了实现里不存在的 code：${missingInCode.join(", ")}`);
+});
+
+test("R2（0.5.6-beta1）：响应层取体已退役，正文只走下载事件与 CDP Fetch", async () => {
 	const rust = await readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8");
-	// MSDN：Releases the stream pointer. Even if the unmarshaling fails, the stream is
-	// still released. 让 Rust 包装器再 Drop 一次 = 双重释放 = 一进 PDF 页就崩
-	// （2026-09-27 现场："ibm-lab-desktop has stopped working"）。
-	assert.match(rust, /ManuallyDrop::new\(unsafe \{\s*IStream::from_raw/, "必须用 ManuallyDrop 接管生命周期");
-	assert.match(rust, /CoGetInterfaceAndReleaseStream/);
-	// 退化路径（在 UI 线程上读）必须有更短的上限，不能冻住界面几分钟。
-	assert.match(rust, /INLINE_STREAM_MAX_WAIT/);
-	assert.match(rust, /max_wait\.min\(PDF_STREAM_MAX_WAIT\)/);
+	// 退役：不再从 `WebResourceResponseReceived` 取响应体，也不再跨线程封送 COM 流。
+	// 这段代码曾经是"一进原生 PDF 页就崩溃"（双重 Release）的现场，留着既是
+	// 两个写入者同写 `*.payload.pdf`，也没有任何一条实机路径需要它。
+	assert.doesNotMatch(rust, /GetContent\(/, "响应层不得再取响应体");
+	assert.doesNotMatch(rust, /WebResourceResponseViewGetContentCompletedHandler/);
+	assert.doesNotMatch(rust, /CoGetInterfaceAndReleaseStream|CoMarshalInterThreadInterfaceInStream/);
+	assert.doesNotMatch(rust, /fn write_segment_at|fn parse_content_range|fn is_partial_response/);
+	// 保留：页面上报事实 —— documentType / httpStatus / contentLength 与
+	// "顶层是不是 PDF 文档"的判定全靠这一处。
+	assert.match(rust, /state\.record_document_response\(&url, content_type\.as_deref\(\), content_length, status\)/);
+	// 正文由 CDP Fetch 的 Response 阶段获取，且无论成败都必须放行原请求。
+	assert.match(rust, /Fetch\.getResponseBody/);
+	assert.match(rust, /Fetch\.continueRequest/);
+	assert.match(rust, /fn continue_pdf_fetch/);
 });
 
 test("B1 回归：状态与归档共用同一个完整性判据，且分段响应不进入载荷路径", async () => {
@@ -710,15 +786,10 @@ test("B1 回归：状态与归档共用同一个完整性判据，且分段响�
 	// 两处都必须用它（状态上报 + 归档校验），不许各写一份。
 	const uses = rust.match(/payload_is_whole\(/g) ?? [];
 	assert.ok(uses.length >= 3, `payload_is_whole 必须被定义一次、使用两处，实际出现 ${uses.length} 次`);
-	// 分段响应不再被跳过，而是**装配**进同一个载荷文件（2026-09-28 现场：Wiley 的
-	// 4.4 MB PDF 由 18 个 Range 请求组成，跳过它们等于永远收不全）。
-	assert.match(rust, /fn parse_content_range\(value: &str\) -> Option<\(u64, u64, Option<u64>\)>/);
+	// 覆盖判据保留：区间并集必须从 0 连续覆盖到声明总长（R2 退役了 206 装配，
+	// 但通路 C 依旧按"整段 0..len + 声明总长"落定，判据只有这一处实现）。
 	assert.match(rust, /fn covered_bytes\(segments: &\[\(u64, u64\)\]\) -> u64/);
 	assert.match(rust, /fn covers_from_zero\(segments: &\[\(u64, u64\)\], total: u64\) -> bool/);
-	assert.match(rust, /fn write_segment_at\(path: &Path, offset: u64, bytes: &\[u8\]\)/);
-	// 只有**无法解析**的分段才跳过，并留下记录。
-	assert.match(rust, /is_partial_response\(status, content_range\.as_deref\(\)\) && parsed_range\.is_none\(\)/);
-	assert.match(rust, /跳过无法解析的 PDF 分段响应/);
 	// 查看器保存必须先验产物：ShowSaveAsUI 保存的是**页面**，不是 PDF。
 	assert.match(rust, /fn viewer_saved_pdf_is_usable\(path: &Path\) -> Result<u64, String>/);
 	assert.match(rust, /查看器保存得到的是页面/);
@@ -791,7 +862,11 @@ test("R3：400 的返回体带可判别 code 与收到的字节数", async () =>
 		assert.match(src, new RegExp(`captureValidationError\\("${code}"`), `校验失败必须带 code ${code}`);
 	}
 	assert.match(src, /export function captureValidationError\(code, message\)/);
-	assert.match(capture, /code: error\?\.code/, "上传失败要回传 code");
+	// R4：返回体带机器可读的 code（缺省 upload-failed），并把原因码写回任务行。
+	assert.match(capture, /code: reasonCode/, "上传失败要回传 code");
+	assert.match(capture, /reasonCode,/, "原因码必须写回任务行");
+	// R3：冲突现场（已有文件）必须随 409 一起回传。
+	assert.match(capture, /existing: conflict/);
 	assert.match(capture, /receivedBytes:/, "上传失败要回传 receivedBytes");
 });
 

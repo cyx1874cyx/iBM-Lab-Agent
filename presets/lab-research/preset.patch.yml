@@ -132,7 +132,8 @@
                        点击后仍以下载事件和归档状态判定是否成功。
                        - 出版社 HTML PDF 预览页：observe 后点击实际 Download PDF 元素（例如
                          Wiley 的 /doi/pdfdirect/<DOI>?download=true），再等待下载事件和归档结果。
-                       - 原生 PDF 预览页：nextAction=download-viewer-pdf 时调用一次
+                       - 浏览器原生 PDF：正文由壳经 CDP Fetch 在响应阶段自动取回（无需你操作），
+                         就绪后 nextAction=download-viewer-pdf，调用一次
                          lab_browser_download_viewer_pdf；用 lab_browser_operation_status 等操作终态，
                          用 lab_publisher_browser_download_status 看真实下载进度与归档结果。
                          progress.source=viewer-buffer 是预览缓存，不是下载进度；browser-download
@@ -154,10 +155,15 @@
                        不要自行取消、不要反复重开页面、也不要继续点验证页上的元素。
                        任务状态一律以 lab_publisher_browser_download_status 为准：
                        · completed 才代表已归档；
-                       - requiresUserAction=true（heartbeat-lost / orphaned / stalled / failed / expired）表示任务
-                           已经中断，**不要再等**。处置顺序是固定的：
+                       - requiresUserAction=true（heartbeat-lost / orphaned / window-closed / stalled / failed / expired）表示任务
+                           已经中断，**不要再等**；window-closed = 文献浏览器窗口被关闭，重建任务会重新打开浏览器。
+                       处置顺序是固定的：
                            ① **先读原因，再决定**：失败后立刻读一次 lab_publisher_browser_download_status——
-                              消息里会给出壳侧的失败原话（含捕获服务返回的 code/receivedBytes）。
+                              消息里会给出壳侧的失败原话（含捕获服务返回的 code/receivedBytes）；
+                              reasonCode 是机器可读的固定取值，按它决策，不要按中文文案猜。
+                              其中 **already-archived** 不是"归档坏了"，而是**条目已有同类型文件、覆盖被拒绝**：
+                              把 question 原样给用户，按选择走——替换需重新发起并带 replaceExisting=true
+                              （旧文件会改名留一份），保留就结束任务；旧文件也可用 lab_tasks_delete_bundle_file 清理。
                               **不要先 cancel**：取消会把诊断信息挤到后面，你会在最需要原因的时候把它关掉。
                            ② 若消息里出现「本地已保住完整文件 …」：那份文件是完整的，直接用
                               lab_tasks_update_bundle_file(kind=pdf) 登记进条目，**不要**为了拿同一份字节再抓一次。

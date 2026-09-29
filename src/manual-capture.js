@@ -55,6 +55,21 @@ export const labCaptureTaskSchema = z.object({
 	/** 用户手工下载前同步打开的出版社页面（DOI 存在时为 https://doi.org/<doi>）。 */
 	publisherUrl: z.string().url().optional(),
 	status: z.enum(CAPTURE_STATUSES).default("armed"),
+	/**
+	 * R3：条目已归档同类型文件时是否允许替换。**默认 false**，只有用户在冲突
+	 * 提示里明确选择"替换"时才置真——"覆盖"必须是一次人类决策，不是默认行为。
+	 */
+	allowOverwrite: z.boolean().default(false),
+	/** R4：机器可读的失败原因码（与 `message` 并存，message 给人看）。 */
+	reasonCode: z.string().optional(),
+	/** R3：归档冲突的现场信息（已归档的文件名/大小/哈希/时间），供状态与 UI 展示。 */
+	archiveConflict: z.object({
+		kind: z.enum(["pdf", "si"]),
+		fileName: z.string(),
+		size: z.number().int().nonnegative().optional(),
+		sha256: z.string().optional(),
+		archivedAt: z.string().optional()
+	}).optional(),
 	/** 一次性令牌的 SHA-256 十六进制；明文 token 只出现在创建响应中一次。 */
 	tokenSha256: z.string().regex(/^[0-9a-f]{64}$/),
 	expiresAt: z.string(),
@@ -139,7 +154,7 @@ export function captureValidationError(code, message) {
 export function validateCapturedFile({ kind, buffer, fileName }) {
 	const bytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer ?? []);
 	if (bytes.byteLength > CAPTURE_MAX_BYTES) {
-		throw new Error(`文件超过 ${Math.round(CAPTURE_MAX_BYTES / 1024 / 1024)} MB 安全上限`);
+		throw captureValidationError("too-large", `文件超过 ${Math.round(CAPTURE_MAX_BYTES / 1024 / 1024)} MB 安全上限`);
 	}
 	if (kind !== "pdf" && kind !== "si") {
 		throw new Error(`未知捕获类型：${kind}`);
@@ -160,15 +175,51 @@ export function validateCapturedFile({ kind, buffer, fileName }) {
 			throw captureValidationError("missing-eof", "PDF 结尾不完整（缺少 EOF 标记）");
 		}
 	} else {
-		if (bytes.byteLength < 22) throw new Error(`${ext.toUpperCase()} 文件过小，疑似错误页`);
+		if (bytes.byteLength < 22) throw captureValidationError("payload-too-small", `${ext.toUpperCase()} 文件过小，疑似错误页`);
 		if (!(bytes[0] === 0x50 && bytes[1] === 0x4b && [0x03, 0x05, 0x07].includes(bytes[2]))) {
-			throw new Error(`${ext.toUpperCase()} 文件不是有效的 ZIP/Office 容器`);
+			throw captureValidationError("missing-zip-container", `${ext.toUpperCase()} 文件不是有效的 ZIP/Office 容器`);
 		}
 	}
 	return {
 		sha256: createHash("sha256").update(bytes).digest("hex"),
 		byteLength: bytes.byteLength
 	};
+}
+
+/**
+ * 条目的归档槽位（R3）：该类型已登记的产物路径与摘要。
+ *
+ * 纯函数，不碰文件系统——"登记了但盘上文件已不在"由调用方用 `existsSync` 判定，
+ * 这样这一层仍然可以在单测里直接跑。
+ */
+export function archiveSlotOf(bundle, kind) {
+	const path = kind === "pdf" ? bundle?.pdfPath : bundle?.siPath;
+	if (typeof path !== "string" || path.length === 0) return undefined;
+	const digest = kind === "pdf" ? bundle?.pdfSha256 : bundle?.siSha256;
+	return {
+		kind,
+		path,
+		fileName: path.split(/[\\/]/).pop() || path,
+		sha256: typeof digest === "string" && digest ? digest : undefined,
+		archivedAt: typeof bundle?.updatedAt === "string" ? bundle.updatedAt : undefined
+	};
+}
+
+/**
+ * 归档冲突（R3）：同一 `bundle + kind` 上已经有一份被登记的产物时，**不得静默覆盖**。
+ *
+ * 现场教训：`saveCapturedFile` 写临时文件后 rename，Windows 上目标存在就 `rm` 再
+ * rename，`registerCapturedFile` 直接覆盖 `pdfPath/pdfSha256` —— 人工归档错了就没有
+ * 回头路。现在冲突必须显式失败，并由调用方（工具/面板）给出"替换或保留"的选择。
+ */
+export function captureArchiveConflict(code, existing) {
+	const label = existing?.kind === "si" ? "补充材料" : "正文";
+	const error = captureValidationError(
+		code,
+		`条目已归档${label}（${existing?.fileName ?? "未知文件"}）；如需替换请先确认，或先删除该文件`
+	);
+	error.existing = existing;
+	return error;
 }
 
 /**
@@ -196,6 +247,23 @@ export function isCaptureExpired(task, now = new Date()) {
 
 /** 上传响应错误映射：与 HTTP 状态码对齐。 */
 export function captureHttpStatusFor(error) {
+	// R4：有 code 就按 code 判定，别再靠中文字符串匹配（文案一改，状态码就漂）。
+	const byCode = {
+		"token-invalid": 404,
+		"token-replayed": 409,
+		"task-not-armed": 409,
+		"task-expired": 409,
+		"already-archived": 409,
+		"bundle-missing": 404,
+		"kind-mismatch": 400,
+		"payload-too-small": 400,
+		"missing-pdf-header": 400,
+		"missing-eof": 400,
+		"too-large": 413,
+		"storage-failed": 500,
+		"browser-operation": 400
+	};
+	if (error?.code && byCode[error.code] !== undefined) return byCode[error.code];
 	const message = String(error?.message ?? error ?? "");
 	if (message.includes("not found")) return 404; // 非法/未知令牌
 	if (message.includes("replay") || message.includes("已使用") || message.includes("过期") || message.includes("已失效")) return 409;
@@ -206,10 +274,11 @@ export function captureHttpStatusFor(error) {
 
 /** 任务可上传性检查：armed 且未过期，且从未成功/失败过（防重放）。 */
 export function assertTaskUploadable(task, now = new Date()) {
-	if (task === undefined) throw new Error("token 无效（capture task not found）");
+	// R4：每条拒绝都带稳定的 code，调用方靠它决策，而不是靠中文文案。
+	if (task === undefined) throw captureValidationError("token-invalid", "token 无效（capture task not found）");
 	if (task.status !== "armed") {
-		if (task.status === "completed") throw new Error("该捕获令牌已使用（replay denied）");
-		throw new Error(`捕获任务状态为 ${task.status}，令牌已失效`);
+		if (task.status === "completed") throw captureValidationError("token-replayed", "该捕获令牌已使用（replay denied）");
+		throw captureValidationError("task-not-armed", `捕获任务状态为 ${task.status}，令牌已失效`);
 	}
-	if (isCaptureExpired(task, now)) throw new Error("捕获任务已过期，令牌已失效");
+	if (isCaptureExpired(task, now)) throw captureValidationError("task-expired", "捕获任务已过期，令牌已失效");
 }
