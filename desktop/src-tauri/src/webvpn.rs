@@ -24,6 +24,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use aes::Aes128;
+#[cfg(windows)]
+use base64::Engine as _;
 use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
@@ -37,12 +39,13 @@ use crate::runtime::WebVpnConfig;
 #[cfg(windows)]
 use webview2_com::{
     take_pwstr, CallDevToolsProtocolMethodCompletedHandler, CoTaskMemPWSTR,
+    DevToolsProtocolEventReceivedEventHandler,
     ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
     SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler,
     SourceChangedEventHandler,
     WebResourceResponseReceivedEventHandler, WebResourceResponseViewGetContentCompletedHandler,
     Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2_2, ICoreWebView2_25,
+        ICoreWebView2, ICoreWebView2_2, ICoreWebView2_25,
         COREWEBVIEW2_SAVE_AS_KIND_DEFAULT, COREWEBVIEW2_SAVE_AS_UI_RESULT_SUCCESS,
     },
 };
@@ -3494,6 +3497,179 @@ async fn debug_browser_snapshot(state: &WebVpnState, webview: &Webview) -> Resul
     }))
 }
 
+/// 放行 Fetch 暂停的原请求。只传 requestId；不会把 URL、Cookie 或响应头送进日志。
+#[cfg(windows)]
+fn continue_pdf_fetch(core: &ICoreWebView2, app: &AppHandle, request_id: &str) -> Result<(), String> {
+    let method = CoTaskMemPWSTR::from("Fetch.continueRequest");
+    let params = CoTaskMemPWSTR::from(
+        serde_json::json!({ "requestId": request_id }).to_string().as_str(),
+    );
+    let callback_app = app.clone();
+    let completed = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
+        if status.is_err() || serde_json::from_str::<serde_json::Value>(&result)
+            .ok().is_some_and(|value| value.get("error").is_some()) {
+            record(&callback_app, "error", "", "Fetch.continueRequest 未能放行原请求");
+        }
+        Ok(())
+    }));
+    unsafe {
+        core.CallDevToolsProtocolMethod(
+            *method.as_ref().as_pcwstr(),
+            *params.as_ref().as_pcwstr(),
+            &completed,
+        )
+    }
+    .map_err(|error| error.to_string())
+}
+
+/// WebView2 的 GetContent 在原生 PDF 导航上可能返回 348 B 的 HTML embed 占位页。
+/// Fetch 的 Response 阶段位于替换之前；只有通过完整性验证的同次请求正文才落盘。
+#[cfg(windows)]
+fn decode_fetch_pdf_body(reply: &str, declared_length: Option<u64>) -> Result<Vec<u8>, String> {
+    let value: serde_json::Value = serde_json::from_str(reply)
+        .map_err(|_| "Fetch 响应格式无效".to_string())?;
+    if value.get("error").is_some() {
+        return Err("Fetch 无法读取原始响应体".to_string());
+    }
+    if value.get("base64Encoded").and_then(|item| item.as_bool()) != Some(true) {
+        return Err("Fetch 没有返回二进制 PDF 正文".to_string());
+    }
+    let encoded = value.get("body").and_then(|item| item.as_str())
+        .ok_or("Fetch 响应缺少正文")?;
+    if encoded.len() as u64 > (CAPTURE_MAX_BYTES * 4 / 3 + 16) {
+        return Err("PDF 响应超过捕获上限".to_string());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|_| "Fetch 返回的 PDF 编码无效".to_string())?;
+    if bytes.len() as u64 > CAPTURE_MAX_BYTES || (bytes.len() as u64) < CAPTURE_PDF_MIN_BYTES {
+        return Err("PDF 响应体积不在允许范围内".to_string());
+    }
+    if declared_length.is_some_and(|length| length != bytes.len() as u64)
+        || !payload_is_whole(&bytes, declared_length)
+    {
+        return Err(format!("Fetch 响应不是完整 PDF（{} 字节）", bytes.len()));
+    }
+    Ok(bytes)
+}
+
+#[cfg(windows)]
+fn store_fetch_pdf_body(
+    app: &AppHandle,
+    task_id: &str,
+    generation: u64,
+    path: &Path,
+    declared_length: Option<u64>,
+    reply: &str,
+) -> Result<u64, String> {
+    let bytes = decode_fetch_pdf_body(reply, declared_length)?;
+    let Some(state) = app.try_state::<WebVpnState>() else {
+        return Err("文献浏览器状态不可用".to_string());
+    };
+    if state.pending_generation(task_id) != Some(generation) {
+        return Err("PDF 响应属于已结束的捕获任务".to_string());
+    }
+    if !state.ensure_pdf_payload(task_id, path.to_path_buf(), declared_length) {
+        return Err("PDF 捕获任务已结束或载荷已就绪".to_string());
+    }
+    fs::write(path, &bytes).map_err(|error| format!("无法写入 PDF 暂存文件: {error}"))?;
+    state.finish_pdf_segment(task_id, 0, bytes.len() as u64, true, String::new());
+    Ok(bytes.len() as u64)
+}
+
+/// 只拦当前捕获任务的 200/application/pdf。HTML 挑战页、206 Range 和其他资源
+/// 立即放行，让现有下载/分段路径继续工作；任何错误都不能把浏览器导航挂在暂停态。
+#[cfg(windows)]
+fn handle_fetch_response(
+    app: &AppHandle,
+    core: &ICoreWebView2,
+    args: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2DevToolsProtocolEventReceivedEventArgs,
+) {
+    let mut raw = PWSTR::null();
+    if unsafe { args.ParameterObjectAsJson(&mut raw) }.is_err() {
+        return;
+    }
+    let params = take_pwstr(raw);
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&params) else {
+        return;
+    };
+    let Some(request_id) = value.get("requestId").and_then(|item| item.as_str()) else {
+        return;
+    };
+    let url = value.pointer("/request/url").and_then(|item| item.as_str()).unwrap_or("");
+    let status = value.get("responseStatusCode").and_then(|item| item.as_u64());
+    let headers = value.get("responseHeaders").and_then(|item| item.as_array());
+    let header = |name: &str| -> Option<&str> {
+        headers?.iter().find(|entry| entry.get("name").and_then(|item| item.as_str())
+            .is_some_and(|item| item.eq_ignore_ascii_case(name)))?
+            .get("value")?.as_str()
+    };
+    let content_type = header("content-type").unwrap_or("");
+    let content_length = header("content-length").and_then(|item| item.parse::<u64>().ok());
+    let target = app.try_state::<WebVpnState>().and_then(|state| {
+        let (task_id, path) = state.pending_pdf_target(url)?;
+        let generation = state.pending_generation(&task_id)?;
+        Some((task_id, path, generation))
+    });
+    if status != Some(200)
+        || !content_type.to_ascii_lowercase().contains("application/pdf")
+        || content_length.is_some_and(|length| length > CAPTURE_MAX_BYTES)
+        || target.is_none()
+    {
+        let _ = continue_pdf_fetch(core, app, request_id);
+        return;
+    }
+    let (task_id, path, generation) = target.unwrap();
+    if !app.try_state::<WebVpnState>()
+        .is_some_and(|state| state.ensure_pdf_payload(&task_id, path.clone(), content_length)) {
+        let _ = continue_pdf_fetch(core, app, request_id);
+        return;
+    }
+    record(app, "pdfFetch", "", &format!(
+        "正在读取原请求 PDF 响应（声明 {} 字节）",
+        content_length.map(|size| size.to_string()).unwrap_or_else(|| "未知".to_string()),
+    ));
+    let request_id = request_id.to_string();
+    let callback_id = request_id.clone();
+    let callback_core = core.clone();
+    let callback_app = app.clone();
+    let completed = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
+        let capture = status.map_err(|_| "Fetch.getResponseBody 调用失败".to_string())
+            .and_then(|_| store_fetch_pdf_body(
+                &callback_app, &task_id, generation, &path, content_length, &result,
+            ));
+        if let Err(error) = continue_pdf_fetch(&callback_core, &callback_app, &callback_id) {
+            record(&callback_app, "error", "", &format!("无法放行 PDF 原请求: {error}"));
+        }
+        match capture {
+            Ok(bytes) => {
+                record(&callback_app, "pdfFetch", "", &format!("已捕获原请求 PDF（{bytes} 字节），载荷已就绪"));
+                if let Some(webview) = callback_app.get_webview(WINDOW_LABEL) {
+                    let _ = push_capture_ball(&callback_app, &webview);
+                }
+            }
+            Err(error) => {
+                if let Some(state) = callback_app.try_state::<WebVpnState>() {
+                    if state.pending_generation(&task_id) == Some(generation) {
+                        state.finish_pdf_segment(&task_id, 0, 0, false, error.clone());
+                    }
+                }
+                record(&callback_app, "pdfFetch", "", &format!("原请求捕获未成功：{error}"));
+            }
+        }
+        Ok(())
+    }));
+    let method = CoTaskMemPWSTR::from("Fetch.getResponseBody");
+    let payload = CoTaskMemPWSTR::from(
+        serde_json::json!({ "requestId": request_id }).to_string().as_str(),
+    );
+    if unsafe { core.CallDevToolsProtocolMethod(
+        *method.as_ref().as_pcwstr(), *payload.as_ref().as_pcwstr(), &completed,
+    ) }.is_err() {
+        let _ = continue_pdf_fetch(core, app, &request_id);
+    }
+}
+
 
 /// 安装「页面事件 + 响应层」观察器（C1/C2）。
 ///
@@ -3510,6 +3686,7 @@ async fn debug_browser_snapshot(state: &WebVpnState, webview: &Webview) -> Resul
 pub fn install_capture_observers(webview: &Webview, app: &AppHandle) -> Result<(), String> {
     let events_app = app.clone();
     let response_app = app.clone();
+    let fetch_app = app.clone();
     webview
         .with_webview(move |platform| {
             let core = match unsafe { platform.controller().CoreWebView2() } {
@@ -3551,6 +3728,54 @@ pub fn install_capture_observers(webview: &Webview, app: &AppHandle) -> Result<(
             }));
             let mut response_token = 0_i64;
             let _ = unsafe { core2.add_WebResourceResponseReceived(&response, &mut response_token) };
+
+            // WebView2 的响应视图可能只给 PDF 查看器的 HTML 占位页。CDP Fetch
+            // 在响应交给查看器之前暂停同一次请求，取出原始正文后立即放行。
+            let event_name = CoTaskMemPWSTR::from("Fetch.requestPaused");
+            let Ok(receiver) = (unsafe {
+                core.GetDevToolsProtocolEventReceiver(*event_name.as_ref().as_pcwstr())
+            }) else {
+                record(&fetch_app, "pdfFetch", "", "WebView2 不支持 Fetch 响应事件；保留原下载路径");
+                return;
+            };
+            let paused_app = fetch_app.clone();
+            let paused = DevToolsProtocolEventReceivedEventHandler::create(Box::new(
+                move |sender, args| {
+                    if let (Some(core), Some(args)) = (sender, args) {
+                        handle_fetch_response(&paused_app, &core, &args);
+                    }
+                    Ok(())
+                },
+            ));
+            let mut fetch_token = 0_i64;
+            if unsafe { receiver.add_DevToolsProtocolEventReceived(&paused, &mut fetch_token) }.is_err() {
+                record(&fetch_app, "pdfFetch", "", "无法监听 Fetch 响应事件；保留原下载路径");
+                return;
+            }
+            let method = CoTaskMemPWSTR::from("Fetch.enable");
+            let patterns = serde_json::json!({ "patterns": [
+                { "urlPattern": "*.pdf*", "requestStage": "Response" },
+                { "urlPattern": "*/doi/pdf/*", "requestStage": "Response" },
+                { "urlPattern": "*/content/pdf/*", "requestStage": "Response" },
+                { "urlPattern": "*/stampPDF/getPDF.jsp*", "requestStage": "Response" },
+                { "urlPattern": "*/pdfft*", "requestStage": "Response" }
+            ] }).to_string();
+            let params = CoTaskMemPWSTR::from(patterns.as_str());
+            let enabled_app = fetch_app.clone();
+            let enabled = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
+                if status.is_err() || serde_json::from_str::<serde_json::Value>(&result)
+                    .ok().is_some_and(|value| value.get("error").is_some()) {
+                    record(&enabled_app, "pdfFetch", "", "Fetch 响应拦截不可用；保留原下载路径");
+                } else {
+                    record(&enabled_app, "pdfFetch", "", "原请求 PDF 捕获已启用");
+                }
+                Ok(())
+            }));
+            if unsafe { core.CallDevToolsProtocolMethod(
+                *method.as_ref().as_pcwstr(), *params.as_ref().as_pcwstr(), &enabled,
+            ) }.is_err() {
+                record(&fetch_app, "pdfFetch", "", "无法启动 Fetch 响应拦截；保留原下载路径");
+            }
         })
         .map_err(|error| error.to_string())
 }
@@ -5904,6 +6129,26 @@ mod tests {
         // 不是 PDF：直接否
         assert!(!payload_is_whole(b"<html>preview</html>", None));
         assert!(!payload_is_whole(b"", None));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn fetch_capture_accepts_only_complete_binary_pdf() {
+        let mut pdf = b"%PDF-1.7\n".to_vec();
+        pdf.extend_from_slice(&vec![b'x'; CAPTURE_PDF_MIN_BYTES as usize]);
+        pdf.extend_from_slice(b"\nstartxref\n123\n%%EOF\n");
+        let reply = serde_json::json!({
+            "base64Encoded": true,
+            "body": base64::engine::general_purpose::STANDARD.encode(&pdf),
+        }).to_string();
+        assert_eq!(decode_fetch_pdf_body(&reply, Some(pdf.len() as u64)).unwrap(), pdf);
+        assert!(decode_fetch_pdf_body(&reply, Some(pdf.len() as u64 + 1)).is_err());
+        let html = serde_json::json!({
+            "base64Encoded": true,
+            "body": base64::engine::general_purpose::STANDARD.encode(b"<html>viewer</html>"),
+        }).to_string();
+        assert!(decode_fetch_pdf_body(&html, None).is_err());
+        assert!(decode_fetch_pdf_body(r#"{"error":{"message":"No resource"}}"#, None).is_err());
     }
 
     /// 分段不是噪声，是要装配的东西（2026-09-28 现场：Wiley 的 4.4 MB PDF 由 18 个

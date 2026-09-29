@@ -14,6 +14,12 @@ Science 校园网下载入口仍待安装包真机回归。
 
 **软件内浏览器（WebView2 单例）打开出版社页面 → Agent 点击出版社预览页的下载元素，或触发原生 PDF 查看器保存 → 浏览器实际下载到临时目录 → 上传并归档到课题目录。** 完整的响应层 PDF 仍可直接归档；预览缓存不是下载进度。
 
+原生 PDF 新增同请求响应捕获：WebView2 在 CDP `Fetch.requestPaused` 的 **Response** 阶段读取
+`200/application/pdf` 正文，校验 `%PDF-`、末尾 `%%EOF` 与声明长度后写入当前任务的载荷文件，
+再用 `Fetch.continueRequest` 放行原导航。它不重新请求 URL；HTML 验证页、`206` 分段与
+未命中任务的资源直接放行，仍由原下载事件／分段路径处理。2026-09-30 已在独立 Edge
+调试实验中验证 ScienceDirect 正文（1,682,985 字节、17 页），**WebView2 壳内真机效果仍待回归**。
+
 Agent 的职责是**驱动页面**与**判断状态**；**不要**自己发 HTTP、不要读浏览器 profile、
 不要给 CSS 选择器。
 
@@ -102,7 +108,7 @@ downloadReady, payloadReady, payloadComplete, payloadVerdict,
 viewerDownloadFailure: { count, error }
 ```
 
-`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可请求 WebView2 原生保存当前 PDF。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际进度看 `progress.isActualDownload=true`：`native-save` 表示原生另存为写入任务文件的实际字节，`browser-download` 表示浏览器下载事件写入的实际字节。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
+`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，表示可请求归档已验证的响应层 PDF；载荷尚未就绪时才尝试 WebView2 原生保存。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际进度看 `progress.isActualDownload=true`：`native-save` 表示原生另存为写入任务文件的实际字节，`browser-download` 表示浏览器下载事件写入的实际字节。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
 原生 PDF 只有拿到完整 `200` 响应声明的长度才显示总量和百分比；`206` 分段长度不会冒充整份文件大小。
 
 `nextAction` 取值与含义（**这是唯一该用来决策的字段**）：
