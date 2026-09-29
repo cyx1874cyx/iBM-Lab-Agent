@@ -241,27 +241,34 @@ test("归档终态向 Agent 返回条目文件路径与哈希，不再要求用�
 	assert.equal(result.progress.source, "archived-file");
 });
 
-test("原生 PDF 保存进行时报告浏览器下载事件进度", () => {
+test("原生 PDF 保存进行时报告任务文件实际写入进度", () => {
 	const saving = view({ automationStage: "saving", documentType: "application/pdf", contentLength: 3_200_000 });
 	assert.equal(saving.nextAction, "wait-and-poll");
-	assert.match(saving.message, /等待浏览器下载事件/);
+	assert.match(saving.message, /等待任务文件写入/);
 	const downloading = view({ state: "downloading", automationStage: "saving", documentType: "application/pdf",
 		contentLength: 3_200_000, downloadEventBytes: 800_000, downloadTotalBytes: 3_200_000 });
 	assert.equal(downloading.nextAction, "wait-and-poll");
-	assert.equal(downloading.progress.source, "browser-download");
-	assert.match(downloading.message, /浏览器正在下载正文 PDF/);
+	assert.equal(downloading.progress.source, "native-save");
+	assert.match(downloading.message, /WebView2 正在保存正文 PDF/);
 	assert.equal(downloading.progress.receivedBytes, 800_000);
 	assert.equal(downloading.progress.percent, 25);
 });
 
-test("查看器保存失败一次即交给人工 Ctrl+S，避免重复动作", () => {
+test("确定性 MIME 错误一次即交给人工 Ctrl+S", () => {
 	const service = Object.create(LabCaptureService.prototype);
 	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed",
-		error: "PDF 查看器保存控件未触发下载事件；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径" }]]);
+		error: "当前另存为对象不是 PDF（contentType=text/html）；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径" }]]);
 	const failure = service.viewerDownloadFailure(TASK.id);
 	assert.equal(failure.count, 1);
 	assert.equal(failure.terminal, true);
 	assert.equal(view({ documentType: "application/pdf", viewerDownloadFailure: failure }).nextAction, "manual-handoff");
+});
+
+test("偶发原生保存失败虽附人工提示，仍保留一次重试机会", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed",
+		error: "WebView2 原生另存为响应超时；请在侧栏 PDF 查看器按 Ctrl+S" }]]);
+	assert.equal(service.viewerDownloadFailure(TASK.id).terminal, false);
 });
 
 test("查看器错误保留完整诊断路径，且一次失败即进入人工接管", () => {

@@ -77,7 +77,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 | `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
 | `lab_browser_wait` | `taskId`(必), `timeoutMs`(默认 8000，上限 20000) | 等"阶段/页面/载荷/进度"任一变化即返回；已是终态则立即返回 |
-| `lab_browser_download_viewer_pdf` | `taskId`(必) | 点击原生 PDF 查看器的保存控件，由浏览器下载事件接管进度和归档；立即返回 `operationId`，再查操作结果与任务下载进度。出版社 HTML 预览页用 `observe`/`click` 点击真实下载元素。失败时按状态提示由用户在侧栏按 Ctrl+S。 |
+| `lab_browser_download_viewer_pdf` | `taskId`(必) | 通过 WebView2 原生 `ShowSaveAsUI` 保存当前 PDF；壳指定任务暂存路径、读取实际写入字节，校验完整后归档；立即返回 `operationId`。出版社 HTML 预览页用 `observe`/`click` 点击真实下载元素。失败时按状态提示由用户在侧栏按 Ctrl+S。 |
 
 **候选字段怎么用**：
 
@@ -101,7 +101,7 @@ downloadReady, payloadReady, payloadComplete, payloadVerdict,
 viewerDownloadFailure: { count, error }
 ```
 
-`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可触发原生 PDF 查看器的保存控件。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.isActualDownload=true`：`browser-download` 表示浏览器下载事件，按任务暂存文件的实际已写入字节上报。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
+`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可请求 WebView2 原生保存当前 PDF。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际进度看 `progress.isActualDownload=true`：`native-save` 表示原生另存为写入任务文件的实际字节，`browser-download` 表示浏览器下载事件写入的实际字节。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
 原生 PDF 只有拿到完整 `200` 响应声明的长度才显示总量和百分比；`206` 分段长度不会冒充整份文件大小。
 
 `nextAction` 取值与含义（**这是唯一该用来决策的字段**）：
@@ -266,6 +266,6 @@ viewerDownloadFailure: { count, error }
 ## 10. 最小可用记忆（如果只记三句话）
 
 1. **决策只看 `nextAction`**；HTML 预览页点页面下载元素，原生 PDF 调 `lab_browser_download_viewer_pdf`。
-2. **预览缓存不是下载进度**；`phase=downloading` 看 `progress.source=browser-download`、已写入字节及停滞时间，只等归档终态。
+2. **预览缓存不是下载进度**；`phase=downloading` 看 `progress.source=native-save` 或 `browser-download`、已写入字节及停滞时间，只等归档终态。
 3. **失败先读原因、再看有没有保住的文件、连环两次就停**；重建用
    `cancel(recreate=true)`，人机验证只能由用户完成。

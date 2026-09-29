@@ -110,9 +110,9 @@ test("WebVPN 模块不得读取或导出浏览器 profile 内容", async () => {
 			`WebVPN 模块不得出现 ${forbidden}：profile 内容不可进入应用数据面`
 		);
 	}
-	// 原生 PDF 保存改由浏览器下载事件处理，无需再打开取数响应文件。
+	// 原生另存为只允许读取当前任务暂存文件的前缀，不能读取浏览器 profile。
 	const fileOpenArgs = [...webvpn.matchAll(/fs::File::open\(([^)]*)\)/g)].map((match) => match[1]);
-	assert.deepEqual(fileOpenArgs, []);
+	assert.deepEqual(fileOpenArgs, ["&poll_path", "&destination"]);
 	const readDirArgs = [...webvpn.matchAll(/fs::read_dir\(([^)]*)\)/g)].map((match) => match[1]);
 	assert.ok(readDirArgs.length > 0, "捕获目录清理需要一次目录枚举（walk 到临时产物）");
 	for (const argument of readDirArgs) {
