@@ -22,8 +22,6 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use aes::Aes128;
-#[cfg(windows)]
-use base64::Engine;
 use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
@@ -1525,7 +1523,7 @@ impl WebVpnState {
         DownloadDecision::Capture(destination)
     }
 
-    fn claim_native_save_destination(&self, task_id: &str) -> Result<PathBuf, String> {
+    fn begin_viewer_save_action(&self, task_id: &str) -> Result<(), String> {
         let Ok(mut session) = self.session.lock() else {
             return Err("文献浏览器状态不可用".to_string());
         };
@@ -1536,31 +1534,28 @@ impl WebVpnState {
             || pending.download_claimed || pending.expires_at <= Instant::now() {
             return Err("当前任务不允许保存原生 PDF".to_string());
         }
-        pending.download_claimed = true;
         pending.native_saving = true;
         pending.automation_stage = "saving".to_string();
-        pending.download_started_at = Some(Instant::now());
-        let path = pending.temp_path.clone();
-        session.state = WebVpnSessionState::Downloading;
-        Ok(path)
+        Ok(())
     }
 
-    /// CDP 网络读取失败后释放任务目标；用户随后按 Ctrl+S 仍能被下载事件认领。
-    fn abort_direct_pdf_transfer(&self, task_id: &str) {
+    /// 查看器按钮未引发下载时撤销动作标记，保留人工 Ctrl+S 的下载认领机会。
+    fn clear_viewer_save_action(&self, task_id: &str) {
         if let Ok(mut session) = self.session.lock() {
             if session.state == WebVpnSessionState::Uploading { return; }
             if let Some(pending) = session.pending.as_mut() {
-                if pending.task_id == task_id {
-                    let path = pending.temp_path.clone();
-                    pending.download_claimed = false;
-                    pending.download_started_at = None;
+                if pending.task_id == task_id && !pending.download_claimed {
                     pending.native_saving = false;
                     pending.automation_stage = "manual".to_string();
                     session.state = WebVpnSessionState::WaitingDownload;
-                    let _ = fs::remove_file(path);
                 }
             }
         }
+    }
+
+    fn download_claimed_for(&self, task_id: &str) -> bool {
+        self.session.lock().ok().and_then(|session| session.pending.as_ref()
+            .map(|pending| pending.task_id == task_id && pending.download_claimed)).unwrap_or(false)
     }
 
     fn should_ignore_failed_finish(&self) -> bool {
@@ -4131,8 +4126,8 @@ async fn finalize_native_save(
     }
 }
 
-/// 调用当前 WebView2 实例的 CDP；请求仍走其网络会话与机构登录态。
-/// 返回体可能含临时签名 URL/响应头，调用方只摘取必要字段，不写日志。
+/// 调用当前 WebView2 实例的 CDP；仅用于定位并触发查看器控件。
+/// 返回体可能含页面内部信息，调用方只摘取必要字段，不写日志。
 #[cfg(windows)]
 async fn browser_cdp(webview: &Webview, method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
     let (sender, receiver) = std::sync::mpsc::channel::<Result<String, String>>();
@@ -4141,11 +4136,11 @@ async fn browser_cdp(webview: &Webview, method: &str, params: serde_json::Value)
     webview.with_webview(move |platform| {
         let core = match unsafe { platform.controller().CoreWebView2() } {
             Ok(core) => core,
-            Err(_) => { let _ = sender.send(Err("无法取得 WebView2 网络接口".to_string())); return; }
+            Err(_) => { let _ = sender.send(Err("无法取得 WebView2 控制接口".to_string())); return; }
         };
         let completed = sender.clone();
         let handler = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
-            let reply = status.map_err(|_| "WebView2 网络请求失败".to_string())
+            let reply = status.map_err(|_| "WebView2 查看器控制失败".to_string())
                 .map(|_| result);
             let _ = completed.send(reply);
             Ok(())
@@ -4153,119 +4148,82 @@ async fn browser_cdp(webview: &Webview, method: &str, params: serde_json::Value)
         let method = CoTaskMemPWSTR::from(method.as_str());
         let payload = CoTaskMemPWSTR::from(payload.as_str());
         if unsafe { core.CallDevToolsProtocolMethod(*method.as_ref().as_pcwstr(), *payload.as_ref().as_pcwstr(), &handler) }.is_err() {
-            let _ = sender.send(Err("WebView2 不支持此网络读取动作".to_string()));
+            let _ = sender.send(Err("WebView2 不支持此查看器控制动作".to_string()));
         }
-    }).map_err(|_| "无法向 WebView2 发送网络读取动作".to_string())?;
+    }).map_err(|_| "无法向 WebView2 发送查看器控制动作".to_string())?;
     let reply = tauri::async_runtime::spawn_blocking(move || receiver.recv_timeout(Duration::from_secs(45)))
-        .await.map_err(|_| "WebView2 网络读取中断".to_string())?
-        .map_err(|_| "WebView2 网络读取超时".to_string())??;
-    serde_json::from_str(&reply).map_err(|_| "WebView2 网络结果不是有效 JSON".to_string())
+        .await.map_err(|_| "WebView2 查看器控制中断".to_string())?
+        .map_err(|_| "WebView2 查看器控制超时".to_string())??;
+    serde_json::from_str(&reply).map_err(|_| "WebView2 查看器结果不是有效 JSON".to_string())
+}
+
+/// Chromium PDF 扩展的保存控件位于多层 Shadow DOM 内。只触达明确的查看器控件，
+/// 不构造第二条 HTTP 请求，也不把当前签名 URL 交给页面脚本。
+#[cfg(windows)]
+const PDF_VIEWER_SAVE_SCRIPT: &str = r#"(() => {
+  const viewer = document.getElementById('viewer');
+  if (!viewer || !viewer.shadowRoot) return 'viewer-unavailable';
+  const toolbar = viewer.shadowRoot.getElementById('toolbar');
+  if (!toolbar || !toolbar.shadowRoot) return 'toolbar-unavailable';
+  const root = toolbar.shadowRoot;
+  const downloads = root.getElementById('downloads');
+  const save = downloads?.shadowRoot?.getElementById('save')
+    || root.getElementById('download') || root.getElementById('save');
+  if (!save || save.disabled || save.hidden) return 'save-unavailable';
+  save.click();
+  return 'clicked';
+})()"#;
+
+#[cfg(windows)]
+fn collect_pdf_viewer_frame_ids(tree: &serde_json::Value, ids: &mut Vec<String>) {
+    if let Some(frame) = tree.get("frame") {
+        if let Some(id) = frame.get("id").and_then(|item| item.as_str()) {
+            ids.push(id.to_string());
+        }
+    }
+    if let Some(children) = tree.get("childFrames").and_then(|item| item.as_array()) {
+        for child in children { collect_pdf_viewer_frame_ids(child, ids); }
+    }
 }
 
 #[cfg(windows)]
-fn resource_header<'a>(resource: &'a serde_json::Value, name: &str) -> Option<&'a str> {
-    resource.get("headers")?.as_object()?.iter()
-        .find(|(key, _)| key.eq_ignore_ascii_case(name))?.1.as_str()
+async fn eval_pdf_viewer_save(webview: &Webview, context_id: Option<u64>) -> Result<String, String> {
+    let mut params = serde_json::json!({
+        "expression": PDF_VIEWER_SAVE_SCRIPT, "returnByValue": true, "userGesture": true
+    });
+    if let Some(id) = context_id { params["contextId"] = serde_json::json!(id); }
+    let reply = browser_cdp(webview, "Runtime.evaluate", params).await?;
+    if reply.get("exceptionDetails").is_some() {
+        return Err("PDF 查看器保存控件脚本执行失败".to_string());
+    }
+    Ok(reply.pointer("/result/value").and_then(|item| item.as_str())
+        .unwrap_or("viewer-unavailable").to_string())
 }
 
 #[cfg(windows)]
-fn safe_header_value(value: &str) -> String {
-    value.chars().filter(|ch| !ch.is_control()).take(96).collect()
-}
-
-#[cfg(windows)]
-fn diagnostic_prefix(path: &Path) -> String {
-    let mut prefix = [0_u8; 16];
-    let count = fs::File::open(path).and_then(|mut file| file.read(&mut prefix)).unwrap_or(0);
-    let bytes = &prefix[..count];
-    let hex = bytes.iter().map(|byte| format!("{byte:02x}")).collect::<Vec<_>>().join("");
-    let ascii = bytes.iter().map(|byte| if byte.is_ascii_graphic() || *byte == b' ' { *byte as char } else { '.' }).collect::<String>();
-    format!("{hex}/{ascii}")
-}
-
-#[cfg(windows)]
-fn preserve_invalid_pdf_response(path: &Path) -> Result<PathBuf, String> {
-    let diagnostic = path.with_extension("notpdf.bin");
-    fs::rename(path, &diagnostic).map_err(|error| format!("无法保存无效响应证据：{error}"))?;
-    Ok(diagnostic)
-}
-
-/// 在 WebView2 自己的网络会话内重新读取当前已验证 PDF，流式写入任务专属目标。
-/// 这条路不发送键盘事件，也不把 cookie 或签名 URL 导出给插件/模型。
-#[cfg(windows)]
-async fn fetch_current_pdf_in_webview(app: &AppHandle, webview: &Webview, current: &url::Url, destination: &Path) -> Result<u64, String> {
+async fn click_pdf_viewer_save(webview: &Webview) -> Result<String, String> {
+    let mut last = eval_pdf_viewer_save(webview, None).await.unwrap_or_else(|error| error);
+    if last == "clicked" { return Ok("root".to_string()); }
     let tree = browser_cdp(webview, "Page.getFrameTree", serde_json::json!({})).await?;
-    let frame_id = tree.pointer("/frameTree/frame/id").and_then(|item| item.as_str())
-        .ok_or("无法确定 PDF 所属的 WebView2 页面")?;
-    let reply = browser_cdp(webview, "Network.loadNetworkResource", serde_json::json!({
-        "frameId": frame_id, "url": current.as_str(),
-        "options": { "disableCache": true, "includeCredentials": true }
-    })).await?;
-    let resource = reply.get("resource").ok_or("WebView2 没有返回 PDF 网络资源")?;
-    let status = resource.get("httpStatusCode").and_then(|item| item.as_u64());
-    let content_type = resource_header(resource, "content-type").unwrap_or("unknown");
-    let content_length = resource_header(resource, "content-length").unwrap_or("unknown");
-    let net_error = resource.get("netErrorName").and_then(|item| item.as_str()).unwrap_or("none");
-    record(app, "directPdfResponse", current.as_str(), &format!(
-        "success={} status={} contentType={} contentLength={} netError={}",
-        resource.get("success").and_then(|item| item.as_bool()).unwrap_or(false),
-        status.map_or_else(|| "unknown".to_string(), |value| value.to_string()),
-        safe_header_value(content_type), safe_header_value(content_length), safe_header_value(net_error)
-    ));
-    if resource.get("success").and_then(|item| item.as_bool()) != Some(true)
-        || status != Some(200) {
-        return Err(format!("WebView2 未能重新获取完整 PDF（HTTP {}，网络错误 {}）",
-            status.map_or_else(|| "unknown".to_string(), |value| value.to_string()), safe_header_value(net_error)));
+    let mut ids = Vec::new();
+    if let Some(root) = tree.get("frameTree") {
+        collect_pdf_viewer_frame_ids(root, &mut ids);
     }
-    let stream = resource.get("stream").and_then(|item| item.as_str())
-        .ok_or("WebView2 未提供 PDF 响应流")?.to_string();
-    let response_length = resource_header(resource, "content-length").and_then(|value| value.parse::<u64>().ok());
-    if response_length.is_some_and(|size| size > CAPTURE_MAX_BYTES) {
-        let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
-        return Err("PDF 超过 100 MB 捕获上限".to_string());
+    for id in ids {
+        let world = browser_cdp(webview, "Page.createIsolatedWorld", serde_json::json!({
+            "frameId": id, "worldName": "ibm-lab-pdf-save"
+        })).await;
+        let Some(context_id) = world.ok().and_then(|value| value.get("executionContextId").and_then(|item| item.as_u64())) else {
+            continue;
+        };
+        last = eval_pdf_viewer_save(webview, Some(context_id)).await.unwrap_or_else(|error| error);
+        if last == "clicked" { return Ok("frame".to_string()); }
     }
-    let transfer = async {
-        let mut file = fs::File::create(destination).map_err(|_| "无法创建 PDF 暂存文件".to_string())?;
-        let mut received = 0_u64;
-        loop {
-            let chunk = browser_cdp(webview, "IO.read", serde_json::json!({
-                "handle": stream, "size": 262_144
-            })).await?;
-            let data = chunk.get("data").and_then(|item| item.as_str()).ok_or("PDF 响应分块缺失")?;
-            let bytes = if chunk.get("base64Encoded").and_then(|item| item.as_bool()) == Some(true) {
-                base64::engine::general_purpose::STANDARD.decode(data).map_err(|_| "PDF 分块编码无效")?
-            } else { data.as_bytes().to_vec() };
-            received = received.checked_add(bytes.len() as u64).ok_or("PDF 大小无效")?;
-            if received > CAPTURE_MAX_BYTES { return Err("PDF 超过 100 MB 捕获上限".to_string()); }
-            file.write_all(&bytes).map_err(|_| "无法写入 PDF 暂存文件".to_string())?;
-            if chunk.get("eof").and_then(|item| item.as_bool()) == Some(true) { break; }
-            if bytes.is_empty() { return Err("PDF 响应流未完成且没有新字节".to_string()); }
-        }
-        file.sync_all().map_err(|_| "无法确认 PDF 已落盘".to_string())?;
-        drop(file);
-        if response_length.is_some_and(|size| size != received) {
-            return Err("PDF 字节数与网络响应声明不一致".to_string());
-        }
-        if let Err(error) = viewer_saved_pdf_is_usable(destination) {
-            let prefix = diagnostic_prefix(destination);
-            let diagnostic = preserve_invalid_pdf_response(destination).ok();
-            record(app, "directPdfInvalid", current.as_str(), &format!(
-                "status=200 contentType={} contentLength={} received={} prefix={} evidence={}",
-                safe_header_value(content_type), safe_header_value(content_length), received, prefix,
-                diagnostic.as_ref().map_or_else(|| "unavailable".to_string(), |path| path.to_string_lossy().to_string())
-            ));
-            return Err(format!("{error}（HTTP 200，Content-Type {}，响应前缀 {}；诊断文件 {}）",
-                safe_header_value(content_type), prefix,
-                diagnostic.as_ref().map_or_else(|| "未能保存".to_string(), |path| path.to_string_lossy().to_string())));
-        }
-        Ok(received)
-    }.await;
-    let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
-    transfer
+    Err(format!("PDF 查看器下载控件不可用（{last}）"))
 }
 
-/// Agent 原生 PDF 最后一步：由当前 WebView2 网络会话读取已验证的 PDF URL，
-/// 写入任务专属暂存文件，校验后交给现有归档服务。无需焦点或键盘合成。
+/// Agent 原生 PDF 最后一步：点击 Chromium PDF 查看器自身的保存控件，
+/// 由 WebView2 下载事件接管进度与归档。无需焦点、键盘合成或重新请求 URL。
 #[cfg(windows)]
 async fn download_viewer_pdf(
     app: &AppHandle,
@@ -4281,24 +4239,35 @@ async fn download_viewer_pdf(
         return Err("当前顶层文档不是已确认的原生 PDF；出版社网页预览器请先观察并点击页面上的 Download PDF 入口".to_string());
     }
     let generation = state.pending_generation(task_id).ok_or("当前文献任务已经结束")?;
-    let destination = state.claim_native_save_destination(task_id)?;
-    record(app, "directPdfFetch", current.as_str(), "已在 WebView2 网络会话内发起当前 PDF 读取（绕过缓存）");
-    let bytes = match fetch_current_pdf_in_webview(app, webview, &current, &destination).await {
-        Ok(bytes) => bytes,
+    state.begin_viewer_save_action(task_id)?;
+    let source = match click_pdf_viewer_save(webview).await {
+        Ok(source) => source,
         Err(error) => {
-            state.abort_direct_pdf_transfer(task_id);
-            record(app, "directPdfFetch", current.as_str(), &format!("PDF 网络读取失败：{error}"));
+            state.clear_viewer_save_action(task_id);
+            record(app, "viewerToolbar", current.as_str(), &format!("PDF 查看器控件不可用：{error}"));
             return Err(format!("{error}；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径"));
         }
     };
-    record(app, "directPdfFetch", current.as_str(), &format!("PDF 已完整写入任务暂存文件（{bytes} 字节）"));
-    let Some(upload) = state.begin_upload(&destination) else {
-        state.abort_direct_pdf_transfer(task_id);
-        return Err("PDF 已取得，但任务已结束，无法归档；请重新查询任务状态".to_string());
-    };
-    let upload_app = app.clone();
-    std::thread::spawn(move || upload_capture(upload_app, upload));
+    record(app, "viewerToolbar", current.as_str(), &format!("已点击 PDF 查看器保存控件（{source}）；等待下载事件"));
     let _ = push_capture_ball(app, webview);
+    let claim_app = app.clone();
+    let claim_task_id = task_id.to_string();
+    let claimed = tauri::async_runtime::spawn_blocking(move || {
+        let deadline = Instant::now() + Duration::from_secs(12);
+        loop {
+            let Some(state) = claim_app.try_state::<WebVpnState>() else { return false; };
+            if state.download_claimed_for(&claim_task_id)
+                || state.wait_for_outcome(generation, Duration::ZERO).is_some() { return true; }
+            if state.pending_generation(&claim_task_id) != Some(generation)
+                || Instant::now() >= deadline { return false; }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }).await.map_err(|_| "等待 PDF 下载事件中断".to_string())?;
+    if !claimed {
+        state.clear_viewer_save_action(task_id);
+        record(app, "viewerToolbar", current.as_str(), "保存控件未触发下载事件");
+        return Err("PDF 查看器保存控件未触发下载事件；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径".to_string());
+    }
     let wait_app = app.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         wait_app.try_state::<WebVpnState>()
@@ -5129,12 +5098,12 @@ mod tests {
             true, upload, std::env::temp_dir().join("capture-agent-si.pdf")).unwrap();
         let target = url::Url::parse("https://media.springernature.com/full/springer-static/41586_2026_11032_MOESM1_ESM.pdf").unwrap();
         assert!(state.should_capture_direct_si_preview(&target));
-        assert!(state.claim_native_save_destination("capture-agent-si").is_ok(),
+        assert!(state.begin_viewer_save_action("capture-agent-si").is_ok(),
             "SI 任务显示原生 PDF 后也可进入查看器保存通路");
     }
 
     #[test]
-    fn failed_direct_pdf_fetch_releases_destination_for_manual_save() {
+    fn failed_viewer_click_releases_destination_for_manual_save() {
         let state = WebVpnState::default();
         state.transition(WebVpnSessionState::Opening).unwrap();
         state.transition(WebVpnSessionState::Ready).unwrap();
@@ -5142,28 +5111,11 @@ mod tests {
         let upload = url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap();
         state.prepare_capture("capture-direct-abort", "pdf", "doi.org", PublisherAdapter::Elsevier,
             false, upload, path.clone()).unwrap();
-        assert_eq!(state.claim_native_save_destination("capture-direct-abort").unwrap(), path);
-        fs::write(&path, b"partial PDF").unwrap();
-        state.abort_direct_pdf_transfer("capture-direct-abort");
-        assert!(!path.exists(), "半截文件不能冒充人工下载结果");
+        state.begin_viewer_save_action("capture-direct-abort").unwrap();
+        assert!(!state.download_claimed_for("capture-direct-abort"), "触发控件不应提前认领下载");
+        state.clear_viewer_save_action("capture-direct-abort");
         assert!(matches!(state.claim_download_destination(), DownloadDecision::Capture(ref target) if target == &path),
             "人工 Ctrl+S 应可重新认领同一个任务目标");
-    }
-
-    #[test]
-    fn invalid_pdf_response_keeps_bounded_diagnostics_without_logging_raw_headers() {
-        let resource = serde_json::json!({"headers": {"Content-Type": "text/html\r\nsecret", "CONTENT-LENGTH": "62872"}});
-        assert_eq!(resource_header(&resource, "content-type"), Some("text/html\r\nsecret"));
-        assert_eq!(resource_header(&resource, "content-length"), Some("62872"));
-        assert_eq!(safe_header_value("text/html\r\nsecret"), "text/htmlsecret");
-        let path = std::env::temp_dir().join(format!("ibm-invalid-pdf-{}.pdf", std::process::id()));
-        fs::write(&path, b"<!doctype html><html>diagnostic</html>").unwrap();
-        assert_eq!(diagnostic_prefix(&path), "3c21646f63747970652068746d6c3e3c/<!doctype html><");
-        let diagnostic = preserve_invalid_pdf_response(&path).unwrap();
-        assert!(!path.exists());
-        assert!(diagnostic.ends_with(format!("ibm-invalid-pdf-{}.notpdf.bin", std::process::id())));
-        assert_eq!(fs::read(&diagnostic).unwrap(), b"<!doctype html><html>diagnostic</html>");
-        let _ = fs::remove_file(diagnostic);
     }
 
     #[test]

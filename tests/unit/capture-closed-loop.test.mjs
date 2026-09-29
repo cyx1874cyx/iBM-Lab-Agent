@@ -241,27 +241,39 @@ test("归档终态向 Agent 返回条目文件路径与哈希，不再要求用�
 	assert.equal(result.progress.source, "archived-file");
 });
 
-test("原生 PDF 读取进行时报告 WebView2 实际写入进度", () => {
+test("原生 PDF 保存进行时报告浏览器下载事件进度", () => {
 	const saving = view({ automationStage: "saving", documentType: "application/pdf", contentLength: 3_200_000 });
 	assert.equal(saving.nextAction, "wait-and-poll");
-	assert.match(saving.message, /等待 WebView2 写入 PDF/);
+	assert.match(saving.message, /等待浏览器下载事件/);
 	const downloading = view({ state: "downloading", automationStage: "saving", documentType: "application/pdf",
 		contentLength: 3_200_000, downloadEventBytes: 800_000, downloadTotalBytes: 3_200_000 });
 	assert.equal(downloading.nextAction, "wait-and-poll");
-	assert.equal(downloading.progress.source, "webview-network");
-	assert.match(downloading.message, /WebView2 正在读取正文 PDF/);
+	assert.equal(downloading.progress.source, "browser-download");
+	assert.match(downloading.message, /浏览器正在下载正文 PDF/);
 	assert.equal(downloading.progress.receivedBytes, 800_000);
 	assert.equal(downloading.progress.percent, 25);
 });
 
-test("WebView2 读取失败一次即交给人工 Ctrl+S，避免重复获取失效签名", () => {
+test("查看器保存失败一次即交给人工 Ctrl+S，避免重复动作", () => {
 	const service = Object.create(LabCaptureService.prototype);
 	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed",
-		error: "WebView2 未能重新获取完整 PDF；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径" }]]);
+		error: "PDF 查看器保存控件未触发下载事件；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径" }]]);
 	const failure = service.viewerDownloadFailure(TASK.id);
 	assert.equal(failure.count, 1);
 	assert.equal(failure.terminal, true);
 	assert.equal(view({ documentType: "application/pdf", viewerDownloadFailure: failure }).nextAction, "manual-handoff");
+});
+
+test("查看器错误保留完整诊断路径，且一次失败即进入人工接管", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	const path = "C:\\Users\\admin\\AppData\\Local\\iBM-Lab-Agent\\dsh\\lab-agent\\projects\\test\\webvpn-downloads\\capture-evidence.notpdf.bin";
+	service.browserOperations = new Map([["browser-1", { id: "browser-1", projectId: "proj-test", taskId: TASK.id,
+		action: "viewer-download", status: "running", error: undefined }]]);
+	service.completeBrowserOperation({ projectId: "proj-test", id: "browser-1",
+		error: `HTTP 200 text/html；诊断文件 ${path}；请在侧栏 PDF 查看器按 Ctrl+S` });
+	const operation = service.getBrowserOperation("browser-1", "proj-test");
+	assert.match(operation.error, /capture-evidence\.notpdf\.bin/);
+	assert.equal(service.viewerDownloadFailure(TASK.id).terminal, true);
 });
 
 test("R6.2/C17：长时间没有字节增长就是 stalled，不再永远显示「正在保存」", () => {

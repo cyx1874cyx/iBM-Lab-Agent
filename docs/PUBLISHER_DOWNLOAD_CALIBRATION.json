@@ -5,7 +5,7 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta25",
+    "version": "0.5.5-beta26",
     "commit": "28cdf62",
     "note": "beta25 responds to the beta24 ScienceDirect failure: the authenticated CDP PDF request bypasses the cache, logs the redacted target URL plus HTTP status, content type, content length, network error and a bounded 16-byte response prefix, and retains a failed body in a task-local .notpdf.bin evidence file. Invalid bytes are never archived; the operation reports the diagnostics and immediately hands off to manual Ctrl+S. This is a diagnostic build awaiting live verification; no claim is made that ScienceDirect automatic download now works. The beta24 removal of synthetic Ctrl+S remains in place. Per-publisher entry shape and every publisher, SI channel and campus-network route below remain pending."
   },

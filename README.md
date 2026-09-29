@@ -5,10 +5,10 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.5-beta25**。文献下载由 Agent 观察页面、点击出版社入口，
+当前候选版本为 **v0.5.5-beta26**。文献下载由 Agent 观察页面、点击出版社入口，
 进入原生 PDF 查看器后交给 WebView2 会话读取并归档。beta25 针对 ScienceDirect 的
 非 PDF 响应增加脱敏网络诊断与本地证据文件，并绕过缓存重取；自动下载是否跑通仍需
-安装后实测。详见 [发布说明](docs/releases/v0.5.5-beta25.md)。
+安装后实测。详见 [发布说明](docs/releases/v0.5.5-beta26.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
