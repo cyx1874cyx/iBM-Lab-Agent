@@ -77,7 +77,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 | `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
 | `lab_browser_wait` | `taskId`(必), `timeoutMs`(默认 8000，上限 20000) | 等"阶段/页面/载荷/进度"任一变化即返回；已是终态则立即返回 |
-| `lab_browser_download_viewer_pdf` | `taskId`(必) | 原生 PDF 查看器触发 Ctrl+S；立即返回 `operationId`，再查操作结果与任务下载进度。出版社 HTML 预览页用 `observe`/`click` 点击真实下载元素。 |
+| `lab_browser_download_viewer_pdf` | `taskId`(必) | 在当前 WebView2 网络会话中读取原生 PDF 并归档，不再合成 Ctrl+S；立即返回 `operationId`，再查操作结果与任务下载进度。出版社 HTML 预览页用 `observe`/`click` 点击真实下载元素。失败时按状态提示由用户在侧栏按 Ctrl+S。 |
 
 **候选字段怎么用**：
 
@@ -101,7 +101,7 @@ downloadReady, payloadReady, payloadComplete, payloadVerdict,
 viewerDownloadFailure: { count, error }
 ```
 
-`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可触发查看器下载。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.isActualDownload=true`、`progress.source=browser-download` 和 `downloadEventBytes`。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
+`downloadReady` 与 `nextAction === "download-viewer-pdf"` 同义，只表示可触发原生 PDF 读取。`payloadVerdict=html-viewer` 时 `payloadReady=false`，即使 HTML 响应已有字节；`payloadComplete` 只描述响应层 PDF。实际下载进度看 `progress.isActualDownload=true`：`webview-network` 表示 WebView2 会话直接读取 PDF，`browser-download` 表示浏览器下载事件，两者均按任务暂存文件的实际已写入字节上报。`viewer-buffer` 是预览缓存，`progress.note` 会明示它不是下载进度；此时顶层 `downloadedBytes` 不给出虚假的 348 B。任务完成后 `progress.source=archived-file`，按已登记的文件大小与路径报告。
 原生 PDF 只有拿到完整 `200` 响应声明的长度才显示总量和百分比；`206` 分段长度不会冒充整份文件大小。
 
 `nextAction` 取值与含义（**这是唯一该用来决策的字段**）：
@@ -112,7 +112,7 @@ viewerDownloadFailure: { count, error }
 | `wait-and-poll` | 浏览器正在下载或归档 | `lab_browser_wait`，查看真实字节变化 |
 | `download-viewer-pdf` | 顶层为原生 PDF，或完整 PDF 响应已采集 | 调 `lab_browser_download_viewer_pdf`，再查 `operation_status` 和任务状态；只以 `completed` 为成功 |
 | `retry-download-entry` | 保存支路拿不到完整字节流，且有备用路线 | 用 `lab_browser_navigate(taskId, alternateRouteId, page.pageSeq)` 执行；`alternateEntry` 只供说明，不传给 `click` |
-| `manual-handoff` | 保存支路连续失败、一次即判定焦点/下载事件不可用，或没有可执行的备用入口 | 按 `question` 告知用户具体动作；原生 PDF 可在侧栏按 Ctrl+S，浏览器自动捕获归档，无需回传路径。随后重新查询任务状态 |
+| `manual-handoff` | 原生 PDF 网络读取失败一次、其他保存支路连续失败，或没有可执行的备用入口 | 按 `question` 告知用户具体动作；原生 PDF 可在侧栏按 Ctrl+S，浏览器自动捕获归档，无需回传路径。随后重新查询任务状态 |
 | `complete-verification` | 人机验证 | 让**用户**去侧栏点一下，然后 `lab_browser_wait` |
 | `recreate-or-cancel` | 终态：`heartbeat-lost`/`orphaned`/`stalled`/`failed`/`expired` | 把 `question` 原样问用户；重建用 `cancel(recreate:true)` |
 | `done` | `completed` 或 `cancelled` | 结束 |
@@ -266,6 +266,6 @@ viewerDownloadFailure: { count, error }
 ## 10. 最小可用记忆（如果只记三句话）
 
 1. **决策只看 `nextAction`**；HTML 预览页点页面下载元素，原生 PDF 调 `lab_browser_download_viewer_pdf`。
-2. **预览缓存不是下载进度**；`phase=downloading` 看 `progress.source=browser-download`、已写入字节及停滞时间，只等归档终态。
+2. **预览缓存不是下载进度**；`phase=downloading` 看 `progress.source=webview-network` 或 `browser-download`、已写入字节及停滞时间，只等归档终态。
 3. **失败先读原因、再看有没有保住的文件、连环两次就停**；重建用
    `cancel(recreate=true)`，人机验证只能由用户完成。

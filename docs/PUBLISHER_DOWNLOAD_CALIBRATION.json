@@ -5,7 +5,7 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.5-beta23",
+    "version": "0.5.5-beta24",
     "commit": "412fc9d",
     "note": "beta23 makes the viewer Ctrl+S reach the window and bounds its wait. The previous attempt only asked Tauri to focus and accepted 'some window of this process is foreground'; under the Windows foreground lock a background window stays background, so the keys could be delivered nowhere useful. The path now shows/unminimizes the main window, calls SetForegroundWindow and requires the foreground window to BE the main window (10 x 50ms), and fails after 12s with a human fallback message if Ctrl+S produced no DownloadEvent, nothing was claimed and the destination is still empty - instead of blocking the full 100s. The verification stage gets its missing producer back: observe inspects title/text for challenge markers, sets automation_stage=verification, returns verificationRequired=true with candidates cleared so the agent cannot click the challenge widget, and refuses clicks while verification is pending. Archive success removes its response-layer cache, an HTML shell is removed once identified, and a bounded sweep drops leftover *.payload.pdf files that are old (>=5 min), small (<=4 KiB) and clearly HTML, listing only the task's own capture directory. Download results carry code/taskCreated so a renderer cannot read 'no task created' as 'queued'. Per-publisher entry shape and every publisher, SI channel and campus-network route below remain pending."
   },

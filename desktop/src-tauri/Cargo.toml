@@ -1,6 +1,6 @@
 [package]
 name = "ibm-lab-desktop"
-version = "0.5.5-beta23"
+version = "0.5.5-beta24"
 description = "iBM Lab Agent Windows desktop client"
 authors = ["iBM Lab"]
 edition = "2021"
@@ -22,6 +22,7 @@ sha2 = "0.10"
 semver = "1"
 percent-encoding = "2.3"
 aes = "0.8"
+base64 = "0.22.1"
 cfb-mode = "0.8"
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",

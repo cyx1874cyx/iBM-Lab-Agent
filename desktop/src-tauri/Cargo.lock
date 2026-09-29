@@ -1715,9 +1715,10 @@ dependencies = [
 
 [[package]]
 name = "ibm-lab-desktop"
-version = "0.5.5-beta23"
+version = "0.5.5-beta24"
 dependencies = [
  "aes",
+ "base64 0.22.1",
  "cfb-mode",
  "percent-encoding",
  "reqwest 0.12.28",

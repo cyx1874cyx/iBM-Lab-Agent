@@ -241,16 +241,27 @@ test("归档终态向 Agent 返回条目文件路径与哈希，不再要求用�
 	assert.equal(result.progress.source, "archived-file");
 });
 
-test("原生 PDF 保存指令只发一次，操作进行时状态转为等待真实下载", () => {
+test("原生 PDF 读取进行时报告 WebView2 实际写入进度", () => {
 	const saving = view({ automationStage: "saving", documentType: "application/pdf", contentLength: 3_200_000 });
 	assert.equal(saving.nextAction, "wait-and-poll");
-	assert.match(saving.message, /等待浏览器开始写入下载文件/);
+	assert.match(saving.message, /等待 WebView2 写入 PDF/);
 	const downloading = view({ state: "downloading", automationStage: "saving", documentType: "application/pdf",
 		contentLength: 3_200_000, downloadEventBytes: 800_000, downloadTotalBytes: 3_200_000 });
 	assert.equal(downloading.nextAction, "wait-and-poll");
-	assert.equal(downloading.progress.source, "browser-download");
+	assert.equal(downloading.progress.source, "webview-network");
+	assert.match(downloading.message, /WebView2 正在读取正文 PDF/);
 	assert.equal(downloading.progress.receivedBytes, 800_000);
 	assert.equal(downloading.progress.percent, 25);
+});
+
+test("WebView2 读取失败一次即交给人工 Ctrl+S，避免重复获取失效签名", () => {
+	const service = Object.create(LabCaptureService.prototype);
+	service.browserOperations = new Map([["browser-1", { taskId: TASK.id, action: "viewer-download", status: "failed",
+		error: "WebView2 未能重新获取完整 PDF；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径" }]]);
+	const failure = service.viewerDownloadFailure(TASK.id);
+	assert.equal(failure.count, 1);
+	assert.equal(failure.terminal, true);
+	assert.equal(view({ documentType: "application/pdf", viewerDownloadFailure: failure }).nextAction, "manual-handoff");
 });
 
 test("R6.2/C17：长时间没有字节增长就是 stalled，不再永远显示「正在保存」", () => {

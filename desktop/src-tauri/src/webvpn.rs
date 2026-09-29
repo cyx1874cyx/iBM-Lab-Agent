@@ -18,10 +18,12 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use aes::Aes128;
+#[cfg(windows)]
+use base64::Engine;
 use cfb_mode::cipher::{AsyncStreamCipher, KeyIvInit};
 use serde::Serialize;
 use tauri::{
@@ -34,11 +36,11 @@ use crate::runtime::WebVpnConfig;
 
 #[cfg(windows)]
 use webview2_com::{
-    take_pwstr, CoTaskMemPWSTR, ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
-    SaveAsUIShowingEventHandler, SourceChangedEventHandler,
+    take_pwstr, CallDevToolsProtocolMethodCompletedHandler, CoTaskMemPWSTR, ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
+    SourceChangedEventHandler,
     WebResourceResponseReceivedEventHandler, WebResourceResponseViewGetContentCompletedHandler,
     Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2_2, ICoreWebView2_25,
+        ICoreWebView2_2,
     },
 };
 #[cfg(windows)]
@@ -54,11 +56,6 @@ use windows::Win32::System::Com::StructuredStorage::CoGetInterfaceAndReleaseStre
 #[cfg(windows)]
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 #[cfg(windows)]
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_CONTROL, VK_S,
-};
-#[cfg(windows)]
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow};
 
 
 /// 窗口 label。单例判定的唯一依据，不要用标题或 URL 判断。
@@ -1535,7 +1532,8 @@ impl WebVpnState {
         let Some(pending) = session.pending.as_mut() else {
             return Err("没有待保存的文献任务".to_string());
         };
-        if pending.task_id != task_id || !matches!(pending.kind.as_str(), "pdf" | "si") || pending.download_claimed {
+        if pending.task_id != task_id || !matches!(pending.kind.as_str(), "pdf" | "si")
+            || pending.download_claimed || pending.expires_at <= Instant::now() {
             return Err("当前任务不允许保存原生 PDF".to_string());
         }
         pending.download_claimed = true;
@@ -1547,32 +1545,22 @@ impl WebVpnState {
         Ok(path)
     }
 
-    fn native_viewer_destination(&self, task_id: &str) -> Result<PathBuf, String> {
-        let mut session = self.session.lock().map_err(|_| "文献浏览器状态不可用")?;
-        let pending = session.pending.as_mut().ok_or("没有待保存的文献任务")?;
-        if pending.task_id != task_id || !matches!(pending.kind.as_str(), "pdf" | "si")
-            || pending.download_claimed || pending.expires_at <= Instant::now() {
-            return Err("当前任务不允许触发 PDF 查看器下载".to_string());
-        }
-        pending.native_saving = true;
-        pending.automation_stage = "saving".to_string();
-        Ok(pending.temp_path.clone())
-    }
-
-    fn clear_native_viewer_attempt(&self, task_id: &str) {
+    /// CDP 网络读取失败后释放任务目标；用户随后按 Ctrl+S 仍能被下载事件认领。
+    fn abort_direct_pdf_transfer(&self, task_id: &str) {
         if let Ok(mut session) = self.session.lock() {
+            if session.state == WebVpnSessionState::Uploading { return; }
             if let Some(pending) = session.pending.as_mut() {
-                if pending.task_id == task_id && !pending.download_claimed {
+                if pending.task_id == task_id {
+                    let path = pending.temp_path.clone();
+                    pending.download_claimed = false;
+                    pending.download_started_at = None;
                     pending.native_saving = false;
                     pending.automation_stage = "manual".to_string();
+                    session.state = WebVpnSessionState::WaitingDownload;
+                    let _ = fs::remove_file(path);
                 }
             }
         }
-    }
-
-    fn download_claimed_for(&self, task_id: &str) -> bool {
-        self.session.lock().ok().and_then(|session| session.pending.as_ref()
-            .map(|pending| pending.task_id == task_id && pending.download_claimed)).unwrap_or(false)
     }
 
     fn should_ignore_failed_finish(&self) -> bool {
@@ -4078,14 +4066,6 @@ pub fn request_native_save(app: &AppHandle) {
 #[cfg(not(windows))]
 pub fn request_native_save(_app: &AppHandle) {}
 
-#[cfg(windows)]
-async fn sleep_ms(milliseconds: u64) {
-    let _ = tauri::async_runtime::spawn_blocking(move || {
-        std::thread::sleep(Duration::from_millis(milliseconds))
-    })
-    .await;
-}
-
 /// 把已经落盘的 PDF 载荷归档到课题，并等到终态（C4）。
 #[cfg(windows)]
 async fn finalize_native_save(
@@ -4151,70 +4131,92 @@ async fn finalize_native_save(
     }
 }
 
-/// 触发 WebView2 PDF 查看器自身的 Ctrl+S。网页脚本无法访问原生查看器工具栏；
-/// ShowSaveAsUI 只保存顶层 HTML 壳，不能代替查看器的下载动作。
+/// 调用当前 WebView2 实例的 CDP；请求仍走其网络会话与机构登录态。
+/// 返回体可能含临时签名 URL/响应头，调用方只摘取必要字段，不写日志。
 #[cfg(windows)]
-fn press_native_pdf_save(app: &AppHandle, webview: &Webview) -> Result<(), String> {
-    // main 是 Tauri Window，PDF 是挂在它上面的子 WebView；这里不能用
-    // get_webview_window("main")，该查询只接受 WebviewWindow，实机永远返回 None。
-    let main = app.get_window(MAIN_WINDOW_LABEL).ok_or(
-        "主窗口句柄不可用；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
-    )?;
-    // Tauri 的 set_focus 只请求焦点；后台窗口在 Windows 前台锁下可能仍不是
-    // foreground window。先恢复并显式激活顶层窗口，再把键盘焦点交给子 WebView。
-    main.show().map_err(|error| format!("无法显示主窗口: {error}"))?;
-    main.unminimize().map_err(|error| format!("无法恢复主窗口: {error}"))?;
-    let hwnd = main.hwnd().map_err(|error| format!("无法获取主窗口句柄: {error}"))?;
-    let _ = unsafe { SetForegroundWindow(hwnd) };
-    main.set_focus().map_err(|error| format!(
-        "无法聚焦主窗口: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
-    ))?;
-    webview.set_focus().map_err(|error| format!(
-        "无法聚焦 PDF 查看器: {error}；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径"
-    ))?;
-    let focused = (0..10).any(|_| {
-        let mut foreground_pid = 0_u32;
-        let foreground = unsafe { GetForegroundWindow() };
-        unsafe { GetWindowThreadProcessId(foreground, Some(&mut foreground_pid)); }
-        if foreground == hwnd && foreground_pid == std::process::id() { true } else {
-            std::thread::sleep(Duration::from_millis(50));
-            false
+async fn browser_cdp(webview: &Webview, method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let (sender, receiver) = std::sync::mpsc::channel::<Result<String, String>>();
+    let method = method.to_string();
+    let payload = params.to_string();
+    webview.with_webview(move |platform| {
+        let core = match unsafe { platform.controller().CoreWebView2() } {
+            Ok(core) => core,
+            Err(_) => { let _ = sender.send(Err("无法取得 WebView2 网络接口".to_string())); return; }
+        };
+        let completed = sender.clone();
+        let handler = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
+            let reply = status.map_err(|_| "WebView2 网络请求失败".to_string())
+                .map(|_| result);
+            let _ = completed.send(reply);
+            Ok(())
+        }));
+        let method = CoTaskMemPWSTR::from(method.as_str());
+        let payload = CoTaskMemPWSTR::from(payload.as_str());
+        if unsafe { core.CallDevToolsProtocolMethod(*method.as_ref().as_pcwstr(), *payload.as_ref().as_pcwstr(), &handler) }.is_err() {
+            let _ = sender.send(Err("WebView2 不支持此网络读取动作".to_string()));
         }
-    });
-    if !focused {
-        return Err("PDF 查看器未获得前台焦点，已取消快捷键以免操作其他窗口；请在侧栏原生 PDF 查看器按 Ctrl+S，下载会自动捕获并归档，无需回传路径".to_string());
-    }
-    let key = |code, up| INPUT {
-        r#type: INPUT_KEYBOARD,
-        Anonymous: INPUT_0 { ki: KEYBDINPUT {
-            wVk: code,
-            dwFlags: if up { KEYEVENTF_KEYUP } else { Default::default() },
-            ..Default::default()
-        } },
-    };
-    let inputs = [key(VK_CONTROL, false), key(VK_S, false), key(VK_S, true), key(VK_CONTROL, true)];
-    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
-    if sent != inputs.len() as u32 {
-        let release = [key(VK_CONTROL, true)];
-        unsafe { SendInput(&release, std::mem::size_of::<INPUT>() as i32); }
-        return Err(format!("PDF 查看器快捷键只发送了 {sent}/{} 个事件", inputs.len()));
-    }
-    Ok(())
+    }).map_err(|_| "无法向 WebView2 发送网络读取动作".to_string())?;
+    let reply = tauri::async_runtime::spawn_blocking(move || receiver.recv_timeout(Duration::from_secs(45)))
+        .await.map_err(|_| "WebView2 网络读取中断".to_string())?
+        .map_err(|_| "WebView2 网络读取超时".to_string())??;
+    serde_json::from_str(&reply).map_err(|_| "WebView2 网络结果不是有效 JSON".to_string())
 }
 
+/// 在 WebView2 自己的网络会话内重新读取当前已验证 PDF，流式写入任务专属目标。
+/// 这条路不发送键盘事件，也不把 cookie 或签名 URL 导出给插件/模型。
 #[cfg(windows)]
-fn remove_native_pdf_save_handler(webview: &Webview, token: i64) {
-    let _ = webview.with_webview(move |platform| {
-        if let Ok(core) = unsafe { platform.controller().CoreWebView2() } {
-            if let Ok(core25) = core.cast::<ICoreWebView2_25>() {
-                let _ = unsafe { core25.remove_SaveAsUIShowing(token) };
-            }
+async fn fetch_current_pdf_in_webview(webview: &Webview, current: &url::Url, destination: &Path) -> Result<u64, String> {
+    let tree = browser_cdp(webview, "Page.getFrameTree", serde_json::json!({})).await?;
+    let frame_id = tree.pointer("/frameTree/frame/id").and_then(|item| item.as_str())
+        .ok_or("无法确定 PDF 所属的 WebView2 页面")?;
+    let reply = browser_cdp(webview, "Network.loadNetworkResource", serde_json::json!({
+        "frameId": frame_id, "url": current.as_str(),
+        "options": { "disableCache": false, "includeCredentials": true }
+    })).await?;
+    let resource = reply.get("resource").ok_or("WebView2 没有返回 PDF 网络资源")?;
+    if resource.get("success").and_then(|item| item.as_bool()) != Some(true)
+        || resource.get("httpStatusCode").and_then(|item| item.as_u64()) != Some(200) {
+        return Err("WebView2 未能重新获取完整 PDF（网络或签名可能已变化）".to_string());
+    }
+    let stream = resource.get("stream").and_then(|item| item.as_str())
+        .ok_or("WebView2 未提供 PDF 响应流")?.to_string();
+    let response_length = resource.get("headers").and_then(|item| item.as_object())
+        .and_then(|headers| headers.iter().find(|(name, _)| name.eq_ignore_ascii_case("content-length")))
+        .and_then(|(_, value)| value.as_str()).and_then(|value| value.parse::<u64>().ok());
+    if response_length.is_some_and(|size| size > CAPTURE_MAX_BYTES) {
+        let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
+        return Err("PDF 超过 100 MB 捕获上限".to_string());
+    }
+    let transfer = async {
+        let mut file = fs::File::create(destination).map_err(|_| "无法创建 PDF 暂存文件".to_string())?;
+        let mut received = 0_u64;
+        loop {
+            let chunk = browser_cdp(webview, "IO.read", serde_json::json!({
+                "handle": stream, "size": 262_144
+            })).await?;
+            let data = chunk.get("data").and_then(|item| item.as_str()).ok_or("PDF 响应分块缺失")?;
+            let bytes = if chunk.get("base64Encoded").and_then(|item| item.as_bool()) == Some(true) {
+                base64::engine::general_purpose::STANDARD.decode(data).map_err(|_| "PDF 分块编码无效")?
+            } else { data.as_bytes().to_vec() };
+            received = received.checked_add(bytes.len() as u64).ok_or("PDF 大小无效")?;
+            if received > CAPTURE_MAX_BYTES { return Err("PDF 超过 100 MB 捕获上限".to_string()); }
+            file.write_all(&bytes).map_err(|_| "无法写入 PDF 暂存文件".to_string())?;
+            if chunk.get("eof").and_then(|item| item.as_bool()) == Some(true) { break; }
+            if bytes.is_empty() { return Err("PDF 响应流未完成且没有新字节".to_string()); }
         }
-    });
+        file.sync_all().map_err(|_| "无法确认 PDF 已落盘".to_string())?;
+        if response_length.is_some_and(|size| size != received) {
+            return Err("PDF 字节数与网络响应声明不一致".to_string());
+        }
+        viewer_saved_pdf_is_usable(destination)?;
+        Ok(received)
+    }.await;
+    let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
+    transfer
 }
 
-/// Agent 的原生 PDF 最后一步：让浏览器查看器自己执行保存，壳只接管下载事件
-/// 和暂存路径。完整响应体已经采到时可直接归档，不再重发 URL 或保存 HTML 壳。
+/// Agent 原生 PDF 最后一步：由当前 WebView2 网络会话读取已验证的 PDF URL，
+/// 写入任务专属暂存文件，校验后交给现有归档服务。无需焦点或键盘合成。
 #[cfg(windows)]
 async fn download_viewer_pdf(
     app: &AppHandle,
@@ -4225,120 +4227,42 @@ async fn download_viewer_pdf(
     if let Some(path) = state.pdf_payload_ready(task_id) {
         return finalize_native_save(app, &state, task_id, &path, webview).await;
     }
-    let current = webview.url().map_err(|error| error.to_string())?;
+    let current = webview.url().map_err(|_| "无法读取 PDF 页面地址".to_string())?;
     if !state.is_current_pdf_document(task_id, &current) {
         return Err("当前顶层文档不是已确认的原生 PDF；出版社网页预览器请先观察并点击页面上的 Download PDF 入口".to_string());
     }
-    let destination = state.native_viewer_destination(task_id)?;
     let generation = state.pending_generation(task_id).ok_or("当前文献任务已经结束")?;
-    let path_text = destination.to_string_lossy().to_string();
-    let event_app = app.clone();
-    let rejected = Arc::new(Mutex::new(None::<String>));
-    let handler_rejected = rejected.clone();
-    let (sender, receiver) = std::sync::mpsc::channel::<Result<i64, String>>();
-    if let Err(error) = webview.with_webview(move |platform| {
-        let setup = (|| -> Result<i64, String> {
-            let core = unsafe { platform.controller().CoreWebView2() }
-                .map_err(|error| error.to_string())?;
-            let core25: ICoreWebView2_25 = core.cast().map_err(|error| error.to_string())?;
-            let showing = SaveAsUIShowingEventHandler::create(Box::new(move |_sender, args| {
-                if let Some(args) = args {
-                    let mut mime_ptr = PWSTR::null();
-                    unsafe { args.ContentMimeType(&mut mime_ptr)?; }
-                    let mime = take_pwstr(mime_ptr);
-                    if mime.eq_ignore_ascii_case("application/pdf") {
-                        let path = CoTaskMemPWSTR::from(path_text.as_str());
-                        unsafe {
-                            args.SetSaveAsFilePath(*path.as_ref().as_pcwstr())?;
-                            // 同一任务重试可能留下未完成的临时文件；只覆盖任务专属目标。
-                            args.SetAllowReplace(true)?;
-                            args.SetSuppressDefaultDialog(true)?;
-                        }
-                    } else {
-                        unsafe { args.SetCancel(true)?; }
-                        if let Ok(mut slot) = handler_rejected.lock() {
-                            *slot = Some(format!("查看器试图保存非 PDF 文档（MIME={mime}）；请改点出版社页面的 Download PDF"));
-                        }
-                        record(&event_app, "viewerSave", "", &format!("拒绝保存非 PDF 文档，MIME={mime}"));
-                    }
-                }
-                Ok(())
-            }));
-            let mut token = 0_i64;
-            unsafe { core25.add_SaveAsUIShowing(&showing, &mut token) }
-                .map_err(|error| error.to_string())?;
-            Ok(token)
-        })();
-        let _ = sender.send(setup);
-    }) {
-        state.clear_native_viewer_attempt(task_id);
-        return Err(error.to_string());
-    }
-    let token_result = match tauri::async_runtime::spawn_blocking(move || receiver.recv_timeout(Duration::from_secs(10))).await {
-        Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err("无法安装 PDF 查看器保存监听器".to_string()),
-        Err(error) => Err(format!("PDF 查看器保存监听器异常: {error}")),
-    };
-    let token = match token_result {
-        Ok(token) => token,
+    let destination = state.claim_native_save_destination(task_id)?;
+    record(app, "directPdfFetch", "", "已在 WebView2 网络会话内发起当前 PDF 读取");
+    let bytes = match fetch_current_pdf_in_webview(webview, &current, &destination).await {
+        Ok(bytes) => bytes,
         Err(error) => {
-            state.clear_native_viewer_attempt(task_id);
-            return Err(error);
+            state.abort_direct_pdf_transfer(task_id);
+            record(app, "directPdfFetch", "", &format!("PDF 网络读取失败：{error}"));
+            return Err(format!("{error}；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径"));
         }
     };
-    let result = async {
-        press_native_pdf_save(app, webview)?;
-        record(app, "viewerSave", current.as_str(), "Agent 已触发原生 PDF 查看器 Ctrl+S；等待实际下载/归档");
-        let deadline = Instant::now() + Duration::from_secs(100);
-        // Ctrl+S 若没产生 DownloadEvent，也没有可用文件，尽早交给用户；100 秒
-        // 只留给已经开始下载或上传的文件，不再用于空等浏览器响应。
-        let event_deadline = Instant::now() + Duration::from_secs(12);
-        let mut upload_started = false;
-        loop {
-            if let Some(reason) = rejected.lock().ok().and_then(|slot| slot.clone()) {
-                return Err(reason);
-            }
-            if let Some(outcome) = state.wait_for_outcome(generation, Duration::ZERO) {
-                if outcome.generation != generation {
-                    return Err("PDF 下载任务已被替换".to_string());
-                }
-                if outcome.ok {
-                    return Ok(serde_json::json!({
-                        "status": "completed", "phase": "completed",
-                        "bytes": outcome.bytes, "sha256": outcome.sha256,
-                        "path": outcome.path.map(|path| path.to_string_lossy().to_string())
-                    }));
-                }
-                return Err(outcome.error.unwrap_or_else(|| "原生 PDF 下载失败".to_string()));
-            }
-            // 一些 WebView2 版本的查看器保存不发 Tauri DownloadEvent；文件已经
-            // 完整落盘时才由此分支接管。若下载事件已认领，交给其 Finished 回调。
-            if !upload_started && !state.download_claimed_for(task_id)
-                && viewer_saved_pdf_is_usable(&destination).is_ok() {
-                state.claim_native_save_destination(task_id)?;
-                if let Some(upload) = state.begin_upload(&destination) {
-                    let upload_app = app.clone();
-                    std::thread::spawn(move || upload_capture(upload_app, upload));
-                    upload_started = true;
-                }
-            }
-            if state.pending_generation(task_id) != Some(generation) {
-                return Err("PDF 下载任务已被取消或替换".to_string());
-            }
-            if Instant::now() >= event_deadline && !upload_started
-                && !state.download_claimed_for(task_id)
-                && fs::metadata(&destination).map(|meta| meta.len()).unwrap_or(0) == 0 {
-                return Err("原生 PDF 查看器保存指令未触发下载；请在侧栏点击 PDF 页面并按 Ctrl+S，壳会自动捕获归档，无需回传路径".to_string());
-            }
-            if Instant::now() >= deadline {
-                return Err("原生 PDF 查看器未在 100 秒内产生可归档的下载；请查询任务状态和浏览器下载进度".to_string());
-            }
-            sleep_ms(250).await;
-        }
-    }.await;
-    remove_native_pdf_save_handler(webview, token);
-    if result.is_err() { state.clear_native_viewer_attempt(task_id); }
-    result
+    record(app, "directPdfFetch", "", &format!("PDF 已完整写入任务暂存文件（{bytes} 字节）"));
+    let Some(upload) = state.begin_upload(&destination) else {
+        state.abort_direct_pdf_transfer(task_id);
+        return Err("PDF 已取得，但任务已结束，无法归档；请重新查询任务状态".to_string());
+    };
+    let upload_app = app.clone();
+    std::thread::spawn(move || upload_capture(upload_app, upload));
+    let _ = push_capture_ball(app, webview);
+    let wait_app = app.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        wait_app.try_state::<WebVpnState>()
+            .and_then(|state| state.wait_for_outcome(generation, Duration::from_secs(100)))
+    }).await.map_err(|_| "等待 PDF 归档中断".to_string())?;
+    match outcome {
+        Some(outcome) if outcome.ok => Ok(serde_json::json!({
+            "status": "completed", "phase": "completed",
+            "bytes": outcome.bytes, "sha256": outcome.sha256
+        })),
+        Some(outcome) => Err(outcome.error.unwrap_or_else(|| "PDF 归档失败".to_string())),
+        None => Err("PDF 已下载，但归档结果尚未确认；请查询任务状态".to_string()),
+    }
 }
 
 #[cfg(not(windows))]
@@ -4677,7 +4601,7 @@ pub fn open_window(
                     .unwrap_or(false);
                 if pdf_document {
                     // 原生 PDF 查看器不属于网页 DOM。Agent 通过受限的
-                    // viewer-download 动作触发查看器自身 Ctrl+S，下载事件负责归档。
+                    // viewer-download 动作经当前 WebView2 网络会话读取 PDF 并归档。
                     if let Some(state) = page_app.try_state::<WebVpnState>() {
                         state.set_automation_stage("manual");
                     }
@@ -5158,6 +5082,23 @@ mod tests {
         assert!(state.should_capture_direct_si_preview(&target));
         assert!(state.claim_native_save_destination("capture-agent-si").is_ok(),
             "SI 任务显示原生 PDF 后也可进入查看器保存通路");
+    }
+
+    #[test]
+    fn failed_direct_pdf_fetch_releases_destination_for_manual_save() {
+        let state = WebVpnState::default();
+        state.transition(WebVpnSessionState::Opening).unwrap();
+        state.transition(WebVpnSessionState::Ready).unwrap();
+        let path = std::env::temp_dir().join(format!("ibm-direct-pdf-abort-{}.pdf", std::process::id()));
+        let upload = url::Url::parse("http://127.0.0.1:3080/api/lab-capture-upload?token=abcdefghijklmnopqrstuvwxyz0123456789ABCDE").unwrap();
+        state.prepare_capture("capture-direct-abort", "pdf", "doi.org", PublisherAdapter::Elsevier,
+            false, upload, path.clone()).unwrap();
+        assert_eq!(state.claim_native_save_destination("capture-direct-abort").unwrap(), path);
+        fs::write(&path, b"partial PDF").unwrap();
+        state.abort_direct_pdf_transfer("capture-direct-abort");
+        assert!(!path.exists(), "半截文件不能冒充人工下载结果");
+        assert!(matches!(state.claim_download_destination(), DownloadDecision::Capture(ref target) if target == &path),
+            "人工 Ctrl+S 应可重新认领同一个任务目标");
     }
 
     #[test]

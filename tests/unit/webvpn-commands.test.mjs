@@ -257,21 +257,21 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(literaturePanel, /iwanUsable/, "AI 下载队列仍要按 iWAN 可用性选择路由");
 });
 
-test("PDF 查看器保存聚焦真实主窗口，而非不存在的 WebviewWindow", async () => {
+test("PDF 查看器在 WebView2 会话内读取当前 PDF，逐块落盘并保留人工兜底", async () => {
 	const webvpn = await webvpnSource();
-	const body = webvpn.match(/fn press_native_pdf_save\([\s\S]*?\n\}/)?.[0];
-	assert.ok(body);
-	assert.match(body, /app\.get_window\(MAIN_WINDOW_LABEL\)/);
-	assert.doesNotMatch(body, /app\.get_webview_window\(MAIN_WINDOW_LABEL\)/);
-	assert.match(body, /webview\.set_focus\(\)/);
-	assert.match(body, /SetForegroundWindow\(hwnd\)/);
-	assert.match(body, /main\.unminimize\(\)/);
-	assert.match(body, /Ctrl\+S.*自动捕获并归档/);
+	assert.match(webvpn, /"Network\.loadNetworkResource"/);
+	assert.match(webvpn, /"includeCredentials": true/);
+	assert.match(webvpn, /"IO\.read"/);
+	assert.match(webvpn, /viewer_saved_pdf_is_usable\(destination\)/);
+	assert.match(webvpn, /abort_direct_pdf_transfer\(task_id\)/);
+	assert.match(webvpn, /请在侧栏 PDF 查看器按 Ctrl\+S/);
+	assert.doesNotMatch(webvpn, /SendInput\(/);
 });
 
-test("查看器无下载事件时提前终止，并在观察验证页后阻止 Agent 点击", async () => {
+test("查看器网络读取失败可交接人工保存，并在观察验证页后阻止 Agent 点击", async () => {
 	const webvpn = await webvpnSource();
-	assert.match(webvpn, /event_deadline = Instant::now\(\) \+ Duration::from_secs\(12\)/);
+	assert.match(webvpn, /PDF 网络读取失败/);
+	assert.match(webvpn, /abort_direct_pdf_transfer\(task_id\)/);
 	assert.match(webvpn, /observation_requires_verification\(&value\)/);
 	assert.match(webvpn, /state\.verification_pending\(\)/);
 	assert.match(webvpn, /"verificationRequired"/);
