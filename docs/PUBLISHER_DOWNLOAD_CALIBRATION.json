@@ -6,7 +6,7 @@
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
     "version": "0.5.6-beta1",
-    "commit": "PENDING",
+    "commit": "6b897c9",
     "note": "0.5.6-beta1 (candidate build of the 0.5.7 requirement set) retires the response-layer PDF body capture: PDF text now arrives only through the two paths the user confirmed on real devices - clicking the download control on a publisher's own PDF preview page (download event), or the CDP Fetch Response stage for a browser-native PDF document. The 206/Content-Range assembly that belonged to the retired path goes with it. Archiving onto an entry that already holds the same kind now fails explicitly (already-archived) instead of silently overwriting, the agent gets a machine-readable reasonCode table, and a user-confirmed replacement keeps the previous file as .previous-<sha8>. Closing the literature browser window now terminates its task (window-closed) instead of leaving it looking held. Every per-publisher row below is still pending: only the two capture paths themselves are confirmed, not any publisher's institutional channel."
   },
   "sharedAlgorithm": {
