@@ -3297,6 +3297,50 @@ fn sanitize_client_rect(
     Some((x.max(0.0), y.max(0.0), width, height))
 }
 
+/// 捕获任务启动时先激活承载 WebView 的主窗口。仅给子 WebView 调 set_focus
+/// 不能把后台或最小化的原生窗口带到前台。
+fn activate_capture_window(app: &AppHandle) -> Result<(), String> {
+    let main = app
+        .get_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "主窗口不可用".to_string())?;
+    main.show().map_err(|error| error.to_string())?;
+    main.unminimize().map_err(|error| error.to_string())?;
+    main.set_focus().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn focus_visible_browser(app: &AppHandle, webview: &Webview) -> Result<(), String> {
+    let capturing = app
+        .try_state::<WebVpnState>()
+        .and_then(|state| state.pending_task_id())
+        .is_some();
+    if capturing {
+        if let Err(error) = activate_capture_window(app) {
+            // Windows 可拒绝后台进程抢前台。捕获任务仍应继续，随后由焦点诊断
+            // 告知 Agent/用户，而不是留下一个已布防却因显示失败被报告失败的任务。
+            record(app, "captureFocus", "", &format!("主窗口激活失败: {error}"));
+        }
+    }
+    webview.set_focus().map_err(|error| error.to_string())?;
+    if capturing {
+        let foreground = app
+            .get_window(MAIN_WINDOW_LABEL)
+            .and_then(|main| main.is_focused().ok())
+            .unwrap_or(false);
+        record(
+            app,
+            "captureFocus",
+            "",
+            if foreground {
+                "主窗口已处于前台，已请求文献浏览器焦点"
+            } else {
+                "已请求主窗口及文献浏览器焦点，但系统未确认窗口位于前台"
+            },
+        );
+    }
+    Ok(())
+}
+
 /// DSH 右侧栏上报「文献浏览器」tab 正文矩形时的入口。
 ///
 /// 与旧的 `show_sidebar` 的关键差别：**主 WebView 的宽度完全不动**。让位由 DSH
@@ -3328,11 +3372,17 @@ pub fn apply_client_rect(
     let Some(webview) = app.get_webview(WINDOW_LABEL) else {
         return Ok(());
     };
+    let was_visible = state.sidebar_visible();
     webview
         .set_bounds(bounds(rect.0, rect.1, rect.2, rect.3))
         .map_err(|error| error.to_string())?;
     webview.show().map_err(|error| error.to_string())?;
     state.set_sidebar_visible(true);
+    // DSH 可能在捕获命令返回后才报出 tab 尺寸。此时子 WebView 刚从隐藏变可见，
+    // 必须再次把焦点送过去；后续连续布局上报不能反复抢用户焦点。
+    if !was_visible && state.pending_task_id().is_some() {
+        focus_visible_browser(app, &webview)?;
+    }
     Ok(())
 }
 
@@ -3342,6 +3392,11 @@ pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
         // DSH 右侧栏接管布局：只按最近一次上报的矩形显示，绝不改动主 WebView 宽度。
         let Some(rect) = state.as_ref().and_then(|state| state.client_rect()) else {
             // tab 尚未量出可用区域（未打开或已收起）：先不显示，等它上报。
+            if state.as_ref().and_then(|state| state.pending_task_id()).is_some() {
+                if let Err(error) = activate_capture_window(app) {
+                    record(app, "captureFocus", "", &format!("主窗口激活失败: {error}"));
+                }
+            }
             webview.hide().map_err(|error| error.to_string())?;
             if let Some(state) = state.as_ref() {
                 state.set_sidebar_visible(false);
@@ -3352,7 +3407,7 @@ pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
             .set_bounds(bounds(rect.0, rect.1, rect.2, rect.3))
             .map_err(|error| error.to_string())?;
         webview.show().map_err(|error| error.to_string())?;
-        webview.set_focus().map_err(|error| error.to_string())?;
+        focus_visible_browser(app, webview)?;
         if let Some(state) = state.as_ref() {
             state.set_sidebar_visible(true);
         }
@@ -3360,7 +3415,7 @@ pub fn show_sidebar(app: &AppHandle, webview: &Webview) -> Result<(), String> {
     }
     layout_sidebar(app, webview)?;
     webview.show().map_err(|error| error.to_string())?;
-    webview.set_focus().map_err(|error| error.to_string())?;
+    focus_visible_browser(app, webview)?;
     if let Some(state) = app.try_state::<WebVpnState>() {
         state.set_sidebar_visible(true);
     }
