@@ -4162,27 +4162,64 @@ async fn browser_cdp(webview: &Webview, method: &str, params: serde_json::Value)
     serde_json::from_str(&reply).map_err(|_| "WebView2 网络结果不是有效 JSON".to_string())
 }
 
+#[cfg(windows)]
+fn resource_header<'a>(resource: &'a serde_json::Value, name: &str) -> Option<&'a str> {
+    resource.get("headers")?.as_object()?.iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(name))?.1.as_str()
+}
+
+#[cfg(windows)]
+fn safe_header_value(value: &str) -> String {
+    value.chars().filter(|ch| !ch.is_control()).take(96).collect()
+}
+
+#[cfg(windows)]
+fn diagnostic_prefix(path: &Path) -> String {
+    let mut prefix = [0_u8; 16];
+    let count = fs::File::open(path).and_then(|mut file| file.read(&mut prefix)).unwrap_or(0);
+    let bytes = &prefix[..count];
+    let hex = bytes.iter().map(|byte| format!("{byte:02x}")).collect::<Vec<_>>().join("");
+    let ascii = bytes.iter().map(|byte| if byte.is_ascii_graphic() || *byte == b' ' { *byte as char } else { '.' }).collect::<String>();
+    format!("{hex}/{ascii}")
+}
+
+#[cfg(windows)]
+fn preserve_invalid_pdf_response(path: &Path) -> Result<PathBuf, String> {
+    let diagnostic = path.with_extension("notpdf.bin");
+    fs::rename(path, &diagnostic).map_err(|error| format!("无法保存无效响应证据：{error}"))?;
+    Ok(diagnostic)
+}
+
 /// 在 WebView2 自己的网络会话内重新读取当前已验证 PDF，流式写入任务专属目标。
 /// 这条路不发送键盘事件，也不把 cookie 或签名 URL 导出给插件/模型。
 #[cfg(windows)]
-async fn fetch_current_pdf_in_webview(webview: &Webview, current: &url::Url, destination: &Path) -> Result<u64, String> {
+async fn fetch_current_pdf_in_webview(app: &AppHandle, webview: &Webview, current: &url::Url, destination: &Path) -> Result<u64, String> {
     let tree = browser_cdp(webview, "Page.getFrameTree", serde_json::json!({})).await?;
     let frame_id = tree.pointer("/frameTree/frame/id").and_then(|item| item.as_str())
         .ok_or("无法确定 PDF 所属的 WebView2 页面")?;
     let reply = browser_cdp(webview, "Network.loadNetworkResource", serde_json::json!({
         "frameId": frame_id, "url": current.as_str(),
-        "options": { "disableCache": false, "includeCredentials": true }
+        "options": { "disableCache": true, "includeCredentials": true }
     })).await?;
     let resource = reply.get("resource").ok_or("WebView2 没有返回 PDF 网络资源")?;
+    let status = resource.get("httpStatusCode").and_then(|item| item.as_u64());
+    let content_type = resource_header(resource, "content-type").unwrap_or("unknown");
+    let content_length = resource_header(resource, "content-length").unwrap_or("unknown");
+    let net_error = resource.get("netErrorName").and_then(|item| item.as_str()).unwrap_or("none");
+    record(app, "directPdfResponse", current.as_str(), &format!(
+        "success={} status={} contentType={} contentLength={} netError={}",
+        resource.get("success").and_then(|item| item.as_bool()).unwrap_or(false),
+        status.map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        safe_header_value(content_type), safe_header_value(content_length), safe_header_value(net_error)
+    ));
     if resource.get("success").and_then(|item| item.as_bool()) != Some(true)
-        || resource.get("httpStatusCode").and_then(|item| item.as_u64()) != Some(200) {
-        return Err("WebView2 未能重新获取完整 PDF（网络或签名可能已变化）".to_string());
+        || status != Some(200) {
+        return Err(format!("WebView2 未能重新获取完整 PDF（HTTP {}，网络错误 {}）",
+            status.map_or_else(|| "unknown".to_string(), |value| value.to_string()), safe_header_value(net_error)));
     }
     let stream = resource.get("stream").and_then(|item| item.as_str())
         .ok_or("WebView2 未提供 PDF 响应流")?.to_string();
-    let response_length = resource.get("headers").and_then(|item| item.as_object())
-        .and_then(|headers| headers.iter().find(|(name, _)| name.eq_ignore_ascii_case("content-length")))
-        .and_then(|(_, value)| value.as_str()).and_then(|value| value.parse::<u64>().ok());
+    let response_length = resource_header(resource, "content-length").and_then(|value| value.parse::<u64>().ok());
     if response_length.is_some_and(|size| size > CAPTURE_MAX_BYTES) {
         let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
         return Err("PDF 超过 100 MB 捕获上限".to_string());
@@ -4205,10 +4242,22 @@ async fn fetch_current_pdf_in_webview(webview: &Webview, current: &url::Url, des
             if bytes.is_empty() { return Err("PDF 响应流未完成且没有新字节".to_string()); }
         }
         file.sync_all().map_err(|_| "无法确认 PDF 已落盘".to_string())?;
+        drop(file);
         if response_length.is_some_and(|size| size != received) {
             return Err("PDF 字节数与网络响应声明不一致".to_string());
         }
-        viewer_saved_pdf_is_usable(destination)?;
+        if let Err(error) = viewer_saved_pdf_is_usable(destination) {
+            let prefix = diagnostic_prefix(destination);
+            let diagnostic = preserve_invalid_pdf_response(destination).ok();
+            record(app, "directPdfInvalid", current.as_str(), &format!(
+                "status=200 contentType={} contentLength={} received={} prefix={} evidence={}",
+                safe_header_value(content_type), safe_header_value(content_length), received, prefix,
+                diagnostic.as_ref().map_or_else(|| "unavailable".to_string(), |path| path.to_string_lossy().to_string())
+            ));
+            return Err(format!("{error}（HTTP 200，Content-Type {}，响应前缀 {}；诊断文件 {}）",
+                safe_header_value(content_type), prefix,
+                diagnostic.as_ref().map_or_else(|| "未能保存".to_string(), |path| path.to_string_lossy().to_string())));
+        }
         Ok(received)
     }.await;
     let _ = browser_cdp(webview, "IO.close", serde_json::json!({ "handle": stream })).await;
@@ -4233,16 +4282,16 @@ async fn download_viewer_pdf(
     }
     let generation = state.pending_generation(task_id).ok_or("当前文献任务已经结束")?;
     let destination = state.claim_native_save_destination(task_id)?;
-    record(app, "directPdfFetch", "", "已在 WebView2 网络会话内发起当前 PDF 读取");
-    let bytes = match fetch_current_pdf_in_webview(webview, &current, &destination).await {
+    record(app, "directPdfFetch", current.as_str(), "已在 WebView2 网络会话内发起当前 PDF 读取（绕过缓存）");
+    let bytes = match fetch_current_pdf_in_webview(app, webview, &current, &destination).await {
         Ok(bytes) => bytes,
         Err(error) => {
             state.abort_direct_pdf_transfer(task_id);
-            record(app, "directPdfFetch", "", &format!("PDF 网络读取失败：{error}"));
+            record(app, "directPdfFetch", current.as_str(), &format!("PDF 网络读取失败：{error}"));
             return Err(format!("{error}；请在侧栏 PDF 查看器按 Ctrl+S，壳会自动捕获归档，无需回传路径"));
         }
     };
-    record(app, "directPdfFetch", "", &format!("PDF 已完整写入任务暂存文件（{bytes} 字节）"));
+    record(app, "directPdfFetch", current.as_str(), &format!("PDF 已完整写入任务暂存文件（{bytes} 字节）"));
     let Some(upload) = state.begin_upload(&destination) else {
         state.abort_direct_pdf_transfer(task_id);
         return Err("PDF 已取得，但任务已结束，无法归档；请重新查询任务状态".to_string());
@@ -5099,6 +5148,22 @@ mod tests {
         assert!(!path.exists(), "半截文件不能冒充人工下载结果");
         assert!(matches!(state.claim_download_destination(), DownloadDecision::Capture(ref target) if target == &path),
             "人工 Ctrl+S 应可重新认领同一个任务目标");
+    }
+
+    #[test]
+    fn invalid_pdf_response_keeps_bounded_diagnostics_without_logging_raw_headers() {
+        let resource = serde_json::json!({"headers": {"Content-Type": "text/html\r\nsecret", "CONTENT-LENGTH": "62872"}});
+        assert_eq!(resource_header(&resource, "content-type"), Some("text/html\r\nsecret"));
+        assert_eq!(resource_header(&resource, "content-length"), Some("62872"));
+        assert_eq!(safe_header_value("text/html\r\nsecret"), "text/htmlsecret");
+        let path = std::env::temp_dir().join(format!("ibm-invalid-pdf-{}.pdf", std::process::id()));
+        fs::write(&path, b"<!doctype html><html>diagnostic</html>").unwrap();
+        assert_eq!(diagnostic_prefix(&path), "3c21646f63747970652068746d6c3e3c/<!doctype html><");
+        let diagnostic = preserve_invalid_pdf_response(&path).unwrap();
+        assert!(!path.exists());
+        assert!(diagnostic.ends_with(format!("ibm-invalid-pdf-{}.notpdf.bin", std::process::id())));
+        assert_eq!(fs::read(&diagnostic).unwrap(), b"<!doctype html><html>diagnostic</html>");
+        let _ = fs::remove_file(diagnostic);
     }
 
     #[test]

@@ -103,13 +103,18 @@ test("WebVPN 模块不得读取或导出浏览器 profile 内容", async () => {
 	// `read_dir` 不能再一刀切地禁用：捕获目录需要一个**收窄到临时产物**的清理
 	// （只删旧的、小的、明确是 HTML 的 `*.payload.pdf`）。所以这里改成精确断言：
 	// 任何目录枚举/读取的**参数**都不许出现 profile 路径。
-	for (const forbidden of ["read_to_string", "read_to_end", "File::open"]) {
+	for (const forbidden of ["read_to_string", "read_to_end"]) {
 		assert.doesNotMatch(
 			webvpn,
 			new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
 			`WebVPN 模块不得出现 ${forbidden}：profile 内容不可进入应用数据面`
 		);
 	}
+	// 仅诊断当前任务的无效响应时允许按精确文件路径读取前 16 字节；
+	// 不得把这个例外扩大到 profile 或其他任意路径。
+	const fileOpenArgs = [...webvpn.matchAll(/fs::File::open\(([^)]*)\)/g)].map((match) => match[1]);
+	assert.deepEqual(fileOpenArgs, ["path"]);
+	assert.match(webvpn, /fn diagnostic_prefix\(path: &Path\)/);
 	const readDirArgs = [...webvpn.matchAll(/fs::read_dir\(([^)]*)\)/g)].map((match) => match[1]);
 	assert.ok(readDirArgs.length > 0, "捕获目录清理需要一次目录枚举（walk 到临时产物）");
 	for (const argument of readDirArgs) {

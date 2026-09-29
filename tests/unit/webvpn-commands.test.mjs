@@ -260,8 +260,12 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 test("PDF 查看器在 WebView2 会话内读取当前 PDF，逐块落盘并保留人工兜底", async () => {
 	const webvpn = await webvpnSource();
 	assert.match(webvpn, /"Network\.loadNetworkResource"/);
+	assert.match(webvpn, /"disableCache": true/);
 	assert.match(webvpn, /"includeCredentials": true/);
 	assert.match(webvpn, /"IO\.read"/);
+	assert.match(webvpn, /"directPdfResponse"/);
+	assert.match(webvpn, /"directPdfInvalid"/);
+	assert.match(webvpn, /preserve_invalid_pdf_response\(destination\)/);
 	assert.match(webvpn, /viewer_saved_pdf_is_usable\(destination\)/);
 	assert.match(webvpn, /abort_direct_pdf_transfer\(task_id\)/);
 	assert.match(webvpn, /请在侧栏 PDF 查看器按 Ctrl\+S/);
