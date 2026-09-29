@@ -98,8 +98,8 @@ function useSaveToProject(enabled) {
  * tab 正文。原生子 WebView 会覆盖这一区域，因此这里的 DOM 只在
  * 「桌面壳未接管」或「WebVPN 尚未打开」时可见。
  *
- * 顶部那条工具行**不在**上报给壳的矩形里，所以它不会被原生子 WebView 盖住 ——
- * 这正是「保存到课题」兜底按钮能一直可点的原因。
+ * 任务操作条放在浏览区域下方，并从上报给壳的矩形中排除。
+ * 无下载任务时不显示，避免常驻工具栏挤占阅读空间。
  */
 export function WebVpnTabBody({ useTabInfo }) {
 	const { tab } = useTabInfo();
@@ -166,8 +166,14 @@ export function WebVpnTabBody({ useTabInfo }) {
 	}, [visible, inShell]);
 
 	return h("div", { className: "ib-webvpn-tab", "data-shell": inShell ? "desktop" : "browser" },
-		// 工具行：不在上报矩形内，因此不会被原生子 WebView 覆盖。
-		h("div", { className: "ib-webvpn-bar" },
+		h("div", { ref: hostRef, className: "ib-webvpn-stage" },
+			h("div", { className: "ib-webvpn-tab-note" },
+				h("b", null, "文献浏览器"),
+				h("p", null, inShell
+					? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。"
+					: "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。"))),
+		// 操作条在浏览区域外；仅在捕获任务进行时出现。
+		save.hasTask ? h("div", { className: "ib-webvpn-bar" },
 			h("button", {
 				className: "ib-webvpn-save",
 				type: "button",
@@ -176,13 +182,7 @@ export function WebVpnTabBody({ useTabInfo }) {
 				title: save.hasTask ? "把当前 PDF 归档到课题（与本机文献浏览器同一条归档流程）" : "当前没有进行中的文献捕获任务",
 				onClick: () => void save.save()
 			}, save.label),
-			save.note ? h("span", { className: "ib-webvpn-bar-note" }, save.note) : null),
-		h("div", { ref: hostRef, className: "ib-webvpn-stage" },
-			h("div", { className: "ib-webvpn-tab-note" },
-				h("b", null, "文献浏览器"),
-				h("p", null, inShell
-					? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。"
-					: "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。"))));
+			save.note ? h("span", { className: "ib-webvpn-bar-note" }, save.note) : null) : null);
 }
 
 /**

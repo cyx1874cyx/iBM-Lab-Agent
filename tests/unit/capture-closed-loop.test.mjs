@@ -70,6 +70,24 @@ function captureStub({ task = TASK, desktop: status = desktop(), tables = null }
 	};
 }
 
+test("Agent 可排入只读浏览器调试快照", async () => {
+	let submitted;
+	const tools = harness({
+		...captureStub(),
+		createBrowserOperation: (operation) => {
+			submitted = operation;
+			return { id: "browser-debug-1", status: "queued" };
+		}
+	});
+	const debug = tools.find((item) => item.name === "lab_browser_debug");
+	assert.ok(debug);
+	const result = await debug.execute({ projectId: TASK.projectId, taskId: TASK.id }, {});
+	assert.equal(result.ok, true);
+	assert.equal(result.operationId, "browser-debug-1");
+	assert.equal(submitted.action, "debug");
+	assert.equal(submitted.taskId, TASK.id);
+});
+
 test("R3.3/C6：心跳过期是「失去接管」，绝不能伪装成排队", () => {
 	const lost = view({ stale: true, pendingTaskId: undefined, ageMs: 42_000 });
 	assert.equal(lost.phase, "heartbeat-lost");
@@ -706,7 +724,7 @@ test("B1 回归：状态与归档共用同一个完整性判据，且分段响�
 	assert.match(rust, /查看器保存得到的是页面/);
 	// 工具栏可收起：出版社自己的保存按钮在右上角，被我们的固定条压住过。
 	assert.match(rust, /__ibmWebVpnSetChromeCollapsed/);
-	assert.match(rust, /展开工具栏/);
+	assert.match(rust, /导航栏 ⌄/);
 });
 
 test("B2 回归：进 failed 之前先验产物，完整就归档；不完整也保留文件", async () => {

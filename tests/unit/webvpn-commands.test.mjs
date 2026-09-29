@@ -191,16 +191,13 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(webvpn, /已拦截 SI 预览导航并直接捕获附件/);
 	assert.match(webvpn, /fs::remove_file\(&upload\.path\)/, "归档成功后必须删除唯一临时文件");
 	assert.match(webvpn, /DownloadDecision::PassThrough => allow = false/, "侧栏不得把非捕获下载写进系统下载目录");
-	assert.match(webvpn, /class="tabs"/);
-	assert.match(webvpn, /新建标签页/);
-	assert.match(webvpn, /sessionStorage\.setItem\(stateKey/);
-	assert.doesNotMatch(webvpn, /window\.name/, "标签状态不得通过跨域可读的 window.name 泄漏浏览历史");
+	assert.doesNotMatch(webvpn, /class="tabs"/, "标签切换应由 DSH 侧栏承担，不再覆盖第二层标签栏");
+	assert.doesNotMatch(webvpn, /sessionStorage\.setItem\(stateKey/, "不再以网页 sessionStorage 模拟标签页");
 	assert.match(webvpn, /aria-label="网址"/);
 	assert.match(webvpn, /data-action="back"/);
 	assert.match(webvpn, /data-action="forward"/);
 	assert.match(webvpn, /data-action="reload"/);
-	assert.match(webvpn, /关闭浏览器/);
-	assert.match(webvpn, /notifyShell\('close\/'\)/);
+	assert.match(webvpn, /收起导航栏/);
 	assert.match(webvpn, /width \/ 3\.0/, "文献浏览器应占主窗口宽度的三分之一");
 	assert.match(main, /None => \([\s\S]{0,120}?webvpn::open_window\(/, "点击正文应自动创建 WebVPN 侧栏");
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
@@ -446,7 +443,7 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
 /**
  * 2026-09-22 人工审核缺陷 2：出版社 PDF 预览页里看不到预览器自己的工具栏按钮
  * （只能右键另存）。根因是注入的浏览器工具栏是 `position:fixed` 覆盖层，
- * 高度 76px 且没有把页面推下去——预览器工具栏正好落在那条带里被盖住。
+ * 旧版高度 76px 且没有把页面推下去——预览器工具栏正好落在那条带里被盖住。
  *
  * 2026-09-23 回归：对 html 的**无条件**位移会让按视口居中的验证组件
  * （Cloudflare Turnstile 一类）上下抖动、渲染不出来（ScienceDirect 实测，
@@ -455,7 +452,7 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
  */
 test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止捕获", async () => {
 	const webvpn = await webvpnSource();
-	assert.match(webvpn, /const CHROME_HEIGHT = 76;/, "工具栏高度必须集中成一个常量");
+	assert.match(webvpn, /const CHROME_HEIGHT = 42;/, "导航栏高度必须集中成一个常量");
 	// 位移规则本身保留：对 html 施加 transform，它因此成为 position:fixed 后代的
 	// 包含块，PDF 预览器那种 fixed;inset:0 的整屏容器才会一起下移。
 	assert.match(

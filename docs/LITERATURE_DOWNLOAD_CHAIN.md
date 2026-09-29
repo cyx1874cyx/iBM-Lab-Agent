@@ -74,6 +74,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 |---|---|---|
 | `lab_browser_observe` | `taskId`(必), `scope`(`download` 是默认；**`all` 用于 Agent 主导**), `projectId` | 返回 `operationId`；结果含 `url/documentType/readyState/text(1200字)/scroll/candidateCount/truncated/candidates[]`。最多 30 个候选，按视口内下载入口→其他下载入口→视口内普通元素排序；候选含 `inViewport`、`target`、`file` 等。识别到验证页时 `verificationRequired=true`、候选清空，由用户完成验证 |
 | `lab_browser_click` | `taskId`(必), `observationId`(必), `elementId`(必) | 只能点**上一次 observe 刚返回**的元素；页面 URL 一变即失效 |
+| `lab_browser_debug` | `taskId`(必), `projectId` | **只读**调试快照：主文档状态（host/documentType/httpStatus/readyState/contentLength/pageSeq）、最近 24 条事件、CDP Target 清单（type/host/pdfViewer/attached）。用于判断当前是 PDF 文档、HTML 验证页还是独立查看器目标。**不返回 Cookie、原始 URL 或响应体**（事件里的 URL 与日志同一套脱敏） |
 | `lab_browser_navigate` | `taskId`(必), `routeId`(必), `expectedPageSeq`(必) | 执行状态返回的受限备用入口；当前仅支持 Science 官方正文页的 `science-pdf`，每任务一次 |
 | `lab_browser_operation_status` | `operationId`(必), `waitMs`(0–90000) | `status` ∈ `queued`\|`running`\|`completed`\|`failed`；`waitMs>0` 在插件内等到终态 |
 | `lab_browser_wait` | `taskId`(必), `timeoutMs`(默认 8000，上限 20000) | 等"阶段/页面/载荷/进度"任一变化即返回；已是终态则立即返回 |

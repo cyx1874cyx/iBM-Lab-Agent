@@ -36,7 +36,8 @@ use crate::runtime::WebVpnConfig;
 
 #[cfg(windows)]
 use webview2_com::{
-    take_pwstr, CoTaskMemPWSTR, ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
+    take_pwstr, CallDevToolsProtocolMethodCompletedHandler, CoTaskMemPWSTR,
+    ExecuteScriptCompletedHandler, NavigationCompletedEventHandler,
     SaveAsUIShowingEventHandler, ShowSaveAsUICompletedHandler,
     SourceChangedEventHandler,
     WebResourceResponseReceivedEventHandler, WebResourceResponseViewGetContentCompletedHandler,
@@ -94,8 +95,8 @@ const CAPTURE_READ_TIMEOUT: Duration = Duration::from_secs(30);
 const CAPTURE_PDF_MIN_BYTES: u64 = 8 * 1024;
 
 /// 注入到 WebVPN 子 WebView 的完整浏览器壳。它不读取 Cookie 或页面正文，只
-/// 使用浏览器自己的 history/location 实现标签栏、地址栏、前进、后退、刷新和
-/// 关闭。页面每次导航后都会重新注入。
+/// 使用浏览器自己的 history/location 实现地址栏、前进、后退和刷新。
+/// 标签切换由 DSH 侧栏负责。页面每次导航后都会重新注入。
 const WEBVPN_CHROME_SCRIPT: &str = r#"
 (() => {
   // 初始化脚本会在**每个 frame** 里执行。publisher 页面常有同源 iframe，各挂一套壳
@@ -130,13 +131,13 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       notifyShell('session/ready');
     }
   };
-  const CHROME_HEIGHT = 76;
+  const CHROME_HEIGHT = 42;
   /**
    * 页面位移：**只在识别出全屏 PDF 预览器时**才注入。
    *
    * 对 `html` 施加 transform 会让它成为 `position:fixed` 后代的包含块。出版社的
    * HTML PDF 预览器正是 `position:fixed;inset:0` 的整屏容器，不位移就会被我们
-   * 76px 的工具栏盖住「保存/下载」按钮。
+   * 导航栏盖住「保存/下载」按钮。
    *
    * 但同一个 transform 也会重定位按视口垂直居中的验证组件（Cloudflare Turnstile
    * 一类），把 html 高度改小后组件的测量值与实际位置每帧互相纠正，验证框会在应出现
@@ -484,53 +485,45 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
     const root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `<style>
       *{box-sizing:border-box}
-      .shell{height:76px;background:#f8fafc;color:#0f172a;border-bottom:1px solid #cbd5e1;box-shadow:0 2px 10px rgba(15,23,42,.18);font:13px/1.2 "Segoe UI","Microsoft YaHei",sans-serif}
-      .tabs{height:30px;display:flex;align-items:end;padding:4px 7px 0;background:#e2e8f0;gap:5px}
-      .tabs-list{display:flex;align-items:end;gap:4px;min-width:0;overflow:hidden}
-      .tab{height:26px;min-width:82px;max-width:190px;display:flex;align-items:center;gap:5px;padding:0 6px 0 9px;border-radius:7px 7px 0 0;background:#d7dee8;border:1px solid #cbd5e1;font-weight:600;cursor:pointer}
-      .tab[data-active="true"]{background:#fff;border-bottom-color:#fff}
-      .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-      .tab-close,.window-close{border:0;background:transparent;color:#475569;cursor:pointer;border-radius:5px}
-      .tab-close:hover,.window-close:hover{background:#e81123;color:#fff}
-      .bar{height:46px;display:flex;align-items:center;gap:6px;padding:7px;background:#fff}
-      button{all:initial;box-sizing:border-box;width:31px;height:31px;border-radius:7px;color:#334155;font:600 17px/31px "Segoe UI",sans-serif;text-align:center;cursor:pointer;user-select:none}
-      button:hover{background:#e2e8f0}
-      button:focus-visible,input:focus-visible{outline:2px solid #2563eb;outline-offset:1px}
+      .shell{height:42px;background:#fff;color:#202124;border-bottom:1px solid #e4e7eb;font:13px/1.2 "Segoe UI","Microsoft YaHei",sans-serif}
+      .bar{height:42px;display:flex;align-items:center;gap:4px;padding:5px 8px;background:#fff}
+      button{all:initial;box-sizing:border-box;width:28px;height:28px;border-radius:7px;color:#5f6368;font:500 16px/28px "Segoe UI",sans-serif;text-align:center;cursor:pointer;user-select:none;flex:none}
+      button:hover{background:#f1f3f5;color:#202124}
+      button:focus-visible,input:focus-visible{outline:2px solid #4f83e8;outline-offset:1px}
       form{display:flex;flex:1;min-width:0}
-      input{all:initial;box-sizing:border-box;width:100%;height:32px;padding:0 12px;border:1px solid #cbd5e1;border-radius:16px;background:#f1f5f9;color:#0f172a;font:12px/32px "Segoe UI","Microsoft YaHei",sans-serif}
-      input:focus{background:#fff;border-color:#60a5fa}
-      .new-tab,.tab-close,.window-close{width:26px;height:25px;font:17px/25px "Segoe UI",sans-serif;text-align:center;flex:0 0 auto}
-      .window-close{margin-left:auto}
+      input{all:initial;box-sizing:border-box;width:100%;height:30px;padding:0 11px;border:1px solid #e4e7eb;border-radius:9px;background:#f7f8fa;color:#2b3036;font:12px/30px "Segoe UI","Microsoft YaHei",sans-serif;overflow:hidden;text-overflow:ellipsis}
+      input:focus{background:#fff;border-color:#9ab8f0}
       /* 收起后只留一枚把手：出版社预览器的保存按钮常在右上角，被我们的固定条压住
          （2026-09-28 现场：Wiley 预览页"工具栏渲染不出来"）。收起而不是给页面加位移，
          免得重演 transform 引发的白屏。 */
-      .collapse{margin-left:6px;width:26px;height:25px;font:15px/25px "Segoe UI",sans-serif;flex:0 0 auto}
-      #restore{all:initial;box-sizing:border-box;position:fixed;top:0;left:0;z-index:2147483647;display:none;padding:2px 9px;border-radius:0 0 9px 0;background:#0f172a;color:#f8fafc;font:600 11px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.35)}
-      #restore[data-visible="true"]{display:block}
+      .collapse{margin-left:2px;font-size:14px}
     </style>
     <div class="shell">
-      <div class="tabs"><div class="tabs-list"></div><button class="new-tab" type="button" title="新建标签页" aria-label="新建标签页">＋</button><button class="collapse" type="button" title="收起工具栏（让出页面顶部的出版社按钮）" aria-label="收起工具栏">▲</button><button class="window-close" type="button" title="关闭浏览器" aria-label="关闭浏览器">×</button></div>
       <div class="bar">
         <button data-action="back" type="button" title="后退" aria-label="后退">←</button>
         <button data-action="forward" type="button" title="前进" aria-label="前进">→</button>
         <button data-action="reload" type="button" title="刷新" aria-label="刷新">↻</button>
         <form><input type="text" spellcheck="false" aria-label="网址" /></form>
+        <button class="collapse" type="button" title="收起导航栏，让出网页顶部控件" aria-label="收起导航栏">⌃</button>
       </div>
     </div>`;
     // 收起/展开我们的工具栏。收起只影响我们自己的 DOM，不给页面加任何 transform。
     const shellNode = root.querySelector('.shell');
     const collapseButton = root.querySelector('.collapse');
+    document.getElementById('__ibm_webvpn_restore')?.remove();
     const restoreChip = document.createElement('button');
-    restoreChip.id = 'restore';
+    restoreChip.id = '__ibm_webvpn_restore';
     restoreChip.type = 'button';
-    restoreChip.textContent = '展开工具栏 ▼';
+    restoreChip.textContent = '导航栏 ⌄';
+    // 此按钮在 Shadow DOM 外，样式也必须写在自身；否则 shadow 内的规则不会生效。
+    restoreChip.style.cssText = 'all:initial;box-sizing:border-box;position:fixed;top:0;left:0;z-index:2147483647;display:none;padding:3px 9px;border-radius:0 0 8px 0;background:#fff;color:#4b5563;border:1px solid #e4e7eb;font:500 11px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;cursor:pointer;box-shadow:0 2px 7px rgba(15,23,42,.12)';
     document.documentElement.appendChild(restoreChip);
     const setCollapsed = (collapsed) => {
       shellNode.style.display = collapsed ? 'none' : '';
-      // host 本身是 76px 的固定层：不把它的高度让出来，收起也仍然挡着点击。
+      // 收起时同步清空固定层高度，避免透明区域挡住网页控件。
       host.style.height = collapsed ? '0' : `${CHROME_HEIGHT}px`;
       host.style.pointerEvents = collapsed ? 'none' : 'auto';
-      restoreChip.dataset.visible = collapsed ? 'true' : 'false';
+      restoreChip.style.display = collapsed ? 'block' : 'none';
       syncChromeShift();
     };
     window.__ibmWebVpnSetChromeCollapsed = setCollapsed;
@@ -543,88 +536,19 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
       setCollapsed(false);
     });
     const input = root.querySelector('input');
-    const tabsList = root.querySelector('.tabs-list');
-    const stateKey = '__ibm_lab_browser_tabs__';
-    const freshTab = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url: location.href, title: document.title || location.hostname || '文献浏览器' });
-    let tabState;
-    try {
-      tabState = JSON.parse(sessionStorage.getItem(stateKey) || 'null');
-    } catch { tabState = null; }
-    if (!tabState?.tabs?.length) {
-      const tab = freshTab();
-      tabState = { active: tab.id, tabs: [tab] };
-    }
-    const activeTab = () => tabState.tabs.find((tab) => tab.id === tabState.active) || tabState.tabs[0];
-    const persistTabs = () => { try { sessionStorage.setItem(stateKey, JSON.stringify(tabState)); } catch {} };
-    const openTab = (tab) => {
-      tabState.active = tab.id;
-      persistTabs();
-      if (tab.url) location.assign(tab.url);
-      else { renderTabs(); input.value = ''; input.focus(); }
-    };
-    const closeTab = (tab, event) => {
-      event.stopPropagation();
-      if (tabState.tabs.length === 1) { notifyShell('close/'); return; }
-      const wasActive = tab.id === tabState.active;
-      tabState.tabs = tabState.tabs.filter((item) => item.id !== tab.id);
-      if (wasActive) tabState.active = tabState.tabs.at(-1).id;
-      persistTabs();
-      if (wasActive) openTab(activeTab());
-      else renderTabs();
-    };
-    function renderTabs() {
-      tabsList.replaceChildren(...tabState.tabs.map((tab) => {
-        const element = document.createElement('div');
-        element.className = 'tab';
-        element.dataset.active = tab.id === tabState.active ? 'true' : 'false';
-        element.title = tab.url || '新标签页';
-        const label = document.createElement('span');
-        label.className = 'tab-title';
-        label.textContent = tab.title || '新标签页';
-        const close = document.createElement('button');
-        close.className = 'tab-close';
-        close.type = 'button';
-        close.title = '关闭标签页';
-        close.setAttribute('aria-label', '关闭标签页');
-        close.textContent = '×';
-        close.addEventListener('click', (event) => closeTab(tab, event));
-        element.append(label, close);
-        element.addEventListener('click', () => { if (tab.id !== tabState.active) openTab(tab); });
-        return element;
-      }));
-    }
     const sync = () => {
-      const tab = activeTab();
-      if (!tab.url) { input.value = ''; renderTabs(); return; }
-      tab.url = location.href;
-      tab.title = document.title || location.hostname || '文献浏览器';
-      input.value = location.href;
-      host.title = location.href;
-      persistTabs();
-      renderTabs();
+      if (root.activeElement !== input) input.value = location.href;
+      input.title = location.href;
     };
     root.querySelector('[data-action="back"]').addEventListener('click', () => history.back());
     root.querySelector('[data-action="forward"]').addEventListener('click', () => history.forward());
     root.querySelector('[data-action="reload"]').addEventListener('click', () => location.reload());
-    root.querySelector('.window-close').addEventListener('click', () => { notifyShell('close/'); });
-    root.querySelector('.new-tab').addEventListener('click', () => {
-      const tab = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url: '', title: '新标签页' };
-      tabState.tabs.push(tab);
-      tabState.active = tab.id;
-      persistTabs();
-      renderTabs();
-      input.value = '';
-      input.focus();
-    });
+    input.addEventListener('blur', sync);
     root.querySelector('form').addEventListener('submit', (event) => {
       event.preventDefault();
       let target = input.value.trim();
       if (!target) return;
       if (!/^[a-z][a-z0-9+.-]*:/i.test(target)) target = `https://${target}`;
-      const tab = activeTab();
-      tab.url = target;
-      tab.title = target;
-      persistTabs();
       location.assign(target);
     });
     (document.documentElement || document.body).appendChild(host);
@@ -643,7 +567,7 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
    *
    * 验证页、被反爬拦下的空文档、以及长时间停在 loading 的页面都不会（或很晚才）
    * 触发 DOMContentLoaded。只等它会让整个侧栏看起来是白屏：用户既看不到页面，
-   * 也看不到地址栏和关闭按钮，连手动绕过都做不到（2026-09-25 实测，Cloudflare
+   * 也看不到地址栏和导航按钮，连手动绕过都做不到（2026-09-25 实测，Cloudflare
    * 插页 + science.org）。
    */
   const mountNow = () => {
@@ -961,7 +885,7 @@ pub fn is_nature_article(target: &url::Url) -> bool {
 }
 
 /// 顶层文档就是原生 PDF 的地址：WebView2 内置查看器会占满窗口，其顶部工具栏
-/// 会被我们的 76px 工具栏盖住，因此这类页面需要开启页面位移；同时也是"该调保存
+/// 会被我们的导航栏盖住，因此这类页面需要开启页面位移；同时也是"该调保存
 /// 工具、而不是继续找入口"的判据。
 pub fn is_pdf_document_url(target: &url::Url) -> bool {
     let path = target.path().to_ascii_lowercase();
@@ -3504,6 +3428,72 @@ async fn eval_agent_script(webview: &Webview, script: String) -> Result<serde_js
     serde_json::from_str(&response).map_err(|_| "页面操作返回值无效".to_string())
 }
 
+/// 只读 CDP 快照。调试工具不接收任意 method/parameters，也不返回原始 URL、
+/// Cookie 或响应体；目标清单足以判断 PDF 查看器是否成为独立 target。
+#[cfg(windows)]
+async fn debug_cdp_targets(webview: &Webview) -> Result<serde_json::Value, String> {
+    let (sender, receiver) = std::sync::mpsc::channel::<Result<String, String>>();
+    webview.with_webview(move |platform| {
+        let core = match unsafe { platform.controller().CoreWebView2() } {
+            Ok(core) => core,
+            Err(error) => { let _ = sender.send(Err(error.to_string())); return; }
+        };
+        let completed_sender = sender.clone();
+        let handler = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |status, result| {
+            let value = status.map(|_| result.to_string())
+                .map_err(|error| error.to_string());
+            let _ = completed_sender.send(value);
+            Ok(())
+        }));
+        let method = CoTaskMemPWSTR::from("Target.getTargets");
+        let params = CoTaskMemPWSTR::from("{}");
+        if let Err(error) = unsafe { core.CallDevToolsProtocolMethod(
+            *method.as_ref().as_pcwstr(), *params.as_ref().as_pcwstr(), &handler,
+        ) } {
+            let _ = sender.send(Err(error.to_string()));
+        }
+    }).map_err(|error| error.to_string())?;
+    let response = tauri::async_runtime::spawn_blocking(move || receiver.recv_timeout(Duration::from_secs(8)))
+        .await.map_err(|error| error.to_string())?
+        .map_err(|_| "CDP 调试快照超时".to_string())??;
+    let value: serde_json::Value = serde_json::from_str(&response)
+        .map_err(|_| "CDP 调试结果无效".to_string())?;
+    if let Some(error) = value.get("error") {
+        return Err(format!("CDP 返回错误: {}", error.get("message").and_then(|v| v.as_str()).unwrap_or("未知错误")));
+    }
+    let targets = value.get("targetInfos").and_then(|v| v.as_array())
+        .map(|items| items.iter().take(30).map(|target| {
+            let kind = target.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            let raw_url = target.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            serde_json::json!({
+                "type": kind,
+                "host": host_of(raw_url),
+                "pdfViewer": raw_url.starts_with("chrome-extension://") || raw_url.starts_with("edge://pdf-viewer"),
+                "attached": target.get("attached").and_then(|v| v.as_bool()).unwrap_or(false),
+            })
+        }).collect::<Vec<_>>()).unwrap_or_default();
+    Ok(serde_json::json!({ "targets": targets, "targetCount": value.get("targetInfos").and_then(|v| v.as_array()).map_or(0, Vec::len) }))
+}
+
+#[cfg(windows)]
+async fn debug_browser_snapshot(state: &WebVpnState, webview: &Webview) -> Result<serde_json::Value, String> {
+    let page = state.session.lock().ok().and_then(|session| session.page.clone());
+    let events = state.snapshot().into_iter().rev().take(24).collect::<Vec<_>>();
+    let targets = debug_cdp_targets(webview).await?;
+    Ok(serde_json::json!({
+        "page": page.map(|page| serde_json::json!({
+            "host": host_of(&page.url),
+            "documentType": page.document_type,
+            "httpStatus": page.http_status,
+            "readyState": page.ready_state,
+            "contentLength": page.content_length,
+            "pageSeq": page.seq,
+        })),
+        "cdp": targets,
+        "recentEvents": events,
+    }))
+}
+
 
 /// 安装「页面事件 + 响应层」观察器（C1/C2）。
 ///
@@ -3624,6 +3614,15 @@ fn handle_response_received(
         .unwrap_or_default();
     if lowered.contains("text/html") || lowered.contains("application/pdf") {
         state.record_document_response(&url, content_type.as_deref(), content_length, status);
+        state.record(WebVpnEvent {
+            kind: "response".to_string(),
+            url: String::new(),
+            host: host_of(&url),
+            detail: format!("status={} contentType={} contentLength={}",
+                status.map(|value| value.to_string()).unwrap_or_else(|| "unknown".to_string()),
+                if lowered.contains("application/pdf") { "application/pdf" } else { "text/html" },
+                content_length.map(|value| value.to_string()).unwrap_or_else(|| "unknown".to_string())),
+        });
     }
     if !lowered.contains("application/pdf") || attachment {
         return;
@@ -4485,6 +4484,12 @@ pub async fn browser_action(
     }
     let webview = app.get_webview(WINDOW_LABEL).ok_or("文献浏览器尚未打开")?;
     match action {
+        "debug" => {
+            #[cfg(windows)]
+            { debug_browser_snapshot(&state, &webview).await }
+            #[cfg(not(windows))]
+            { Err("CDP 调试快照仅在 Windows 桌面端可用".to_string()) }
+        }
         "navigate" => {
             if route_id != "science-pdf" {
                 return Err("未知备用入口".to_string());
@@ -4778,7 +4783,7 @@ pub fn open_window(
                         "",
                         "已进入原生 PDF 预览器；可直接调用保存工具归档，无需右键另存",
                     );
-                    // 位移：避免查看器自带的保存/下载工具栏被我们的 76px 工具栏盖住。
+                    // 位移：避免查看器自带的保存/下载工具栏被导航栏盖住。
                     let _ = webview.eval(
                         "window.__ibmWebVpnSetPageOffset && window.__ibmWebVpnSetPageOffset(true)",
                     );

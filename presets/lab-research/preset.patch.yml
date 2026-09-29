@@ -125,6 +125,8 @@
                        看清页面 → lab_browser_click 点入口 → lab_browser_wait 等页面变化 → 再观察。
                        用 wait/observe 返回的新状态决定下一步，不要空转轮询，也不要连点同一个元素；
                        每个动作返回的 operationId 用 lab_browser_operation_status 取结果（要等终态就传 waitMs）。
+                       页面类型或跳转结果不明时调用 lab_browser_debug：它提供只读的主文档状态、
+                       最近响应事件及 CDP Target 清单；先确认是 PDF、HTML 验证页还是查看器目标。
                        候选里带 target/file/autoDownloadable：Science 那三个同名 DOWNLOAD 靠 file
                        （…_sm.pdf 与 …tables_s1_to_s6.zip）区分。autoDownloadable 是入口提示，
                        点击后仍以下载事件和归档状态判定是否成功。
