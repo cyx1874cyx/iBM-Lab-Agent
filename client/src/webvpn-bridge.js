@@ -97,7 +97,7 @@ export function sendWebVpnRect(payload) {
  *
  * @param tasks - 插件返回的任务数组（含 view.ball）。
  */
-export function sendWebVpnBallQueue(tasks) {
+export function sendWebVpnBallQueue(tasks, notice) {
 	if (typeof window === "undefined" || !window.parent || window.parent === window) return;
 	const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => {
 		const ball = task?.view?.ball;
@@ -116,6 +116,16 @@ export function sendWebVpnBallQueue(tasks) {
 			} : undefined
 		};
 	}).filter((entry) => entry.id);
+	if (notice?.bundleId && ["pdf", "si"].includes(notice.kind)) {
+		entries.push({
+			id: `conflict-${notice.bundleId}-${notice.kind}`,
+			kind: notice.kind, status: "conflict", requestedBy: "agent",
+			ball: {
+				phase: "error", text: `已有文件：${notice.fileName || "当前条目"}；本次未创建下载任务`,
+				tone: "error", stalled: false, canRecreate: false, canCancel: false
+			}
+		});
+	}
 	try {
 		window.parent.postMessage({
 			source: "ibm-lab-agent",

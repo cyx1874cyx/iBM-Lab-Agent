@@ -121,7 +121,7 @@ test("R3：归档冲突时小球显示「已有文件」，而不是含糊的「
 
 test("R9：窗口关闭即终止，不再伪装成「被持有」", () => {
 	// 关窗是"确定结束"，不是"不知道"：必须立刻进终态并给出重建/清理两条路。
-	const closed = view({ windowOpen: false, pendingTaskId: undefined, releaseReason: "文献浏览器窗口已关闭" });
+	const closed = view({ windowOpen: false, pendingTaskId: undefined, lastPendingTaskId: "capture-1", releaseReason: "文献浏览器窗口已关闭" });
 	assert.equal(closed.phase, "window-closed");
 	assert.equal(closed.requiresUserAction, true);
 	assert.equal(closed.nextAction, "recreate-or-cancel");
@@ -133,6 +133,8 @@ test("R9：窗口关闭即终止，不再伪装成「被持有」", () => {
 	const transitional = view({ windowOpen: false, pendingTaskId: "capture-1" });
 	assert.equal(transitional.phase, "window-closed");
 	assert.notEqual(transitional.phase, "queued");
+	const neverOpened = view({ windowOpen: false, pendingTaskId: undefined, lastPendingTaskId: undefined });
+	assert.notEqual(neverOpened.phase, "window-closed", "未曾被窗口接管的新任务不能当作关窗终态");
 
 	// 窗口在、心跳在，才是 held。
 	const open = view({ windowOpen: true, pendingTaskId: "capture-1" });

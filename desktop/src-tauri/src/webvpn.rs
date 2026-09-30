@@ -75,7 +75,7 @@ const MAX_LOGGED_VALUE: usize = 300;
 const WRD_KEY: &[u8; 16] = b"wrdvpnisthebest!";
 const CAPTURE_TTL: Duration = Duration::from_secs(20 * 60);
 const DOWNLOAD_DIR_NAME: &str = "webvpn-downloads";
-const CAPTURE_MAX_BYTES: u64 = 100 * 1024 * 1024;
+const CAPTURE_MAX_BYTES: u64 = 250 * 1024 * 1024;
 /// 等下载文件写完的上限（下载事件说 success 时文件可能还在写）。
 const CAPTURE_READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// 正文 PDF 的最小可信体积（与插件端 `CAPTURE_PDF_MIN_BYTES` 保持一致）。
@@ -439,11 +439,11 @@ const WEBVPN_CHROME_SCRIPT: &str = r#"
         const kindText = entry.kind === 'si' ? '补充材料' : '正文';
         const statusText = {
           armed: '排队中', running: '进行中', completed: '已完成', failed: '失败',
-          cancelled: '已取消', expired: '已过期'
+          cancelled: '已取消', expired: '已过期', conflict: '已有文件'
         }[entry.status] ?? String(entry.status || '');
         label.textContent = (running ? '▶ ' : '') + kindText + ' · ' + statusText;
         row.appendChild(label);
-        if (!running) {
+        if (!running && entry.status !== 'conflict') {
           const kill = document.createElement('button');
           kill.type = 'button';
           kill.className = 'kill';
@@ -2108,6 +2108,15 @@ impl WebVpnState {
         let Some(pending) = session.pending.as_ref() else {
             // 没有在跑的任务：提示保留（小球"下载完就消失"是实测反馈的问题），
             // 只要还有排队任务也不隐藏，便于用户看到队列并逐条删除。
+            if let Some(conflict) = session.capture_queue.iter().rev()
+                .find(|entry| entry.status == "conflict" && !entry.ball_text.is_empty())
+            {
+                return serde_json::json!({
+                    "phase": "error", "kind": conflict.kind, "queue": queue,
+                    "ballText": conflict.ball_text, "ballTone": "error",
+                    "canRecreate": false, "canCancel": false,
+                }).to_string();
+            }
             if let Some(notice) = session
                 .capture_notice
                 .as_ref()
@@ -2238,12 +2247,21 @@ impl WebVpnState {
 
     pub fn mark_closed(&self) {
         if let Ok(mut session) = self.session.lock() {
+            if let Some(pending) = session.pending.take() {
+                session.last_pending_task_id = Some(pending.task_id);
+                session.release_reason = Some("文献浏览器窗口已关闭".to_string());
+                session.capture_notice = Some(CaptureNotice {
+                    kind: pending.kind,
+                    phase: "error",
+                    expires_at: Instant::now() + Duration::from_secs(30 * 60),
+                });
+                session.generation = session.generation.wrapping_add(1);
+                session.progress_sample = None;
+            }
             session.state = WebVpnSessionState::Closed;
             session.authenticated = false;
             session.sidebar_visible = false;
             session.target_host = None;
-            session.pending = None;
-            session.capture_notice = None;
         }
     }
 
@@ -2360,6 +2378,11 @@ impl WebVpnState {
     }
 
     pub fn status(&self, config: &WebVpnConfig, window_open: bool) -> WebVpnStatus {
+        // 真实销毁也可能绕过页内关闭按钮；在首次观察到 WebView2 已不存在时
+        // 完成同一条幂等转移，而不只是把返回值中的 pendingTaskId 临时藏起来。
+        if !window_open && self.pending_task_id().is_some() {
+            self.mark_closed();
+        }
         let session = self
             .session
             .lock()
@@ -2415,7 +2438,7 @@ impl WebVpnState {
         //
         // 曾经的现场问题：`pending_task_id` 不看 `window_open`，于是关掉浏览器之后
         // 任务仍被判为 held，`phase` 停在旧值，调用方只能一直等一个不会到来的变化。
-        // 这里不改内部 pending（保留 TTL 与重启语义），只把对外事实改成"已交还"。
+        // mark_closed 已真正释放内部 pending；这里仍守住返回值边界。
         let window_closed_pending = (!window_open)
             .then(|| session.pending.as_ref().map(|pending| pending.task_id.clone()))
             .flatten();
@@ -2754,7 +2777,7 @@ fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destinat
             .content_length()
             .is_some_and(|size| size > CAPTURE_MAX_BYTES)
         {
-            return Err("Springer 系 SI 超过 100 MB 捕获上限".to_string());
+            return Err("Springer 系 SI 超过 250 MiB 捕获上限".to_string());
         }
         let mut file = fs::File::create(&destination)
             .map_err(|error| format!("无法创建 Springer 系 SI 临时文件: {error}"))?;
@@ -2769,7 +2792,7 @@ fn download_springer_family_si_direct(app: AppHandle, target: url::Url, destinat
             }
             received = received.saturating_add(count as u64);
             if received > CAPTURE_MAX_BYTES {
-                return Err("Springer 系 SI 超过 100 MB 捕获上限".to_string());
+                return Err("Springer 系 SI 超过 250 MiB 捕获上限".to_string());
             }
             file.write_all(&buffer[..count])
                 .map_err(|error| format!("无法写入 Springer 系 SI 临时文件: {error}"))?;
@@ -4521,12 +4544,19 @@ fn handle_internal_command(app: &AppHandle, url: &url::Url) -> bool {
         return true;
     }
     if url.host_str() == Some("close") {
-        // 避免在 WebView 回调栈中直接隐藏自身；调度到主线程的下一拍。
+        // 页内关闭是真正关闭浏览器；切换/收起侧栏仍由 hide_sidebar 处理。
+        // 不在 WebView 回调栈里销毁自身，调度到主线程的下一拍。
         let scheduled_app = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(10));
             let action_app = scheduled_app.clone();
             let _ = scheduled_app.run_on_main_thread(move || {
+                if let Some(webview) = action_app.get_webview(WINDOW_LABEL) {
+                    let _ = webview.close();
+                }
+                if let Some(state) = action_app.try_state::<WebVpnState>() {
+                    state.mark_closed();
+                }
                 let _ = hide_sidebar(&action_app);
             });
         });

@@ -36,7 +36,7 @@ def _load_capture_spec():
 
 
 _spec = _load_capture_spec()
-MAX_FILE_BYTES = int(_spec.get("maxFileBytes", 100 * 1024 * 1024))
+MAX_FILE_BYTES = int(_spec.get("maxFileBytes", 250 * 1024 * 1024))
 CAPTURE_UPLOAD_PATH = str(_spec.get("captureUploadPath", "/api/lab-capture-upload"))
 LOOPBACK_HOSTS = set(_spec.get("loopbackHosts", ["127.0.0.1", "localhost", "::1"]))
 TASK_ID_RE = re.compile(str(_spec.get("taskIdPattern", r"^capture-[a-z0-9]+$")))

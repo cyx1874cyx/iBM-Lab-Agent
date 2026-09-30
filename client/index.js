@@ -334,7 +334,7 @@ function sendWebVpnRect(payload) {
   } catch {
   }
 }
-function sendWebVpnBallQueue(tasks) {
+function sendWebVpnBallQueue(tasks, notice) {
   if (typeof window === "undefined" || !window.parent || window.parent === window) return;
   const entries = (Array.isArray(tasks) ? tasks : []).slice(0, 50).map((task) => {
     const ball = task?.view?.ball;
@@ -353,6 +353,22 @@ function sendWebVpnBallQueue(tasks) {
       } : void 0
     };
   }).filter((entry) => entry.id);
+  if (notice?.bundleId && ["pdf", "si"].includes(notice.kind)) {
+    entries.push({
+      id: `conflict-${notice.bundleId}-${notice.kind}`,
+      kind: notice.kind,
+      status: "conflict",
+      requestedBy: "agent",
+      ball: {
+        phase: "error",
+        text: `已有文件：${notice.fileName || "当前条目"}；本次未创建下载任务`,
+        tone: "error",
+        stalled: false,
+        canRecreate: false,
+        canCancel: false
+      }
+    });
+  }
   try {
     window.parent.postMessage({
       source: "ibm-lab-agent",
@@ -4009,7 +4025,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
           }
         }
         const listed = await call("manual_capture_list", { request: { projectId } });
-        sendWebVpnBallQueue(listed?.tasks || []);
+        sendWebVpnBallQueue(listed?.tasks || [], listed?.notice);
         const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
         if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status) || ["error", "expired"].includes(shellStatus?.state))) {
           if (activeTask.status === "armed") {

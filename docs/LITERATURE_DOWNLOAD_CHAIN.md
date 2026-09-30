@@ -1,6 +1,6 @@
 # 文献下载链路规格（给 Agent 的操作手册）
 
-适用版本：`dsh-lab-agent` / 桌面壳 **0.5.6-beta1** 及以后。
+适用版本：`dsh-lab-agent` / 桌面壳 **0.5.6-beta2** 及以后。
 `lab_browser_navigate`、`alternateRouteId`、`reasonCode` 与独立的 `downloadEventBytes` 自
 **0.5.5-beta18** 起可用（beta17 安装包不含这些接口）——插件与桌面壳必须同版本，
 否则 `navigate` 会被壳拒绝。
@@ -73,7 +73,7 @@ DSH 客户端（iframe 内，每 1.5–1.8 s 轮询一次）
 
 | 工具 | 参数 | 返回要点 |
 |---|---|---|
-| `lab_publisher_browser_download` | `bundleId`(必), `kind`(`pdf`\|`si`,必), `projectId`, `loginConfirmed`, `replaceExisting` | `taskId`, `accessMode`(`iwan`\|`webvpn`\|`direct`), 或 `webvpn-login-required` + `question`，或 `already-archived` + `archiveConflict` + `question` |
+| `lab_publisher_browser_download` | `bundleId`(必), `kind`(`pdf`\|`si`,必), `projectId`, `loginConfirmed` | `taskId`, `accessMode`(`iwan`\|`webvpn`\|`direct`), 或 `webvpn-login-required` + `question`，或 `already-archived` + `archiveConflict` + `question` |
 | `lab_publisher_browser_download_status` | `taskId`(必), `projectId` | 见 §2.3 |
 | `lab_publisher_browser_capture_list` | `projectId` | `tasks[]`（taskId/bundleId/kind/status/phase/queuePosition/requiresUserAction/nextAction/message/fileName/createdAt） |
 | `lab_publisher_browser_download_cancel` | `taskId`(必), `reason`, `recreate`(布尔) | `{ok,taskId,status}`；`recreate:true` 时另给 `recreatedTaskId`/`recreatedStatus` |
@@ -127,11 +127,11 @@ viewerDownloadFailure: { count, error }
 
 | `reasonCode` | 含义 | 该做什么 |
 |---|---|---|
-| `already-archived` | 条目已归档同类型文件，本次归档被拒绝（原文件未动） | 用 `question` 让用户选"替换 / 保留"；替换需重新发起并带 `replaceExisting=true`，或先用分件删除清掉旧文件 |
+| `already-archived` | 条目已归档同类型文件，本次归档被拒绝（原文件未动） | beta2 保留原文件并结束本次任务；替换待人工确认入口实现后开放 |
 | `bundle-missing` | 条目不存在或不属于本课题 | 不要重试，告知用户条目已失效 |
 | `kind-mismatch` | 文件名与任务类型不符 | 重新 observe 并点正确的入口 |
 | `missing-pdf-header` / `missing-eof` / `payload-too-small` / `missing-zip-container` | 内容校验不通过 | 换入口（`retry-download-entry`）或重新下载 |
-| `too-large` | 超过 100 MB 上限 | 直接登记已有文件，勿重抓 |
+| `too-large` | 超过 250 MiB 上限 | 停止本次归档；只有取得完整且通过校验的文件后才能登记 |
 | `token-invalid` / `token-replayed` / `task-not-armed` / `task-expired` | 令牌/任务状态无效 | 重建任务 |
 | `transfer-incomplete` | 载荷没被证明收全 | `wait-and-poll` 或 `retry-download-entry` |
 | `storage-failed` | 写盘/落位失败（旧文件已放回原位） | 报错给用户并附原因；不要当成"再抓一次就好" |
@@ -227,9 +227,8 @@ viewerDownloadFailure: { count, error }
    直接用 `lab_tasks_update_bundle_file(kind=pdf)` 登记，**不要**为同一份字节再抓一次。
 3. **连环失败就停**：同一篇文献连续 400/失败 **超过 2 次** → 停止自动重试，把情况告诉用户。
 4. **归档冲突单独处理（`already-archived`）**：这不是失败，而是"东西已经在了、覆盖被拒绝"。
-   把 `question` 原样给用户，按选择走：**替换** → 重新发起并带 `replaceExisting=true`
-   （旧文件会改名成 `.previous-<sha8>` 留一份）；**保留** → 结束这个任务。
-   旧的错误归档也可以先用 `lab_tasks_delete_bundle_file` 分件删除再重抓。
+   向用户报告已有文件及冲突信息，结束本次下载任务。beta2 不提供自动替换或分件删除入口；
+   需要更换错误归档时，等后续具备人工确认与回滚的分件管理功能。
 5. **才谈重建**：`lab_publisher_browser_download_cancel(taskId, recreate=true)` 用同一篇文献
    立刻重建并返回新 `taskId`，不需要用户重新确认；同时把 `question` 问用户。
 
@@ -286,7 +285,7 @@ viewerDownloadFailure: { count, error }
 | iWAN 标定 | Science 正文 PDF 已获用户成功反馈；其具体入口/访问模式和 SI，以及其余七家的机构会话仍待逐项记录（`docs/PUBLISHER_DOWNLOAD_CALIBRATION.json`） | 按规则表逐家验收，**不要把待测提示称为已支持** |
 | 无通用下载器 | 只处理已登记 DOI 的出版社页面 | 有意为之 |
 | 候选不预言可用性 | 现在只有 `autoDownloadable`；"这条入口是否直出字节流"仍需点一次才知道 | 排队中（B3） |
-| 同名产物覆盖 | 已修（0.5.6-beta1）：已有文件时归档**明确失败**（`already-archived`），只有用户确认"替换"才覆盖，且旧文件改名 `.previous-<sha8>` 留一份 | 已修 |
+| 同名产物覆盖 | beta2：已有文件时归档**明确失败**（`already-archived`），本版不提供替换入口 | 已修 |
 | `206` Range 站点 | 取体通路退役后不再装配 `206` 分段；只给 Range、不给整份响应的站点只能从下载入口取正文 | 有意如此（换 `download=true` 入口） |
 | 空壳 PDF 响应 | 有些出版社把 `application/pdf` 响应的 body 换成 HTML 查看器空壳；Fetch 通路会正确地拒绝它，此时按 `retry-download-entry` 换入口 | 观察中 |
 | 保存支路与下载通路可能同时活着 | 一次操作里两条通路都可能有产物；归档的是哪一份由 `fileName`/`fileSha256` 决定 | 有意如此 |
@@ -302,7 +301,8 @@ viewerDownloadFailure: { count, error }
 | beta15 | 保存入口：右下角「保存到课题」浮层 + 侧栏兜底按钮（同一实现） |
 | beta16 | 崩溃修复（COM 流双重释放）+ 完整性判据唯一化 + 失败前先验产物 + 终态不占队列位 |
 | beta17 | **上传前必须证明"写完了"**（下载事件说 success ≠ 文件写完）+ 失败原因可见（响应体/code/salvaged） |
-| 0.5.6-beta1 | CDP Fetch 取浏览器原生 PDF 正文（通路 C）；响应层取体（通路 B）退役；归档冲突显式失败并可替换留证；`reasonCode` 成表；关窗即终止（`window-closed`）；小球展示态收敛 |
+| 0.5.6-beta1 | CDP Fetch 取浏览器原生 PDF 正文（通路 C）；响应层取体（通路 B）退役；`reasonCode` 成表 |
+| 0.5.6-beta2 | 归档冲突拒绝覆盖并展示提示；关窗释放并持久化终态；250 MiB 上限统一；同槽位并发归档串行化，provenance 不互相覆盖 |
 
 **这张表的用法**：如果你在旧版本上看到"保存静默失败""256 KB 就报完成""进 PDF 页闪退"
 "3 次 400 1 次成功"，那是**已知且已修**的问题，先确认壳与插件版本一致再排查别的。

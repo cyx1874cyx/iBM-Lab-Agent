@@ -48,7 +48,7 @@ test("捕获小球显示队列、可逐条删除、完成后不消失", async ()
 	assert.match(shell, /invoke\('webvpn_set_capture_queue'/);
 	assert.match(shell, /window\.__ibmBallCancelTask/);
 	assert.match(main, /fn webvpn_set_capture_queue\(/);
-	assert.match(client, /sendWebVpnBallQueue\(listed\?\.tasks \|\| \[\]\)/);
+	assert.match(client, /sendWebVpnBallQueue\(listed\?\.tasks \|\| \[\], listed\?\.notice\)/);
 	assert.match(await read("client/src/lib.js"), /WEBVPN_CANCEL_TASK/);
 	// 页面不可信：删除只接受当前队列快照里的 id。
 	assert.match(webvpn, /url\.host_str\(\) == Some\("cancel-task"\)/);
@@ -506,10 +506,10 @@ test("注入壳只在 PDF 预览器开启页面位移，且捕获小球可终止
 	assert.ok(ball, "必须存在 capture_ball_json");
 	// 只看真正发给页面的那份 JSON：函数体里读 temp_path 只是为了取文件大小。
 	const payloads = [...ball[0].matchAll(/serde_json::json!\(\{[\s\S]*?\}\)/g)];
-	// 4 份载荷 = 队列条目映射 1 份 + 小球形态 3 份（活动任务 / 完成提示 / 只剩排队任务）。
-	assert.equal(payloads.length, 4, "队列条目映射与三种小球形态都要有载荷");
+	// 队列条目映射 1 份 + 小球形态 4 份（新增归档冲突）。
+	assert.equal(payloads.length, 5, "队列条目映射与四种小球形态都要有载荷");
 	const shapes = payloads.filter((payload) => /"queue": queue/.test(payload[0]));
-	assert.equal(shapes.length, 3, "三种小球形态都必须带队列");
+	assert.equal(shapes.length, 4, "四种小球形态都必须带队列");
 	// 活动任务形态必须带实际阶段：优先用插件推导的 ballPhase（C20，工具与小球同源），
 	// 客户端还没上报过这条任务时兜底成壳自己的 phase。
 	assert.ok(

@@ -4,7 +4,7 @@
   "loopbackHosts": ["127.0.0.1", "localhost", "::1"],
   "scheme": "http",
   "taskIdPattern": "^capture-[a-z0-9]+$",
-  "maxFileBytes": 104857600,
+  "maxFileBytes": 262144000,
   "_captureSemantics": {
     "viewerIsNotCapture": "documentType=application/pdf and contentLength describe the displayed response, not saved bytes. Agent may trigger native viewer download; publisher HTML preview requires clicking its download element. A wrong-object-html verdict means the preview buffer is not a ready PDF payload.",
     "captureStarts": "An active task receives a WebView2 DownloadEvent::Requested, or the response collector receives a complete non-206 application/pdf body; Nature/Springer public SI may be intercepted before preview navigation.",

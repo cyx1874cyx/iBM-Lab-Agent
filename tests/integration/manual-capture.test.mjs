@@ -5,7 +5,7 @@
  *   - 捕获任务创建成功（token 明文一次性返回 + 数据库只存哈希）
  *   - 微信来源只使用 DOI 出版社页面；无 DOI 拒绝启动（不回退公众号链接）
  *   - 非法令牌 404 / 重放令牌 409 / 过期令牌拒绝
- *   - 100 MB 上限 / 非 PDF 冒充 / PDF 头与 EOF 错误 / SI 不支持格式
+ *   - 250 MiB 上限 / 非 PDF 冒充 / PDF 头与 EOF 错误 / SI 不支持格式
  *   - 路径穿越文件名被清理
  *   - 成功上传后复用原 bundle 并记录 manual-browser-capture provenance
  *   - PDF/SI 下载接口能读取捕获文件
@@ -335,7 +335,7 @@ test("capture: R4 — 条目不存在时给 bundle-missing（该放弃，不要�
 	}
 });
 
-test("capture: R3 — 未登记的遗留同名文件会被本次归档取代，且不留 .tmp 残留", async () => {
+test("capture: R3 — 未登记的遗留同名文件也不得静默覆盖", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
@@ -348,12 +348,13 @@ test("capture: R3 — 未登记的遗留同名文件会被本次归档取代，�
 
 		const created = await ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
 		const res = await boot.upload(uploadRequest({ token: created.token, fileName: "paper.pdf", body: pdf }));
-		assert.equal(res.status, 200, JSON.stringify(res.payload));
+		assert.equal(res.status, 409, JSON.stringify(res.payload));
+		assert.equal(res.payload.code, "already-archived");
 		const bundle = ctx.labTasks.getBundle("bundle-cap-1");
-		assert.equal(createHash("sha256").update(await readFile(bundle.pdfPath)).digest("hex"),
-			createHash("sha256").update(pdf).digest("hex"), "遗留文件应被本次归档取代");
+		assert.equal(bundle.pdfPath, undefined);
+		assert.deepEqual(await readFile(leftover), minimalPdf("stale"));
 		// 正常情况下不会留下临时文件
-		const turds = (await readdir(dirname(bundle.pdfPath))).filter((name) => name.startsWith(".tmp-"));
+		const turds = (await readdir(dirname(leftover))).filter((name) => name.startsWith(".tmp-"));
 		assert.deepEqual(turds, [], "条目目录不应残留 .tmp- 文件");
 	} finally {
 		await boot.handle.dispose();
@@ -426,7 +427,7 @@ test("capture: R3 — 条目已有同类型文件时归档失败，原文件一�
 	}
 });
 
-test("capture: R3 — 用户确认替换时旧文件改名留证，provenance 记明替换关系", async () => {
+test("capture: R3 — beta1 遗留 allowOverwrite 标记也不能绕过冲突保护", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
@@ -440,20 +441,13 @@ test("capture: R3 — 用户确认替换时旧文件改名留证，provenance �
 		const replace = await ctx.labCapture.createCaptureTask({
 			projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf", allowOverwrite: true
 		});
-		assert.equal(replace.task.allowOverwrite, true, "只有显式授权才允许覆盖");
+		assert.equal(replace.task.allowOverwrite, false);
 		const replaced = await boot.upload(uploadRequest({ token: replace.token, fileName: "paper.pdf", body: newPdf }));
-		assert.equal(replaced.status, 200, JSON.stringify(replaced.payload));
+		assert.equal(replaced.status, 409, JSON.stringify(replaced.payload));
 		const bundle = ctx.labTasks.getBundle("bundle-cap-1");
-		assert.equal(bundle.pdfSha256, newSha, "新文件已就位");
-		// 上一版必须以 .previous-<sha8> 留在同一条目目录里
-		const backup = `${bundle.pdfPath.replace(/\.pdf$/, "")}.previous-${oldSha.slice(0, 8)}.pdf`;
-		assert.equal(existsSync(backup), true, `旧文件应改名保留：${backup}`);
-		assert.equal(createHash("sha256").update(await readFile(backup)).digest("hex"), oldSha);
-		// 审计链里能查出"这份文件替换了谁"
-		const prov = ctx.labTasks.listProvenance("capture-project")
-			.filter((row) => row.source === "manual-browser-capture")
-			.at(-1);
-		assert.equal(prov.replaced?.sha256, oldSha, "审计链必须记明替换了哪一版");
+		assert.equal(bundle.pdfSha256, oldSha);
+		assert.notEqual(bundle.pdfSha256, newSha);
+		assert.equal(createHash("sha256").update(await readFile(bundle.pdfPath)).digest("hex"), oldSha);
 	} finally {
 		await boot.handle.dispose();
 		await rm(boot.dir, { recursive: true, force: true });
@@ -494,6 +488,26 @@ test("capture: R6 — 面板发起（human）的任务拒绝一切自动化浏�
 	}
 });
 
+test("capture: 真关窗使已接管任务持久终止，未接管任务仍可排队", async () => {
+	const boot = await bootCapture();
+	try {
+		const capture = boot.ctx.labCapture;
+		const active = await capture.createAgentCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
+		await capture.reportDesktopWebVpnStatus({ state: "waiting-download", windowOpen: true, pendingTaskId: active.id });
+		await capture.reportDesktopWebVpnStatus({ state: "closed", windowOpen: false, lastPendingTaskId: active.id, releaseReason: "文献浏览器窗口已关闭" });
+		assert.equal(capture.getTask(active.id).status, "failed");
+		assert.equal(capture.getTask(active.id).reasonCode, "window-closed");
+		assert.equal(capture.describeTask(capture.getTask(active.id)).phase, "window-closed");
+		assert.throws(() => capture.claimAgentCaptureTask(active.id));
+		const queued = await capture.createAgentCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "si" });
+		assert.equal(capture.getTask(queued.id).status, "armed");
+		assert.notEqual(capture.describeTask(capture.getTask(queued.id)).phase, "window-closed");
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
 test("capture: 同一令牌并发上传时只有一次能认领", async () => {
 	const boot = await bootCapture();
 	try {
@@ -508,7 +522,28 @@ test("capture: 同一令牌并发上传时只有一次能认领", async () => {
 	}
 });
 
-test("capture: 上传接口 — 100MB 上限 / 非 PDF / 头与 EOF 错误 / SI 格式白名单", async () => {
+test("capture: 不同任务并发写同一条目时最多一个成功", async () => {
+	const boot = await bootCapture();
+	try {
+		const capture = boot.ctx.labCapture;
+		const taskA = { projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf", tokenSha256: "a".repeat(64) };
+		const taskB = { ...taskA, tokenSha256: "b".repeat(64) };
+		const results = await Promise.allSettled([
+			capture.saveCapturedFile(taskA, { buffer: minimalPdf("parallel-a"), fileName: "a.pdf" }),
+			capture.saveCapturedFile(taskB, { buffer: minimalPdf("parallel-b"), fileName: "b.pdf" })
+		]);
+		assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+		assert.equal(results.filter((result) => result.status === "rejected" && result.reason?.code === "already-archived").length, 1);
+		const bundle = boot.ctx.labTasks.getBundle("bundle-cap-1");
+		assert.equal(existsSync(bundle.pdfPath), true);
+		assert.equal(boot.ctx.labTasks.listProvenance("capture-project").filter((row) => row.source === "manual-browser-capture").length, 1);
+	} finally {
+		await boot.handle.dispose();
+		await rm(boot.dir, { recursive: true, force: true });
+	}
+});
+
+test("capture: 上传接口 — 250 MiB 上限 / 非 PDF / 头与 EOF 错误 / SI 格式白名单", async () => {
 	const boot = await bootCapture();
 	try {
 		const ctx = boot.ctx;
@@ -520,14 +555,15 @@ test("capture: 上传接口 — 100MB 上限 / 非 PDF / 头与 EOF 错误 / SI 
 			}
 			return ctx.labCapture.createCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
 		};
-		// 100MB 上限：Content-Length 预检直接拒绝
+		// 250 MiB 上限：Content-Length 预检直接拒绝
 		const created = await newPdfTask();
 		const oversized = await boot.upload(uploadRequest({
 			token: created.token, fileName: "huge.pdf",
 			body: Buffer.alloc(0),
-			contentLength: 101 * 1024 * 1024
+			contentLength: 251 * 1024 * 1024
 		}));
 		assert.equal(oversized.status, 413);
+		assert.equal(oversized.payload.code, "too-large");
 
 		// 非 PDF 冒充 PDF（.pdf 名 + 文本内容）
 		const created2 = await newPdfTask();
@@ -647,6 +683,8 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		assert.equal(siFile.mime, "application/pdf", "已登记 SI 一律按 PDF 出流，不再按扩展名猜测");
 		assert.equal(siFile.sha256, siSha);
 		assert.deepEqual(siFile.buffer, si);
+		assert.equal(ctx.labTasks.listProvenance("capture-project").filter((row) => row.source === "manual-browser-capture").length, 2,
+			"正文与 SI 捕获须各保留一条 provenance，不得因 bundleId 相同互相覆盖");
 		// 精读报告不被捕获改动（不冒充全文精读完成）
 		const report = await ctx.labTasks.createReadingReport({ projectId: "capture-project", bundleId: "bundle-cap-1", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
 		assert.equal(report.status, "pending");

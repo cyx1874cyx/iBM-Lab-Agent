@@ -211,7 +211,7 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 						// 结束的一次性令牌，先清掉它，否则后面的 SI 永远不能接管。
 						const listed = await call("manual_capture_list", { request: { projectId } });
 						// 每一轮都把队列快照交给小球：用户才能在侧栏看到排队序列并逐条删除。
-						sendWebVpnBallQueue(listed?.tasks || []);
+						sendWebVpnBallQueue(listed?.tasks || [], listed?.notice);
 						const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
 						if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status)
 							|| ["error", "expired"].includes(shellStatus?.state))) {

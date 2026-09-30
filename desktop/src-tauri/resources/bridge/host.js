@@ -29,7 +29,7 @@ function loadCaptureSpec() {
 }
 
 const _captureSpec = loadCaptureSpec() || {};
-const MAX_FILE_BYTES = _captureSpec.maxFileBytes ?? 100 * 1024 * 1024;
+const MAX_FILE_BYTES = _captureSpec.maxFileBytes ?? 250 * 1024 * 1024;
 const CAPTURE_UPLOAD_PATH = _captureSpec.captureUploadPath ?? "/api/lab-capture-upload";
 const LOOPBACK_HOSTS = new Set(_captureSpec.loopbackHosts ?? ["127.0.0.1", "localhost", "::1"]);
 const TASK_ID_RE = new RegExp(_captureSpec.taskIdPattern ?? "^capture-[a-z0-9]+$");

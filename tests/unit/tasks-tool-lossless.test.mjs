@@ -72,7 +72,7 @@ test("lab_nature_browser_download queues an existing Nature bundle without expos
 	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
 	assert.ok(tool);
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "si", mode: "ai" }, {});
-	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "si", mode: "ai", allowOverwrite: false });
+	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "si", mode: "ai" });
 	assert.deepEqual(output, { ok: true, taskId: "capture-agent123", bundleId: "bundle-nature", kind: "si", publisher: "Nature Portfolio", status: "queued", code: "task-created", taskCreated: true, accessMode: "direct" });
 	assert.equal(JSON.stringify(output).includes("must-not-leak"), false);
 });
@@ -168,7 +168,7 @@ test("Nature main PDF continues only after the user confirms WebVPN login", asyn
 	});
 	const tool = registered.find((item) => item.name === "lab_nature_browser_download");
 	const output = await tool.execute({ projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", loginConfirmed: true }, {});
-	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", loginConfirmedByUser: true, mode: "ai", allowOverwrite: false });
+	assert.deepEqual(request, { projectId: "proj-test", bundleId: "bundle-nature", kind: "pdf", loginConfirmedByUser: true, mode: "ai" });
 	assert.equal(output.taskId, "capture-confirmed");
 });
 

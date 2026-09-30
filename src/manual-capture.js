@@ -26,8 +26,8 @@ export const CAPTURE_STATUSES = ["armed", "uploading", "completed", "failed", "e
 /** 默认有效期（毫秒）：20 分钟。 */
 export const CAPTURE_TTL_MS = 20 * 60 * 1000;
 
-/** 上传大小上限：100 MB。 */
-export const CAPTURE_MAX_BYTES = 100 * 1024 * 1024;
+/** 捕获文件大小上限：250 MiB。 */
+export const CAPTURE_MAX_BYTES = 250 * 1024 * 1024;
 
 /** PDF 最小字节数（复用文献浏览器的判断口径：过小疑似错误页）。 */
 export const CAPTURE_PDF_MIN_BYTES = 8 * 1024;
@@ -55,10 +55,7 @@ export const labCaptureTaskSchema = z.object({
 	/** 用户手工下载前同步打开的出版社页面（DOI 存在时为 https://doi.org/<doi>）。 */
 	publisherUrl: z.string().url().optional(),
 	status: z.enum(CAPTURE_STATUSES).default("armed"),
-	/**
-	 * R3：条目已归档同类型文件时是否允许替换。**默认 false**，只有用户在冲突
-	 * 提示里明确选择"替换"时才置真——"覆盖"必须是一次人类决策，不是默认行为。
-	 */
+	/** beta1 兼容字段；beta2 不接受它作为覆盖授权。 */
 	allowOverwrite: z.boolean().default(false),
 	/** R4：机器可读的失败原因码（与 `message` 并存，message 给人看）。 */
 	reasonCode: z.string().optional(),
@@ -154,7 +151,7 @@ export function captureValidationError(code, message) {
 export function validateCapturedFile({ kind, buffer, fileName }) {
 	const bytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer ?? []);
 	if (bytes.byteLength > CAPTURE_MAX_BYTES) {
-		throw captureValidationError("too-large", `文件超过 ${Math.round(CAPTURE_MAX_BYTES / 1024 / 1024)} MB 安全上限`);
+		throw captureValidationError("too-large", `文件超过 ${Math.round(CAPTURE_MAX_BYTES / 1024 / 1024)} MiB 安全上限`);
 	}
 	if (kind !== "pdf" && kind !== "si") {
 		throw new Error(`未知捕获类型：${kind}`);
@@ -208,15 +205,14 @@ export function archiveSlotOf(bundle, kind) {
 /**
  * 归档冲突（R3）：同一 `bundle + kind` 上已经有一份被登记的产物时，**不得静默覆盖**。
  *
- * 现场教训：`saveCapturedFile` 写临时文件后 rename，Windows 上目标存在就 `rm` 再
- * rename，`registerCapturedFile` 直接覆盖 `pdfPath/pdfSha256` —— 人工归档错了就没有
- * 回头路。现在冲突必须显式失败，并由调用方（工具/面板）给出"替换或保留"的选择。
+ * 现场教训：旧版会在目标存在时删除旧文件，再以新文件覆盖条目。beta2 一律拒绝
+ * 冲突，直到分件管理具有可验证的人工确认和回滚能力。
  */
 export function captureArchiveConflict(code, existing) {
 	const label = existing?.kind === "si" ? "补充材料" : "正文";
 	const error = captureValidationError(
 		code,
-		`条目已归档${label}（${existing?.fileName ?? "未知文件"}）；如需替换请先确认，或先删除该文件`
+		`条目已归档${label}（${existing?.fileName ?? "未知文件"}）；本版拒绝覆盖，请保留原文件`
 	);
 	error.existing = existing;
 	return error;

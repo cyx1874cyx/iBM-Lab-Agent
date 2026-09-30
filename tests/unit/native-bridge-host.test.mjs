@@ -81,7 +81,7 @@ test("三处实现共享同一份捕获安全 spec（无漂移、从 spec 加载
   assert.equal(hostSpec, extSpec, "capture-spec.json 两处镜像必须一致");
   const spec = JSON.parse(hostSpec);
   assert.equal(spec.captureUploadPath, "/api/lab-capture-upload");
-  assert.equal(spec.maxFileBytes, 100 * 1024 * 1024);
+  assert.equal(spec.maxFileBytes, 250 * 1024 * 1024);
   assert.deepEqual(spec.loopbackHosts, ["127.0.0.1", "localhost", "::1"]);
 
   // Node Host 实际从 sibling spec 取值

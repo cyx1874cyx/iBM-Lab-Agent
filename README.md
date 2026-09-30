@@ -5,15 +5,15 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.6-beta1**（0.5.7 需求集的候选构建）。这一版把文献捕获的
+当前候选版本为 **v0.5.6-beta2**（0.5.7 需求集的候选构建）。这一版把文献捕获的
 字节来路收敛成**两条真机确认过的通路**：出版社定制 PDF 预览页点页面上的下载控件（下载事件），
 浏览器原生 PDF 由 CDP `Fetch` 在响应阶段取原始正文；旧的响应层取体（含 `206` 分段装配）**退役**。
 归档行为同时收紧：条目已有同类型文件时**明确失败**而不再静默覆盖，Agent 拿到成表的
-`reasonCode`，用户确认替换时旧文件改名 `.previous-<sha8>` 留一份；**关掉文献浏览器窗口即任务终止**。
+`reasonCode`；beta2 不提供自动替换，避免旧文件丢失；**关掉文献浏览器窗口即任务终止**。
 Agent 侧另有只读调试工具 `lab_browser_debug`（主文档状态 / 最近事件 / CDP Target 清单）。
 需求与技术方案见 [`docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md`](docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md)，
 操作手册见 [`docs/LITERATURE_DOWNLOAD_CHAIN.md`](docs/LITERATURE_DOWNLOAD_CHAIN.md)；
-发布说明见 [`docs/releases/v0.5.6-beta1.md`](docs/releases/v0.5.6-beta1.md)，
+发布说明见 [`docs/releases/v0.5.6-beta2.md`](docs/releases/v0.5.6-beta2.md)，
 上一稳定版说明见 [`docs/releases/v0.5.6.md`](docs/releases/v0.5.6.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用

@@ -21,7 +21,7 @@
 Service Worker → Native Messaging（桌面内置 Node Host；开发回退为 host.py）
    │ 桥接读取该下载文件（绝对路径必须位于批准的下载目录内）并 PUT 上传
    ▼
-PUT /api/lab-capture-upload?token=...   （一次性令牌 + native-bridge 来源；100 MB 上限）
+PUT /api/lab-capture-upload?token=...   （一次性令牌 + native-bridge 来源；250 MiB 上限）
    │ %PDF- 头 / %%EOF / 大小 / SHA-256 校验（PDF）；扩展名白名单（SI）
    │ 临时文件 + 原子重命名保存到 课题工作区/captured-literature/<bundleId>/
    ▼
@@ -57,7 +57,7 @@ LabTasksService.registerCapturedFile（复用原 bundleId/reportId，不新建�
 > 正式安装包仍需完成一次真实 PDF 归档与跨应用重启会话验收。
 
 两条通道**共用同一套服务端契约**：一次性令牌、数据库只存 SHA-256、默认 20 分钟有效、
-`PUT /api/lab-capture-upload`、100 MB 上限、同样的 PDF/SI 校验，以及同样的
+`PUT /api/lab-capture-upload`、250 MiB 上限、同样的 PDF/SI 校验，以及同样的
 `LabTasksService.registerCapturedFile` 登记（复用原 bundleId/reportId，provenance
 `source = manual-browser-capture`）。差别只在**下载发生在哪个浏览器里**：
 
@@ -176,7 +176,7 @@ python install-bridge.py --uninstall
 | 下载完成后没有上传 | 下载的不是**布防之后**的下一份**匹配类型**文件（例如布防了 SI 却下载了 PDF，或下载被浏览器拦截）；重新点击按钮布防 |
 | 上传提示 403 | 上传来源不是扩展/本地桥接（例如直接用 curl 带自定义 Origin）；扩展页面刷新后重试 |
 | 上传提示 409 | 同一令牌被重复使用（重放）；重新点击按钮创建新任务 |
-| 上传提示 413 | 文件超过 100 MB 上限 |
+| 上传提示 413 | 文件超过 250 MiB 上限 |
 | 出版社页面打不开 | 检查服务器网络；DOI 页面由浏览器直接打开，与服务器无关 |
 | WebVPN 诊断面板不显示 | 该面板**只在 debug 构建出现**：release 包里 `webvpn_probe_available` 返回 false，面板整体隐藏且相关命令拒绝执行。调试 WebVPN 窗口只能用 debug 构建（`cargo tauri dev`）；`devtools` feature 同样未启用 |
 | 提示 WebVPN 门户地址无效 | 默认已配置中国科大门户；若手动修改过策略，在诊断面板恢复 `https://wvpn.ustc.edu.cn/` |
@@ -191,6 +191,6 @@ node --test "tests/unit/*.test.mjs" "tests/integration/*.test.mjs"
 ```
 
 覆盖点：任务创建 / 微信仅 DOI / 无 DOI 拒绝 / 令牌只存哈希 / 非法令牌 404 /
-重放 409 / 过期拒绝 / 100 MB 上限 / 非 PDF 拒绝 / PDF 头与 EOF 错误 /
+重放 409 / 过期拒绝 / 250 MiB 上限 / 非 PDF 拒绝 / PDF 头与 EOF 错误 /
 SI 格式白名单 / 路径穿越清理 / 复用原 bundle / 下载接口读取 / Remote 调用 /
 重启后状态保持 / 前端按钮状态与公众号链接静态断言。

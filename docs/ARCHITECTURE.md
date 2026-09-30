@@ -316,7 +316,7 @@ SKILL.md）实现：
   - 捕获任务表 `lab_captures.lab_capture_tasks`，一次性令牌 32 字节随机、
     **只存 SHA-256**、默认 20 分钟有效、绑定 projectId/bundleId/kind；
   - `PUT /api/lab-capture-upload?token=...`：OPTIONS 预检放行、只接受合法
-    `chrome-extension://` Origin（或同源/本地桥接无 Origin）、100 MB 上限、
+    `chrome-extension://` Origin（或同源/本地桥接无 Origin）、250 MiB 上限、
     文件名清洗防目录穿越、临时文件 + 原子重命名写入
     `课题工作区/captured-literature/<bundleId>/`；
   - PDF 校验 `%PDF-` 头 / `%%EOF` / 大小 / SHA-256；SI 扩展名白名单
