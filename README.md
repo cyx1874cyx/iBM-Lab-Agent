@@ -222,7 +222,7 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（含 v0.5.8 的全部改动）在本机实测：
+当前分支（含 v0.5.8 的全部改动）在本机实测（出包结果见本节末）：
 
 - Node 单元与集成测试 **786 项 / 784 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
   模板，CI 预期如此）；本轮新增 `tests/unit/client-descriptors.test.mjs`（描述符 ↔ 调用点
@@ -247,6 +247,17 @@ dsh --profile ibm-lab
 - 浏览器侧剪贴板补丁按 0.1.7 的新压缩形态重取锚点（旧锚点在 0.1.7 上一个都不匹配），
   并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
   `verify`/`patch`/`revert` 三态都经过实测前端校验。
+
+v0.5.8 于 2026-10-01 完成出包验证：统一发布流水线 10 个阶段全部通过（含 786 用例、
+打包后真实启动的回环 Web 冒烟），`publishable: true`。产物：
+
+| 产物 | 字节 | SHA-256 |
+|---|---|---|
+| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,217,593 | `0f1dcb7e…249c0a56` |
+| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,638,928 | `f216bbda…cc6cb51e` |
+
+两者均由提交 `5ca2ef1` 构建，校验清单在 `dist/SHA256SUMS`。详见
+[`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)。
 
 v0.5.5-beta3 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
 打包后真实启动的回环 Web 冒烟），`publishable: true`；Linux 侧预检闸门全绿。产物：
