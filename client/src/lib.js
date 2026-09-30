@@ -412,3 +412,82 @@ export const openExternalUrl = async (url) => {
 			if (window.parent !== window) return openInEdgeViaShell(url);
 			window.open(url, "_blank", "noopener,noreferrer");
 		};
+
+/**
+ * 桌面壳顶栏「课题入口」桥（本次改版）。
+ *
+ * 为什么必须常驻：空白新会话（刚点「新建对话」/刚进课题工作区）里
+ * ConversationSessionHeader 根本不渲染 utilities，课题徽章不会挂载，
+ * 于是右上角看不到课题入口。桌面壳顶栏是跨会话常驻的，所以把「当前课题」
+ * 状态推给它、并接受它的打开请求，由这条桥负责。
+ *
+ * 状态来源与徽章一致：会话绑定优先，其次用会话 cwd 反查课题目录
+ * （在课题工作区里手动新建的会话没有绑定记录，但 cwd 就是课题目录）。
+ *
+ * @param {object} deps
+ * @param {object} deps.ctx - 客户端 root context（用 ctx.sessions.list 订阅）。
+ * @param {(method: string, args?: object) => Promise<any>} deps.call - Remote 包装。
+ * @param {(project: object|null) => void} deps.openProject - 打开全屏课题面板。
+ * @param {(projectId: string) => boolean} [deps.openProjectTab] - 打开右侧栏课题 tab。
+ * @returns {() => void} 注销函数（交给 ctx.effect）。
+ */
+export function installProjectShellBridge({ ctx, call, openProject, openProjectTab }) {
+	if (typeof window === "undefined" || window.parent === window) return () => {};
+	let disposed = false;
+	let lastSignature = "\u0000";
+	let current = null;
+	const push = (project) => {
+		const payload = project ? { projectId: project.id, name: project.name, workspacePath: project.workspacePath } : null;
+		const signature = JSON.stringify(payload ?? null);
+		if (signature === lastSignature) return;
+		lastSignature = signature;
+		try {
+			window.parent.postMessage({ source: "ibm-lab-agent", type: "SYNC_PROJECT", requestId: "project", payload }, "*");
+		} catch { /* 壳未就绪：状态没变时不会重推，但下一轮变化会 */ }
+	};
+	const resolve = async () => {
+		if (disposed) return;
+		const snapshot = ctx.sessions?.list?.getSnapshot?.();
+		const sessionId = snapshot?.current;
+		if (!sessionId) { current = null; push(null); return; }
+		try {
+			const bySession = await call("projects_by_session", { request: { sessionId } });
+			if (disposed) return;
+			let bound = bySession?.bound ?? null;
+			if (!bound) {
+				const cwd = snapshot?.byId?.[sessionId]?.cwd;
+				if (cwd) {
+					const byCwd = await call("projects_by_cwd", { request: { path: cwd } });
+					if (disposed) return;
+					bound = byCwd?.bound ?? null;
+				}
+			}
+			current = bound?.project ?? null;
+			push(current);
+		} catch { /* host 未就绪：下一次变化/轮询重试 */ }
+	};
+	// 会话切换即时生效；绑定变化（launchProject 绑定会话）不一定动会话列表，
+	// 因此再加一条低频轮询兜底。
+	const unsubscribe = ctx.sessions?.list?.subscribe?.(() => { void resolve(); }) ?? (() => {});
+	const timer = setInterval(() => { void resolve(); }, 4000);
+	const onShellRequest = (event) => {
+		if (event.source !== window.parent) return;
+		const data = event.data;
+		if (!data || data.source !== "ibm-lab-agent-shell") return;
+		if (data.type === "OPEN_PROJECT") {
+			const projectId = data.payload?.projectId || current?.id;
+			if (projectId && openProjectTab?.(projectId)) return;
+			openProject(current);
+			return;
+		}
+		if (data.type === "OPEN_PROJECT_PANEL") openProject(current);
+	};
+	window.addEventListener("message", onShellRequest);
+	void resolve();
+	return () => {
+		disposed = true;
+		clearInterval(timer);
+		unsubscribe();
+		window.removeEventListener("message", onShellRequest);
+	};
+}

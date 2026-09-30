@@ -105,7 +105,11 @@ test("装配面是资源 tab：openResource + patterns，且不贡献 guide 条�
 	// 右侧栏不可用时回落到原有全屏面板，不能点了没反应。
 	assert.match(badge, /onClick: \(\) => \{\s*\n\s*if \(openProjectTab\?\.\(bound\.project\.id\)\) return;/);
 	assert.match(badge, /openWorkspace\(bound\.project\)/, "回落路径必须打开原有面板");
-	assert.match(badge, /title: "在右侧栏打开课题空间"/);
+	// 本次改版 §2.1：入口标题不再写英文/记忆版本；按钮结构是
+	// 「课题图标 + 课题名称 + 下拉箭头」，标题里带上课题名。
+	assert.match(badge, /title: `打开课题空间：\$\{projectName\}`/);
+	assert.doesNotMatch(badge, /Research workspace|记忆 v|ib-badge-version/);
+	assert.match(badge, /ib-badge-caret/);
 	// 不再有上一轮那个多余的旁挂按钮。
 	assert.doesNotMatch(badge, /ib-project-tab-btn/);
 });

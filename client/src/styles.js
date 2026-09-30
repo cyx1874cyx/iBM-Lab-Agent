@@ -1,4 +1,5 @@
 import { themeCss } from "./theme.js";
+import { redesignCss } from "./redesign.js";
 // 内联 CSS（从原 client/index.js 单文件抽离）。
 // 注入时机：factory 执行时调用（与原来一致，避免模块加载时误操作 document）。
 export function injectStyles() {
@@ -89,6 +90,9 @@ export function injectStyles() {
 		// 不再依赖书写顺序；其余规则把多列栅格收敛成单列，适配 360–560px 的侧栏列。
 		css += ".ib-overlay.ib-panel-embed{position:static;inset:auto;z-index:auto;height:100%;min-height:0;overflow:auto;box-sizing:border-box}.ib-project-tab-embed{height:100%;min-height:0}.ib-panel-embed .ib-main{max-width:none;margin:0;padding:12px 12px 28px}.ib-panel-embed .ib-grid,.ib-panel-embed .ib-artifacts,.ib-panel-embed .ib-memory,.ib-panel-embed .ib-tm-wrap,.ib-panel-embed .ib-form-grid,.ib-panel-embed .ib-lit{grid-template-columns:minmax(0,1fr)}.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:8px;margin-bottom:14px}.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}.ib-panel-embed .ib-project-copy h1{font-size:19px}.ib-panel-embed .ib-head{flex-direction:column;align-items:flex-start;gap:10px}.ib-panel-embed .ib-head h1{font-size:20px}.ib-panel-embed .ib-tabs{gap:6px}.ib-panel-embed .ib-tab{padding:9px 8px}.ib-panel-embed .ib-tab strong{font-size:11px}.ib-panel-embed .ib-tab span{font-size:8.5px;line-height:1.35}.ib-panel-embed .ib-preview-drawer{width:min(560px,94vw)}.ib-panel-embed .ib-section-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 62px 24px}";
 		css += themeCss;
+		// 视觉改版层必须排在 themeCss 之后：它要覆盖的正是 themeCss
+		// 自己写下的按钮 / 标签页规格（见 redesign.js 文件头）。
+		css += redesignCss;
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
 			style.dataset.pluginCss = "dsh-lab-agent";

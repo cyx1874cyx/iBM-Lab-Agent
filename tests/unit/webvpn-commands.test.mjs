@@ -203,9 +203,15 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.doesNotMatch(projectPanel, /正文尚未创建下载任务/, "面板下载必须先创建任务，由用户在侧栏中手动完成后续操作");
 	assert.doesNotMatch(projectPanel, /点击“我已登录”/);
 	// 指示器已按人工审核移到桌面壳顶栏（课题页里不再有）。
+	// 视觉改版 §2.2：WebVPN 与 iWAN 不再各占一个按钮，而是合并进
+	// 一个紧凑状态入口（#status-entry）：入口显示两个状态点 + 一句摘要，
+	// 明细与「打开 WebVPN」在下拉菜单里，两个状态点 id 保持不变。
 	assert.doesNotMatch(literaturePanel, /ib-webvpn-dot/);
+	assert.match(shell, /id="status-entry"/);
+	assert.match(shell, /id="webvpn-indicator-dot"/);
+	assert.match(shell, /id="iwan-indicator-dot"/);
+	assert.match(shell, /id="status-text"/);
 	assert.match(shell, /id="webvpn-indicator"/);
-	assert.match(shell, /id="iwan-indicator"/);
 	assert.match(shell, /invoke\('webvpn_status'\)/);
 	assert.match(shell, /invoke\('iwan_status'\)/);
 	assert.match(shell, /postToFrame\('OPEN_WEBVPN_REQUEST'\)/);
@@ -216,8 +222,8 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(literaturePanel, /manual_capture_desktop_status_update/);
 	assert.match(projectPanel, /已在 WebVPN 侧栏打开出版社页面，请手动点击/);
 	assert.doesNotMatch(styles, /\.ib-webvpn-dot/, "指示器样式随功能一起搬去桌面壳");
-	assert.match(shell, /\.indicator i\s*\{[^}]*background:\s*#ef4444/);
-	assert.match(shell, /\.indicator i\[data-online=true\]\s*\{[^}]*background:\s*#22c55e/);
+	assert.match(shell, /\.status-entry i\s*,[^{]*\{[^}]*background:\s*#ef4444/);
+	assert.match(shell, /\[data-online=true\][^{]*\{[^}]*background:\s*#22c55e/);
 	assert.match(projectPanel, /ib-capture-progress/);
 	assert.match(projectPanel, /status\.downloadEventBytes/);
 	assert.match(projectPanel, /下载并归档完成/);

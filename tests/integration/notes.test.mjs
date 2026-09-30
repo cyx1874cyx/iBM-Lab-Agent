@@ -205,3 +205,60 @@ test("templates-tool: note/ppt list + get tools registered and return requiremen
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test("note templates: 全局唯一的默认模板设置被 Agent 优先采用（本次改版）", async () => {
+	const { handle, dir } = await bootNotes();
+	try {
+		const notes = handle.ctx.labNoteTemplates;
+		const tools = handle.ctx.tools;
+
+		// 未设置：configuredDefaultId / defaultTemplateId 都是「未指定」
+		assert.equal(notes.configuredDefaultId(), undefined);
+		assert.equal(await notes.defaultTemplateId("note"), undefined);
+
+		// 新建一个用户模板并设为默认
+		await notes.create("note-lab-default", {
+			name: "课题专用精读模板",
+			sections: [{ key: "citation", title: "文献信息", required: true, hint: "规范短引用" }]
+		});
+		assert.equal(await notes.setDefault("note-lab-default"), "note-lab-default");
+		assert.equal(notes.configuredDefaultId(), "note-lab-default");
+		assert.equal(await notes.defaultTemplateId("note"), "note-lab-default");
+		// kind 不匹配（综述模板）时不套用阅读笔记默认模板
+		await notes.create("review-lab-default", { kind: "review", name: "课题专用综述模板" });
+		assert.equal(await notes.defaultTemplateId("review"), undefined);
+
+		// Agent 侧：列表回显 defaultId；get 不传 id 时用默认模板
+		const listTool = tools.get("lab_note_templates_list");
+		const listed = await listTool.execute({});
+		assert.equal(listed.defaultId, "note-lab-default");
+		assert.ok(listed.templates.some((t) => t.id === "note-lab-default"));
+		assert.deepEqual(JSON.parse(JSON.stringify(listed)), listed);
+
+		const getTool = tools.get("lab_note_templates_get");
+		const requirements = await getTool.execute({});
+		assert.equal(requirements.ok, true);
+		assert.equal(requirements.requirements.id, "note-lab-default");
+
+		// 任务侧的回退链在 tasks.test.mjs 里覆盖（本 boot 未挂 labTasks）。
+		// 这里确认「默认模板在 kind 内生效」：把它切成综述模板后，
+		// 阅读笔记解析不到默认模板，综述流程才能解析到。
+		assert.equal(await notes.setDefault("review-lab-default"), "review-lab-default");
+		assert.equal(await notes.defaultTemplateId("review"), "review-lab-default");
+		assert.equal(await notes.defaultTemplateId("note"), undefined);
+		assert.equal(await notes.setDefault("note-lab-default"), "note-lab-default");
+		assert.equal(await notes.defaultTemplateId("note"), "note-lab-default");
+
+		// 清除默认 → 回到内置回退
+		assert.equal(await notes.setDefault(null), null);
+		assert.equal(await notes.defaultTemplateId("note"), undefined);
+		const fallback = await getTool.execute({});
+		assert.equal(fallback.requirements.id, "note-default");
+
+		// 不存在的模板不能设为默认
+		await assert.rejects(() => notes.setDefault("no-such-note"), /not found/);
+	} finally {
+		await handle.dispose();
+		await rm(dir, { recursive: true, force: true });
+	}
+});

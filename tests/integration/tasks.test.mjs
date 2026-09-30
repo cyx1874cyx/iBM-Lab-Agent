@@ -230,6 +230,21 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		assert.equal(selectedInputs.templateId, "proj-note-custom");
 		assert.equal(selectedInputs.generationRequirements.sections[0].title, "要点");
 
+		// 本次改版：模板管理里设置的全局默认模板优先于内置 note-default
+		// （未显式传 noteTemplateId 时生效；清除后回到内置回退）。
+		await handle.ctx.labNoteTemplates.setDefault("proj-note-custom");
+		const reportByDefault = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		assert.equal(reportByDefault.noteTemplateSnapshot?.id, "proj-note-custom", "默认模板必须优先于 note-default");
+		const inputsByDefault = await tasks.readingReportInputs({ projectId: "proj-1", reportId: "report-default-template" });
+		assert.equal(inputsByDefault.templateId, "proj-note-custom");
+		await handle.ctx.labNoteTemplates.setDefault(null);
+		const reportAfterClear = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template-cleared", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		assert.equal(reportAfterClear.noteTemplateSnapshot?.id, "note-default", "清除默认模板后回退内置模板");
+		// 清理这两条验证用报告：它们共用同一个 bundle，留着会让后面
+		// 「最后一个精读条目删除后清理归档目录」的断言失去意义。
+		await tasks.deleteReadingReport("report-default-template", "proj-1");
+		await tasks.deleteReadingReport("report-default-template-cleared", "proj-1");
+
 		// 步骤 7：agent 完成精读（fixture 通过版）
 		const completed = await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
 		assert.equal(completed.status, "under-review");

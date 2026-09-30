@@ -3,11 +3,39 @@ import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
-import { BRAND_ICON } from "./brand-icon.js";
+
 import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
-import { BookSvg, SiSvg } from "./components-templates.js";
+import { BookSvg, SiSvg, CheckSvg, SpinSvg } from "./components-templates.js";
+
+/**
+ * 条目行尾的「更多操作」菜单（视觉改版 §5.2/§6）。
+ *
+ * 低频操作（导出 RIS、写入磁盘、删除…）收进 `···`，不再每条文献都挂一个
+ * 红色删除按钮。用原生 <details> 实现：不需要额外 state/portal，点击任一项
+ * 后通过 closest("details") 收起。
+ */
+export function MoreMenu({ label = "更多操作", children, className }) {
+	return h("details", { className: `ib-more${className ? ` ${className}` : ""}` },
+		h("summary", { "aria-label": label, title: label }, h("span", { "aria-hidden": "true" }, "···")),
+		h("div", { className: "ib-more-menu", role: "menu" }, children));
+}
+
+/** 菜单项：点击后自动收起所在菜单；data-danger 用于删除这类破坏性操作。 */
+export function menuItem({ label, onClick, disabled, danger, title, key }) {
+	return h("button", {
+		type: "button", role: "menuitem", key: key ?? label,
+		className: "ib-more-item",
+		"data-danger": danger ? "true" : undefined,
+		disabled, title: title ?? label,
+		onClick: (event) => {
+			const host = event.currentTarget.closest("details");
+			if (host) host.open = false;
+			onClick?.(event);
+		}
+	}, label);
+}
 
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
@@ -641,31 +669,41 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				)
 			) : null;
 			return h(React.Fragment, null, h("div", { className: "ib-lit" },
-				// ── 左：文献检索 ──
-				h("section", { className: "ib-lit-col" },
-					h("div", { className: "ib-lit-head" }, h("h3", null, "文献检索"), h("small", null, `${searches.length} 条记录`)),
-					h("div", { className: "ib-lit-note" }, "每个会话汇总为一个检索条目和一个 RIS；“检索”可展开本会话全部去重文献。"),
-					searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => h("div", { key: search.id },
-						// 人工审核要求：点击检索条目不得跳转到对应对话，因此整行不再是可点区域，
-						// 只有右侧的「检索 / .ris / 删除」按钮生效。
+				// ── 分组一：检索记录 ────────────────────────────────────────────────
+				// 视觉改版：不再套「文献资料」外层大框与重复标题、不再写布局
+				// 说明文字；分组标题 + 条目列表直接铺在内容区，靠留白与细分隔线区分。
+				h("section", { className: "ib-lit-group", key: "searches" },
+					h("div", { className: "ib-group-head" },
+						h("h3", null, "检索记录"),
+						h("span", { className: "ib-group-count" }, `${searches.length} 条`)),
+					searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => {
+						const resultCount = (search.results || []).length;
+						const expanded = expandedSearch === search.id;
+						return h("div", { className: "ib-lit-item", key: search.id },
+						// 人工审核要求：点击检索条目不得跳转到对应对话，因此整行不再是可点区域。
 						h("div", { className: "ib-lit-row" },
-							h("div", { className: "ib-lit-main" }, h("b", null, search.title || search.query || search.id), h("small", null, `${(search.results || []).length} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
+							h("div", { className: "ib-lit-main" },
+								h("b", { className: "ib-lit-title" }, search.title || search.query || search.id),
+								h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
 							h("div", { className: "ib-lit-acts" },
-								h("button", { className: "ib-lit-btn ok", disabled: !(search.results || []).length, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); } }, expandedSearch === search.id ? "收起" : "检索"),
-								h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void risFor(search); } }, busy[`ris:${search.id}`] ? "…" : ".ris"),
-								h("button", { className: `ib-lit-btn${search.review?.status === "ready" ? " ok" : ""}`, "data-ready": search.review?.status === "ready" ? "true" : "false", disabled: busy[`review:${search.id}`] || !(search.results || []).length, onClick: (event) => { event.stopPropagation(); void writeReview(search); }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : "写综述"),
-								search.review?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, "综述") : null,
-								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, "综述PPT") : null,
-								h("button", { className: "ib-lit-btn", "data-danger": true, disabled: busy[`delete-search:${search.id}`], onClick: (event) => { event.stopPropagation(); deleteSearch(search); } }, busy[`delete-search:${search.id}`] ? "…" : "删除")
-							)
+								// 主入口只有一个：查看文献（= 展开本会话全部去重文献）
+								h("button", { className: "ib-act", "data-kind": "accent", disabled: !resultCount, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
+								search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, h(CheckSvg, null), "打开综述") : null,
+								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
+								// RIS / 写综述 / 删除等低频操作收进更多菜单
+								h(MoreMenu, { label: "检索条目更多操作" },
+									menuItem({ label: busy[`ris:${search.id}`] ? "正在导出 RIS…" : "导出 RIS（写入磁盘）", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: () => void risFor(search) }),
+									menuItem({ label: busy[`review:${search.id}`] ? "正在新建对话…" : (search.review?.status === "ready" ? "重写综述" : "写综述"), disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: () => void writeReview(search) }),
+									menuItem({ label: "删除检索记录", danger: true, disabled: !!busy[`delete-search:${search.id}`], onClick: () => deleteSearch(search) })))
 						),
-						expandedSearch === search.id ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
-					))) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会按会话整理到这里。")
+						expanded ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
+					); })) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会按会话整理到这里。")
 				),
-				// ── 右：文献精读 ──
-				h("section", { className: "ib-lit-col" },
-					h("div", { className: "ib-lit-head" }, h("h3", null, "文献精读"), h("small", null, `${reports.length} 篇`)),
-					h("div", { className: "ib-lit-note" }, "未获取原文时点击灰色 PDF/SI 按钮：自动打开 DOI 出版社页面并布防捕获，下一次下载会归档到本课题（需安装 iBM 文献捕获扩展）；公众号条目仅支持 DOI 出版社页面，不显示公众号链接。"),
+				// ── 分组二：精读文献 ────────────────────────────────────────────────
+				h("section", { className: "ib-lit-group", key: "reports" },
+					h("div", { className: "ib-group-head" },
+						h("h3", null, "精读文献"),
+						h("span", { className: "ib-group-count" }, `${reports.length} 篇`)),
 					reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) => {
 						const presentation = presentationByReport[report.id];
 						const bundle = bundleById[report.bundleId] || {};
@@ -697,30 +735,60 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 						const downloadBundleFile = (event, url) => { event.stopPropagation(); void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message)); };
 						const revealBundleFile = (event, path) => { event.stopPropagation(); void revealSavedPathViaDesktop(path).catch((reason) => notify(reason.message)); };
 						const captureActive = captureHint?.bundleId === bundle.id;
+						// 作者/期刊/年份/DOI 只放进详情，不再作为常驻状态行显示。
 						const metadata = [
 							(bundle.authors || []).length ? bundle.authors.join(", ") : null,
 							bundle.journal,
 							bundle.year,
 							bundle.doi ? `DOI ${bundle.doi}` : null
 						].filter(Boolean).join(" · ");
-						const artifactState = awaitingPdf
-							? `${metadata || "元数据已登记"} · 待上传 PDF`
-							: `${metadata ? `${metadata} · ` : ""}DOCX${report.docxPath ? "已生成" : "待生成"}${presentation ? ` · PPT${presentation.pptxPath ? "已生成" : "生成中"}` : ""}`;
+						// 中文副标题：没有译文时保留可识别的原标题，绝不编造译名。
+						const zhTitle = report.titleZh || bundle.title || null;
+						// 精读 / PPT 的完成状态只用按钮填充色 + 完成图标表达。
+						const readingDone = Boolean(report.docxPath);
+						const readingBusy = Boolean(busy[`open-report:${report.id}`]);
+						const pptDone = Boolean(presentation?.pptxPath);
+						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
 						const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
 						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
-						return h("div", { key: report.id, onClick: report.id in overview ? () => setOverview((old) => { const n = { ...old }; delete n[report.id]; return n; }) : undefined },
-							h("div", { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : undefined },
-								h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
+						return h("div", { className: "ib-lit-item", key: report.id },
+							h("div", { className: "ib-lit-row" },
+								h("div", { className: "ib-lit-main" },
+									h("b", { className: "ib-lit-title ib-citation", title: shortOf(report) }, shortNode(report)),
+									zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null),
 								h("div", { className: "ib-lit-acts" },
-									h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined, disabled: !!opening[openKey("pdf")], title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : (publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面")), onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-									h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiUrl ? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料") : (publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")), onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
-									h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起概览" : "概览")),
-									h("button", { className: `ib-lit-btn${report.docxPath ? " ok" : ""}`, "data-ready": report.docxPath ? "true" : "false", disabled: !!busy[`open-report:${report.id}`], onClick: () => report.docxPath ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt), title: report.docxPath ? "用本机 Office 或 WPS 打开精读报告" : "在当前课题工作区新建对话并预填精读任务" }, busy[`open-report:${report.id}`] ? "打开中…" : (report.docxPath ? "打开精读" : "精读文献")),
-									h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : (presentation?.pptxPath ? "打开PPT" : "制作PPT")),
-									h("button", { className: "ib-lit-btn", "data-danger": true, disabled: !!busy[`delete-report:${report.id}`], onClick: (event) => { event.stopPropagation(); deleteReport(report, bundle); } }, busy[`delete-report:${report.id}`] ? "…" : "删除")
-								)
+									h("button", {
+										className: "ib-act", "data-kind": "reading", "data-done": readingDone ? "true" : undefined, "data-busy": readingBusy ? "true" : undefined,
+										disabled: readingBusy,
+										onClick: () => readingDone ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt),
+										title: readingDone ? "打开已生成的精读报告" : "在当前课题工作区新建对话并预填精读任务"
+									}, readingBusy ? h(SpinSvg, null) : (readingDone ? h(CheckSvg, null) : null), readingBusy ? "打开中…" : (readingDone ? "打开精读" : "开始精读")),
+									h("button", {
+										className: "ib-act", "data-kind": "ppt", "data-done": pptDone ? "true" : undefined, "data-busy": pptBusy ? "true" : undefined,
+										disabled: pptBusy,
+										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
+										title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
+									}, pptBusy ? h(SpinSvg, null) : (pptDone ? h(CheckSvg, null) : null), pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
+									h(MoreMenu, { label: "精读条目更多操作" },
+										menuItem({ label: report.id in overview ? "收起详情" : "详情与元数据", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report) }),
+										menuItem({ label: "删除精读条目", danger: true, disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle) })))
 							),
+							// 次级操作：PDF / SI。已归档 → 打开/下载；未归档 → 明确的「获取原文」。
+							h("div", { className: "ib-lit-sub" },
+								h("button", {
+									className: "ib-sub-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
+									disabled: !!opening[openKey("pdf")],
+									title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : (publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面")),
+									onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf")
+								}, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : (bundlePdfUrl ? "正文 PDF" : "获取原文"))),
+								h("button", {
+									className: "ib-sub-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
+									disabled: !!opening[openKey("si")],
+									title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiUrl ? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料") : (publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")),
+									onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si")
+								}, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : (bundleSiUrl ? "SI 补充材料" : "获取 SI"))),
+								awaitingPdf ? h("span", { className: "ib-lit-flag" }, "原文待归档") : null),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
 								h("div", { className: "ib-capture-head" },
 									h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
@@ -731,10 +799,14 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 								),
 								captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : undefined, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : undefined, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
 							) : (opening[openKey("pdf")] || opening[openKey("si")]) ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
-							report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
+							// 详情：作者/期刊/年份/DOI + 概览，全部按需展开，不占常驻空间。
+							report.id in overview ? h("div", { className: "ib-lit-overview" },
+								metadata ? h("small", { className: "ib-lit-overview-meta" }, metadata) : null,
+								h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"),
+								overview[report.id] ?? "加载中…",
+								h("small", { className: "ib-lit-overview-time" }, `登记于 ${when(report.createdAt)}`)) : null
 						);
-					})
-					) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。可在对话中粘贴微信公众号文献链接先登记元数据，或完成报告生成后登记产物。")
+					})) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。可在对话中粘贴微信公众号文献链接先登记元数据，或完成报告生成后登记产物。")
 				)
 			), previewNode);
 		}
@@ -793,12 +865,23 @@ export function Project({ call, project, onBack, onDelete, onStartChat }) {
 			const literature = data.literature || {};
 			const planning = data.planning || {};
 			const characterization = data.characterization || {};
-			const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
+			// 视觉改版：分类导航只保留单行标签，删除解释性副标题。
+			const tabs = [["literature", "文献资料"], ["planning", "研究设计"], ["characterization", "表征分析"]];
 			return h("div", null,
-				h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题")),
+				h("div", { className: "ib-project-head" },
+					h("button", { className: "ib-btn", onClick: () => { onBack(); } }, "← 所有课题"),
+					h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)),
+					h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"),
+					h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题")),
 				memoryOpen ? h("div", { className: "ib-memory-drawer", role: "dialog", "aria-label": "核心记忆" }, h("button", { className: "ib-btn ib-memory-close", onClick: () => setMemoryOpen(false) }, "收起（保留编辑）"), h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => { memoryDirty.current = true; setDraft(event.target.value); try { sessionStorage.setItem(`ib-memory-draft:${project.id}`, event.target.value); } catch { /* storage may be disabled */ } } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
-				h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-				h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
+				// 单行标签页（选中态用下划线表达），右侧只留一个刷新入口。
+				h("div", { className: "ib-tabs" },
+					tabs.map(([id, label]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : undefined, key: id, onClick: () => setTab(id) }, label)),
+					h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load() }, "刷新")),
+				// 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
+				tab === "literature" ? h("div", { className: "ib-tab-panel" }, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
+				tab === "planning" ? h("div", { className: "ib-tab-panel" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
+				tab === "characterization" ? h("div", { className: "ib-tab-panel" }, h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) })) : null,
 				toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
 			);
 		}
@@ -825,5 +908,7 @@ export class OverlayBoundary extends (React.Component ?? class {}) {
 
 export function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {			const [project, setProject] = useState(initial ?? null);
 			const [templates, setTemplates] = useState(false);
-			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+			// 品牌去重：产品名只在左侧栏保留一处，面板顶栏只做面包屑与返回，
+			// 不再重复渲染 Logo +「iBM Lab Agent / Project Research Workspace」。
+			return ReactDOM.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 		}

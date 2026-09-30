@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { downloadState } from "./constants.js";
-import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
+import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 import { sendWebVpnBallQueue } from "./webvpn-bridge.js";
 import { setBallTaskCancelHandler, setBallTaskRecreateHandler } from "./lib.js";
@@ -83,6 +83,21 @@ export function useBoundProject(sessionId, call, useSessions) {
 
 export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, useSessions, toast }) {
 			const bound = useBoundProject(sessionId, call, useSessions);
+			const [menuOpen, setMenuOpen] = useState(false);
+			// 下拉菜单：点击别处 / Esc 收起（与 ··· 菜单同样保持轻量）。
+			useEffect(() => {
+				if (!menuOpen || typeof document === "undefined") return undefined;
+				const close = (event) => { if (!event.target.closest?.(".ib-project-entry")) setMenuOpen(false); };
+				const onKey = (event) => { if (event.key === "Escape") setMenuOpen(false); };
+				document.addEventListener("pointerdown", close, true);
+				document.addEventListener("keydown", onKey);
+				return () => {
+					document.removeEventListener("pointerdown", close, true);
+					document.removeEventListener("keydown", onKey);
+				};
+			}, [menuOpen]);
+			// 桌面壳顶栏的「课题入口」状态与打开动作由 apply.js 里的常驻桥负责
+			// （空白新会话不渲染 session header，课题徽章本身并不挂载）。
 			useEffect(() => {
 				if (typeof document === "undefined" || !bound?.project?.id) return undefined;
 				document.body.classList.add("ib-research-chat");
@@ -280,22 +295,33 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 				return () => { disposed = true; clearTimeout(timer); };
 			}, [bound?.project?.id, call, toast]);
 			if (!bound?.project) return null;
-			// 课题徽章就是「打开课题空间」的入口：点击直接在右侧栏开一个该课题的标签页
-			// （每课题一标签）。右侧栏不可用时才回落到原来的全屏面板，不让按钮点了没反应。
-			return h("button", {
-				className: "ib-research-badge",
-				title: "在右侧栏打开课题空间",
-				"aria-label": `打开课题空间：${bound.project.name}`,
-				onClick: () => {
-					if (openProjectTab?.(bound.project.id)) return;
-					toast?.("右侧栏不可用，已改为全屏打开课题空间");
-					openWorkspace(bound.project);
-				}
-			},
-				h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
-				h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
-				h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
-			);
+			// 课题入口（视觉改版 §2.1/§2.2）：课题图标 + 课题名称 + 下拉箭头，
+			// 36px 高、淡青绿填充、名称 15–16px 半粗体；不再有英文标签与记忆版本号。
+			// 点击主体打开课题空间，下拉箭头给出「打开课题目录 / 全部课题」这类入口。
+			const projectName = bound.project.name || bound.project.id;
+			return h("div", { className: "ib-project-entry" },
+				h("button", {
+					className: "ib-research-badge",
+					title: `打开课题空间：${projectName}`,
+					"aria-label": `打开课题空间：${projectName}`,
+					onClick: () => {
+						if (openProjectTab?.(bound.project.id)) return;
+						toast?.("右侧栏不可用，已改为全屏打开课题空间");
+						openWorkspace(bound.project);
+					}
+				},
+					h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
+					h("span", { className: "ib-badge-name", title: projectName }, projectName)),
+				h("button", {
+					className: "ib-badge-caret",
+					"aria-label": "课题菜单",
+					title: "课题菜单",
+					onClick: () => setMenuOpen((value) => !value)
+				}, h("span", { "aria-hidden": "true" }, "▾")),
+				menuOpen ? h("div", { className: "ib-badge-menu", role: "menu" },
+					h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); if (!openProjectTab?.(bound.project.id)) openWorkspace(bound.project); } }, "打开课题空间"),
+					bound.project.workspacePath ? h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); void revealSavedPathViaDesktop(bound.project.workspacePath).catch((reason) => toast?.(reason.message)); } }, "在资源管理器中打开课题目录") : null,
+					h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); openWorkspace(bound.project); } }, "课题管理面板")) : null);
 		}
 
 export const NATIVE_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);

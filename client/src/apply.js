@@ -5,9 +5,46 @@ import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
-import { installShellRequestBridge } from "./lib.js";
+import { installShellRequestBridge, installProjectShellBridge } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
+
+/** 科研 Agent 预设 id（presets/lab-research/preset.patch.yml 声明的那一条）。 */
+export const RESEARCH_PRESET_ID = "lab-research";
+
+/**
+ * 让「所有入口新建的会话」都默认进入科研 Agent 模式。
+ *
+ * DSH 0.1.7 把「新会话默认预设」放在 agent-preset-registry 的 selectedDefault
+ * settings 字段里（既不是 profile patch，也不是 preset 自己的属性）。桌面版的
+ * bootstrap 只写一个空的 `profiles/ibm-lab/cordis.patch.yml`，于是默认一直是
+ * 内置的 standard；用户必须每次手动切模式——这正是「新建对话默认模式不是
+ * ibmAgent」的原因。
+ *
+ * 这里复用的就是 DSH 设置页「设为默认」用的同一个写入面
+ * （ctx.remote.settings.update("agent-preset-registry", { selectedDefault })），
+ * 因此不需要改安装器、也不需要重建桌面壳。
+ *
+ * 安全边界：只有在 roster 读取成功、且 lab-research 确实注册过的情况下才写；
+ * 写一个不存在的 id 会让之后每个新会话都创建失败，宁可不动。
+ *
+ * @returns {{ ok: boolean, changed?: boolean, reason?: string }}
+ */
+export async function ensureResearchPresetDefault(remote) {
+	try {
+		const roster = await remote.agentPresets.list();
+		const presets = roster?.ok ? (roster.value?.presets ?? []) : null;
+		if (presets === null) return { ok: false, reason: roster?.error?.message ?? "agentPresets.list failed" };
+		const target = presets.find((row) => row.id === RESEARCH_PRESET_ID);
+		if (target === undefined) return { ok: false, reason: `preset '${RESEARCH_PRESET_ID}' is not registered` };
+		if (target.isDefault === true) return { ok: true, changed: false };
+		const updated = await remote.settings.update("agent-preset-registry", { selectedDefault: RESEARCH_PRESET_ID }, undefined);
+		if (!updated?.ok) return { ok: false, reason: updated?.error?.message ?? "settings.update failed" };
+		return { ok: true, changed: true };
+	} catch (reason) {
+		return { ok: false, reason: reason?.message ?? String(reason) };
+	}
+}
 
 export function applyUi(ctx) {
  // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
@@ -198,10 +235,26 @@ export function applyUi(ctx) {
 	}, "dsh-lab-agent: 右侧栏 tab");
 	// 桌面壳顶栏的 WebVPN 指示器只发请求；由这里先开右侧栏 tab 再开原生窗口。
 	ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
+	// 桌面壳顶栏「课题入口」桥（本次改版）：常驻推送当前课题 + 接受打开请求。
+	// 空白新会话里 session header 不渲染，只有这条桥能保证入口一直在。
+	ctx.effect(() => installProjectShellBridge({
+		ctx,
+		call,
+		openProject: (project) => open(project ?? null),
+		openProjectTab
+	}), "dsh-lab-agent: project shell bridge");
 	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
 }
 
 export async function apply(ctx) {
 	await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
 	ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
+	// 新会话默认模式：单独一次注入。settings 命名空间缺失时只丢失这一项能力，
+	// 绝不能让 applyUi 一起挂掉（inject 未满足时回调根本不会执行）。
+	ctx.inject(["remote", "remote.settings", "remote.agentPresets"], (settingsCtx) => {
+		void ensureResearchPresetDefault(settingsCtx.remote).then((result) => {
+			if (result.ok && result.changed) console.info("[dsh-lab-agent] 新会话默认模式已设为", RESEARCH_PRESET_ID);
+			else if (!result.ok) console.warn("[dsh-lab-agent] 默认模式设置失败：", result.reason);
+		});
+	}, "dsh-lab-agent: default research preset");
 }

@@ -5,16 +5,25 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前候选版本为 **v0.5.6-beta2**（0.5.7 需求集的候选构建）。这一版把文献捕获的
-字节来路收敛成**两条真机确认过的通路**：出版社定制 PDF 预览页点页面上的下载控件（下载事件），
-浏览器原生 PDF 由 CDP `Fetch` 在响应阶段取原始正文；旧的响应层取体（含 `206` 分段装配）**退役**。
-归档行为同时收紧：条目已有同类型文件时**明确失败**而不再静默覆盖，Agent 拿到成表的
-`reasonCode`；beta2 不提供自动替换，避免旧文件丢失；**关掉文献浏览器窗口即任务终止**。
-Agent 侧另有只读调试工具 `lab_browser_debug`（主文档状态 / 最近事件 / CDP Target 清单）。
-需求与技术方案见 [`docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md`](docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md)，
-操作手册见 [`docs/LITERATURE_DOWNLOAD_CHAIN.md`](docs/LITERATURE_DOWNLOAD_CHAIN.md)；
-发布说明见 [`docs/releases/v0.5.6-beta2.md`](docs/releases/v0.5.6-beta2.md)，
+当前稳定版本为 **v0.5.8**（界面简化与视觉改版 + 三项修复）。这一版把课题工作台从
+「多层卡片 + 小字号」改成「分组标题 + 条目列表」：产品品牌只保留一处，顶部工具栏统一
+36px（文件夹 / 更多 / 课题入口同规格，WebVPN 与连接状态合并为紧凑状态入口），课题页改成
+单行下划线标签页并去掉「文献资料」等外层大框，精读条目以**短引用主标题 + 中文副标题**
+呈现，精读 / PPT 的完成状态改用按钮填充色与完成图标表达，指定的常驻解释文字全部删除，
+条目字号整体放大。同时修掉三处问题：阅读模板列表因描述符漏声明参数而始终报
+`expected 0 argument(s), got 1`（同类漏声明的 `synth_step_set_structure` /
+`synth_step_resolve_dual` 一并补上）；模板管理新增**全局唯一的默认模板**，设置后 Agent
+生成笔记时优先使用；新建对话默认进入 `lab-research`（iBM 科研 Agent）模式，桌面壳顶栏
+新增常驻课题入口，空白新会话里也能一键回到课题空间。
+发布说明见 [`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)，
 上一稳定版说明见 [`docs/releases/v0.5.6.md`](docs/releases/v0.5.6.md)。
+
+v0.5.6-beta2 把文献捕获的字节来路收敛成**两条真机确认过的通路**：出版社定制 PDF 预览页点
+页面上的下载控件（下载事件），浏览器原生 PDF 由 CDP `Fetch` 在响应阶段取原始正文；
+旧的响应层取体（含 `206` 分段装配）**退役**。归档行为同时收紧：条目已有同类型文件时
+**明确失败**而不再静默覆盖，Agent 拿到成表的 `reasonCode`；**关掉文献浏览器窗口即任务终止**。
+需求与技术方案见 [`docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md`](docs/0.5.7_LITERATURE_CAPTURE_REQUIREMENTS.md)，
+操作手册见 [`docs/LITERATURE_DOWNLOAD_CHAIN.md`](docs/LITERATURE_DOWNLOAD_CHAIN.md)。
 
 v0.5.5-beta2：在 beta1 修掉 0.5.4 试用复盘七条问题、让 Agent 优先使用
 **桌面壳自带运行时**的基础上，**渲染助手改用 DSH 自带的 LibreOffice**（Windows 341 MB native /
@@ -199,7 +208,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.4 |
+| iBM Lab Agent | 0.5.8 |
 | DeepSeek Harness | 0.1.7-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -213,12 +222,13 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（含 v0.5.5-beta1 的全部改动）在本机实测：
+当前分支（含 v0.5.8 的全部改动）在本机实测：
 
-- Node 单元与集成测试 **692 项 / 690 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
-  模板，CI 预期如此）；
+- Node 单元与集成测试 **786 项 / 784 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
+  模板，CI 预期如此）；本轮新增 `tests/unit/client-descriptors.test.mjs`（描述符 ↔ 调用点
+  ↔ Host 服务三方一致性）与 `tests/unit/ui-redesign.test.mjs`（§2–§9 验收清单）；
 - 回归套件 **11/11** 通过；Linux 发布预检闸门全绿；客户端一致性、预设导出检查通过；
-  ESLint **0 error / 87 warning**；
+  ESLint **0 error / 85 warning**；
 - **PPT 链路端到端实测**（真实模板 `956b7abf…` + 真实 5 页计划）：`lint`（模板体检）→
   `compile`（容量自算 15 行 vs pptx-cli 19 行、按图片比例选版式 fig3→fig1）→
   `build --compiled`（`ok=true, errors=0`）→ 成品体检（字体三槽 Arial/微软雅黑/Arial、

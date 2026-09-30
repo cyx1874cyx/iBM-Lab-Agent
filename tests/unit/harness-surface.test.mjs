@@ -123,7 +123,11 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.match(source, /提交新版本/);
 	assert.match(source, /开始科研 Agent 对话/);
 	assert.match(source, /文献资料/);
-	assert.match(source, /每个会话汇总为一个检索条目和一个 RIS/);
+	// 视觉改版 §7：布局解释与常驻说明文字整段删除，功能本身保留
+	// （检索记录仍会展开本会话全部去重文献 → ib-search-results）。
+	assert.doesNotMatch(source, /每个会话汇总为一个检索条目和一个 RIS/);
+	assert.doesNotMatch(source, /左侧检索记录 · 右侧精读档案与下载/);
+	assert.doesNotMatch(source, /未获取原文时点击灰色 PDF\/SI 按钮/);
 	assert.match(source, /shortDescriptionZh/);
 	assert.match(source, /ib-search-results/);
 	// 人工审核：数据库状态是废案，整个面板已移除（含采集它的 literature_status 轮询）。
@@ -297,10 +301,13 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /function openOfficeArtifact/);
 	assert.match(source, /function openSavedPathViaDesktop/);
 	assert.match(source, /OPEN_SAVED_PATH/);
+	// 本次改版 §5.1：完成状态用按钮文字 + 填充色表达
+	// （「打开精读」青绿填充 / 「打开 PPT」蓝色填充），不再是「打开PPT」。
 	assert.match(source, /打开精读/);
-	assert.match(source, /打开PPT/);
+	assert.match(source, /打开 PPT/);
+	assert.match(source, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
 	assert.match(source, /已交给本机 Office\/WPS 打开/);
-	assert.match(source, /data-ready": presentation\?\.pptxPath \? "true" : "false"/);
+	assert.match(source, /data-ready": bundlePdfUrl \? "true" : "false"/);
 	assert.match(source, /onRequestArtifact\(pptPrompt\)/);
 	assert.match(source, /String\(opts\.prompt \|\| ""\)\.trim\(\) \|\| promptFor/);
 	assert.doesNotMatch(source, /打开报告预览、审核与下载/);
@@ -308,9 +315,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /检索/);
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);
-	assert.match(source, /待上传 PDF/);
-	assert.match(source, /尚未获取 PDF · 点击前往论文出版社页面/);
-	assert.match(source, /尚未获取 SI · 点击前往论文出版社页面/);
+	assert.match(source, /原文待归档/);
+	assert.match(source, /尚未获取原文 · 前往出版社页面并布防捕获下载/);
+	assert.match(source, /尚未获取 SI · 前往出版社页面并布防捕获下载/);
 	assert.match(source, /bundleSiIsPdf \? openEntryInEdge/);
 	assert.match(source, /function openPdfPreview/);
 	assert.match(source, /searchParams\.set\("preview", "1"\)/);
@@ -411,7 +418,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 	assert.deepEqual(Array.from(client.inject), ["remote"]);
 
 	let contribution;
-	let childInject;
+	const childInjects = [];
 	let webVpnInject;
 	await client.apply({
 		remote: {
@@ -421,20 +428,33 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 			}
 		},
 		inject: (services, callback) => {
-			childInject = services;
+			// 本次改版：apply() 现在有两次顶层 inject——面板装配面，以及
+			// 「新建会话默认科研模式」那一次（settings 命名空间单独注入，
+			// 缺失时只丢这一项能力，不影响面板）。两次都记录下来。
+			childInjects.push(services);
 			callback({
-				remote: { lab: {} },
+				remote: {
+					lab: {},
+					// ensureResearchPresetDefault 先读预设 roster；这里给一个
+					// 已把 lab-research 设为默认的最小实现（不触发真实写入）。
+					agentPresets: {
+						list: async () => ({ ok: true, value: { presets: [{ id: "lab-research", isDefault: true }] } })
+					},
+					settings: { update: async () => ({ ok: true }) }
+				},
 				slots: { inject: () => {} },
 				on: () => {},
 				effect: () => () => {},
-				// applyUi 内部还会再注入一次右侧栏服务（文献浏览器 tab）。
+				// applyUi 内部还会再注入几次（右侧栏服务、课题壳桥）。
 				// 本用例断言的是依赖面，因此这里只记录服务清单，不执行回调。
 				inject: (nested) => { webVpnInject = nested; }
 			});
 		}
 	});
 
-	assert.deepEqual(Array.from(childInject), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
+	assert.deepEqual(Array.from(childInjects[0]), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
+	// 默认模式那一次：settings 缺失时不能连累面板装配。
+	assert.deepEqual(Array.from(childInjects[1]), ["remote", "remote.settings", "remote.agentPresets"]);
 	assert.deepEqual(Array.from(webVpnInject), ["slots", "sidebarRightTabs", "sidebarRight"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);

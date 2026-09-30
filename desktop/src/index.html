@@ -77,17 +77,87 @@
     @media(prefers-color-scheme:dark){:root{--shell-bg:#18191b;--shell-panel:#232529;--shell-border:#45474c;--shell-text:#eceef1;--shell-muted:#b3b6bf}}
     body,#diagnostics{background:var(--shell-bg)}button,input,select{font-family:Arial,"Microsoft YaHei",sans-serif;color:var(--shell-text);border-color:var(--shell-border)}button{transition:background-color 160ms ease,transform 120ms ease}button:hover{border-color:var(--shell-accent)}button:active{transform:translateY(1px)}:focus-visible{outline:2px solid var(--shell-accent);outline-offset:2px}.state,.hint,.detail{color:var(--shell-muted)}
     @media(max-width:850px){.diag-overview{grid-template-columns:1fr}}
+    /* ── 0.6.0 顶部工具栏：文件夹 / 更多 / 课题入口统一 36px ───────────────────
+       需求 §2.2：高度 36px，图标尺寸/圆角/垂直对齐/控件间距一致；文件夹与更多菜单
+       用浅色背景；课题入口用淡青绿色填充、名称 15–16px 半粗体、宽度随名称调整；
+       WebVPN 与连接状态合并为一个紧凑状态入口；更新/日志/诊断收进更多菜单。
+       「本地服务地址」不再显示在顶栏，改到诊断详情里。 */
+    :root{--shell-hover:rgba(15,23,42,.05);--shell-accent-soft:#e2f4f1;--shell-accent-ink:#0a6a61;--shell-accent-line:rgba(15,148,136,.28)}
+    @media(prefers-color-scheme:dark){:root{--shell-hover:rgba(255,255,255,.06);--shell-accent-soft:rgba(46,201,182,.16);--shell-accent-ink:#8fe8db;--shell-accent-line:rgba(46,201,182,.4)}}
+    .topbar{gap:10px;padding:8px 16px}
+    .topbar .spacer{flex:1}
+    .topbar .state{flex:0 1 auto;max-width:340px;font-size:13px;color:var(--shell-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .topbar .tool{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--shell-border);background:var(--shell-panel);color:var(--shell-text);font-size:14px;line-height:1}
+    .topbar .tool:hover{background:var(--shell-hover)}
+    .menu-wrap{position:relative;display:inline-flex}
+    .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:190px;display:none;padding:6px;background:var(--shell-bg);border:1px solid var(--shell-border);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.16)}
+    .menu[data-open=true]{display:block}
+    .menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 10px;border-radius:8px;font-size:14px;color:var(--shell-text)}
+    .menu button:hover{background:var(--shell-hover);border-color:transparent}
+    .menu .menu-status{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13.5px;color:var(--shell-muted)}
+    .menu .menu-status b{margin-left:auto;font-weight:600;color:var(--shell-text)}
+    .project-entry{position:relative;display:inline-flex;align-items:center;gap:2px}
+    .project-entry .project-main{display:inline-flex;align-items:center;gap:8px;height:36px;max-width:280px;padding:0 10px;border-radius:10px;border:1px solid var(--shell-accent-line);background:var(--shell-accent-soft);color:var(--shell-accent-ink);font-size:15.5px;font-weight:600}
+    .project-entry .project-icon{display:grid;place-items:center;width:20px;height:20px;font-size:15px;line-height:1}
+    .project-entry .project-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .project-entry .caret{display:grid;place-items:center;width:26px;height:36px;padding:0;border:0;border-radius:8px;background:none;color:var(--shell-accent-ink);font-size:12px}
+    .project-entry .caret:hover{background:var(--shell-hover)}
+    .status-entry{max-width:220px}
+    .status-entry #status-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* 合并后的状态入口只显示两个状态点（WebVPN 红/绿，iWAN 红/黄/绿） */
+    .status-entry i,.menu .menu-status i{width:8px;height:8px;flex:none;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.14)}
+    .status-entry i[data-partial=true],.menu .menu-status i[data-partial=true]{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.14)}
+    .status-entry i[data-online=true],.menu .menu-status i[data-online=true]{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+    #diag-service{margin:0 0 12px;font-size:12.5px;color:var(--shell-muted);word-break:break-all}
     @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   </style>
 </head>
 <body>
   <main class="shell">
     <nav class="topbar">
-      <span class="brand">iBM Lab Agent</span><span class="state" id="state">正在准备本地科研工作台…</span>
-      <!-- WebVPN / iWAN 状态：原先在课题页里，现按人工审核移到「检查更新」左边。
-           WebVPN 可点（经壳转发给 Harness 打开侧栏 tab），iWAN 只读。 -->
-      <button id="webvpn-indicator" class="indicator" type="button" title="WebVPN 未登录" aria-label="WebVPN 未登录"><i id="webvpn-indicator-dot" data-online="false" aria-hidden="true"></i><span id="webvpn-indicator-text">打开 WebVPN</span></button><span id="iwan-indicator" class="indicator" title="iWAN 未连接" aria-label="iWAN 未连接"><i id="iwan-indicator-dot" data-online="false" data-partial="false" aria-hidden="true"></i><span id="iwan-indicator-text">iWAN</span></span>
-      <button id="update-button" type="button">检查更新</button><button id="workspace-button" type="button">工作目录</button><button id="logs-button" type="button">日志</button><button id="deps-button" type="button">诊断</button>
+      <!-- 产品名只在 Harness 侧栏保留一处（需求 §2.1），顶栏不再重复。
+           本地服务地址移到「诊断」详情（#diag-service），这里只留一句状态文字。 -->
+      <span class="state" id="state">正在准备本地科研工作台…</span>
+      <span class="spacer"></span>
+      <!-- WebVPN 与连接状态合并为一个紧凑状态入口（需求 §2.2）：
+           入口只显示两个状态点 + 一句话，明细与操作在下拉里。 -->
+      <div class="menu-wrap">
+        <button id="status-entry" class="tool status-entry" type="button" title="连接状态" aria-label="连接状态" aria-haspopup="true" aria-expanded="false"><i id="webvpn-indicator-dot" data-online="false" aria-hidden="true"></i><i id="iwan-indicator-dot" data-online="false" data-partial="false" aria-hidden="true"></i><span id="status-text">连接状态</span></button>
+        <div class="menu" id="status-menu" role="menu">
+          <div class="menu-status"><span>WebVPN</span><b id="webvpn-indicator-text">打开 WebVPN</b></div>
+          <div class="menu-status"><span>iWAN</span><b id="iwan-indicator-text">iWAN</b></div>
+          <button id="webvpn-indicator" type="button">打开 WebVPN</button>
+          <button id="status-refresh" type="button">刷新连接状态</button>
+        </div>
+      </div>
+      <!-- 文件夹入口（工作目录 / 课题目录） -->
+      <div class="menu-wrap">
+        <button id="folder-button" class="tool" type="button" title="文件夹" aria-haspopup="true" aria-expanded="false">文件夹 ▾</button>
+        <div class="menu" id="folder-menu" role="menu">
+          <button id="workspace-button" type="button">打开软件工作目录</button>
+          <button id="project-folder-top" type="button">打开课题目录</button>
+        </div>
+      </div>
+      <!-- 更多菜单：更新 / 日志 / 诊断等低频操作收进来（需求 §2.2） -->
+      <div class="menu-wrap">
+        <button id="more-button" class="tool" type="button" title="更多" aria-label="更多" aria-haspopup="true" aria-expanded="false">···</button>
+        <div class="menu" id="more-menu" role="menu">
+          <button id="update-button" type="button">检查更新</button>
+          <button id="logs-button" type="button">日志</button>
+          <button id="deps-button" type="button">诊断</button>
+        </div>
+      </div>
+      <!-- 课题入口：课题图标 + 课题名称 + 下拉箭头（需求 §2.2 / bug #3）。
+           空白新会话里 Harness 的会话头部不渲染，所以这个入口必须常驻顶栏。 -->
+      <div class="project-entry" id="project-entry" data-empty="true">
+        <button id="project-button" class="project-main" type="button" title="打开课题空间"><span class="project-icon" aria-hidden="true">⚗</span><span class="project-name" id="project-name">选择课题</span></button>
+        <button id="project-caret" class="caret" type="button" aria-label="课题菜单" title="课题菜单" aria-haspopup="true" aria-expanded="false">▾</button>
+        <div class="menu" id="project-menu" role="menu">
+          <button id="project-open" type="button">打开课题空间</button>
+          <button id="project-folder" type="button">在资源管理器中打开课题目录</button>
+          <button id="project-panel" type="button">课题管理面板</button>
+        </div>
+      </div>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
@@ -106,6 +176,7 @@
       <section id="diagnostics">
         <div class="diag-head"><h2>应用与连接诊断</h2><span class="state" id="diag-state">加载中…</span></div>
         <p class="diag-sub">按应用或运行组件检查本机状态；只有已配置 MCP 的应用才显示 MCP 连接状态。</p>
+        <p id="diag-service">本地服务地址：尚未启动</p>
         <div class="first-run-note" id="first-run-note"><strong>欢迎使用 iBM Lab Agent。</strong><br>这是首次启动检查。下方会明确列出当前可用功能、受限功能以及需要升级或重新安装的软件版本。</div>
         <div class="diag-overview">
           <div class="diag-card"><h3>现在可执行的功能</h3><ul id="available-features"><li>正在评估…</li></ul></div>
@@ -204,13 +275,82 @@
       const host = dot ? dot.closest('.indicator') : null;
       if (host) { host.title = title; host.setAttribute('aria-label', title); }
     };
+    // ── 0.6.0 顶栏菜单（状态 / 文件夹 / 更多 / 课题）────────────────────────
+    // 原生 button + .menu：不需要框架，点外面或 Esc 统一收起。
+    const MENU_IDS = ['status-menu', 'folder-menu', 'more-menu', 'project-menu'];
+    const closeMenus = (except) => {
+      for (const id of MENU_IDS) {
+        const menu = $(id);
+        if (!menu || menu === except) continue;
+        menu.dataset.open = 'false';
+        const trigger = menu.parentElement?.querySelector('[aria-expanded]');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    };
+    const toggleMenu = (menuId, open) => {
+      const menu = $(menuId);
+      if (!menu) return;
+      const next = open ?? menu.dataset.open !== 'true';
+      closeMenus(next ? menu : undefined);
+      menu.dataset.open = next ? 'true' : 'false';
+      const trigger = menu.parentElement?.querySelector('[aria-expanded]');
+      if (trigger) trigger.setAttribute('aria-expanded', next ? 'true' : 'false');
+    };
+    document.addEventListener('pointerdown', (event) => { if (!event.target.closest?.('.menu-wrap, .project-entry')) closeMenus(); }, true);
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenus(); });
+    // ── 顶栏课题入口（需求 §2.2 / bug #3）──────────────────────────────────
+    // 状态由 Harness 侧插件推送（SYNC_PROJECT）：空白新会话里会话头部不渲染，
+    // 只有顶栏这个常驻入口能让用户随时回到课题空间。
+    let currentProject = null;
+    const renderProjectEntry = () => {
+      const entry = $('project-entry'), name = $('project-name');
+      if (!entry || !name) return;
+      const bound = Boolean(currentProject && currentProject.projectId);
+      entry.dataset.empty = bound ? 'false' : 'true';
+      name.textContent = bound ? String(currentProject.name || currentProject.projectId) : '选择课题';
+      $('project-button').title = bound ? `打开课题空间：${name.textContent}` : '选择课题';
+      const folder = $('project-folder');
+      if (folder) folder.disabled = !bound || !currentProject.workspacePath;
+    };
+    renderProjectEntry();
+    $('project-button').addEventListener('click', () => {
+      closeMenus();
+      postToFrame('OPEN_PROJECT', currentProject ? { projectId: currentProject.projectId } : {});
+    });
+    $('project-caret').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('project-menu'); });
+    $('project-open').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_PROJECT', currentProject ? { projectId: currentProject.projectId } : {}); });
+    $('project-panel').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_PROJECT_PANEL', {}); });
+    $('project-folder').addEventListener('click', () => {
+      closeMenus();
+      const path = currentProject && currentProject.workspacePath;
+      if (!path) return;
+      invoke('reveal_path', { path }).catch((error) => setText('state', `打开课题目录失败：${error}`));
+    });
+    const openProjectFolder = () => {
+      const path = currentProject && currentProject.workspacePath;
+      if (!path) { setText('state', '当前会话还没有关联课题'); return; }
+      invoke('reveal_path', { path }).catch((error) => setText('state', `打开课题目录失败：${error}`));
+    };
+    $('project-folder-top').addEventListener('click', () => { closeMenus(); openProjectFolder(); });
+    $('folder-button').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('folder-menu'); });
+    $('more-button').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('more-menu'); });
+    $('status-entry').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('status-menu'); });
+    $('status-refresh').addEventListener('click', () => { closeMenus(); void refreshShellIndicators(); });
     const refreshShellIndicators = async () => {
       // 顺带把捕获状态推给页面里的捕获小球：它是页面内的浮标，只能由壳推。
       void invoke('webvpn_sync_capture_ball').catch(() => {});
+      const summary = (webvpn, iwan) => {
+        if (iwan && iwan.usable) return 'iWAN 已连接';
+        if (iwan && iwan.connected) return 'iWAN 部分可用';
+        if (webvpn && webvpn.loggedIn) return 'WebVPN 已登录';
+        return '连接状态';
+      };
+      let webvpnState, iwanState;
       try {
         const status = await invoke('webvpn_status');
         const loggedIn = Boolean(status && status.windowOpen && status.authenticated);
         const label = status && status.sidebarVisible ? '返回 WebVPN' : '打开 WebVPN';
+        webvpnState = { loggedIn };
         setIndicator('webvpn-indicator-dot', 'webvpn-indicator-text', {
           online: loggedIn,
           partial: false,
@@ -222,6 +362,7 @@
         const status = await invoke('iwan_status');
         const usable = Boolean(status && status.usable), connected = Boolean(status && status.connected);
         const label = usable ? 'iWAN 全局模式可用' : connected ? 'iWAN 已连接但未启用全部路由' : status && status.installed ? 'iWAN 未连接' : '未安装 iWAN';
+        iwanState = { usable, connected };
         setIndicator('iwan-indicator-dot', 'iwan-indicator-text', {
           online: usable,
           partial: connected && !usable,
@@ -229,8 +370,10 @@
           title: (status && status.message) || label,
         });
       } catch { /* 同上 */ }
+      const statusText = $('status-text');
+      if (statusText) statusText.textContent = summary(webvpnState, iwanState);
     };
-    $('webvpn-indicator').addEventListener('click', () => postToFrame('OPEN_WEBVPN_REQUEST'));
+    $('webvpn-indicator').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_WEBVPN_REQUEST'); });
     setInterval(() => void refreshShellIndicators(), 5000);
     let activeMcpApp = null;
     let latestReleaseUrl = '';
@@ -411,7 +554,10 @@
       $('error-actions').style.display = 'none'; setText('title', '正在启动 iBM Lab Agent'); setText('detail', '正在选择本地端口并检查服务状态…'); setText('state', '本地服务启动中');
     };
     window.ibmLabRuntimeReady = (url) => {
-      frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', `本地服务已就绪：${url}`);
+      // 需求 §2.1：本地服务地址不再显示在顶栏，移入「诊断」详情。
+      frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', '本地服务已就绪');
+      const service = $('diag-service');
+      if (service) service.textContent = `本地服务地址：${url}`;
       void refreshShellIndicators();
       if (firstRun) {
         $('first-run-note').style.display = 'block';
@@ -529,6 +675,14 @@
         const mapping={'bg-base':'bg','bg-layer-1':'panel','border-l2':'border','label-primary':'text','label-secondary':'muted','brand-primary':'accent'};
         for(const [name,target] of Object.entries(mapping)){const value=data.payload?.tokens?.[name];if(typeof value==='string'&&CSS.supports('color',value))document.documentElement.style.setProperty('--shell-'+target,value);}
         document.documentElement.style.colorScheme=data.payload?.dark?'dark':'light';
+      } else if (data.type === 'SYNC_PROJECT') {
+        // 插件侧常驻桥推来的当前课题（空白新会话也会推）：顶栏课题入口据此更新。
+        const payload = data.payload || null;
+        currentProject = payload && payload.projectId
+          ? { projectId: String(payload.projectId), name: String(payload.name || payload.projectId), workspacePath: payload.workspacePath ? String(payload.workspacePath) : '' }
+          : null;
+        renderProjectEntry();
+        if (!currentProject) closeMenus();
       } else if (data.type === 'OPEN_IN_EDGE') {
         invoke('open_in_edge', { url: String(data.url || '') })
           .then(() => reply('OPEN_IN_EDGE_RESULT', { ok: true }))

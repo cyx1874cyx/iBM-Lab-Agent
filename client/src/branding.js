@@ -76,7 +76,9 @@ export function applyBranding(onOpen) {
 			const shell = document.createElement("span");
 			shell.className = "ib-brand-shell";
 			shell.setAttribute("data-dsh-lab-brand", "1");
-			shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b><small>based on DSH</small></span>`;
+			// 品牌去重：只保留 Logo +「iBM Agent」，删掉英文副标题
+			// （based on DSH）——界面上醒目的产品品牌只保留这一处。
+			shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b></span>`;
 			brand.appendChild(shell);
 			touched = true;
 		}

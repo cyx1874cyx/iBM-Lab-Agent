@@ -77,6 +77,25 @@ export const noteTemplateSchema = z.object({
 /** 模板行 key：id@version。 */
 export const noteTemplateKey = (id, version) => `${id}@${version}`;
 
+/* ── 全局唯一的「默认模板」设置（本次改版）──────────────────────────────────
+ *
+ * 需求：模板管理里可以指定一个默认模板，设置后 Agent 优先使用它。
+ * 语义是**全局唯一**（不是每个课题各一份）：整张设置表只有一行，
+ * key 固定 `default`，值里记一个模板 id（或 null = 未指定）。
+ *
+ * 为什么单独一张表而不是塞进 note_template_profiles：模板行必须通过
+ * noteTemplateSchema（id@version、status 等），设置行没有版本语义，
+ * 混在一起会污染 rowsFor()/latestActive() 的扫描。
+ */
+export const NOTE_TEMPLATE_DEFAULT_KEY = "default";
+
+/** 默认模板设置行。templateId=null 表示「未指定默认模板」。 */
+export const noteTemplateSettingSchema = z.object({
+	id: z.literal(NOTE_TEMPLATE_DEFAULT_KEY),
+	templateId: z.string().regex(PROFILE_ID_RE).nullable().default(null),
+	updatedAt: z.string()
+});
+
 /** 从一组行计算下一个版本号（max+1，字符串）。 */
 export function nextNoteTemplateVersion(versions) {
 	const max = versions.reduce((m, v) => Math.max(m, Number(v)), 0);

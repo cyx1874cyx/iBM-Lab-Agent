@@ -66,6 +66,187 @@ var themeCss = `
 @media(prefers-reduced-motion:reduce){.ib-overlay *,.ib-overlay *::before,.ib-overlay *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 `;
 
+// client/src/redesign.js
+var redesignCss = `
+:root,.ib-overlay,body.ib-research-chat{
+  /* 强调色：青绿（主）+ 蓝（已完成 PPT）。--ib-green 是历史别名，一并指向青绿，
+     这样旧规则里的 var(--ib-green) 也自动变成新版强调色。 */
+  --ib-accent:#0f9488;--ib-green:#0f9488;--ib-accent-ink:#0a6a61;--ib-accent-soft:#e2f4f1;--ib-accent-line:rgba(15,148,136,.28);
+  --ib-blue:#2563eb;--ib-blue-soft:#e8effd;--ib-blue-line:rgba(37,99,235,.28);
+  --ib-hover:rgba(15,23,42,.045);--ib-hair:rgba(15,23,42,.09);--ib-soft:#4b5563;
+  --ib-radius:10px;--ib-control-h:36px;--ib-action-h:34px;
+}
+@media(prefers-color-scheme:dark){:root,.ib-overlay,body.ib-research-chat{
+  --ib-accent:#2ec9b6;--ib-green:#2ec9b6;--ib-accent-ink:#8fe8db;--ib-accent-soft:rgba(46,201,182,.16);--ib-accent-line:rgba(46,201,182,.38);
+  --ib-blue:#5b8cf7;--ib-blue-soft:rgba(91,140,247,.18);--ib-blue-line:rgba(91,140,247,.4);
+  --ib-hover:rgba(255,255,255,.05);--ib-hair:rgba(255,255,255,.12);--ib-soft:var(--ib-muted);
+}}
+/* ── 内容区：白底、浅灰顶栏 ─────────────────────────────────────────────── */
+.ib-overlay{background:var(--ib-bg)}
+.ib-overlay .ib-top{height:56px;gap:14px;padding:0 22px;background:var(--ib-panel);border-bottom:1px solid var(--ib-hair);backdrop-filter:none}
+.ib-overlay .ib-crumb{font-size:14px;color:var(--ib-soft)}
+.ib-overlay .ib-main{max-width:1180px;padding:26px 22px 64px}
+/* ── 文字层级（需求 §6：整体字号放大）──────────────────────────────────── */
+.ib-overlay{font-size:15px;line-height:1.6}
+.ib-overlay .ib-head h1{font-size:26px}
+.ib-overlay .ib-head p{font-size:15px;color:var(--ib-soft)}
+.ib-overlay .ib-kicker{display:none}
+.ib-overlay .ib-project-copy h1{font-size:22px;font-weight:600}
+.ib-overlay .ib-project-copy p{font-size:14px;color:var(--ib-soft)}
+.ib-overlay .ib-empty{font-size:15px;color:var(--ib-soft);border:0;background:none;padding:18px 2px;text-align:left}
+.ib-overlay .ib-row{font-size:14.5px}
+.ib-overlay small,.ib-overlay time,.ib-overlay .ib-muted{font-size:14px;color:var(--ib-soft)}
+/* ── 减少容器：卡片/列表一律去框去影 ─────────────────────────────────────── */
+.ib-overlay :is(.ib-card,.ib-board,.ib-lit-col,.ib-tm-card,.ib-project,.ib-search-results,.ib-lit-overview,.ib-review-detail,.ib-fulltext,.ib-capture-hint,.ib-table,.ib-table-head,.ib-table-row,.ib-rows .ib-row,.sw-sec,.ib-section-row,.ib-tm-wrap){
+  background:var(--ib-bg);border-color:transparent;box-shadow:none;border-radius:0
+}
+.ib-overlay :is(.ib-card,.ib-board,.ib-lit-col,.ib-tm-card,.ib-lit-overview,.ib-review-detail,.ib-fulltext,.ib-capture-hint,.sw-sec){padding:14px 2px}
+.ib-overlay .ib-card-head{margin-bottom:10px}
+.ib-overlay .ib-card-title{font-size:16px;font-weight:600}
+.ib-overlay .ib-chip{border-radius:6px;font-size:13px;padding:2px 8px;background:var(--ib-panel)}
+/* ── 控件统一：36px 高、10px 圆角、14px 字 ───────────────────────────────── */
+.ib-overlay .ib-btn{height:var(--ib-control-h);padding:0 14px;border-radius:var(--ib-radius);border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:500;box-shadow:none;display:inline-flex;align-items:center;gap:7px}
+.ib-overlay .ib-btn:hover:enabled{border-color:var(--ib-accent-line);background:var(--ib-hover)}
+.ib-overlay .ib-btn[data-primary=true]{background:var(--ib-accent);border-color:transparent;color:#fff}
+.ib-overlay .ib-btn[data-primary=true]:hover:enabled{background:var(--ib-accent-ink);color:#fff}
+.ib-overlay .ib-btn[data-danger=true]{color:#b42318;border-color:var(--ib-hair);background:var(--ib-bg)}
+.ib-overlay input,.ib-overlay textarea,.ib-overlay select{font-size:14.5px;border-radius:var(--ib-radius);border:1px solid var(--ib-hair);background:var(--ib-bg)}
+/* ── 单行标签页：下划线选中（需求 §3.1/§8）──────────────────────────────── */
+.ib-overlay .ib-tabs{display:flex;align-items:center;gap:26px;margin:0 0 18px;padding:0;border-bottom:1px solid var(--ib-hair);grid-template-columns:none}
+.ib-overlay .ib-tab{position:relative;display:inline-flex;align-items:center;height:44px;padding:0;border:0;border-radius:0;background:none;color:var(--ib-soft);font-size:16px;font-weight:600;box-shadow:none;text-align:left}
+.ib-overlay .ib-tab:hover:enabled{background:none;color:var(--ib-text)}
+.ib-overlay .ib-tab[data-active=true]{color:var(--ib-accent-ink);background:none;box-shadow:none}
+.ib-overlay .ib-tab[data-active=true]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ib-accent);border-radius:2px}
+.ib-overlay .ib-tab span{display:none}
+.ib-overlay .ib-tab-refresh{margin-left:auto;height:32px;font-size:13.5px;color:var(--ib-soft)}
+.ib-overlay .ib-tabs+.ib-tab-panel{margin-top:2px}
+.ib-overlay .ib-tm-tabs{display:flex;align-items:center;gap:22px;border-bottom:1px solid var(--ib-hair);margin:0 0 16px;padding:0}
+.ib-overlay .ib-tm-tab{position:relative;height:42px;padding:0;border:0;border-radius:0;background:none;color:var(--ib-soft);font-size:15.5px;font-weight:600;box-shadow:none}
+.ib-overlay .ib-tm-tab[data-active=true]{color:var(--ib-accent-ink);background:none;box-shadow:none}
+.ib-overlay .ib-tm-tab[data-active=true]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ib-accent);border-radius:2px}
+/* ── 分组标题与条目列表（需求 §3.1）────────────────────────────────────── */
+.ib-overlay .ib-lit{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
+.ib-lit-group{display:grid;gap:2px;min-width:0}
+.ib-overlay .ib-group-head{display:flex;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--ib-hair)}
+.ib-overlay .ib-group-head h3{margin:0;font-size:17px;font-weight:600;color:var(--ib-text)}
+.ib-overlay .ib-group-count{font-size:14px;color:var(--ib-soft)}
+.ib-overlay .ib-lit-list{display:grid;gap:0;margin:0}
+.ib-overlay .ib-lit-item{display:grid;gap:8px;padding:16px 2px;border-bottom:1px solid var(--ib-hair);border-radius:0;background:none}
+.ib-overlay .ib-lit-item:last-child{border-bottom:0}
+.ib-overlay .ib-lit-item:hover{background:var(--ib-hover)}
+.ib-overlay .ib-lit-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px 14px;padding:0;border:0;background:none;border-radius:0}
+.ib-overlay .ib-lit-main{flex:1 1 320px;min-width:0;display:grid;gap:5px}
+.ib-overlay .ib-lit-title{display:block;font-size:18px;font-weight:600;line-height:1.42;color:var(--ib-text);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.ib-overlay .ib-citation i{font-style:italic;font-weight:700}
+.ib-overlay .ib-lit-zh{font-size:16px;font-weight:400;line-height:1.55;color:var(--ib-soft);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.ib-overlay .ib-lit-meta{font-size:14.5px;line-height:1.5;color:var(--ib-soft);white-space:normal;overflow-wrap:anywhere}
+.ib-overlay .ib-lit-acts{flex:0 1 auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:none;margin-left:auto}
+.ib-overlay .ib-lit-sub{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ib-overlay .ib-lit-flag{font-size:13.5px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;padding:2px 8px}
+.ib-overlay .ib-lit-overview{margin-top:2px;font-size:14.5px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap;border-left:2px solid var(--ib-accent-line);padding:8px 0 8px 12px}
+.ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
+.ib-overlay .ib-lit-overview-meta,.ib-overlay .ib-lit-overview-time{display:block;font-size:13.5px;color:var(--ib-soft)}
+/* ── 操作按钮：用填充色表达完成状态（需求 §5.1）────────────────────────── */
+.ib-overlay .ib-act{display:inline-flex;align-items:center;gap:7px;height:var(--ib-action-h);padding:0 13px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
+.ib-overlay .ib-act:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-act:disabled{cursor:default;opacity:.6}
+.ib-overlay .ib-act[data-kind=accent]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-act[data-kind=accent]:hover:enabled{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
+.ib-overlay .ib-act[data-done=true][data-kind=reading]{background:var(--ib-accent);border-color:transparent;color:#fff}
+.ib-overlay .ib-act[data-done=true][data-kind=reading]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
+.ib-overlay .ib-act[data-done=true][data-kind=ppt]{background:var(--ib-blue);border-color:transparent;color:#fff}
+.ib-overlay .ib-act[data-done=true][data-kind=ppt]:hover:enabled{background:#1d4ed8;border-color:transparent;color:#fff}
+.ib-overlay .ib-act[data-busy=true]{color:var(--ib-soft);background:var(--ib-panel);border-color:var(--ib-hair)}
+.ib-spin{animation:ib-spin 900ms linear infinite}
+@keyframes ib-spin{to{transform:rotate(360deg)}}
+/* 次级操作：PDF / SI */
+.ib-overlay .ib-sub-btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-soft);font-size:13.5px;font-weight:500;cursor:pointer}
+.ib-overlay .ib-sub-btn:hover:enabled{background:var(--ib-hover);color:var(--ib-text);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-sub-btn[data-ready=true]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-sub-btn[data-ready=false]{opacity:.95}
+.ib-overlay .ib-sub-btn[data-opening=true]{cursor:progress}
+/* ── 条目尾部的「更多」菜单（需求 §5.2/§6）────────────────────────────── */
+.ib-overlay .ib-more{position:relative;display:inline-flex}
+.ib-overlay .ib-more>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:var(--ib-action-h);border:1px solid var(--ib-hair);border-radius:9px;background:var(--ib-bg);color:var(--ib-soft);font-size:16px;font-weight:700;cursor:pointer;line-height:1}
+.ib-overlay .ib-more>summary::-webkit-details-marker{display:none}
+.ib-overlay .ib-more>summary:hover{border-color:var(--ib-accent-line);color:var(--ib-text)}
+.ib-overlay .ib-more[open]>summary{border-color:var(--ib-accent-line);color:var(--ib-text);background:var(--ib-hover)}
+.ib-overlay .ib-more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:200px;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.14)}
+.ib-overlay .ib-more-item{display:block;width:100%;text-align:left;padding:9px 10px;border:0;border-radius:8px;background:none;color:var(--ib-text);font-size:14px;cursor:pointer}
+.ib-overlay .ib-more-item:hover:enabled{background:var(--ib-hover)}
+.ib-overlay .ib-more-item[data-danger=true]{color:#b42318}
+.ib-overlay .ib-more-item:disabled{opacity:.5;cursor:default}
+/* ── 会话头部课题入口：图标 + 名称 + 下拉箭头（需求 §2.1/§2.2）──────────── */
+.ib-project-entry{position:relative;display:inline-flex;align-items:center;gap:2px;height:var(--ib-control-h)}
+.ib-overlay .ib-research-badge{display:inline-flex;align-items:center;gap:8px;height:var(--ib-control-h);max-width:260px;padding:0 10px;border:1px solid var(--ib-accent-line);border-radius:var(--ib-radius);background:var(--ib-accent-soft);color:var(--ib-accent-ink);box-shadow:none;cursor:pointer;text-align:left}
+.ib-overlay .ib-research-badge:hover{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
+.ib-project-entry .ib-badge-icon{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:6px;background:none;box-shadow:none;color:var(--ib-accent-ink)}
+.ib-project-entry .ib-badge-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px;font-weight:600;color:var(--ib-accent-ink)}
+.ib-overlay .ib-badge-caret{display:inline-grid;place-items:center;width:26px;height:var(--ib-control-h);padding:0;border:0;border-radius:8px;background:none;color:var(--ib-accent-ink);font-size:12px;cursor:pointer}
+.ib-overlay .ib-badge-caret:hover{background:var(--ib-hover)}
+.ib-project-entry .ib-badge-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:220px;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.14)}
+/* ── 检索结果条目（展开后的去重文献）────────────────────────────────────── */
+.ib-overlay .ib-search-paper{padding:12px 2px;border-top:1px solid var(--ib-hair)}
+.ib-overlay .ib-search-citation{font-size:14px;line-height:1.6;color:var(--ib-soft)}
+.ib-overlay .ib-search-citation i{font-style:italic;font-weight:700;color:var(--ib-text)}
+.ib-overlay .ib-search-paper small{display:block;margin-top:4px;font-size:15px;line-height:1.5;color:var(--ib-text);overflow-wrap:anywhere}
+.ib-overlay .ib-search-actions{display:flex;gap:8px;margin-top:8px}
+.ib-overlay .ib-icon-btn{width:32px;height:30px;border-radius:8px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-soft)}
+.ib-overlay .ib-icon-btn[data-ready=true]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-icon-btn[data-ready=false]{opacity:.85;filter:none}
+/* ── 模板管理：默认模板标记 ─────────────────────────────────────────────── */
+.ib-overlay .ib-default-badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--ib-accent-soft);color:var(--ib-accent-ink);font-size:13px;font-weight:600}
+.ib-overlay .ib-tm-card[data-default=true]{border-left:3px solid var(--ib-accent);padding-left:12px}
+.ib-overlay .ib-tm-title b{font-size:16px;font-weight:600}
+.ib-overlay .ib-lit-btn{height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.ib-overlay .ib-lit-btn:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
+.ib-overlay .ib-lit-btn[data-ready=true]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
+/* ── 会话标题旁的「Agent 预设」标识：按需求 §2.1 删除 ──────────────────────
+   DSH 的 ui-agent-preset 会在会话标题右侧渲染一个只读 label（预设名，对我们
+   就是「iBM科研Agent」），与产品品牌重复。它是 list 槽位的一项，插件无法用
+   占位替换，只能用 CSS 隐去；这里用 DSH 自带的稳定标记
+   data-conversation-header-corner 锚定会话头部，且只挑 span 型 label，
+   避免误伤头部其它控件。 */
+header:has([data-conversation-header-corner]) span[class*='_label']{display:none!important}
+/* ── 次级界面（研究设计 / 表征 / 全文队列 / 预览 / 模板）字号同步放大 ──────
+   需求 §6：所有条目在布局协调的前提下尽量使用较大字号。这些界面原本是
+   9–11px 的密集排版，这里统一提到 13–14px（不靠缩字解决空间不足）。 */
+.ib-overlay :is(.ib-field label,.ib-req label){font-size:14px}
+.ib-overlay .ib-chip{font-size:13px;padding:2px 8px}
+.ib-overlay :is(.ib-help,.ib-dl-main b,.ib-review-detail-head b,.ib-search-citation,.ib-tm-title b){font-size:14px}
+.ib-overlay :is(.ib-help strong,.ib-version,.ib-key,.ib-tm-sub,.ib-dl-main small,.ib-dl-state,
+  .ib-review-detail-head span,.ib-review-finding,.ib-preview-title small,.ib-preview-foot-note,
+  .ib-preview-state,.ib-tm-btn,.ib-tm-chip,.sw-head p,.sw-select,.sw-step-id,.sw-step-preview,
+  .sw-cond,.sw-note,.sw-analy-block,.sw-plan-row,.sw-mini-btn,.sw-hint,.sw-plan-empty,
+  .sw04-reaction-side>small,.sw04-arrow>span,.sw04-plan-preview p,.sw04-plan-preview li,
+  .sw04-plan-preview h4,.sw04-plan-grid span,.sw04-structure-candidate-head small){font-size:13.5px}
+.ib-overlay :is(.sw-meta-note,.sw-ev-meta,.sw-ev-tag,.sw-metric small,.sw-metric strong,
+  .sw-struct-name,.sw-struct-src,.sw-ev-act button,.sw-struct-acts .sw-mini-btn,
+  .sw-ev-shot-note,.sw-ev-shot-fail,.sw-cond .sw-src,.sw-analy-block b,.sw-review-quote,
+  .sw04-difficulty,.sw04-plan-preview-head small){font-size:13px}
+.ib-overlay :is(.sw-head h3,.ib-preview-title b){font-size:16px}
+.ib-overlay .ib-preview-btn{height:32px;padding:0 12px;border-radius:8px;font-size:13.5px;border:1px solid var(--ib-hair);background:var(--ib-bg)}
+.ib-overlay .ib-preview-btn[data-primary=true]{background:var(--ib-accent);border-color:transparent;color:#fff}
+.ib-overlay .ib-preview-btn[data-danger=true]{color:#b42318}
+.ib-overlay :is(.ib-approval-card>p,.ib-approval-ok span){font-size:14px}
+.ib-overlay :is(.ib-fulltext-note,.ib-lit-note,.ib-sub){font-size:13.5px;color:var(--ib-soft)}
+.ib-overlay .ib-table-head{font-size:13.5px;color:var(--ib-soft);border-bottom:1px solid var(--ib-hair)}
+.ib-overlay .ib-table-row{font-size:14px}
+/* ── 窄宽度（右侧栏课题 tab / 面板嵌入）────────────────────────────────── */
+.ib-overlay.ib-panel-embed .ib-main{padding:14px 14px 32px}
+.ib-overlay.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:10px}
+.ib-overlay.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}
+.ib-overlay.ib-panel-embed .ib-project-copy h1{font-size:20px}
+.ib-overlay.ib-panel-embed .ib-head h1{font-size:22px}
+.ib-overlay.ib-panel-embed .ib-lit-main{flex:1 1 100%}
+.ib-overlay.ib-panel-embed .ib-lit-acts{margin-left:0;justify-content:flex-start}
+.ib-overlay.ib-panel-embed .ib-tabs{gap:18px}
+@media(max-width:720px){
+  .ib-overlay .ib-lit-acts{width:100%;margin-left:0;justify-content:flex-start}
+  .ib-overlay .ib-main{padding:18px 14px 48px}
+}
+`;
+
 // client/src/styles.js
 function injectStyles() {
   let css = [
@@ -131,6 +312,7 @@ function injectStyles() {
   css += ".ib-project-tab{display:flex;flex-direction:column;gap:12px;height:100%;min-height:160px;box-sizing:border-box;padding:14px;overflow:auto;background:var(--dsw-alias-bg-layer-1,var(--ib-panel));color:var(--dsw-alias-label-primary,var(--ib-text))}.ib-project-tab-note{justify-content:flex-start;color:var(--dsw-alias-label-secondary,var(--ib-muted));font-size:11px;line-height:1.7}.ib-project-tab-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ib-project-tab-head b{min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-rows{display:grid;gap:7px;border:1px solid var(--dsw-alias-border-l2,var(--ib-line));border-radius:10px;padding:10px 11px;background:var(--dsw-alias-bg-layer-2,var(--ib-panel2))}.ib-project-tab-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:10.5px}.ib-project-tab-row span{flex:none;color:var(--dsw-alias-label-secondary,var(--ib-muted))}.ib-project-tab-row b{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:560}.ib-project-tab-foot{margin-top:auto;display:flex;justify-content:flex-end}.ib-project-tab-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-project-tab-btn{flex:none;margin-left:4px}";
   css += ".ib-overlay.ib-panel-embed{position:static;inset:auto;z-index:auto;height:100%;min-height:0;overflow:auto;box-sizing:border-box}.ib-project-tab-embed{height:100%;min-height:0}.ib-panel-embed .ib-main{max-width:none;margin:0;padding:12px 12px 28px}.ib-panel-embed .ib-grid,.ib-panel-embed .ib-artifacts,.ib-panel-embed .ib-memory,.ib-panel-embed .ib-tm-wrap,.ib-panel-embed .ib-form-grid,.ib-panel-embed .ib-lit{grid-template-columns:minmax(0,1fr)}.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:8px;margin-bottom:14px}.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}.ib-panel-embed .ib-project-copy h1{font-size:19px}.ib-panel-embed .ib-head{flex-direction:column;align-items:flex-start;gap:10px}.ib-panel-embed .ib-head h1{font-size:20px}.ib-panel-embed .ib-tabs{gap:6px}.ib-panel-embed .ib-tab{padding:9px 8px}.ib-panel-embed .ib-tab strong{font-size:11px}.ib-panel-embed .ib-tab span{font-size:8.5px;line-height:1.35}.ib-panel-embed .ib-preview-drawer{width:min(560px,94vw)}.ib-panel-embed .ib-section-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 62px 24px}";
   css += themeCss;
+  css += redesignCss;
   if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
     const style = document.createElement("style");
     style.dataset.pluginCss = "dsh-lab-agent";
@@ -153,8 +335,14 @@ function buildDescriptors() {
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
-    ...["versions_list", "goals_list", "templates_list", "note_templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    // 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
+    // LabRemoteService.note_templates_list(request) 读 request.kind），
+    // 但描述符此前声明成 0 参数，前端带参调用会被 wire 层直接拒绝：
+    //   client api: lab/note_templates_list expected 0 argument(s), got 1
+    // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
+    // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
+    ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -250,7 +438,7 @@ function applyBranding(onOpen) {
       const shell = document.createElement("span");
       shell.className = "ib-brand-shell";
       shell.setAttribute("data-dsh-lab-brand", "1");
-      shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b><small>based on DSH</small></span>`;
+      shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b></span>`;
       brand.appendChild(shell);
       touched = true;
     }
@@ -747,6 +935,76 @@ var openExternalUrl = async (url) => {
   if (window.parent !== window) return openInEdgeViaShell(url);
   window.open(url, "_blank", "noopener,noreferrer");
 };
+function installProjectShellBridge({ ctx, call, openProject, openProjectTab: openProjectTab2 }) {
+  if (typeof window === "undefined" || window.parent === window) return () => {
+  };
+  let disposed = false;
+  let lastSignature = "\0";
+  let current = null;
+  const push = (project) => {
+    const payload = project ? { projectId: project.id, name: project.name, workspacePath: project.workspacePath } : null;
+    const signature = JSON.stringify(payload ?? null);
+    if (signature === lastSignature) return;
+    lastSignature = signature;
+    try {
+      window.parent.postMessage({ source: "ibm-lab-agent", type: "SYNC_PROJECT", requestId: "project", payload }, "*");
+    } catch {
+    }
+  };
+  const resolve = async () => {
+    if (disposed) return;
+    const snapshot = ctx.sessions?.list?.getSnapshot?.();
+    const sessionId = snapshot?.current;
+    if (!sessionId) {
+      current = null;
+      push(null);
+      return;
+    }
+    try {
+      const bySession = await call("projects_by_session", { request: { sessionId } });
+      if (disposed) return;
+      let bound = bySession?.bound ?? null;
+      if (!bound) {
+        const cwd = snapshot?.byId?.[sessionId]?.cwd;
+        if (cwd) {
+          const byCwd = await call("projects_by_cwd", { request: { path: cwd } });
+          if (disposed) return;
+          bound = byCwd?.bound ?? null;
+        }
+      }
+      current = bound?.project ?? null;
+      push(current);
+    } catch {
+    }
+  };
+  const unsubscribe = ctx.sessions?.list?.subscribe?.(() => {
+    void resolve();
+  }) ?? (() => {
+  });
+  const timer = setInterval(() => {
+    void resolve();
+  }, 4e3);
+  const onShellRequest = (event) => {
+    if (event.source !== window.parent) return;
+    const data = event.data;
+    if (!data || data.source !== "ibm-lab-agent-shell") return;
+    if (data.type === "OPEN_PROJECT") {
+      const projectId = data.payload?.projectId || current?.id;
+      if (projectId && openProjectTab2?.(projectId)) return;
+      openProject(current);
+      return;
+    }
+    if (data.type === "OPEN_PROJECT_PANEL") openProject(current);
+  };
+  window.addEventListener("message", onShellRequest);
+  void resolve();
+  return () => {
+    disposed = true;
+    clearInterval(timer);
+    unsubscribe();
+    window.removeEventListener("message", onShellRequest);
+  };
+}
 
 // client/src/components-workspace.js
 var import_react3 = require("react");
@@ -2410,15 +2668,15 @@ function PlotEdit({ row: row2, call, onChanged, onError }) {
 var import_react5 = require("react");
 function Templates({ call, onBack }) {
   const [tab, setTab] = (0, import_react5.useState)("notes");
-  const [notes, setNotes] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
+  const [notes, setNotes] = (0, import_react5.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const [ppt, setPpt] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
   const [exp, setExp] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
-  const [reviews, setReviews] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
+  const [reviews, setReviews] = (0, import_react5.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const loadNotes = (0, import_react5.useCallback)(async () => {
     setNotes((s) => ({ ...s, loading: true, error: "" }));
     try {
       const result = await call("note_templates_list", { request: { kind: "note" } });
-      setNotes({ loading: false, list: result.templates || [], error: "" });
+      setNotes({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
     } catch (reason) {
       setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
     }
@@ -2427,11 +2685,15 @@ function Templates({ call, onBack }) {
     setReviews((s) => ({ ...s, loading: true, error: "" }));
     try {
       const result = await call("note_templates_list", { request: { kind: "review" } });
-      setReviews({ loading: false, list: result.templates || [], error: "" });
+      setReviews({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
     } catch (reason) {
       setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
     }
   }, [call]);
+  const setDefault = (0, import_react5.useCallback)(async (id) => {
+    await call("note_templates_set_default", { request: { id } });
+    await Promise.all([loadNotes(), loadReviews()]);
+  }, [call, loadNotes, loadReviews]);
   const loadPpt = (0, import_react5.useCallback)(async () => {
     setPpt((s) => ({ ...s, loading: true, error: "" }));
     try {
@@ -2468,7 +2730,7 @@ function Templates({ call, onBack }) {
       h("button", { className: "ib-tm-tab", "data-active": tab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
       h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
     ),
-    tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note" }) : tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review" }) : tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
+    tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
   );
 }
 function ExperimentPlanTemplates({ call, state, reload }) {
@@ -2521,7 +2783,7 @@ function ExperimentPlanTemplates({ call, state, reload }) {
     ))) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
   );
 }
-function NoteTemplates({ call, state, reload }) {
+function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
   const [mode, setMode] = (0, import_react5.useState)("list");
   const [editing, setEditing] = (0, import_react5.useState)(null);
   const [busy, setBusy] = (0, import_react5.useState)({});
@@ -2547,9 +2809,20 @@ function NoteTemplates({ call, state, reload }) {
       });
     }
   };
+  const setAsDefault = (row2) => run(`def:${row2.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(row2.id);
+    setToast(`已把「${row2.name}」设为默认模板，Agent 生成笔记时优先使用它`);
+  });
+  const clearDefault = (row2) => run(`def:${row2.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(null);
+    setToast(`已取消默认模板「${row2.name}」`);
+  });
   const remove = (row2) => run(`del:${row2.id}`, async () => {
     if (!window.confirm(`删除阅读笔记模板「${row2.name}」？任务快照不受影响，历史版本仍可读。`)) return;
     await call("note_templates_delete", { request: { id: row2.id } });
+    if (defaultId === row2.id && typeof onSetDefault === "function") await onSetDefault(null);
     setToast(`已删除模板「${row2.name}」`);
     await reload();
     setMode("list");
@@ -2580,20 +2853,31 @@ function NoteTemplates({ call, state, reload }) {
     setEditing(null);
     void reload();
   } });
-  const cards = state.list.map((row2) => h(
-    "div",
-    { className: "ib-tm-card", key: row2.id },
-    h("div", { className: "ib-tm-title" }, h("b", null, row2.name), h("span", null, `v${row2.version} · ${when(row2.updatedAt)}`)),
-    h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row2.id)),
-    h("div", { className: "ib-tm-meta" }, (row2.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row2.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
-    h("div", { className: "ib-tm-acts" }, h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"), h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"), h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row2) }, busy[`req:${row2.id}`] ? "…" : requirements?.id === row2.id ? "收起要求" : "生成要求"), h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除"))
-  ));
+  const cards = state.list.map((row2) => {
+    const isDefault = defaultId === row2.id;
+    return h(
+      "div",
+      { className: "ib-tm-card", key: row2.id, "data-default": isDefault ? "true" : void 0 },
+      h("div", { className: "ib-tm-title" }, h("b", null, row2.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row2.version} · ${when(row2.updatedAt)}`)),
+      h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row2.id)),
+      h("div", { className: "ib-tm-meta" }, (row2.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row2.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
+      h(
+        "div",
+        { className: "ib-tm-acts" },
+        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（Agent 回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：Agent 生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"),
+        h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row2) }, busy[`req:${row2.id}`] ? "…" : requirements?.id === row2.id ? "收起要求" : "生成要求"),
+        h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除")
+      )
+    );
+  });
   const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。");
   const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
   return h(
     "div",
     null,
-    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板，并把其中一个设为「默认模板」——设置后 Agent 生成笔记时优先使用它。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
     state.error ? h("div", { className: "ib-error" }, state.error) : null,
     listBody,
     reqPanel,
@@ -2925,8 +3209,47 @@ function SiSvg({ width = 15, height = 15 }) {
     h("path", { d: "M12 8.5v6M9 11.5h6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
   );
 }
+function CheckSvg({ width = 14, height = 14 }) {
+  return h(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
+    h("path", { d: "M5 12.8 10 18 19 6.6", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" })
+  );
+}
+function SpinSvg({ width = 14, height = 14 }) {
+  return h(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true", className: "ib-spin" },
+    h("circle", { cx: 12, cy: 12, r: 8.5, stroke: "currentColor", strokeWidth: 2.4, opacity: 0.28 }),
+    h("path", { d: "M12 3.5a8.5 8.5 0 0 1 8.5 8.5", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" })
+  );
+}
 
 // client/src/components-project.js
+function MoreMenu({ label = "更多操作", children, className }) {
+  return h(
+    "details",
+    { className: `ib-more${className ? ` ${className}` : ""}` },
+    h("summary", { "aria-label": label, title: label }, h("span", { "aria-hidden": "true" }, "···")),
+    h("div", { className: "ib-more-menu", role: "menu" }, children)
+  );
+}
+function menuItem({ label, onClick, disabled, danger, title, key }) {
+  return h("button", {
+    type: "button",
+    role: "menuitem",
+    key: key ?? label,
+    className: "ib-more-item",
+    "data-danger": danger ? "true" : void 0,
+    disabled,
+    title: title ?? label,
+    onClick: (event) => {
+      const host = event.currentTarget.closest("details");
+      if (host) host.open = false;
+      onClick?.(event);
+    }
+  }, label);
+}
 var formatCaptureBytes = (bytes) => {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
   if (bytes < 1024) return `${Math.round(bytes)} B`;
@@ -3584,152 +3907,213 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   return h(import_react6.default.Fragment, null, h(
     "div",
     { className: "ib-lit" },
-    // ── 左：文献检索 ──
+    // ── 分组一：检索记录 ────────────────────────────────────────────────
+    // 视觉改版：不再套「文献资料」外层大框与重复标题、不再写布局
+    // 说明文字；分组标题 + 条目列表直接铺在内容区，靠留白与细分隔线区分。
     h(
       "section",
-      { className: "ib-lit-col" },
-      h("div", { className: "ib-lit-head" }, h("h3", null, "文献检索"), h("small", null, `${searches.length} 条记录`)),
-      h("div", { className: "ib-lit-note" }, "每个会话汇总为一个检索条目和一个 RIS；“检索”可展开本会话全部去重文献。"),
-      searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => h(
+      { className: "ib-lit-group", key: "searches" },
+      h(
         "div",
-        { key: search.id },
-        // 人工审核要求：点击检索条目不得跳转到对应对话，因此整行不再是可点区域，
-        // 只有右侧的「检索 / .ris / 删除」按钮生效。
-        h(
+        { className: "ib-group-head" },
+        h("h3", null, "检索记录"),
+        h("span", { className: "ib-group-count" }, `${searches.length} 条`)
+      ),
+      searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => {
+        const resultCount = (search.results || []).length;
+        const expanded = expandedSearch === search.id;
+        return h(
           "div",
-          { className: "ib-lit-row" },
-          h("div", { className: "ib-lit-main" }, h("b", null, search.title || search.query || search.id), h("small", null, `${(search.results || []).length} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row2) => row2.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
+          { className: "ib-lit-item", key: search.id },
+          // 人工审核要求：点击检索条目不得跳转到对应对话，因此整行不再是可点区域。
           h(
             "div",
-            { className: "ib-lit-acts" },
-            h("button", { className: "ib-lit-btn ok", disabled: !(search.results || []).length, onClick: (event) => {
-              event.stopPropagation();
-              setExpandedSearch((value) => value === search.id ? null : search.id);
-            } }, expandedSearch === search.id ? "收起" : "检索"),
-            h("button", { className: "ib-lit-btn ok", disabled: busy[`ris:${search.id}`] || !(search.results || []).length, onClick: (event) => {
-              event.stopPropagation();
-              void risFor(search);
-            } }, busy[`ris:${search.id}`] ? "…" : ".ris"),
-            h("button", { className: `ib-lit-btn${search.review?.status === "ready" ? " ok" : ""}`, "data-ready": search.review?.status === "ready" ? "true" : "false", disabled: busy[`review:${search.id}`] || !(search.results || []).length, onClick: (event) => {
-              event.stopPropagation();
-              void writeReview(search);
-            }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : "写综述"),
-            search.review?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => {
-              event.stopPropagation();
-              openReview(search, "report");
-            }, title: "打开综述报告（Markdown）" }, "综述") : null,
-            search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-lit-btn ok", onClick: (event) => {
-              event.stopPropagation();
-              openReview(search, "ppt");
-            }, title: "打开综述汇报 PPT" }, "综述PPT") : null,
-            h("button", { className: "ib-lit-btn", "data-danger": true, disabled: busy[`delete-search:${search.id}`], onClick: (event) => {
-              event.stopPropagation();
-              deleteSearch(search);
-            } }, busy[`delete-search:${search.id}`] ? "…" : "删除")
-          )
-        ),
-        expandedSearch === search.id ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
-      ))) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会按会话整理到这里。")
-    ),
-    // ── 右：文献精读 ──
-    h(
-      "section",
-      { className: "ib-lit-col" },
-      h("div", { className: "ib-lit-head" }, h("h3", null, "文献精读"), h("small", null, `${reports.length} 篇`)),
-      h("div", { className: "ib-lit-note" }, "未获取原文时点击灰色 PDF/SI 按钮：自动打开 DOI 出版社页面并布防捕获，下一次下载会归档到本课题（需安装 iBM 文献捕获扩展）；公众号条目仅支持 DOI 出版社页面，不显示公众号链接。"),
-      reports.length ? h(
-        "div",
-        { className: "ib-lit-list" },
-        reports.map((report) => {
-          const presentation = presentationByReport[report.id];
-          const bundle = bundleById[report.bundleId] || {};
-          const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
-          const publisherUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : (() => {
-            if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return void 0;
-            try {
-              const url = new URL(bundle.sourceUrl);
-              return url.protocol === "https:" ? url.href : void 0;
-            } catch {
-              return void 0;
-            }
-          })();
-          const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
-          const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
-          const bundleSiIsPdf = /\.pdf$/i.test(bundle.siPath || "");
-          const bundleSiIsZip = /\.zip$/i.test(bundle.siPath || "");
-          const openKey = (kind) => `${kind}:${report.id}`;
-          const openEntryInEdge = (event, kind, url) => {
-            event.stopPropagation();
-            if (opening[openKey(kind)]) return;
-            setOpening((old) => ({ ...old, [openKey(kind)]: true }));
-            void openPdfPreview(url).catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`)).finally(() => setOpening((old) => {
-              const next = { ...old };
-              delete next[openKey(kind)];
-              return next;
-            }));
-          };
-          const downloadBundleFile = (event, url) => {
-            event.stopPropagation();
-            void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message));
-          };
-          const revealBundleFile = (event, path) => {
-            event.stopPropagation();
-            void revealSavedPathViaDesktop(path).catch((reason) => notify(reason.message));
-          };
-          const captureActive = captureHint?.bundleId === bundle.id;
-          const metadata = [
-            (bundle.authors || []).length ? bundle.authors.join(", ") : null,
-            bundle.journal,
-            bundle.year,
-            bundle.doi ? `DOI ${bundle.doi}` : null
-          ].filter(Boolean).join(" · ");
-          const artifactState = awaitingPdf ? `${metadata || "元数据已登记"} · 待上传 PDF` : `${metadata ? `${metadata} · ` : ""}DOCX${report.docxPath ? "已生成" : "待生成"}${presentation ? ` · PPT${presentation.pptxPath ? "已生成" : "生成中"}` : ""}`;
-          const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-          const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
-          const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
-          return h(
-            "div",
-            { key: report.id, onClick: report.id in overview ? () => setOverview((old) => {
-              const n = { ...old };
-              delete n[report.id];
-              return n;
-            }) : void 0 },
+            { className: "ib-lit-row" },
             h(
               "div",
-              { className: "ib-lit-row", "data-waiting": awaitingPdf ? "true" : void 0 },
-              h("div", { className: "ib-lit-main" }, h("b", { title: report.titleZh || bundle.title || zhOf(report) }, shortNode(report)), h("small", null, `${artifactState} · ${when(report.createdAt)}`)),
-              h(
-                "div",
-                { className: "ib-lit-acts" },
-                h("button", { className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : void 0, disabled: !!opening[openKey("pdf")], title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取 PDF · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 PDF · 未登记 DOI/出版社页面", onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-                h("button", { className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : void 0, disabled: !!opening[openKey("si")], title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 点击前往论文出版社页面并自动捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面", onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料" }, h(SiSvg, null)),
-                h("button", { className: "ib-lit-btn ok", disabled: busy[`ov:${report.id}`], onClick: () => void openOverview(report) }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起概览" : "概览"),
-                h("button", { className: `ib-lit-btn${report.docxPath ? " ok" : ""}`, "data-ready": report.docxPath ? "true" : "false", disabled: !!busy[`open-report:${report.id}`], onClick: () => report.docxPath ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt), title: report.docxPath ? "用本机 Office 或 WPS 打开精读报告" : "在当前课题工作区新建对话并预填精读任务" }, busy[`open-report:${report.id}`] ? "打开中…" : report.docxPath ? "打开精读" : "精读文献"),
-                h("button", { className: `ib-lit-btn${presentation?.pptxPath ? " ok" : ""}`, "data-ready": presentation?.pptxPath ? "true" : "false", disabled: !!busy[`open-ppt:${report.id}`], onClick: () => presentation?.pptxPath ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt), title: presentation?.pptxPath ? "用本机 Office 或 WPS 打开 PPT" : "在当前课题工作区新建对话并预填 PPT 任务" }, busy[`open-ppt:${report.id}`] ? "打开中…" : presentation?.pptxPath ? "打开PPT" : "制作PPT"),
-                h("button", { className: "ib-lit-btn", "data-danger": true, disabled: !!busy[`delete-report:${report.id}`], onClick: (event) => {
-                  event.stopPropagation();
-                  deleteReport(report, bundle);
-                } }, busy[`delete-report:${report.id}`] ? "…" : "删除")
-              )
+              { className: "ib-lit-main" },
+              h("b", { className: "ib-lit-title" }, search.title || search.query || search.id),
+              h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row2) => row2.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)
             ),
-            captureActive ? h(
+            h(
               "div",
-              { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
+              { className: "ib-lit-acts" },
+              // 主入口只有一个：查看文献（= 展开本会话全部去重文献）
+              h("button", { className: "ib-act", "data-kind": "accent", disabled: !resultCount, onClick: (event) => {
+                event.stopPropagation();
+                setExpandedSearch((value) => value === search.id ? null : search.id);
+              }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
+              search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => {
+                event.stopPropagation();
+                openReview(search, "report");
+              }, title: "打开综述报告（Markdown）" }, h(CheckSvg, null), "打开综述") : null,
+              search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => {
+                event.stopPropagation();
+                openReview(search, "ppt");
+              }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
+              // RIS / 写综述 / 删除等低频操作收进更多菜单
               h(
-                "div",
-                { className: "ib-capture-head" },
-                h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
-                // C19：失去接管/停滞时最需要的是「重来一次」，所以给重建按钮，
-                // 而不是只留一个「终止下载」。
-                captureHint?.canRecreate ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void recreateCapture(event) }, "重建任务") : null,
-                !captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
-              ),
-              captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : void 0, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : void 0, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
-            ) : opening[openKey("pdf")] || opening[openKey("si")] ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
-            report.id in overview ? h("div", { className: "ib-lit-overview" }, h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"), overview[report.id] ?? "加载中…") : null
-          );
-        })
-      ) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。可在对话中粘贴微信公众号文献链接先登记元数据，或完成报告生成后登记产物。")
+                MoreMenu,
+                { label: "检索条目更多操作" },
+                menuItem({ label: busy[`ris:${search.id}`] ? "正在导出 RIS…" : "导出 RIS（写入磁盘）", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: () => void risFor(search) }),
+                menuItem({ label: busy[`review:${search.id}`] ? "正在新建对话…" : search.review?.status === "ready" ? "重写综述" : "写综述", disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: () => void writeReview(search) }),
+                menuItem({ label: "删除检索记录", danger: true, disabled: !!busy[`delete-search:${search.id}`], onClick: () => deleteSearch(search) })
+              )
+            )
+          ),
+          expanded ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
+        );
+      })) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会按会话整理到这里。")
+    ),
+    // ── 分组二：精读文献 ────────────────────────────────────────────────
+    h(
+      "section",
+      { className: "ib-lit-group", key: "reports" },
+      h(
+        "div",
+        { className: "ib-group-head" },
+        h("h3", null, "精读文献"),
+        h("span", { className: "ib-group-count" }, `${reports.length} 篇`)
+      ),
+      reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) => {
+        const presentation = presentationByReport[report.id];
+        const bundle = bundleById[report.bundleId] || {};
+        const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
+        const publisherUrl = bundle.doi ? `https://doi.org/${encodeURIComponent(bundle.doi)}` : (() => {
+          if (bundle.sourceType === "wechat" || !bundle.sourceUrl) return void 0;
+          try {
+            const url = new URL(bundle.sourceUrl);
+            return url.protocol === "https:" ? url.href : void 0;
+          } catch {
+            return void 0;
+          }
+        })();
+        const bundlePdfUrl = bundle.pdfPath && /\.pdf$/i.test(bundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
+        const bundleSiUrl = bundle.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(bundle.id)}` : void 0;
+        const bundleSiIsPdf = /\.pdf$/i.test(bundle.siPath || "");
+        const bundleSiIsZip = /\.zip$/i.test(bundle.siPath || "");
+        const openKey = (kind) => `${kind}:${report.id}`;
+        const openEntryInEdge = (event, kind, url) => {
+          event.stopPropagation();
+          if (opening[openKey(kind)]) return;
+          setOpening((old) => ({ ...old, [openKey(kind)]: true }));
+          void openPdfPreview(url).catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`)).finally(() => setOpening((old) => {
+            const next = { ...old };
+            delete next[openKey(kind)];
+            return next;
+          }));
+        };
+        const downloadBundleFile = (event, url) => {
+          event.stopPropagation();
+          void downloadVerifiedBinary(url).then((name) => notify(`已保存并校验 ${name}`)).catch((reason) => notify(reason.message));
+        };
+        const revealBundleFile = (event, path) => {
+          event.stopPropagation();
+          void revealSavedPathViaDesktop(path).catch((reason) => notify(reason.message));
+        };
+        const captureActive = captureHint?.bundleId === bundle.id;
+        const metadata = [
+          (bundle.authors || []).length ? bundle.authors.join(", ") : null,
+          bundle.journal,
+          bundle.year,
+          bundle.doi ? `DOI ${bundle.doi}` : null
+        ].filter(Boolean).join(" · ");
+        const zhTitle = report.titleZh || bundle.title || null;
+        const readingDone = Boolean(report.docxPath);
+        const readingBusy = Boolean(busy[`open-report:${report.id}`]);
+        const pptDone = Boolean(presentation?.pptxPath);
+        const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
+        const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
+        const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
+        const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
+        return h(
+          "div",
+          { className: "ib-lit-item", key: report.id },
+          h(
+            "div",
+            { className: "ib-lit-row" },
+            h(
+              "div",
+              { className: "ib-lit-main" },
+              h("b", { className: "ib-lit-title ib-citation", title: shortOf(report) }, shortNode(report)),
+              zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null
+            ),
+            h(
+              "div",
+              { className: "ib-lit-acts" },
+              h("button", {
+                className: "ib-act",
+                "data-kind": "reading",
+                "data-done": readingDone ? "true" : void 0,
+                "data-busy": readingBusy ? "true" : void 0,
+                disabled: readingBusy,
+                onClick: () => readingDone ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt),
+                title: readingDone ? "打开已生成的精读报告" : "在当前课题工作区新建对话并预填精读任务"
+              }, readingBusy ? h(SpinSvg, null) : readingDone ? h(CheckSvg, null) : null, readingBusy ? "打开中…" : readingDone ? "打开精读" : "开始精读"),
+              h("button", {
+                className: "ib-act",
+                "data-kind": "ppt",
+                "data-done": pptDone ? "true" : void 0,
+                "data-busy": pptBusy ? "true" : void 0,
+                disabled: pptBusy,
+                onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
+                title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
+              }, pptBusy ? h(SpinSvg, null) : pptDone ? h(CheckSvg, null) : null, pptBusy ? "打开中…" : pptDone ? "打开 PPT" : "制作 PPT"),
+              h(
+                MoreMenu,
+                { label: "精读条目更多操作" },
+                menuItem({ label: report.id in overview ? "收起详情" : "详情与元数据", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report) }),
+                menuItem({ label: "删除精读条目", danger: true, disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle) })
+              )
+            )
+          ),
+          // 次级操作：PDF / SI。已归档 → 打开/下载；未归档 → 明确的「获取原文」。
+          h(
+            "div",
+            { className: "ib-lit-sub" },
+            h("button", {
+              className: "ib-sub-btn",
+              "data-ready": bundlePdfUrl ? "true" : "false",
+              "data-opening": opening[openKey("pdf")] ? "true" : void 0,
+              disabled: !!opening[openKey("pdf")],
+              title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面",
+              onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf")
+            }, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : bundlePdfUrl ? "正文 PDF" : "获取原文")),
+            h("button", {
+              className: "ib-sub-btn",
+              "data-ready": bundleSiUrl ? "true" : "false",
+              "data-opening": opening[openKey("si")] ? "true" : void 0,
+              disabled: !!opening[openKey("si")],
+              title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面",
+              onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si")
+            }, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : bundleSiUrl ? "SI 补充材料" : "获取 SI")),
+            awaitingPdf ? h("span", { className: "ib-lit-flag" }, "原文待归档") : null
+          ),
+          captureActive ? h(
+            "div",
+            { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
+            h(
+              "div",
+              { className: "ib-capture-head" },
+              h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),
+              // C19：失去接管/停滞时最需要的是「重来一次」，所以给重建按钮，
+              // 而不是只留一个「终止下载」。
+              captureHint?.canRecreate ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void recreateCapture(event) }, "重建任务") : null,
+              !captureHint?.phase?.complete ? h("button", { className: "ib-capture-stop", disabled: captureStopping, onClick: (event) => void cancelCapture(event) }, captureStopping ? "终止中…" : "终止下载") : null
+            ),
+            captureHint?.phase?.progress ? h("div", { className: "ib-capture-progress", "data-complete": captureHint.phase.complete ? "true" : void 0, role: "progressbar", "aria-label": "文献下载进度", "aria-valuenow": captureHint.phase.complete ? 100 : void 0, "aria-valuetext": captureHint.phase.text }, h("i", null)) : null
+          ) : opening[openKey("pdf")] || opening[openKey("si")] ? h("div", { className: "ib-capture-hint" }, `正在在外部 Microsoft Edge 中打开${opening[openKey("pdf")] ? "正文 PDF" : "SI PDF"}…`) : null,
+          // 详情：作者/期刊/年份/DOI + 概览，全部按需展开，不占常驻空间。
+          report.id in overview ? h(
+            "div",
+            { className: "ib-lit-overview" },
+            metadata ? h("small", { className: "ib-lit-overview-meta" }, metadata) : null,
+            h("b", null, awaitingPdf ? "已提取的元数据摘要" : "文献概览（约 200 字）"),
+            overview[report.id] ?? "加载中…",
+            h("small", { className: "ib-lit-overview-time" }, `登记于 ${when(report.createdAt)}`)
+          ) : null
+        );
+      })) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。可在对话中粘贴微信公众号文献链接先登记元数据，或完成报告生成后登记产物。")
     )
   ), previewNode);
 }
@@ -3821,13 +4205,20 @@ function Project({ call, project, onBack, onDelete, onStartChat }) {
   const literature = data.literature || {};
   const planning = data.planning || {};
   const characterization = data.characterization || {};
-  const meta = { literature: ["文献资料", "左侧检索记录 · 右侧精读档案与下载"], planning: ["研究设计", "工作规划、实验方案与合成路线"], characterization: ["表征分析", "NMR 等结构表征和审核结果"] };
+  const tabs = [["literature", "文献资料"], ["planning", "研究设计"], ["characterization", "表征分析"]];
   return h(
     "div",
     null,
-    h("div", { className: "ib-project-head" }, h("button", { className: "ib-btn", onClick: () => {
-      onBack();
-    } }, "← 所有课题"), h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)), h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"), h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题")),
+    h(
+      "div",
+      { className: "ib-project-head" },
+      h("button", { className: "ib-btn", onClick: () => {
+        onBack();
+      } }, "← 所有课题"),
+      h("div", { className: "ib-project-copy" }, h("h1", null, data.project.name), h("p", null, `项目编号 ${data.project.id} · 核心记忆 v${data.project.memoryVersion}`)),
+      h("button", { className: "ib-btn", "aria-expanded": memoryOpen, onClick: () => setMemoryOpen(!memoryOpen) }, "核心记忆"),
+      h("button", { className: "ib-btn", "data-danger": true, disabled: deleting || launching, onClick: () => void remove() }, deleting ? "正在删除…" : "删除课题")
+    ),
     memoryOpen ? h("div", { className: "ib-memory-drawer", role: "dialog", "aria-label": "核心记忆" }, h("button", { className: "ib-btn ib-memory-close", onClick: () => setMemoryOpen(false) }, "收起（保留编辑）"), h("section", { className: "ib-card" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "课题核心记忆.md"), h("span", { className: "ib-chip" }, `当前 v${data.memory?.version || "—"}`)), h("textarea", { value: draft, spellCheck: false, onChange: (event) => {
       memoryDirty.current = true;
       setDraft(event.target.value);
@@ -3836,8 +4227,17 @@ function Project({ call, project, onBack, onDelete, onStartChat }) {
       } catch {
       }
     } }), h("div", { className: "ib-save" }, h("input", { value: note, placeholder: "本次修改说明，例如：补充第二阶段实验结果", onChange: (event) => setNote(event.target.value) }), h("button", { className: "ib-btn", "data-primary": true, disabled: saving || draft === data.memory?.markdown, onClick: () => void save() }, saving ? "提交中…" : "提交新版本"))), h("aside", { className: "ib-card ib-help" }, h("strong", null, "这份 Markdown 有什么用？"), "它是该课题的长期核心记忆。科研 Agent 会读取已提交的版本。未提交的编辑会保留在当前窗口，返回后可继续修改。", h("div", { className: "ib-history" }, (data.memoryHistory || []).slice(0, 6).map((version) => h("div", { className: "ib-version", key: version.id }, h("span", null, h("b", null, `v${version.version}`), ` · ${version.changeNote}`), h("span", null, when(version.createdAt))))))) : null,
-    h("div", { className: "ib-tabs" }, Object.entries(meta).map(([id, copy]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : void 0, key: id, onClick: () => setTab(id) }, h("strong", null, copy[0]), h("span", null, copy[1])))),
-    h("section", { className: "ib-board" }, h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, meta[tab][0]), h("p", null, meta[tab][1])), h("button", { className: "ib-btn", onClick: () => void load() }, "刷新")), tab === "literature" ? h("div", null, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null, tab === "planning" ? h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load }) : null, tab === "characterization" ? h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) }) : null),
+    // 单行标签页（选中态用下划线表达），右侧只留一个刷新入口。
+    h(
+      "div",
+      { className: "ib-tabs" },
+      tabs.map(([id, label]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : void 0, key: id, onClick: () => setTab(id) }, label)),
+      h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load() }, "刷新")
+    ),
+    // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
+    tab === "literature" ? h("div", { className: "ib-tab-panel" }, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
+    tab === "planning" ? h("div", { className: "ib-tab-panel" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
+    tab === "characterization" ? h("div", { className: "ib-tab-panel" }, h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) })) : null,
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
@@ -3863,7 +4263,7 @@ var OverlayBoundary = class extends (import_react6.default.Component ?? class {
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
   const [project, setProject] = (0, import_react7.useState)(initial ?? null);
   const [templates, setTemplates] = (0, import_react7.useState)(false);
-  return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-brand" }, h("div", { className: "ib-logo" }, h("img", { src: BRAND_ICON, alt: "iBM Lab Agent" })), h("div", null, h("strong", null, "iBM Lab Agent"), h("small", null, "Project Research Workspace"))), h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+  return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project ? h("span", null, "课题 / ", h("b", null, project.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project ? h(Project, { call, project, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/components-literature.js
@@ -3901,6 +4301,22 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
+  const [menuOpen, setMenuOpen] = (0, import_react8.useState)(false);
+  (0, import_react8.useEffect)(() => {
+    if (!menuOpen || typeof document === "undefined") return void 0;
+    const close = (event) => {
+      if (!event.target.closest?.(".ib-project-entry")) setMenuOpen(false);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
   (0, import_react8.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
@@ -4089,21 +4505,47 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
     };
   }, [bound?.project?.id, call, toast]);
   if (!bound?.project) return null;
+  const projectName = bound.project.name || bound.project.id;
   return h(
-    "button",
-    {
-      className: "ib-research-badge",
-      title: "在右侧栏打开课题空间",
-      "aria-label": `打开课题空间：${bound.project.name}`,
-      onClick: () => {
-        if (openProjectTab2?.(bound.project.id)) return;
-        toast?.("右侧栏不可用，已改为全屏打开课题空间");
+    "div",
+    { className: "ib-project-entry" },
+    h(
+      "button",
+      {
+        className: "ib-research-badge",
+        title: `打开课题空间：${projectName}`,
+        "aria-label": `打开课题空间：${projectName}`,
+        onClick: () => {
+          if (openProjectTab2?.(bound.project.id)) return;
+          toast?.("右侧栏不可用，已改为全屏打开课题空间");
+          openWorkspace(bound.project);
+        }
+      },
+      h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
+      h("span", { className: "ib-badge-name", title: projectName }, projectName)
+    ),
+    h("button", {
+      className: "ib-badge-caret",
+      "aria-label": "课题菜单",
+      title: "课题菜单",
+      onClick: () => setMenuOpen((value) => !value)
+    }, h("span", { "aria-hidden": "true" }, "▾")),
+    menuOpen ? h(
+      "div",
+      { className: "ib-badge-menu", role: "menu" },
+      h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
+        setMenuOpen(false);
+        if (!openProjectTab2?.(bound.project.id)) openWorkspace(bound.project);
+      } }, "打开课题空间"),
+      bound.project.workspacePath ? h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
+        setMenuOpen(false);
+        void revealSavedPathViaDesktop(bound.project.workspacePath).catch((reason) => toast?.(reason.message));
+      } }, "在资源管理器中打开课题目录") : null,
+      h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
+        setMenuOpen(false);
         openWorkspace(bound.project);
-      }
-    },
-    h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
-    h("span", { className: "ib-badge-copy" }, h("small", null, "Research workspace"), h("b", null, bound.project.name)),
-    h("span", { className: "ib-badge-version" }, `记忆 v${bound.project.memoryVersion || "1"}`)
+      } }, "课题管理面板")
+    ) : null
   );
 }
 var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -4502,6 +4944,22 @@ function registerProjectTab(ctx) {
 }
 
 // client/src/apply.js
+var RESEARCH_PRESET_ID = "lab-research";
+async function ensureResearchPresetDefault(remote) {
+  try {
+    const roster = await remote.agentPresets.list();
+    const presets = roster?.ok ? roster.value?.presets ?? [] : null;
+    if (presets === null) return { ok: false, reason: roster?.error?.message ?? "agentPresets.list failed" };
+    const target = presets.find((row2) => row2.id === RESEARCH_PRESET_ID);
+    if (target === void 0) return { ok: false, reason: `preset '${RESEARCH_PRESET_ID}' is not registered` };
+    if (target.isDefault === true) return { ok: true, changed: false };
+    const updated = await remote.settings.update("agent-preset-registry", { selectedDefault: RESEARCH_PRESET_ID }, void 0);
+    if (!updated?.ok) return { ok: false, reason: updated?.error?.message ?? "settings.update failed" };
+    return { ok: true, changed: true };
+  } catch (reason) {
+    return { ok: false, reason: reason?.message ?? String(reason) };
+  }
+}
 function applyUi(ctx) {
   const normalizeMarkdownTables = () => {
     if (typeof document?.querySelectorAll !== "function") return;
@@ -4668,6 +5126,12 @@ function applyUi(ctx) {
     ));
   }, "dsh-lab-agent: 右侧栏 tab");
   ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
+  ctx.effect(() => installProjectShellBridge({
+    ctx,
+    call,
+    openProject: (project) => open(project ?? null),
+    openProjectTab
+  }), "dsh-lab-agent: project shell bridge");
   ctx.on("dispose", () => {
     if (disposeBranding) disposeBranding();
     close();
@@ -4676,6 +5140,12 @@ function applyUi(ctx) {
 async function apply(ctx) {
   await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
   ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
+  ctx.inject(["remote", "remote.settings", "remote.agentPresets"], (settingsCtx) => {
+    void ensureResearchPresetDefault(settingsCtx.remote).then((result) => {
+      if (result.ok && result.changed) console.info("[dsh-lab-agent] 新会话默认模式已设为", RESEARCH_PRESET_ID);
+      else if (!result.ok) console.warn("[dsh-lab-agent] 默认模式设置失败：", result.reason);
+    });
+  }, "dsh-lab-agent: default research preset");
 }
 
 // client/src/entry.js
