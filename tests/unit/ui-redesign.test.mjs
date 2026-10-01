@@ -166,19 +166,32 @@ test("新建对话：hero 里有课题选择框，且桌面 bootstrap 会设置�
 		readFile(fileURLToPath(new URL("../../desktop/src-tauri/src/runtime/dsh.rs", import.meta.url)), "utf8"),
 		read("components-project.js"),
 	]);
-	// 现场反馈：hero 只有工作目录与模式 chip，看不到/选不了这条对话的课题。
-	assert.match(apply, /ctx\.slots\.inject\("conversation\.hero\.workspace"/);
-	assert.match(apply, /id: "lab-hero-project"/);
+	// 现场反馈：新建对话只有工作目录与模式 chip，看不到/选不了这条对话的课题。
+	assert.match(apply, /import \{ installHeroProjectChip, setHeroProjectRuntime \} from "\.\/hero-project\.js"/);
 	assert.match(apply, /setHeroProjectRuntime\(\{/);
 	assert.match(hero, /export function HeroProjectPicker/);
 	assert.match(hero, /call\("projects_list"\)/);
-	assert.match(hero, /call\("projects_by_workspace", \{ request: \{ workspaceId: selectedId \} \}\)/);
-	// 选课题 = 先确保它有专属工作区，再把空白会话切过去（projects_by_cwd 才能认出课题）。
+	// ⚠️ 不能抢 hero 的槽位：两个都是 single 且被 DSH 占着（WorkspacePicker / 模式 chip），
+	// 同优先级注册会抛错，而 applyUi 里抛错会被 Cordis 销毁整个注入上下文 →
+	// 课题页全部 remote 调用变成 "cannot get required service remote in inactive context"
+	// （2026-10-01 现场复现 + 本机 headless Chrome 复现）。也不能挂 input.dock
+	// （那会变成输入框上方横幅，项目历史上明确否决过），所以走 DOM 注入。
+	assert.doesNotMatch(apply, /slots\.register\(\{[\s\S]{0,120}name: "conversation\.(hero\.|input\.dock)/);
+	assert.doesNotMatch(apply, /slots\.inject\(\{[\s\S]{0,80}conversation\.input\.dock/);
+	assert.match(apply, /ctx\.effect\(\(\) => installHeroProjectChip\(\), "dsh-lab-agent: hero 课题选择框"\)/);
+	assert.match(hero, /export function installHeroProjectChip\(\)/);
+	assert.match(hero, /document\.querySelector\("\[class\*='_heroWorkspaceRow'\]"\)/);
+	assert.match(hero, /new MutationObserver\(schedule\)/);
+	// 旧断言（不许用 input.dock）仍然成立，等于同时钉住了"不抢槽位"和"不占横幅"。
+	assert.doesNotMatch(apply, /conversation\.input\.dock/);
+	// 选课题 = 先确保它有专属工作区，再在课题工作区里开/复用空白会话并切过去。
 	assert.match(apply, /projects_ensure_workspace/);
 	assert.match(apply, /ctx\.workspaces\.create\(\{ path: ensured\.path \}\)/);
 	assert.match(apply, /projects_bind_workspace/);
-	assert.match(hero, /onPick\?\.\(workspaceId\)/);
-	// 接管这个槽位后不能丢掉原生「选目录」能力。
+	assert.match(apply, /ctx\.uiWorkspace\.connectWorkspace\(workspaceId\)/);
+	// 只在新建对话那一屏渲染，普通对话里不出现；并且保留「其他工作目录」入口。
+	assert.match(hero, /const blank = session === null \|\| session\.blank !== false/);
+	assert.match(hero, /if \(!blank\) return null/);
 	assert.match(hero, /其他工作目录/);
 	// 默认预设：DSH 0.1.7 从 agent-preset-registry 行的 config.default 取，而那是
 	// profile patch 层的内容；桌面 bootstrap 必须在启动 DSH 之前把它写成 lab-research，

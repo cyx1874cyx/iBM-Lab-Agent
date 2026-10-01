@@ -340,7 +340,7 @@ function injectStyles() {
 }
 
 // client/src/apply.js
-var import_react_dom2 = __toESM(require("react-dom"), 1);
+var import_react_dom3 = __toESM(require("react-dom"), 1);
 
 // client/src/h.js
 var import_react = __toESM(require("react"), 1);
@@ -4905,34 +4905,42 @@ function registerProjectTab(ctx) {
 }
 
 // client/src/hero-project.js
+var import_react_dom2 = __toESM(require("react-dom"), 1);
 var import_react11 = require("react");
 var runtime = null;
 function setHeroProjectRuntime(next) {
   runtime = next && typeof next === "object" ? next : null;
 }
-function HeroProjectPicker({ selectedId, onPick, onClose }) {
+function HeroProjectPicker() {
+  const [session, setSession] = (0, import_react11.useState)(() => runtime?.currentSession?.() ?? null);
+  (0, import_react11.useEffect)(() => {
+    const timer = setInterval(() => setSession(runtime?.currentSession?.() ?? null), 3e3);
+    return () => clearInterval(timer);
+  }, []);
+  const blank = session === null || session.blank !== false;
   const [state, setState] = (0, import_react11.useState)({ projects: [], current: null, loading: true, error: "" });
   const [menuOpen, setMenuOpen] = (0, import_react11.useState)(false);
   const [busy, setBusy] = (0, import_react11.useState)("");
   const [workspaces, setWorkspaces] = (0, import_react11.useState)([]);
+  const cwd = session?.cwd;
   (0, import_react11.useEffect)(() => {
+    if (!blank) return void 0;
     let alive = true;
+    const call = runtime?.call;
+    if (typeof call !== "function") {
+      setState((s) => ({ ...s, loading: false }));
+      return void 0;
+    }
     const load = async () => {
-      const call = runtime?.call;
-      if (typeof call !== "function") {
-        setState((s) => ({ ...s, loading: false }));
-        return;
-      }
       try {
         const listed = await call("projects_list");
-        if (!alive) return;
-        let current = null;
-        if (selectedId) {
-          const bound = await call("projects_by_workspace", { request: { workspaceId: selectedId } });
-          if (!alive) return;
-          current = bound?.bound?.project ?? null;
+        let bound = null;
+        if (cwd) {
+          const current = await call("projects_by_cwd", { request: { path: cwd } }).catch(() => null);
+          bound = current?.bound?.project ?? null;
         }
-        setState({ projects: listed?.projects ?? [], current, loading: false, error: "" });
+        if (!alive) return;
+        setState({ projects: listed?.projects ?? [], current: bound, loading: false, error: "" });
       } catch (reason) {
         if (alive) setState((s) => ({ ...s, loading: false, error: reason?.message ?? String(reason) }));
       }
@@ -4945,7 +4953,7 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
       alive = false;
       clearInterval(timer);
     };
-  }, [selectedId]);
+  }, [blank, cwd]);
   (0, import_react11.useEffect)(() => {
     if (!menuOpen) return void 0;
     const list = runtime?.listWorkspaces;
@@ -4953,17 +4961,24 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
     const onKey = (event) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
+    const onClick = (event) => {
+      if (!event.target.closest?.(".ib-hero-project")) setMenuOpen(false);
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onClick, true);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onClick, true);
+    };
   }, [menuOpen]);
+  if (!blank) return null;
   const pickProject = async (project) => {
     if (busy) return;
     setBusy(project.id);
     try {
       const workspaceId = await runtime.ensureWorkspace(project.id);
       if (!workspaceId) throw new Error("该课题还没有可用的工作区");
-      onPick?.(workspaceId);
-      onClose?.();
+      await runtime.openWorkspace(workspaceId, project.id);
       setMenuOpen(false);
       runtime?.toast?.(`已切换到课题「${project.name}」`);
     } catch (reason) {
@@ -4972,14 +4987,23 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
       setBusy("");
     }
   };
-  const pickWorkspace = (workspaceId) => {
-    onPick?.(workspaceId);
-    onClose?.();
-    setMenuOpen(false);
+  const pickWorkspace = async (workspaceId) => {
+    if (busy) return;
+    setBusy(workspaceId);
+    try {
+      await runtime.openWorkspace(workspaceId, null);
+      setMenuOpen(false);
+    } catch (reason) {
+      setState((s) => ({ ...s, error: reason?.message ?? String(reason) }));
+    } finally {
+      setBusy("");
+    }
   };
   const label = state.current?.name || (state.loading ? "读取课题…" : "选择课题");
-  const boundWorkspaceIds = new Set(state.projects.map((project) => project.workspacePath).filter(Boolean));
-  const others = workspaces.filter((workspace) => workspace.workspaceId !== selectedId && !boundWorkspaceIds.has(workspace.path));
+  const others = workspaces.filter((workspace) => workspace.workspaceId !== session?.workspaceId);
+  return renderChip({ label, state, menuOpen, busy, others, setMenuOpen, pickProject, pickWorkspace });
+}
+function renderChip({ label, state, menuOpen, busy, others, setMenuOpen, pickProject, pickWorkspace }) {
   return h(
     "div",
     { className: "ib-hero-project" },
@@ -4990,10 +5014,10 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
         className: "ib-hero-chip",
         "aria-haspopup": "true",
         "aria-expanded": menuOpen ? "true" : void 0,
-        title: state.current ? `当前课题：${state.current.name}` : "选择这条对话所属的课题",
+        title: state.current ? `当前课题：${state.current.name}（点击切换）` : "选择这条对话所属的课题",
         onClick: () => setMenuOpen((value) => !value)
       },
-      h("span", { className: "ib-hero-chip-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
+      h("span", { className: "ib-hero-chip-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
       h("span", { className: "ib-hero-chip-label" }, label),
       h("span", { className: "ib-hero-chip-caret", "aria-hidden": "true" }, "▾")
     ),
@@ -5021,7 +5045,7 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
         role: "menuitem",
         className: "ib-hero-menu-item",
         disabled: Boolean(busy),
-        onClick: () => pickWorkspace(workspace.workspaceId)
+        onClick: () => void pickWorkspace(workspace.workspaceId)
       }, h("b", null, workspace.title || workspace.path || workspace.workspaceId))),
       h("button", {
         type: "button",
@@ -5029,13 +5053,62 @@ function HeroProjectPicker({ selectedId, onPick, onClose }) {
         className: "ib-hero-menu-item ib-hero-menu-item-strong",
         onClick: () => {
           setMenuOpen(false);
-          onClose?.();
           runtime?.openPanel?.();
         }
       }, "课题管理面板 / 新建课题"),
       state.error ? h("div", { className: "ib-hero-menu-empty" }, `读取失败：${state.error}`) : null
     ) : null
   );
+}
+function installHeroProjectChip() {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return () => {
+  };
+  let host = null;
+  let scheduled = false;
+  const unmount = () => {
+    if (host === null) return;
+    const node = host;
+    host = null;
+    try {
+      import_react_dom2.default.unmountComponentAtNode(node);
+    } catch {
+    }
+    node.remove();
+  };
+  const inject2 = () => {
+    const row2 = document.querySelector("[class*='_heroWorkspaceRow']");
+    if (!row2) {
+      unmount();
+      return;
+    }
+    if (host !== null && row2.contains(host)) return;
+    unmount();
+    host = document.createElement("div");
+    host.className = "ib-hero-project-host";
+    host.dataset.dshLabHeroProject = "1";
+    row2.appendChild(host);
+    try {
+      import_react_dom2.default.render(h(HeroProjectPicker), host);
+    } catch (reason) {
+      console.warn("[dsh-lab-agent] hero 课题选择框渲染失败：", reason);
+      unmount();
+    }
+  };
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      inject2();
+    });
+  };
+  inject2();
+  const observer = new MutationObserver(schedule);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    observer.disconnect();
+    unmount();
+  };
 }
 
 // client/src/apply.js
@@ -5098,7 +5171,7 @@ function applyUi(ctx) {
     if (!root) return;
     const node = root;
     root = null;
-    import_react_dom2.default.unmountComponentAtNode(node);
+    import_react_dom3.default.unmountComponentAtNode(node);
     node.remove();
   };
   const toast = (message) => {
@@ -5188,7 +5261,7 @@ function applyUi(ctx) {
     root = document.createElement("div");
     document.body.appendChild(root);
     try {
-      import_react_dom2.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
+      import_react_dom3.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
     } catch (reason) {
       console.error("[dsh-lab-agent] overlay mount failed:", reason);
       close();
@@ -5232,16 +5305,32 @@ function applyUi(ctx) {
   };
   setHeroProjectRuntime({
     call,
+    currentSession: () => {
+      const snapshot = ctx.sessions.list.getSnapshot();
+      const id = snapshot?.current;
+      const row2 = id ? snapshot?.byId?.[id] : void 0;
+      if (row2 === void 0) return null;
+      const workspace = (ctx.workspaces.list.getSnapshot().items ?? []).find((item) => (item.sessionIds ?? []).includes(id));
+      return { blank: row2.blank !== false, cwd: row2.cwd, workspaceId: workspace?.workspaceId };
+    },
     ensureWorkspace: ensureWorkspaceForProject,
+    openWorkspace: async (workspaceId, projectId) => {
+      const sessionId = await ctx.uiWorkspace.connectWorkspace(workspaceId);
+      if (projectId) await call("projects_bind_session", { request: { projectId, sessionId, workspaceId } }).catch(() => {
+      });
+      ctx.uiWorkspace.openSession(sessionId);
+      return sessionId;
+    },
     listWorkspaces: () => (ctx.workspaces.list.getSnapshot().items ?? []).map((item) => ({ workspaceId: item.workspaceId, title: item.title, path: item.path })),
     openPanel: () => open(null),
     toast
   });
-  ctx.slots.inject("conversation.hero.workspace", () => ctx.slots.register({
-    name: "conversation.hero.workspace",
-    id: "lab-hero-project"
-  }, HeroProjectPicker), "dsh-lab-agent: hero 课题选择框");
   ctx.effect(() => () => setHeroProjectRuntime(null), "dsh-lab-agent: hero 课题装配面注销");
+  try {
+    ctx.effect(() => installHeroProjectChip(), "dsh-lab-agent: hero 课题选择框");
+  } catch (reason) {
+    console.warn("[dsh-lab-agent] 挂载「hero 课题选择框」失败，已跳过：", reason?.message ?? reason);
+  }
   ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
   ctx.effect(() => installProjectShellBridge({
     ctx,

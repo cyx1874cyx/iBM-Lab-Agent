@@ -8,7 +8,7 @@ import { ProjectBadge } from "./components-literature.js";
 import { installShellRequestBridge, installProjectShellBridge } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
-import { HeroProjectPicker, setHeroProjectRuntime } from "./hero-project.js";
+import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
 
 /** 科研 Agent 预设 id（presets/lab-research/preset.patch.yml 声明的那一条）。 */
 export const RESEARCH_PRESET_ID = "lab-research";
@@ -234,10 +234,19 @@ export function applyUi(ctx) {
 					onStartChat: launchProject
 				}))));
 	}, "dsh-lab-agent: 右侧栏 tab");
-	// Hero（空白新会话）里的「课题选择框」：DSH 只给工作目录与模式 chip，用户看不出
-	// 这条对话属于哪个课题。占住 hero 的工作区槽位，把课题列表摆在这里。
-	// 选课题 = 确保它有自己的工作区（缺则创建并绑定）→ onPick(workspaceId)，
-	// DSH 会把空白会话移过去，于是 projects_by_cwd 立刻能认出课题。
+	// Hero（空白新会话）里的「课题选择框」。
+	//
+	// ⚠️ 不能抢 hero 的两个槽位：`conversation.hero.workspace` 是 DSH 自己的
+	// WorkspacePicker、`conversation.hero.agentPreset` 是模式 chip，都是 single 槽位
+	// 且 priority 0。同优先级抢注会抛
+	// `single slot "..." already has a registration at priority 0`，而 **applyUi 里抛错
+	// 会被 Cordis 判为失败、把整个注入上下文销毁** —— 之后所有 `ctx.remote` 调用都会变成
+	// `cannot get required service "remote" in inactive context`，课题页整个不可用
+	// （2026-10-01 现场复现，本机 headless Chrome 也复现过）。
+	//
+	// 也不能退而挂输入区那个列表槽位：那会把 chip 变成输入框上方的横幅，
+	// 而项目历史上明确否决过「输入框横幅」这种做法。
+	// 最终做法：DOM 注入到 hero 行里（见 hero-project.js），和 branding.js 注入侧栏品牌同源。
 	const ensureWorkspaceForProject = async (projectId) => {
 		const ensured = await call("projects_ensure_workspace", { request: { projectId } });
 		const binding = (await call("projects_binding", { request: { projectId } })).binding ?? null;
@@ -250,16 +259,35 @@ export function applyUi(ctx) {
 	};
 	setHeroProjectRuntime({
 		call,
+		currentSession: () => {
+			const snapshot = ctx.sessions.list.getSnapshot();
+			const id = snapshot?.current;
+			const row = id ? snapshot?.byId?.[id] : undefined;
+			if (row === undefined) return null;
+			const workspace = (ctx.workspaces.list.getSnapshot().items ?? []).find((item) => (item.sessionIds ?? []).includes(id));
+			return { blank: row.blank !== false, cwd: row.cwd, workspaceId: workspace?.workspaceId };
+		},
 		ensureWorkspace: ensureWorkspaceForProject,
+		openWorkspace: async (workspaceId, projectId) => {
+			const sessionId = await ctx.uiWorkspace.connectWorkspace(workspaceId);
+			// 顺手把会话记到课题名下（不是必须：projects_by_cwd 也能认出课题，
+			// 但绑定后课题页的会话列表才是完整的）。
+			if (projectId) await call("projects_bind_session", { request: { projectId, sessionId, workspaceId } }).catch(() => {});
+			ctx.uiWorkspace.openSession(sessionId);
+			return sessionId;
+		},
 		listWorkspaces: () => (ctx.workspaces.list.getSnapshot().items ?? []).map((item) => ({ workspaceId: item.workspaceId, title: item.title, path: item.path })),
 		openPanel: () => open(null),
 		toast
 	});
-	ctx.slots.inject("conversation.hero.workspace", () => ctx.slots.register({
-		name: "conversation.hero.workspace",
-		id: "lab-hero-project"
-	}, HeroProjectPicker), "dsh-lab-agent: hero 课题选择框");
 	ctx.effect(() => () => setHeroProjectRuntime(null), "dsh-lab-agent: hero 课题装配面注销");
+	// chip 用 DOM 注入挂到 hero 行（见 hero-project.js 文件头：两个 hero 槽位都是
+	// single 且被 DSH 占着，抢注会抛错并连坐整个注入上下文）。注入失败只告警。
+	try {
+		ctx.effect(() => installHeroProjectChip(), "dsh-lab-agent: hero 课题选择框");
+	} catch (reason) {
+		console.warn("[dsh-lab-agent] 挂载「hero 课题选择框」失败，已跳过：", reason?.message ?? reason);
+	}
 	// 桌面壳顶栏的 WebVPN 指示器只发请求；由这里先开右侧栏 tab 再开原生窗口。
 	ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
 	// 桌面壳顶栏「课题入口」桥（本次改版）：常驻推送当前课题 + 接受打开请求。
