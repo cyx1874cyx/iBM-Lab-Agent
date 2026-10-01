@@ -224,7 +224,7 @@ dsh --profile ibm-lab
 
 当前分支（含 v0.5.8 的全部改动）在本机实测（出包结果见本节末）：
 
-- Node 单元与集成测试 **787 项 / 785 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
+- Node 单元与集成测试 **787 项 / 782 通过 / 0 失败 / 5 跳过**（跳过项需要真实 PPT
   模板，CI 预期如此）；本轮新增 `tests/unit/client-descriptors.test.mjs`（描述符 ↔ 调用点
   ↔ Host 服务三方一致性）与 `tests/unit/ui-redesign.test.mjs`（§2–§9 验收清单）；
 - 回归套件 **11/11** 通过；Linux 发布预检闸门全绿；客户端一致性、预设导出检查通过；
@@ -253,10 +253,10 @@ v0.5.8 于 2026-10-01 完成出包验证：统一发布流水线 10 个阶段全
 
 | 产物 | 字节 | SHA-256 |
 |---|---|---|
-| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,220,746 | `d0635880…8e058b3f` |
-| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,647,492 | `4e9417ae…952ea6d2` |
+| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,220,212 | `967fac81…e12678ff` |
+| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,650,781 | `95b55df9…99c58b45` |
 
-两者均由提交 `e6b2706` 构建，校验清单在 `dist/SHA256SUMS`。详见
+两者均由提交 `95194ad` 构建，校验清单在 `dist/SHA256SUMS`。详见
 [`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)。
 
 v0.5.5-beta3 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
