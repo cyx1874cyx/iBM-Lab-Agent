@@ -224,6 +224,25 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-overlay :is(.ib-fulltext-note,.ib-lit-note,.ib-sub){font-size:13.5px;color:var(--ib-soft)}
 .ib-overlay .ib-table-head{font-size:13.5px;color:var(--ib-soft);border-bottom:1px solid var(--ib-hair)}
 .ib-overlay .ib-table-row{font-size:14px}
+/* ── Hero（空白新会话）里的课题选择框 ────────────────────────────────────
+   和 DSH 的工作目录 chip 并排，高度/圆角对齐；菜单是普通绝对定位弹层，
+   hero 行不在滚动容器里，不会被裁切。 */
+.ib-hero-project{position:relative;display:inline-flex;align-items:center}
+.ib-hero-chip{display:inline-flex;align-items:center;gap:7px;height:30px;max-width:260px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,var(--ib-hair));border-radius:15px;background:var(--ib-bg);color:var(--dsw-alias-label-primary,var(--ib-text));font-size:13px;font-weight:500;line-height:1;cursor:pointer}
+.ib-hero-chip:hover{background:var(--ib-hover)}
+.ib-hero-chip[aria-expanded=true]{background:var(--ib-hover);border-color:var(--ib-accent-line)}
+.ib-hero-chip-icon{display:grid;place-items:center;color:var(--ib-accent-ink);flex:none}
+.ib-hero-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-hero-chip-caret{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:60;min-width:260px;max-width:min(420px,90vw);max-height:52vh;overflow:auto;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.16)}
+.ib-hero-menu-item{display:grid;gap:2px;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--ib-text);font-size:13.5px;cursor:pointer}
+.ib-hero-menu-item:hover:enabled{background:var(--ib-hover)}
+.ib-hero-menu-item[data-active=true]{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
+.ib-hero-menu-item b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-hero-menu-item small{font-size:12px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu-item-strong{border-top:1px solid var(--ib-hair);border-radius:0 0 8px 8px;margin-top:4px;padding-top:10px;color:var(--ib-accent-ink)}
+.ib-hero-menu-empty{padding:8px 10px;font-size:13px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu-sep{padding:8px 10px 4px;font-size:12px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
 /* ── 窄宽度（右侧栏课题 tab / 面板嵌入）────────────────────────────────── */
 .ib-overlay.ib-panel-embed .ib-main{padding:14px 14px 32px}
 .ib-overlay.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:10px}
@@ -4025,44 +4044,28 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             h(
               "div",
               { className: "ib-lit-acts" },
-              // 次级操作：PDF / SI。已归档 → 图标按钮（打开/下载）；
-              // 未归档 → 明确的「获取原文」入口。
-              bundlePdfUrl ? h("button", {
+              // 次级操作：PDF / SI 一律是图标按钮——已归档点亮、未归档灰着，
+              // 点灰的就去出版社页面布防捕获。不写字（原来的样式）。
+              h("button", {
                 className: "ib-icon-btn",
-                "data-ready": "true",
+                "data-ready": bundlePdfUrl ? "true" : "false",
                 "data-opening": opening[openKey("pdf")] ? "true" : void 0,
                 disabled: !!opening[openKey("pdf")],
-                title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : "在外部 Microsoft Edge 中打开正文 PDF",
-                onClick: (event) => openEntryInEdge(event, "pdf", bundlePdfUrl),
-                "aria-label": "正文 PDF"
-              }, h(BookSvg, null)) : h("button", {
-                className: "ib-sub-btn",
-                "data-ready": "false",
-                "data-opening": opening[openKey("pdf")] ? "true" : void 0,
-                disabled: !!opening[openKey("pdf")],
-                title: opening[openKey("pdf")] ? "正在打开…" : publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面",
-                onClick: (event) => armCaptureFor(event, bundle, "pdf"),
-                "aria-label": "获取原文"
-              }, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : "获取原文")),
-              bundleSiUrl ? h("button", {
+                title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取原文 · 点击前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面",
+                onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"),
+                "aria-label": "正文 PDF / 获取原文"
+              }, h(BookSvg, null)),
+              h("button", {
                 className: "ib-icon-btn",
-                "data-ready": "true",
+                "data-ready": bundleSiUrl ? "true" : "false",
                 "data-opening": opening[openKey("si")] ? "true" : void 0,
                 disabled: !!opening[openKey("si")],
-                title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料",
-                onClick: (event) => bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl),
-                "aria-label": "SI 补充材料"
-              }, h(SiSvg, null)) : h("button", {
-                className: "ib-sub-btn",
-                "data-ready": "false",
-                "data-opening": opening[openKey("si")] ? "true" : void 0,
-                disabled: !!opening[openKey("si")],
-                title: opening[openKey("si")] ? "正在打开…" : publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面",
-                onClick: (event) => armCaptureFor(event, bundle, "si"),
-                "aria-label": "获取 SI"
-              }, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : "获取 SI")),
-              // 200 字简介：原样保留，平铺可见。
-              h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开约 200 字的文献概览" }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起简介" : "200 字简介"),
+                title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 点击前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面",
+                onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si"),
+                "aria-label": "SI 补充材料 / 获取 SI"
+              }, h(SiSvg, null)),
+              // 简介（约 200 字，篇幅要求是给 Agent 的，不写进按钮文案）。
+              h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开文献概览" }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起简介" : "简介"),
               h("button", {
                 className: "ib-act",
                 "data-kind": "reading",
@@ -4901,6 +4904,140 @@ function registerProjectTab(ctx) {
   }, "dsh-lab-agent: 课题 tab 装配面注销");
 }
 
+// client/src/hero-project.js
+var import_react11 = require("react");
+var runtime = null;
+function setHeroProjectRuntime(next) {
+  runtime = next && typeof next === "object" ? next : null;
+}
+function HeroProjectPicker({ selectedId, onPick, onClose }) {
+  const [state, setState] = (0, import_react11.useState)({ projects: [], current: null, loading: true, error: "" });
+  const [menuOpen, setMenuOpen] = (0, import_react11.useState)(false);
+  const [busy, setBusy] = (0, import_react11.useState)("");
+  const [workspaces, setWorkspaces] = (0, import_react11.useState)([]);
+  (0, import_react11.useEffect)(() => {
+    let alive = true;
+    const load = async () => {
+      const call = runtime?.call;
+      if (typeof call !== "function") {
+        setState((s) => ({ ...s, loading: false }));
+        return;
+      }
+      try {
+        const listed = await call("projects_list");
+        if (!alive) return;
+        let current = null;
+        if (selectedId) {
+          const bound = await call("projects_by_workspace", { request: { workspaceId: selectedId } });
+          if (!alive) return;
+          current = bound?.bound?.project ?? null;
+        }
+        setState({ projects: listed?.projects ?? [], current, loading: false, error: "" });
+      } catch (reason) {
+        if (alive) setState((s) => ({ ...s, loading: false, error: reason?.message ?? String(reason) }));
+      }
+    };
+    void load();
+    const timer = setInterval(() => {
+      void load();
+    }, 8e3);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [selectedId]);
+  (0, import_react11.useEffect)(() => {
+    if (!menuOpen) return void 0;
+    const list = runtime?.listWorkspaces;
+    if (typeof list === "function") setWorkspaces(list() ?? []);
+    const onKey = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+  const pickProject = async (project) => {
+    if (busy) return;
+    setBusy(project.id);
+    try {
+      const workspaceId = await runtime.ensureWorkspace(project.id);
+      if (!workspaceId) throw new Error("该课题还没有可用的工作区");
+      onPick?.(workspaceId);
+      onClose?.();
+      setMenuOpen(false);
+      runtime?.toast?.(`已切换到课题「${project.name}」`);
+    } catch (reason) {
+      setState((s) => ({ ...s, error: reason?.message ?? String(reason) }));
+    } finally {
+      setBusy("");
+    }
+  };
+  const pickWorkspace = (workspaceId) => {
+    onPick?.(workspaceId);
+    onClose?.();
+    setMenuOpen(false);
+  };
+  const label = state.current?.name || (state.loading ? "读取课题…" : "选择课题");
+  const boundWorkspaceIds = new Set(state.projects.map((project) => project.workspacePath).filter(Boolean));
+  const others = workspaces.filter((workspace) => workspace.workspaceId !== selectedId && !boundWorkspaceIds.has(workspace.path));
+  return h(
+    "div",
+    { className: "ib-hero-project" },
+    h(
+      "button",
+      {
+        type: "button",
+        className: "ib-hero-chip",
+        "aria-haspopup": "true",
+        "aria-expanded": menuOpen ? "true" : void 0,
+        title: state.current ? `当前课题：${state.current.name}` : "选择这条对话所属的课题",
+        onClick: () => setMenuOpen((value) => !value)
+      },
+      h("span", { className: "ib-hero-chip-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
+      h("span", { className: "ib-hero-chip-label" }, label),
+      h("span", { className: "ib-hero-chip-caret", "aria-hidden": "true" }, "▾")
+    ),
+    menuOpen ? h(
+      "div",
+      { className: "ib-hero-menu", role: "menu" },
+      state.projects.length ? state.projects.map((project) => h(
+        "button",
+        {
+          key: project.id,
+          type: "button",
+          role: "menuitem",
+          className: "ib-hero-menu-item",
+          "data-active": state.current?.id === project.id ? "true" : void 0,
+          disabled: Boolean(busy),
+          onClick: () => void pickProject(project)
+        },
+        h("b", null, project.name),
+        h("small", null, busy === project.id ? "正在打开…" : state.current?.id === project.id ? "当前课题" : project.id)
+      )) : h("div", { className: "ib-hero-menu-empty" }, state.loading ? "正在读取课题…" : "还没有课题，先在课题面板里新建一个。"),
+      others.length ? h("div", { className: "ib-hero-menu-sep" }, "其他工作目录") : null,
+      others.map((workspace) => h("button", {
+        key: workspace.workspaceId,
+        type: "button",
+        role: "menuitem",
+        className: "ib-hero-menu-item",
+        disabled: Boolean(busy),
+        onClick: () => pickWorkspace(workspace.workspaceId)
+      }, h("b", null, workspace.title || workspace.path || workspace.workspaceId))),
+      h("button", {
+        type: "button",
+        role: "menuitem",
+        className: "ib-hero-menu-item ib-hero-menu-item-strong",
+        onClick: () => {
+          setMenuOpen(false);
+          onClose?.();
+          runtime?.openPanel?.();
+        }
+      }, "课题管理面板 / 新建课题"),
+      state.error ? h("div", { className: "ib-hero-menu-empty" }, `读取失败：${state.error}`) : null
+    ) : null
+  );
+}
+
 // client/src/apply.js
 var RESEARCH_PRESET_ID = "lab-research";
 async function ensureResearchPresetDefault(remote) {
@@ -5083,6 +5220,28 @@ function applyUi(ctx) {
       )
     ));
   }, "dsh-lab-agent: 右侧栏 tab");
+  const ensureWorkspaceForProject = async (projectId) => {
+    const ensured = await call("projects_ensure_workspace", { request: { projectId } });
+    const binding = (await call("projects_binding", { request: { projectId } })).binding ?? null;
+    const snapshot = ctx.workspaces.list.getSnapshot();
+    const alive = (workspaceId) => (snapshot.items ?? []).some((item) => item.workspaceId === workspaceId);
+    if (binding?.workspaceId && alive(binding.workspaceId)) return binding.workspaceId;
+    const workspace = await ctx.workspaces.create({ path: ensured.path });
+    await call("projects_bind_workspace", { request: { projectId, workspaceId: workspace.workspaceId } });
+    return workspace.workspaceId;
+  };
+  setHeroProjectRuntime({
+    call,
+    ensureWorkspace: ensureWorkspaceForProject,
+    listWorkspaces: () => (ctx.workspaces.list.getSnapshot().items ?? []).map((item) => ({ workspaceId: item.workspaceId, title: item.title, path: item.path })),
+    openPanel: () => open(null),
+    toast
+  });
+  ctx.slots.inject("conversation.hero.workspace", () => ctx.slots.register({
+    name: "conversation.hero.workspace",
+    id: "lab-hero-project"
+  }, HeroProjectPicker), "dsh-lab-agent: hero 课题选择框");
+  ctx.effect(() => () => setHeroProjectRuntime(null), "dsh-lab-agent: hero 课题装配面注销");
   ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
   ctx.effect(() => installProjectShellBridge({
     ctx,

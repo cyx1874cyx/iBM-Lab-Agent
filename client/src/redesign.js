@@ -169,6 +169,25 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-overlay :is(.ib-fulltext-note,.ib-lit-note,.ib-sub){font-size:13.5px;color:var(--ib-soft)}
 .ib-overlay .ib-table-head{font-size:13.5px;color:var(--ib-soft);border-bottom:1px solid var(--ib-hair)}
 .ib-overlay .ib-table-row{font-size:14px}
+/* ── Hero（空白新会话）里的课题选择框 ────────────────────────────────────
+   和 DSH 的工作目录 chip 并排，高度/圆角对齐；菜单是普通绝对定位弹层，
+   hero 行不在滚动容器里，不会被裁切。 */
+.ib-hero-project{position:relative;display:inline-flex;align-items:center}
+.ib-hero-chip{display:inline-flex;align-items:center;gap:7px;height:30px;max-width:260px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,var(--ib-hair));border-radius:15px;background:var(--ib-bg);color:var(--dsw-alias-label-primary,var(--ib-text));font-size:13px;font-weight:500;line-height:1;cursor:pointer}
+.ib-hero-chip:hover{background:var(--ib-hover)}
+.ib-hero-chip[aria-expanded=true]{background:var(--ib-hover);border-color:var(--ib-accent-line)}
+.ib-hero-chip-icon{display:grid;place-items:center;color:var(--ib-accent-ink);flex:none}
+.ib-hero-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-hero-chip-caret{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:60;min-width:260px;max-width:min(420px,90vw);max-height:52vh;overflow:auto;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.16)}
+.ib-hero-menu-item{display:grid;gap:2px;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--ib-text);font-size:13.5px;cursor:pointer}
+.ib-hero-menu-item:hover:enabled{background:var(--ib-hover)}
+.ib-hero-menu-item[data-active=true]{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
+.ib-hero-menu-item b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-hero-menu-item small{font-size:12px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu-item-strong{border-top:1px solid var(--ib-hair);border-radius:0 0 8px 8px;margin-top:4px;padding-top:10px;color:var(--ib-accent-ink)}
+.ib-hero-menu-empty{padding:8px 10px;font-size:13px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
+.ib-hero-menu-sep{padding:8px 10px 4px;font-size:12px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
 /* ── 窄宽度（右侧栏课题 tab / 面板嵌入）────────────────────────────────── */
 .ib-overlay.ib-panel-embed .ib-main{padding:14px 14px 32px}
 .ib-overlay.ib-panel-embed .ib-project-head{flex-wrap:wrap;align-items:flex-start;gap:10px}

@@ -111,16 +111,18 @@ test("条目操作全部平铺在右侧，原有功能不被藏进弹层", async
 	assert.doesNotMatch(redesign, /\.ib-more\b|\.ib-more-menu|\.ib-badge-menu/);
 	// 行布局是两列网格：左标题、右操作，第二列 auto 保证按钮钉在右侧同一行。
 	assert.match(redesign, /\.ib-overlay \.ib-lit-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
-	// 恢复的功能：200 字简介 + 删除条目（精读条目）、导出 RIS + 删除（检索条目）。
-	assert.match(project, /"200 字简介"/);
+	// 恢复的功能：简介 + 删除条目（精读条目）、导出 RIS + 删除（检索条目）。
+	// 按钮文案不写「200 字」——篇幅是给 Agent 的约束，不是给人看的标签。
+	assert.match(project, /report\.id in overview \? "收起简介" : "简介"/);
+	assert.doesNotMatch(project, /"200 字简介"/);
 	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteReport\(report, bundle\)/);
 	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteSearch\(search\)/);
 	assert.match(project, /导出 RIS/);
 	assert.match(redesign, /\.ib-act-danger\{color:#b42318/);
-	// PDF / SI 仍是次级样式：已归档给图标按钮，未归档给明确的「获取原文」。
-	assert.match(project, /className: "ib-sub-btn", "data-ready": "false"/);
-	assert.match(project, /"获取原文"/);
-	assert.match(project, /"获取 SI"/);
+	// PDF / SI 一律是图标按钮：已归档点亮，未归档灰着（不写字）。
+	assert.match(project, /className: "ib-icon-btn", "data-ready": bundlePdfUrl \? "true" : "false"/);
+	assert.match(project, /className: "ib-icon-btn", "data-ready": bundleSiUrl \? "true" : "false"/);
+	assert.doesNotMatch(project, /ib-sub-btn/);
 	assert.match(project, /expanded \? "收起文献" : "查看文献"/);
 });
 
@@ -155,4 +157,36 @@ test("§9 原有检索/精读/文件获取/PPT/导出/删除功能仍可访问",
 	]) {
 		assert.ok(project.includes(marker), `改版后仍必须保留：${marker}`);
 	}
+});
+
+test("新建对话：hero 里有课题选择框，且桌面 bootstrap 会设置默认预设", async () => {
+	const [apply, hero, dshRs, component] = await Promise.all([
+		read("apply.js"),
+		read("hero-project.js"),
+		readFile(fileURLToPath(new URL("../../desktop/src-tauri/src/runtime/dsh.rs", import.meta.url)), "utf8"),
+		read("components-project.js"),
+	]);
+	// 现场反馈：hero 只有工作目录与模式 chip，看不到/选不了这条对话的课题。
+	assert.match(apply, /ctx\.slots\.inject\("conversation\.hero\.workspace"/);
+	assert.match(apply, /id: "lab-hero-project"/);
+	assert.match(apply, /setHeroProjectRuntime\(\{/);
+	assert.match(hero, /export function HeroProjectPicker/);
+	assert.match(hero, /call\("projects_list"\)/);
+	assert.match(hero, /call\("projects_by_workspace", \{ request: \{ workspaceId: selectedId \} \}\)/);
+	// 选课题 = 先确保它有专属工作区，再把空白会话切过去（projects_by_cwd 才能认出课题）。
+	assert.match(apply, /projects_ensure_workspace/);
+	assert.match(apply, /ctx\.workspaces\.create\(\{ path: ensured\.path \}\)/);
+	assert.match(apply, /projects_bind_workspace/);
+	assert.match(hero, /onPick\?\.\(workspaceId\)/);
+	// 接管这个槽位后不能丢掉原生「选目录」能力。
+	assert.match(hero, /其他工作目录/);
+	// 默认预设：DSH 0.1.7 从 agent-preset-registry 行的 config.default 取，而那是
+	// profile patch 层的内容；桌面 bootstrap 必须在启动 DSH 之前把它写成 lab-research，
+	// 否则全新安装的第一次启动仍然是 standard。
+	assert.match(dshRs, /configure_default_preset/);
+	assert.match(dshRs, /configure-default-preset\.mjs/);
+	assert.match(dshRs, /"--dsh-home"/);
+	assert.match(dshRs, /configure_default_preset\(layout, &bundled_plugin, logger\)/);
+	// 简介按钮不写「200 字」；PDF/SI 一律图标按钮（灰/亮）。
+	assert.doesNotMatch(component, /"200 字简介"/);
 });

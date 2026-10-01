@@ -307,9 +307,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /打开 PPT/);
 	assert.match(source, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
 	assert.match(source, /已交给本机 Office\/WPS 打开/);
-	// PDF/SI 按钮的可用态：已归档是点亮图标按钮，未归档是「获取原文」次级按钮。
-	assert.match(source, /className: "ib-icon-btn", "data-ready": "true"/);
-	assert.match(source, /className: "ib-sub-btn", "data-ready": "false"/);
+	// PDF/SI 是图标按钮：已归档点亮、未归档灰着（点击去布防捕获），不写文字。
+	assert.match(source, /className: "ib-icon-btn", "data-ready": bundlePdfUrl \? "true" : "false"/);
+	assert.match(source, /className: "ib-icon-btn", "data-ready": bundleSiUrl \? "true" : "false"/);
 	assert.match(source, /onRequestArtifact\(pptPrompt\)/);
 	assert.match(source, /String\(opts\.prompt \|\| ""\)\.trim\(\) \|\| promptFor/);
 	assert.doesNotMatch(source, /打开报告预览、审核与下载/);
@@ -318,8 +318,8 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);
 	assert.match(source, /原文待归档/);
-	assert.match(source, /尚未获取原文 · 前往出版社页面并布防捕获下载/);
-	assert.match(source, /尚未获取 SI · 前往出版社页面并布防捕获下载/);
+	assert.match(source, /尚未获取原文 · 点击前往出版社页面并布防捕获下载/);
+	assert.match(source, /尚未获取 SI · 点击前往出版社页面并布防捕获下载/);
 	assert.match(source, /bundleSiIsPdf \? openEntryInEdge/);
 	assert.match(source, /function openPdfPreview/);
 	assert.match(source, /searchParams\.set\("preview", "1"\)/);

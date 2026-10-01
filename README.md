@@ -224,7 +224,7 @@ dsh --profile ibm-lab
 
 当前分支（含 v0.5.8 的全部改动）在本机实测（出包结果见本节末）：
 
-- Node 单元与集成测试 **786 项 / 784 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
+- Node 单元与集成测试 **787 项 / 785 通过 / 0 失败 / 2 跳过**（跳过项需要真实 PPT
   模板，CI 预期如此）；本轮新增 `tests/unit/client-descriptors.test.mjs`（描述符 ↔ 调用点
   ↔ Host 服务三方一致性）与 `tests/unit/ui-redesign.test.mjs`（§2–§9 验收清单）；
 - 回归套件 **11/11** 通过；Linux 发布预检闸门全绿；客户端一致性、预设导出检查通过；

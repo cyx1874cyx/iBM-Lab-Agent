@@ -8,6 +8,7 @@ import { ProjectBadge } from "./components-literature.js";
 import { installShellRequestBridge, installProjectShellBridge } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
+import { HeroProjectPicker, setHeroProjectRuntime } from "./hero-project.js";
 
 /** 科研 Agent 预设 id（presets/lab-research/preset.patch.yml 声明的那一条）。 */
 export const RESEARCH_PRESET_ID = "lab-research";
@@ -233,6 +234,32 @@ export function applyUi(ctx) {
 					onStartChat: launchProject
 				}))));
 	}, "dsh-lab-agent: 右侧栏 tab");
+	// Hero（空白新会话）里的「课题选择框」：DSH 只给工作目录与模式 chip，用户看不出
+	// 这条对话属于哪个课题。占住 hero 的工作区槽位，把课题列表摆在这里。
+	// 选课题 = 确保它有自己的工作区（缺则创建并绑定）→ onPick(workspaceId)，
+	// DSH 会把空白会话移过去，于是 projects_by_cwd 立刻能认出课题。
+	const ensureWorkspaceForProject = async (projectId) => {
+		const ensured = await call("projects_ensure_workspace", { request: { projectId } });
+		const binding = (await call("projects_binding", { request: { projectId } })).binding ?? null;
+		const snapshot = ctx.workspaces.list.getSnapshot();
+		const alive = (workspaceId) => (snapshot.items ?? []).some((item) => item.workspaceId === workspaceId);
+		if (binding?.workspaceId && alive(binding.workspaceId)) return binding.workspaceId;
+		const workspace = await ctx.workspaces.create({ path: ensured.path });
+		await call("projects_bind_workspace", { request: { projectId, workspaceId: workspace.workspaceId } });
+		return workspace.workspaceId;
+	};
+	setHeroProjectRuntime({
+		call,
+		ensureWorkspace: ensureWorkspaceForProject,
+		listWorkspaces: () => (ctx.workspaces.list.getSnapshot().items ?? []).map((item) => ({ workspaceId: item.workspaceId, title: item.title, path: item.path })),
+		openPanel: () => open(null),
+		toast
+	});
+	ctx.slots.inject("conversation.hero.workspace", () => ctx.slots.register({
+		name: "conversation.hero.workspace",
+		id: "lab-hero-project"
+	}, HeroProjectPicker), "dsh-lab-agent: hero 课题选择框");
+	ctx.effect(() => () => setHeroProjectRuntime(null), "dsh-lab-agent: hero 课题装配面注销");
 	// 桌面壳顶栏的 WebVPN 指示器只发请求；由这里先开右侧栏 tab 再开原生窗口。
 	ctx.effect(() => installShellRequestBridge(), "dsh-lab-agent: shell request bridge");
 	// 桌面壳顶栏「课题入口」桥（本次改版）：常驻推送当前课题 + 接受打开请求。

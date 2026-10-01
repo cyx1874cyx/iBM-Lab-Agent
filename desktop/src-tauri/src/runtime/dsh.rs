@@ -140,6 +140,57 @@ fn write_if_missing(path: &Path, contents: &str) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+/// 把 `lab-research` 写进 profile patch 的 `agent-preset-registry` 行（幂等）。
+///
+/// 逻辑在脚本里（`scripts/configure-default-preset.mjs`，已有单测覆盖：保留无关行、
+/// 保留 `!!js`、幂等）。这里只负责用捆绑 Node 调它——发布包里 plugin 树带着
+/// `node_modules` 与 `scripts`，所以离线可用。
+///
+/// 返回 Err 只表示「这次没写成」，调用方按非致命处理。
+fn configure_default_preset(
+    layout: &RuntimeLayout,
+    bundled_plugin: &Path,
+    logger: &AppLogger,
+) -> Result<(), RuntimeError> {
+    let script = bundled_plugin
+        .join("scripts")
+        .join("configure-default-preset.mjs");
+    if !script.exists() {
+        return Err(RuntimeError::new(format!(
+            "bundled script is missing: {}",
+            script.display()
+        )));
+    }
+    let node = layout.node_exe();
+    if !node.exists() {
+        return Err(RuntimeError::new("bundled Node.js is missing"));
+    }
+    let output = std::process::Command::new(&node)
+        .arg(&script)
+        .arg("--dsh-home")
+        .arg(&layout.dsh_home)
+        .current_dir(bundled_plugin)
+        .output()
+        .map_err(|error| {
+            RuntimeError::new(format!("Cannot run configure-default-preset.mjs: {error}"))
+        })?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        return Err(RuntimeError::new(format!(
+            "exit {:?}: {}{}",
+            output.status.code(),
+            stdout.trim(),
+            stderr.trim()
+        )));
+    }
+    let _ = logger.app(&format!(
+        "default preset via configure-default-preset.mjs: {}",
+        stdout.trim()
+    ));
+    Ok(())
+}
+
 pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result<(), RuntimeError> {
     if !layout.node_exe().exists() || !layout.dsh_bin().exists() {
         return Err(RuntimeError::new(
@@ -161,6 +212,19 @@ pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result
 
     let plugin = layout.resources.join("plugin");
     let bundled_plugin = plugin.join("dsh-lab-agent");
+    // 新会话默认模式：0.1.7 从 `agent-preset-registry` 行的 `config.default` 取默认
+    // 预设，而那行在 profile patch 层。这里如果是空的 `[]`，每个新会话都会落在上游
+    // 的 `standard` 预设上——就是「新建对话不是我预设的 iBM 科研 Agent」的直接原因。
+    //
+    // 复用安装器用的同一份（已有单测的）实现 scripts/configure-default-preset.mjs，
+    // 用捆绑 Node 在 DSH 启动**之前**跑，所以全新安装的第一次启动就已经是对的。
+    // 失败只记日志：profile 仍然可启动，客户端侧还有一道运行期兜底。
+    if let Err(error) = configure_default_preset(layout, &bundled_plugin, logger) {
+        let _ = logger.write(
+            "error.log",
+            &format!("configure-default-preset failed (continuing): {error}"),
+        );
+    }
     let lab_home = layout.dsh_home.join("lab-agent");
     let marker = lab_home.join(".desktop-bootstrap-state");
     let package_manifest =
@@ -434,6 +498,17 @@ mod tests {
             "example==1.0\n"
         );
         assert!(profile_plugin.join("package.json").exists());
+        // 新会话默认模式：bootstrap 会用捆绑 Node 调 scripts/configure-default-preset.mjs，
+        // 把 lab-research 写进 profile patch 的 agent-preset-registry 行。本 fixture 里的
+        // node.exe 是文本桩、跑不起来，所以走「失败只记日志、不阻断启动」分支：profile
+        // patch 仍是 bootstrap 建出来的 []，DSH 至少能正常启动（脚本逻辑本身由
+        // tests/unit/configure-default-preset.test.mjs 覆盖）。
+        assert!(layout
+            .dsh_home
+            .join("profiles")
+            .join("ibm-lab")
+            .join("cordis.patch.yml")
+            .exists());
 
         write_file(&profile_plugin.join("removed-in-v2.txt"), "stale");
         write_file(&lab_home.join("vendor").join("removed-in-v2.txt"), "stale");

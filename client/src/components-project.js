@@ -738,32 +738,26 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 									zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null,
 									awaitingPdf ? h("div", null, h("span", { className: "ib-lit-flag" }, "原文待归档")) : null),
 								h("div", { className: "ib-lit-acts" },
-									// 次级操作：PDF / SI。已归档 → 图标按钮（打开/下载）；
-									// 未归档 → 明确的「获取原文」入口。
-									bundlePdfUrl ? h("button", {
-										className: "ib-icon-btn", "data-ready": "true", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
+									// 次级操作：PDF / SI 一律是图标按钮——已归档点亮、未归档灰着，
+									// 点灰的就去出版社页面布防捕获。不写字（原来的样式）。
+									h("button", {
+										className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
 										disabled: !!opening[openKey("pdf")],
-										title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : "在外部 Microsoft Edge 中打开正文 PDF",
-										onClick: (event) => openEntryInEdge(event, "pdf", bundlePdfUrl), "aria-label": "正文 PDF"
-									}, h(BookSvg, null)) : h("button", {
-										className: "ib-sub-btn", "data-ready": "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
-										disabled: !!opening[openKey("pdf")],
-										title: opening[openKey("pdf")] ? "正在打开…" : (publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面"),
-										onClick: (event) => armCaptureFor(event, bundle, "pdf"), "aria-label": "获取原文"
-									}, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : "获取原文")),
-									bundleSiUrl ? h("button", {
-										className: "ib-icon-btn", "data-ready": "true", "data-opening": opening[openKey("si")] ? "true" : undefined,
+										title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl
+											? "在外部 Microsoft Edge 中打开正文 PDF"
+											: (publisherUrl ? "尚未获取原文 · 点击前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面")),
+										onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "正文 PDF / 获取原文"
+									}, h(BookSvg, null)),
+									h("button", {
+										className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
 										disabled: !!opening[openKey("si")],
-										title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料"),
-										onClick: (event) => bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl), "aria-label": "SI 补充材料"
-									}, h(SiSvg, null)) : h("button", {
-										className: "ib-sub-btn", "data-ready": "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
-										disabled: !!opening[openKey("si")],
-										title: opening[openKey("si")] ? "正在打开…" : (publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"),
-										onClick: (event) => armCaptureFor(event, bundle, "si"), "aria-label": "获取 SI"
-									}, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : "获取 SI")),
-									// 200 字简介：原样保留，平铺可见。
-									h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开约 200 字的文献概览" }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起简介" : "200 字简介")),
+										title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiUrl
+											? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料")
+											: (publisherUrl ? "尚未获取 SI · 点击前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")),
+										onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料 / 获取 SI"
+									}, h(SiSvg, null)),
+									// 简介（约 200 字，篇幅要求是给 Agent 的，不写进按钮文案）。
+									h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开文献概览" }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起简介" : "简介")),
 									h("button", {
 										className: "ib-act", "data-kind": "reading", "data-done": readingDone ? "true" : undefined, "data-busy": readingBusy ? "true" : undefined,
 										disabled: readingBusy,
