@@ -307,7 +307,9 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /打开 PPT/);
 	assert.match(source, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
 	assert.match(source, /已交给本机 Office\/WPS 打开/);
-	assert.match(source, /data-ready": bundlePdfUrl \? "true" : "false"/);
+	// PDF/SI 按钮的可用态：已归档是点亮图标按钮，未归档是「获取原文」次级按钮。
+	assert.match(source, /className: "ib-icon-btn", "data-ready": "true"/);
+	assert.match(source, /className: "ib-sub-btn", "data-ready": "false"/);
 	assert.match(source, /onRequestArtifact\(pptPrompt\)/);
 	assert.match(source, /String\(opts\.prompt \|\| ""\)\.trim\(\) \|\| promptFor/);
 	assert.doesNotMatch(source, /打开报告预览、审核与下载/);
@@ -323,7 +325,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /searchParams\.set\("preview", "1"\)/);
 	assert.match(source, /openArtifactInBrowserViaShell\(kind, bundleId\)/);
 	assert.match(source, /OPEN_ARTIFACT_IN_BROWSER/);
-	assert.match(source, /bundlePdfUrl \? openEntryInEdge/);
+	assert.match(source, /openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);
 	// 0.1.15：点击后必须有"正在打开"状态，失败必须 toast，不得静默
 	assert.match(source, /正在打开正文 PDF…/);
 	assert.match(source, /正在打开 SI PDF…/);

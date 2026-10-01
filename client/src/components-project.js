@@ -9,33 +9,10 @@ import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
 import { BookSvg, SiSvg, CheckSvg, SpinSvg } from "./components-templates.js";
 
-/**
- * 条目行尾的「更多操作」菜单（视觉改版 §5.2/§6）。
- *
- * 低频操作（导出 RIS、写入磁盘、删除…）收进 `···`，不再每条文献都挂一个
- * 红色删除按钮。用原生 <details> 实现：不需要额外 state/portal，点击任一项
- * 后通过 closest("details") 收起。
- */
-export function MoreMenu({ label = "更多操作", children, className }) {
-	return h("details", { className: `ib-more${className ? ` ${className}` : ""}` },
-		h("summary", { "aria-label": label, title: label }, h("span", { "aria-hidden": "true" }, "···")),
-		h("div", { className: "ib-more-menu", role: "menu" }, children));
-}
-
-/** 菜单项：点击后自动收起所在菜单；data-danger 用于删除这类破坏性操作。 */
-export function menuItem({ label, onClick, disabled, danger, title, key }) {
-	return h("button", {
-		type: "button", role: "menuitem", key: key ?? label,
-		className: "ib-more-item",
-		"data-danger": danger ? "true" : undefined,
-		disabled, title: title ?? label,
-		onClick: (event) => {
-			const host = event.currentTarget.closest("details");
-			if (host) host.open = false;
-			onClick?.(event);
-		}
-	}, label);
-}
+// 条目操作按钮一律**平铺在条目右侧**（与改版前一致）：次级原文按钮 + 简介 + 精读 +
+// PPT + 删除。试过把这些低频操作收进 `···` 下拉，但在 DSH 的滚动容器里菜单会被裁切、
+// 跑到屏幕外，等于把「200 字简介」「删除条目」这些原有功能藏没了。所以不再有下拉菜单，
+// 任何操作都不藏在弹层里。
 
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
@@ -688,13 +665,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 							h("div", { className: "ib-lit-acts" },
 								// 主入口只有一个：查看文献（= 展开本会话全部去重文献）
 								h("button", { className: "ib-act", "data-kind": "accent", disabled: !resultCount, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
+								// 写综述 / 打开综述 / 导出 RIS / 删除全部平铺在右侧，不收起、不弹层。
+								h("button", { className: "ib-act", "data-ready": search.review?.status === "ready" ? "true" : undefined, disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: (event) => { event.stopPropagation(); void writeReview(search); }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : (search.review?.status === "ready" ? "重写综述" : "写综述")),
 								search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, h(CheckSvg, null), "打开综述") : null,
 								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
-								// RIS / 写综述 / 删除等低频操作收进更多菜单
-								h(MoreMenu, { label: "检索条目更多操作" },
-									menuItem({ label: busy[`ris:${search.id}`] ? "正在导出 RIS…" : "导出 RIS（写入磁盘）", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: () => void risFor(search) }),
-									menuItem({ label: busy[`review:${search.id}`] ? "正在新建对话…" : (search.review?.status === "ready" ? "重写综述" : "写综述"), disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: () => void writeReview(search) }),
-									menuItem({ label: "删除检索记录", danger: true, disabled: !!busy[`delete-search:${search.id}`], onClick: () => deleteSearch(search) })))
+								h("button", { className: "ib-act", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: (event) => { event.stopPropagation(); void risFor(search); }, title: "导出本会话去重文献的 RIS 并写入磁盘" }, busy[`ris:${search.id}`] ? "…" : "导出 RIS"),
+								h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-search:${search.id}`], onClick: (event) => { event.stopPropagation(); deleteSearch(search); }, title: "删除这条检索记录" }, busy[`delete-search:${search.id}`] ? "…" : "删除"))
 						),
 						expanded ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
 					); })) : h("div", { className: "ib-lit-empty" }, "对话中的文献检索结果会按会话整理到这里。")
@@ -753,11 +729,41 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
 						return h("div", { className: "ib-lit-item", key: report.id },
+							// 一行布局（与改版前一致）：左边标题区，右边操作区。操作区把
+							// 次级原文按钮、200 字简介、精读、PPT、删除**全部平铺**出来，
+							// 不再有任何下拉菜单。
 							h("div", { className: "ib-lit-row" },
 								h("div", { className: "ib-lit-main" },
 									h("b", { className: "ib-lit-title ib-citation", title: shortOf(report) }, shortNode(report)),
-									zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null),
+									zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null,
+									awaitingPdf ? h("div", null, h("span", { className: "ib-lit-flag" }, "原文待归档")) : null),
 								h("div", { className: "ib-lit-acts" },
+									// 次级操作：PDF / SI。已归档 → 图标按钮（打开/下载）；
+									// 未归档 → 明确的「获取原文」入口。
+									bundlePdfUrl ? h("button", {
+										className: "ib-icon-btn", "data-ready": "true", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
+										disabled: !!opening[openKey("pdf")],
+										title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : "在外部 Microsoft Edge 中打开正文 PDF",
+										onClick: (event) => openEntryInEdge(event, "pdf", bundlePdfUrl), "aria-label": "正文 PDF"
+									}, h(BookSvg, null)) : h("button", {
+										className: "ib-sub-btn", "data-ready": "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
+										disabled: !!opening[openKey("pdf")],
+										title: opening[openKey("pdf")] ? "正在打开…" : (publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面"),
+										onClick: (event) => armCaptureFor(event, bundle, "pdf"), "aria-label": "获取原文"
+									}, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : "获取原文")),
+									bundleSiUrl ? h("button", {
+										className: "ib-icon-btn", "data-ready": "true", "data-opening": opening[openKey("si")] ? "true" : undefined,
+										disabled: !!opening[openKey("si")],
+										title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料"),
+										onClick: (event) => bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl), "aria-label": "SI 补充材料"
+									}, h(SiSvg, null)) : h("button", {
+										className: "ib-sub-btn", "data-ready": "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
+										disabled: !!opening[openKey("si")],
+										title: opening[openKey("si")] ? "正在打开…" : (publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面"),
+										onClick: (event) => armCaptureFor(event, bundle, "si"), "aria-label": "获取 SI"
+									}, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : "获取 SI")),
+									// 200 字简介：原样保留，平铺可见。
+									h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开约 200 字的文献概览" }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起简介" : "200 字简介")),
 									h("button", {
 										className: "ib-act", "data-kind": "reading", "data-done": readingDone ? "true" : undefined, "data-busy": readingBusy ? "true" : undefined,
 										disabled: readingBusy,
@@ -770,25 +776,8 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
 										title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
 									}, pptBusy ? h(SpinSvg, null) : (pptDone ? h(CheckSvg, null) : null), pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
-									h(MoreMenu, { label: "精读条目更多操作" },
-										menuItem({ label: report.id in overview ? "收起详情" : "详情与元数据", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report) }),
-										menuItem({ label: "删除精读条目", danger: true, disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle) })))
+									h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除"))
 							),
-							// 次级操作：PDF / SI。已归档 → 打开/下载；未归档 → 明确的「获取原文」。
-							h("div", { className: "ib-lit-sub" },
-								h("button", {
-									className: "ib-sub-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
-									disabled: !!opening[openKey("pdf")],
-									title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : (publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面")),
-									onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf")
-								}, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : (bundlePdfUrl ? "正文 PDF" : "获取原文"))),
-								h("button", {
-									className: "ib-sub-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
-									disabled: !!opening[openKey("si")],
-									title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiUrl ? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料") : (publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")),
-									onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si")
-								}, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : (bundleSiUrl ? "SI 补充材料" : "获取 SI"))),
-								awaitingPdf ? h("span", { className: "ib-lit-flag" }, "原文待归档") : null),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
 								h("div", { className: "ib-capture-head" },
 									h("div", { className: "ib-capture-label" }, captureHint?.phase?.text || `已布防：等待下一次 ${captureHint.kind === "pdf" ? "PDF" : "SI"} 下载…`),

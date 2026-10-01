@@ -100,17 +100,28 @@ test("§5.1 完成状态用按钮填充色 + 完成图标表达", async () => {
 	assert.match(redesign, /@keyframes ib-spin/);
 });
 
-test("§5.2/§6 低频操作收进更多菜单，PDF/SI 用次级样式且未归档给「获取原文」", async () => {
-	const [project] = await Promise.all([read("components-project.js")]);
-	assert.match(project, /export function MoreMenu\(/);
-	assert.match(project, /className: "ib-more-menu"/);
-	assert.match(project, /导出 RIS（写入磁盘）/);
-	assert.match(project, /label: "删除精读条目", danger: true/);
-	// 检索条目突出「查看文献」，不再让每行都挂红色删除按钮。
-	assert.doesNotMatch(project, /className: "ib-lit-btn", "data-danger": true/);
+test("条目操作全部平铺在右侧，原有功能不被藏进弹层", async () => {
+	const [project, redesign, literature] = await Promise.all([
+		read("components-project.js"), read("redesign.js"), read("components-literature.js"),
+	]);
+	// 不再有下拉菜单：现场发现弹层会被 DSH 的滚动容器裁切、跑到屏幕外，
+	// 等于把「200 字简介」「删除条目」这些原有功能藏没了。
+	assert.doesNotMatch(project, /MoreMenu|ib-more-menu|ib-more-item/);
+	assert.doesNotMatch(literature, /ib-badge-menu|ib-more-item|setMenuOpen/);
+	assert.doesNotMatch(redesign, /\.ib-more\b|\.ib-more-menu|\.ib-badge-menu/);
+	// 行布局是两列网格：左标题、右操作，第二列 auto 保证按钮钉在右侧同一行。
+	assert.match(redesign, /\.ib-overlay \.ib-lit-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
+	// 恢复的功能：200 字简介 + 删除条目（精读条目）、导出 RIS + 删除（检索条目）。
+	assert.match(project, /"200 字简介"/);
+	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteReport\(report, bundle\)/);
+	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteSearch\(search\)/);
+	assert.match(project, /导出 RIS/);
+	assert.match(redesign, /\.ib-act-danger\{color:#b42318/);
+	// PDF / SI 仍是次级样式：已归档给图标按钮，未归档给明确的「获取原文」。
+	assert.match(project, /className: "ib-sub-btn", "data-ready": "false"/);
+	assert.match(project, /"获取原文"/);
+	assert.match(project, /"获取 SI"/);
 	assert.match(project, /expanded \? "收起文献" : "查看文献"/);
-	assert.match(project, /className: "ib-sub-btn"/);
-	assert.match(project, /bundlePdfUrl \? "正文 PDF" : "获取原文"/);
 });
 
 test("§7/§9 两段常驻解释文字与布局说明完整删除", async () => {

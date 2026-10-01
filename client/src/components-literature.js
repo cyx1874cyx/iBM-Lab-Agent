@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { downloadState } from "./constants.js";
-import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
+import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
 import { FlaskSvg } from "./components-templates.js";
 import { sendWebVpnBallQueue } from "./webvpn-bridge.js";
 import { setBallTaskCancelHandler, setBallTaskRecreateHandler } from "./lib.js";
@@ -83,21 +83,10 @@ export function useBoundProject(sessionId, call, useSessions) {
 
 export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, useSessions, toast }) {
 			const bound = useBoundProject(sessionId, call, useSessions);
-			const [menuOpen, setMenuOpen] = useState(false);
-			// 下拉菜单：点击别处 / Esc 收起（与 ··· 菜单同样保持轻量）。
-			useEffect(() => {
-				if (!menuOpen || typeof document === "undefined") return undefined;
-				const close = (event) => { if (!event.target.closest?.(".ib-project-entry")) setMenuOpen(false); };
-				const onKey = (event) => { if (event.key === "Escape") setMenuOpen(false); };
-				document.addEventListener("pointerdown", close, true);
-				document.addEventListener("keydown", onKey);
-				return () => {
-					document.removeEventListener("pointerdown", close, true);
-					document.removeEventListener("keydown", onKey);
-				};
-			}, [menuOpen]);
-			// 桌面壳顶栏的「课题入口」状态与打开动作由 apply.js 里的常驻桥负责
-			// （空白新会话不渲染 session header，课题徽章本身并不挂载）。
+			// 会话头部的课题入口是**单个按钮**：没有下拉菜单。在 DSH 的会话头部里开弹层
+			// 会被外层滚动容器裁切、跑到屏幕外（现场截图），所以这里只保留「点击打开课题
+			// 空间」，▾ 只是视觉提示；「打开课题目录 / 课题管理面板」在课题面板与桌面壳
+			// 顶栏的课题菜单里都有。
 			useEffect(() => {
 				if (typeof document === "undefined" || !bound?.project?.id) return undefined;
 				document.body.classList.add("ib-research-chat");
@@ -295,9 +284,8 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 				return () => { disposed = true; clearTimeout(timer); };
 			}, [bound?.project?.id, call, toast]);
 			if (!bound?.project) return null;
-			// 课题入口（视觉改版 §2.1/§2.2）：课题图标 + 课题名称 + 下拉箭头，
+			// 课题入口（视觉改版 §2.1/§2.2）：课题图标 + 课题名称 + ▾，
 			// 36px 高、淡青绿填充、名称 15–16px 半粗体；不再有英文标签与记忆版本号。
-			// 点击主体打开课题空间，下拉箭头给出「打开课题目录 / 全部课题」这类入口。
 			const projectName = bound.project.name || bound.project.id;
 			return h("div", { className: "ib-project-entry" },
 				h("button", {
@@ -311,17 +299,8 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 					}
 				},
 					h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
-					h("span", { className: "ib-badge-name", title: projectName }, projectName)),
-				h("button", {
-					className: "ib-badge-caret",
-					"aria-label": "课题菜单",
-					title: "课题菜单",
-					onClick: () => setMenuOpen((value) => !value)
-				}, h("span", { "aria-hidden": "true" }, "▾")),
-				menuOpen ? h("div", { className: "ib-badge-menu", role: "menu" },
-					h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); if (!openProjectTab?.(bound.project.id)) openWorkspace(bound.project); } }, "打开课题空间"),
-					bound.project.workspacePath ? h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); void revealSavedPathViaDesktop(bound.project.workspacePath).catch((reason) => toast?.(reason.message)); } }, "在资源管理器中打开课题目录") : null,
-					h("button", { className: "ib-more-item", role: "menuitem", onClick: () => { setMenuOpen(false); openWorkspace(bound.project); } }, "课题管理面板")) : null);
+					h("span", { className: "ib-badge-name", title: projectName }, projectName),
+					h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")));
 		}
 
 export const NATIVE_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);

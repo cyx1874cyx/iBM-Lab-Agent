@@ -126,7 +126,7 @@ var redesignCss = `
 .ib-overlay .ib-tm-tab[data-active=true]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ib-accent);border-radius:2px}
 /* ── 分组标题与条目列表（需求 §3.1）────────────────────────────────────── */
 .ib-overlay .ib-lit{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
-.ib-lit-group{display:grid;gap:2px;min-width:0}
+.ib-lit-group{display:grid;gap:2px;min-width:0;container-type:inline-size}
 .ib-overlay .ib-group-head{display:flex;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--ib-hair)}
 .ib-overlay .ib-group-head h3{margin:0;font-size:17px;font-weight:600;color:var(--ib-text)}
 .ib-overlay .ib-group-count{font-size:14px;color:var(--ib-soft)}
@@ -134,20 +134,22 @@ var redesignCss = `
 .ib-overlay .ib-lit-item{display:grid;gap:8px;padding:16px 2px;border-bottom:1px solid var(--ib-hair);border-radius:0;background:none}
 .ib-overlay .ib-lit-item:last-child{border-bottom:0}
 .ib-overlay .ib-lit-item:hover{background:var(--ib-hover)}
-.ib-overlay .ib-lit-row{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px 14px;padding:0;border:0;background:none;border-radius:0}
+/* 条目行：两列网格 —— 左列标题/中文标题占满剩余宽度，右列操作按钮始终在同一行右侧。
+   之前用 flex+wrap，操作区会被整体挤到下一行（截图里按钮跑到标题下方），所以这里
+   用 grid 的 auto 第二列把它钉在右侧；只有真的很窄（<=720px 的侧栏）才让按钮换行。 */
+.ib-overlay .ib-lit-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 16px;padding:0;border:0;background:none;border-radius:0}
 .ib-overlay .ib-lit-main{flex:1 1 320px;min-width:0;display:grid;gap:5px}
 .ib-overlay .ib-lit-title{display:block;font-size:18px;font-weight:600;line-height:1.42;color:var(--ib-text);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .ib-overlay .ib-citation i{font-style:italic;font-weight:700}
 .ib-overlay .ib-lit-zh{font-size:16px;font-weight:400;line-height:1.55;color:var(--ib-soft);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .ib-overlay .ib-lit-meta{font-size:14.5px;line-height:1.5;color:var(--ib-soft);white-space:normal;overflow-wrap:anywhere}
-.ib-overlay .ib-lit-acts{flex:0 1 auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:none;margin-left:auto}
-.ib-overlay .ib-lit-sub{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.ib-overlay .ib-lit-flag{font-size:13.5px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;padding:2px 8px}
+.ib-overlay .ib-lit-acts{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:560px}
+.ib-overlay .ib-lit-flag{display:inline-block;margin-top:6px;font-size:13px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;padding:2px 8px}
 .ib-overlay .ib-lit-overview{margin-top:2px;font-size:14.5px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap;border-left:2px solid var(--ib-accent-line);padding:8px 0 8px 12px}
 .ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
 .ib-overlay .ib-lit-overview-meta,.ib-overlay .ib-lit-overview-time{display:block;font-size:13.5px;color:var(--ib-soft)}
 /* ── 操作按钮：用填充色表达完成状态（需求 §5.1）────────────────────────── */
-.ib-overlay .ib-act{display:inline-flex;align-items:center;gap:7px;height:var(--ib-action-h);padding:0 13px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
+.ib-overlay .ib-act{display:inline-flex;align-items:center;gap:6px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
 .ib-overlay .ib-act:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-act:disabled{cursor:default;opacity:.6}
 .ib-overlay .ib-act[data-kind=accent]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
@@ -160,31 +162,21 @@ var redesignCss = `
 .ib-spin{animation:ib-spin 900ms linear infinite}
 @keyframes ib-spin{to{transform:rotate(360deg)}}
 /* 次级操作：PDF / SI */
-.ib-overlay .ib-sub-btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-soft);font-size:13.5px;font-weight:500;cursor:pointer}
+.ib-overlay .ib-sub-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;border-radius:8px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-soft);font-size:13.5px;font-weight:500;cursor:pointer}
 .ib-overlay .ib-sub-btn:hover:enabled{background:var(--ib-hover);color:var(--ib-text);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-sub-btn[data-ready=true]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-sub-btn[data-ready=false]{opacity:.95}
 .ib-overlay .ib-sub-btn[data-opening=true]{cursor:progress}
-/* ── 条目尾部的「更多」菜单（需求 §5.2/§6）────────────────────────────── */
-.ib-overlay .ib-more{position:relative;display:inline-flex}
-.ib-overlay .ib-more>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:var(--ib-action-h);border:1px solid var(--ib-hair);border-radius:9px;background:var(--ib-bg);color:var(--ib-soft);font-size:16px;font-weight:700;cursor:pointer;line-height:1}
-.ib-overlay .ib-more>summary::-webkit-details-marker{display:none}
-.ib-overlay .ib-more>summary:hover{border-color:var(--ib-accent-line);color:var(--ib-text)}
-.ib-overlay .ib-more[open]>summary{border-color:var(--ib-accent-line);color:var(--ib-text);background:var(--ib-hover)}
-.ib-overlay .ib-more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:200px;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.14)}
-.ib-overlay .ib-more-item{display:block;width:100%;text-align:left;padding:9px 10px;border:0;border-radius:8px;background:none;color:var(--ib-text);font-size:14px;cursor:pointer}
-.ib-overlay .ib-more-item:hover:enabled{background:var(--ib-hover)}
-.ib-overlay .ib-more-item[data-danger=true]{color:#b42318}
-.ib-overlay .ib-more-item:disabled{opacity:.5;cursor:default}
+/* 删除这类破坏性操作：平铺在条目右侧（不再收进下拉菜单——弹层会被滚动容器裁切）。 */
+.ib-overlay .ib-act-danger{color:#b42318;border-color:var(--ib-hair);background:var(--ib-bg)}
+.ib-overlay .ib-act-danger:hover:enabled{background:#fef3f2;border-color:#fda29b;color:#912018}
 /* ── 会话头部课题入口：图标 + 名称 + 下拉箭头（需求 §2.1/§2.2）──────────── */
 .ib-project-entry{position:relative;display:inline-flex;align-items:center;gap:2px;height:var(--ib-control-h)}
 .ib-overlay .ib-research-badge{display:inline-flex;align-items:center;gap:8px;height:var(--ib-control-h);max-width:260px;padding:0 10px;border:1px solid var(--ib-accent-line);border-radius:var(--ib-radius);background:var(--ib-accent-soft);color:var(--ib-accent-ink);box-shadow:none;cursor:pointer;text-align:left}
 .ib-overlay .ib-research-badge:hover{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
 .ib-project-entry .ib-badge-icon{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:6px;background:none;box-shadow:none;color:var(--ib-accent-ink)}
 .ib-project-entry .ib-badge-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px;font-weight:600;color:var(--ib-accent-ink)}
-.ib-overlay .ib-badge-caret{display:inline-grid;place-items:center;width:26px;height:var(--ib-control-h);padding:0;border:0;border-radius:8px;background:none;color:var(--ib-accent-ink);font-size:12px;cursor:pointer}
-.ib-overlay .ib-badge-caret:hover{background:var(--ib-hover)}
-.ib-project-entry .ib-badge-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:220px;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.14)}
+.ib-project-entry .ib-badge-caret{display:inline-grid;place-items:center;width:14px;height:16px;padding:0;border:0;background:none;color:var(--ib-accent-ink);font-size:11px;line-height:1;pointer-events:none}
 /* ── 检索结果条目（展开后的去重文献）────────────────────────────────────── */
 .ib-overlay .ib-search-paper{padding:12px 2px;border-top:1px solid var(--ib-hair)}
 .ib-overlay .ib-search-citation{font-size:14px;line-height:1.6;color:var(--ib-soft)}
@@ -238,12 +230,19 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-overlay.ib-panel-embed .ib-project-copy{flex:1 1 100%;order:-1}
 .ib-overlay.ib-panel-embed .ib-project-copy h1{font-size:20px}
 .ib-overlay.ib-panel-embed .ib-head h1{font-size:22px}
-.ib-overlay.ib-panel-embed .ib-lit-main{flex:1 1 100%}
-.ib-overlay.ib-panel-embed .ib-lit-acts{margin-left:0;justify-content:flex-start}
 .ib-overlay.ib-panel-embed .ib-tabs{gap:18px}
+/* 侧栏一列宽度放不下「标题 + 一排按钮」时，按钮整行移到标题下面（需求 §3.2：
+   宽度不足优先换行，不缩小字号）。桌面宽面板保持按钮在右侧。 */
 @media(max-width:720px){
-  .ib-overlay .ib-lit-acts{width:100%;margin-left:0;justify-content:flex-start}
+  .ib-overlay .ib-lit-row,.ib-overlay.ib-panel-embed .ib-lit-row{grid-template-columns:minmax(0,1fr);align-items:flex-start}
+  .ib-overlay .ib-lit-acts,.ib-overlay.ib-panel-embed .ib-lit-acts{justify-content:flex-start;max-width:100%}
   .ib-overlay .ib-main{padding:18px 14px 48px}
+}
+/* 同一份判断的容器版：右侧栏课题 tab 的列宽只有 360–560px，但浏览器视口很宽，
+   视口媒体查询看不到这种"容器很窄"的情况，所以按分组宽度再判一次。 */
+@container (max-width:700px){
+  .ib-lit-row{grid-template-columns:minmax(0,1fr);align-items:flex-start}
+  .ib-lit-acts{justify-content:flex-start;max-width:100%}
 }
 `;
 
@@ -3226,30 +3225,6 @@ function SpinSvg({ width = 14, height = 14 }) {
 }
 
 // client/src/components-project.js
-function MoreMenu({ label = "更多操作", children, className }) {
-  return h(
-    "details",
-    { className: `ib-more${className ? ` ${className}` : ""}` },
-    h("summary", { "aria-label": label, title: label }, h("span", { "aria-hidden": "true" }, "···")),
-    h("div", { className: "ib-more-menu", role: "menu" }, children)
-  );
-}
-function menuItem({ label, onClick, disabled, danger, title, key }) {
-  return h("button", {
-    type: "button",
-    role: "menuitem",
-    key: key ?? label,
-    className: "ib-more-item",
-    "data-danger": danger ? "true" : void 0,
-    disabled,
-    title: title ?? label,
-    onClick: (event) => {
-      const host = event.currentTarget.closest("details");
-      if (host) host.open = false;
-      onClick?.(event);
-    }
-  }, label);
-}
 var formatCaptureBytes = (bytes) => {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
   if (bytes < 1024) return `${Math.round(bytes)} B`;
@@ -3943,6 +3918,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 event.stopPropagation();
                 setExpandedSearch((value) => value === search.id ? null : search.id);
               }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
+              // 写综述 / 打开综述 / 导出 RIS / 删除全部平铺在右侧，不收起、不弹层。
+              h("button", { className: "ib-act", "data-ready": search.review?.status === "ready" ? "true" : void 0, disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: (event) => {
+                event.stopPropagation();
+                void writeReview(search);
+              }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : search.review?.status === "ready" ? "重写综述" : "写综述"),
               search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => {
                 event.stopPropagation();
                 openReview(search, "report");
@@ -3951,14 +3931,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 event.stopPropagation();
                 openReview(search, "ppt");
               }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
-              // RIS / 写综述 / 删除等低频操作收进更多菜单
-              h(
-                MoreMenu,
-                { label: "检索条目更多操作" },
-                menuItem({ label: busy[`ris:${search.id}`] ? "正在导出 RIS…" : "导出 RIS（写入磁盘）", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: () => void risFor(search) }),
-                menuItem({ label: busy[`review:${search.id}`] ? "正在新建对话…" : search.review?.status === "ready" ? "重写综述" : "写综述", disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: () => void writeReview(search) }),
-                menuItem({ label: "删除检索记录", danger: true, disabled: !!busy[`delete-search:${search.id}`], onClick: () => deleteSearch(search) })
-              )
+              h("button", { className: "ib-act", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: (event) => {
+                event.stopPropagation();
+                void risFor(search);
+              }, title: "导出本会话去重文献的 RIS 并写入磁盘" }, busy[`ris:${search.id}`] ? "…" : "导出 RIS"),
+              h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-search:${search.id}`], onClick: (event) => {
+                event.stopPropagation();
+                deleteSearch(search);
+              }, title: "删除这条检索记录" }, busy[`delete-search:${search.id}`] ? "…" : "删除")
             )
           ),
           expanded ? h("div", { className: "ib-search-results", role: "list", "aria-label": `${search.title || "检索"}的全部文献` }, (search.results || []).map(paperCitation)) : null
@@ -4029,6 +4009,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         return h(
           "div",
           { className: "ib-lit-item", key: report.id },
+          // 一行布局（与改版前一致）：左边标题区，右边操作区。操作区把
+          // 次级原文按钮、200 字简介、精读、PPT、删除**全部平铺**出来，
+          // 不再有任何下拉菜单。
           h(
             "div",
             { className: "ib-lit-row" },
@@ -4036,11 +4019,50 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               "div",
               { className: "ib-lit-main" },
               h("b", { className: "ib-lit-title ib-citation", title: shortOf(report) }, shortNode(report)),
-              zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null
+              zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null,
+              awaitingPdf ? h("div", null, h("span", { className: "ib-lit-flag" }, "原文待归档")) : null
             ),
             h(
               "div",
               { className: "ib-lit-acts" },
+              // 次级操作：PDF / SI。已归档 → 图标按钮（打开/下载）；
+              // 未归档 → 明确的「获取原文」入口。
+              bundlePdfUrl ? h("button", {
+                className: "ib-icon-btn",
+                "data-ready": "true",
+                "data-opening": opening[openKey("pdf")] ? "true" : void 0,
+                disabled: !!opening[openKey("pdf")],
+                title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : "在外部 Microsoft Edge 中打开正文 PDF",
+                onClick: (event) => openEntryInEdge(event, "pdf", bundlePdfUrl),
+                "aria-label": "正文 PDF"
+              }, h(BookSvg, null)) : h("button", {
+                className: "ib-sub-btn",
+                "data-ready": "false",
+                "data-opening": opening[openKey("pdf")] ? "true" : void 0,
+                disabled: !!opening[openKey("pdf")],
+                title: opening[openKey("pdf")] ? "正在打开…" : publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面",
+                onClick: (event) => armCaptureFor(event, bundle, "pdf"),
+                "aria-label": "获取原文"
+              }, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : "获取原文")),
+              bundleSiUrl ? h("button", {
+                className: "ib-icon-btn",
+                "data-ready": "true",
+                "data-opening": opening[openKey("si")] ? "true" : void 0,
+                disabled: !!opening[openKey("si")],
+                title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料",
+                onClick: (event) => bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl),
+                "aria-label": "SI 补充材料"
+              }, h(SiSvg, null)) : h("button", {
+                className: "ib-sub-btn",
+                "data-ready": "false",
+                "data-opening": opening[openKey("si")] ? "true" : void 0,
+                disabled: !!opening[openKey("si")],
+                title: opening[openKey("si")] ? "正在打开…" : publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面",
+                onClick: (event) => armCaptureFor(event, bundle, "si"),
+                "aria-label": "获取 SI"
+              }, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : "获取 SI")),
+              // 200 字简介：原样保留，平铺可见。
+              h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开约 200 字的文献概览" }, busy[`ov:${report.id}`] ? "…" : report.id in overview ? "收起简介" : "200 字简介"),
               h("button", {
                 className: "ib-act",
                 "data-kind": "reading",
@@ -4059,35 +4081,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
                 title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
               }, pptBusy ? h(SpinSvg, null) : pptDone ? h(CheckSvg, null) : null, pptBusy ? "打开中…" : pptDone ? "打开 PPT" : "制作 PPT"),
-              h(
-                MoreMenu,
-                { label: "精读条目更多操作" },
-                menuItem({ label: report.id in overview ? "收起详情" : "详情与元数据", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report) }),
-                menuItem({ label: "删除精读条目", danger: true, disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle) })
-              )
+              h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除")
             )
-          ),
-          // 次级操作：PDF / SI。已归档 → 打开/下载；未归档 → 明确的「获取原文」。
-          h(
-            "div",
-            { className: "ib-lit-sub" },
-            h("button", {
-              className: "ib-sub-btn",
-              "data-ready": bundlePdfUrl ? "true" : "false",
-              "data-opening": opening[openKey("pdf")] ? "true" : void 0,
-              disabled: !!opening[openKey("pdf")],
-              title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : bundlePdfUrl ? "在外部 Microsoft Edge 中打开正文 PDF" : publisherUrl ? "尚未获取原文 · 前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面",
-              onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf")
-            }, h(BookSvg, null), h("span", null, opening[openKey("pdf")] ? "正在打开…" : bundlePdfUrl ? "正文 PDF" : "获取原文")),
-            h("button", {
-              className: "ib-sub-btn",
-              "data-ready": bundleSiUrl ? "true" : "false",
-              "data-opening": opening[openKey("si")] ? "true" : void 0,
-              disabled: !!opening[openKey("si")],
-              title: opening[openKey("si")] ? "正在打开 SI…" : bundleSiUrl ? bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料" : publisherUrl ? "尚未获取 SI · 前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面",
-              onClick: (event) => bundleSiUrl ? bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl) : armCaptureFor(event, bundle, "si")
-            }, h(SiSvg, null), h("span", null, opening[openKey("si")] ? "正在打开…" : bundleSiUrl ? "SI 补充材料" : "获取 SI")),
-            awaitingPdf ? h("span", { className: "ib-lit-flag" }, "原文待归档") : null
           ),
           captureActive ? h(
             "div",
@@ -4301,22 +4296,6 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
-  const [menuOpen, setMenuOpen] = (0, import_react8.useState)(false);
-  (0, import_react8.useEffect)(() => {
-    if (!menuOpen || typeof document === "undefined") return void 0;
-    const close = (event) => {
-      if (!event.target.closest?.(".ib-project-entry")) setMenuOpen(false);
-    };
-    const onKey = (event) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", close, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", close, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
   (0, import_react8.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
@@ -4522,30 +4501,9 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
         }
       },
       h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
-      h("span", { className: "ib-badge-name", title: projectName }, projectName)
-    ),
-    h("button", {
-      className: "ib-badge-caret",
-      "aria-label": "课题菜单",
-      title: "课题菜单",
-      onClick: () => setMenuOpen((value) => !value)
-    }, h("span", { "aria-hidden": "true" }, "▾")),
-    menuOpen ? h(
-      "div",
-      { className: "ib-badge-menu", role: "menu" },
-      h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
-        setMenuOpen(false);
-        if (!openProjectTab2?.(bound.project.id)) openWorkspace(bound.project);
-      } }, "打开课题空间"),
-      bound.project.workspacePath ? h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
-        setMenuOpen(false);
-        void revealSavedPathViaDesktop(bound.project.workspacePath).catch((reason) => toast?.(reason.message));
-      } }, "在资源管理器中打开课题目录") : null,
-      h("button", { className: "ib-more-item", role: "menuitem", onClick: () => {
-        setMenuOpen(false);
-        openWorkspace(bound.project);
-      } }, "课题管理面板")
-    ) : null
+      h("span", { className: "ib-badge-name", title: projectName }, projectName),
+      h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")
+    )
   );
 }
 var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;

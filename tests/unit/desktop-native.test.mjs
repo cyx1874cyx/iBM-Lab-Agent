@@ -49,7 +49,7 @@ test("0.1.15 PDF/SI 打开链路：两个按钮都走 OPEN_ARTIFACT_IN_BROWSER �
 		readClientSource(),
 	]);
 	// 精读条目：正文与 SI 按钮已登记后都进入 Edge 打开流程（openEntryInEdge → openPdfPreview → 桌面桥）
-	assert.match(client, /bundlePdfUrl \? openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);
+	assert.match(client, /openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);
 	assert.match(client, /bundleSiIsPdf \? openEntryInEdge\(event, "si", bundleSiUrl\)/);
 	// 检索条目同样走该流程
 	assert.match(client, /openSearchInEdge\(event, "pdf", paper\.localPdfUrl\)/);
