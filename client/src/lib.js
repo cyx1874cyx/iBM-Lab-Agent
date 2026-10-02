@@ -491,3 +491,28 @@ export function installProjectShellBridge({ ctx, call, openProject, openProjectT
 		window.removeEventListener("message", onShellRequest);
 	};
 }
+
+/**
+ * 打开插件全屏面板时把原生文献浏览器收起来 / 关掉时放回去。
+ *
+ * 原生子 WebView 永远画在网页内容之上，所以课题面板一打开就会被浏览器挡住
+ * （现场：面板里还能看到统一身份认证页）。面板开关时通知桌面壳隐藏/恢复即可。
+ * 非桌面宿主（window.parent === window）直接 no-op。
+ *
+ * @param {boolean} visible - false = 面板打开期间隐藏浏览器；true = 面板关掉后恢复。
+ * @returns {boolean} 是否真的发出了通知。
+ */
+export function setWebVpnVisibleViaShell(visible) {
+	if (typeof window === "undefined" || window.parent === window) return false;
+	try {
+		window.parent.postMessage({
+			source: "ibm-lab-agent",
+			type: visible ? "WEBVPN_SHOW_VIEW" : "WEBVPN_HIDE_VIEW",
+			requestId: globalThis.crypto?.randomUUID?.() ?? `webvpn-visible-${Date.now()}`,
+			payload: { visible: visible === true }
+		}, "*");
+		return true;
+	} catch {
+		return false;
+	}
+}

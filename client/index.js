@@ -176,7 +176,6 @@ var redesignCss = `
 .ib-project-entry{position:relative;display:inline-flex;align-items:center;gap:2px;height:var(--ib-control-h)}
 .ib-overlay .ib-research-badge{display:inline-flex;align-items:center;gap:8px;height:var(--ib-control-h);max-width:260px;padding:0 10px;border:1px solid var(--ib-accent-line);border-radius:var(--ib-radius);background:var(--ib-accent-soft);color:var(--ib-accent-ink);box-shadow:none;cursor:pointer;text-align:left}
 .ib-overlay .ib-research-badge:hover{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
-.ib-project-entry .ib-badge-icon{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:6px;background:none;box-shadow:none;color:var(--ib-accent-ink)}
 .ib-project-entry .ib-badge-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px;font-weight:600;color:var(--ib-accent-ink)}
 .ib-project-entry .ib-badge-caret{display:inline-grid;place-items:center;width:14px;height:16px;padding:0;border:0;background:none;color:var(--ib-accent-ink);font-size:11px;line-height:1;pointer-events:none}
 /* ── 检索结果条目（展开后的去重文献）────────────────────────────────────── */
@@ -233,7 +232,6 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-hero-chip{display:inline-flex;align-items:center;gap:7px;height:30px;max-width:260px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,var(--ib-hair));border-radius:15px;background:var(--ib-bg);color:var(--dsw-alias-label-primary,var(--ib-text));font-size:13px;font-weight:500;line-height:1;cursor:pointer}
 .ib-hero-chip:hover{background:var(--ib-hover)}
 .ib-hero-chip[aria-expanded=true]{background:var(--ib-hover);border-color:var(--ib-accent-line)}
-.ib-hero-chip-icon{display:grid;place-items:center;color:var(--ib-accent-ink);flex:none}
 .ib-hero-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ib-hero-chip-caret{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
 .ib-hero-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:60;min-width:260px;max-width:min(420px,90vw);max-height:52vh;overflow:auto;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.16)}
@@ -1024,6 +1022,20 @@ function installProjectShellBridge({ ctx, call, openProject, openProjectTab: ope
     unsubscribe();
     window.removeEventListener("message", onShellRequest);
   };
+}
+function setWebVpnVisibleViaShell(visible) {
+  if (typeof window === "undefined" || window.parent === window) return false;
+  try {
+    window.parent.postMessage({
+      source: "ibm-lab-agent",
+      type: visible ? "WEBVPN_SHOW_VIEW" : "WEBVPN_HIDE_VIEW",
+      requestId: globalThis.crypto?.randomUUID?.() ?? `webvpn-visible-${Date.now()}`,
+      payload: { visible: visible === true }
+    }, "*");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // client/src/components-workspace.js
@@ -3202,16 +3214,6 @@ function MetaEditor({ call, initial, onCancel, onSaved }) {
     h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
   );
 }
-function FlaskSvg({ width = 18, height = 18 }) {
-  return h(
-    "svg",
-    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
-    h("path", { d: "M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" }),
-    h("path", { d: "M7 16h10l-2.4-3.4h-5.2L7 16Z", fill: "currentColor", opacity: 0.24 }),
-    h("circle", { cx: 12, cy: 13.2, r: 0.55, fill: "currentColor" }),
-    h("circle", { cx: 13.6, cy: 15, r: 0.4, fill: "currentColor" })
-  );
-}
 function BookSvg({ width = 15, height = 15 }) {
   return h(
     "svg",
@@ -4498,7 +4500,6 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
           openWorkspace(bound.project);
         }
       },
-      h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
       h("span", { className: "ib-badge-name", title: projectName }, projectName),
       h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")
     )
@@ -5012,7 +5013,6 @@ function renderChip({ label, state, menuOpen, busy, others, setMenuOpen, pickPro
         title: state.current ? `当前课题：${state.current.name}（点击切换）` : "选择这条对话所属的课题",
         onClick: () => setMenuOpen((value) => !value)
       },
-      h("span", { className: "ib-hero-chip-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
       h("span", { className: "ib-hero-chip-label" }, label),
       h("span", { className: "ib-hero-chip-caret", "aria-hidden": "true" }, "▾")
     ),
@@ -5168,6 +5168,7 @@ function applyUi(ctx) {
     root = null;
     import_react_dom3.default.unmountComponentAtNode(node);
     node.remove();
+    setWebVpnVisibleViaShell(true);
   };
   const toast = (message) => {
     const node = document.createElement("div");
@@ -5253,6 +5254,7 @@ function applyUi(ctx) {
   };
   const open = (initial) => {
     if (root) return;
+    setWebVpnVisibleViaShell(false);
     root = document.createElement("div");
     document.body.appendChild(root);
     try {

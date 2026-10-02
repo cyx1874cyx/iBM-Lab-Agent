@@ -211,6 +211,21 @@ test("文献捕获通过受限 shell 契约进入 WebVPN", async () => {
 	assert.match(shell, /id="webvpn-indicator-dot"/);
 	assert.match(shell, /id="iwan-indicator-dot"/);
 	assert.match(shell, /invoke\('open_iwan'\)/);
+	// 顶栏课题入口不再带下拉菜单（里面那几项与文件夹菜单/侧栏入口重复，现场要求去掉），
+	// 入口按钮自己就是「打开课题空间」。
+	assert.doesNotMatch(shell, /project-caret|project-menu|project-icon/);
+	assert.match(shell, /id="project-entry"/);
+	// 瞬态提示必须能回落到稳定状态文字，否则 iWAN 那条提示会把后面的状态信息顶掉。
+	assert.match(shell, /const setTransientState = \(text, restoreMs = \d+\)/);
+	assert.match(shell, /setTransientState\('正在启动 iWAN 客户端…'\)/);
+	// 原生文献浏览器永远盖在网页之上：插件全屏面板打开期间必须把它收起来，
+	// 面板关掉再恢复；期间忽略 tab 的 rect 上报，避免它把浏览器又显示出来。
+	assert.match(shell, /WEBVPN_HIDE_VIEW/);
+	assert.match(shell, /WEBVPN_SHOW_VIEW/);
+	assert.match(shell, /const visible = payload\.visible === true && !overlayOwnsScreen/);
+	assert.match(apply, /setWebVpnVisibleViaShell\(false\)/);
+	assert.match(apply, /setWebVpnVisibleViaShell\(true\)/);
+	assert.match(client, /export function setWebVpnVisibleViaShell/);
 	assert.match(shell, /invoke\('webvpn_status'\)/);
 	assert.match(shell, /invoke\('iwan_status'\)/);
 	assert.match(shell, /postToFrame\('OPEN_WEBVPN_REQUEST'\)/);

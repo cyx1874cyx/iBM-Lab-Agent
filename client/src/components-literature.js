@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { downloadState } from "./constants.js";
 import { openPdfPreview, downloadVerifiedBinary, webVpnStatusViaShell, webVpnBrowserActionViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, confirmWebVpnLoginViaShell, openWebVpnCaptureViaShell, cancelWebVpnCaptureViaShell } from "./lib.js";
-import { FlaskSvg } from "./components-templates.js";
 import { sendWebVpnBallQueue } from "./webvpn-bridge.js";
 import { setBallTaskCancelHandler, setBallTaskRecreateHandler } from "./lib.js";
 
@@ -298,7 +297,6 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 						openWorkspace(bound.project);
 					}
 				},
-					h("span", { className: "ib-badge-icon" }, h(FlaskSvg, { width: 15, height: 15 })),
 					h("span", { className: "ib-badge-name", title: projectName }, projectName),
 					h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")));
 		}

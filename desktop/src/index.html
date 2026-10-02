@@ -96,12 +96,9 @@
     .menu button:hover{background:var(--shell-hover);border-color:transparent}
     .menu .menu-status{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13.5px;color:var(--shell-muted)}
     .menu .menu-status b{margin-left:auto;font-weight:600;color:var(--shell-text)}
-    .project-entry{position:relative;display:inline-flex;align-items:center;gap:2px}
+    .project-entry{position:relative;display:inline-flex;align-items:center}
     .project-entry .project-main{display:inline-flex;align-items:center;gap:8px;height:36px;max-width:280px;padding:0 10px;border-radius:10px;border:1px solid var(--shell-accent-line);background:var(--shell-accent-soft);color:var(--shell-accent-ink);font-size:15.5px;font-weight:600}
-    .project-entry .project-icon{display:grid;place-items:center;width:20px;height:20px;font-size:15px;line-height:1}
     .project-entry .project-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .project-entry .caret{display:grid;place-items:center;width:26px;height:36px;padding:0;border:0;border-radius:8px;background:none;color:var(--shell-accent-ink);font-size:12px}
-    .project-entry .caret:hover{background:var(--shell-hover)}
     /* 连接状态：WebVPN 与 iWAN 各是一个独立控件（点 WebVPN 打开机构认证页、
        点 iWAN 打开 iWAN 客户端）。红=未连接/未登录，黄=部分可用，绿=可用。 */
     .indicator{max-width:200px}
@@ -139,17 +136,11 @@
           <button id="deps-button" type="button">诊断</button>
         </div>
       </div>
-      <!-- 课题入口：课题图标 + 课题名称 + 下拉箭头（需求 §2.2 / bug #3）。
-           空白新会话里 Harness 的会话头部不渲染，所以这个入口必须常驻顶栏。 -->
-      <div class="project-entry" id="project-entry" data-empty="true">
-        <button id="project-button" class="project-main" type="button" title="打开课题空间"><span class="project-icon" aria-hidden="true">⚗</span><span class="project-name" id="project-name">选择课题</span></button>
-        <button id="project-caret" class="caret" type="button" aria-label="课题菜单" title="课题菜单" aria-haspopup="true" aria-expanded="false">▾</button>
-        <div class="menu" id="project-menu" role="menu">
-          <button id="project-open" type="button">打开课题空间</button>
-          <button id="project-folder" type="button">在资源管理器中打开课题目录</button>
-          <button id="project-panel" type="button">课题管理面板</button>
-        </div>
-      </div>
+      <!-- 课题入口：只有一个按钮，点击直接打开课题空间（会话头部/侧栏里的入口同源）。
+           不做下拉菜单：里面那几项（打开课题目录、课题管理面板）与「文件夹」菜单和侧栏
+           品牌入口重复，现场反馈要求去掉。空白新会话里 Harness 的会话头部不渲染，
+           所以这个入口必须常驻顶栏。 -->
+      <button id="project-entry" class="tool project-main" type="button" data-empty="true" title="打开课题空间"><span class="project-name" id="project-name">选择课题</span></button>
     </nav>
     <section class="workspace">
       <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
@@ -269,7 +260,7 @@
     };
     // ── 0.6.0 顶栏菜单（状态 / 文件夹 / 更多 / 课题）────────────────────────
     // 原生 button + .menu：不需要框架，点外面或 Esc 统一收起。
-    const MENU_IDS = ['folder-menu', 'more-menu', 'project-menu'];
+    const MENU_IDS = ['folder-menu', 'more-menu'];
     const closeMenus = (except) => {
       for (const id of MENU_IDS) {
         const menu = $(id);
@@ -294,29 +285,20 @@
     // 状态由 Harness 侧插件推送（SYNC_PROJECT）：空白新会话里会话头部不渲染，
     // 只有顶栏这个常驻入口能让用户随时回到课题空间。
     let currentProject = null;
+    // 插件面板是否正占用屏幕（面板打开期间不让文献浏览器露出来）。
+    let overlayOwnsScreen = false;
     const renderProjectEntry = () => {
       const entry = $('project-entry'), name = $('project-name');
       if (!entry || !name) return;
       const bound = Boolean(currentProject && currentProject.projectId);
       entry.dataset.empty = bound ? 'false' : 'true';
       name.textContent = bound ? String(currentProject.name || currentProject.projectId) : '选择课题';
-      $('project-button').title = bound ? `打开课题空间：${name.textContent}` : '选择课题';
-      const folder = $('project-folder');
-      if (folder) folder.disabled = !bound || !currentProject.workspacePath;
+      entry.title = bound ? `打开课题空间：${name.textContent}` : '选择课题';
     };
     renderProjectEntry();
-    $('project-button').addEventListener('click', () => {
+    $('project-entry').addEventListener('click', () => {
       closeMenus();
       postToFrame('OPEN_PROJECT', currentProject ? { projectId: currentProject.projectId } : {});
-    });
-    $('project-caret').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('project-menu'); });
-    $('project-open').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_PROJECT', currentProject ? { projectId: currentProject.projectId } : {}); });
-    $('project-panel').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_PROJECT_PANEL', {}); });
-    $('project-folder').addEventListener('click', () => {
-      closeMenus();
-      const path = currentProject && currentProject.workspacePath;
-      if (!path) return;
-      invoke('reveal_path', { path }).catch((error) => setText('state', `打开课题目录失败：${error}`));
     });
     const openProjectFolder = () => {
       const path = currentProject && currentProject.workspacePath;
@@ -358,8 +340,8 @@
     $('iwan-indicator').addEventListener('click', () => {
       closeMenus();
       invoke('open_iwan')
-        .then(() => { setText('state', '正在启动 iWAN 客户端…'); setTimeout(() => void refreshShellIndicators(), 8000); })
-        .catch((error) => setText('state', `打开 iWAN 失败：${error}`));
+        .then(() => { setTransientState('正在启动 iWAN 客户端…'); setTimeout(() => void refreshShellIndicators(), 8000); })
+        .catch((error) => setTransientState(`打开 iWAN 失败：${error}`, 15000));
     });
     setInterval(() => void refreshShellIndicators(), 5000);
     let activeMcpApp = null;
@@ -540,9 +522,20 @@
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'block';
       $('error-actions').style.display = 'none'; setText('title', '正在启动 iBM Lab Agent'); setText('detail', '正在选择本地端口并检查服务状态…'); setText('state', '本地服务启动中');
     };
+    // 顶栏状态文字的「稳定值」与「瞬态提示」：瞬态提示（如正在启动 iWAN）到点自动回落，
+    // 否则它会一直占着这一行、让人以为状态不再更新（现场反馈）。
+    let stableStateText = '正在准备本地科研工作台…';
+    let transientTimer = null;
+    const setTransientState = (text, restoreMs = 12000) => {
+      setText('state', text);
+      if (transientTimer) clearTimeout(transientTimer);
+      transientTimer = setTimeout(() => { transientTimer = null; setText('state', stableStateText); }, restoreMs);
+    };
     window.ibmLabRuntimeReady = (url) => {
       // 需求 §2.1：本地服务地址不再显示在顶栏，移入「诊断」详情。
-      frame.src = url; frame.style.display = 'block'; splash.style.display = 'none'; setText('state', '本地服务已就绪');
+      frame.src = url; frame.style.display = 'block'; splash.style.display = 'none';
+      stableStateText = '本地服务已就绪';
+      if (!transientTimer) setText('state', stableStateText);
       const service = $('diag-service');
       if (service) service.textContent = `本地服务地址：${url}`;
       void refreshShellIndicators();
@@ -553,7 +546,9 @@
     };
     window.ibmLabRuntimeFailed = (message) => {
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'none'; $('error-actions').style.display = 'block';
-      setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看诊断与日志后重试。`); setText('state', '启动失败');
+      stableStateText = '启动失败';
+      if (!transientTimer) setText('state', stableStateText);
+      setText('title', '本地服务未能启动'); setText('detail', `${message}。可查看诊断与日志后重试。`);
     };
     $('retry-button').addEventListener('click', () => invoke('restart_runtime').catch(window.ibmLabRuntimeFailed));
     $('update-button').addEventListener('click', async () => {
@@ -736,13 +731,23 @@
         }));
         invoke('webvpn_set_capture_queue', { tasks })
           .catch((error) => reply('WEBVPN_BALL_QUEUE_RESULT', { ok: false, error: String(error) }));
+      } else if (data.type === 'WEBVPN_HIDE_VIEW' || data.type === 'WEBVPN_SHOW_VIEW') {
+        // 插件全屏面板（课题面板）打开/关闭：原生子 WebView 永远画在网页之上，
+        // 面板打开期间必须把它收起来，否则课题界面会被文献浏览器挡在后面。
+        // 期间忽略 tab 正文上报的 rect，避免它把浏览器又显示出来。
+        overlayOwnsScreen = data.type === 'WEBVPN_HIDE_VIEW';
+        if (overlayOwnsScreen) {
+          invoke('webvpn_hide').catch(() => {});
+        } else {
+          invoke('webvpn_show').catch(() => { /* 从未打开过：无需恢复 */ });
+        }
       } else if (data.type === 'WEBVPN_SET_RECT') {
         // DSH 右侧栏接管布局：客户端上报「文献浏览器」tab 正文的矩形（相对它自己
         // 的视口），这里补上 iframe 在壳页面里的偏移，换算成主窗口客户区坐标。
         // 高频消息，不回包：只在失败时回一条携带 requestId 的错误。
         const payload = data.payload || {};
         const box = frame.getBoundingClientRect();
-        const visible = payload.visible === true;
+        const visible = payload.visible === true && !overlayOwnsScreen;
         invoke('webvpn_set_rect', {
           visible,
           x: box.left + Number(payload.x || 0),

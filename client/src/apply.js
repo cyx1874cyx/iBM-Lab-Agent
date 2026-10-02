@@ -5,7 +5,7 @@ import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
-import { installShellRequestBridge, installProjectShellBridge } from "./lib.js";
+import { installShellRequestBridge, installProjectShellBridge, setWebVpnVisibleViaShell } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
@@ -82,7 +82,15 @@ export function applyUi(ctx) {
 		return result.value;
 	};
 	let root = null;
-	const close = () => { if (!root) return; const node = root; root = null; ReactDOM.unmountComponentAtNode(node); node.remove(); };
+	const close = () => {
+		if (!root) return;
+		const node = root;
+		root = null;
+		ReactDOM.unmountComponentAtNode(node);
+		node.remove();
+		// 面板关掉后把原生文献浏览器放回去（面板打开时它是被收起来的）。
+		setWebVpnVisibleViaShell(true);
+	};
 	const toast = (message) => {
 		const node = document.createElement("div");
 		node.className = "ib-toast";
@@ -197,6 +205,9 @@ export function applyUi(ctx) {
 	};
 	const open = (initial) => {
 		if (root) return;
+		// 原生子 WebView 永远盖在网页之上：面板打开期间先把它收起来，
+		// 否则课题面板会被文献浏览器挡住（关掉面板时再恢复）。
+		setWebVpnVisibleViaShell(false);
 		root = document.createElement("div");
 		document.body.appendChild(root);
 		try {

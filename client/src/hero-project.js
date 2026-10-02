@@ -22,7 +22,6 @@
 import ReactDOM from "react-dom";
 import { useEffect, useState } from "react";
 import { h } from "./h.js";
-import { FlaskSvg } from "./components-templates.js";
 
 let runtime = null;
 
@@ -131,7 +130,6 @@ function renderChip({ label, state, menuOpen, busy, others, setMenuOpen, pickPro
 			title: state.current ? `当前课题：${state.current.name}（点击切换）` : "选择这条对话所属的课题",
 			onClick: () => setMenuOpen((value) => !value)
 		},
-			h("span", { className: "ib-hero-chip-icon" }, h(FlaskSvg, { width: 14, height: 14 })),
 			h("span", { className: "ib-hero-chip-label" }, label),
 			h("span", { className: "ib-hero-chip-caret", "aria-hidden": "true" }, "▾")),
 		menuOpen ? h("div", { className: "ib-hero-menu", role: "menu" },

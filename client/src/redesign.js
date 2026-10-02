@@ -121,7 +121,6 @@ export const redesignCss = `
 .ib-project-entry{position:relative;display:inline-flex;align-items:center;gap:2px;height:var(--ib-control-h)}
 .ib-overlay .ib-research-badge{display:inline-flex;align-items:center;gap:8px;height:var(--ib-control-h);max-width:260px;padding:0 10px;border:1px solid var(--ib-accent-line);border-radius:var(--ib-radius);background:var(--ib-accent-soft);color:var(--ib-accent-ink);box-shadow:none;cursor:pointer;text-align:left}
 .ib-overlay .ib-research-badge:hover{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
-.ib-project-entry .ib-badge-icon{display:grid;place-items:center;width:20px;height:20px;flex:none;border-radius:6px;background:none;box-shadow:none;color:var(--ib-accent-ink)}
 .ib-project-entry .ib-badge-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px;font-weight:600;color:var(--ib-accent-ink)}
 .ib-project-entry .ib-badge-caret{display:inline-grid;place-items:center;width:14px;height:16px;padding:0;border:0;background:none;color:var(--ib-accent-ink);font-size:11px;line-height:1;pointer-events:none}
 /* ── 检索结果条目（展开后的去重文献）────────────────────────────────────── */
@@ -178,7 +177,6 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-hero-chip{display:inline-flex;align-items:center;gap:7px;height:30px;max-width:260px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2,var(--ib-hair));border-radius:15px;background:var(--ib-bg);color:var(--dsw-alias-label-primary,var(--ib-text));font-size:13px;font-weight:500;line-height:1;cursor:pointer}
 .ib-hero-chip:hover{background:var(--ib-hover)}
 .ib-hero-chip[aria-expanded=true]{background:var(--ib-hover);border-color:var(--ib-accent-line)}
-.ib-hero-chip-icon{display:grid;place-items:center;color:var(--ib-accent-ink);flex:none}
 .ib-hero-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ib-hero-chip-caret{flex:none;font-size:11px;color:var(--dsw-alias-label-tertiary,var(--ib-soft))}
 .ib-hero-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:60;min-width:260px;max-width:min(420px,90vw);max-height:52vh;overflow:auto;display:grid;padding:6px;background:var(--ib-bg);border:1px solid var(--ib-hair);border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.16)}
