@@ -589,7 +589,8 @@ test("文献浏览器被约束在右侧栏 tab 里：客户端接管布局时恢
 	]);
 	// 现场：网页没被约束在侧栏 tab 里，DSH 反而被挤成左边一条。
 	// 根因是旧的按比例分栏（layout_sidebar）跑过一次就再没人把主 WebView 恢复全宽。
-	assert.match(webvpnRs, /if visible \{\n\s+if let Ok\(\(full_width, full_height\)\) = main_inner_logical\(app\)/);
+	// 注意：Windows 检出可能是 CRLF，别用 "\n" 锚行（用 \s* 吞掉 \r\n）。
+	assert.match(webvpnRs, /if visible \{\s+if let Ok\(\(full_width, full_height\)\) = main_inner_logical\(app\)/);
 	assert.match(webvpnRs, /let _ = main\.set_bounds\(bounds\(0\.0, 0\.0, full_width, full_height\)\)/);
 	// 打开 tab 要多等几次：只等一次会在 tab 稍慢时落进分栏模式。
 	assert.match(bridge, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
