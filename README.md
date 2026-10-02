@@ -253,10 +253,10 @@ v0.5.8 于 2026-10-01 完成出包验证：统一发布流水线 10 个阶段全
 
 | 产物 | 字节 | SHA-256 |
 |---|---|---|
-| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,235,489 | `1e8b0dc7…ac16fdb4` |
-| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,650,380 | `ae7955f5…74aa8e2` |
+| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,228,314 | `c906a414…20b42f40` |
+| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,652,035 | `224f5100…26b58885` |
 
-两者均由提交 `c7eb4e2` 构建，校验清单在 `dist/SHA256SUMS`。详见
+两者均由提交 `1700cd1` 构建，校验清单在 `dist/SHA256SUMS`。详见
 [`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)。
 
 v0.5.5-beta3 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
