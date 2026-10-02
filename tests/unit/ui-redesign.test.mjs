@@ -47,9 +47,10 @@ test("§2.2/§9 课题入口：图标 + 名称 + 下拉箭头，无英文标签�
 	assert.match(literature, /className: "ib-badge-caret"/);
 	assert.match(redesign, /\.ib-research-badge\{[^}]*height:var\(--ib-control-h\)/);
 	assert.match(redesign, /\.ib-project-entry \.ib-badge-name\{[^}]*font-size:15\.5px;[^}]*font-weight:600/);
-	// 紧凑状态入口（WebVPN + iWAN 合并）与「更多」菜单在桌面壳。
+	// 连接状态（WebVPN / iWAN 两个独立控件）与「更多」菜单在桌面壳，统一 36px。
 	const shell = await readFile(shellPath, "utf8");
-	assert.match(shell, /id="status-entry"/);
+	assert.match(shell, /id="webvpn-indicator"/);
+	assert.match(shell, /id="iwan-indicator"/);
 	assert.match(shell, /id="more-menu"/);
 	assert.match(shell, /height:36px/);
 });
@@ -89,7 +90,11 @@ test("§5.1 完成状态用按钮填充色 + 完成图标表达", async () => {
 	const [project, redesign] = await Promise.all([read("components-project.js"), read("redesign.js")]);
 	assert.match(project, /"data-kind": "reading", "data-done": readingDone \? "true" : undefined/);
 	assert.match(project, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
-	assert.match(project, /readingBusy \? h\(SpinSvg, null\) : \(readingDone \? h\(CheckSvg, null\) : null\)/);
+	// 完成态只靠填充色：不再额外加对号（现场反馈「已经标色了就不需要再加对号」）。
+	assert.match(project, /readingBusy \? h\(SpinSvg, null\) : null/);
+	assert.doesNotMatch(project, /CheckSvg/);
+	// 同一列在两种文案之间宽度不变，多行条目按钮才对得齐。
+	assert.match(redesign, /\.ib-overlay \.ib-act\{[^}]*justify-content:center;[^}]*min-width:84px/);
 	// 文字与颜色：开始精读/打开精读（青绿）、制作 PPT/打开 PPT（蓝）。
 	assert.match(project, /readingDone \? "打开精读" : "开始精读"/);
 	assert.match(project, /pptDone \? "打开 PPT" : "制作 PPT"/);

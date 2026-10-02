@@ -102,12 +102,10 @@
     .project-entry .project-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .project-entry .caret{display:grid;place-items:center;width:26px;height:36px;padding:0;border:0;border-radius:8px;background:none;color:var(--shell-accent-ink);font-size:12px}
     .project-entry .caret:hover{background:var(--shell-hover)}
-    .status-entry{max-width:220px}
-    .status-entry #status-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    /* 合并后的状态入口只显示两个状态点（WebVPN 红/绿，iWAN 红/黄/绿） */
-    .status-entry i,.menu .menu-status i{width:8px;height:8px;flex:none;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.14)}
-    .status-entry i[data-partial=true],.menu .menu-status i[data-partial=true]{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.14)}
-    .status-entry i[data-online=true],.menu .menu-status i[data-online=true]{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+    /* 连接状态：WebVPN 与 iWAN 各是一个独立控件（点 WebVPN 打开机构认证页、
+       点 iWAN 打开 iWAN 客户端）。红=未连接/未登录，黄=部分可用，绿=可用。 */
+    .indicator{max-width:200px}
+    .indicator span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     #diag-service{margin:0 0 12px;font-size:12.5px;color:var(--shell-muted);word-break:break-all}
     @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   </style>
@@ -119,17 +117,11 @@
            本地服务地址移到「诊断」详情（#diag-service），这里只留一句状态文字。 -->
       <span class="state" id="state">正在准备本地科研工作台…</span>
       <span class="spacer"></span>
-      <!-- WebVPN 与连接状态合并为一个紧凑状态入口（需求 §2.2）：
-           入口只显示两个状态点 + 一句话，明细与操作在下拉里。 -->
-      <div class="menu-wrap">
-        <button id="status-entry" class="tool status-entry" type="button" title="连接状态" aria-label="连接状态" aria-haspopup="true" aria-expanded="false"><i id="webvpn-indicator-dot" data-online="false" aria-hidden="true"></i><i id="iwan-indicator-dot" data-online="false" data-partial="false" aria-hidden="true"></i><span id="status-text">连接状态</span></button>
-        <div class="menu" id="status-menu" role="menu">
-          <div class="menu-status"><span>WebVPN</span><b id="webvpn-indicator-text">打开 WebVPN</b></div>
-          <div class="menu-status"><span>iWAN</span><b id="iwan-indicator-text">iWAN</b></div>
-          <button id="webvpn-indicator" type="button">打开 WebVPN</button>
-          <button id="status-refresh" type="button">刷新连接状态</button>
-        </div>
-      </div>
+      <!-- 连接状态：两个独立控件（不是一个合并入口）。
+           红点 WebVPN：点击打开机构认证页（侧栏 WebVPN）；绿点表示已登录。
+           红点 iWAN：点击打开 iWAN 客户端；绿=全局路由可用 / 黄=已连但未全路由。 -->
+      <button id="webvpn-indicator" class="tool indicator" type="button" title="WebVPN 未登录" aria-label="WebVPN 未登录"><i id="webvpn-indicator-dot" data-online="false" aria-hidden="true"></i><span id="webvpn-indicator-text">WebVPN</span></button>
+      <button id="iwan-indicator" class="tool indicator" type="button" title="iWAN 未连接" aria-label="iWAN 未连接"><i id="iwan-indicator-dot" data-online="false" data-partial="false" aria-hidden="true"></i><span id="iwan-indicator-text">iWAN</span></button>
       <!-- 文件夹入口（工作目录 / 课题目录） -->
       <div class="menu-wrap">
         <button id="folder-button" class="tool" type="button" title="文件夹" aria-haspopup="true" aria-expanded="false">文件夹 ▾</button>
@@ -277,7 +269,7 @@
     };
     // ── 0.6.0 顶栏菜单（状态 / 文件夹 / 更多 / 课题）────────────────────────
     // 原生 button + .menu：不需要框架，点外面或 Esc 统一收起。
-    const MENU_IDS = ['status-menu', 'folder-menu', 'more-menu', 'project-menu'];
+    const MENU_IDS = ['folder-menu', 'more-menu', 'project-menu'];
     const closeMenus = (except) => {
       for (const id of MENU_IDS) {
         const menu = $(id);
@@ -334,23 +326,13 @@
     $('project-folder-top').addEventListener('click', () => { closeMenus(); openProjectFolder(); });
     $('folder-button').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('folder-menu'); });
     $('more-button').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('more-menu'); });
-    $('status-entry').addEventListener('click', (event) => { event.stopPropagation(); toggleMenu('status-menu'); });
-    $('status-refresh').addEventListener('click', () => { closeMenus(); void refreshShellIndicators(); });
     const refreshShellIndicators = async () => {
       // 顺带把捕获状态推给页面里的捕获小球：它是页面内的浮标，只能由壳推。
       void invoke('webvpn_sync_capture_ball').catch(() => {});
-      const summary = (webvpn, iwan) => {
-        if (iwan && iwan.usable) return 'iWAN 已连接';
-        if (iwan && iwan.connected) return 'iWAN 部分可用';
-        if (webvpn && webvpn.loggedIn) return 'WebVPN 已登录';
-        return '连接状态';
-      };
-      let webvpnState, iwanState;
       try {
         const status = await invoke('webvpn_status');
         const loggedIn = Boolean(status && status.windowOpen && status.authenticated);
         const label = status && status.sidebarVisible ? '返回 WebVPN' : '打开 WebVPN';
-        webvpnState = { loggedIn };
         setIndicator('webvpn-indicator-dot', 'webvpn-indicator-text', {
           online: loggedIn,
           partial: false,
@@ -362,7 +344,6 @@
         const status = await invoke('iwan_status');
         const usable = Boolean(status && status.usable), connected = Boolean(status && status.connected);
         const label = usable ? 'iWAN 全局模式可用' : connected ? 'iWAN 已连接但未启用全部路由' : status && status.installed ? 'iWAN 未连接' : '未安装 iWAN';
-        iwanState = { usable, connected };
         setIndicator('iwan-indicator-dot', 'iwan-indicator-text', {
           online: usable,
           partial: connected && !usable,
@@ -370,10 +351,16 @@
           title: (status && status.message) || label,
         });
       } catch { /* 同上 */ }
-      const statusText = $('status-text');
-      if (statusText) statusText.textContent = summary(webvpnState, iwanState);
     };
+    // WebVPN 点：交给 Harness 侧打开 WebVPN（未登录时即门户/机构认证页）。
     $('webvpn-indicator').addEventListener('click', () => { closeMenus(); postToFrame('OPEN_WEBVPN_REQUEST'); });
+    // iWAN 点：直接拉起本机 iWAN 客户端（未连接时用户就是要开它）。
+    $('iwan-indicator').addEventListener('click', () => {
+      closeMenus();
+      invoke('open_iwan')
+        .then(() => { setText('state', '正在启动 iWAN 客户端…'); setTimeout(() => void refreshShellIndicators(), 8000); })
+        .catch((error) => setText('state', `打开 iWAN 失败：${error}`));
+    });
     setInterval(() => void refreshShellIndicators(), 5000);
     let activeMcpApp = null;
     let latestReleaseUrl = '';

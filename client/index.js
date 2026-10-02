@@ -149,7 +149,9 @@ var redesignCss = `
 .ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
 .ib-overlay .ib-lit-overview-meta,.ib-overlay .ib-lit-overview-time{display:block;font-size:13.5px;color:var(--ib-soft)}
 /* ── 操作按钮：用填充色表达完成状态（需求 §5.1）────────────────────────── */
-.ib-overlay .ib-act{display:inline-flex;align-items:center;gap:6px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
+/* 固定最小宽度 + 居中：同一列在「开始精读/打开精读」「简介/收起简介」之间切换时
+   宽度不变，多行条目的按钮才会对齐成列（现场反馈「按钮参差不齐」）。 */
+.ib-overlay .ib-act{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:84px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
 .ib-overlay .ib-act:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-act:disabled{cursor:default;opacity:.6}
 .ib-overlay .ib-act[data-kind=accent]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}
@@ -3227,13 +3229,6 @@ function SiSvg({ width = 15, height = 15 }) {
     h("path", { d: "M12 8.5v6M9 11.5h6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
   );
 }
-function CheckSvg({ width = 14, height = 14 }) {
-  return h(
-    "svg",
-    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
-    h("path", { d: "M5 12.8 10 18 19 6.6", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" })
-  );
-}
 function SpinSvg({ width = 14, height = 14 }) {
   return h(
     "svg",
@@ -3945,11 +3940,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => {
                 event.stopPropagation();
                 openReview(search, "report");
-              }, title: "打开综述报告（Markdown）" }, h(CheckSvg, null), "打开综述") : null,
+              }, title: "打开综述报告（Markdown）" }, "打开综述") : null,
               search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => {
                 event.stopPropagation();
                 openReview(search, "ppt");
-              }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
+              }, title: "打开综述汇报 PPT" }, "打开综述 PPT") : null,
               h("button", { className: "ib-act", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: (event) => {
                 event.stopPropagation();
                 void risFor(search);
@@ -4074,7 +4069,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 disabled: readingBusy,
                 onClick: () => readingDone ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt),
                 title: readingDone ? "打开已生成的精读报告" : "在当前课题工作区新建对话并预填精读任务"
-              }, readingBusy ? h(SpinSvg, null) : readingDone ? h(CheckSvg, null) : null, readingBusy ? "打开中…" : readingDone ? "打开精读" : "开始精读"),
+              }, readingBusy ? h(SpinSvg, null) : null, readingBusy ? "打开中…" : readingDone ? "打开精读" : "开始精读"),
               h("button", {
                 className: "ib-act",
                 "data-kind": "ppt",
@@ -4083,7 +4078,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 disabled: pptBusy,
                 onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
                 title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
-              }, pptBusy ? h(SpinSvg, null) : pptDone ? h(CheckSvg, null) : null, pptBusy ? "打开中…" : pptDone ? "打开 PPT" : "制作 PPT"),
+              }, pptBusy ? h(SpinSvg, null) : null, pptBusy ? "打开中…" : pptDone ? "打开 PPT" : "制作 PPT"),
               h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除")
             )
           ),

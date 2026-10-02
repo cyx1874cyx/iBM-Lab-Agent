@@ -18,6 +18,12 @@ fn iwan_status() -> iwan::IwanStatus {
     iwan::status()
 }
 
+/// 顶栏 iWAN 状态点：点击直接拉起本机 iWAN 客户端。
+#[tauri::command]
+fn open_iwan() -> Result<(), String> {
+    iwan::open_client()
+}
+
 fn show_runtime_error(window: &WebviewWindow, message: &str) {
     let payload =
         serde_json::to_string(message).unwrap_or_else(|_| "\"Unknown startup error\"".to_string());
@@ -906,6 +912,7 @@ fn main() {
             open_in_edge,
             open_artifact_in_browser,
             iwan_status,
+            open_iwan,
             webvpn_probe_available,
             webvpn_probe_open,
             webvpn_open_login,

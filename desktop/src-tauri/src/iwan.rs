@@ -159,6 +159,22 @@ pub fn status() -> IwanStatus {
     }
 }
 
+/// 拉起本机 iWAN 客户端（顶栏 iWAN 状态点被点击时用）。
+///
+/// 只启动官方客户端本身，不传任何账号/令牌/配置；客户端没装时返回可执行的说明，
+/// 由壳显示在状态文字里。
+pub fn open_client() -> Result<(), String> {
+    let path = panabit_install_path()
+        .ok_or_else(|| "找不到 iWAN 安装路径（%ProgramFiles(x86)%\\Panabit\\mobile_client.exe）".to_string())?;
+    if !path.is_file() {
+        return Err(format!("未找到 iWAN 客户端：{}", path.display()));
+    }
+    std::process::Command::new(&path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("启动 iWAN 失败：{error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

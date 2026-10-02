@@ -94,7 +94,9 @@ export const redesignCss = `
 .ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
 .ib-overlay .ib-lit-overview-meta,.ib-overlay .ib-lit-overview-time{display:block;font-size:13.5px;color:var(--ib-soft)}
 /* ── 操作按钮：用填充色表达完成状态（需求 §5.1）────────────────────────── */
-.ib-overlay .ib-act{display:inline-flex;align-items:center;gap:6px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
+/* 固定最小宽度 + 居中：同一列在「开始精读/打开精读」「简介/收起简介」之间切换时
+   宽度不变，多行条目的按钮才会对齐成列（现场反馈「按钮参差不齐」）。 */
+.ib-overlay .ib-act{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:84px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
 .ib-overlay .ib-act:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-act:disabled{cursor:default;opacity:.6}
 .ib-overlay .ib-act[data-kind=accent]{color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-color:var(--ib-accent-line)}

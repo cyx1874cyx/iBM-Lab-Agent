@@ -7,7 +7,7 @@ import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact
 import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
-import { BookSvg, SiSvg, CheckSvg, SpinSvg } from "./components-templates.js";
+import { BookSvg, SiSvg, SpinSvg } from "./components-templates.js";
 
 // 条目操作按钮一律**平铺在条目右侧**（与改版前一致）：次级原文按钮 + 简介 + 精读 +
 // PPT + 删除。试过把这些低频操作收进 `···` 下拉，但在 DSH 的滚动容器里菜单会被裁切、
@@ -667,8 +667,8 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 								h("button", { className: "ib-act", "data-kind": "accent", disabled: !resultCount, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
 								// 写综述 / 打开综述 / 导出 RIS / 删除全部平铺在右侧，不收起、不弹层。
 								h("button", { className: "ib-act", "data-ready": search.review?.status === "ready" ? "true" : undefined, disabled: !!busy[`review:${search.id}`] || !resultCount, onClick: (event) => { event.stopPropagation(); void writeReview(search); }, title: search.review?.status === "ready" ? "已有综述：重新生成或覆盖提交" : "在当前课题工作区新建对话，按综述模板写这篇综述" }, busy[`review:${search.id}`] ? "…" : (search.review?.status === "ready" ? "重写综述" : "写综述")),
-								search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, h(CheckSvg, null), "打开综述") : null,
-								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, h(CheckSvg, null), "打开综述 PPT") : null,
+								search.review?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "reading", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "report"); }, title: "打开综述报告（Markdown）" }, "打开综述") : null,
+								search.reviewPresentation?.status === "ready" ? h("button", { className: "ib-act", "data-kind": "ppt", "data-done": "true", onClick: (event) => { event.stopPropagation(); openReview(search, "ppt"); }, title: "打开综述汇报 PPT" }, "打开综述 PPT") : null,
 								h("button", { className: "ib-act", disabled: !!busy[`ris:${search.id}`] || !resultCount, onClick: (event) => { event.stopPropagation(); void risFor(search); }, title: "导出本会话去重文献的 RIS 并写入磁盘" }, busy[`ris:${search.id}`] ? "…" : "导出 RIS"),
 								h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-search:${search.id}`], onClick: (event) => { event.stopPropagation(); deleteSearch(search); }, title: "删除这条检索记录" }, busy[`delete-search:${search.id}`] ? "…" : "删除"))
 						),
@@ -763,13 +763,13 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 										disabled: readingBusy,
 										onClick: () => readingDone ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt),
 										title: readingDone ? "打开已生成的精读报告" : "在当前课题工作区新建对话并预填精读任务"
-									}, readingBusy ? h(SpinSvg, null) : (readingDone ? h(CheckSvg, null) : null), readingBusy ? "打开中…" : (readingDone ? "打开精读" : "开始精读")),
+									}, readingBusy ? h(SpinSvg, null) : null, readingBusy ? "打开中…" : (readingDone ? "打开精读" : "开始精读")),
 									h("button", {
 										className: "ib-act", "data-kind": "ppt", "data-done": pptDone ? "true" : undefined, "data-busy": pptBusy ? "true" : undefined,
 										disabled: pptBusy,
 										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
 										title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
-									}, pptBusy ? h(SpinSvg, null) : (pptDone ? h(CheckSvg, null) : null), pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
+									}, pptBusy ? h(SpinSvg, null) : null, pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
 									h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除"))
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
