@@ -502,6 +502,7 @@ var WEBVPN_RECT_READY_TIMEOUT_MS = 800;
 var CAPTURE_ARM_WINDOW_MS = 15e3;
 var openTabAction = null;
 var rectReported = false;
+var lastRectPayload = null;
 var captureArmedAt = 0;
 var rectWaiters = /* @__PURE__ */ new Set();
 function armWebVpnCaptureWindow() {
@@ -530,6 +531,7 @@ function waitForWebVpnRect(timeoutMs = WEBVPN_RECT_READY_TIMEOUT_MS) {
 }
 function sendWebVpnRect(payload) {
   if (typeof window === "undefined" || !window.parent || window.parent === window) return;
+  lastRectPayload = payload;
   try {
     window.parent.postMessage({
       source: "ibm-lab-agent",
@@ -539,6 +541,9 @@ function sendWebVpnRect(payload) {
     }, "*");
   } catch {
   }
+}
+function replayWebVpnRect() {
+  sendWebVpnRect(lastRectPayload ?? { visible: false });
 }
 function sendWebVpnBallQueue(tasks, notice) {
   if (typeof window === "undefined" || !window.parent || window.parent === window) return;
@@ -586,14 +591,16 @@ function sendWebVpnBallQueue(tasks, notice) {
 }
 async function openWebVpnTab() {
   if (!openTabAction) return false;
-  try {
-    openTabAction();
-  } catch (reason) {
-    console.warn("[dsh-lab-agent] 打开文献浏览器 tab 失败", reason);
-    return false;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      openTabAction();
+    } catch (reason) {
+      console.warn("[dsh-lab-agent] 打开文献浏览器 tab 失败", reason);
+      return false;
+    }
+    if (await waitForWebVpnRect(attempt === 0 ? WEBVPN_RECT_READY_TIMEOUT_MS : 1500)) return true;
   }
-  await waitForWebVpnRect();
-  return true;
+  return false;
 }
 
 // client/src/lib.js
@@ -918,6 +925,9 @@ function installShellRequestBridge() {
       const taskId = String(data.payload?.taskId || "");
       if (!taskId) return;
       void onRecreateTaskFromBall?.(taskId);
+    }
+    if (data.type === "WEBVPN_REPLAY_RECT") {
+      replayWebVpnRect();
     }
   };
   window.addEventListener("message", onMessage);

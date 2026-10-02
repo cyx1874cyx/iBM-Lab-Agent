@@ -1,5 +1,5 @@
 // 工具函数：格式化、下载、desktop shell 通信（从原 client/index.js 单文件抽离）。
-import { armWebVpnCaptureWindow, openWebVpnTab } from "./webvpn-bridge.js";
+import { armWebVpnCaptureWindow, openWebVpnTab, replayWebVpnRect } from "./webvpn-bridge.js";
 export const when = (value) => value ? new Date(value).toLocaleString() : "—";
 export const titleOf = (row) => row.title || row.name || row.query || row.id;
 export const statusOf = (row) => ({ succeeded: "已审核", pending: "待处理", running: "生成中", failed: "已退回", draft: "草稿", "under-review": "已暂存·待审核", approved: "已批准", prepared: "待分析", "approved-written": "已审核", "visually-verified": "已确认" })[row.status] || row.status || "已登记";
@@ -369,6 +369,11 @@ export function installShellRequestBridge() {
 			const taskId = String(data.payload?.taskId || "");
 			if (!taskId) return;
 			void onRecreateTaskFromBall?.(taskId);
+		}
+		// 插件全屏面板关掉后，壳请求重放矩形：由客户端决定浏览器该不该可见
+		// （不用壳侧 webvpn_show 硬显示，避免标签页已经不在时又把它弹出来）。
+		if (data.type === "WEBVPN_REPLAY_RECT") {
+			replayWebVpnRect();
 		}
 	};
 	window.addEventListener("message", onMessage);

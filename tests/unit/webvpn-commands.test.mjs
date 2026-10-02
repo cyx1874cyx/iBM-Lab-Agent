@@ -388,7 +388,7 @@ test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏",
 	assert.match(apply, /sidebarRight\.openTab\(WEBVPN_TAB_KIND\)/);
 
 	// 2) 必须先等首次矩形上报，否则 webvpn_open_login 会先触发一次旧的分栏。
-	assert.match(bridge, /await waitForWebVpnRect\(\)/);
+	assert.match(bridge, /await waitForWebVpnRect\(attempt === 0 \? WEBVPN_RECT_READY_TIMEOUT_MS : 1500\)|await waitForWebVpnRect\(\)/);
 	assert.match(bridge, /requestId:/, "桌面壳要求 requestId 非空，否则整条消息被丢弃");
 
 	// 3) 桌面壳：把 tab 相对视口的坐标换算成主窗口客户区坐标。
@@ -401,7 +401,11 @@ test("文献浏览器作为 DSH 右侧栏 tab 接入，Rust 不再自行分栏",
 	// 4) Rust：接管后主 WebView 完全不动，坏矩形一律按隐藏处理。
 	const applyRect = webvpn.match(/pub fn apply_client_rect\([\s\S]*?\n\}/);
 	assert.ok(applyRect, "必须存在 apply_client_rect");
-	assert.doesNotMatch(applyRect[0], /main\.set_bounds|MAIN_WINDOW_LABEL/, "接管布局后不得再改动主 WebView");
+	// 接管布局后主 WebView 不再按 tab 矩形摆放；唯一允许的改动是把「旧分栏压窄过」的
+	// 主 WebView 恢复成全宽（修复 2026-10-02 现场：DSH 被挤成左边一条、浏览器占整屏）。
+	assert.doesNotMatch(applyRect[0], /main\.set_bounds\(bounds\(rect/, "不得按 tab 矩形摆放主 WebView");
+	assert.match(applyRect[0], /let _ = main\.set_bounds\(bounds\(0\.0, 0\.0, full_width, full_height\)\)/, "只允许恢复全宽");
+	assert.match(applyRect[0], /if visible \{/, "只在可见上报时修复");
 	assert.match(applyRect[0], /state\.mark_client_layout\(\)/);
 	assert.match(webvpn, /fn sanitize_client_rect\([\s\S]*?is_finite\(\)[\s\S]*?return None;/);
 	assert.match(webvpn, /pub fn client_layout\(&self\)/, "show/hide/resize 需要读这个标志来分支");
@@ -574,4 +578,27 @@ test("iWAN 可用时不再强制先过 WebVPN 门户，捕获布防期间也不�
 	// iWAN 全部路由可用时机构可直接访问，不需要先绕门户。
 	assert.match(seed[0], /if \(iwan\?\.usable\) return;/);
 	assert.match(tab, /iwanStatusViaShell\(\)/, "判定 iWAN 需要查一次状态");
+});
+
+test("文献浏览器被约束在右侧栏 tab 里：客户端接管布局时恢复主 WebView 全宽", async () => {
+	const [webvpnRs, bridge, shell, lib] = await Promise.all([
+		readFile(new URL("../../desktop/src-tauri/src/webvpn.rs", import.meta.url), "utf8"),
+		readFile(new URL("../../client/src/webvpn-bridge.js", import.meta.url), "utf8"),
+		readFile(new URL("../../desktop/src/index.html", import.meta.url), "utf8"),
+		readFile(new URL("../../client/src/lib.js", import.meta.url), "utf8"),
+	]);
+	// 现场：网页没被约束在侧栏 tab 里，DSH 反而被挤成左边一条。
+	// 根因是旧的按比例分栏（layout_sidebar）跑过一次就再没人把主 WebView 恢复全宽。
+	assert.match(webvpnRs, /if visible \{\n\s+if let Ok\(\(full_width, full_height\)\) = main_inner_logical\(app\)/);
+	assert.match(webvpnRs, /let _ = main\.set_bounds\(bounds\(0\.0, 0\.0, full_width, full_height\)\)/);
+	// 打开 tab 要多等几次：只等一次会在 tab 稍慢时落进分栏模式。
+	assert.match(bridge, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
+	assert.match(bridge, /waitForWebVpnRect\(attempt === 0 \? WEBVPN_RECT_READY_TIMEOUT_MS : 1500\)/);
+	// 面板关掉后重放矩形，而不是壳侧硬 webvpn_show（否则 tab 已经不在时又弹出来）。
+	assert.match(bridge, /export function replayWebVpnRect\(\)/);
+	assert.match(bridge, /sendWebVpnRect\(lastRectPayload \?\? \{ visible: false \}\)/);
+	assert.match(lib, /data\.type === "WEBVPN_REPLAY_RECT"/);
+	// 面板关闭时走重放，而不是 webvpn_show 硬显示（webvpn_show 仍留给「把浏览器
+	// 带到前台」那条既有路径）。
+	assert.match(shell, /overlayOwnsScreen = data\.type === 'WEBVPN_HIDE_VIEW';[\s\S]{0,400}postToFrame\('WEBVPN_REPLAY_RECT', \{\}\)/);
 });

@@ -3324,6 +3324,17 @@ pub fn apply_client_rect(
         return Err("WebVPN 状态不可用".to_string());
     };
     state.mark_client_layout();
+    // 客户端接管布局时，主 WebView 必须回到全宽：旧的「按比例分栏」会把主 WebView
+    // 压窄（layout_sidebar），而那条路径一旦跑过就没人再恢复它——现场表现就是
+    // DSH 被挤成左边一条、文献浏览器占了整屏（2026-10-02 反馈）。
+    // 全宽是客户端接管模式下的唯一正确值，所以每次可见上报都重新钉一遍（值相同即无操作）。
+    if visible {
+        if let Ok((full_width, full_height)) = main_inner_logical(app) {
+            if let Some(main) = app.get_webview(MAIN_WINDOW_LABEL) {
+                let _ = main.set_bounds(bounds(0.0, 0.0, full_width, full_height));
+            }
+        }
+    }
     let Some(rect) = sanitize_client_rect(visible, x, y, width, height) else {
         if let Some(webview) = app.get_webview(WINDOW_LABEL) {
             webview.hide().map_err(|error| error.to_string())?;

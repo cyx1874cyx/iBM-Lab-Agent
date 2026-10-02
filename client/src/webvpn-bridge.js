@@ -18,6 +18,9 @@ const CAPTURE_ARM_WINDOW_MS = 15000;
 
 let openTabAction = null;
 let rectReported = false;
+/** 最后一次上报的矩形载荷：面板关闭后由壳请求重放，避免用 webvpn_show 把浏览器
+ *  在「标签页其实已经不在」的情况下又弹出来（2026-10-02 反馈）。 */
+let lastRectPayload = null;
 let captureArmedAt = 0;
 const rectWaiters = new Set();
 
@@ -76,6 +79,7 @@ export function waitForWebVpnRect(timeoutMs = WEBVPN_RECT_READY_TIMEOUT_MS) {
  */
 export function sendWebVpnRect(payload) {
 	if (typeof window === "undefined" || !window.parent || window.parent === window) return;
+	lastRectPayload = payload;
 	try {
 		window.parent.postMessage({
 			source: "ibm-lab-agent",
@@ -84,6 +88,16 @@ export function sendWebVpnRect(payload) {
 			payload
 		}, "*");
 	} catch { /* 壳未就绪：下一次布局变化会重发 */ }
+}
+
+/**
+ * 重放最后一次矩形上报（壳在插件面板关闭后请求）。
+ *
+ * 没有上报过就发 `visible:false`——绝不主动把浏览器显示出来：它该不该可见由 tab 正文
+ * 决定，壳只负责转发。
+ */
+export function replayWebVpnRect() {
+	sendWebVpnRect(lastRectPayload ?? { visible: false });
 }
 
 /**
@@ -145,8 +159,12 @@ export function sendWebVpnBallQueue(tasks, notice) {
  */
 export async function openWebVpnTab() {
 	if (!openTabAction) return false;
-	try { openTabAction(); }
-	catch (reason) { console.warn("[dsh-lab-agent] 打开文献浏览器 tab 失败", reason); return false; }
-	await waitForWebVpnRect();
-	return true;
+	// 右侧栏 tab 挂载 + 上报矩形可能要跨一两次布局；只等一次（800ms）会在 tab 稍慢时
+	// 落到 Rust 的旧「按比例分栏」，把 DSH 挤窄（现场反馈）。这里重试几次再放弃。
+	for (let attempt = 0; attempt < 3; attempt += 1) {
+		try { openTabAction(); }
+		catch (reason) { console.warn("[dsh-lab-agent] 打开文献浏览器 tab 失败", reason); return false; }
+		if (await waitForWebVpnRect(attempt === 0 ? WEBVPN_RECT_READY_TIMEOUT_MS : 1500)) return true;
+	}
+	return false;
 }

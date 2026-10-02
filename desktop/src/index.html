@@ -739,7 +739,9 @@
         if (overlayOwnsScreen) {
           invoke('webvpn_hide').catch(() => {});
         } else {
-          invoke('webvpn_show').catch(() => { /* 从未打开过：无需恢复 */ });
+          // 不用 webvpn_show 硬显示：文献浏览器该不该可见由 tab 正文决定。
+          // 让客户端重放最后一次矩形上报（tab 已关闭时它会重放 visible:false）。
+          postToFrame('WEBVPN_REPLAY_RECT', {});
         }
       } else if (data.type === 'WEBVPN_SET_RECT') {
         // DSH 右侧栏接管布局：客户端上报「文献浏览器」tab 正文的矩形（相对它自己
