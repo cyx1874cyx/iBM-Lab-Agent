@@ -14,7 +14,8 @@
 
 import { z } from "zod";
 
-export const PROFILE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
+import { PROFILE_ID_RE } from "./contracts/identifiers.js";
+export { PROFILE_ID_RE } from "./contracts/identifiers.js";
 
 /** Paper Card 契约：固定 01–16 节，永不因目标切换而删除（计划 §三 规则 3/4）。 */
 export const PAPER_CARD_SECTION_CONTRACT = "01-16 fixed sections preserved; user goal sets depth/emphasis only";

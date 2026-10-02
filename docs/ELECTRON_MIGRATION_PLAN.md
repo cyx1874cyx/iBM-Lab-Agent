@@ -176,6 +176,8 @@ desktop/native 模块进入 NEXT 产品构建或受管 helper；它不能只作�
 
 P1 已于 2026-10-03 完成单包兼容原型验收：固定 NEXT v2.0.17-next + 内核 0.2.0-rc.2 + Electron 44.0.0 Node-mode Host；无头客户端、默认科研预设、Remote、科研 Python 3.12.11、课题记忆与会话绑定的重启持久化通过。iBM 测试 780 通过/8 跳过，NEXT 测试 417 通过/2 跳过，均无失败。详见 [P1 执行报告](../migration/electron-next/P1_REPORT.md) 和 [复现说明](../migration/electron-next/P1_REPRODUCE.md)。下一阶段进入 P2；此结果不代表 P4/P6 的科研桌面功能、安装包及历史数据迁移验收。
 
+P2 已于 2026-10-03 完成 core、纯契约、共享仓储与兼容入口验收：core 唯一打开 `lab_tasks`，新基础课题、核心记忆与绑定不依赖科研业务服务；原 tasks 方法集合和 157 个 Remote 标记保留。iBM 测试 783 通过/8 跳过/0 失败；真实固定 NEXT/Electron 验证完整组合 → 仅 core + Remote → 恢复完整组合，课题数据保留，缺失领域返回 `feature-unavailable`。详见 [P2 执行报告](../migration/electron-next/P2_REPORT.md)、[契约与配置归属](../migration/electron-next/P2_CONTRACTS.md)。当前仍由根包提供子入口，**下一阶段进入 P3 领域服务拆分**。
+
 P0 已完成：从指定标签建立迁移分支，固定 43 个关键源码输入和 6 个源码树指纹；生成 24 个服务、14 个域/29 张表、56 个工具、157 个远程方法、41 个桌面命令及 27 项功能回归清单。源基线重算与篡改/缺失检测通过，详见 P0 执行报告。
 
 迁移使用独立工作区和 codex/electron-next-migration 分支；原工作区保留。P0 未改动业务源码、安装依赖或运行新的桌面应用。本机 Python 3.12.10 与目标 3.12.11 的差异、离线制品 hash 和固定构建路径已登记为后续前置事项。运行结果、真实机构捕获、rc.2 历史数据兼容与安装升级路径仍待 P1/P4/P6 验证。

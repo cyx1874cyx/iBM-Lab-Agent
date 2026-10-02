@@ -1,0 +1,175 @@
+{
+  "phase": "P2",
+  "status": "PASS",
+  "date": "2026-10-03",
+  "implementationParent": "52d1684",
+  "inputs": {
+    "ibm": "0.5.8-rc.1",
+    "next": "2.0.17-next",
+    "kernel": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "python": "3.12.11"
+  },
+  "unitIntegration": {
+    "tests": 791,
+    "pass": 783,
+    "skipped": 8,
+    "failed": 0
+  },
+  "checks": {
+    "pureContracts": "PASS",
+    "singleDomainOwner": "PASS",
+    "coreOnlyAndLegacyCompatibility": "PASS",
+    "disposedRepositoryRefs": "PASS",
+    "lint": "PASS zero errors/warnings",
+    "clientBuildConsistency": "PASS",
+    "p0Freeze": "PASS",
+    "pnpmFrozenLock": "PASS",
+    "nextAndKernelSourceClean": "PASS"
+  },
+  "prototype": {
+    "evidence": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2\\prototype\\run-90YAh8\\verification.json",
+    "checks": [
+      "isolated-pinned-resources-deployed",
+      "exact-managed-python-linked",
+      "official-plugin-install-activated",
+      "real-host-ready",
+      "bundle-enabled",
+      "research-preset-healthy",
+      "lab-remote-request-contract",
+      "scientific-runtime-host-preflight-and-conversion",
+      "project-memory-write",
+      "research-session-created-and-bound",
+      "client-selected-research-default",
+      "client-mounted-no-page-errors",
+      "isolated-browser-stopped",
+      "real-host-ready",
+      "memory-survives-host-restart",
+      "binding-survives-host-restart",
+      "real-host-ready",
+      "core-only-host-history-create-memory-delete-and-feature-error",
+      "real-host-ready",
+      "full-workflows-restored-without-data-loss"
+    ],
+    "ok": true
+  },
+  "artifacts": [
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\cordis.patch.yml",
+      "sha256": "f3378848da20119297e3cd4bb1c517206d231df726fb5e90ea8a5067b1295672"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\package.json",
+      "sha256": "2131dba15b41c5057b0ab82e33bcfa64b28367be1acc1cdee7b790cc31dea4a0"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\remote.js",
+      "sha256": "9d0ec5bc82f35d45183b0c42c71b91813cd4c89b4e3d465443bc2e895f4002b2"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\tasks\\index.js",
+      "sha256": "19b87c34baf295fa370cdff6794a71f26d59dcb32c2caba9a9bc45c596fd0c1f"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\tasks\\projects.js",
+      "sha256": "991267ca5967926bd218b168ca8124ee48f028ae542eb8d0b1b4e6c6dcc53239"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\tasks\\provenance.js",
+      "sha256": "9d9e9d189ebb796daea0bd5d3c6c5d001473bd649f627f9cce46d95595ce906d"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\src\\goal-profile.js",
+      "sha256": "04de02287e08495f264059aceb0df714ff966a379868b33c31becafb8b2ff1d1"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\src\\task-models.js",
+      "sha256": "847ef0d4987768bbb85d32b2912bda4671b5cf9d3f6b8747eb78ea8b21c096d1"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\tests\\helpers\\boot-lite.mjs",
+      "sha256": "fc16403880c0b96bff54f77b1c247bc9395498b85eadf6b93de4b8f124f4a858"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\tests\\integration\\core.test.mjs",
+      "sha256": "ead1fe513791b2dffba479b07e8444015a4c21cb31261cdc3c4c89d53167e156"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\scripts\\migration\\verify-next-prototype.mjs",
+      "sha256": "8a90ccb090b7941b6fc0d9a5267cea2b68d2a902b3bb36462f98ce26394f9e2a"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\migration\\electron-next\\P2_CONTRACTS.md",
+      "sha256": "2a4d8c8e0251d8dcac3949e19fd63ab56cea1bd8fa7a209051c354c3a3cb2751"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\migration\\electron-next\\P2_REPORT.md",
+      "sha256": "54b06eb100d8e9fbc8abb2aae8af3f039d5a8b6375b4e741d852515ad233ce17"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\migration\\electron-next\\P2_REPRODUCE.md",
+      "sha256": "b9aff7ed0bf265d27bf65e194a72ebd12fd83b0a84479148534938e27784f13f"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\docs\\ELECTRON_MIGRATION_PLAN.md",
+      "sha256": "7c9fd00b08e06e141a74274b574d7af8e270dd24db89b2f8be258697a4c45998"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\docs\\DSH_NEXT_PLUGIN_SPLIT_ASSESSMENT.md",
+      "sha256": "c9393c63030b81e230e989a26a9b947126229a290e975503aa67013de722e321"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\core\\artifacts.js",
+      "sha256": "f9d6cfc93a61260f9b6d25846dc6e7cfec251851d0b706fae5484f9df7c635e5"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\core\\domain.js",
+      "sha256": "b39959bb5e538267246f862add09c269cc876bdef2834363bb1bfeda28232b65"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\core\\index.js",
+      "sha256": "03596db6711595e632cec868bb702f898fb21b4467786bed0627c67f7ae090c0"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\core\\projects.js",
+      "sha256": "ad60f278de0c17c5f72aebaff8fbdcb0bff4edf2b1e30cda8cdd0d04951120ed"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\lib\\repositories\\index.js",
+      "sha256": "0e83887e6d492253bfa79339f40f3ae4cd21f871fc9537a7f817c02a0fcfd5c3"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\src\\contracts\\identifiers.js",
+      "sha256": "c3da34ce339c31ce9192b3979b41038ab0d368ccf4a0f3a8472b2460a2d37649"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\src\\contracts\\index.js",
+      "sha256": "049dcb63b342f615cf63eb7c61da615cce148ce2280c4f9258c043b4d1754999"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\src\\contracts\\task-models.js",
+      "sha256": "f74b16ee1a6f792f4ad55bde225aea817d1b37f747334a093b9389030f79deaa"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2\\prototype\\run-90YAh8\\verification.json",
+      "sha256": "d7d1a80dd39622644538462d9571bbf060392ba6a66c7aefb648c156c8c51965"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2\\prototype\\run-90YAh8\\client.png",
+      "sha256": "f53e678f6b568c4993a627b26954207506bb58157c03f168001b712cf130c6df"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2\\prototype\\run-90YAh8\\host.log",
+      "sha256": "76f7f07187a6a625ea1faa64aeef190b5d064d33f6121d985595d9f9fa2599a7"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2-tests-final.log",
+      "sha256": "c2ac323edb671c1c4a29e27f7d68e62778382ddb747d7e4ffe0a86ca7417d667"
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p2-prototype-final.log",
+      "sha256": "095309e76ec28359b20affe1c3928b9ea20d3d68c3fd0d2c8362c5753d58bd94"
+    }
+  ],
+  "scope": "P2 foundation and compatibility; domain packages P3, scientific desktop P4, optional UI P5, installer/user data migration P6"
+}

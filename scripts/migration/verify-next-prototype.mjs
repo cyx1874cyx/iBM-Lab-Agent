@@ -14,6 +14,7 @@ const nextRepo = resolve(arg('--next-root') ?? (()=>{throw Error('--next-root re
 const output = resolve(arg('--output') ?? (()=>{throw Error('--output required');})());
 const browserExe = arg('--browser');
 const pythonRuntime=arg('--python-runtime');
+const exerciseCore=process.argv.includes('--exercise-core');
 const runtime = join(nextRepo,'dsh-desktop-next');
 assert.equal(execFileSync('git',['-C',nextRepo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
 assert.equal(JSON.parse(readFileSync(join(runtime,'package.json'))).version,'2.0.17-next');
@@ -41,7 +42,7 @@ let host,browser; const checks=[]; let hostLog='';
 const redact=value=>String(value).replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');
 const originalWrite=process.stdout.write;
 process.stdout.write=function(chunk,...rest){return originalWrite.call(this,redact(chunk),...rest);};
-const report={next:'2.0.17-next',kernel:'0.2.0-rc.2',ibm:'0.5.8-rc.1',mode:process.argv.includes('--electron')?'electron-node':'node',home,checks};
+const report={phase:exerciseCore?'P2':'P1',next:'2.0.17-next',kernel:'0.2.0-rc.2',ibm:'0.5.8-rc.1',mode:process.argv.includes('--electron')?'electron-node':'node',home,checks};
 let auth;
 async function launchBrowser(){
  const profile=join(runDir,'browser');mkdirSync(profile);
@@ -139,12 +140,34 @@ try {
  await host.stop(true);host=undefined;await boot();
  const stored=await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}});assert.equal(stored.memory.markdown,updated.memory.markdown);assert.equal(stored.history.length,2);checks.push('memory-survives-host-restart');
  const binding=await rpc('lab','projects_binding',{request:{projectId:'p1-prototype'}});assert.ok(binding.binding.sessionIds.includes(session.sessionId));assert.equal(binding.binding.workspaceId,workspaceId);checks.push('binding-survives-host-restart');
+ if(exerciseCore){
+  await host.stop(true);host=undefined;
+  const patchPath=join(dir,'cordis.patch.yml');
+  const originalPatch=readFileSync(patchPath,'utf8');
+  // Disable only this isolated profile's iBM workflow/runtime/UI rows. NEXT stays pristine.
+  const ids=[...readFileSync(join(repo,'cordis.patch.yml'),'utf8').matchAll(/^\s+- id: (lab-[\w-]+)$/gm)].map(match=>match[1]).filter(id=>id!=='lab-remote');
+  writeFileSync(patchPath,originalPatch.trimEnd()+'\n'+ids.map(id=>`- id: ${id}\n  disabled: true`).join('\n')+'\n');
+  await boot();
+  const coreMemory=await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}});assert.equal(coreMemory.memory.markdown,updated.memory.markdown);
+  const coreBinding=await rpc('lab','projects_binding',{request:{projectId:'p1-prototype'}});assert.equal(coreBinding.binding.workspaceId,workspaceId);
+  const active=await rpc('pluginManager','listPlugins');
+  for(const id of ['lab-tasks','lab-synthesis','lab-nmr','lab-convert','lab-python-env','lab-goal-profiles','lab-ppt-templates'])assert.ok(active.some(row=>row.patchId===id&&!row.enabled),`core-only row still active: ${id}`);
+  const failure=await fetch(`${auth.origin}/api/lab/goals_list`,{method:'POST',headers:{cookie:auth.cookie,origin:auth.origin,'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/goals_list',payload:{args:{}}})});
+  assert.equal(failure.status,200);const unavailable=await failure.json();assert.equal(unavailable.result.ok,false);assert.equal(unavailable.result.error.code,'feature-unavailable');
+  const foundation=await rpc('lab','projects_create',{request:{fields:{id:'p2-core-only',name:'P2 独立 core'}}});assert.equal(foundation.project.id,'p2-core-only');
+  await rpc('lab','projects_memory_update',{request:{fields:{projectId:'p2-core-only',markdown:'# 仅 core 仍可更新'}}});
+  await rpc('lab','projects_delete',{request:{projectId:'p2-core-only'}});checks.push('core-only-host-history-create-memory-delete-and-feature-error');
+  await host.stop(true);host=undefined;writeFileSync(patchPath,originalPatch);await boot();
+  assert.ok((await rpc('lab','note_templates_list',{request:{}})).templates);
+  assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}})).memory.markdown,updated.memory.markdown);
+  checks.push('full-workflows-restored-without-data-loss');
+ }
  report.ok=true;
 } catch(error){report.ok=false;report.error=String(error);throw error;}
 finally{
  await closeBrowser();await host?.stop(true);await runner.dispose();
  // The Host already masks secrets; never save login URLs/cookies or process environments.
  writeFileSync(join(runDir,'host.log'),redact(hostLog));writeFileSync(join(runDir,'verification.json'),JSON.stringify(report,null,2)+'\n');
- console.log(`P1 evidence: ${join(runDir,'verification.json')}`);
+ console.log(`${report.phase} evidence: ${join(runDir,'verification.json')}`);
  process.stdout.write=originalWrite;
 }

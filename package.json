@@ -113,6 +113,15 @@
     },
     "./characterization-tool": {
       "default": "./lib/characterization-tool.js"
+    },
+    "./core": {
+      "default": "./lib/core/index.js"
+    },
+    "./contracts": {
+      "default": "./src/contracts/index.js"
+    },
+    "./repositories": {
+      "default": "./lib/repositories/index.js"
     }
   },
   "files": [

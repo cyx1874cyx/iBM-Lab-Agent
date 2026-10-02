@@ -91,7 +91,7 @@ function renderYaml(rows) {
 
 /**
  * Boot the lab rows in isolation.
- * @param options {{ storageRoot: string, vendorDir: string, lockFile: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, extraRows?: Array, extraPatches?: Array }}
+ * @param options {{ storageRoot: string, vendorDir?: string, lockFile?: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, coreOnly?: boolean, coreConfig?: object, extraRows?: Array, extraPatches?: Array }}
  *   `extraPatches` are Loader `PatchOptions` (see `loadOverlayPatches`) appended
  *   after the base rows — how a test composes a real bundle patch file.
  * @returns {{ ctx, dir, dispose(): Promise<void> }}
@@ -105,7 +105,9 @@ export async function bootLite(options) {
 		requirementsLock,
 		includePython = true,
 		extraRows = [],
-		extraPatches = []
+		extraPatches = [],
+		coreOnly = false,
+		coreConfig
 	} = options;
 	const dir = await mkdtemp(join(tmpdir(), "dsh-lab-agent-boot-"));
 	// DSH checks disk packages relative to the profile for some rows,
@@ -118,8 +120,9 @@ export async function bootLite(options) {
 		{ id: "storage", name: "@deepseek-ai/dsh-storage" },
 		{ id: "storage-json", name: "@deepseek-ai/dsh-storage-json", config: { root: storageRoot } },
 		{ id: "storage-domain", name: "@deepseek-ai/dsh-storage-domain", config: { backend: "json" } },
-		{
-			id: "lab-version-registry",
+        { id: "ibm-core", name: "dsh-lab-agent/core", inject: ["storageDomain"], config: coreConfig ?? extraRows.find(row => row.name === "dsh-lab-agent/tasks")?.config ?? { projectsRoot: join(storageRoot, "projects") } },
+        ...(!coreOnly ? [{
+            id: "lab-version-registry",
 			name: "dsh-lab-agent/version-registry",
 			inject: ["storageDomain"],
 			config: { vendorDir, lockFile }
@@ -128,9 +131,10 @@ export async function bootLite(options) {
 		// and task services now depend on the experiment-plan template registry.
 		{ id: "lab-experiment-plan-templates", name: "dsh-lab-agent/experiment-plan-templates", inject: ["storageDomain"] },
 		{ id: "lab-plot-records", name: "dsh-lab-agent/plot-records", inject: ["storageDomain"] },
+		] : []),
 		...extraRows
 	];
-	if (includePython) {
+	if (includePython && !coreOnly) {
 		rows.push({
 			id: "lab-python-env",
 			name: "dsh-lab-agent/python-env",
@@ -142,8 +146,8 @@ export async function bootLite(options) {
  const localRows=rows.map(row=>{
   if(!row.name.startsWith("dsh-lab-agent/")) return row;
   const sub=row.name.slice("dsh-lab-agent/".length);
-  // `tasks` is a directory module: its entry point is lib/tasks/index.js.
-  const entry=sub==="tasks"?join(repoRoot,"lib","tasks","index.js"):join(repoRoot,"lib",sub+".js");
+  // The tasks and core services each have a directory entry point.
+  const entry=["tasks", "core"].includes(sub)?join(repoRoot,"lib",sub,"index.js"):join(repoRoot,"lib",sub+".js");
   return {...row,name:pathToFileURL(entry).href};
  });
  await writeFile(configPath, renderYaml(localRows), "utf8");

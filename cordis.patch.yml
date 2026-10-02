@@ -131,14 +131,20 @@
     # 调用 nature-skills 的 stdlib 脚本（OpenAlex 搜索、引用导出、源包准备、
     # paper-card 审计、PPTX 质量审计）；LLM 步骤由 agent 执行 skill 后通过
     # complete* 登记。DOCX/PPTX 自动暂存，自查仅提示；人工审核通过后开放下载。
+    # core alone owns the historical lab_tasks domain and all shared repositories.
+    - id: ibm-core
+      name: 'dsh-lab-agent/core'
+      inject: [storageDomain]
+      config:
+        projectsRoot: !!js dshHomePath('lab-agent/projects')
+
     - id: lab-tasks
       name: 'dsh-lab-agent/tasks'
-      inject: [storageDomain, labGoals, labNoteTemplates, labExperimentPlanTemplates, labTemplates, labVersions]
+      inject: [ibmCore, labGoals, labNoteTemplates, labExperimentPlanTemplates, labTemplates, labVersions]
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
-        # 每个课题一个独立工作区目录（workspace.create 采纳该目录）。
-        projectsRoot: !!js dshHomePath('lab-agent/projects')
+        # projectsRoot belongs to ibm-core; task workflows share that foundation.
 
     # ── 文献数据库状态 + 中科大授权浏览器会话 ─────────────────────────────
     # 公开 API 做轻量探测；机构库经用户本人完成 USTC 身份认证和协议确认。
@@ -307,7 +313,7 @@
 
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
-      inject: [labVersions, labGoals, labNoteTemplates, labExperimentPlanTemplates, labPlotRecords, labCharacterization, labTemplates, labTasks, labLiterature, labChemistry, labNmr, labSynthesis, labPython, labConvert, labCapture]
+      inject: [ibmCore]
 
     # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
     # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。
