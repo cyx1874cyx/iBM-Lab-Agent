@@ -1,0 +1,8 @@
+{
+  "sourcePins": "PASS --check",
+  "unchangedSnapshots": "PASS",
+  "tamperedKernelDetected": "PASS",
+  "missingSnapshotsDetected": "PASS",
+  "runtimeTests": "not run",
+  "scope": "P0 only"
+}

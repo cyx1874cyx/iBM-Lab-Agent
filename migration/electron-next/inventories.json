@@ -1,0 +1,4416 @@
+{
+  "baselineCommit": "a400ac424e1ca89496a9ac706531d7a05a221a2d",
+  "method": "static source declarations; Remote descriptors evaluated from pure module",
+  "services": [
+    {
+      "name": "labArtifactDownload",
+      "source": "lib/artifact-download.js",
+      "line": 145,
+      "requiredInject": [
+        "labTasks",
+        "webServer"
+      ],
+      "plannedOwner": "core"
+    },
+    {
+      "name": "labCaptureHandoff",
+      "source": "lib/capture-handoff.js",
+      "line": 170,
+      "requiredInject": [
+        "labCapture"
+      ],
+      "plannedOwner": "literature"
+    },
+    {
+      "name": "labCharacterization",
+      "source": "lib/characterization.js",
+      "line": 14,
+      "requiredInject": [
+        "storageDomain",
+        "labTasks",
+        "labNmr",
+        "labPlotRecords"
+      ],
+      "plannedOwner": "analysis"
+    },
+    {
+      "name": "labChemistry",
+      "source": "lib/chemistry.js",
+      "line": 61,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labConvert",
+      "source": "lib/convert.js",
+      "line": 89,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "documents"
+    },
+    {
+      "name": "labEvidenceShot",
+      "source": "lib/evidence-shot.js",
+      "line": 198,
+      "requiredInject": [
+        "labTasks",
+        "labSynthesis",
+        "webServer"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labExperimentPlanTemplates",
+      "source": "lib/experiment-plan-templates.js",
+      "line": 13,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labGoals",
+      "source": "lib/goal-profiles.js",
+      "line": 61,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "literature"
+    },
+    {
+      "name": "labAgent",
+      "source": "lib/index.js",
+      "line": 20,
+      "requiredInject": [],
+      "plannedOwner": "core"
+    },
+    {
+      "name": "labKetcherAssets",
+      "source": "lib/ketcher-assets.js",
+      "line": 91,
+      "requiredInject": [
+        "webServer"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labLiterature",
+      "source": "lib/literature-sources.js",
+      "line": 168,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "literature"
+    },
+    {
+      "name": "labLlmDiag",
+      "source": "lib/llm-diag.js",
+      "line": 18,
+      "requiredInject": [
+        "llm"
+      ],
+      "plannedOwner": "runtime"
+    },
+    {
+      "name": "labCapture",
+      "source": "lib/manual-capture.js",
+      "line": 261,
+      "requiredInject": [
+        "storageDomain",
+        "labTasks"
+      ],
+      "plannedOwner": "literature"
+    },
+    {
+      "name": "labNmr",
+      "source": "lib/nmr.js",
+      "line": 41,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "analysis"
+    },
+    {
+      "name": "labNoteTemplates",
+      "source": "lib/note-templates.js",
+      "line": 76,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "documents"
+    },
+    {
+      "name": "labPdfViewerAssets",
+      "source": "lib/pdf-viewer-assets.js",
+      "line": 86,
+      "requiredInject": [
+        "webServer"
+      ],
+      "plannedOwner": "documents"
+    },
+    {
+      "name": "labPlotRecords",
+      "source": "lib/plot-records.js",
+      "line": 13,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "analysis"
+    },
+    {
+      "name": "labTemplates",
+      "source": "lib/ppt-templates.js",
+      "line": 64,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "documents"
+    },
+    {
+      "name": "labPython",
+      "source": "lib/python-env.js",
+      "line": 15,
+      "requiredInject": [],
+      "plannedOwner": "runtime"
+    },
+    {
+      "name": "lab",
+      "source": "lib/remote.js",
+      "line": 46,
+      "requiredInject": [
+        "labVersions",
+        "labGoals",
+        "labNoteTemplates",
+        "labExperimentPlanTemplates",
+        "labPlotRecords",
+        "labTemplates",
+        "labTasks",
+        "labLiterature",
+        "labChemistry",
+        "labNmr",
+        "labSynthesis",
+        "labPython",
+        "labConvert",
+        "labCapture"
+      ],
+      "plannedOwner": "compatibility"
+    },
+    {
+      "name": "labSynthesis",
+      "source": "lib/synthesis.js",
+      "line": 262,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labTasks",
+      "source": "lib/tasks/index.js",
+      "line": 83,
+      "requiredInject": [
+        "storageDomain",
+        "labGoals",
+        "labTemplates",
+        "labNoteTemplates",
+        "labVersions"
+      ],
+      "plannedOwner": "core/compatibility"
+    },
+    {
+      "name": "labUserAction",
+      "source": "lib/user-action.js",
+      "line": 59,
+      "requiredInject": [
+        "labSynthesis",
+        "webServer"
+      ],
+      "plannedOwner": "design"
+    },
+    {
+      "name": "labVersions",
+      "source": "lib/version-registry.js",
+      "line": 59,
+      "requiredInject": [
+        "storageDomain"
+      ],
+      "plannedOwner": "runtime"
+    }
+  ],
+  "domains": [
+    {
+      "name": "lab_characterization",
+      "source": "lib/characterization.js",
+      "version": 0,
+      "tables": [
+        "tasks"
+      ]
+    },
+    {
+      "name": "lab_chemistry",
+      "source": "lib/chemistry.js",
+      "version": 0,
+      "tables": [
+        "chemical_entities",
+        "chemical_properties",
+        "experiment_plans"
+      ]
+    },
+    {
+      "name": "lab_convert",
+      "source": "lib/convert.js",
+      "version": 0,
+      "tables": [
+        "convert_runs"
+      ]
+    },
+    {
+      "name": "lab_experiment_plan_template_profiles",
+      "source": "lib/experiment-plan-templates.js",
+      "version": 0,
+      "tables": [
+        "experiment_plan_template_profiles"
+      ]
+    },
+    {
+      "name": "lab_goal_profiles",
+      "source": "lib/goal-profiles.js",
+      "version": 0,
+      "tables": [
+        "reading_goal_profiles"
+      ]
+    },
+    {
+      "name": "lab_literature_sources",
+      "source": "lib/literature-sources.js",
+      "version": 0,
+      "tables": [
+        "literature_sessions",
+        "literature_downloads"
+      ]
+    },
+    {
+      "name": "lab_captures",
+      "source": "lib/manual-capture.js",
+      "version": 0,
+      "tables": [
+        "lab_capture_tasks"
+      ]
+    },
+    {
+      "name": "lab_nmr",
+      "source": "lib/nmr.js",
+      "version": 0,
+      "tables": [
+        "nmr_datasets"
+      ]
+    },
+    {
+      "name": "lab_note_template_profiles",
+      "source": "lib/note-templates.js",
+      "version": 0,
+      "tables": [
+        "note_template_profiles",
+        "note_template_settings"
+      ]
+    },
+    {
+      "name": "lab_plot_records",
+      "source": "lib/plot-records.js",
+      "version": 0,
+      "tables": [
+        "plot_records"
+      ]
+    },
+    {
+      "name": "lab_ppt_template_profiles",
+      "source": "lib/ppt-templates.js",
+      "version": 0,
+      "tables": [
+        "ppt_template_profiles"
+      ]
+    },
+    {
+      "name": "lab_synthesis",
+      "source": "lib/synthesis.js",
+      "version": 0,
+      "tables": [
+        "synthesis_targets",
+        "synthesis_routes",
+        "synthesis_evidence",
+        "synthesis_extraction_jobs",
+        "synthesis_review_batches"
+      ]
+    },
+    {
+      "name": "lab_tasks",
+      "source": "lib/tasks/index.js",
+      "version": 0,
+      "tables": [
+        "lab_projects",
+        "project_memory_versions",
+        "project_sessions",
+        "literature_search_runs",
+        "paper_source_bundles",
+        "reading_reports",
+        "presentation_runs",
+        "artifact_provenance"
+      ]
+    },
+    {
+      "name": "lab_agent",
+      "source": "lib/version-registry.js",
+      "version": 0,
+      "tables": [
+        "nature_skill_versions"
+      ]
+    }
+  ],
+  "agentTools": [
+    {
+      "name": "lab_browser_click",
+      "source": "lib/tasks-tool.js",
+      "registration": "reviewed tuple-loop literal"
+    },
+    {
+      "name": "lab_browser_debug",
+      "source": "lib/tasks-tool.js",
+      "registration": "reviewed tuple-loop literal"
+    },
+    {
+      "name": "lab_browser_download_viewer_pdf",
+      "source": "lib/tasks-tool.js",
+      "registration": "reviewed tuple-loop literal"
+    },
+    {
+      "name": "lab_browser_navigate",
+      "source": "lib/tasks-tool.js",
+      "registration": "reviewed tuple-loop literal"
+    },
+    {
+      "name": "lab_browser_observe",
+      "source": "lib/tasks-tool.js",
+      "registration": "reviewed tuple-loop literal"
+    },
+    {
+      "name": "lab_browser_operation_status",
+      "source": "lib/tasks-tool.js",
+      "line": 288,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_browser_wait",
+      "source": "lib/tasks-tool.js",
+      "line": 615,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_characterization_preflight",
+      "source": "lib/characterization-tool.js",
+      "line": 128,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_characterization_submit",
+      "source": "lib/characterization-tool.js",
+      "line": 83,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_convert_document",
+      "source": "lib/convert-tool.js",
+      "line": 16,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_nature_browser_download",
+      "source": "lib/tasks-tool.js",
+      "line": 187,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_nature_browser_download_status",
+      "source": "lib/tasks-tool.js",
+      "line": 656,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_note_templates_get",
+      "source": "lib/templates-tool.js",
+      "line": 90,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_note_templates_list",
+      "source": "lib/templates-tool.js",
+      "line": 23,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_ppt_build_from_template",
+      "source": "lib/ppt-build-tool.js",
+      "line": 89,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_ppt_template_lint",
+      "source": "lib/templates-tool.js",
+      "line": 298,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_ppt_templates_contract",
+      "source": "lib/ppt-build-tool.js",
+      "line": 24,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_ppt_templates_get",
+      "source": "lib/templates-tool.js",
+      "line": 198,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_ppt_templates_list",
+      "source": "lib/templates-tool.js",
+      "line": 147,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_project_memory_read",
+      "source": "lib/memory-tool.js",
+      "line": 34,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_project_memory_update",
+      "source": "lib/memory-tool.js",
+      "line": 117,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_publisher_browser_capture_list",
+      "source": "lib/tasks-tool.js",
+      "line": 534,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_publisher_browser_download",
+      "source": "lib/tasks-tool.js",
+      "line": 171,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_publisher_browser_download_cancel",
+      "source": "lib/tasks-tool.js",
+      "line": 668,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_publisher_browser_download_status",
+      "source": "lib/tasks-tool.js",
+      "line": 523,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_review_templates_get",
+      "source": "lib/tasks-tool.js",
+      "line": 1875,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_review_templates_list",
+      "source": "lib/tasks-tool.js",
+      "line": 1833,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_runtime_env",
+      "source": "lib/runtime-tool.js",
+      "line": 85,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_compound_resolve_first",
+      "source": "lib/synthesis-tool.js",
+      "line": 197,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_evidence_add",
+      "source": "lib/synthesis-tool.js",
+      "line": 509,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_experiment_plan_create",
+      "source": "lib/synthesis-tool.js",
+      "line": 414,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_route_create",
+      "source": "lib/synthesis-tool.js",
+      "line": 236,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_route_status",
+      "source": "lib/synthesis-tool.js",
+      "line": 577,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_route_step",
+      "source": "lib/synthesis-tool.js",
+      "line": 335,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_structure_candidate_add",
+      "source": "lib/synthesis-tool.js",
+      "line": 450,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_target_create",
+      "source": "lib/synthesis-tool.js",
+      "line": 107,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_synth_target_list",
+      "source": "lib/synthesis-tool.js",
+      "line": 158,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_delete_bundle",
+      "source": "lib/tasks-tool.js",
+      "line": 1774,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_fetch_wechat_article",
+      "source": "lib/tasks-tool.js",
+      "line": 919,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_get_reading_inputs",
+      "source": "lib/tasks-tool.js",
+      "line": 1277,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_get_review_inputs",
+      "source": "lib/tasks-tool.js",
+      "line": 1928,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_get_search_summary_inputs",
+      "source": "lib/tasks-tool.js",
+      "line": 800,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_bundle",
+      "source": "lib/tasks-tool.js",
+      "line": 1217,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_paper_meta",
+      "source": "lib/tasks-tool.js",
+      "line": 1130,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_presentation",
+      "source": "lib/tasks-tool.js",
+      "line": 1486,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_report",
+      "source": "lib/tasks-tool.js",
+      "line": 1395,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_review",
+      "source": "lib/tasks-tool.js",
+      "line": 2015,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_review_presentation",
+      "source": "lib/tasks-tool.js",
+      "line": 2078,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_search",
+      "source": "lib/tasks-tool.js",
+      "line": 724,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_register_wechat_paper",
+      "source": "lib/tasks-tool.js",
+      "line": 1045,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_resolve_wechat_doi",
+      "source": "lib/tasks-tool.js",
+      "line": 967,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_set_entry_naming",
+      "source": "lib/tasks-tool.js",
+      "line": 1562,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_update_bundle_file",
+      "source": "lib/tasks-tool.js",
+      "line": 1626,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_update_presentation",
+      "source": "lib/tasks-tool.js",
+      "line": 1728,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_update_report",
+      "source": "lib/tasks-tool.js",
+      "line": 1677,
+      "registration": "literal name"
+    },
+    {
+      "name": "lab_tasks_update_search_summaries",
+      "source": "lib/tasks-tool.js",
+      "line": 854,
+      "registration": "literal name"
+    }
+  ],
+  "desktopCommands": [
+    "restart_runtime",
+    "open_logs",
+    "open_workspace",
+    "save_artifact",
+    "save_text_artifact",
+    "open_artifact",
+    "open_path",
+    "reveal_path",
+    "runtime_status",
+    "runtime_deps",
+    "check_update",
+    "download_update",
+    "install_downloaded_update",
+    "research_source_diagnostics",
+    "pick_mcp_dir",
+    "app_mcp_status",
+    "save_app_mcp",
+    "remove_app_mcp",
+    "install_origin_bridge",
+    "open_in_edge",
+    "open_artifact_in_browser",
+    "iwan_status",
+    "open_iwan",
+    "webvpn_probe_available",
+    "webvpn_probe_open",
+    "webvpn_open_login",
+    "webvpn_confirm_login",
+    "webvpn_open_capture",
+    "webvpn_browser_action",
+    "webvpn_cancel_capture",
+    "webvpn_sync_capture_ball",
+    "webvpn_allow_host",
+    "webvpn_set_policy",
+    "webvpn_status",
+    "webvpn_show",
+    "webvpn_set_rect",
+    "webvpn_set_capture_queue",
+    "webvpn_hide",
+    "webvpn_probe_events",
+    "webvpn_probe_clear",
+    "webvpn_clear_session"
+  ],
+  "remoteDescriptors": [
+    {
+      "id": "dsh-lab-agent#lab/synth_compound_resolve_first",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_compound_resolve_first",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_compound_resolve_first:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_compound_resolve_first:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/characterization_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "characterization_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/characterization_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/characterization_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/characterization_submit",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "characterization_submit",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/characterization_submit:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/characterization_submit:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/characterization_retry",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "characterization_retry",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/characterization_retry:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/characterization_retry:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/characterization_remove",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "characterization_remove",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/characterization_remove:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/characterization_remove:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/characterization_dispatch_failed",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "characterization_dispatch_failed",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/characterization_dispatch_failed:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/characterization_dispatch_failed:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/versions_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "versions_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/versions_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/convert_available",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "convert_available",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/convert_available:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/convert_runs",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "convert_runs",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/convert_runs:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/python_preflight",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "python_preflight",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/python_preflight:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/cas_policy",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "cas_policy",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/cas_policy:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/cas_login_entry",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "cas_login_entry",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/cas_login_entry:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/versions_resolve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "versions_resolve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/versions_resolve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/versions_resolve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_resolve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_resolve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_resolve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_resolve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_copy",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_copy",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_copy:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_copy:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/goals_requirements",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "goals_requirements",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/goals_requirements:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/goals_requirements:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_resolve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_resolve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_resolve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_resolve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_preview",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_preview",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_preview:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_preview:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_validate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_validate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_validate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_validate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_import",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_import",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_import:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_import:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_confirm",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_confirm",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_confirm:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_confirm:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_update_meta",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_update_meta",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_update_meta:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_update_meta:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/templates_archive",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "templates_archive",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/templates_archive:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/templates_archive:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_set_default",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_set_default",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_set_default:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_set_default:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_resolve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_resolve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_resolve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_resolve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_parse_markdown",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_parse_markdown",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_parse_markdown:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_parse_markdown:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_import_markdown",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_import_markdown",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_import_markdown:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_import_markdown:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_copy",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_copy",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_copy:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_copy:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/note_templates_requirements",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "note_templates_requirements",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/note_templates_requirements:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/note_templates_requirements:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_get",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_get",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_get:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_get:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_ensure_workspace",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_ensure_workspace",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_ensure_workspace:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_ensure_workspace:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_bind_workspace",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_bind_workspace",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_bind_workspace:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_bind_workspace:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_bind_session",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_bind_session",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_bind_session:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_bind_session:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_binding",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_binding",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_binding:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_binding:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_by_session",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_by_session",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_by_session:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_by_session:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_by_workspace",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_by_workspace",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_by_workspace:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_by_workspace:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_by_cwd",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_by_cwd",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_by_cwd:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_by_cwd:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_memory",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_memory",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_memory:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_memory:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_memory_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_memory_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_memory_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_memory_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_workspace",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_workspace",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/projects_workspace:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_workspace:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_searches",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_searches",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_searches:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_searches:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_search_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_search_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_search_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_search_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_provenance",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_provenance",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_provenance:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_provenance:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_status",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_status",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_status:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_status:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_configure",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_configure",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_configure:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_configure:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_connect",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_connect",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_connect:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_connect:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_verify",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_verify",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_verify:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_verify:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_download_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_download_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_download_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_download_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_downloads",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_downloads",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_downloads:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_downloads:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_download_retry",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_download_retry",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_download_retry:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_download_retry:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/literature_download_cancel",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "literature_download_cancel",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/literature_download_cancel:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/literature_download_cancel:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_search_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_search_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_search_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_search_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_bundle_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_bundle_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_bundle_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_bundle_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_bundle_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_bundle_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_bundle_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_bundle_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_entry_naming",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_entry_naming",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_entry_naming:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_entry_naming:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_complete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_complete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_complete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_complete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_validate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_validate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_validate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_validate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_review",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_review",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_review:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_review:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_presentation_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_presentation_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_presentation_complete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_presentation_complete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_complete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_complete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_presentation_validate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_presentation_validate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_validate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_validate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_presentation_review",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_presentation_review",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_review:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_presentation_review:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_review_details",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_review_details",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_review_details:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_review_details:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_search_ris",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_search_ris",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_search_ris:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_search_ris:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_overview",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_overview",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_overview:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_overview:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_report_download",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_report_download",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_report_download:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_report_download:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_ppt_download",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_ppt_download",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_ppt_download:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_ppt_download:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/review_templates_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "review_templates_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/review_templates_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/review_templates_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_review_inputs",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_review_inputs",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_review_inputs:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_review_inputs:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_review_register",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_review_register",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_review_register:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_review_register:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_review_presentation_register",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_review_presentation_register",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_review_presentation_register:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_review_presentation_register:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/tasks_review_download",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "tasks_review_download",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/tasks_review_download:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/tasks_review_download:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_entities",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_entities",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_entities:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_entities:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_entity_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_entity_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_entity_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_entity_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_properties",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_properties",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_properties:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_properties:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_formula",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_formula",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_formula:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_formula:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_metrics",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_metrics",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_metrics:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_metrics:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_plans",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_plans",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_plans:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_plans:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_plan_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_plan_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_plan_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_plan_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_plan_validate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_plan_validate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_plan_validate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_plan_validate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/chem_plan_status",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "chem_plan_status",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/chem_plan_status:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/chem_plan_status:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_get",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_get",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_get:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_get:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_integrals",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_integrals",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_integrals:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_integrals:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_approve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_approve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_approve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_approve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_written_back",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_written_back",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_written_back:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_written_back:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_verify",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_verify",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_verify:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_verify:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_reopen",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_reopen",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_reopen:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_reopen:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/nmr_calculate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "nmr_calculate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/nmr_calculate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/nmr_calculate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_targets",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_targets",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_targets:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_targets:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_target_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_target_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_target_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_target_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_routes",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_routes",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_routes:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_routes:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_delete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_delete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_delete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_delete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_step",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_step",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_step:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_step:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_status",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_status",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_status:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_status:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_evidence",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_evidence",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_evidence:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_evidence:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_detail",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_detail",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_detail:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_detail:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_revision",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_revision",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_revision:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_revision:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_update_step",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_update_step",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_update_step:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_update_step:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_step_review",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_step_review",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_step_review:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_step_review:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_step_set_structure",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_step_set_structure",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_step_set_structure:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_step_set_structure:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_step_resolve_dual",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_step_resolve_dual",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_step_resolve_dual:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_step_resolve_dual:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_evidence_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_evidence_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_evidence_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_evidence_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_evidence_add",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_evidence_add",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_evidence_add:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_evidence_add:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_evidence_review",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_evidence_review",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_evidence_review:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_evidence_review:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_step_assess",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_step_assess",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_step_assess:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_step_assess:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_route_assess",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_route_assess",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_route_assess:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_route_assess:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_step_alternatives",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_step_alternatives",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_step_alternatives:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_step_alternatives:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_extraction_capability",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_extraction_capability",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_extraction_capability:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_extraction_capability:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_extraction_jobs",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_extraction_jobs",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_extraction_jobs:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_extraction_jobs:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_extraction_job_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_extraction_job_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_extraction_job_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_extraction_job_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_extraction_job_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_extraction_job_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_extraction_job_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_extraction_job_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_plan_from_route",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_plan_from_route",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_plan_from_route:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_plan_from_route:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/cas_prepare_query",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "cas_prepare_query",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/cas_prepare_query:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/cas_prepare_query:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/convert_upload",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "convert_upload",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/convert_upload:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/convert_upload:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/project_file_upload",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "project_file_upload",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/project_file_upload:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/project_file_upload:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_get",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_get",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_get:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_get:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_cancel",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_cancel",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_cancel:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_cancel:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_claim_agent",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_claim_agent",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_claim_agent:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_claim_agent:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_desktop_status_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_desktop_status_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_desktop_status_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_desktop_status_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_desktop_action_claim",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_desktop_action_claim",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_desktop_action_claim:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_desktop_action_claim:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/manual_capture_recreate",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "manual_capture_recreate",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/manual_capture_recreate:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/manual_capture_recreate:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/browser_operation_claim",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "browser_operation_claim",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/browser_operation_claim:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/browser_operation_claim:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/browser_operation_complete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "browser_operation_complete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/browser_operation_complete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/browser_operation_complete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/projects_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "projects_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/projects_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_compound_resolve_dual",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_compound_resolve_dual",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_compound_resolve_dual:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_compound_resolve_dual:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_review_batch_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_review_batch_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_review_batch_get",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_review_batch_get",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_get:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_get:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_review_batch_complete",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_review_batch_complete",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_complete:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_review_batch_complete:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/synth_review_uncertain_apply",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "synth_review_uncertain_apply",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/synth_review_uncertain_apply:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/synth_review_uncertain_apply:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_resolve",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_resolve",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_resolve:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_resolve:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_copy",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_copy",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_copy:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_copy:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/experiment_plan_templates_archive",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "experiment_plan_templates_archive",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_archive:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/experiment_plan_templates_archive:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/plot_records_list",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "plot_records_list",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/plot_records_list:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/plot_records_list:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/plot_records_create",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "plot_records_create",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/plot_records_create:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/plot_records_create:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/plot_records_update",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "plot_records_update",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/plot_records_update:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/plot_records_update:result"
+      }
+    },
+    {
+      "id": "dsh-lab-agent#lab/plot_records_remove",
+      "service": "lab",
+      "namespace": "lab",
+      "method": "plot_records_remove",
+      "invocation": {
+        "kind": "direct"
+      },
+      "parameters": [
+        {
+          "name": "request",
+          "wire": "request",
+          "source": "json",
+          "codec": {
+            "mode": "strict",
+            "typeSymbol": "dsh-lab-agent#lab/plot_records_remove:request"
+          }
+        }
+      ],
+      "result": {
+        "mode": "strict",
+        "typeSymbol": "dsh-lab-agent#lab/plot_records_remove:result"
+      }
+    }
+  ],
+  "clientInject": [
+    "@deepseek-ai/dsh-api-remotes",
+    "@deepseek-ai/dsh-client-ui-session",
+    "@deepseek-ai/dsh-client-ui-workspace",
+    "@deepseek-ai/dsh-client-locale",
+    "@deepseek-ai/dsh-client-ui-sidebar",
+    "@deepseek-ai/dsh-client-ui-conversation"
+  ]
+}

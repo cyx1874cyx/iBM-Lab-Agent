@@ -1,0 +1,727 @@
+{
+  "schema": "ibm/electron-next-p0/v1",
+  "frozenOn": "2026-10-02",
+  "phase": "P0",
+  "scope": "source inputs only; no installed runtime or binary acceptance",
+  "ibm": {
+    "tag": "v0.5.8-rc.1",
+    "commit": "a400ac424e1ca89496a9ac706531d7a05a221a2d",
+    "repository": "git@git.ustc.edu.cn:qbdeng2025/iBM-Lab-Agent.git",
+    "files": [
+      {
+        "path": "package.json",
+        "bytes": 7030,
+        "gitBlob": "3d8aa82d198dc8c4ba655fa00c47ca7423e5e4e1",
+        "sha256": "c9abe6cd56d0c0a8bbfa8423074ffbe227fbfaf6d7c429c181a8d1a5d1d62622",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "bytes": 629064,
+        "gitBlob": "e03b859525eff037e9ee48b3ed6312c025f43ba5",
+        "sha256": "b1a14f0fc8cde6e9bc6ae236a6743b2b4a8f7acbfd06f7aebf8093b9451e603f",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "package-lock.json",
+        "bytes": 463981,
+        "gitBlob": "a007c885f6ac24bcce4eb9c8d6013d2580adcb9c",
+        "sha256": "d536cebff170998c678956d5878c3114e79eb733847adffe45247f9887e0bb2a",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "bytes": 13846,
+        "gitBlob": "8130abe75403248a4104d63b6013ffa716e6641c",
+        "sha256": "ff290414ea7fee9a694aa8f2cbd9f1041908b640abce168ce984dcb2b43fd5ae",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "harness.lock.json",
+        "bytes": 1229,
+        "gitBlob": "f5b9401d16545ff60e221ec2cb3e2fed7fa7686d",
+        "sha256": "514c76a96f165aa00f3e353e9c1ab11d662edd92c526b284cd1a442d29f9d0c8",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "runtime/versions.env",
+        "bytes": 933,
+        "gitBlob": "9e499a5ceb5bdabfe237b19a865d61fb3ed048c8",
+        "sha256": "7c5530b8622511d3a2e85efc7d88ae1639328fc79073ff8fedb504fb618b15d7",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "runtime/launcher/package.json",
+        "bytes": 271,
+        "gitBlob": "8fc0dd1c228b7832ec40a211e4d888e9d05f58a8",
+        "sha256": "5a6498d68608cc8ba9166144f5b881fcb10d02ad7a23346a78b20f9741ffe1ae",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "runtime/launcher/pnpm-lock.yaml",
+        "bytes": 576809,
+        "gitBlob": "79f241244f08fe81b9231f769a59841e4826766c",
+        "sha256": "ae979af21860d7c0ee5b26983edc0a5308fb78b70559b8354f6d813523647f1f",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "vendor.lock.json",
+        "bytes": 7296,
+        "gitBlob": "f0bfe88c62d9c5f92dd3e565e2bcf05a4a005e80",
+        "sha256": "8dc1ccf733ab7e4eb35908470f270a7d5f301c65fbe0d1710876cee8fa9b1ef8",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "vendor.manifest.json",
+        "bytes": 2166,
+        "gitBlob": "e012c49dbacb3c417de05068746c45ee7939a347",
+        "sha256": "f0e348ee56c5419b1fc38d426aa8f3911ebf6c6d7b5cde3b3e59a637746a1ea0",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "python/requirements.lock",
+        "bytes": 4545,
+        "gitBlob": "dedb6e653673d4ff8245c8ef4d12f07a483d0e5a",
+        "sha256": "307fe9277f212db1c82c484dc5adbc378dc681f7b3abc6cee1ef96d541198d2d",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "python/requirements-linux.lock",
+        "bytes": 3216,
+        "gitBlob": "58c943dbe27eeec140dc0d9a9a9c2f3e77fc3b4d",
+        "sha256": "968e2b1fce4a43dcddf26fbf0fa8fe61b748cf7d592ac9d90acae09bdd485a71",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "desktop/docs/release-manifest.json",
+        "bytes": 325,
+        "gitBlob": "1449b413b5e575db64d1fc6f4844cabe9e28236c",
+        "sha256": "741eadcab9accaf5d5b8c66d978ec65fcf08254dad2f4b651bcbf9c1d4aa47bd",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "desktop/src-tauri/tauri.conf.json",
+        "bytes": 1462,
+        "gitBlob": "7a35b66d36bf635c3ab6cbce160e80bffd215a00",
+        "sha256": "f31ecd9356baac0e36e85c015d3cc32006b2e8f83174f52152788cff7bf25819",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "desktop/scripts/build-bundled-python.ps1",
+        "bytes": 17423,
+        "gitBlob": "c84fcac3768d18b10bde8a5c1d15b8cb11e0bbf5",
+        "sha256": "3ff28f0b3ebf51782ae18874315b8242a1a0b5ac6d3b4bf7ee619c55e469c496",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "desktop/scripts/prepare-runtime.ps1",
+        "bytes": 34950,
+        "gitBlob": "7a76d4c3b970378244e826a30dcea6e69da23003",
+        "sha256": "b5cbd46c29676210af9007c7b63ee7c59ed7055f7d013a182b0b1d2589d7da21",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "desktop/scripts/build-windows-release.ps1",
+        "bytes": 22873,
+        "gitBlob": "45e600a07ae7b36edac18aaa61b7e5520d717ff1",
+        "sha256": "5bcb054eacdf677256998d7b3048a682332613e19bcbeeb74b2f26d88301e3db",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "scripts/bundled-python-inputs.mjs",
+        "bytes": 14771,
+        "gitBlob": "a18c6d99419536064842d837bedc1b67a097396d",
+        "sha256": "b625ef87e73e671c6d54635f4acf712524a517206d92252279bfe421c75c4c9e",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "src/python-lock-hash.js",
+        "bytes": 687,
+        "gitBlob": "42f1b349ad43345817621a5eb3598bca16e51b2f",
+        "sha256": "e1c7c6d8e6afec83d701d18b7463276c8ce6b3276ca448b82f0654450df178a8",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "src/markitdown-patch.js",
+        "bytes": 4857,
+        "gitBlob": "91a358626b32cdd98e426179489047691d91cb4b",
+        "sha256": "dad703558ff22d9db7ee169a3d672163f771f12a402d73e848974c37228833fe",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "scripts/patch-markitdown.mjs",
+        "bytes": 4148,
+        "gitBlob": "9d0ae71f58dc8ccd98bc693bd124f1def71c7ea3",
+        "sha256": "0652eb2f9cb297cd50eb8744bf79ee7eec3153cd37abf0aade0cc65c92e4bd5c",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "src/dsh-runtime-patch.js",
+        "bytes": 4136,
+        "gitBlob": "2dd542fdc702690db2aa61187888d989d325093f",
+        "sha256": "00e0bd5925668f5a84262774b1092e75b0f0e3f8083f57ef7281e31d574b72dc",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "src/dsh-web-frontend-patch.js",
+        "bytes": 6615,
+        "gitBlob": "febf793e44ac6a93f0642adf8e97ca23eef8a85b",
+        "sha256": "bb2d750adb04fa1c9303666f56d36790f3871556ab817ad1f6e231d2a6c478d4",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "cordis.patch.yml",
+        "bytes": 19909,
+        "gitBlob": "102e08617ee8afe00308480ccd8163d0466a5ff2",
+        "sha256": "852cf580d9f5bc3a3eff8f2d413cdfd4470d9c2377569c14af2b93e1b6f46835",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "presets/lab-research/preset.patch.yml",
+        "bytes": 40764,
+        "gitBlob": "d5e44844f3c9dff02554004da0741cdd7a7a0c0f",
+        "sha256": "e78e66678bb2fd2369e0e5eb967370a184eaacf9242768c3594b636e20c763f6",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "client/src/descriptors.js",
+        "bytes": 5993,
+        "gitBlob": "3e4d6c35e2ce598d40617468020174ba13203802",
+        "sha256": "6a50a2cb40d203f65b7529cb4756468c0ba37594865ad085bdfab7e36900fbc5",
+        "hashBasis": "committed Git blob bytes"
+      }
+    ],
+    "trees": [
+      {
+        "path": "lib",
+        "gitTree": "211921565770a9f706dc0ff3e07781a863bf559f",
+        "trackedFiles": 55,
+        "listingSha256": "b0217def544766dd8ab3ace862174d70231b34673580d48ffa8c960cc00a6dad",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      },
+      {
+        "path": "src",
+        "gitTree": "bef26869bde9566cc178283caadde51a4f4edefe",
+        "trackedFiles": 47,
+        "listingSha256": "d2e9d2439e9aca25d96d321a934a05473c992b37288373b48e83854557bb4f1c",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      },
+      {
+        "path": "client",
+        "gitTree": "4cf22b23958546c1731193b9fd88e097549c13c9",
+        "trackedFiles": 38,
+        "listingSha256": "967a36f0285d0805bfe5667604eece0795715dec3071faacea2d806c49e68d4e",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      },
+      {
+        "path": "skills",
+        "gitTree": "451d18b6285e1ca6e9a705f22d3fe5c3a75dfc2b",
+        "trackedFiles": 3,
+        "listingSha256": "69a3a513e7e189ee8d56642f3c4298ea69b0b4f9eb44ac9456a12872e273d6b4",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      },
+      {
+        "path": "vendor/nature-skills",
+        "gitTree": "6d077c28f44151169ec80a80c025382233c29267",
+        "trackedFiles": 615,
+        "listingSha256": "8b67bccbe7573104188459d52d392fbfcc4f94bc37d3a4cc6845f37a2f7cc946",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      },
+      {
+        "path": "vendor/mnova-mcp",
+        "gitTree": "96ae1bb53bedbba2b6687e1e252ea1301c5cbf09",
+        "trackedFiles": 23,
+        "listingSha256": "4d0f8e8555003e330b20e17d2c2be83c8ab1650c7691c032c2f4cae1ef251dc8",
+        "hashBasis": "git ls-tree -r -z: modes, Git object IDs, paths; not a compiled artifact hash"
+      }
+    ]
+  },
+  "next": {
+    "tag": "v2.0.17-next",
+    "commit": "838ba60fd79362087c0a0d134efee671c284786a",
+    "repository": "https://github.com/anywhere-labs/dsh-desktop",
+    "files": [
+      {
+        "path": "package.json",
+        "bytes": 103987,
+        "gitBlob": "1ab80718fd07b6eedf6ae1f4e91fb849b5c4c734",
+        "sha256": "70032f9847594e0708215062d8224c2511f0c050394d45a2c61d8233bb50b1bb",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "yarn.lock",
+        "bytes": 778254,
+        "gitBlob": "361e96c9d72d1aef0e7f5019952d5d29a4e3d3af",
+        "sha256": "ddb85b74ad5e406d6573773d4f515cb819993069b32a2ef827f1cb653014fe80",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": ".yarnrc.yml",
+        "bytes": 418,
+        "gitBlob": "13a246262aef013afc08ab649a8904946ab5b94d",
+        "sha256": "710199cff64d30bb481bb0b8b9a6ad02f256af2c82f6f3a49c32beeb39c66211",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": ".gitmodules",
+        "bytes": 115,
+        "gitBlob": "1838322b89f0bc3800aeb90df961d975d973d15a",
+        "sha256": "59f250e0ebebd3dbea7ac5047a7faf2b5e407cf3f6e874801c1e871a170d40dc",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "AGENTS.md",
+        "bytes": 4248,
+        "gitBlob": "5f61d6205690976b95fe260496e3c84a0680b9c4",
+        "sha256": "a8a85bab2c3b50b6a6d798646eba9a07490094bcba3a8b1cfbf67eda21f4d41d",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/package.json",
+        "bytes": 16573,
+        "gitBlob": "637ce801bb5283b2f38fee31e2539000a668bd37",
+        "sha256": "8ff7f9bff2c95f13a3d320006b22a8f0006be1e01da8d7cf066e99a875ac79fb",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/upstream-reference.json",
+        "bytes": 4442,
+        "gitBlob": "7e8c117968fcee0187cd0455a60fe6b6877f802e",
+        "sha256": "8bd3b613e8e19bc9612acca7c7d3db0641bb441370b036d3e4987406b734be70",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/cordis.patch.yml",
+        "bytes": 837,
+        "gitBlob": "2788087fa82ad1cb1d4f3c7b5072d93c13902320",
+        "sha256": "65a9b67897a5e077f3290849ef86436549e93059f438e94d28f36404ab42e478",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/host.cordis.patch.yml",
+        "bytes": 277,
+        "gitBlob": "1d17437401f2cec68b3417a3f536181791768f62",
+        "sha256": "b910ee95ab3ef0c199ff56cdeb8775423fa1177929b66c3e991225f86746bea0",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/extensions.ts",
+        "bytes": 7265,
+        "gitBlob": "4e97bc53c8c98a8186cfebad38e71b7e52dcb8b6",
+        "sha256": "5f25c6b8e2fd2a22a5e952e666e4b20ae2f37abd200a8e026fde82d1fe0aa7d9",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/browser-guests.ts",
+        "bytes": 8356,
+        "gitBlob": "5d9f956846d7263e29c53e41e90db9d7eea4aeeb",
+        "sha256": "049fbbd0b7e687ad6d678f36bd12ea9a4c1455eef76cab1c224845d0378e296b",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/host-process.ts",
+        "bytes": 20861,
+        "gitBlob": "cf539cb0713aa40070d150ee675ded9df3bdedcb",
+        "sha256": "5895bf875f33a8d8b7bf18578c7d785a7dade59abd542a61bc3ac48c37df9c87",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/profiles.ts",
+        "bytes": 17318,
+        "gitBlob": "ff03aba59f4091cff0784b995cbeb59c4bc2fbad",
+        "sha256": "0b3b57c7b8daf56d4039f47bf0491eaefb9bb7af99740b7089e6e3069c85019e",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/data-directory.ts",
+        "bytes": 1892,
+        "gitBlob": "108e7a38cfd3d1aa8bf1dac3bea0dbbfd1621782",
+        "sha256": "450ef545f016e22c512b881015a9ac58f3ac09653faa0d149afd70ea9e7d2cdc",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "dsh-desktop-next/src/node-environment.ts",
+        "bytes": 820,
+        "gitBlob": "680b4395b8ff4f4bbfb797cacac19aaebef4b862",
+        "sha256": "cd760fede0ea4838269b09f9d68fd95dde2956d3542f16ed2a6b9629b02339bf",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "scripts/prepare-dsh-market.mjs",
+        "bytes": 5266,
+        "gitBlob": "edb04ca759a00bfc2cc94f64b4928ee55581df8e",
+        "sha256": "a9744957715a935edc6c269836bf3b580638bd329584ad280370e2c1d99e5a01",
+        "hashBasis": "committed Git blob bytes"
+      },
+      {
+        "path": "scripts/prepare-agents-anywhere-release.mjs",
+        "bytes": 14250,
+        "gitBlob": "0089c6da74f0ab22698c07fe765cb96a65573c6e",
+        "sha256": "0b0e49d3703ed125436094e65298c8b1ab67b1844574d677192df1306fe0fa5c",
+        "hashBasis": "committed Git blob bytes"
+      }
+    ]
+  },
+  "target": {
+    "dsh": "0.2.0-rc.2",
+    "harnessCommit": "639ed015397290b3745d163aafe02ffee4aa3f84",
+    "electron": "44.0.0",
+    "electronBuilder": "26.15.7",
+    "yarn": "4.18.0",
+    "python": "3.12.11",
+    "oldBundledNode": "24.16.0",
+    "hostNodeStrategy": "NEXT Electron Node-mode; validate modules/launchers in P1"
+  },
+  "resourceVersions": {
+    "ibmLabAgent": "0.5.8-rc.1",
+    "dsh": "0.1.7-rc.1",
+    "python": "3.12",
+    "node": "24.16.0",
+    "originMcp": {
+      "version": "0.1.4",
+      "commit": "fecb7226ed60d7651d921d2586eb9950bf16b618"
+    },
+    "mnovaMcp": {
+      "version": "0.3.1",
+      "commit": "e015c3424e7165dc9aa518d63d8195f643f4f169"
+    },
+    "mcpSdk": "1.29.0"
+  },
+  "skills": {
+    "schema": "dsh-lab-agent/vendor-lock/v1",
+    "repo": "https://github.com/Yuan1z0825/nature-skills.git",
+    "pinnedCommit": "c171989db699bd601d4373912b3fb8db96ecc95b",
+    "pinnedAt": "2026-08-17T14:47:13.459Z",
+    "license": "Apache-2.0",
+    "skills": [
+      {
+        "name": "nature-academic-search",
+        "manifestVersion": "2.0.0",
+        "dir": "skills/nature-academic-search",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "config",
+          "install.sh",
+          "manifest.yaml",
+          "mcp-server",
+          "references",
+          "scripts",
+          "static"
+        ]
+      },
+      {
+        "name": "nature-citation",
+        "manifestVersion": "2.1.0",
+        "dir": "skills/nature-citation",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "evals",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-data",
+        "manifestVersion": "2.2.0",
+        "dir": "skills/nature-data",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "static"
+        ]
+      },
+      {
+        "name": "nature-downloader",
+        "manifestVersion": "2.1.0",
+        "dir": "skills/nature-downloader",
+        "requiredFiles": [
+          ".gitattributes",
+          ".gitignore",
+          "LICENSE",
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "assets",
+          "data",
+          "docs",
+          "examples",
+          "manifest.yaml",
+          "references",
+          "requirements.txt",
+          "scripts",
+          "src",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-experiment-log",
+        "manifestVersion": "1.0.2",
+        "dir": "skills/nature-experiment-log",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "templates"
+        ]
+      },
+      {
+        "name": "nature-figure",
+        "manifestVersion": "2.5.0",
+        "dir": "skills/nature-figure",
+        "requiredFiles": [
+          ".gitignore",
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "assets",
+          "evals",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-literature-pipeline",
+        "manifestVersion": "1.0.1",
+        "dir": "skills/nature-literature-pipeline",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "templates"
+        ]
+      },
+      {
+        "name": "nature-paper-card",
+        "manifestVersion": "1.2.0",
+        "dir": "skills/nature-paper-card",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "evals",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-paper-to-patent",
+        "manifestVersion": "1.0.0",
+        "dir": "skills/nature-paper-to-patent",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "evals",
+          "manifest.yaml",
+          "references",
+          "requirements.txt",
+          "scripts",
+          "static",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-paper2ppt",
+        "manifestVersion": "2.0.0",
+        "dir": "skills/nature-paper2ppt",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static"
+        ]
+      },
+      {
+        "name": "nature-polishing",
+        "manifestVersion": "6.4.0",
+        "dir": "skills/nature-polishing",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "static"
+        ]
+      },
+      {
+        "name": "nature-proposal-writer",
+        "manifestVersion": "1.1.1",
+        "dir": "skills/nature-proposal-writer",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "templates"
+        ]
+      },
+      {
+        "name": "nature-reader",
+        "manifestVersion": "2.1.0",
+        "dir": "skills/nature-reader",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "evals",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static"
+        ]
+      },
+      {
+        "name": "nature-ref-verifier",
+        "manifestVersion": "1.0.1",
+        "dir": "skills/nature-ref-verifier",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references"
+        ]
+      },
+      {
+        "name": "nature-response",
+        "manifestVersion": "1.7.0",
+        "dir": "skills/nature-response",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "examples",
+          "manifest.yaml",
+          "references",
+          "scripts",
+          "static",
+          "templates",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-reviewer",
+        "manifestVersion": "1.4.0",
+        "dir": "skills/nature-reviewer",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-shared",
+        "manifestVersion": "1.4.0",
+        "dir": "skills/nature-shared",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "core",
+          "journal-formats",
+          "manifest.yaml",
+          "scripts",
+          "tests"
+        ]
+      },
+      {
+        "name": "nature-statistics",
+        "manifestVersion": "1.3.0",
+        "dir": "skills/nature-statistics",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references"
+        ]
+      },
+      {
+        "name": "nature-writing",
+        "manifestVersion": "1.3.0",
+        "dir": "skills/nature-writing",
+        "requiredFiles": [
+          "README.md",
+          "README_EN.md",
+          "SKILL.md",
+          "agents",
+          "manifest.yaml",
+          "references",
+          "static",
+          "templates"
+        ]
+      }
+    ],
+    "pythonDeps": {
+      "file": "requirements.lock",
+      "sha256": "307fe9277f212db1c82c484dc5adbc378dc681f7b3abc6cee1ef96d541198d2d"
+    },
+    "regression": {
+      "lastPassedAt": "2026-08-18T08:19:49.709Z",
+      "lastRunAt": "2026-08-18T08:19:49.709Z",
+      "caseCount": 11
+    },
+    "vendorManifest": {
+      "file": "vendor.manifest.json",
+      "excludedPaths": [
+        "assets",
+        "skills/nature-figure/assets/figures4papers"
+      ],
+      "note": "vendor 树已按该清单过滤；可用 node scripts/prune-vendor.mjs 重新应用/校验"
+    }
+  },
+  "buildPolicy": {
+    "floatingRefreshAllowed": false,
+    "userDataReadAllowed": false,
+    "oldRuntimeSnapshotApproved": false,
+    "binaryMaterialization": "not started",
+    "wheelArchiveChecksums": "to freeze after acquisition before P1 runtime acceptance"
+  }
+}
