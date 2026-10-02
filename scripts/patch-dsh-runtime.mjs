@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { chmod, copyFile, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import {
 	applyFakeInvokePatch,
 	inspectFakeInvokePatch,
@@ -54,6 +54,12 @@ async function atomicWrite(path, content, mode) {
 
 async function main() {
 	const { command, target, expectSha256 } = parseArgs(process.argv.slice(2));
+	if (command === "patch") {
+		const pkg = await readFile(resolve(dirname(target), "../package.json"), "utf8").then(JSON.parse).catch(error => { if (error.code === "ENOENT") return undefined; throw error; });
+		if (pkg && (pkg.name !== "@deepseek-ai/dsh-agent-loop" || !["0.1.5-rc.1", "0.1.5-rc.2", "0.1.7-rc.1"].includes(pkg.version))) {
+			throw new Error(`legacy patch does not support ${pkg.name}@${pkg.version}; NEXT must use pristine upstream files`);
+		}
+	}
 	const source = await readFile(target, "utf8");
 	const state = inspectFakeInvokePatch(source);
 	if (command === "verify") {

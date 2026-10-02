@@ -44,6 +44,12 @@ function assertJavaScriptSyntax(path) {
 }
 
 const { command, root } = parseArgs(process.argv.slice(2));
+if (command === "patch") {
+	const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+	if (pkg.name !== "@deepseek-ai/dsh-web-frontend" || !["0.1.5-rc.1", "0.1.7-rc.1"].includes(pkg.version)) {
+		throw new Error(`legacy patch does not support ${pkg.name}@${pkg.version}; NEXT must use pristine upstream files`);
+	}
+}
 const { path, source, state } = await findMainAsset(root);
 if (command === "verify") {
 	if (!state.patchedAnchors) throw new Error(`DSH web frontend patch absent or incomplete: ${path}`);

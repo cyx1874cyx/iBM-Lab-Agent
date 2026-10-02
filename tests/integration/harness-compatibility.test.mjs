@@ -1,13 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { applyFakeInvokePatch, inspectFakeInvokePatch, revertFakeInvokePatch } from "../../src/dsh-runtime-patch.js";
-import { applyDshWebFrontendPatch, inspectDshWebFrontendPatch, revertDshWebFrontendPatch } from "../../src/dsh-web-frontend-patch.js";
+import { inspectFakeInvokePatch } from "../../src/dsh-runtime-patch.js";
+import { inspectDshWebFrontendPatch } from "../../src/dsh-web-frontend-patch.js";
 
 const require = createRequire(import.meta.url);
 const read = (file) => readFile(new URL(`../../${file}`, import.meta.url), "utf8");
@@ -25,43 +23,29 @@ test("all declared browser modules and Harness peers exist at the pinned release
 	}
 });
 
-test("fake-invoke patch matches the pristine locked DSH and reverses without changing upstream code", async () => {
-	const source = await readFile(require.resolve("@deepseek-ai/dsh-agent-loop"), "utf8");
-	const expected = (await read("runtime/versions.env")).match(/^DSH_AGENT_LOOP_SHA256=(\w+)$/m)[1];
-	assert.equal(createHash("sha256").update(source).digest("hex"), expected);
-	const patched = applyFakeInvokePatch(source);
-	assert.equal(inspectFakeInvokePatch(patched).patchedAnchors, true);
-	assert.equal(applyFakeInvokePatch(patched), patched);
-	assert.equal(revertFakeInvokePatch(patched), source);
-	assert.match(patched, /let firstAttempt = true;\n\t\tlet fakeInvokeRetries = 0;/);
+test("rc.2 agent loop stays pristine and rejects the legacy runtime patch", async () => {
+ const target = require.resolve("@deepseek-ai/dsh-agent-loop");
+ const before = await readFile(target, "utf8");
+ assert.equal(inspectFakeInvokePatch(before).patched, false);
+ const result = spawnSync(process.execPath, ["scripts/patch-dsh-runtime.mjs", "patch", "--target", target], {encoding:"utf8"});
+ assert.notEqual(result.status, 0);
+ assert.match(result.stderr, /legacy patch does not support.*0\.2\.0-rc\.2/);
+ assert.equal(await readFile(target, "utf8"), before);
 });
 
-test("clipboard fallback patch matches the pinned DSH web frontend, parses and is reversible", async () => {
-	const packageRoot = dirname(require.resolve("@deepseek-ai/dsh-web-frontend/package.json"));
-	const assetsRoot = join(packageRoot, "dist", "assets");
-	let source;
-	for (const name of await readdir(assetsRoot)) {
-		if (!/^index-[\w-]+\.js$/.test(name)) continue;
-		const candidate = await readFile(join(assetsRoot, name), "utf8");
-		if (inspectDshWebFrontendPatch(candidate).pristineAnchors) { source = candidate; break; }
-	}
-	assert.ok(source, "pinned DSH web frontend clipboard anchors found");
-	const patched = applyDshWebFrontendPatch(source);
-	assert.equal(inspectDshWebFrontendPatch(patched).patchedAnchors, true);
-
-	// 出包时 prepare-runtime 会对补丁后的前端跑 `node --check`，但它要等
-	// robocopy + 补丁跑完（约 40 分钟流水线）才暴露语法错误。这里用同一条
-	// 检查提前拦住：锚点是压缩产物，替换片段少一个分隔符就会编译不过
-	// （2026-09-24：`catch{G="failed"}const ee=...` 换成表达式语句后缺分号）。
-	const scratch = await mkdtemp(join(tmpdir(), "dsh-frontend-syntax-"));
-	try {
-		const asset = join(scratch, "index.js");
-		await writeFile(asset, patched, "utf8");
-		const checked = spawnSync(process.execPath, ["--check", asset], { encoding: "utf8" });
-		assert.equal(checked.status, 0, `patched DSH web frontend is invalid JavaScript:\n${checked.stderr}`);
-	} finally {
-		await rm(scratch, { recursive: true, force: true });
-	}
-
-	assert.equal(revertDshWebFrontendPatch(patched), source);
+test("rc.2 frontend stays pristine, parses and rejects the legacy clipboard patch", async () => {
+ const root = dirname(require.resolve("@deepseek-ai/dsh-web-frontend/package.json"));
+ const assets = join(root,"dist","assets");
+ const files = (await readdir(assets)).filter(name => /^index-[\w-]+\.js$/.test(name));
+ assert.ok(files.length);
+ const before = await Promise.all(files.map(name=>readFile(join(assets,name),"utf8")));
+ const result=spawnSync(process.execPath,["scripts/patch-dsh-web-frontend.mjs","patch","--root",root],{encoding:"utf8"});
+ assert.notEqual(result.status,0);
+ assert.match(result.stderr,/legacy patch does not support.*0\.2\.0-rc\.2/);
+ for (let i=0;i<files.length;i++) {
+   assert.equal(inspectDshWebFrontendPatch(before[i]).patched,false);
+   assert.equal(await readFile(join(assets,files[i]),"utf8"),before[i]);
+   const checked=spawnSync(process.execPath,["--check",join(assets,files[i])],{encoding:"utf8"});
+   assert.equal(checked.status,0,checked.stderr);
+ }
 });

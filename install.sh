@@ -232,11 +232,13 @@ managed_python="$("$runtime_bin/uv" python find "$PYTHON_VERSION")"
 export PATH="$node_link/bin:$launcher_root/node_modules/.bin:$(dirname "$managed_python"):$python_bin_dir:$runtime_bin:$PATH"
 export DSH_HARNESS_NODE_MODULES="$launcher_root/node_modules"
 
-if [[ $patch_dsh -eq 1 ]]; then
+if [[ $patch_dsh -eq 1 && "$DSH_VERSION" != "0.2.0-rc.2" ]]; then
 	loop_target="$launcher_root/node_modules/@deepseek-ai/dsh-agent-loop/lib/index.js"
 	[[ -f "$loop_target" ]] || { echo "无法定位 dsh-agent-loop：$loop_target" >&2; exit 1; }
 	node "$tmp_root/source/scripts/patch-dsh-runtime.mjs" patch \
 		--target "$loop_target" --expect-sha256 "$DSH_AGENT_LOOP_SHA256"
+elif [[ "$DSH_VERSION" == "0.2.0-rc.2" ]]; then
+	echo "DSH 0.2.0-rc.2: using pristine upstream runtime; legacy string patches disabled."
 fi
 
 echo "[5/8] 安装插件依赖与科研 Python 环境"

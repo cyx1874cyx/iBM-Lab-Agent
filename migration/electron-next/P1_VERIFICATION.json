@@ -1,0 +1,208 @@
+{
+  "status": "PASS",
+  "phase": "P1 single-package compatibility prototype",
+  "startedOn": "2026-10-02",
+  "completedOn": "2026-10-03",
+  "sourcePins": {
+    "ibm": "a400ac424e1ca89496a9ac706531d7a05a221a2d",
+    "next": "838ba60fd79362087c0a0d134efee671c284786a",
+    "core": "639ed015397290b3745d163aafe02ffee4aa3f84"
+  },
+  "versions": {
+    "ibm": "0.5.8-rc.1",
+    "next": "2.0.17-next",
+    "kernel": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "electronNode": "24.18.1",
+    "buildNode": "24.19.0",
+    "yarn": "4.18.0",
+    "ibmPnpm": "10.34.5",
+    "python": "3.12.11"
+  },
+  "checks": {
+    "p0Baseline": "PASS",
+    "ibmTests": {
+      "passed": 780,
+      "skipped": 8,
+      "failed": 0
+    },
+    "nextTests": {
+      "passed": 417,
+      "skipped": 2,
+      "failed": 0
+    },
+    "pythonNativeBridge": {
+      "passed": 4,
+      "failed": 0
+    },
+    "affectedReleaseChecks": {
+      "passed": 18,
+      "failed": 0
+    },
+    "nextBuild": "PASS",
+    "nextTypecheck": "PASS",
+    "nextFrontend": "PASS",
+    "changedJsLint": "PASS",
+    "rootAndLauncherFrozenLockChecks": "PASS",
+    "nodeHostPrototype": "PASS",
+    "electronNodeHostAndHeadlessClientPrototype": "PASS",
+    "scientificPythonRuntime": "PASS",
+    "electronArchiveChecksum": "PASS",
+    "prototypeProcessesAfterShutdown": "PASS: no owned Host/Electron/Edge process remaining"
+  },
+  "scope": {
+    "splitServices": false,
+    "migrateExistingUserData": false,
+    "launchVisibleDesktop": false,
+    "invokeLLM": false,
+    "institutionCapture": false,
+    "originMnovaApplicationAutomation": false,
+    "releaseInstaller": false
+  },
+  "prototypeChecks": [
+    "isolated-pinned-resources-deployed",
+    "exact-managed-python-linked",
+    "official-plugin-install-activated",
+    "real-host-ready",
+    "bundle-enabled",
+    "research-preset-healthy",
+    "lab-remote-request-contract",
+    "scientific-runtime-host-preflight-and-conversion",
+    "project-memory-write",
+    "research-session-created-and-bound",
+    "client-selected-research-default",
+    "client-mounted-no-page-errors",
+    "isolated-browser-stopped",
+    "real-host-ready",
+    "memory-survives-host-restart",
+    "binding-survives-host-restart"
+  ],
+  "resourceSources": {
+    "python": "uv managed CPython 3.12.11; workspace-only install, no registry or global executable change",
+    "pythonPackages": "Baseline requirements and Windows recipe, resolved from Tsinghua PyPI mirror with exact versions; MarkItDown 0.1.7 hash-checked optional-magika patch",
+    "electron": "Electron 44.0.0 npm installer using npmmirror; archive checked against pinned electron/checksums.json",
+    "nextSource": "Required blobs restored from official raw GitHub at the locked commit and verified against Git object IDs; core checkout sparse and clean"
+  },
+  "artifacts": {
+    "electronExecutable": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\node_modules\\electron\\dist\\electron.exe",
+      "sha256": "1dc2d12e5c60341782e68c4b65a8e49cbd86217f81568f90575547cec13b5610",
+      "bytes": 244440576
+    },
+    "managedPythonExecutable": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\python\\cpython-3.12.11-windows-x86_64-none\\python.exe",
+      "sha256": "a8d0979b74f577fa32fe6d697febea20149b2c500f66502a1eda8d91c119f835",
+      "bytes": 91648
+    },
+    "managedPythonLibrary": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\python\\cpython-3.12.11-windows-x86_64-none\\python312.dll",
+      "sha256": "b68455a9f73af8b071cee387e85023b9224e9dd513baa4ebbf232751308d8e00",
+      "bytes": 6974464
+    },
+    "pythonRequirements": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\python\\requirements.lock",
+      "sha256": "307fe9277f212db1c82c484dc5adbc378dc681f7b3abc6cee1ef96d541198d2d",
+      "bytes": 4545
+    },
+    "patchedMarkitdown": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\python-runtime\\Lib\\site-packages\\markitdown\\_markitdown.py",
+      "sha256": "c9b42313b48023908752d3c5fc553a7783c5522bcd7d4f4e616644501f6c0344",
+      "bytes": 32193
+    },
+    "nextYarnLock": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\yarn.lock",
+      "sha256": "ddb85b74ad5e406d6573773d4f515cb819993069b32a2ef827f1cb653014fe80",
+      "bytes": 778254
+    },
+    "ibmPnpmLock": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\pnpm-lock.yaml",
+      "sha256": "c4517dd0d700c3e90f61a867dbca747b6cb29b4c73cf7a1e3cb96a5743db389e",
+      "bytes": 653172
+    },
+    "ibmNpmLock": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\package-lock.json",
+      "sha256": "284623e65662eba8a2afac4419c664ac422833086120534ff25c9d651b966b19",
+      "bytes": 520348
+    },
+    "launcherPnpmLock": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\runtime\\launcher\\pnpm-lock.yaml",
+      "sha256": "7d592e00d81ae7269b9bf9e04999dda18cc9bae8aeb685c95720738df110580f",
+      "bytes": 600981
+    },
+    "nodePrototypeEvidence": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\prototype\\run-U2rVSz\\verification.json",
+      "sha256": "93aed0e774f4f91a6f3281a886835ea3d2697d6f4e08b7ed6e3a61cdb032fba9",
+      "bytes": 622
+    },
+    "electronPrototypeEvidence": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\prototype\\run-DOqy68\\verification.json",
+      "sha256": "8ae47f99ffe71d2909be3a4e400cdee9c57172c0375b0eca5bb2a2522d71a3e4",
+      "bytes": 1044
+    },
+    "pythonRuntimeEvidence": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\scientific-runtime\\verification.json",
+      "sha256": "f0dea60568482a912ac515a1bb29e6c05be9c48c3d0c26e090caea0f6287d3d1",
+      "bytes": 2559
+    },
+    "labTestEvidence": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\lab-tests-final.log",
+      "sha256": "a88c87fc9b45459ead10aadec8d95fdadb0333e6925171f4ed361910f2edd633",
+      "bytes": 70179
+    },
+    "nextTestEvidence": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next-tests-final.log",
+      "sha256": "0fdc9e2b789290485b5cf24781f95e7bfd03f2becf7a3b65ee9b601c3e07270f",
+      "bytes": 289
+    },
+    "next_host.js": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\lib\\host.js",
+      "sha256": "8ea7bd8827115c2e12e31f0608838e304d784d770f280b3b1ebefa30dbc7a856",
+      "bytes": 7729
+    },
+    "next_main.js": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\lib\\main.js",
+      "sha256": "4e1d31abaa566f5d677f8f8428ae0d5bb9ad03a7413115951077d66dfe867106",
+      "bytes": 178770
+    },
+    "next_client.js": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\lib\\client.js",
+      "sha256": "c9ed75ce3f55687c70237488de4713293ddcca32491b2c6b11e4762722d27a1a",
+      "bytes": 1184589
+    },
+    "next_preload-app.cjs": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\lib\\preload-app.cjs",
+      "sha256": "573a3c9f30c908c119cf491d51cf4fc39ae6606e0c91faec9d7f6273f5142813",
+      "bytes": 18343
+    },
+    "next_preload-shell.cjs": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\next\\dsh-desktop-next\\lib\\preload-shell.cjs",
+      "sha256": "47d8a9f286abb28136b6098a43607dd8ade90987c7441ecb6689fdb79a644677",
+      "bytes": 2251
+    },
+    "electronArchive": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p1\\electron-cache\\76389d15b269019e43353bf137187ec06b91653d738a8aa4d2d48ee3fada8b95\\electron-v44.0.0-win32-x64.zip",
+      "sha256": "e61aa3bcea8152bc0730abd015e47c032d778a0ef10e2a1c78ba3c4ea47942f9",
+      "bytes": 157455369
+    },
+    "prototypeScript": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\scripts\\migration\\verify-next-prototype.mjs",
+      "sha256": "165d0313841afd4d0ec71d9ff72a3916dc40a61c6b22240e4089cf27bb100a3f",
+      "bytes": 12291
+    },
+    "scientificScript": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\scripts\\migration\\verify-python-runtime.py",
+      "sha256": "1ab8d66598e4971d00b31d0cdc9bb983393f1123e313216f258f7f925b5749d4",
+      "bytes": 3627
+    },
+    "ibmClientBundle": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\Code\\iBM-Lab-Agent-electron-next\\client\\index.js",
+      "sha256": "7fd98f25c9f26a90369ad5f4a0e46749a01be99ce9844d463e34478ae0acb832",
+      "bytes": 411971
+    }
+  },
+  "limitations": [
+    "P1 uses an official NEXT Electron Node-mode Host with a headless Edge client, not a packaged end-user desktop acceptance.",
+    "Local MCP imports validated; authorized Origin/Mnova software and institutional capture belong to P4.",
+    "Legacy Tauri packaging paths are not the NEXT migration entry; Electron installers and offline release acceptance belong to P6."
+  ]
+}
