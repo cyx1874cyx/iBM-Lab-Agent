@@ -5,8 +5,8 @@
   "implementation": "Agent lab_browser_observe/click/wait plus desktop/src-tauri/src/webvpn.rs capture and save paths; legacy mode=auto removed",
   "testCases": "docs/PUBLISHER_NON_OA_TEST_CASES.md",
   "buildUnderTest": {
-    "version": "0.5.8",
-    "note": "Capture paths are unchanged since 0.5.6-beta2: publisher download events and CDP Fetch of the browser's original PDF response. Existing files cause an explicit already-archived conflict and cannot be replaced by the agent in this build. Closing the literature browser terminates an active capture task. The capture limit is 250 MiB. Publisher-specific institutional routes remain pending live verification. 0.5.8 changes the client UI and three template/preset defects; it does not touch the capture pipeline."
+    "version": "0.5.8-rc.1",
+    "note": "Capture paths are unchanged since 0.5.6-beta2: publisher download events and CDP Fetch of the browser's original PDF response. Existing files cause an explicit already-archived conflict and cannot be replaced by the agent in this build. Closing the literature browser terminates an active capture task. The capture limit is 250 MiB. Publisher-specific institutional routes remain pending live verification. 0.5.8-rc.1 changes the client UI and three template/preset defects; it does not touch the capture pipeline."
   },
   "sharedAlgorithm": {
     "pageIdentity": "DOI prefix, publisher host, citation DOI or canonical URL; WebVPN forwarded pages also accepted",

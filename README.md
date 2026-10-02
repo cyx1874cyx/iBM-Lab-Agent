@@ -5,7 +5,7 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 不修改 Harness 核心，并集成固定版本的
 [nature-skills](https://github.com/Yuan1z0825/nature-skills)。
 
-当前稳定版本为 **v0.5.8**（界面简化与视觉改版 + 三项修复）。这一版把课题工作台从
+当前候选版本为 **v0.5.8-rc.1**（界面简化与视觉改版 + 三项修复）。这一版把课题工作台从
 「多层卡片 + 小字号」改成「分组标题 + 条目列表」：产品品牌只保留一处，顶部工具栏统一
 36px（文件夹 / 更多 / 课题入口同规格，WebVPN 与连接状态合并为紧凑状态入口），课题页改成
 单行下划线标签页并去掉「文献资料」等外层大框，精读条目以**短引用主标题 + 中文副标题**
@@ -15,7 +15,7 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台。项目以
 `synth_step_resolve_dual` 一并补上）；模板管理新增**全局唯一的默认模板**，设置后 Agent
 生成笔记时优先使用；新建对话默认进入 `lab-research`（iBM 科研 Agent）模式，桌面壳顶栏
 新增常驻课题入口，空白新会话里也能一键回到课题空间。
-发布说明见 [`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)，
+发布说明见 [`docs/releases/v0.5.8-rc.1.md`](docs/releases/v0.5.8-rc.1.md)，
 上一稳定版说明见 [`docs/releases/v0.5.6.md`](docs/releases/v0.5.6.md)。
 
 v0.5.6-beta2 把文献捕获的字节来路收敛成**两条真机确认过的通路**：出版社定制 PDF 预览页点
@@ -208,7 +208,7 @@ dsh --profile ibm-lab
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent | 0.5.8 |
+| iBM Lab Agent | 0.5.8-rc.1 |
 | DeepSeek Harness | 0.1.7-rc.1 |
 | Windows Node | 24.16.0 |
 | Linux Python | 3.12.11 |
@@ -222,7 +222,7 @@ dsh --profile ibm-lab
 
 ## 验证状态
 
-当前分支（含 v0.5.8 的全部改动）在本机实测（出包结果见本节末）：
+当前分支（含 v0.5.8-rc.1 的全部改动）在本机实测（出包结果见本节末）：
 
 - Node 单元与集成测试 **787 项 / 782 通过 / 0 失败 / 5 跳过**（跳过项需要真实 PPT
   模板，CI 预期如此）；本轮新增 `tests/unit/client-descriptors.test.mjs`（描述符 ↔ 调用点
@@ -248,16 +248,16 @@ dsh --profile ibm-lab
   并做成多布局表；集成测试对真实钉住的前端跑完补丁后执行 `node --check`，
   `verify`/`patch`/`revert` 三态都经过实测前端校验。
 
-v0.5.8 于 2026-10-01 完成出包验证：统一发布流水线 10 个阶段全部通过（含 786 用例、
+v0.5.8-rc.1 于 2026-10-02 完成出包验证：统一发布流水线 10 个阶段全部通过（含 786 用例、
 打包后真实启动的回环 Web 冒烟），`publishable: true`。产物：
 
 | 产物 | 字节 | SHA-256 |
 |---|---|---|
-| `iBM Lab Agent_0.5.8_x64-setup.exe` | 259,220,945 | `cb240eec…ad3a32f0` |
-| `ibm-lab-agent-v0.5.8-linux.tar.gz` | 24,655,092 | `ef99476b…b07b2261` |
+| `iBM Lab Agent_0.5.8-rc.1_x64-setup.exe` | 259,220,945 | `cb240eec…ad3a32f0` |
+| `ibm-lab-agent-v0.5.8-rc.1-linux.tar.gz` | 24,655,092 | `ef99476b…b07b2261` |
 
 两者均由提交 `15d791a` 构建，校验清单在 `dist/SHA256SUMS`。详见
-[`docs/releases/v0.5.8.md`](docs/releases/v0.5.8.md)。
+[`docs/releases/v0.5.8-rc.1.md`](docs/releases/v0.5.8-rc.1.md)。
 
 v0.5.5-beta3 于 2026-09-25 完成出包验证：统一发布流水线 11 个阶段全部通过（含 695 用例、
 打包后真实启动的回环 Web 冒烟），`publishable: true`；Linux 侧预检闸门全绿。产物：
