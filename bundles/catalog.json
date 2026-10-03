@@ -28,6 +28,7 @@
       ],
       "ids": [
         "ibm-runtime",
+        "ibm-scientific-desktop",
         "ibm-runtime-remote",
         "lab-version-registry",
         "lab-python-env",

@@ -1,0 +1,5 @@
+# Optional Windows native adapters for the fixed P4 Python resource.
+# Core requirements.lock is unchanged. Exact wheels recorded in P4 evidence.
+originpro==1.1.15
+OriginExt==1.2.5
+pywin32==312

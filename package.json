@@ -152,6 +152,9 @@
     },
     "./analysis-remote": {
       "default": "./lib/analysis-remote.js"
+    },
+    "./scientific-desktop": {
+      "default": "./lib/scientific-desktop.js"
     }
   },
   "files": [
@@ -171,7 +174,8 @@
     "install.sh",
     "README.md",
     "vendor.lock.json",
-    "harness.lock.json"
+    "harness.lock.json",
+    "electron-next"
   ],
   "dsh": {
     "bundle": {
@@ -230,7 +234,9 @@
     "@deepseek-ai/dsh-storage-json": "0.2.0-rc.2",
     "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
     "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-typert-registry": "0.2.0-rc.2"
+    "@deepseek-ai/dsh-typert-registry": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-subprocess": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -267,6 +273,12 @@
       "optional": true
     },
     "@deepseek-ai/dsh-typert-registry": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-subprocess": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-mcp-client": {
       "optional": true
     }
   },

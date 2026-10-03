@@ -30,7 +30,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["lib/**/*.js", "src/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs", "tests/**/*.js"],
+    files: ["lib/**/*.js", "src/**/*.js", "scripts/**/*.mjs", "electron-next/**/*.mjs", "tests/**/*.mjs", "tests/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",

@@ -42,7 +42,7 @@ export function parseBuilderJson(stdout) {
  * @param {{ venvPython?: string, platform?: string, timeoutMs?: number }} env
  * @returns {Promise<{ ok: boolean, code: number|null, json?: object, stdout: string, stderr: string, python?: string, error?: string }>}
  */
-export async function runPptxBuilder(args, { venvPython, platform = process.platform, timeoutMs = 180000 } = {}) {
+export async function runPptxBuilder(args, { venvPython, platform = process.platform, timeoutMs = 180000, spawnImpl = spawn } = {}) {
 	const candidates = pythonCandidates({
 		venvPython,
 		bundledPython: bundledPythonFromEnv(),
@@ -54,7 +54,7 @@ export async function runPptxBuilder(args, { venvPython, platform = process.plat
 	}
 	const command = candidate.command;
 	return await new Promise((resolve) => {
-		const child = spawn(command[0], [...command.slice(1), PPTX_BUILDER_SCRIPT, ...args], {
+		const child = spawnImpl(command[0], [...command.slice(1), PPTX_BUILDER_SCRIPT, ...args], {
 			env: { ...process.env },
 			stdio: ["ignore", "pipe", "pipe"]
 		});

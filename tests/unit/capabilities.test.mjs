@@ -146,6 +146,6 @@ test("lab-literature-sources 的 config 全部解析为字符串或 !!js 占位�
 			`config.${key} 不是字符串也不是 !!js 占位符，疑似 YAML 误解析：${JSON.stringify(value)}`
 		);
 	}
-	assert.equal(row.config.institutionPortalUrl, "https://lib.ustc.edu.cn/");
+	assert.equal(row.config.institutionPortalUrl, "https://wvpn.ustc.edu.cn/");
 	assert.equal(row.config.sessionsDir.__jsExpr, "dshHomePath('lab-agent/literature-sessions')");
 });

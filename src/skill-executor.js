@@ -52,6 +52,8 @@ export class SkillExecutor {
 		this.skillsRoot = config.skillsRoot;
 		this.venvPython = config.venvPython;
 		this.platform = config.platform ?? process.platform;
+		this.spawnImpl = config.spawnImpl ?? spawn;
+		this.signal = config.signal;
 		this.fetchImpl = config.fetchImpl ?? ((url, options) => this.academicFetch(url, options));
 	}
 
@@ -60,13 +62,15 @@ export class SkillExecutor {
 	 * 环境变量。PubMed 请求使用 stdlib urllib 后备；其余公共 API 保持原生 fetch。
 	 */
 	async academicFetch(url, options = {}) {
+		if (this.signal) options = { ...options, signal: options.signal ? AbortSignal.any([options.signal, this.signal]) : this.signal };
+		options.signal?.throwIfAborted();
 		if (!/(?:\.ncbi\.nlm\.nih\.gov|\.nih\.gov)\//i.test(String(url))) return await globalThis.fetch(url, options);
 		const resolved = await this.resolvePython();
 		if (!resolved.command) throw new Error("no python available for NCBI fetch fallback (venv missing and py/python unavailable)");
 		const command = resolved.command;
 		const accept = options.headers?.Accept ?? options.headers?.accept ?? "application/json";
 		return await new Promise((resolve, reject) => {
-			const child = spawn(command[0], [...command.slice(1), "-c", PYTHON_HTTP_FETCH, String(url), accept], {
+			const child = this.spawnImpl(command[0], [...command.slice(1), "-c", PYTHON_HTTP_FETCH, String(url), accept], {
 				env: { ...process.env },
 				stdio: ["ignore", "pipe", "pipe"]
 			});
@@ -131,7 +135,10 @@ export class SkillExecutor {
 	 * @returns {{ code: number, stdout: string, stderr: string, timedOut: boolean }}
 	 */
 	async run(name, args, { timeoutMs = 120000, signal } = {}) {
+		if (this.signal) signal = signal ? AbortSignal.any([signal, this.signal]) : this.signal;
+		signal?.throwIfAborted();
 		const resolved = await this.resolvePython();
+		signal?.throwIfAborted();
 		if (!resolved.command) {
 			return { code: -1, stdout: "", stderr: "no python available (venv missing and py/python unavailable)", timedOut: false };
 		}
@@ -141,7 +148,7 @@ export class SkillExecutor {
 		// 误导用户去改 PATH 里的系统 python（venv/bundled 才是真实执行者）。
 		const pythonLabel = `[python ${resolved.source} ${command.join(" ")}]`;
 		return new Promise((resolve, reject) => {
-			const child = spawn(command[0], [...command.slice(1), script, ...args], {
+			const child = this.spawnImpl(command[0], [...command.slice(1), script, ...args], {
 				env: { ...process.env },
 				stdio: ["ignore", "pipe", "pipe"]
 			});

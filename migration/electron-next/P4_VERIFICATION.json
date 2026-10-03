@@ -1,0 +1,106 @@
+{
+  "phase": "P4",
+  "status": "in_progress",
+  "baseline": "iBM Lab Agent 0.5.8-rc.1",
+  "next": "v2.0.17-next",
+  "kernel": "0.2.0-rc.2",
+  "electron": "44.0.0",
+  "python": "3.12.11",
+  "tests": {
+    "fail": 0,
+    "pass": 789,
+    "skip": 8
+  },
+  "checks": {
+    "fixedLockCheck": "pnpm 10.34.5 frozen offline passed",
+    "institutionPdfAndSi": "passed",
+    "nativeFileInteraction": "first_attempt_timed_out; visible_owner_fix_waiting_retest",
+    "electronFixture": 11,
+    "upstreamUnmodified": true,
+    "originRoundtrip": "passed",
+    "mnovaSyntheticProcessing": "passed",
+    "cookieOrCredentialExported": false
+  },
+  "evidence": [
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/desktop-popup-fix/verification.json",
+      "bytes": 3570,
+      "sha256": "561e550c60a10062c716ed68bcba0798cc8aa09f01c59ec314a2da3861ba03e7"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/offline-smoke/verification.json",
+      "bytes": 2559,
+      "sha256": "f0dea60568482a912ac515a1bb29e6c05be9c48c3d0c26e090caea0f6287d3d1"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/relocation-verification.json",
+      "bytes": 173,
+      "sha256": "b2bb20fff680c7f324dfa53729207d0a11253a3464ab807a641bbae429734354"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/python-resource/resource-manifest.json",
+      "bytes": 2111989,
+      "sha256": "68ce7797cf0b2e3989345488a0956b5019f55e2623b4b1fe5cb5a0a63b3982c2"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/next-compatibility/run-ZAOOIJ/verification.json",
+      "bytes": 1471,
+      "sha256": "2e5e2a024aa62cca69200e2c125354ee1340735aa268425ff2474adb8cc1d21d"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/institution-acceptance/pdf-verification.json",
+      "bytes": 552,
+      "sha256": "6c7a1a83421bbe5ed2d8eee413844c6425bea2514217d9fc79a8311ce00a5ed3"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/institution-acceptance/si-verification.json",
+      "bytes": 532,
+      "sha256": "ab29ffc4d5aaf4ba5fb07534e8d3b4d4b7d331c48b89819ec93cbd35ca91a31b"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/origin-workflow/verification.json",
+      "bytes": 801,
+      "sha256": "2201064ba6c617c140f53b68c3a64de1731201dc8a8ef1683e5d12a6468eb714"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/mnova-workflow/verification.json",
+      "bytes": 2217,
+      "sha256": "442fdefcf5dad4f9c4dc2cddf7720a6cb273ef7f0e09fffc3720ec35b8fda4b3"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/mnova-workflow/preflight.json",
+      "bytes": 1211,
+      "sha256": "bf11992a083fca580051f159c3379060eed365413d584731dc616f89dab74263"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/mnova-workflow/synthetic/simulation_metadata.json",
+      "bytes": 2019,
+      "sha256": "7ae8bda07a29627cfdb58a231985da3a801546afd5216daf938a995a78d62d7b"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4-tests-complete-checkpoint.log",
+      "bytes": 82477,
+      "sha256": "eb7550382f6d575448737d9ce97c8a1ed48a9618b52b554b3fb88a67058c2ece"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/file-dialogs/verification.json",
+      "bytes": 145,
+      "sha256": "d276e5747b6540a26cbe1dc4e705de5d78f614f1b36c7a28f808dfc23f04cfe3"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/native-wheels/originpro-1.1.15-py3-none-any.whl",
+      "bytes": 56108,
+      "sha256": "85f3555a5386af6af5975bc61f96194aacd4f18bf984b579f3c51991143772a5"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/native-wheels/OriginExt-1.2.5-cp312-none-win_amd64.whl",
+      "bytes": 375384,
+      "sha256": "aefb2b5f1a161388f7e7dbe241717400b793f4b758ab011d8ea90ebaf7932231"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/native-wheels/pywin32-312-cp312-cp312-win_amd64.whl",
+      "bytes": 6914841,
+      "sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc"
+    }
+  ]
+}

@@ -7,6 +7,12 @@
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
+    - id: ibm-scientific-desktop
+      name: 'dsh-lab-agent/scientific-desktop'
+      inject: [ibmCore, ibmRuntime]
+      config:
+        root: !!js dshHomePath('lab-agent/scientific-desktop')
+        portal: 'https://wvpn.ustc.edu.cn/'
     - id: ibm-runtime-remote
       name: 'dsh-lab-agent/runtime-remote'
     - id: lab-version-registry

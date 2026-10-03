@@ -25,7 +25,7 @@
       config:
         sessionsDir: !!js dshHomePath('lab-agent/literature-sessions')
         downloadsDir: !!js dshHomePath('lab-agent/literature-downloads')
-        institutionPortalUrl: 'https://lib.ustc.edu.cn/'
+        institutionPortalUrl: 'https://wvpn.ustc.edu.cn/'
         # 浏览器模式（browserMode）**刻意不在此处配置**，由运行期能力探测决定，
         # 单一真源是 lib/capabilities.js 的 defaultBrowserMode()：
         #   桌面封装环境 → desktop-edge-handoff

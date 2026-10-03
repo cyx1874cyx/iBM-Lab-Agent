@@ -9,7 +9,7 @@ const matches = [...source.matchAll(/^    - id: ([\w-]+)$/gm)];
 const rows = new Map(matches.map((match, index) => [match[1], source.slice(match.index, matches[index + 1]?.index ?? source.length).trimEnd()]));
 const composition = {
  core: { requires: [], ids: ["ibm-core", "lab-tasks", "lab-artifact-download", "lab-remote"], tools: ["memory-tool"] },
- runtime: { requires: ["core"], ids: ["ibm-runtime", "ibm-runtime-remote", "lab-version-registry", "lab-python-env", "lab-llm-diag", "lab-skill-filesystem", "lab-publisher-skill-filesystem", "lab-mnova-skill-filesystem"], tools: ["runtime-tool"] },
+ runtime: { requires: ["core"], ids: ["ibm-runtime", "ibm-scientific-desktop", "ibm-runtime-remote", "lab-version-registry", "lab-python-env", "lab-llm-diag", "lab-skill-filesystem", "lab-publisher-skill-filesystem", "lab-mnova-skill-filesystem"], tools: ["runtime-tool"] },
  documents: { requires: ["core", "runtime"], ids: ["ibm-documents", "ibm-documents-remote", "lab-note-templates", "lab-ppt-templates", "lab-convert", "lab-pdf-viewer-assets"], tools: ["templates-tool", "convert-tool"] },
  literature: { requires: ["core", "runtime", "documents"], ids: ["ibm-literature-workflows", "ibm-literature-remote", "lab-goal-profiles", "lab-literature-sources", "lab-capture", "lab-capture-handoff"], tools: ["tasks-tool", "ppt-build-tool"] },
  design: { requires: ["core", "runtime"], ids: ["ibm-design", "ibm-design-remote", "lab-chemistry", "lab-synthesis", "lab-experiment-plan-templates", "lab-ketcher-assets", "lab-evidence-shot", "lab-user-action"], tools: ["synthesis-tool"] },

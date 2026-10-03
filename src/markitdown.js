@@ -15,9 +15,9 @@ import { bundledPythonFromEnv, pythonCandidates } from "./python-env.js";
 const SCRIPT = fileURLToPath(new URL("../scripts/markitdown/convert.py", import.meta.url));
 
 /** 用指定 python 命令探测 markitdown 可用性（--check，只做 import 检查）。 */
-function probeWith(command, platform) {
+function probeWith(command, platform, spawnImpl = spawn) {
 	return new Promise((resolve) => {
-		const child = spawn(command[0], [...command.slice(1), SCRIPT, "--check"], {
+		const child = spawnImpl(command[0], [...command.slice(1), SCRIPT, "--check"], {
 			env: { ...process.env },
 			stdio: ["ignore", "pipe", "pipe"]
 		});
@@ -41,13 +41,13 @@ function probeWith(command, platform) {
  * （IBM_LAB_AGENT_BUNDLED_PYTHON），无需系统 Python 即可工作。
  * @returns {Promise<{ command: string[] | null, source: string, note: string, probe: { available: boolean, error?: string } | null }>}
  */
-async function resolveMarkitdownPython({ venvPython, bundledPython, platform = process.platform } = {}) {
+async function resolveMarkitdownPython({ venvPython, bundledPython, platform = process.platform, spawnImpl } = {}) {
 	for (const candidate of pythonCandidates({
 		venvPython,
 		bundledPython: bundledPython ?? bundledPythonFromEnv(),
 		platform
 	})) {
-		const probe = await probeWith(candidate.command, platform);
+		const probe = await probeWith(candidate.command, platform, spawnImpl);
 		if (probe.available) return { ...candidate, note: candidate.source, probe };
 	}
 	return { command: null, source: "unavailable", note: "unavailable", probe: null };
@@ -58,8 +58,8 @@ async function resolveMarkitdownPython({ venvPython, bundledPython, platform = p
  * @param {{ venvPython?: string, platform?: string }} env
  * @returns Promise<{ available: boolean, text?: string, error?: string, code?: number, note?: string }>
  */
-export async function convertWithMarkitdown(path, { venvPython, bundledPython, platform = process.platform, output } = {}) {
-	const resolved = await resolveMarkitdownPython({ venvPython, bundledPython, platform });
+export async function convertWithMarkitdown(path, { venvPython, bundledPython, platform = process.platform, output, spawnImpl = spawn } = {}) {
+	const resolved = await resolveMarkitdownPython({ venvPython, bundledPython, platform, spawnImpl });
 	if (!resolved.command) {
 		return { available: false, error: "no python with markitdown found (venv missing and py/python unavailable); run: python -m pip install markitdown" };
 	}
@@ -67,7 +67,7 @@ export async function convertWithMarkitdown(path, { venvPython, bundledPython, p
 	const args = [SCRIPT, path];
 	if (output) args.push(output);
 	return new Promise((resolve) => {
-		const child = spawn(command[0], [...command.slice(1), ...args], {
+		const child = spawnImpl(command[0], [...command.slice(1), ...args], {
 			env: { ...process.env },
 			stdio: ["ignore", "pipe", "pipe"]
 		});
@@ -104,7 +104,7 @@ export async function convertWithMarkitdown(path, { venvPython, bundledPython, p
 }
 
 /** 探测 markitdown 是否可用（convert.py --check，只做 import 检查）。 */
-export async function probeMarkitdown({ venvPython, bundledPython, platform = process.platform } = {}) {
-	const resolved = await resolveMarkitdownPython({ venvPython, bundledPython, platform });
+export async function probeMarkitdown({ venvPython, bundledPython, platform = process.platform, spawnImpl } = {}) {
+	const resolved = await resolveMarkitdownPython({ venvPython, bundledPython, platform, spawnImpl });
 	return resolved.probe ?? { available: false, error: "no python with markitdown found" };
 }
