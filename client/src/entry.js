@@ -1,9 +1,6 @@
 // dsh-lab-agent client 统一入口（esbuild bundle 入口点）。
-// 顶层副作用：注入 CSS；随后 re-export apply 供 build-client.mjs 的 footer 组装。
-import { injectStyles } from "./styles.js";
+// 样式随 apply 生命周期管理；模块缓存后重新启用也会恢复样式。
 import { apply } from "./apply.js";
-
-injectStyles();
 
 export { apply };
 export const inject = ["remote"];

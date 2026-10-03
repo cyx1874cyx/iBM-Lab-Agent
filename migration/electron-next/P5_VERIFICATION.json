@@ -1,0 +1,127 @@
+{
+  "phase": "P5",
+  "status": "in_progress",
+  "date": "2026-10-04",
+  "baseline": "0.5.8-rc.1",
+  "next": "v2.0.17-next",
+  "kernel": "0.2.0-rc.2",
+  "electron": "44.0.0",
+  "packages": 7,
+  "uniqueHostRows": 39,
+  "tests": {
+    "pass": 790,
+    "skip": 8,
+    "fail": 0
+  },
+  "checks": {
+    "independentLocalLinkInstall": "passed",
+    "liveDisableRestore": "passed",
+    "coreOnlyUi": "passed",
+    "uiDisposeReactivate": "passed",
+    "wideNarrowLightDark": "basic_project_passed; populated_0.5.8_comparison_pending",
+    "uiFixtureUpdateRollback": "passed; not_production_release_upgrade",
+    "archiveStructure": "passed; clean_install_pending",
+    "gracefulExit": "final_and_update_runs_passed; one_prior_timeout_root_cause_unresolved",
+    "nativeBrowserAndFileUi": "pending",
+    "P4NativeFileInteraction": "user_deferred; not_passed",
+    "historicalDataImported": false,
+    "upstreamModified": false
+  },
+  "evidence": [
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/verification.json",
+      "bytes": 1043,
+      "sha256": "ec0a76030b87cc4032a0b7dd1ecec31038a62d762a63959878c93371d84696b6"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/host.log",
+      "bytes": 656,
+      "sha256": "02488ed462abfa2a04867f2b3ddfeb645d29becac38edcb4acbc0ffa8fa85898"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/verification.json",
+      "bytes": 1994,
+      "sha256": "5af6c7ea59b702984a3a07b2f3488ace1a0a8002e4e32e2e2c6fdcd8c5fa39a9"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-tests-checkpoint.log",
+      "bytes": 92415,
+      "sha256": "df1105b2f10557863d5aeb9715dc55c96626d8dd0b07402b7109e1559011d4fc"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-targeted.log",
+      "bytes": 21363,
+      "sha256": "129896b9be0c70eea16dbce11a4c40f176250fdab39fd56e0ad2a520861cd23d"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/update-rollback/run-SUV9oR/verification.json",
+      "bytes": 1042,
+      "sha256": "5d4cea23ef40e4b8a719637bb40c21652d7c9055294d923ce7ce7d5fb342937d"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/ui-dispose-fix/run-dVSrra/verification.json",
+      "bytes": 1007,
+      "sha256": "1777f82fcacf3b3ed4f7e6fbf75ec80ad0c8c45b7048d57a3696063ca8292541"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/core-only-memory.png",
+      "bytes": 70837,
+      "sha256": "f4d9af7defeb8edaec708e1d0d911b154c46ae2c4a66563cdf6cd02b247bd19b"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/project-1360-dark.png",
+      "bytes": 38436,
+      "sha256": "9865f4f1d6e913770e4cbe223dcba5d6b0d3763739477f38e27905f6c6a8d460"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/project-1360-light.png",
+      "bytes": 38596,
+      "sha256": "bf0cddeb71aafa733baa87b51c03eb3b5205dd113f6ac0d98b50cf1930067d4b"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/project-600-dark.png",
+      "bytes": 32570,
+      "sha256": "0488ae052bb836a205b54247ef124b594b73972f13bd0a087468c55b1e291a3d"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/final-checkpoint/run-1I4diF/project-600-light.png",
+      "bytes": 33183,
+      "sha256": "3ff1888309e80c41e39c1a8fe69e7c658260ccebef9418541254e57196699289"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-analysis-0.5.8-rc.1.tgz",
+      "bytes": 2290,
+      "sha256": "1dcdefa2962a1b32e61f90ebfd3e44d79ec172ca47301dc5ca696d120d769fef"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-core-0.5.8-rc.1.tgz",
+      "bytes": 2481,
+      "sha256": "aec04b38316c28aefc2b48e66b9e8d8eadd3149c3ab66fcaf77afe3df5b07ee5"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-design-0.5.8-rc.1.tgz",
+      "bytes": 3695,
+      "sha256": "5f1b0a8823bcb4398fae617d9cfcf956a374ed1f7ce712fb7ce04d0ecf39927f"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-documents-0.5.8-rc.1.tgz",
+      "bytes": 2993,
+      "sha256": "74e20243320c2f3c32ff012c06dbf109654271f25a490c42b60a4d55a0423e47"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-literature-0.5.8-rc.1.tgz",
+      "bytes": 3881,
+      "sha256": "b91e86b2ecaca6c0ffc9f83e322c0340897c7aeca74896b4b0448b85e51c600f"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-runtime-0.5.8-rc.1.tgz",
+      "bytes": 3402,
+      "sha256": "ffdb2076e64057c37b98b63a257463301c401561bd2b3ad8318e5abb1d244f0f"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-ui-0.5.8-rc.1.tgz",
+      "bytes": 132415,
+      "sha256": "f79fbefc27603a00df7ab080c2187517bd5ea23032c7cafe6ac934884d7f49e5"
+    }
+  ]
+}

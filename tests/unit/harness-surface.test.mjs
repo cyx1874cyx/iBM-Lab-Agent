@@ -423,6 +423,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 	const childInjects = [];
 	let webVpnInject;
 	await client.apply({
+		effect: () => () => {},
 		remote: {
 			$mount: async (value) => {
 				contribution = value;

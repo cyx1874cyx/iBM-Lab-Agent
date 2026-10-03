@@ -14,7 +14,7 @@
   "checks": {
     "fixedLockCheck": "pnpm 10.34.5 frozen offline passed",
     "institutionPdfAndSi": "passed",
-    "nativeFileInteraction": "first_attempt_timed_out; visible_owner_fix_waiting_retest",
+    "nativeFileInteraction": "two_attempts_timed_out; user_deferred_on_2026-10-04",
     "electronFixture": 11,
     "upstreamUnmodified": true,
     "originRoundtrip": "passed",
@@ -101,6 +101,17 @@
       "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/native-wheels/pywin32-312-cp312-cp312-win_amd64.whl",
       "bytes": 6914841,
       "sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/file-dialogs-retest/verification.json",
+      "bytes": 145,
+      "sha256": "d276e5747b6540a26cbe1dc4e705de5d78f614f1b36c7a28f808dfc23f04cfe3"
     }
-  ]
+  ],
+  "continuation": {
+    "phase": "P5",
+    "authorizedBy": "user",
+    "date": "2026-10-04",
+    "P4Complete": false
+  }
 }

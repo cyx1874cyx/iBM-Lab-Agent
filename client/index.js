@@ -35,6 +35,13 @@ __export(entry_exports, {
 });
 module.exports = __toCommonJS(entry_exports);
 
+// client/src/apply.js
+var import_react_dom3 = __toESM(require("react-dom"), 1);
+
+// client/src/h.js
+var import_react = __toESM(require("react"), 1);
+var h = import_react.default.createElement;
+
 // client/src/theme.js
 var themeCss = `
 :root,.ib-overlay,body.ib-research-chat {--ib-bg:var(--dsw-alias-bg-base,#fff);--ib-panel:var(--dsw-alias-bg-layer-1,#f7f7f8);--ib-panel2:var(--dsw-alias-bg-layer-2,#eee);--ib-line:var(--dsw-alias-border-l2,#dcdfe5);--ib-text:var(--dsw-alias-label-primary,#202124);--ib-muted:var(--dsw-alias-label-secondary,#616670);--ib-green:var(--dsw-alias-brand-primary,#4d6bfe);--ib-cyan:var(--dsw-alias-brand-text,#4d6bfe);--ib-red:var(--dsw-alias-state-error-primary,#c33)}
@@ -339,19 +346,13 @@ function injectStyles() {
   }
 }
 
-// client/src/apply.js
-var import_react_dom3 = __toESM(require("react-dom"), 1);
-
-// client/src/h.js
-var import_react = __toESM(require("react"), 1);
-var h = import_react.default.createElement;
-
 // client/src/descriptors.js
 function buildDescriptors() {
   const pass = { parse: (value) => value };
   const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
+    direct("capabilities"),
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     // 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
     // LabRemoteService.note_templates_list(request) 读 request.kind），
@@ -394,6 +395,9 @@ function applyBranding(onOpen) {
   const FLASK_HTML = '<svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16h10l-2.4-3.4h-5.2L7 16Z" fill="#eafff6" opacity="0.9"/><circle cx="12" cy="13.2" r="0.55" fill="#73dce6"/><circle cx="13.6" cy="15" r="0.4" fill="#73dce6"/></svg>';
   const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
   const entries = /* @__PURE__ */ new Set();
+  const attributes = /* @__PURE__ */ new Map();
+  const headlines = /* @__PURE__ */ new Map(), heroChildren = /* @__PURE__ */ new Map();
+  let disposed = false;
   const activate = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -401,6 +405,7 @@ function applyBranding(onOpen) {
   };
   const bindEntry = (node) => {
     if (!node || node.dataset.dshLabResearchEntry === "1") return;
+    attributes.set(node, { title: node.getAttribute("title"), label: node.getAttribute("aria-label") });
     node.dataset.dshLabResearchEntry = "1";
     node.setAttribute("title", "打开科研课题");
     node.addEventListener("click", activate);
@@ -418,11 +423,13 @@ function applyBranding(onOpen) {
     style.textContent = "[class*='_brand']>:not(.ib-brand-shell),[class*='_brand'] svg,[class*='_railMark'],[class*='_railFish']{display:none!important}";
   };
   const inject2 = () => {
+    if (disposed) return false;
     hideNative();
     let touched = false;
     const titleGroup = document.querySelector("[class*='_titleGroup']");
     const heroHeadline = titleGroup?.firstElementChild || document.querySelector("[class*='_headlineText']") || [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
     if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
+      if (!headlines.has(heroHeadline)) headlines.set(heroHeadline, heroHeadline.textContent);
       heroHeadline.textContent = "专注源头创新";
       touched = true;
     }
@@ -434,6 +441,7 @@ function applyBranding(onOpen) {
     });
     const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']") || heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
     if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
+      heroChildren.set(heroMarkHost, [...heroMarkHost.childNodes]);
       const avatar = document.createElement("img");
       avatar.src = BRAND_ICON;
       avatar.alt = "";
@@ -484,8 +492,24 @@ function applyBranding(onOpen) {
   observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true });
   return () => {
+    disposed = true;
     if (observer) observer.disconnect();
-    for (const node of entries) node.removeEventListener("click", activate);
+    for (const node of entries) {
+      node.removeEventListener("click", activate);
+      delete node.dataset.dshLabResearchEntry;
+      const previous = attributes.get(node);
+      for (const [name, value] of [["title", previous.title], ["aria-label", previous.label]]) {
+        if (value === null) node.removeAttribute(name);
+        else node.setAttribute(name, value);
+      }
+    }
+    for (const node of document.querySelectorAll('[data-dsh-lab-brand="1"]')) node.remove();
+    document.querySelector('style[data-plugin-css="dsh-lab-agent-brand"]')?.remove();
+    attributes.clear();
+    for (const [node, text] of headlines) if (node.textContent === "专注源头创新") node.textContent = text;
+    for (const [node, children] of heroChildren) if (node.querySelector(".ib-hero-avatar")) node.replaceChildren(...children);
+    headlines.clear();
+    heroChildren.clear();
     entries.clear();
   };
 }
@@ -2710,6 +2734,11 @@ function PlotEdit({ row: row2, call, onChanged, onError }) {
 var import_react5 = require("react");
 function Templates({ call, onBack }) {
   const [tab, setTab] = (0, import_react5.useState)("notes");
+  const [capabilities, setCapabilities] = (0, import_react5.useState)(null);
+  (0, import_react5.useEffect)(() => {
+    void call("capabilities").then(setCapabilities);
+  }, [call]);
+  const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
   const [notes, setNotes] = (0, import_react5.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const [ppt, setPpt] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
   const [exp, setExp] = (0, import_react5.useState)({ loading: true, list: [], error: "" });
@@ -2755,11 +2784,13 @@ function Templates({ call, onBack }) {
     }
   }, [call]);
   (0, import_react5.useEffect)(() => {
-    void loadNotes();
-    void loadReviews();
-    void loadPpt();
-    void loadExp();
-  }, [loadNotes, loadReviews, loadPpt, loadExp]);
+    if (capabilities?.documents) {
+      void loadNotes();
+      void loadReviews();
+      void loadPpt();
+    }
+    if (capabilities?.experimentTemplates) void loadExp();
+  }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
   return h(
     "div",
     null,
@@ -2767,12 +2798,12 @@ function Templates({ call, onBack }) {
     h(
       "div",
       { className: "ib-tm-tabs" },
-      h("button", { className: "ib-tm-tab", "data-active": tab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
-      h("button", { className: "ib-tm-tab", "data-active": tab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
-      h("button", { className: "ib-tm-tab", "data-active": tab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
-      h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
     ),
-    tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })
+    activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
   );
 }
 function ExperimentPlanTemplates({ call, state, reload }) {
@@ -3319,8 +3350,8 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
     try {
       if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("项目编号请使用小写字母、数字和连字符，例如 polymer-prodrug-01");
       if (!form.name.trim()) throw new Error("请填写项目名称");
-      if (!defaults.goal || !defaults.template) throw new Error("系统默认配置尚未就绪");
-      const result = await call("projects_create", { request: { fields: { ...form, name: form.name.trim(), memoryChangeNote: "创建课题核心记忆", goalProfileId: defaults.goal.id, goalProfileVersion: defaults.goal.version, templateId: defaults.template.id, templateVersion: defaults.template.version } } });
+      const profileFields = defaults.goal && defaults.template ? { goalProfileId: defaults.goal.id, goalProfileVersion: defaults.goal.version, templateId: defaults.template.id, templateVersion: defaults.template.version } : {};
+      const result = await call("projects_create", { request: { fields: { ...form, name: form.name.trim(), memoryChangeNote: "创建课题核心记忆", ...profileFields } } });
       onCreated(result.project, result.presetId);
     } catch (reason) {
       setError(reason.message);
@@ -3336,8 +3367,9 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
   const [launching, setLaunching] = (0, import_react7.useState)(null);
   const load = (0, import_react7.useCallback)(async () => {
     try {
-      const [projects, goals, templates] = await Promise.all([call("projects_list"), call("goals_list"), call("templates_list")]);
-      setState({ loading: false, projects: projects.projects || [], defaults: { goal: goals.goals.find((x) => x.id === "default-prodrug-polymer") || goals.goals[0], template: templates.templates.find((x) => x.id === "nature-default") || templates.templates[0] }, error: "" });
+      const capabilities = await call("capabilities");
+      const [projects, goals, templates] = await Promise.all([call("projects_list"), capabilities.literature ? call("goals_list") : { goals: [] }, capabilities.documents ? call("templates_list") : { templates: [] }]);
+      setState({ loading: false, projects: projects.projects || [], defaults: { capabilities, goal: goals.goals.find((x) => x.id === "default-prodrug-polymer") || goals.goals[0], template: templates.templates.find((x) => x.id === "nature-default") || templates.templates[0] }, error: "" });
     } catch (reason) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
@@ -3354,7 +3386,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setLaunching(null);
     }
   };
-  return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。创建课题后会自动打开专属工作区并开始科研 Agent 对话。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", onClick: onOpenTemplates }, "模板管理"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题"))), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: (project, presetId) => void launch(project, presetId) }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, disabled: launching === project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, launching === project.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
+  return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研 Agent 对话和研究成果。创建课题后会自动打开专属工作区并开始科研 Agent 对话。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", disabled: !state.defaults.capabilities?.documents && !state.defaults.capabilities?.experimentTemplates, onClick: onOpenTemplates }, "模板管理"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题"))), creating ? h(CreateProject, { call, defaults: state.defaults, onCancel: () => setCreating(false), onCreated: (project, presetId) => void launch(project, presetId) }) : null, state.error ? h("div", { className: "ib-error" }, state.error) : null, state.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state.projects.length ? h("div", { className: "ib-grid" }, state.projects.map((project) => h("button", { className: "ib-project", key: project.id, disabled: launching === project.id, onClick: () => onOpen(project) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project.name), h("p", null, launching === project.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project.memoryVersion || "1"}`), h("span", null, when(project.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
 }
 function bundleIndex(bundles = []) {
   const index = {};
@@ -4210,6 +4242,8 @@ function Project({ call, project, onBack, onDelete, onStartChat }) {
   const literature = data.literature || {};
   const planning = data.planning || {};
   const characterization = data.characterization || {};
+  const available = { literature: data.capabilities?.literature ?? true, planning: data.capabilities?.design ?? true, characterization: data.capabilities?.analysis ?? true };
+  const activeTab = available[tab] ? tab : Object.keys(available).find((id) => available[id]);
   const tabs = [["literature", "文献资料"], ["planning", "研究设计"], ["characterization", "表征分析"]];
   return h(
     "div",
@@ -4236,13 +4270,14 @@ function Project({ call, project, onBack, onDelete, onStartChat }) {
     h(
       "div",
       { className: "ib-tabs" },
-      tabs.map(([id, label]) => h("button", { className: "ib-tab", "data-active": tab === id ? "true" : void 0, key: id, onClick: () => setTab(id) }, label)),
+      tabs.map(([id, label]) => h("button", { className: "ib-tab", "data-active": activeTab === id ? "true" : void 0, disabled: !available[id], title: available[id] ? void 0 : "此功能未启用", key: id, onClick: () => setTab(id) }, label)),
       h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load() }, "刷新")
     ),
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-    tab === "literature" ? h("div", { className: "ib-tab-panel" }, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
-    tab === "planning" ? h("div", { className: "ib-tab-panel" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
-    tab === "characterization" ? h("div", { className: "ib-tab-panel" }, h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) })) : null,
+    activeTab === "literature" ? h("div", { className: "ib-tab-panel" }, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
+    activeTab === "planning" ? h("div", { className: "ib-tab-panel" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
+    activeTab === "characterization" ? h("div", { className: "ib-tab-panel" }, h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) })) : null,
+    !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
@@ -5345,12 +5380,16 @@ function applyUi(ctx) {
     openProject: (project) => open(project ?? null),
     openProjectTab
   }), "dsh-lab-agent: project shell bridge");
-  ctx.on("dispose", () => {
+  ctx.effect(() => () => {
     if (disposeBranding) disposeBranding();
     close();
-  });
+  }, "lab.overlay-and-branding");
 }
 async function apply(ctx) {
+  ctx.effect(() => {
+    injectStyles();
+    return () => document.querySelector("style[data-plugin-css=dsh-lab-agent]")?.remove();
+  }, "lab.styles");
   await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
   ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
   ctx.inject(["remote", "remote.settings", "remote.agentPresets"], (settingsCtx) => {
@@ -5362,6 +5401,5 @@ async function apply(ctx) {
 }
 
 // client/src/entry.js
-injectStyles();
 var inject = ["remote"];
 exports.apply = apply; exports.inject = inject; return module.exports; } });

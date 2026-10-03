@@ -11,6 +11,7 @@ export function buildDescriptors() {
 		const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
+ direct("capabilities"),
  ...["synth_compound_resolve_first","characterization_list","characterization_submit","characterization_retry","characterization_remove","characterization_dispatch_failed"].map(name=>direct(name,["request"])),
 			// 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
 			// LabRemoteService.note_templates_list(request) 读 request.kind），

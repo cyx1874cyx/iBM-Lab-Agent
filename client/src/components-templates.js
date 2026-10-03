@@ -5,6 +5,9 @@ import { when, cloneForm } from "./lib.js";
 // 模板管理组件：Templates/ExperimentPlanTemplates/NoteTemplates/NoteTemplateForm/PptTemplates/PptTemplateImport/MetaEditor + SVG 图标
 export function Templates({ call, onBack }) {
 			const [tab, setTab] = useState("notes");
+            const [capabilities, setCapabilities] = useState(null);
+            useEffect(() => { void call("capabilities").then(setCapabilities); }, [call]);
+            const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
 			const [notes, setNotes] = useState({ loading: true, list: [], defaultId: null, error: "" });
 			const [ppt, setPpt] = useState({ loading: true, list: [], error: "" });
 			const [exp, setExp] = useState({ loading: true, list: [], error: "" });
@@ -36,15 +39,15 @@ export function Templates({ call, onBack }) {
 				try { const result = await call("experiment_plan_templates_list"); setExp({ loading: false, list: result.templates || [], error: "" }); }
 				catch (reason) { setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
 			}, [call]);
-			useEffect(() => { void loadNotes(); void loadReviews(); void loadPpt(); void loadExp(); }, [loadNotes, loadReviews, loadPpt, loadExp]);
+			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } if (capabilities?.experimentTemplates) void loadExp(); }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
 			return h("div", null,
 				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
 				h("div", { className: "ib-tm-tabs" },
-					h("button", { className: "ib-tm-tab", "data-active": tab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"),
-					h("button", { className: "ib-tm-tab", "data-active": tab === "reviews" ? "true" : undefined, onClick: () => setTab("reviews") }, "综述模板"),
-					h("button", { className: "ib-tm-tab", "data-active": tab === "exp" ? "true" : undefined, onClick: () => setTab("exp") }, "实验计划模板"),
-					h("button", { className: "ib-tm-tab", "data-active": tab === "ppt" ? "true" : undefined, onClick: () => setTab("ppt") }, "PPT 模板")),
-				tab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (tab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (tab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : h(PptTemplates, { call, state: ppt, reload: loadPpt })))
+					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"),
+					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : undefined, onClick: () => setTab("reviews") }, "综述模板"),
+					h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : undefined, onClick: () => setTab("exp") }, "实验计划模板"),
+					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : undefined, onClick: () => setTab("ppt") }, "PPT 模板")),
+				activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")))
 			);
 		}
 

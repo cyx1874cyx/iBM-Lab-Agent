@@ -1,6 +1,7 @@
 // applyUi / apply：UI 装配与入口（从原 client/index.js 抽离）。
 import ReactDOM from "react-dom";
 import { h } from "./h.js";
+import { injectStyles } from "./styles.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
@@ -309,10 +310,11 @@ export function applyUi(ctx) {
 		openProject: (project) => open(project ?? null),
 		openProjectTab
 	}), "dsh-lab-agent: project shell bridge");
-	ctx.on("dispose", () => { if (disposeBranding) disposeBranding(); close(); });
+	ctx.effect(() => () => { if (disposeBranding) disposeBranding(); close(); }, "lab.overlay-and-branding");
 }
 
 export async function apply(ctx) {
+	ctx.effect(() => { injectStyles(); return () => document.querySelector("style[data-plugin-css=dsh-lab-agent]")?.remove(); }, "lab.styles");
 	await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
 	ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
 	// 新会话默认模式：单独一次注入。settings 命名空间缺失时只丢失这一项能力，

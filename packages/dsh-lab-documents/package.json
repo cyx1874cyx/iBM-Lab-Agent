@@ -1,0 +1,35 @@
+{
+  "name": "dsh-lab-documents",
+  "version": "0.5.8-rc.1",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json",
+    "./documents": "./lib/documents.js",
+    "./documents-remote": "./lib/documents-remote.js",
+    "./note-templates": "./lib/note-templates.js",
+    "./ppt-templates": "./lib/ppt-templates.js",
+    "./convert": "./lib/convert.js",
+    "./pdf-viewer-assets": "./lib/pdf-viewer-assets.js"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "dsh-lab-agent": "0.5.8-rc.1"
+  },
+  "peerDependencies": {
+    "dsh-lab-core": "0.5.8-rc.1",
+    "dsh-lab-runtime": "0.5.8-rc.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

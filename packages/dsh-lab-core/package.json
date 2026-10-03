@@ -1,0 +1,30 @@
+{
+  "name": "dsh-lab-core",
+  "version": "0.5.8-rc.1",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json",
+    "./core": "./lib/core.js",
+    "./tasks": "./lib/tasks.js",
+    "./artifact-download": "./lib/artifact-download.js",
+    "./remote": "./lib/remote.js"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "dsh-lab-agent": "0.5.8-rc.1"
+  },
+  "peerDependencies": {},
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

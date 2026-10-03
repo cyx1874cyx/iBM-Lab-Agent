@@ -1,0 +1,96 @@
+# Generated from the full compatibility composition; run compose-domain-bundles.mjs.
+# Domain: runtime; required compositions: core.
+- insert:
+    - id: ibm-runtime
+      name: 'dsh-lab-runtime/runtime'
+      inject: [ibmCore]
+      config:
+        skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+    - id: ibm-scientific-desktop
+      name: 'dsh-lab-runtime/scientific-desktop'
+      inject: [ibmCore, ibmRuntime]
+      config:
+        root: !!js dshHomePath('lab-agent/scientific-desktop')
+        portal: 'https://wvpn.ustc.edu.cn/'
+    - id: ibm-runtime-remote
+      name: 'dsh-lab-runtime/runtime-remote'
+    - id: lab-version-registry
+      name: 'dsh-lab-runtime/version-registry'
+      inject: [storageDomain]
+      config:
+        vendorDir: !!js dshHomePath('lab-agent/vendor/nature-skills')
+        lockFile: !!js dshHomePath('lab-agent/vendor.lock.json')
+
+    # ── Python environment service ────────────────────────────────────────────
+    #
+    # Host service `ctx.labPython`: preflight + bootstrap of the pinned Python
+    # venv used by nature skills' scripts. No auto-install at boot — only
+    # explicit preflight/bootstrap calls (install script, regression runner,
+    # later task interfaces).
+    - id: lab-python-env
+      name: 'dsh-lab-runtime/python-env'
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        lockFile: !!js dshHomePath('lab-agent/requirements.lock')
+
+    # ── Reading goal profiles (ReadingGoalProfile) ────────────────────────────
+    #
+    # Host service `ctx.labGoals`: 可保存/复制/修改/版本化的精读目标。版本行
+    # 不可变（id@version），任务引用版本快照；删除只归档，历史与快照始终
+    # 可读。内置聚前药默认目标幂等种子。Phase 3 的任务接口在这里取配置并
+    # 转换为 nature-paper-card 重点审查要求。
+    - id: lab-llm-diag
+      name: 'dsh-lab-runtime/llm-diag'
+      inject: [llm]
+
+    # 课题工具（lab_convert_document / lab_project_memory_*）已移入 lab-research
+    # preset 工具层（presets/lab-research/preset.patch.yml），仅科研 Agent 会话
+    # 可见；standard 等其他预设不暴露 lab 工具，避免误调用。
+
+    # ── Lab web client（浏览器管理界面）────────────────────────────────────
+    #
+    # 裸包名 entry（dsh-lab-agent 主入口，提供 ctx.labAgent）：client-modules
+    # 按 entry name 解析 dsh.client 声明与 exports["./client"] bundle，
+    # 子路径行名无法被识别为 client 包，故单独挂一行。浏览器侧由 kernel 加载
+    # client/index.js：注册"实验室"侧边栏入口与全屏管理面板。
+    - id: lab-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-nature
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+
+    # First-party publisher browser guidance ships with this plugin, separate
+    # from the pinned third-party Nature Skills tree and its version registry.
+    - id: lab-publisher-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-publisher
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('profiles/ibm-lab/node_modules/dsh-lab-agent/skills')
+
+    # ── Mnova NMR Skill discovery (global skill layer, 0.2.0) ────────────────
+    #
+    # 独立 provider 实例只读 $DSH_HOME/lab-agent/vendor/mnova-mcp/skill/
+    # （mnova-mcp 0.3.1 附带的 nmr-analyze-simulate），与 nature-skills 的
+    # provider 隔离。根目录由 desktop bootstrap（dsh.rs）与 install.mjs 从
+    # 打包 vendor 树物化，随 mnova-mcp.lock.json 变更自动刷新。
+    - id: lab-mnova-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: lab-mnova
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js dshHomePath('lab-agent/vendor/mnova-mcp/skill')
+
+    # ── Nature Skill version registry (NatureSkillVersion) ────────────────────
+    #
+    # Host service `ctx.labVersions`: durable registry of pinned Nature Skills
+    # (repo commit, manifest version, license, python lock hash, regression
+    # date). Persists through the storage-domain layer (JSON backend). Reads
+    # are available to every agent; writes go through explicit registration /
+    # bootstrap calls (install script, upgrade tool) so a model never mutates
+    # the lock silently.

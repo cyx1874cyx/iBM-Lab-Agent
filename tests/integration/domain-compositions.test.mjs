@@ -27,6 +27,26 @@ function options(dir, selected) {
 }
 const invoke = (ctx, namespace, method, request) => ctx.typertGateway.invoke({ namespace, method, args: request === undefined ? {} : { request } });
 
+test("optional workspace remains usable with core alone and provider recovery preserves memory", async () => {
+ const dir = await mkdtemp(join(tmpdir(), "ibm-p5-workspace-"));
+ let handle;
+ try {
+  for (const selected of [[], ["design"], ["analysis"], ["literature"], ["literature", "design", "analysis"], []]) {
+   handle = await bootLite(options(dir, selected));
+   if (!handle.ctx.ibmCore.getProject("p5-core")) await handle.ctx.ibmCore.createProject({ id: "p5-core", name: "可选课题", coreMarkdown: "# 保留核心记忆" });
+   const features = await invoke(handle.ctx, "lab", "capabilities");
+   const workspace = await invoke(handle.ctx, "lab", "projects_workspace", { projectId: "p5-core" });
+   assert.deepEqual(workspace.capabilities, features);
+   assert.equal(features.design, selected.includes("design"));
+   assert.equal(features.analysis, selected.includes("analysis"));
+   assert.equal(features.literature, selected.includes("literature"));
+   assert.equal(workspace.project.name, "可选课题");
+   assert.equal(workspace.memory.markdown, "# 保留核心记忆");
+   await handle.dispose(); handle = undefined;
+  }
+ } finally { await handle?.dispose(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test("real compositions: design and analysis independently start without literature/documents and expose only available tools", async () => {
  const dir = await mkdtemp(join(tmpdir(), "ibm-p3-matrix-"));
  let handle;

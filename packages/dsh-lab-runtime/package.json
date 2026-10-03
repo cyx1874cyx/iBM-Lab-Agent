@@ -1,0 +1,34 @@
+{
+  "name": "dsh-lab-runtime",
+  "version": "0.5.8-rc.1",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json",
+    "./runtime": "./lib/runtime.js",
+    "./scientific-desktop": "./lib/scientific-desktop.js",
+    "./runtime-remote": "./lib/runtime-remote.js",
+    "./version-registry": "./lib/version-registry.js",
+    "./python-env": "./lib/python-env.js",
+    "./llm-diag": "./lib/llm-diag.js"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "dsh-lab-agent": "0.5.8-rc.1"
+  },
+  "peerDependencies": {
+    "dsh-lab-core": "0.5.8-rc.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

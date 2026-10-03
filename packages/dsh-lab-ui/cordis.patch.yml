@@ -1,0 +1,3 @@
+- insert:
+    - id: lab-client
+      name: 'dsh-lab-ui'

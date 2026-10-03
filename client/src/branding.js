@@ -6,6 +6,9 @@ export function applyBranding(onOpen) {
 	const FLASK_HTML = '<svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16h10l-2.4-3.4h-5.2L7 16Z" fill="#eafff6" opacity="0.9"/><circle cx="12" cy="13.2" r="0.55" fill="#73dce6"/><circle cx="13.6" cy="15" r="0.4" fill="#73dce6"/></svg>';
 	const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
 	const entries = new Set();
+	const attributes = new Map();
+	const headlines = new Map(), heroChildren = new Map();
+	let disposed = false;
 	const activate = (event) => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -13,6 +16,7 @@ export function applyBranding(onOpen) {
 	};
 	const bindEntry = (node) => {
 		if (!node || node.dataset.dshLabResearchEntry === "1") return;
+		attributes.set(node, { title: node.getAttribute("title"), label: node.getAttribute("aria-label") });
 		node.dataset.dshLabResearchEntry = "1";
 		node.setAttribute("title", "打开科研课题");
 		node.addEventListener("click", activate);
@@ -32,6 +36,7 @@ export function applyBranding(onOpen) {
 		style.textContent = "[class*='_brand']>:not(.ib-brand-shell),[class*='_brand'] svg,[class*='_railMark'],[class*='_railFish']{display:none!important}";
 	};
 	const inject = () => {
+		if (disposed) return false;
 		hideNative();
 		let touched = false;
 		// DSH 0.1.5 把 headlineText 改成 headline + titleGroup。优先按结构取标题，
@@ -41,6 +46,7 @@ export function applyBranding(onOpen) {
 			|| document.querySelector("[class*='_headlineText']")
 			|| [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
 		if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
+			if (!headlines.has(heroHeadline)) headlines.set(heroHeadline, heroHeadline.textContent);
 			heroHeadline.textContent = "专注源头创新";
 			touched = true;
 		}
@@ -53,6 +59,7 @@ export function applyBranding(onOpen) {
 		const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']")
 			|| heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
 		if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
+			heroChildren.set(heroMarkHost, [...heroMarkHost.childNodes]);
 			const avatar = document.createElement("img");
 			avatar.src = BRAND_ICON;
 			avatar.alt = "";
@@ -106,8 +113,22 @@ export function applyBranding(onOpen) {
 	observer = new MutationObserver(schedule);
 	observer.observe(document.body, { childList: true, subtree: true });
 	return () => {
+		disposed = true;
 		if (observer) observer.disconnect();
-		for (const node of entries) node.removeEventListener("click", activate);
+		for (const node of entries) {
+			node.removeEventListener("click", activate);
+			delete node.dataset.dshLabResearchEntry;
+			const previous = attributes.get(node);
+			for (const [name, value] of [["title", previous.title], ["aria-label", previous.label]]) {
+				if (value === null) node.removeAttribute(name); else node.setAttribute(name, value);
+			}
+		}
+		for (const node of document.querySelectorAll('[data-dsh-lab-brand="1"]')) node.remove();
+		document.querySelector('style[data-plugin-css="dsh-lab-agent-brand"]')?.remove();
+		attributes.clear();
+		for (const [node, text] of headlines) if (node.textContent === "专注源头创新") node.textContent = text;
+		for (const [node, children] of heroChildren) if (node.querySelector(".ib-hero-avatar")) node.replaceChildren(...children);
+		headlines.clear(); heroChildren.clear();
 		entries.clear();
 	};
 }

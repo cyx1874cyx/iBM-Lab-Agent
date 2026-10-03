@@ -1,0 +1,72 @@
+# Generated from the full compatibility composition; run compose-domain-bundles.mjs.
+# Domain: design; required compositions: core, runtime.
+- insert:
+    - id: ibm-design
+      name: 'dsh-lab-design/design'
+      inject: [ibmCore, ibmRuntime, labSynthesis, labChemistry, labExperimentPlanTemplates]
+    - id: ibm-design-remote
+      name: 'dsh-lab-design/design-remote'
+    - id: lab-chemistry
+      name: 'dsh-lab-design/chemistry'
+      inject: [storageDomain]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+
+    # ── NMR workflow (NmrDataset) ────────────────────────────────────────────
+    #
+    # Host service `ctx.labNmr`：准备—人工审核—写回—视觉质检状态机；原始 FID/
+    # 结构与已审核积分计划不可覆盖；聚合物积分计算（组成/转化率/端基DP/取代度/
+    # 载药量）只接受已审核积分。Mnova 实际交互经 Harness MCP Client
+    # （mcp__mnova__* 工具，配置模板见 presets/mcp/mnova-mcp.patch.yml，用户
+    # 部署时启用），本服务只编排与计算。
+    - id: lab-synthesis
+      name: 'dsh-lab-design/synthesis'
+      inject: [storageDomain, ibmCore]
+
+    # ── Markitdown 文档转换（labConvert）──────────────────────────────────────
+    #
+    # Host service `ctx.labConvert`：microsooft/markitdown（可选 Python 依赖）
+    # 把 Office/PDF/图片等转换为 Markdown，保存到 lab-agent/converted/ 并登记
+    # 转换记录；markitdown 不可用时清晰降级并提供安装指引。
+    - id: lab-experiment-plan-templates
+      name: 'dsh-lab-design/experiment-plan-templates'
+      inject: [storageDomain]
+
+    # ── Plot records (0.4.0)：课题绘图登记簿（主题/日期可改，持久化） ───────
+    - id: lab-ketcher-assets
+      name: 'dsh-lab-design/ketcher-assets'
+      inject: [webServer]
+
+    # ── Evidence 原文 PDF 定位查看器静态资源（labPdfViewerAssets，RC2）────
+    #
+    # Host service `ctx.labPdfViewerAssets`：把预构建的 pdf-viewer standalone 应用
+    # （client/assets/pdf-viewer-standalone，vite 一次构建产物，自包含 pdfjs + worker）
+    # 以 /api/lab-pdf-viewer/* 同源托管。前端审核抽屉用 iframe + postMessage 打开，
+    # 自动跳页 + 定位高亮 quote；PDF 二进制经 /api/lab-artifacts 同源流获取。
+    - id: lab-evidence-shot
+      name: 'dsh-lab-design/evidence-shot'
+      inject: [ibmCore, labSynthesis, webServer]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        cacheDir: !!js dshHomePath('lab-agent/evidence-shots')
+
+    # ── 可信用户动作端点（labUserAction，rc.4 review §5.2）───────────────
+    #
+    # Host service `ctx.labUserAction`：路线「锁定版本」是仅真实 UI 用户动作可
+    # 执行的操作。锁定已从通用 Remote/Agent 网关移出（remote 不再暴露
+    # synth_route_lock；Agent 工具注册表无锁定方法），本端点作为唯一锁定通道：
+    # POST /api/lab-user-action/lock-route（同源校验 + x-lab-user-action 意图
+    # header + 显式 POST）→ labSynthesis.lockRoute(by:"user")；服务端要求显式
+    # actor，缺省/伪造主体拒绝；门禁被阻断返回 409 + 结构化 blockers。
+    - id: lab-user-action
+      name: 'dsh-lab-design/user-action'
+      inject: [labSynthesis, webServer]
+
+    # ── Edge capture handoff 页面（labCaptureHandoff）──────────────────────
+    #
+    # Windows Desktop 默认 browserMode=desktop-edge-handoff：客户端创建捕获任务
+    # 后由 Tauri open_in_edge() 打开 http://127.0.0.1:<port>/lab/capture/<id>#t=<token>，
+    # 本服务渲染 handoff 页面（运行在 Edge 标签页，扩展 Content Script 可注入），
+    # 页面内嵌任务元数据并向扩展 ARM_CAPTURE，ACK 后跳转出版社页面；扩展继续
+    # 监听 chrome.downloads 并经 Native Messaging 回传 DSH。页面只服务 loopback，
+    # 令牌经 URL fragment 传递，不落历史/日志/服务器。
