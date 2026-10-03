@@ -138,9 +138,30 @@
       config:
         projectsRoot: !!js dshHomePath('lab-agent/projects')
 
+    - id: ibm-runtime
+      name: 'dsh-lab-agent/runtime'
+      inject: [ibmCore]
+      config:
+        skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+    - id: ibm-documents
+      name: 'dsh-lab-agent/documents'
+      inject: [ibmCore, ibmRuntime]
+    - id: ibm-literature-workflows
+      name: 'dsh-lab-agent/workflows'
+      inject: [ibmCore, ibmRuntime, ibmDocuments, labGoals, labTemplates, labNoteTemplates]
+      config:
+        skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+    - id: ibm-design
+      name: 'dsh-lab-agent/design'
+      inject: [ibmCore, ibmRuntime, labSynthesis, labChemistry, labExperimentPlanTemplates]
+    - id: ibm-analysis
+      name: 'dsh-lab-agent/analysis'
+      inject: [ibmCore, ibmRuntime, labNmr, labPlotRecords, labCharacterization]
     - id: lab-tasks
       name: 'dsh-lab-agent/tasks'
-      inject: [ibmCore, labGoals, labNoteTemplates, labExperimentPlanTemplates, labTemplates, labVersions]
+      inject: [ibmCore]
       config:
         skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
         venvDir: !!js dshHomePath('lab-agent/.venv')
@@ -182,7 +203,7 @@
     # Remote JSON 边界截断后在 Windows 被识别为损坏文件。
     - id: lab-artifact-download
       name: 'dsh-lab-agent/artifact-download'
-      inject: [labTasks, webServer]
+      inject: [ibmCore, webServer]
       config:
         # 实际 Office 文件由打包环境内的 LibreOffice 渲染为 PDF；无文本降级预览。
         previewDir: !!js dshHomePath('lab-agent/previews')
@@ -219,7 +240,7 @@
     # 独立 CAS Provider + OAuth2 PKCE）。
     - id: lab-synthesis
       name: 'dsh-lab-agent/synthesis'
-      inject: [storageDomain]
+      inject: [storageDomain, ibmCore]
 
     # ── Markitdown 文档转换（labConvert）──────────────────────────────────────
     #
@@ -228,7 +249,7 @@
     # 转换记录；markitdown 不可用时清晰降级并提供安装指引。
     - id: lab-convert
       name: 'dsh-lab-agent/convert'
-      inject: [storageDomain]
+      inject: [storageDomain, ibmRuntime]
       config:
         venvDir: !!js dshHomePath('lab-agent/.venv')
         convertedDir: !!js dshHomePath('lab-agent/converted')
@@ -274,7 +295,7 @@
     # 缓存到 evidenceShotsDir；原文未捕获/无页码/页越界返回明确错误，不猜不补。
     - id: lab-evidence-shot
       name: 'dsh-lab-agent/evidence-shot'
-      inject: [labTasks, labSynthesis, webServer]
+      inject: [ibmCore, labSynthesis, webServer]
       config:
         venvDir: !!js dshHomePath('lab-agent/.venv')
         cacheDir: !!js dshHomePath('lab-agent/evidence-shots')
@@ -309,8 +330,18 @@
     # api-gateway 暴露给 Web client。放在全部依赖服务之后，避免部分启动。
     - id: lab-characterization
       name: 'dsh-lab-agent/characterization'
-      inject: [storageDomain, labTasks, labNmr, labPlotRecords]
+      inject: [storageDomain, ibmCore, labNmr, labPlotRecords]
 
+    - id: ibm-runtime-remote
+      name: 'dsh-lab-agent/runtime-remote'
+    - id: ibm-documents-remote
+      name: 'dsh-lab-agent/documents-remote'
+    - id: ibm-literature-remote
+      name: 'dsh-lab-agent/literature-remote'
+    - id: ibm-design-remote
+      name: 'dsh-lab-agent/design-remote'
+    - id: ibm-analysis-remote
+      name: 'dsh-lab-agent/analysis-remote'
     - id: lab-remote
       name: 'dsh-lab-agent/remote'
       inject: [ibmCore]

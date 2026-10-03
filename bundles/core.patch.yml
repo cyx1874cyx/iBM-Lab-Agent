@@ -1,0 +1,39 @@
+# Generated from the full compatibility composition; run compose-domain-bundles.mjs.
+# Domain: core; required compositions: DSH storage.
+- insert:
+    - id: ibm-core
+      name: 'dsh-lab-agent/core'
+      inject: [storageDomain]
+      config:
+        projectsRoot: !!js dshHomePath('lab-agent/projects')
+    - id: lab-tasks
+      name: 'dsh-lab-agent/tasks'
+      inject: [ibmCore]
+      config:
+        skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        # projectsRoot belongs to ibm-core; task workflows share that foundation.
+
+    # ── 文献数据库状态 + 中科大授权浏览器会话 ─────────────────────────────
+    # 公开 API 做轻量探测；机构库经用户本人完成 USTC 身份认证和协议确认。
+    # 浏览器保存 Cookie，插件只登记入口与会话状态，不读取凭据/令牌。
+    - id: lab-artifact-download
+      name: 'dsh-lab-agent/artifact-download'
+      inject: [ibmCore, webServer]
+      config:
+        # 实际 Office 文件由打包环境内的 LibreOffice 渲染为 PDF；无文本降级预览。
+        previewDir: !!js dshHomePath('lab-agent/previews')
+
+    # ── Chemistry & experiment plans (ChemicalEntity / ChemicalProperty /
+    #    ExperimentPlan) ─────────────────────────────────────────────────────
+    #
+    # Host service `ctx.labChemistry`: 小分子/单体/重复单元/聚合物/聚前药实体 +
+    # 带来源性质（db-measured/computed/model-predicted）；分子式级计算纯 JS，
+    # RDKit（venv 可选）SMILES 级性质，PubChem 开放数据查询；实验方法计划
+    # 仅到人工审核（无 executing 状态，不控制仪器、不自动采购）。
+    - id: lab-remote
+      name: 'dsh-lab-agent/remote'
+      inject: [ibmCore]
+
+    # LLM 请求诊断：监听 llm/stream waterfall，把失败 cause 写入
+    # $DSH_HOME/lab-agent/llm-errors.log（定位 TRANSPORT 等传输层错误根因）。

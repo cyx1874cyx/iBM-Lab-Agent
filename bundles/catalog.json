@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "defaultComposition": [
+    "core",
+    "runtime",
+    "documents",
+    "literature",
+    "design",
+    "analysis"
+  ],
+  "independentPackages": "P5",
+  "domains": {
+    "core": {
+      "requires": [],
+      "ids": [
+        "ibm-core",
+        "lab-tasks",
+        "lab-artifact-download",
+        "lab-remote"
+      ],
+      "tools": [
+        "memory-tool"
+      ]
+    },
+    "runtime": {
+      "requires": [
+        "core"
+      ],
+      "ids": [
+        "ibm-runtime",
+        "ibm-runtime-remote",
+        "lab-version-registry",
+        "lab-python-env",
+        "lab-llm-diag",
+        "lab-skill-filesystem",
+        "lab-publisher-skill-filesystem",
+        "lab-mnova-skill-filesystem"
+      ],
+      "tools": [
+        "runtime-tool"
+      ]
+    },
+    "documents": {
+      "requires": [
+        "core",
+        "runtime"
+      ],
+      "ids": [
+        "ibm-documents",
+        "ibm-documents-remote",
+        "lab-note-templates",
+        "lab-ppt-templates",
+        "lab-convert",
+        "lab-pdf-viewer-assets"
+      ],
+      "tools": [
+        "templates-tool",
+        "convert-tool"
+      ]
+    },
+    "literature": {
+      "requires": [
+        "core",
+        "runtime",
+        "documents"
+      ],
+      "ids": [
+        "ibm-literature-workflows",
+        "ibm-literature-remote",
+        "lab-goal-profiles",
+        "lab-literature-sources",
+        "lab-capture",
+        "lab-capture-handoff"
+      ],
+      "tools": [
+        "tasks-tool",
+        "ppt-build-tool"
+      ]
+    },
+    "design": {
+      "requires": [
+        "core",
+        "runtime"
+      ],
+      "ids": [
+        "ibm-design",
+        "ibm-design-remote",
+        "lab-chemistry",
+        "lab-synthesis",
+        "lab-experiment-plan-templates",
+        "lab-ketcher-assets",
+        "lab-evidence-shot",
+        "lab-user-action"
+      ],
+      "tools": [
+        "synthesis-tool"
+      ]
+    },
+    "analysis": {
+      "requires": [
+        "core",
+        "runtime"
+      ],
+      "ids": [
+        "ibm-analysis",
+        "ibm-analysis-remote",
+        "lab-nmr",
+        "lab-plot-records",
+        "lab-characterization"
+      ],
+      "tools": [
+        "characterization-tool"
+      ]
+    }
+  }
+}

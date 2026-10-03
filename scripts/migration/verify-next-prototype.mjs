@@ -14,7 +14,8 @@ const nextRepo = resolve(arg('--next-root') ?? (()=>{throw Error('--next-root re
 const output = resolve(arg('--output') ?? (()=>{throw Error('--output required');})());
 const browserExe = arg('--browser');
 const pythonRuntime=arg('--python-runtime');
-const exerciseCore=process.argv.includes('--exercise-core');
+const exerciseDomains=process.argv.includes('--exercise-domains');
+const exerciseCore=process.argv.includes('--exercise-core') || exerciseDomains;
 const runtime = join(nextRepo,'dsh-desktop-next');
 assert.equal(execFileSync('git',['-C',nextRepo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
 assert.equal(JSON.parse(readFileSync(join(runtime,'package.json'))).version,'2.0.17-next');
@@ -42,7 +43,7 @@ let host,browser; const checks=[]; let hostLog='';
 const redact=value=>String(value).replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');
 const originalWrite=process.stdout.write;
 process.stdout.write=function(chunk,...rest){return originalWrite.call(this,redact(chunk),...rest);};
-const report={phase:exerciseCore?'P2':'P1',next:'2.0.17-next',kernel:'0.2.0-rc.2',ibm:'0.5.8-rc.1',mode:process.argv.includes('--electron')?'electron-node':'node',home,checks};
+const report={phase:exerciseDomains?'P3':exerciseCore?'P2':'P1',next:'2.0.17-next',kernel:'0.2.0-rc.2',ibm:'0.5.8-rc.1',mode:process.argv.includes('--electron')?'electron-node':'node',home,checks};
 let auth;
 async function launchBrowser(){
  const profile=join(runDir,'browser');mkdirSync(profile);
@@ -140,12 +141,34 @@ try {
  await host.stop(true);host=undefined;await boot();
  const stored=await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}});assert.equal(stored.memory.markdown,updated.memory.markdown);assert.equal(stored.history.length,2);checks.push('memory-survives-host-restart');
  const binding=await rpc('lab','projects_binding',{request:{projectId:'p1-prototype'}});assert.ok(binding.binding.sessionIds.includes(session.sessionId));assert.equal(binding.binding.workspaceId,workspaceId);checks.push('binding-survives-host-restart');
+ if(exerciseDomains){
+  await host.stop(true);host=undefined;
+  const patchPath=join(dir,'cordis.patch.yml');const originalPatch=readFileSync(patchPath,'utf8');
+  const catalog=JSON.parse(readFileSync(join(repo,'bundles/catalog.json'),'utf8'));
+  for(const selected of ['design','analysis']){
+   const disabled=['documents','literature',selected==='design'?'analysis':'design'].flatMap(name=>catalog.domains[name].ids).concat('lab-client');
+   writeFileSync(patchPath,originalPatch.trimEnd()+'\n'+disabled.map(id=>`- id: ${id}\n  disabled: true`).join('\n')+'\n');
+   await boot();
+   const active=await rpc('pluginManager','listPlugins');
+   for(const id of disabled)assert.ok(active.some(row=>row.patchId===id&&!row.enabled),`domain still active: ${id}`);
+   if(selected==='design')assert.ok((await rpc('labDesign','synth_targets',{request:{}})).targets);
+   else assert.deepEqual((await rpc('labAnalysis','characterization_list',{request:{projectId:'p1-prototype'}})).tasks,[]);
+   assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}})).memory.markdown,updated.memory.markdown);
+   checks.push(`${selected}-namespace-without-literature-documents-other-domain`);
+   await host.stop(true);host=undefined;
+  }
+  writeFileSync(patchPath,originalPatch);await boot();
+  assert.ok((await rpc('labDocuments','note_templates_list',{request:{}})).templates);
+  assert.ok((await rpc('labLiteratureWorkflows','goals_list')).goals);
+  assert.ok((await rpc('labRuntime','versions_list')).rows);
+  checks.push('domain-namespaces-restored');
+ }
  if(exerciseCore){
   await host.stop(true);host=undefined;
   const patchPath=join(dir,'cordis.patch.yml');
   const originalPatch=readFileSync(patchPath,'utf8');
   // Disable only this isolated profile's iBM workflow/runtime/UI rows. NEXT stays pristine.
-  const ids=[...readFileSync(join(repo,'cordis.patch.yml'),'utf8').matchAll(/^\s+- id: (lab-[\w-]+)$/gm)].map(match=>match[1]).filter(id=>id!=='lab-remote');
+  const ids=[...readFileSync(join(repo,'cordis.patch.yml'),'utf8').matchAll(/^\s+- id: ((?:lab|ibm)-[\w-]+)$/gm)].map(match=>match[1]).filter(id=>!['ibm-core','lab-remote'].includes(id));
   writeFileSync(patchPath,originalPatch.trimEnd()+'\n'+ids.map(id=>`- id: ${id}\n  disabled: true`).join('\n')+'\n');
   await boot();
   const coreMemory=await rpc('lab','projects_memory',{request:{projectId:'p1-prototype'}});assert.equal(coreMemory.memory.markdown,updated.memory.markdown);

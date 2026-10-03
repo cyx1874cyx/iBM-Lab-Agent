@@ -1,0 +1,52 @@
+# Generated from the full compatibility composition; run compose-domain-bundles.mjs.
+# Domain: documents; required compositions: core, runtime.
+- insert:
+    - id: ibm-documents
+      name: 'dsh-lab-agent/documents'
+      inject: [ibmCore, ibmRuntime]
+    - id: ibm-documents-remote
+      name: 'dsh-lab-agent/documents-remote'
+    - id: lab-note-templates
+      name: 'dsh-lab-agent/note-templates'
+      inject: [storageDomain]
+
+    # ── Experiment plan templates (0.4.0) ──────────────────────────────────
+    - id: lab-ppt-templates
+      name: 'dsh-lab-agent/ppt-templates'
+      inject: [storageDomain]
+      config:
+        templatesDir: !!js dshHomePath('lab-agent/templates')
+
+    # ── Literature→PPT task orchestration (LiteratureSearchRun / PaperSourceBundle /
+    #    ReadingReport / PresentationRun / ArtifactProvenance) ────────────────
+    #
+    # Host service `ctx.labTasks`: 计划 §五 流程 + §六 任务接口。机械化步骤直接
+    # 调用 nature-skills 的 stdlib 脚本（OpenAlex 搜索、引用导出、源包准备、
+    # paper-card 审计、PPTX 质量审计）；LLM 步骤由 agent 执行 skill 后通过
+    # complete* 登记。DOCX/PPTX 自动暂存，自查仅提示；人工审核通过后开放下载。
+    # core alone owns the historical lab_tasks domain and all shared repositories.
+    - id: lab-convert
+      name: 'dsh-lab-agent/convert'
+      inject: [storageDomain, ibmRuntime]
+      config:
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+        convertedDir: !!js dshHomePath('lab-agent/converted')
+
+    # ── 手工下载文献自动捕获（labCapture）─────────────────────────────────
+    #
+    # Host service `ctx.labCapture`：文献精读条目未获取的 PDF/SI 按钮 → 创建
+    # 一次性捕获任务（32 字节随机令牌、仅存哈希、20 分钟有效）→ 用户手工下载 →
+    # Chrome 扩展/本地桥接 PUT /api/lab-capture-upload?token=... → 校验后登记到
+    # 原 bundle（captured-literature/<bundleId>/）。只允许合法 chrome-extension://
+    # Origin；微信来源无 DOI 时拒绝启动，绝不回退公众号链接。
+    - id: lab-pdf-viewer-assets
+      name: 'dsh-lab-agent/pdf-viewer-assets'
+      inject: [webServer]
+
+    # ── Evidence 原文截图（labEvidenceShot，0.3.2）────────────────────────
+    #
+    # Host service `ctx.labEvidenceShot`：合成路线工作台 Evidence 卡「文献来源
+    # 板块」把已捕获原文 PDF 对应页（可含 bbox）渲染为 PNG 内嵌，供人工审核。
+    # 渲染走 scripts/evidence-shot.py（PyMuPDF/fitz；桌面版强制 bundled Python，
+    # 统一解析）；PDF 不落盘（tasks.bundleFile 校验后内存传临时文件），截图
+    # 缓存到 evidenceShotsDir；原文未捕获/无页码/页越界返回明确错误，不猜不补。

@@ -132,6 +132,13 @@ export async function bootLite(options) {
 		{ id: "lab-experiment-plan-templates", name: "dsh-lab-agent/experiment-plan-templates", inject: ["storageDomain"] },
 		{ id: "lab-plot-records", name: "dsh-lab-agent/plot-records", inject: ["storageDomain"] },
 		] : []),
+        ...(!coreOnly ? [
+         { id: "ibm-runtime", name: "dsh-lab-agent/runtime", inject: ["ibmCore"] },
+         { id: "ibm-documents", name: "dsh-lab-agent/documents", inject: ["ibmCore", "ibmRuntime"] },
+         ...(extraRows.some(row => row.name === "dsh-lab-agent/synthesis") ? [{ id: "ibm-design", name: "dsh-lab-agent/design" }] : []),
+         ...(extraRows.some(row => row.name === "dsh-lab-agent/characterization") ? [{ id: "ibm-analysis", name: "dsh-lab-agent/analysis" }] : []),
+         ...(extraRows.some(row => row.name === "dsh-lab-agent/tasks") ? [{ id: "ibm-literature-workflows", name: "dsh-lab-agent/workflows", config: extraRows.find(row => row.name === "dsh-lab-agent/tasks")?.config }] : [])
+        ] : []),
 		...extraRows
 	];
 	if (includePython && !coreOnly) {
@@ -147,7 +154,7 @@ export async function bootLite(options) {
   if(!row.name.startsWith("dsh-lab-agent/")) return row;
   const sub=row.name.slice("dsh-lab-agent/".length);
   // The tasks and core services each have a directory entry point.
-  const entry=["tasks", "core"].includes(sub)?join(repoRoot,"lib",sub,"index.js"):join(repoRoot,"lib",sub+".js");
+  const entry=sub === "workflows" ? join(repoRoot,"lib","tasks","workflows.js") : ["tasks", "core"].includes(sub)?join(repoRoot,"lib",sub,"index.js"):join(repoRoot,"lib",sub+".js");
   return {...row,name:pathToFileURL(entry).href};
  });
  await writeFile(configPath, renderYaml(localRows), "utf8");

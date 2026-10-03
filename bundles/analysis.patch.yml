@@ -1,0 +1,31 @@
+# Generated from the full compatibility composition; run compose-domain-bundles.mjs.
+# Domain: analysis; required compositions: core, runtime.
+- insert:
+    - id: ibm-analysis
+      name: 'dsh-lab-agent/analysis'
+      inject: [ibmCore, ibmRuntime, labNmr, labPlotRecords, labCharacterization]
+    - id: ibm-analysis-remote
+      name: 'dsh-lab-agent/analysis-remote'
+    - id: lab-nmr
+      name: 'dsh-lab-agent/nmr'
+      inject: [storageDomain]
+
+    # ── Synthesis routes & CAS boundary (SynthesisTarget / SynthesisRoute) ───
+    #
+    # Host service `ctx.labSynthesis`：开放数据首版路线分析（OpenAlex 文献 /
+    # PatentsView 专利 / PubChem 化合物）；CAS/SciFinder 在获得书面授权前仅
+    # 准备查询与登录入口，不自动操作、不把 CAS 内容输入模型（授权后启用
+    # 独立 CAS Provider + OAuth2 PKCE）。
+    - id: lab-plot-records
+      name: 'dsh-lab-agent/plot-records'
+      inject: [storageDomain]
+
+    # ── PPT template profiles (PptTemplateProfile) ────────────────────────────
+    #
+    # Host service `ctx.labTemplates`: PPTX 导入（解析母版/布局/占位符/字体/
+    # 主题色/页面比例）→ 自动版式角色映射建议 → 预览 → 用户确认。模板只作
+    # 格式参考，validate() 的问题是提示而不是文献产物生成/审核门禁。源文件与解析结果
+    # 存 $DSH_HOME/lab-agent/templates/<id>/v<version>/。
+    - id: lab-characterization
+      name: 'dsh-lab-agent/characterization'
+      inject: [storageDomain, ibmCore, labNmr, labPlotRecords]

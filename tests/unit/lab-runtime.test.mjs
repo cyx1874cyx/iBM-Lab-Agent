@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { apply as applyRuntimeTool } from "../../lib/runtime-tool.js";
+import { apply as applyRuntimeTool, runtimeEnvironment } from "../../lib/runtime-tool.js";
 import {
 	bundledNodeFromEnv,
 	nodeCandidates,
@@ -122,7 +122,10 @@ test("resolveAgentRuntime：返回可用的 node、工作区临时目录与结�
 
 test("lab_runtime_env：输出字段必须落在自己声明的 schema 内", async () => {
 	const registered = [];
-	applyRuntimeTool({ tools: { register: (definition) => registered.push(definition) } });
+	applyRuntimeTool({
+		tools: { register: (definition) => registered.push(definition) },
+		get: (name) => name === "ibmRuntime" ? { environment: runtimeEnvironment } : undefined
+	});
 	assert.equal(registered.length, 1);
 	const tool = registered[0];
 	assert.equal(tool.name, "lab_runtime_env");

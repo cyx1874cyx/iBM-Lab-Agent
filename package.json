@@ -122,6 +122,36 @@
     },
     "./repositories": {
       "default": "./lib/repositories/index.js"
+    },
+    "./runtime": {
+      "default": "./lib/runtime.js"
+    },
+    "./documents": {
+      "default": "./lib/documents.js"
+    },
+    "./design": {
+      "default": "./lib/design.js"
+    },
+    "./analysis": {
+      "default": "./lib/analysis.js"
+    },
+    "./workflows": {
+      "default": "./lib/tasks/workflows.js"
+    },
+    "./runtime-remote": {
+      "default": "./lib/runtime-remote.js"
+    },
+    "./documents-remote": {
+      "default": "./lib/documents-remote.js"
+    },
+    "./literature-remote": {
+      "default": "./lib/literature-remote.js"
+    },
+    "./design-remote": {
+      "default": "./lib/design-remote.js"
+    },
+    "./analysis-remote": {
+      "default": "./lib/analysis-remote.js"
     }
   },
   "files": [

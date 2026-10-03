@@ -364,31 +364,31 @@
           # Harness 会把未注册的工具名视为配置错误并拒绝启动。
           - id: lab-convert-tool
             name: 'dsh-lab-agent/convert-tool'
-            inject: [tools, labConvert]
+            inject: [tools, ibmDocuments, labConvert]
 
           - id: lab-runtime-tool
             name: 'dsh-lab-agent/runtime-tool'
-            inject: [tools]
+            inject: [tools, ibmRuntime]
 
           - id: lab-memory-tool
             name: 'dsh-lab-agent/memory-tool'
-            inject: [tools, labTasks]
+            inject: [tools, ibmCore]
 
           - id: lab-tasks-tool
             name: 'dsh-lab-agent/tasks-tool'
-            inject: [tools, labTasks, labCapture]
+            inject: [tools, ibmLiteratureWorkflows, labTasks]
 
           - id: lab-templates-tool
             name: 'dsh-lab-agent/templates-tool'
-            inject: [tools, labNoteTemplates, labTemplates]
+            inject: [tools, ibmDocuments, labNoteTemplates, labTemplates]
 
           - id: lab-ppt-build-tool
             name: 'dsh-lab-agent/ppt-build-tool'
-            inject: [tools, labTemplates, labTasks]
+            inject: [tools, labTemplates, ibmLiteratureWorkflows, labTasks]
 
           - id: lab-synthesis-tool
             name: 'dsh-lab-agent/synthesis-tool'
-            inject: [tools, labTasks, labSynthesis, labChemistry, labExperimentPlanTemplates]
+            inject: [tools, ibmDesign, ibmCore, labSynthesis, labChemistry, labExperimentPlanTemplates]
 
           # ── skills ──────────────────────────────────────────────────────────────────
           - id: skill-filesystem
@@ -463,4 +463,4 @@
 
           - id: lab-characterization-tool
             name: dsh-lab-agent/characterization-tool
-            inject: [tools, labTasks, labCharacterization]
+            inject: [tools, ibmAnalysis, ibmCore, labCharacterization]
