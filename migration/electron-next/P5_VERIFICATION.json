@@ -26,12 +26,14 @@
     "P4NativeFileInteraction": "user_deferred; not_passed",
     "historicalDataImported": false,
     "upstreamModified": false,
-    "currentArchives": "81 current local archives including shared implementation and validated dependency closure; hashes/manifests/paths/no-link checks passed",
+    "currentArchives": "office-offline-archives: 81 refreshed local archives; offline fresh profile, empty store, Office UI downloads/render and controlled failed-update recovery passed",
     "populatedProjectUi": "passed: three tabs, 1360/600, light/dark, flat literature actions, independent report/PPT buttons, overview toggle, plot UI edit; full_real_0.5.8_comparison_pending",
     "populatedDataRetention": "passed: domain disable/restore, Host restart, UI fixture update/rollback; compares IDs/status and edited plot topic/date",
     "populatedResearchExecution": "not_run; software_fixture_only",
     "cleanArchiveInstall": "passed: Windows fresh profile, empty store, offline, no development links; fixed NEXT runtime supplied separately",
-    "failedUpdateRecovery": "passed: corrupt archive rejection leaves package/lock unchanged; installed UI activation failure recovered by reinstallation of original archive; production automatic rollback not implemented"
+    "failedUpdateRecovery": "passed: corrupt archive rejection leaves package/lock unchanged; installed UI activation failure recovered by reinstallation of original archive; production automatic rollback not implemented",
+    "officeArtifacts": "passed: real LibreOffice DOCX 1 page/PPTX 2 pages, authenticated NEXT HTTP bytes, formal UI browser downloads, optional review API hash binding; software fixtures only; native Office window not visually verified",
+    "officeBaselineParity": "fixed: staged Office save/open matches 0.5.8 without mandatory review; malformed containers rejected before native stage; optional strict approval rejects modified versions"
   },
   "evidence": [
     {
@@ -193,6 +195,41 @@
       "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-clean-install-tests.log",
       "bytes": 21229,
       "sha256": "04a8ae638e29fc3fd608af79bdbaa65c11e204d73a53c4811ccd32b4e2442e0b"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-acceptance/run-LI3J3L/verification.json",
+      "bytes": 3491,
+      "sha256": "a040d3e501127c576601d035d4d94fe7f907cf7fb98a9a5f01c7f005b3a48aaa"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-offline-install/run-qMklA4/verification.json",
+      "bytes": 4200,
+      "sha256": "7ab9ba2c828a62c7d3cd0ceebd431cb69563304941c3d39859bdb7b98070efb0"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-offline-install/run-qMklA4/host.log",
+      "bytes": 820,
+      "sha256": "4245d8db6f57e0aeb074c39fbe1b4a54a220b554ef444dbd6771c600d4a02721"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-offline-archives/release-archives.json",
+      "bytes": 25023,
+      "sha256": "f9c080977b9510755383789d3b0da2084d48bbf61159d7cf4057ff9ce6b59980"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-offline-archives/archive-verification.json",
+      "bytes": 136,
+      "sha256": "9b964460885025ad95f8c96d1748f7e434c819a4590905f503084b9c3acca904"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/office-offline-archives/verification.json",
+      "bytes": 2099,
+      "sha256": "7ff463ac523c319fe1f17e8df38162ce0db57a1553efcc3045e0fb760c414390"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-office-tests.log",
+      "bytes": 22784,
+      "sha256": "b49444d561dff3cd7c3e743a6bce90a3d6416ab366ad44535c62d2a8e157ea85"
     }
   ],
   "targetedTests": {
@@ -202,6 +239,10 @@
     },
     "archiveAndDomain": {
       "pass": 5,
+      "fail": 0
+    },
+    "officeAndDomain": {
+      "pass": 22,
       "fail": 0
     }
   }

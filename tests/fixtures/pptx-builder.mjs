@@ -140,6 +140,7 @@ export async function buildPptx(options) {
   <p:cSld><p:spTree>
     <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
     <p:grpSpPr/>
+    ${options.slideText ? `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Fixture label"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="914400" y="914400"/><a:ext cx="10363200" cy="1828800"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="2400"/><a:t>${String(options.slideText).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")} ${i}</a:t></a:r></a:p></p:txBody></p:sp>` : ""}
   </p:spTree></p:cSld>
   <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
 </p:sld>`);

@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import puppeteer from 'puppeteer-core';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { verifyOfficeArtifacts } from './verify-office-artifacts.mjs';
 
 const repo = fileURLToPath(new URL('../..', import.meta.url));
 const arg = name => { const i=process.argv.indexOf(name); return i<0 ? undefined : process.argv[i+1]; };
@@ -17,6 +18,8 @@ const output = resolve(arg('--output') ?? (()=>{throw Error('--output required')
 const browserExe = arg('--browser');
 const scientificUi = process.argv.includes('--scientific-ui');
 const populated = process.argv.includes('--populated');
+const office = process.argv.includes('--office');
+if(office)assert.ok(populated && browserExe && arg('--python'),'--office requires --populated, --browser and --python');
 const archives=arg('--archives')?resolve(arg('--archives')):undefined;
 let scientificServer, scientificOrigin;
 const runtime = join(nextRepo,'dsh-desktop-next');
@@ -133,9 +136,9 @@ try {
   const fixtureDir=join(runDir,'fixture-package');mkdirSync(fixtureDir);
   writeFileSync(join(fixtureDir,'package.json'),JSON.stringify({name:'ibm-p5-isolated-fixture',version:'1.0.0',type:'module'}));
   const fixtureFile=join(fixtureDir,'index.mjs');
-  writeFileSync(fixtureFile,readFileSync(join(repo,'scripts/migration/p5-populated-fixture.mjs'),'utf8').replace('\"@deepseek-ai/cordis\"',JSON.stringify(pathToFileURL(join(repo,'node_modules/@deepseek-ai/cordis/lib/index.js')).href)).replace('\"../../tests/fixtures/office-builder.mjs\"',JSON.stringify(pathToFileURL(join(repo,'tests/fixtures/office-builder.mjs')).href)));
+  writeFileSync(fixtureFile,readFileSync(join(repo,'scripts/migration/p5-populated-fixture.mjs'),'utf8').replace('\"@deepseek-ai/cordis\"',JSON.stringify(pathToFileURL(join(repo,'node_modules/@deepseek-ai/cordis/lib/index.js')).href)).replace('\"../../tests/fixtures/office-builder.mjs\"',JSON.stringify(pathToFileURL(join(repo,'tests/fixtures/office-builder.mjs')).href)).replace('\"../../tests/fixtures/pptx-builder.mjs\"',JSON.stringify(pathToFileURL(join(repo,'tests/fixtures/pptx-builder.mjs')).href)));
   const patch=join(dir,'cordis.patch.yml');
-  writeFileSync(patch,readFileSync(patch,'utf8').replace(/^\[\]\s*$/m,'')+'\n- insert:\n    - id: p5-populated-fixture\n      name: '+JSON.stringify(pathToFileURL(fixtureFile).href)+'\n      config:\n        pdf: '+JSON.stringify(resolve(arg('--pdf')))+'\n');
+  writeFileSync(patch,readFileSync(patch,'utf8').replace(/^\[\]\s*$/m,'')+'\n- insert:\n    - id: p5-populated-fixture\n      name: '+JSON.stringify(pathToFileURL(fixtureFile).href)+'\n      config:\n        pdf: '+JSON.stringify(resolve(arg('--pdf')))+'\n        office: '+office+'\n');
  }
  if(scientificUi){
   assert.ok(arg('--python'),'--python required for --scientific-ui');
@@ -218,7 +221,7 @@ try {
   if(populated){
    assert.equal(await page.evaluate(()=>document.querySelectorAll('.ib-lit-item:has([data-kind=reading])').length),3);
    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.ib-lit-item:has([data-kind=reading])')].map(node=>({title:node.querySelector('.ib-lit-zh').innerText,reading:node.querySelector('[data-kind="reading"]').dataset.done==='true',ppt:node.querySelector('[data-kind="ppt"]').dataset.done==='true'})).sort((a,b)=>a.title.localeCompare(b.title))),[
-    {title:'P5 失败精读',reading:false,ppt:false},{title:'P5 待审核精读',reading:true,ppt:false},{title:'P5 进行中精读',reading:false,ppt:false}
+    {title:'P5 失败精读',reading:false,ppt:false},{title:'P5 待审核精读',reading:true,ppt:office},{title:'P5 进行中精读',reading:false,ppt:false}
    ].sort((a,b)=>a.title.localeCompare(b.title)));
    await page.evaluate(()=>[...document.querySelectorAll('.ib-lit-item button')].find(node=>node.innerText==='简介').click());
    await page.waitForFunction(()=>document.querySelector('.ib-main').innerText.includes('软件迁移隔离样例'));
@@ -239,6 +242,11 @@ try {
    assert.equal((await rpc('lab','plot_records_list',{request:{projectId:'p5-composition'}})).records[0].topic,'P5 隔离绘图登记（已修改）');
    populationSnapshot=await populationState();report.population=populationSnapshot;
    await page.setViewport({width:1360,height:900});await clickTab('文献资料');
+   if(office){
+    report.office=await verifyOfficeArtifacts({page,auth,rpc,runDir,python:resolve(arg('--python'))});
+    populationSnapshot=await populationState();report.population=populationSnapshot;
+    checks.push('real-office-render-http-bytes-and-formal-ui-downloads-without-native-save-dialog');
+   }
    checks.push('populated-three-tabs-four-viewports-flat-actions-independent-reading-ppt-state-and-plot-ui-edit');
   }
   for(const name of ['literature','design','analysis','documents','runtime'])await change(name,false);

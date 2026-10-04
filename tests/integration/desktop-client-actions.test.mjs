@@ -7,6 +7,9 @@ import { join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { bootLite } from "../helpers/boot-lite.mjs";
 import { installDesktopClient, nativeArtifact, nativeBrowser, setDesktopProject } from "../../client/src/desktop-client.js";
+import { buildDocx } from "../fixtures/office-builder.mjs";
+import { buildPptx } from "../fixtures/pptx-builder.mjs";
+import { resolveDesktopArtifact } from "../../src/runtime/desktop-artifacts.js";
 
 test("client native actions resolve registered bytes, deny raw paths and teardown staged copies; closed windows stay closed", async () => {
  const dir = await mkdtemp(join(tmpdir(), "ibm-native-ui-")); let handle, uninstall;
@@ -60,4 +63,42 @@ test("optional runtime absence allows normal browser fallback without a native a
   assert.equal(await nativeArtifact("save", { url: "/api/lab-artifacts?kind=pdf&bundleId=fixture" }), null);
   assert.equal(await nativeBrowser("open", { projectId: "fixture" }), null);
  } finally { uninstall?.(); await handle?.dispose(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test("native Office actions preserve optional review, bind approved versions and reject malformed files before staging", async () => {
+ const dir=await mkdtemp(join(tmpdir(),"ibm-office-actions-"));let handle,uninstall;
+ const calls=[],staged=new Map();
+ try{
+  handle=await bootLite({storageRoot:join(dir,"storage"),coreOnly:true,includePython:false,extraRows:[
+   {id:"runtime",name:"dsh-lab-agent/runtime"},{id:"desktop",name:"dsh-lab-agent/scientific-desktop"},
+   {id:"typert",name:"@deepseek-ai/dsh-typert-registry"},{id:"gateway",name:"@deepseek-ai/dsh-api-gateway"},{id:"remote",name:"dsh-lab-agent/remote"}
+  ]});
+  const {ctx}=handle;await ctx.ibmCore.createProject({id:"office",name:"Isolated Office fixture"});
+  ctx.ibmScientificDesktop.broker={dispose:async()=>{},call:async(method,input)=>{
+   calls.push(method);
+   if(method==="stage"){const fileId=randomUUID();staged.set(fileId,Buffer.from(input.base64,"base64"));return {fileId};}
+   if(method==="save")return {cancelled:true};
+   if(method==="artifactOpen"){assert.ok(staged.has(input.fileId));return {opened:true};}
+   if(method==="discard"){staged.delete(input.fileId);return {discarded:true};}
+   throw Error("Unexpected test transport method");
+  }};
+  uninstall=installDesktopClient((method,args)=>ctx.typertGateway.invoke({namespace:"lab",method,args:args?.request?{request:args.request}:{}}));setDesktopProject("office");
+  const md=join(dir,"note.md");await writeFile(md,"# Isolated fixture");
+  for(const [kind,extension,bytes] of [["report","docx",(await buildDocx()).buffer],["ppt","pptx",(await buildPptx({name:"fixture",slides:2})).buffer]]){
+   const file=join(dir,`fixture.${extension}`);await writeFile(file,bytes);
+   const table=ctx.ibmCore.table(kind==="report"?"reports":"presentations");const id=kind==="report"?"office-report":"office-ppt";
+   const row={id,projectId:"office",bundleId:"fixture",reportId:"office-report",status:"under-review",createdAt:"2026-10-04",...(kind==="report"?{paperCardPath:md,docxPath:file}:{pptxPath:file})};await table.put(id,row);
+   const url=`/api/lab-artifacts?kind=${kind}&format=${extension}&reportId=office-report`;
+   assert.equal((await nativeArtifact("open",{url})).opened,true);
+   assert.equal((await nativeArtifact("save",{url})).cancelled,true);assert.equal(staged.size,0);assert.equal(table.get(id).status,"under-review");
+   await assert.rejects(resolveDesktopArtifact(ctx.ibmCore,url,{requireApproved:true}),/awaiting human review/);
+   await table.put(id,{...row,review:{status:"approved",artifactSha256:createHash("sha256").update(bytes).digest("hex")}});
+   assert.deepEqual((await resolveDesktopArtifact(ctx.ibmCore,url,{requireApproved:true})).buffer,bytes);
+   const modified=kind==="report"?(await buildDocx({title:"Changed"})).buffer:(await buildPptx({name:"Changed",slides:1})).buffer;
+   await writeFile(file,modified);
+   await assert.rejects(resolveDesktopArtifact(ctx.ibmCore,url,{requireApproved:true}),/changed after review/);
+   await writeFile(file,Buffer.from("PK incomplete Office container"));const before=calls.length;
+   await assert.rejects(nativeArtifact("open",{url}));assert.equal(calls.length,before);assert.equal(staged.size,0);
+  }
+ }finally{uninstall?.();await handle?.dispose();await rm(dir,{recursive:true,force:true});}
 });

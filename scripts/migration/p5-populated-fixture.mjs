@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { buildDocx } from "../../tests/fixtures/office-builder.mjs";
+import { buildPptx } from "../../tests/fixtures/pptx-builder.mjs";
 
 export default class PopulatedFixture extends Service {
  static inject = ["ibmCore", "labTasks", "labGoals", "labTemplates"];
@@ -19,10 +20,17 @@ export default class PopulatedFixture extends Service {
   await core.table("searches").put("p5-search", { id: "p5-search", projectId, title: "P5 隔离检索记录", query: "isolated fixture", status: "succeeded", results: [{ title: "隔离验收文献", doi: "10.1000/fixture", source: "fixture" }], createdAt: now, updatedAt: now });
   const docx = await buildDocx({ title: "P5 ISOLATED SOFTWARE FIXTURE", paragraphs: ["Not scientific evidence. Not approved for export."] });
   const docxPath = join(root, "fixture-report.docx"); await writeFile(docxPath, docx.buffer);
+  const paperCardPath = join(root, "fixture-report.md"); await writeFile(paperCardPath, "# P5 ISOLATED SOFTWARE FIXTURE\nNot scientific evidence.\n");
+  let pptxPath, pptxSha256;
+  if (this.config.office) {
+   const pptx = await buildPptx({ name: "P5 ISOLATED SOFTWARE FIXTURE", slides: 2, slideText: "P5 ISOLATED SOFTWARE FIXTURE" });
+   pptxPath = join(root, "fixture-presentation.pptx"); await writeFile(pptxPath, pptx.buffer);
+   pptxSha256 = createHash("sha256").update(pptx.buffer).digest("hex");
+  }
   for (const [index, status, titleZh] of [[1, "under-review", "P5 待审核精读"], [2, "running", "P5 进行中精读"], [3, "failed", "P5 失败精读"]]) {
    const id = `p5-report-${index}`;
-   await core.table("reports").put(id, { id, projectId, bundleId: "p5-source", goalSnapshot: {}, paperCardRequirements: {}, titleZh, shortCitation: `P5 FIXTURE ${index}`, summary: "软件迁移隔离样例，不构成真实文献或科研结论。", status, ...(index === 1 ? { docxPath, artifactSha256: createHash("sha256").update(docx.buffer).digest("hex") } : {}), ...(status === "failed" ? { error: "隔离样例：生成失败" } : {}), createdAt: now, updatedAt: now });
-   await core.table("presentations").put(`p5-ppt-${index}`, { id: `p5-ppt-${index}`, projectId, reportId: id, templateSnapshot: {}, status: index === 1 ? "failed" : "pending", ...(index === 1 ? { error: "隔离样例：PPT 失败，不影响精读" } : {}), createdAt: now, updatedAt: now });
+   await core.table("reports").put(id, { id, projectId, bundleId: "p5-source", goalSnapshot: {}, paperCardRequirements: {}, titleZh, shortCitation: `P5 FIXTURE ${index}`, summary: "软件迁移隔离样例，不构成真实文献或科研结论。", status, ...(index === 1 ? { docxPath, paperCardPath, artifactSha256: createHash("sha256").update(docx.buffer).digest("hex") } : {}), ...(status === "failed" ? { error: "隔离样例：生成失败" } : {}), createdAt: now, updatedAt: now });
+   await core.table("presentations").put(`p5-ppt-${index}`, { id: `p5-ppt-${index}`, projectId, reportId: id, bundleId: "p5-source", templateSnapshot: {}, status: index === 1 ? (pptxPath ? "under-review" : "failed") : "pending", ...(index === 1 ? (pptxPath ? { pptxPath, artifactSha256: pptxSha256 } : { error: "隔离样例：PPT 失败，不影响精读" }) : {}), createdAt: now, updatedAt: now });
   }
  }
 }
