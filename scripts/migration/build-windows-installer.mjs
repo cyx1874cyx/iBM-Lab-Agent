@@ -74,7 +74,10 @@ cpSync(join(repo,'vendor.lock.json'),join(resources,'vendor.lock.json'));
 cpSync(join(repo,'python/requirements.lock'),join(resources,'requirements.lock'));
 const release={ibm:'0.5.8-rc.1',source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'migration-preview',signed:false,automaticUpdates:false};
 writeFileSync(join(resources,'release.json'),JSON.stringify(release,null,2)+'\n');
-const manifest={...nextManifest,name:'ibm-lab-agent-electron',version:release.ibm,main:'ibm-bootstrap.mjs',description:'iBM Lab Agent Electron migration preview',author:'iBM Lab',scripts:{}};delete manifest.build;delete manifest.devDependencies;
+// Cordis discovers the Desktop client through this exact package identity.
+// Branding belongs to appId/productName/app.setName, not the plugin package name.
+const manifest={...nextManifest,version:release.ibm,main:'ibm-bootstrap.mjs',description:'iBM Lab Agent Electron migration preview',author:'iBM Lab',scripts:{}};delete manifest.build;delete manifest.devDependencies;
+assert.equal(manifest.name,'dsh-desktop-next');
 for(const item of ledger.packages)if(item.name.startsWith('dsh-lab-'))manifest.dependencies[item.name]=item.version;
 writeFileSync(join(appDir,'package.json'),JSON.stringify(manifest,null,2)+'\n');
 writeFileSync(join(work,'payload-packages.json'),JSON.stringify(packages,null,2)+'\n');
