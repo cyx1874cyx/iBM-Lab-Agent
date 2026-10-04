@@ -1,5 +1,7 @@
 # Electron NEXT Windows 测试安装包
 
+**2026-10-04 修正：本报告的首份安装包遗漏了桌面客户端注册验收，存在持续“正在加载设置…”问题，已被修复包替代。请使用 `outputs/electron-next-settings-fix/windows/dist` 的安装包；根因、补充验证与校验值见 `SETTINGS_FIX_REPORT.md` 和 `SETTINGS_FIX_VERIFICATION.json`。以下保留原交付记录。**
+
 日期：2026-10-04。交付范围：可安装的 Windows x64 迁移测试版本；不代表 P4/P5 全部人工交互已验收。
 
 版本固定为 iBM Lab Agent 0.5.8-rc.1、DSH NEXT v2.0.17-next（838ba60fd79362087c0a0d134efee671c284786a）、内核 v0.2.0-rc.2（639ed015397290b3745d163aafe02ffee4aa3f84）、Electron 44.0.0、Python 3.12.11。产品源代码提交为 0400d04；随后仅补充验证与交付记录。

@@ -38,13 +38,14 @@ try{
    await new Promise(done=>setTimeout(done,100));
   }
   assert.ok(await frame.evaluate(()=>[...document.querySelectorAll('button')].some(n=>n.innerText.trim()==='桌面设置')),'Desktop settings section did not register');
-  await frame.evaluate(()=>[...document.querySelectorAll('button')].find(n=>n.innerText.trim()==='桌面设置').click());
+  const settingsButton=await frame.evaluateHandle(()=>[...document.querySelectorAll('button')].find(n=>n.innerText.trim()==='桌面设置'));
+  assert.ok(settingsButton.asElement());await settingsButton.asElement().click();await settingsButton.dispose();
   await frame.waitForSelector('[data-next-desktop-settings] .dshDesktopSettingsList',{timeout:15000});
   report.settings=await frame.evaluate(()=>document.querySelector('[data-next-desktop-settings]').innerText);
   assert.match(report.settings,/ibm-lab/);
   report.state=await frame.evaluate(async()=>{const value=await window.desktopNext.state();return {phase:value.phase,profile:value.selected,version:value.version};});
   assert.equal(report.state.phase,'ready');assert.equal(report.state.profile,'ibm-lab');
-  report.checks.push('native-Desktop-client-registered','Desktop-settings-profile-loaded','native-state-ready');
+  report.checks.push('native-Desktop-client-registered','physical-click-Desktop-settings-profile-loaded','native-state-ready');
  }
  assert.equal(await frame.evaluate(()=>document.body.innerText.includes('正在加载设置')),false);
  report.checks.push('no-permanent-loading-placeholder');

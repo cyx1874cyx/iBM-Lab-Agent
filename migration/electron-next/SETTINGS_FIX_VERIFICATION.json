@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-04",
+  "issue": "Persistent settings loading placeholder",
+  "cause": "Renamed runtime package prevented the fixed dsh-desktop-next Desktop client from registering",
+  "fix": "Preserve plugin package name; keep installer appId and productName isolated",
+  "productSource": "8e7acc4",
+  "artifact": {
+    "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\windows\\dist\\iBM-Lab-Agent-0.5.8-rc.1-Electron-x64-Setup.exe",
+    "bytes": 437051716,
+    "sha256": "D8AD9573F8B3DADD28CB540C060DA91CC03A1E9D348E4AA15C3943DF18C4CCF3",
+    "signature": "NotSigned",
+    "supersedes": "outputs/electron-next-p6/windows-delivery/dist/iBM-Lab-Agent-0.5.8-rc.1-Electron-x64-Setup.exe"
+  },
+  "evidence": [
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\packaged-settings\\run-dybUb5\\verification.json",
+      "ok": true,
+      "checks": [
+        "native-Desktop-client-registered",
+        "physical-click-Desktop-settings-profile-loaded",
+        "native-state-ready",
+        "no-permanent-loading-placeholder"
+      ],
+      "initialized": true,
+      "gracefulExit": true
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\packaged-first-run\\run-d2r09q\\verification.json",
+      "ok": true,
+      "checks": [
+        "fresh-first-run-onboarding-loaded",
+        "no-permanent-loading-placeholder"
+      ],
+      "initialized": true,
+      "gracefulExit": true
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\packaged-reused\\run-aFY74X\\verification.json",
+      "ok": true,
+      "checks": [
+        "native-Desktop-client-registered",
+        "physical-click-Desktop-settings-profile-loaded",
+        "native-state-ready",
+        "no-permanent-loading-placeholder"
+      ],
+      "initialized": false,
+      "gracefulExit": true
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\packaged-shell\\run-76jneG\\verification.json",
+      "ok": true,
+      "checks": [
+        "real-packaged-Electron-main-window",
+        "official-client-research-entry-physical-click",
+        "no-permanent-settings-loader",
+        "native-caption-clearance",
+        "close-cleans-offset-and-reopen-restores-it",
+        "isolated-new-home"
+      ],
+      "initialized": null,
+      "gracefulExit": true
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-settings-fix\\packaged-runtime\\run-XfjUkX\\verification.json",
+      "ok": true,
+      "checks": [
+        "offline-bootstrap",
+        "repeat-bootstrap-no-overwrite",
+        "relocated-bundled-python-and-six-scientific-document-libraries",
+        "real-installed-Electron-node-host",
+        "seven-domain-providers",
+        "native-provider-configured",
+        "Chinese-path-memory-restart"
+      ]
+    }
+  ],
+  "tests": {
+    "skipped": 8,
+    "log": "outputs/electron-next-settings-tests.log",
+    "passed": 796,
+    "total": 804,
+    "failed": 0
+  },
+  "limits": [
+    "Unsigned migration preview",
+    "Fresh and old isolated profiles tested; actual user profile untouched",
+    "Prior NSIS install/uninstall checks retained; this fix tested in final unpacked payload, not installed over the running user application",
+    "Native file dialogs and full workflow remain pending"
+  ]
+}

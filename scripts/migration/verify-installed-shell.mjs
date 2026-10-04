@@ -25,13 +25,14 @@ try{
   if(!frame)await new Promise(done=>setTimeout(done,100));
  }
  assert.ok(frame,'Installed desktop did not expose the research entry');
+ await frame.waitForFunction(()=>!document.body.innerText.includes('正在加载设置'),{timeout:20000});
  // All pages and data belong to this freshly created smoke home.
  await frame.evaluate(()=>{for(const text of ['继续','稍后配置']){const button=[...document.querySelectorAll('button')].find(node=>node.innerText.trim()===text);button?.click();}});
  await new Promise(done=>setTimeout(done,1000));
  await frame.evaluate(()=>[...document.querySelectorAll('button')].find(node=>node.innerText.trim()==='稍后配置')?.click());
- await frame.evaluate(()=>document.querySelector('.ib-hero-chip').click());
+ await frame.click('.ib-hero-chip');
  await frame.waitForSelector('.ib-hero-menu-item-strong');
- await frame.evaluate(()=>document.querySelector('.ib-hero-menu-item-strong').click());await frame.waitForSelector('.ib-main',{timeout:30000});
+ await frame.click('.ib-hero-menu-item-strong');await frame.waitForSelector('.ib-main',{timeout:30000});
  report.chrome=await frame.evaluate(()=>({protocol:location.protocol,platform:navigator.platform,userAgent:navigator.userAgent,overlayTop:document.querySelector('.ib-overlay').getBoundingClientRect().top}));
  assert.ok(report.chrome.overlayTop>=40,'Research panel overlaps the native Windows caption/menu');
  await page.screenshot({path:join(work,'installed-desktop.png'),fullPage:true});
@@ -39,11 +40,11 @@ try{
  await frame.evaluate(()=>document.querySelector('.ib-overlay .ib-top button').click());
  assert.equal(await frame.evaluate(()=>Boolean(document.querySelector('.ib-overlay'))),false);
  assert.equal(await frame.evaluate(()=>document.body.style.getPropertyValue('--ib-native-top')),'');
- await frame.evaluate(()=>document.querySelector('[title="打开科研课题"]').click());
+ await frame.click('[title="打开科研课题"]');
  await frame.waitForSelector('.ib-main');
  assert.ok(await frame.evaluate(()=>document.querySelector('.ib-overlay').getBoundingClientRect().top>=40));
- assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry-DOM-click','native-caption-clearance','close-cleans-offset-and-reopen-restores-it','isolated-new-home');
- report.limits=['DOM click verifies the UI event route; physical mouse acceptance remains unverified because CDP clicks reached the native settings view.'];
+ assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry-physical-click','no-permanent-settings-loader','native-caption-clearance','close-cleans-offset-and-reopen-restores-it','isolated-new-home');
+ report.limits=['Full workflow and native file dialogs still require separate acceptance.'];
  report.ok=true;
 }catch(error){report.error=String(error);if(browser)for(const page of await browser.pages()){await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});report.failureText=await page.evaluate(()=>document.body.innerText).catch(()=>undefined);}throw error;}
 finally{
