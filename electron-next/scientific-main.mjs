@@ -13,6 +13,7 @@ app.setPath("userData", config.userData);
 app.disableHardwareAcceleration();
 const leases = new Map(), captures = new Map(), files = new Map(), configured = new Set();
 const previews = new Set();
+const savedFiles = new Map();
 const MAX_BYTES = 250 * 1024 * 1024;
 let transport;
 const emit = value => transport.write(`${JSON.stringify(value)}\n`);
@@ -126,6 +127,10 @@ async function dispatch(method, input = {}) {
    return result;
   }
   case "close": { const row = requireLease(input.lease); row.window.destroy(); return { closed: true }; }
+  case "focus": { const row = requireLease(input.lease); row.window.show(); row.window.focus(); return { shown: true }; }
+  case "disarm": { requireLease(input.lease); captures.delete(input.lease); return { disarmed: true }; }
+  case "discard": { const path = files.get(input.fileId); files.delete(input.fileId); if (path) await rm(path, { force: true }); return { discarded: true }; }
+  case "revealSaved": { const path = savedFiles.get(input.savedRef); if (!path) throw new Error("Unknown saved artifact"); shell.showItemInFolder(path); return { revealed: true }; }
   case "arm": {
    requireLease(input.lease);
    if (!["pdf", "si"].includes(input.kind) || !/^capture-[a-z0-9]+$/.test(input.captureId)) throw new Error("invalid capture task");
@@ -169,19 +174,21 @@ async function dispatch(method, input = {}) {
    const bytes = await readFile(path);
    await writeFile(result.filePath, bytes);
    const saved = await readFile(result.filePath);
-   return { cancelled: false, saved: true, size: saved.length, sha256: createHash("sha256").update(saved).digest("hex") };
+   const savedRef = randomUUID(); savedFiles.set(savedRef, result.filePath);
+   return { cancelled: false, saved: true, savedRef, size: saved.length, sha256: createHash("sha256").update(saved).digest("hex") };
   }
   case "artifactOpen": {
    const path = files.get(input.fileId);
    if (!path) throw new Error("unknown artifact");
    const bytes = await readFile(path);
-   if (bytes.subarray(0, 4).toString() !== "%PDF") throw new Error("native open currently supports validated PDF artifacts");
+   const extension = bytes.subarray(0, 4).toString() === "%PDF" ? "pdf" : /\.(docx|pptx)$/i.exec(input.name ?? "")?.[1]?.toLowerCase();
+   if (!extension || (extension !== "pdf" && bytes.subarray(0, 2).toString() !== "PK")) throw new Error("System open supports validated PDF/DOCX/PPTX artifacts");
    const directory = join(config.userData, "exports");
    await mkdir(directory, { recursive: true });
-   const exported = join(directory, `${input.fileId}.pdf`);
+   const exported = join(directory, `${input.fileId}.${extension}`);
    await writeFile(exported, bytes);
    const error = await shell.openPath(exported);
-   if (error) throw new Error("System PDF application could not open the artifact");
+   if (error) throw new Error("System application could not open the artifact");
    return { opened: true };
   }
   case "preview": {
@@ -196,7 +203,7 @@ async function dispatch(method, input = {}) {
    const url = pathToFileURL(previewPath);
    const partition = `ibm-artifact-preview-${randomUUID()}`;
    const settings = options(partition);
-   settings.show = true; settings.webPreferences.plugins = true;
+   settings.show = !config.headless; settings.webPreferences.plugins = true;
    const previewSession = session.fromPartition(partition);
    previewSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
    previewSession.setPermissionCheckHandler(() => false);

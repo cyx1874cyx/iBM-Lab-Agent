@@ -1,3 +1,4 @@
+import { nativeArtifact, nativeBrowser } from "./desktop-client.js";
 // 工具函数：格式化、下载、desktop shell 通信（从原 client/index.js 单文件抽离）。
 import { armWebVpnCaptureWindow, openWebVpnTab, replayWebVpnRect } from "./webvpn-bridge.js";
 export const when = (value) => value ? new Date(value).toLocaleString() : "—";
@@ -23,7 +24,9 @@ export function downloadBlob(fileName, mime, blob) {
 			setTimeout(() => URL.revokeObjectURL(url), 4000);
 		}
 		/** Desktop 宿主文本另存为：用于内存中生成、没有下载 URL 的 RIS。 */
-export function saveTextArtifactViaDesktop(fileName, text) {
+export async function saveTextArtifactViaDesktop(fileName, text) {
+ const native = await nativeArtifact("saveRis", { fileName, text });
+ if (native) return { ...native, savedPath: native.savedRef };
 			if (window.parent === window) return Promise.reject(new Error("RIS 另存为仅支持桌面客户端"));
 			return new Promise((resolve, reject) => {
 				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-text-save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -145,7 +148,9 @@ export function openSavedPathViaDesktop(path) {
 			});
 		}
 		/** Ask the desktop shell to reveal an already archived file in Explorer. */
-export function revealSavedPathViaDesktop(path) {
+export async function revealSavedPathViaDesktop(path) {
+ const native = await nativeArtifact("revealSaved", { savedRef: path });
+ if (native) return native;
 	return new Promise((resolve, reject) => {
 		const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-reveal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 		let settled = false;
@@ -171,6 +176,8 @@ export function revealSavedPathViaDesktop(path) {
 }
 		/** 桌面优先走 Tauri 原生保存；Web 宿主保留浏览器校验下载。 */
 export async function downloadVerifiedBinary(url) {
+ const native = await nativeArtifact("save", { url });
+ if (native) { if (native.cancelled) throw new Error("已取消保存"); return native.fileName; }
 			if (window.parent !== window) {
 				try {
 					const saved = await saveArtifactViaDesktop(url);
@@ -184,6 +191,8 @@ export async function downloadVerifiedBinary(url) {
 		}
 		/** Office 文件：Desktop 用 Tauri 原生另存为；Web 使用浏览器校验下载。 */
 export async function downloadOfficeArtifact(url) {
+ const native = await nativeArtifact("save", { url });
+ if (native) { if (native.cancelled) throw new Error("已取消保存"); return { ...native, savedPath: native.savedRef, native: true }; }
 			if (window.parent !== window) {
 				try {
 					const saved = await saveArtifactViaDesktop(url);
@@ -198,6 +207,8 @@ export async function downloadOfficeArtifact(url) {
 		}
 		/** Desktop workflow: save the actual Office artifact, then use the Windows Office/WPS association to open it. */
 export async function openOfficeArtifact(url, application) {
+ const native = await nativeArtifact("open", { url });
+ if (native) return { ...native, native: true };
 			if (window.parent !== window) {
 				const requestId = globalThis.crypto?.randomUUID?.() ?? `desktop-open-artifact-${Date.now()}`;
 				await new Promise((resolve, reject) => {
@@ -227,6 +238,8 @@ export async function openOfficeArtifact(url, application) {
 		}
 		/** 已归档 PDF 使用浏览器原生 PDF 阅读器；桌面版走专用本地文献通道。 */
 export async function openPdfPreview(url) {
+ const native = await nativeArtifact("preview", { url });
+ if (native) return native;
 			const previewUrl = new URL(url, location.origin);
 			previewUrl.searchParams.set("preview", "1");
 			if (window.parent === window) {
@@ -304,7 +317,7 @@ const withWebVpnTab = async (request, { armingCapture = false } = {}) => {
 	await openWebVpnTab();
 	return request();
 };
-export const openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
+export const openWebVpnLoginViaShell = async () => await nativeBrowser("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
 /**
  * 打开 WebVPN 门户（`config.webvpn.portal_url`，默认中国科大），**不**顺带打开/聚焦右侧栏 tab。
  *
@@ -314,8 +327,8 @@ export const openWebVpnLoginViaShell = () => withWebVpnTab(() => webVpnShellRequ
 export const openWebVpnPortalViaShell = () => webVpnShellRequest("WEBVPN_OPEN_LOGIN");
 export const confirmWebVpnLoginViaShell = () => webVpnShellRequest("WEBVPN_CONFIRM_LOGIN");
 export const openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15000), { armingCapture: true });
-export const showWebVpnViaShell = () => withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
-export const cancelWebVpnCaptureViaShell = (taskId) => webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
+export const showWebVpnViaShell = async () => await nativeBrowser("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
+export const cancelWebVpnCaptureViaShell = async taskId => await nativeBrowser("cancel", { taskId }) ?? await webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 export const clearWebVpnSessionViaShell = () => webVpnShellRequest("WEBVPN_CLEAR_SESSION", {}, 15000);
 
 /**

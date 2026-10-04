@@ -22,3 +22,12 @@ python scripts/migration/verify-domain-archives.py --directory '<制品目录>'
 ```
 
 七个包依赖固定共享库，但不得同时激活该库的完整兼容 bundle。完整发行前仍需部署共享实现、锁定离线依赖与 Python/Skills 资源，并验证干净环境安装。
+
+科研桌面接线验收仍只使用隔离目录，不测试暂缓的保存弹窗：
+
+```powershell
+node scripts/migration/verify-desktop-client-actions.mjs --electron 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p1/next/dsh-desktop-next/node_modules/electron/dist/electron.exe' --python 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/python-resource/python.exe' --pdf 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/file-dialogs/sample.pdf' --output 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-native-actions'
+node scripts/migration/verify-next-bundles.mjs --next-root 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p1/next' --output 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-native-ui' --electron --browser 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' --scientific-ui --python 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/python-resource/python.exe'
+```
+
+第二个验证器会在新 profile 内配置隐藏的隔离 Electron 科研窗口，以本机 HTTP 页面验证正式按钮；不复用真实机构认证。文件动作接口样例中的保存取消使用传输替身，不是原生弹窗显示证明。

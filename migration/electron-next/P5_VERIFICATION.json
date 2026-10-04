@@ -9,7 +9,7 @@
   "packages": 7,
   "uniqueHostRows": 39,
   "tests": {
-    "pass": 790,
+    "pass": 792,
     "skip": 8,
     "fail": 0
   },
@@ -21,11 +21,12 @@
     "wideNarrowLightDark": "basic_project_passed; populated_0.5.8_comparison_pending",
     "uiFixtureUpdateRollback": "passed; not_production_release_upgrade",
     "archiveStructure": "passed; clean_install_pending",
-    "gracefulExit": "final_and_update_runs_passed; one_prior_timeout_root_cause_unresolved",
-    "nativeBrowserAndFileUi": "pending",
+    "gracefulExit": "native_UI_restart_update_rollback_passed; prior_timeout_root_cause_unresolved",
+    "nativeBrowserAndFileUi": "formal_NEXT_browser_buttons_and_real_Electron_PDF_preview_passed; save_and_Office_and_reveal_transport_fixture_only",
     "P4NativeFileInteraction": "user_deferred; not_passed",
     "historicalDataImported": false,
-    "upstreamModified": false
+    "upstreamModified": false,
+    "currentArchives": "prior_checkpoint_only; current_UI_not_repacked"
   },
   "evidence": [
     {
@@ -122,6 +123,26 @@
       "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/packages/dsh-lab-ui-0.5.8-rc.1.tgz",
       "bytes": 132415,
       "sha256": "f79fbefc27603a00df7ab080c2187517bd5ea23032c7cafe6ac934884d7f49e5"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/native-ui-actions-run3/verification.json",
+      "bytes": 560,
+      "sha256": "f168a93d1c56573fa8ef47286236b53b09a4926976ca8401945cbceec3c79ccf"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/native-formal-ui/run-mlWlPb/verification.json",
+      "bytes": 1133,
+      "sha256": "3f89e76d9573cdcdd69b53caed64d29e32fefcfe5a41863b723e40417052b6b4"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/native-formal-ui/run-mlWlPb/host.log",
+      "bytes": 656,
+      "sha256": "0e953c1537d3be395e6ce443abb36ff3e9c444da62ef5db1f30a2d3c46df0837"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-native-tests-final.log",
+      "bytes": 92657,
+      "sha256": "55930f61cc552df53a5912cf667292e8f5d8763107779fc87cba9fb57d9a88d5"
     }
   ]
 }

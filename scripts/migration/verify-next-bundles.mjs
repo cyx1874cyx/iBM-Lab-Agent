@@ -7,12 +7,16 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFil
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 
 const repo = fileURLToPath(new URL('../..', import.meta.url));
 const arg = name => { const i=process.argv.indexOf(name); return i<0 ? undefined : process.argv[i+1]; };
 const nextRepo = resolve(arg('--next-root') ?? (()=>{throw Error('--next-root required');})());
 const output = resolve(arg('--output') ?? (()=>{throw Error('--output required');})());
 const browserExe = arg('--browser');
+const scientificUi = process.argv.includes('--scientific-ui');
+let scientificServer, scientificOrigin;
 const runtime = join(nextRepo,'dsh-desktop-next');
 assert.equal(execFileSync('git',['-C',nextRepo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
 assert.equal(JSON.parse(readFileSync(join(runtime,'package.json'))).version,'2.0.17-next');
@@ -100,6 +104,15 @@ try {
  const profile=JSON.parse(readFileSync(join(dir,'package.json')));for(const name of packageNames)assert.ok(profile.dsh.profile.bundles.includes(name));
  assert.ok(!profile.dsh.profile.bundles.includes('dsh-lab-agent'));checks.push('seven-official-package-runner-installs-without-compatibility-bundle');
  await runner.dispose();
+ if(scientificUi){
+  assert.ok(arg('--python'),'--python required for --scientific-ui');
+  process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=resolve(arg('--python'));
+  scientificServer=createServer((_request,response)=>response.end('<title>P5 isolated scientific UI</title><p>Local acceptance fixture</p>'));
+  scientificServer.listen(0,'127.0.0.1');await once(scientificServer,'listening');
+  scientificOrigin=`http://127.0.0.1:${scientificServer.address().port}`;
+  const patch=join(dir,'cordis.patch.yml');
+  writeFileSync(patch,readFileSync(patch,'utf8').replace(/^\[\]\s*$/m,'')+'\n- id: ibm-scientific-desktop\n  config:\n    electron: '+JSON.stringify(nextRequire('electron'))+'\n    root: '+JSON.stringify(join(runDir,'scientific-desktop'))+'\n    headless: true\n    portal: '+JSON.stringify(scientificOrigin)+'\n    allowedLocalOrigins: ['+JSON.stringify(scientificOrigin)+']\n');
+ }
  const url=await boot();
  let features=await rpc('lab','capabilities');for(const name of ['core','runtime','documents','literature','design','analysis'])assert.equal(features[name],true,name);
  const created=await rpc('lab','projects_create',{request:{fields:{id:'p5-composition',name:'P5 可选科研课题',coreMarkdown:'# P5 核心记忆'}}});
@@ -132,6 +145,24 @@ try {
   await page.click('[title="打开科研课题"]');await page.waitForFunction(()=>document.querySelector('.ib-main')?.innerText.includes('P5 可选科研课题'),{timeout:30000});
   await page.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('P5 可选科研课题')).click());
   await page.waitForFunction(()=>document.querySelector('.ib-project-head')?.innerText.includes('P5 可选科研课题'),{timeout:30000});
+  if(scientificUi){
+   await page.waitForSelector('.ib-scientific-browser');
+   const clickScientific=label=>page.evaluate(text=>[...document.querySelectorAll('.ib-scientific-browser button')].find(node=>node.innerText===text).click(),label);
+   await clickScientific('打开科研浏览器');
+   await page.waitForFunction(()=>document.querySelector('.ib-scientific-browser')?.innerText.includes('P5 isolated scientific UI'),{timeout:30000});
+   const first=await rpc('lab','desktop_browser',{request:{action:'status',projectId:'p5-composition'}});
+   await clickScientific('显示科研浏览器');
+   await page.waitForFunction(()=>![...document.querySelectorAll('.ib-scientific-browser button')].some(node=>node.disabled&&node.innerText==='显示科研浏览器'));
+   assert.equal((await rpc('lab','desktop_browser',{request:{action:'status',projectId:'p5-composition'}})).window.lease,first.window.lease);
+   await page.type('[aria-label="科研页面地址"]',scientificOrigin+'/article');await clickScientific('前往');
+   await page.waitForFunction(()=>![...document.querySelectorAll('.ib-scientific-browser button')].some(node=>node.disabled&&node.innerText==='显示科研浏览器'));
+   assert.ok((await rpc('lab','desktop_browser',{request:{action:'status',projectId:'p5-composition'}})).window.url.endsWith('/article'));
+   await clickScientific('关闭浏览器');
+   await page.waitForFunction(()=>[...document.querySelectorAll('.ib-scientific-browser button')].some(node=>node.innerText==='打开科研浏览器'&&!node.disabled));
+   await new Promise(done=>setTimeout(done,2500));
+   assert.equal((await rpc('lab','desktop_browser',{request:{action:'status',projectId:'p5-composition'}})).window,null);
+   checks.push('formal-next-ui-buttons-open-reuse-navigate-close-real-electron-without-auto-reopen');
+  }
   for(const width of [1360,600])for(const theme of ['light','dark']){
    await page.setViewport({width,height:900});await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:theme}]);
    await page.evaluate(dark=>{document.body.toggleAttribute('data-ds-dark-theme',dark);},theme==='dark');
@@ -179,7 +210,10 @@ try {
  throw error;
 }
 finally{
- await closeBrowser();await host?.stop(true);await runner.dispose();
+ await closeBrowser();
+ try { await host?.stop(true); } catch(error) { report.cleanupError=String(error); report.ok=false; }
+ await runner.dispose();
+ if(scientificServer)await new Promise(done=>scientificServer.close(done));
  writeFileSync(join(runDir,'host.log'),redact(hostLog));writeFileSync(join(runDir,'verification.json'),JSON.stringify(report,null,2)+'\n');
  console.log('P5 evidence: '+join(runDir,'verification.json'));process.stdout.write=originalWrite;
 }

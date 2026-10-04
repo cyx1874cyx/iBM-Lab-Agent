@@ -453,9 +453,9 @@ test("点「尚未获取」文献时一定会打开软件内浏览器（含两�
 	);
 	assert.match(body, /await call\("manual_capture_create"/, "空闲路径必须能走到创建捕获任务");
 
-	// 所有打开浏览器的出口都要经过 withWebVpnTab：先开右侧栏 tab，再调原生命令。
+	// 旧桌面壳的回退出口保留 withWebVpnTab；Electron 使用独立科研窗口。
 	for (const name of ["openWebVpnLoginViaShell", "openWebVpnCaptureViaShell", "showWebVpnViaShell"]) {
-		assert.match(lib, new RegExp(`${name} = \\(\\)?[^\\n]*withWebVpnTab`), `${name} 必须先打开右侧栏 tab`);
+		assert.match(lib, new RegExp(`${name} = (?:async )?\\(\\)?[^\\n]*withWebVpnTab`), `${name} 必须保留旧桌面壳的侧栏回退`);
 	}
 	// 正文自用的门户入口不重复 openTab，避免从 tab 内部再打开自己。
 	assert.match(lib, /openWebVpnPortalViaShell = \(\) => webVpnShellRequest\("WEBVPN_OPEN_LOGIN"\)/);

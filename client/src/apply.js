@@ -2,6 +2,7 @@
 import ReactDOM from "react-dom";
 import { h } from "./h.js";
 import { injectStyles } from "./styles.js";
+import { installDesktopClient } from "./desktop-client.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
@@ -83,6 +84,7 @@ export function applyUi(ctx) {
 		return result.value;
 	};
 	let root = null;
+ ctx.effect(() => installDesktopClient(call), "lab.native-desktop-client");
 	const close = () => {
 		if (!root) return;
 		const node = root;

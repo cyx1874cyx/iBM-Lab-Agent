@@ -1,3 +1,5 @@
+import { nativeBrowser, nativeDesktopAvailable, setDesktopProject } from "./desktop-client.js";
+import { ScientificBrowser } from "./scientific-browser.js";
 import React from "react";
 import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -282,6 +284,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				if (!taskId || captureStopping) return;
 				setCaptureStopping(true);
 				try {
+					if (captureHint.route === "scientific") {
+						const rebuilt = await nativeBrowser("capture", { projectId, bundleId: captureHint.bundleId, kind: captureHint.kind });
+						setCaptureHint((current) => current?.taskId === taskId ? { ...current, taskId: rebuilt.task.id, canRecreate: false, phase: null } : current);
+						notify("捕获任务已重建，请在科研浏览器中重新点击下载。");
+						return;
+					}
 					const rebuilt = await call("manual_capture_recreate", { request: { taskId, reason: "用户从提示条重建文献获取" } });
 					await cancelWebVpnCaptureViaShell(taskId).catch(() => {});
 					setCaptureHint((current) => current?.taskId === taskId
@@ -311,7 +319,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 						setCaptureHint(pendingHint);
 						throw shellResult.reason || taskResult.reason;
 					}
-					notify("已终止下载并关闭文献浏览器；可重新点击正文或 SI 进入");
+					notify(pendingHint.route === "scientific" ? "已终止下载；科研窗口保留，可重新点击正文或 SI。" : "已终止下载并关闭文献浏览器；可重新点击正文或 SI 进入");
 				} catch (reason) {
 					notify(reason?.message || "终止下载失败，请重试");
 				} finally {
@@ -319,6 +327,17 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				}
 			};
 			const armCaptureFor = (event, bundle, kind) => {
+ event.stopPropagation();
+ void (async () => {
+  try {
+   if (!await nativeDesktopAvailable()) { legacyArmCaptureFor(event, bundle, kind); return; }
+   const created = await nativeBrowser("capture", { projectId, bundleId: bundle.id, kind });
+   setCaptureHint({ bundleId: bundle.id, kind, taskId: created.task.id, route: "scientific" });
+   notify("捕获已准备好，请在科研浏览器中点击正文或补充材料下载。");
+  } catch (error) { notify(error.message); }
+ })();
+};
+const legacyArmCaptureFor = (event, bundle, kind) => {
 				event.stopPropagation();
 				// Nature Portfolio / SpringerLink 的 SI 托管在公开的 Springer 静态附件域名。
 				// 经学校 WebVPN 转发大文件可能返回 502，因此这两类 DOI 的 SI
@@ -796,6 +815,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 		}
 
 export function Project({ call, project, onBack, onDelete, onStartChat }) {
+ useEffect(() => { setDesktopProject(project.id); return () => setDesktopProject(null); }, [project.id]);
 			const [state, setState] = useState({ loading: true, data: null, error: "" });
 			const [tab, setTab] = useState("literature");
 			const [draft, setDraft] = useState("");
@@ -865,7 +885,7 @@ export function Project({ call, project, onBack, onDelete, onStartChat }) {
 					tabs.map(([id, label]) => h("button", { className: "ib-tab", "data-active": activeTab === id ? "true" : undefined, disabled: !available[id], title: available[id] ? undefined : "此功能未启用", key: id, onClick: () => setTab(id) }, label)),
 					h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load() }, "刷新")),
 				// 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-				activeTab === "literature" ? h("div", { className: "ib-tab-panel" }, h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
+				activeTab === "literature" ? h("div", { className: "ib-tab-panel" }, h(ScientificBrowser, { call, projectId: data.project.id }), h(LitPanel, { projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onChanged: load })) : null,
 				activeTab === "planning" ? h("div", { className: "ib-tab-panel" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
 				activeTab === "characterization" ? h("div", { className: "ib-tab-panel" }, h(CharacterizationPanel, { key: data.project.id, projectId: data.project.id, call, nmrRows: characterization.nmr || [], onSubmitTask: (prompt) => startTaskChat(prompt, true) })) : null,
 				!activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
