@@ -40,3 +40,17 @@ node --test tests/integration/domain-compositions.test.mjs
 ```
 
 `p5-populated-fixture.mjs` 只由验证器复制到独立测试包并显式插入该隔离 profile。不能直接用其源码 file URL 注册到产品，避免 NEXT 按所在兼容包推导客户端而重复加载。样例创建后不重复覆盖数据，插件停用/恢复及 Host 重启不把已修改条目重置。验证器不会提交模型任务、人工审核决策或执行 Origin/Mnova。
+
+完整本地归档及空缓存离线安装（使用新的输出目录）：
+
+```powershell
+node scripts/migration/pack-domain-release.mjs --next-root 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p1/next' --output 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-offline-archives' --python 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/python-resource/python.exe'
+python scripts/migration/verify-release-archives.py 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-offline-archives'
+python scripts/migration/verify-domain-archives.py --directory 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-offline-archives'
+node scripts/migration/verify-next-bundles.mjs --next-root 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p1/next' --output 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-clean-install' --electron --browser 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' --archives 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-offline-archives'
+node --test tests/unit/archive-hardlinks.test.mjs tests/integration/domain-compositions.test.mjs
+```
+
+产品包用官方 pnpm pack；已安装依赖用只归档现有文件的 helper，不执行 prepack/postpack。完整闭包取当前已验证安装的确切版本，遇到同名不同版本直接失败，需要先明确依赖拆分规则。归档检查后使用全新的 profile/store 安装，验证器生成 workspace overrides 并填入本地依赖；旧 package.json 内的 pnpm.overrides 在该固定 pnpm 中无效。
+
+`--archives` 模式会在测试目录制作损坏 tgz 和 UI 故障包，记录实际失败，随后由验证器重新安装原 UI 制品并重启。恢复只限本次测试 profile，不作用于用户安装或历史数据，也不代表产品自动回退已经实现。

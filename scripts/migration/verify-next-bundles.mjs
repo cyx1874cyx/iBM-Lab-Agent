@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync, cpSync, realpathSync, rmSync } from 'node:fs';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import puppeteer from 'puppeteer-core';
@@ -17,6 +17,7 @@ const output = resolve(arg('--output') ?? (()=>{throw Error('--output required')
 const browserExe = arg('--browser');
 const scientificUi = process.argv.includes('--scientific-ui');
 const populated = process.argv.includes('--populated');
+const archives=arg('--archives')?resolve(arg('--archives')):undefined;
 let scientificServer, scientificOrigin;
 const runtime = join(nextRepo,'dsh-desktop-next');
 assert.equal(execFileSync('git',['-C',nextRepo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
@@ -56,11 +57,11 @@ async function populationState(){
  return {searches:rows(workspace.literature.searches),bundles:rows(workspace.literature.bundles),reports:rows(workspace.literature.reports),presentations:rows(workspace.literature.presentations),routes:rows(workspace.planning.routes),plots:plots.records.map(row=>({id:row.id,topic:row.topic,date:row.date})),tasks:rows(tasks.tasks)};
 }
 async function launchBrowser(){
- const profile=join(runDir,'browser');mkdirSync(profile);
+ const profile=join(runDir,'browser');mkdirSync(profile,{recursive:true});
  if(process.platform!=='win32'||!/msedge\.exe$/i.test(browserExe))return puppeteer.launch({executablePath:browserExe,headless:true,userDataDir:profile});
+ const active=join(profile,'DevToolsActivePort');rmSync(active,{force:true});
  // Edge's compatibility launcher exits before its browser child is ready.
  const child=spawn(browserExe,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-gpu','--disable-extensions','--disable-features=msEdgeFirstRunExperience','about:blank'],{windowsHide:true,stdio:'ignore'});child.unref();
- const active=join(profile,'DevToolsActivePort');
  for(let attempt=0;attempt<150;attempt++){
   if(existsSync(active))try{
    const port=Number(readFileSync(active,'utf8').split(/\r?\n/)[0]);
@@ -71,8 +72,7 @@ async function launchBrowser(){
  throw Error('Isolated Edge did not expose its debug port');
 }
 async function closeBrowser(){
- if(!browser)return;
- await browser.close().catch(()=>{});browser=undefined;
+ await browser?.close().catch(()=>{});browser=undefined;
  if(process.platform==='win32'&&/msedge\.exe$/i.test(browserExe)){
   // Edge can retain background children after its debugging connection closes.
   // Match only this freshly created profile; do not touch the user's browser.
@@ -102,15 +102,31 @@ async function boot(){
 try {
  const packageNames=['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name);
  const staging=join(runDir,'packages');mkdirSync(staging);
- for(const name of packageNames){
+ for(const name of archives?[]:packageNames){
   const destination=join(staging,name);cpSync(join(repo,'packages',name),destination,{recursive:true,filter:source=>!source.split(/[\\/]/).includes('node_modules')});
   mkdirSync(join(destination,'node_modules'));symlinkSync(repo,join(destination,'node_modules','dsh-lab-agent'),process.platform==='win32'?'junction':'dir');
  }
- const install=runner.runPlugin(['add','--offline','--ignore-scripts',...packageNames.map(name=>'link:'+join(staging,name).replaceAll('\\','/'))],repo);
+ if(archives){
+  const file=join(dir,'pnpm-workspace.yaml'),release=JSON.parse(readFileSync(join(archives,'release-archives.json')));
+  assert.ok(release.ok);const overrides=release.packages.filter(row=>!packageNames.includes(row.name));
+  writeFileSync(file,readFileSync(file,'utf8')+'\nstoreDir: '+JSON.stringify(join(runDir,'empty-package-store'))+'\noverrides:\n'+overrides.map(row=>'  '+JSON.stringify(row.name)+': '+JSON.stringify('file:'+row.path.replaceAll('\\','/'))).join('\n')+'\n');
+  const manifestFile=join(dir,'package.json'),manifest=JSON.parse(readFileSync(manifestFile));
+  for(const row of overrides)if(row.name!=='dsh-lab-agent')manifest.dependencies[row.name]='file:'+row.path.replaceAll('\\','/');
+  writeFileSync(manifestFile,JSON.stringify(manifest,null,2));
+ }
+ const install=runner.runPlugin(['add','--offline','--ignore-scripts',...packageNames.map(name=>archives?join(archives,`${name}-0.5.8-rc.1.tgz`):'link:'+join(staging,name).replaceAll('\\','/'))],archives?runDir:repo);
  let installLog='';install.stdout.on('data',v=>{installLog+=v;});install.stderr.on('data',v=>{installLog+=v;});
  const installed=await install.done;writeFileSync(join(runDir,'install.log'),installLog);assert.equal(installed.exitCode,0,installLog);
  const profile=JSON.parse(readFileSync(join(dir,'package.json')));for(const name of packageNames)assert.ok(profile.dsh.profile.bundles.includes(name));
- assert.ok(!profile.dsh.profile.bundles.includes('dsh-lab-agent'));checks.push('seven-official-package-runner-installs-without-compatibility-bundle');
+ assert.ok(!profile.dsh.profile.bundles.includes('dsh-lab-agent'));checks.push(archives?'seven-real-archive-installs-with-shared-library-without-compatibility-bundle':'seven-official-package-runner-installs-without-compatibility-bundle');
+ if(archives){
+  const installedRequire=createRequire(join(dir,'package.json'));
+  for(const name of packageNames){const path=realpathSync(installedRequire.resolve(`${name}/package.json`));assert.ok(path.startsWith(realpathSync(dir)),path);assert.ok(!path.startsWith(realpathSync(repo)),path);}
+  const corePath=realpathSync(installedRequire.resolve('dsh-lab-core/package.json'));
+  const coreRequire=createRequire(corePath),library=realpathSync(coreRequire.resolve('dsh-lab-agent/package.json'));assert.ok(library.startsWith(realpathSync(dir)));
+  report.archiveMode={freshProfile:true,offline:true,emptyStore:true,dependencies:'local archives of currently validated dependencies; fixed NEXT runtime supplied separately',sharedLibrary:library};
+  checks.push('installed-domain-packages-resolve-inside-new-profile-without-development-links');
+ }
  await runner.dispose();
  if(populated){
   assert.ok(arg('--pdf'),'--pdf required for --populated');
@@ -248,6 +264,45 @@ try {
  await host.stop(true);host=undefined;await boot();assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p5-composition'}})).memory.markdown,'# P5 停用期间更新');checks.push('bundle-selection-and-memory-persist-across-host-restart');
  if(populated)assert.deepEqual(await populationState(),populationSnapshot);
  await host.stop(true);host=undefined;
+ if(archives){
+  const files=['package.json','pnpm-lock.yaml'],before=files.map(name=>readFileSync(join(dir,name)));
+  runner=newRunner();const corrupt=join(runDir,'corrupt-ui.tgz');writeFileSync(corrupt,'P5 deliberately corrupt archive');
+  const failure=runner.runPlugin(['add','--offline','--ignore-scripts',corrupt],runDir);let failureLog='';failure.stdout.on('data',v=>{failureLog+=v;});failure.stderr.on('data',v=>{failureLog+=v;});
+  const failed=await failure.done;assert.notEqual(failed.exitCode,0);await runner.dispose();writeFileSync(join(runDir,'rejected-update.log'),failureLog);
+  for(const [index,name] of files.entries())assert.deepEqual(readFileSync(join(dir,name)),before[index],name+' changed after rejected update');
+  await boot();assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p5-composition'}})).memory.markdown,'# P5 停用期间更新');
+  assert.equal((await rpc('pluginManager','listBundles')).find(bundle=>bundle.name==='dsh-lab-ui').version,'0.5.8-rc.1');
+  checks.push('corrupt-archive-update-rejected-profile-and-lock-unchanged-old-version-and-data-restart');
+  await host.stop(true);host=undefined;
+  if(browserExe){
+   const brokenDir=join(staging,'broken-ui');cpSync(join(repo,'packages/dsh-lab-ui'),brokenDir,{recursive:true,filter:path=>!path.split(/[\\/]/).includes('node_modules')});
+   const brokenManifest=JSON.parse(readFileSync(join(brokenDir,'package.json')));brokenManifest.version='0.5.8-rc.1-p5-failure-fixture';writeFileSync(join(brokenDir,'package.json'),JSON.stringify(brokenManifest,null,2));
+   const client=join(brokenDir,'client/index.js'),source=readFileSync(client,'utf8');assert.ok(source.includes('async function apply(ctx) {'));
+   writeFileSync(client,source.replace('async function apply(ctx) {','async function apply(ctx) { throw new Error("P5 intentional UI activation failure");'));
+   const packRunner=createPackageRunner({command:executable,args:['--expose-internals',bundledPnpmEntry(NEXT_PACKAGE)],env:{ELECTRON_RUN_AS_NODE:'1'}},brokenDir);
+   const packed=packRunner.run(['pack','--pack-destination',staging]);packed.stdout.resume();packed.stderr.resume();assert.equal((await packed.done).exitCode,0);await packRunner.dispose();
+   const badArchive=join(staging,`dsh-lab-ui-${brokenManifest.version}.tgz`);assert.ok(existsSync(badArchive));
+   for(const [archive,broken] of [[badArchive,true],[join(archives,'dsh-lab-ui-0.5.8-rc.1.tgz'),false]]){
+    runner=newRunner();const update=runner.runPlugin(['add','--offline','--ignore-scripts',archive],runDir);let log='';update.stdout.on('data',chunk=>{log+=chunk;});update.stderr.on('data',chunk=>{log+=chunk;});assert.equal((await update.done).exitCode,0,log);await runner.dispose();
+    const ready=await boot();assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p5-composition'}})).memory.markdown,'# P5 停用期间更新');
+    browser=await launchBrowser();const page=await browser.newPage();await page.goto(ready,{waitUntil:'domcontentloaded',timeout:60000});
+    if(broken){await page.waitForFunction(()=>document.body.innerText.includes('Failed to load plugins')&&document.body.innerText.includes('dsh-lab-ui'),{timeout:30000});await page.screenshot({path:join(runDir,'intentional-ui-failure.png'),fullPage:true});}
+    else{
+     await page.waitForSelector('[title="打开科研课题"]',{timeout:30000});
+     await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(node=>node.innerText.trim()==='稍后配置'),{timeout:15000});
+     await page.evaluate(()=>[...document.querySelectorAll('button')].find(node=>node.innerText.trim()==='稍后配置').click());
+     await page.click('[title="打开科研课题"]');await page.waitForFunction(()=>document.querySelector('.ib-main')?.innerText.includes('P5 可选科研课题'),{timeout:30000});
+     await page.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('P5 可选科研课题')).click());
+     await page.waitForFunction(()=>document.querySelector('.ib-project-head')?.innerText.includes('P5 可选科研课题'),{timeout:30000});
+     await page.screenshot({path:join(runDir,'archive-rollback-ui.png'),fullPage:true});
+    }
+    assert.equal((await rpc('pluginManager','listBundles')).find(bundle=>bundle.name==='dsh-lab-ui').version,broken?brokenManifest.version:'0.5.8-rc.1');
+    await closeBrowser();await host.stop(true);host=undefined;
+   }
+   checks.push('installed-ui-startup-failure-detected-and-original-archive-reinstalled-restores-working-ui-and-memory');
+  }
+  report.ok=true;
+ }else{
  const upgrade=join(staging,'ui-upgrade');cpSync(join(repo,'packages/dsh-lab-ui'),upgrade,{recursive:true});
  const upgradedManifest=JSON.parse(readFileSync(join(upgrade,'package.json')));upgradedManifest.version='0.5.8-rc.1+p5.fixture.1';writeFileSync(join(upgrade,'package.json'),JSON.stringify(upgradedManifest,null,2));
  mkdirSync(join(upgrade,'node_modules'));symlinkSync(repo,join(upgrade,'node_modules/dsh-lab-agent'),process.platform==='win32'?'junction':'dir');
@@ -262,6 +317,7 @@ try {
  }
  checks.push('isolated-ui-version-fixture-update-and-rollback-preserve-core-data');
  report.ok=true;
+ }
 } catch(error){
  report.ok=false;report.error=String(error);
  if(browser){const pages=await browser.pages();const current=pages.find(page=>page.url().startsWith(auth.origin))??pages.at(-1);report.failureText=await current.evaluate(()=>document.querySelector('.ib-main')?.innerText ?? document.body.innerText);await current.screenshot({path:join(runDir,'failure.png'),fullPage:true}).catch(()=>{});}

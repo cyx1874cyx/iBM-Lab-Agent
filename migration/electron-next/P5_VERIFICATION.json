@@ -20,17 +20,18 @@
     "uiDisposeReactivate": "passed",
     "wideNarrowLightDark": "basic_project_passed; populated_0.5.8_comparison_pending",
     "uiFixtureUpdateRollback": "passed; not_production_release_upgrade",
-    "archiveStructure": "passed; clean_install_pending",
-    "gracefulExit": "native_UI_restart_update_rollback_passed; prior_timeout_root_cause_unresolved",
+    "archiveStructure": "passed: 7 product bundles, 39 unique Host rows, plus full 81-archive content checks",
+    "gracefulExit": "final archive install and failure/recovery run passed; prior timeout root cause unresolved",
     "nativeBrowserAndFileUi": "formal_NEXT_browser_buttons_and_real_Electron_PDF_preview_passed; save_and_Office_and_reveal_transport_fixture_only",
     "P4NativeFileInteraction": "user_deferred; not_passed",
     "historicalDataImported": false,
     "upstreamModified": false,
-    "currentArchives": "prior_checkpoint_only; current_UI_not_repacked",
+    "currentArchives": "81 current local archives including shared implementation and validated dependency closure; hashes/manifests/paths/no-link checks passed",
     "populatedProjectUi": "passed: three tabs, 1360/600, light/dark, flat literature actions, independent report/PPT buttons, overview toggle, plot UI edit; full_real_0.5.8_comparison_pending",
     "populatedDataRetention": "passed: domain disable/restore, Host restart, UI fixture update/rollback; compares IDs/status and edited plot topic/date",
     "populatedResearchExecution": "not_run; software_fixture_only",
-    "cleanArchiveInstall": "pending; local_link_fixture_only"
+    "cleanArchiveInstall": "passed: Windows fresh profile, empty store, offline, no development links; fixed NEXT runtime supplied separately",
+    "failedUpdateRecovery": "passed: corrupt archive rejection leaves package/lock unchanged; installed UI activation failure recovered by reinstallation of original archive; production automatic rollback not implemented"
   },
   "evidence": [
     {
@@ -162,11 +163,45 @@
       "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-populated-domain-tests.log",
       "bytes": 21118,
       "sha256": "43598a5c072e63fa9f1e1816abaae8001d1d3b8dd614242317f64257908ad7c5"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/clean-offline-archives-v2/release-archives.json",
+      "bytes": 25185,
+      "sha256": "0c67a225b9d58861ee9585f6e42aaa8a90b6830fef8a13dda98efbd61b4daefe"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/clean-offline-archives-v2/archive-verification.json",
+      "bytes": 136,
+      "sha256": "9b964460885025ad95f8c96d1748f7e434c819a4590905f503084b9c3acca904"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/clean-offline-archives-v2/verification.json",
+      "bytes": 2113,
+      "sha256": "26fb8e5774ecef4ac10304482bf11bb3c3870d9b4a05c604559337489ffc92fc"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/clean-offline-install-final/run-48D6XO/verification.json",
+      "bytes": 1920,
+      "sha256": "52e100e2d0ec46c60fe47d649098b0513ae9957f6d25f6e2b52ccc30235c6aed"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/clean-offline-install-final/run-48D6XO/host.log",
+      "bytes": 820,
+      "sha256": "bf6d68d8d8d32048efabad2bd32a0cfe6bd87a813d6790420fd2537603fcd065"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-clean-install-tests.log",
+      "bytes": 21229,
+      "sha256": "04a8ae638e29fc3fd608af79bdbaa65c11e204d73a53c4811ccd32b4e2442e0b"
     }
   ],
   "targetedTests": {
     "domainComposition": {
       "pass": 4,
+      "fail": 0
+    },
+    "archiveAndDomain": {
+      "pass": 5,
       "fail": 0
     }
   }
