@@ -16,6 +16,7 @@ const nextRepo = resolve(arg('--next-root') ?? (()=>{throw Error('--next-root re
 const output = resolve(arg('--output') ?? (()=>{throw Error('--output required');})());
 const browserExe = arg('--browser');
 const scientificUi = process.argv.includes('--scientific-ui');
+const populated = process.argv.includes('--populated');
 let scientificServer, scientificOrigin;
 const runtime = join(nextRepo,'dsh-desktop-next');
 assert.equal(execFileSync('git',['-C',nextRepo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
@@ -47,11 +48,18 @@ const originalWrite=process.stdout.write;
 process.stdout.write=function(chunk,...rest){return originalWrite.call(this,redact(chunk),...rest);};
 const report={phase:'P5',next:'2.0.17-next',kernel:'0.2.0-rc.2',ibm:'0.5.8-rc.1',mode:process.argv.includes('--electron')?'electron-node':'node',home,checks};
 let auth;
+let populationSnapshot;
+async function populationState(){
+ const workspace=await rpc('lab','projects_workspace',{request:{projectId:'p5-composition'}});
+ const plots=await rpc('lab','plot_records_list',{request:{projectId:'p5-composition'}}),tasks=await rpc('lab','characterization_list',{request:{projectId:'p5-composition'}});
+ const rows=values=>values.map(row=>({id:row.id,status:row.status})).sort((a,b)=>a.id.localeCompare(b.id));
+ return {searches:rows(workspace.literature.searches),bundles:rows(workspace.literature.bundles),reports:rows(workspace.literature.reports),presentations:rows(workspace.literature.presentations),routes:rows(workspace.planning.routes),plots:plots.records.map(row=>({id:row.id,topic:row.topic,date:row.date})),tasks:rows(tasks.tasks)};
+}
 async function launchBrowser(){
  const profile=join(runDir,'browser');mkdirSync(profile);
  if(process.platform!=='win32'||!/msedge\.exe$/i.test(browserExe))return puppeteer.launch({executablePath:browserExe,headless:true,userDataDir:profile});
  // Edge's compatibility launcher exits before its browser child is ready.
- const child=spawn(browserExe,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-gpu','--disable-features=msEdgeFirstRunExperience','about:blank'],{windowsHide:true,stdio:'ignore'});child.unref();
+ const child=spawn(browserExe,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','--no-default-browser-check','--disable-gpu','--disable-extensions','--disable-features=msEdgeFirstRunExperience','about:blank'],{windowsHide:true,stdio:'ignore'});child.unref();
  const active=join(profile,'DevToolsActivePort');
  for(let attempt=0;attempt<150;attempt++){
   if(existsSync(active))try{
@@ -104,6 +112,15 @@ try {
  const profile=JSON.parse(readFileSync(join(dir,'package.json')));for(const name of packageNames)assert.ok(profile.dsh.profile.bundles.includes(name));
  assert.ok(!profile.dsh.profile.bundles.includes('dsh-lab-agent'));checks.push('seven-official-package-runner-installs-without-compatibility-bundle');
  await runner.dispose();
+ if(populated){
+  assert.ok(arg('--pdf'),'--pdf required for --populated');
+  const fixtureDir=join(runDir,'fixture-package');mkdirSync(fixtureDir);
+  writeFileSync(join(fixtureDir,'package.json'),JSON.stringify({name:'ibm-p5-isolated-fixture',version:'1.0.0',type:'module'}));
+  const fixtureFile=join(fixtureDir,'index.mjs');
+  writeFileSync(fixtureFile,readFileSync(join(repo,'scripts/migration/p5-populated-fixture.mjs'),'utf8').replace('\"@deepseek-ai/cordis\"',JSON.stringify(pathToFileURL(join(repo,'node_modules/@deepseek-ai/cordis/lib/index.js')).href)).replace('\"../../tests/fixtures/office-builder.mjs\"',JSON.stringify(pathToFileURL(join(repo,'tests/fixtures/office-builder.mjs')).href)));
+  const patch=join(dir,'cordis.patch.yml');
+  writeFileSync(patch,readFileSync(patch,'utf8').replace(/^\[\]\s*$/m,'')+'\n- insert:\n    - id: p5-populated-fixture\n      name: '+JSON.stringify(pathToFileURL(fixtureFile).href)+'\n      config:\n        pdf: '+JSON.stringify(resolve(arg('--pdf')))+'\n');
+ }
  if(scientificUi){
   assert.ok(arg('--python'),'--python required for --scientific-ui');
   process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=resolve(arg('--python'));
@@ -115,8 +132,17 @@ try {
  }
  const url=await boot();
  let features=await rpc('lab','capabilities');for(const name of ['core','runtime','documents','literature','design','analysis'])assert.equal(features[name],true,name);
- const created=await rpc('lab','projects_create',{request:{fields:{id:'p5-composition',name:'P5 可选科研课题',coreMarkdown:'# P5 核心记忆'}}});
+ const created=populated ? {project:(await rpc('lab','projects_list')).projects.find(row=>row.id==='p5-composition')} : await rpc('lab','projects_create',{request:{fields:{id:'p5-composition',name:'P5 可选科研课题',coreMarkdown:'# P5 核心记忆'}}});
  assert.equal(created.project.id,'p5-composition');
+ if(populated){
+  await rpc('lab','synth_target_create',{request:{fields:{id:'p5-target',projectId:'p5-composition',name:'P5 隔离设计目标',formula:'C2H6O'}}});
+  await rpc('lab','synth_route_create',{request:{fields:{id:'p5-route',projectId:'p5-composition',targetId:'p5-target',name:'P5 隔离研究路线',steps:[{step:1,reaction:'P5 隔离步骤',reactants:['A'],products:['B'],conditions:'仅用于软件验收'}]}}});
+  await rpc('lab','plot_records_create',{request:{id:'p5-plot',projectId:'p5-composition',topic:'P5 隔离绘图登记',date:'2026-10-04',notes:'没有执行真实 Origin 作图'}});
+  const queued=await rpc('lab','characterization_submit',{request:{id:'p5-plot-task',projectId:'p5-composition',kind:'plot',title:'P5 失败绘图任务',date:'2026-10-04',inputPath:'fixture.pdf',instructions:'隔离状态验收；不执行科学软件'}});
+  await rpc('lab','characterization_dispatch_failed',{request:{taskId:queued.task.id,projectId:'p5-composition',attempt:queued.task.attempt,error:'P5 隔离任务失败样例'}});
+  checks.push('populated-isolated-literature-design-and-analysis-fixtures');
+  populationSnapshot=await populationState();report.population=populationSnapshot;
+ }
  const healthy=await rpc('agentPresets','list');assert.ok(healthy.presets.some(p=>p.id==='lab-research'&&!p.broken));checks.push('independent-bundles-full-provider-and-preset-composition');
  const change=async(name,enabled)=>{
   const result=await rpc('pluginManager','setBundleEnabled',{name:'dsh-lab-'+name,enabled});
@@ -133,12 +159,15 @@ try {
  await rpc('lab','projects_memory_update',{request:{fields:{projectId:'p5-composition',markdown:'# P5 停用期间更新'}}});checks.push('live-bundle-disable-core-workspace-and-memory-survive');
  for(const name of ['runtime','documents','literature','design','analysis'])await change(name,true);
  const restored=await rpc('lab','projects_workspace',{request:{projectId:'p5-composition'}});assert.equal(restored.memory.markdown,'# P5 停用期间更新');
+ if(populated)assert.deepEqual(await populationState(),populationSnapshot);
  checks.push('live-bundle-reactivation-no-storage-duplicate-and-memory-retained');
  const plugins=await rpc('pluginManager','listPlugins');for(const id of ['ibm-core','ibm-runtime','ibm-documents','ibm-literature-workflows','ibm-design','ibm-analysis','lab-client'])assert.equal(plugins.filter(p=>p.patchId===id&&p.enabled).length,1,id);
  checks.push('exactly-one-active-provider-per-domain');
  if(browserExe){
-  browser=await launchBrowser();const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  browser=await launchBrowser();const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));report.browserErrors=errors;
+  page.on('console',message=>{if(['error','warn'].includes(message.type()))(report.browserConsoleErrors??=[]).push(redact(message.text()));});
   await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForSelector('[title="打开科研课题"]',{timeout:30000});
+  await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(node=>node.innerText.trim()==='继续'),{timeout:30000});
   await page.evaluate(()=>{const notice=[...document.querySelectorAll('button')].find(node=>node.innerText.trim()==='继续');notice?.click();});
   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(node=>node.innerText.trim()==='稍后配置'),{timeout:10000});
   await page.evaluate(()=>[...document.querySelectorAll('button')].find(node=>node.innerText.trim()==='稍后配置').click());
@@ -170,6 +199,32 @@ try {
    assert.equal(await page.evaluate(()=>document.querySelector('.ib-overlay').scrollWidth<=window.innerWidth+1),true,'project overflow');
   }
   await page.setViewport({width:1360,height:900});
+  if(populated){
+   assert.equal(await page.evaluate(()=>document.querySelectorAll('.ib-lit-item:has([data-kind=reading])').length),3);
+   assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.ib-lit-item:has([data-kind=reading])')].map(node=>({title:node.querySelector('.ib-lit-zh').innerText,reading:node.querySelector('[data-kind="reading"]').dataset.done==='true',ppt:node.querySelector('[data-kind="ppt"]').dataset.done==='true'})).sort((a,b)=>a.title.localeCompare(b.title))),[
+    {title:'P5 失败精读',reading:false,ppt:false},{title:'P5 待审核精读',reading:true,ppt:false},{title:'P5 进行中精读',reading:false,ppt:false}
+   ].sort((a,b)=>a.title.localeCompare(b.title)));
+   await page.evaluate(()=>[...document.querySelectorAll('.ib-lit-item button')].find(node=>node.innerText==='简介').click());
+   await page.waitForFunction(()=>document.querySelector('.ib-main').innerText.includes('软件迁移隔离样例'));
+   await page.evaluate(()=>[...document.querySelectorAll('.ib-lit-item button')].find(node=>node.innerText==='收起简介').click());
+   const clickTab=label=>page.evaluate(text=>[...document.querySelectorAll('.ib-tab')].find(node=>node.innerText===text).click(),label);
+   for(const [tab,expected] of [['文献资料','P5 待审核精读'],['研究设计','P5 隔离研究路线'],['表征分析','P5 失败绘图任务']]){
+    await clickTab(tab);await page.waitForFunction(text=>document.querySelector('.ib-main')?.innerText.includes(text),{timeout:30000},expected);
+    for(const width of [1360,600])for(const theme of ['light','dark']){
+     await page.setViewport({width,height:900});await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),theme==='dark');
+     await page.screenshot({path:join(runDir,`populated-${tab}-${width}-${theme}.png`),fullPage:true});
+     assert.equal(await page.evaluate(()=>document.querySelector('.ib-overlay').scrollWidth<=window.innerWidth+1),true,tab+' overflow');
+    }
+   }
+   await page.evaluate(()=>[...document.querySelectorAll('.ib-characterization-row')].find(node=>node.innerText.includes('P5 隔离绘图登记')).querySelector('summary').click());
+   await page.click('[aria-label="绘图主题"]',{clickCount:3});await page.keyboard.press('Backspace');await page.type('[aria-label="绘图主题"]','P5 隔离绘图登记（已修改）');
+   await page.evaluate(()=>document.querySelector('.ib-entry-edit button').click());
+   await page.waitForFunction(()=>document.querySelector('.ib-characterization-title')?.parentElement.parentElement.innerText.includes('P5 隔离绘图登记（已修改）'));
+   assert.equal((await rpc('lab','plot_records_list',{request:{projectId:'p5-composition'}})).records[0].topic,'P5 隔离绘图登记（已修改）');
+   populationSnapshot=await populationState();report.population=populationSnapshot;
+   await page.setViewport({width:1360,height:900});await clickTab('文献资料');
+   checks.push('populated-three-tabs-four-viewports-flat-actions-independent-reading-ppt-state-and-plot-ui-edit');
+  }
   for(const name of ['literature','design','analysis','documents','runtime'])await change(name,false);
   await page.evaluate(()=>[...document.querySelectorAll('.ib-tab-refresh')][0].click());
   await page.waitForFunction(()=>document.querySelector('.ib-main')?.innerText.includes('科研功能尚未启用'),{timeout:30000});
@@ -180,6 +235,7 @@ try {
   for(const name of ['runtime','documents','literature','design','analysis'])await change(name,true);
   await page.evaluate(()=>[...document.querySelectorAll('.ib-tab-refresh')][0].click());
   await page.waitForFunction(()=>[...document.querySelectorAll('.ib-tab')].length===3&&[...document.querySelectorAll('.ib-tab')].every(node=>!node.disabled),{timeout:30000});
+  if(populated)assert.equal(await page.evaluate(()=>document.querySelectorAll('.ib-lit-item:has([data-kind=reading])').length),3);
   assert.deepEqual(errors,[]);checks.push('full-ui-wide-narrow-two-themes-and-live-provider-recovery');
   const stoppedUi=await rpc('pluginManager','setBundleEnabled',{name:'dsh-lab-ui',enabled:false});assert.ok(stoppedUi.ok!==false);
   await page.waitForFunction(()=>!document.querySelector('.ib-overlay')&&!document.querySelector('[data-dsh-lab-research-entry]'),{timeout:30000});
@@ -190,6 +246,7 @@ try {
   assert.deepEqual(errors,[]);checks.push('live-ui-disable-disposes-overlay-and-reactivation-restores-working-entry');await closeBrowser();
  }
  await host.stop(true);host=undefined;await boot();assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p5-composition'}})).memory.markdown,'# P5 停用期间更新');checks.push('bundle-selection-and-memory-persist-across-host-restart');
+ if(populated)assert.deepEqual(await populationState(),populationSnapshot);
  await host.stop(true);host=undefined;
  const upgrade=join(staging,'ui-upgrade');cpSync(join(repo,'packages/dsh-lab-ui'),upgrade,{recursive:true});
  const upgradedManifest=JSON.parse(readFileSync(join(upgrade,'package.json')));upgradedManifest.version='0.5.8-rc.1+p5.fixture.1';writeFileSync(join(upgrade,'package.json'),JSON.stringify(upgradedManifest,null,2));
@@ -199,6 +256,7 @@ try {
   const result=await reinstall.done;assert.equal(result.exitCode,0,log);await runner.dispose();await boot();
   const installedBundles=await rpc('pluginManager','listBundles');assert.equal(installedBundles.find(bundle=>bundle.name==='dsh-lab-ui').version,expected);
   assert.equal((await rpc('lab','projects_memory',{request:{projectId:'p5-composition'}})).memory.markdown,'# P5 停用期间更新');
+  if(populated)assert.deepEqual(await populationState(),populationSnapshot);
   const after=await rpc('pluginManager','listPlugins');assert.equal(after.filter(row=>row.patchId==='ibm-core'&&row.enabled).length,1);
   await host.stop(true);host=undefined;
  }
@@ -206,7 +264,7 @@ try {
  report.ok=true;
 } catch(error){
  report.ok=false;report.error=String(error);
- if(browser){const pages=await browser.pages();const current=pages.at(-1);report.failureText=await current.evaluate(()=>document.querySelector('.ib-main')?.innerText ?? document.body.innerText);await current.screenshot({path:join(runDir,'failure.png'),fullPage:true}).catch(()=>{});}
+ if(browser){const pages=await browser.pages();const current=pages.find(page=>page.url().startsWith(auth.origin))??pages.at(-1);report.failureText=await current.evaluate(()=>document.querySelector('.ib-main')?.innerText ?? document.body.innerText);await current.screenshot({path:join(runDir,'failure.png'),fullPage:true}).catch(()=>{});}
  throw error;
 }
 finally{

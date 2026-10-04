@@ -31,3 +31,12 @@ node scripts/migration/verify-next-bundles.mjs --next-root 'H:/107-iBM-Agent/iBM
 ```
 
 第二个验证器会在新 profile 内配置隐藏的隔离 Electron 科研窗口，以本机 HTTP 页面验证正式按钮；不复用真实机构认证。文件动作接口样例中的保存取消使用传输替身，不是原生弹窗显示证明。
+
+带记录的课题 UI 和持久化验收：
+
+```powershell
+node scripts/migration/verify-next-bundles.mjs --next-root 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p1/next' --output 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/new-populated-run' --electron --browser 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' --scientific-ui --python 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/python-resource/python.exe' --populated --pdf 'H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p4/file-dialogs/sample.pdf'
+node --test tests/integration/domain-compositions.test.mjs
+```
+
+`p5-populated-fixture.mjs` 只由验证器复制到独立测试包并显式插入该隔离 profile。不能直接用其源码 file URL 注册到产品，避免 NEXT 按所在兼容包推导客户端而重复加载。样例创建后不重复覆盖数据，插件停用/恢复及 Host 重启不把已修改条目重置。验证器不会提交模型任务、人工审核决策或执行 Origin/Mnova。

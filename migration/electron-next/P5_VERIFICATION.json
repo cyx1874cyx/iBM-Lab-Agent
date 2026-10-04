@@ -26,7 +26,11 @@
     "P4NativeFileInteraction": "user_deferred; not_passed",
     "historicalDataImported": false,
     "upstreamModified": false,
-    "currentArchives": "prior_checkpoint_only; current_UI_not_repacked"
+    "currentArchives": "prior_checkpoint_only; current_UI_not_repacked",
+    "populatedProjectUi": "passed: three tabs, 1360/600, light/dark, flat literature actions, independent report/PPT buttons, overview toggle, plot UI edit; full_real_0.5.8_comparison_pending",
+    "populatedDataRetention": "passed: domain disable/restore, Host restart, UI fixture update/rollback; compares IDs/status and edited plot topic/date",
+    "populatedResearchExecution": "not_run; software_fixture_only",
+    "cleanArchiveInstall": "pending; local_link_fixture_only"
   },
   "evidence": [
     {
@@ -143,6 +147,27 @@
       "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-native-tests-final.log",
       "bytes": 92657,
       "sha256": "55930f61cc552df53a5912cf667292e8f5d8763107779fc87cba9fb57d9a88d5"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/populated-final/run-d53DQX/verification.json",
+      "bytes": 2468,
+      "sha256": "696dc50386e772434942b1c65f547eacc15e2cb5132f986903dbf1be63853716"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5/populated-final/run-d53DQX/host.log",
+      "bytes": 656,
+      "sha256": "683ae3e0f927a6c3f65d70f02bf5ecdfef375518e62b604ba3fcae70457c008a"
+    },
+    {
+      "path": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p5-populated-domain-tests.log",
+      "bytes": 21118,
+      "sha256": "43598a5c072e63fa9f1e1816abaae8001d1d3b8dd614242317f64257908ad7c5"
     }
-  ]
+  ],
+  "targetedTests": {
+    "domainComposition": {
+      "pass": 4,
+      "fail": 0
+    }
+  }
 }
