@@ -29,11 +29,15 @@ try{
  await frame.evaluate(()=>{for(const text of ['继续','稍后配置']){const button=[...document.querySelectorAll('button')].find(node=>node.innerText.trim()===text);button?.click();}});
  await new Promise(done=>setTimeout(done,1000));
  await frame.evaluate(()=>[...document.querySelectorAll('button')].find(node=>node.innerText.trim()==='稍后配置')?.click());
- await frame.click('[title="打开科研课题"]');await frame.waitForSelector('.ib-main',{timeout:30000});
- assert.ok(await frame.evaluate(()=>document.querySelector('.ib-overlay').getBoundingClientRect().top>=40),'Research panel overlaps the native Windows caption/menu');
+ await frame.evaluate(()=>document.querySelector('.ib-hero-chip').click());
+ await frame.waitForSelector('.ib-hero-menu-item-strong');
+ await frame.evaluate(()=>document.querySelector('.ib-hero-menu-item-strong').click());await frame.waitForSelector('.ib-main',{timeout:30000});
+ report.chrome=await frame.evaluate(()=>({protocol:location.protocol,platform:navigator.platform,userAgent:navigator.userAgent,overlayTop:document.querySelector('.ib-overlay').getBoundingClientRect().top}));
+ assert.ok(report.chrome.overlayTop>=40,'Research panel overlaps the native Windows caption/menu');
  await page.screenshot({path:join(work,'installed-desktop.png'),fullPage:true});
  report.page=await frame.evaluate(()=>({title:document.title,text:document.querySelector('.ib-main')?.innerText,menus:[...document.querySelectorAll('button')].filter(node=>['应用','编辑'].includes(node.innerText.trim())).map(node=>({text:node.innerText,class:node.className,parent:node.parentElement.outerHTML.slice(0,1400)}))}));
- assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry','native-caption-clearance','isolated-new-home');
+ assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry-DOM-click','native-caption-clearance','isolated-new-home');
+ report.limits=['DOM click verifies the UI event route; physical mouse acceptance remains unverified because CDP clicks reached the native settings view.'];
  report.ok=true;
 }catch(error){report.error=String(error);if(browser)for(const page of await browser.pages()){await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});report.failureText=await page.evaluate(()=>document.body.innerText).catch(()=>undefined);}throw error;}
 finally{

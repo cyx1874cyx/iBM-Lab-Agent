@@ -84,6 +84,7 @@ export function applyUi(ctx) {
 		return result.value;
 	};
 	let root = null;
+	let previousNativeTop = "";
  ctx.effect(() => installDesktopClient(call), "lab.native-desktop-client");
 	const close = () => {
 		if (!root) return;
@@ -91,6 +92,8 @@ export function applyUi(ctx) {
 		root = null;
 		ReactDOM.unmountComponentAtNode(node);
 		node.remove();
+		if (previousNativeTop) document.body.style.setProperty("--ib-native-top", previousNativeTop);
+		else document.body.style.removeProperty("--ib-native-top");
 		// 面板关掉后把原生文献浏览器放回去（面板打开时它是被收起来的）。
 		setWebVpnVisibleViaShell(true);
 	};
@@ -214,7 +217,9 @@ export function applyUi(ctx) {
 		root = document.createElement("div");
 		// NEXT's Windows caption/menu is a separate native chrome view (40px).
 		// A fixed document overlay must leave that seat clear.
-		if (window.location.protocol === "dsh-app:" && navigator.platform === "Win32") root.style.setProperty("--ib-native-top", "40px");
+		previousNativeTop = document.body.style.getPropertyValue("--ib-native-top");
+		// Panel portals into document.body, so the offset must live on that ancestor.
+		if (navigator.platform === "Win32" && (window.location.protocol === "dsh-app:" || /Electron\//.test(navigator.userAgent))) document.body.style.setProperty("--ib-native-top", "40px");
 		document.body.appendChild(root);
 		try {
 			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);

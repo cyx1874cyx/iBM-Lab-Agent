@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { initializeRelease } from '../../electron-next/release-runtime.mjs';
 const arg=name=>{const i=process.argv.indexOf(name);assert.ok(i>=0,name+' required');return resolve(process.argv[i+1]);};
 const app=arg('--app'),resources=arg('--resources'),electron=arg('--electron'),output=arg('--output');mkdirSync(output,{recursive:true});
@@ -18,6 +19,8 @@ const previous=os.userInfo;os.userInfo=options=>({...previous(options),homedir:o
 process.argv[1]=${JSON.stringify(join(app,'lib/host.js'))};await import(${JSON.stringify(pathToFileURL(join(app,'lib/host.js')).href)});`);
 const {DesktopHostProcess}=await import(pathToFileURL(join(app,'lib/host-process.js')));
 const report={ok:false,home,checks:['offline-bootstrap','repeat-bootstrap-no-overwrite'],release:JSON.parse(readFileSync(join(resources,'release.json')))};
+report.python=JSON.parse(execFileSync(initialized.python,['-I','-c','import sys,json,pymupdf,numpy,scipy,PIL,lxml,pptx; print(json.dumps({"version":sys.version.split()[0],"executable":sys.executable,"modules":{m.__name__:m.__file__ for m in [pymupdf,numpy,scipy,PIL,lxml,pptx]}}))'],{encoding:'utf8',windowsHide:true}));
+assert.equal(report.python.version,'3.12.11');for(const file of Object.values(report.python.modules))assert.ok(resolve(file).startsWith(resolve(resources)),'Python dependency escaped bundled resources');report.checks.push('relocated-bundled-python-and-six-scientific-document-libraries');
 let host,log='',auth;
 const redact=value=>String(value).replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');
 const originalWrite=process.stdout.write;process.stdout.write=function(chunk,...args){return originalWrite.call(this,redact(chunk),...args);};

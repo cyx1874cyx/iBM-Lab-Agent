@@ -5333,6 +5333,7 @@ function applyUi(ctx) {
     return result.value;
   };
   let root = null;
+  let previousNativeTop = "";
   ctx.effect(() => installDesktopClient(call), "lab.native-desktop-client");
   const close = () => {
     if (!root) return;
@@ -5340,6 +5341,8 @@ function applyUi(ctx) {
     root = null;
     import_react_dom3.default.unmountComponentAtNode(node);
     node.remove();
+    if (previousNativeTop) document.body.style.setProperty("--ib-native-top", previousNativeTop);
+    else document.body.style.removeProperty("--ib-native-top");
     setWebVpnVisibleViaShell(true);
   };
   const toast = (message) => {
@@ -5428,7 +5431,8 @@ function applyUi(ctx) {
     if (root) return;
     setWebVpnVisibleViaShell(false);
     root = document.createElement("div");
-    if (window.location.protocol === "dsh-app:" && navigator.platform === "Win32") root.style.setProperty("--ib-native-top", "40px");
+    previousNativeTop = document.body.style.getPropertyValue("--ib-native-top");
+    if (navigator.platform === "Win32" && (window.location.protocol === "dsh-app:" || /Electron\//.test(navigator.userAgent))) document.body.style.setProperty("--ib-native-top", "40px");
     document.body.appendChild(root);
     try {
       import_react_dom3.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
