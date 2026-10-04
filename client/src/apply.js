@@ -212,6 +212,9 @@ export function applyUi(ctx) {
 		// 否则课题面板会被文献浏览器挡住（关掉面板时再恢复）。
 		setWebVpnVisibleViaShell(false);
 		root = document.createElement("div");
+		// NEXT's Windows caption/menu is a separate native chrome view (40px).
+		// A fixed document overlay must leave that seat clear.
+		if (window.location.protocol === "dsh-app:" && navigator.platform === "Win32") root.style.setProperty("--ib-native-top", "40px");
 		document.body.appendChild(root);
 		try {
 			ReactDOM.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
