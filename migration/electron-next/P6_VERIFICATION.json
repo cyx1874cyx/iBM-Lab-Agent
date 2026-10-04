@@ -1,0 +1,90 @@
+{
+  "phase": "P6",
+  "status": "installer-produced-migration-preview",
+  "ok": true,
+  "date": "2026-10-04",
+  "artifact": {
+    "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\windows-delivery\\dist\\iBM-Lab-Agent-0.5.8-rc.1-Electron-x64-Setup.exe",
+    "bytes": 437051481,
+    "sha256": "E43489F1F8B6F210A584579E764D5AAB8380EA33E7CED7545CD2AEF2AD3ACC2B",
+    "signature": "NotSigned"
+  },
+  "release": {
+    "ibm": "0.5.8-rc.1",
+    "source": "0400d044294997f19983923ee1ece5e5ac78b882",
+    "next": "2.0.17-next",
+    "nextCommit": "838ba60fd79362087c0a0d134efee671c284786a",
+    "kernel": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "python": "3.12.11",
+    "channel": "migration-preview",
+    "signed": false,
+    "automaticUpdates": false
+  },
+  "tests": {
+    "log": "outputs/electron-next-p6-delivery-tests.log",
+    "failed": 0,
+    "skipped": 8,
+    "passed": 796,
+    "total": 804
+  },
+  "offlineArchives": 81,
+  "installation": {
+    "ok": true,
+    "exit": 0,
+    "target": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\delivery-install\\app",
+    "displayName": "iBM Lab Agent Electron 0.5.8-rc.1",
+    "uninstallString": "\"H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\delivery-install\\app\\Uninstall iBM Lab Agent Electron.exe\" /currentuser",
+    "artifact": {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\windows-delivery\\dist\\iBM-Lab-Agent-0.5.8-rc.1-Electron-x64-Setup.exe",
+      "bytes": 437051481,
+      "sha256": "E43489F1F8B6F210A584579E764D5AAB8380EA33E7CED7545CD2AEF2AD3ACC2B",
+      "signature": "NotSigned"
+    }
+  },
+  "uninstallation": {
+    "ok": true,
+    "exit": 0,
+    "programRemoved": true,
+    "registrationRemoved": true,
+    "projectMemoryRetained": true,
+    "memoryPath": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\delivery-installed-runtime\\run-gCPkFF\\中文用户 科研数据\\lab-agent\\projects\\installed-smoke\\项目记忆.md",
+    "memorySha256": "67581417965B2A8660527FB6669A8A7C423018A9E43D4AAD4D6145E76CC80743",
+    "home": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-p6\\delivery-installed-runtime\\run-gCPkFF\\中文用户 科研数据",
+    "note": "Registry cleanup completed asynchronously after launcher exit."
+  },
+  "installedRuntime": {
+    "ok": true,
+    "checks": [
+      "offline-bootstrap",
+      "repeat-bootstrap-no-overwrite",
+      "relocated-bundled-python-and-six-scientific-document-libraries",
+      "real-installed-Electron-node-host",
+      "seven-domain-providers",
+      "native-provider-configured",
+      "Chinese-path-memory-restart"
+    ],
+    "evidence": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p6/delivery-installed-runtime/run-gCPkFF/verification.json"
+  },
+  "desktop": {
+    "gracefulExit": true,
+    "ok": true,
+    "checks": [
+      "real-packaged-Electron-main-window",
+      "official-client-research-entry-DOM-click",
+      "native-caption-clearance",
+      "close-cleans-offset-and-reopen-restores-it",
+      "isolated-new-home"
+    ],
+    "evidence": "H:/107-iBM-Agent/iBM-Agent/outputs/electron-next-p6/delivery-shell/run-nTGG1x/verification.json",
+    "overlayTop": 40
+  },
+  "limits": [
+    "Unsigned migration preview, not stable release",
+    "No automatic historical project or credential migration",
+    "Native save dialogs deferred by user",
+    "DOM click only; physical mouse acceptance pending",
+    "Clean VM and full P4/P5 interactive matrix pending",
+    "Office rendering needs external LibreOffice; Origin/Mnova external"
+  ]
+}

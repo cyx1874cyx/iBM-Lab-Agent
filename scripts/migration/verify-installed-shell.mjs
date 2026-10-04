@@ -1,5 +1,5 @@
 /** Launch only this new installed-layout app with an isolated home. */
-/* global document */
+/* global document, location */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { join,resolve } from 'node:path';
@@ -36,7 +36,13 @@ try{
  assert.ok(report.chrome.overlayTop>=40,'Research panel overlaps the native Windows caption/menu');
  await page.screenshot({path:join(work,'installed-desktop.png'),fullPage:true});
  report.page=await frame.evaluate(()=>({title:document.title,text:document.querySelector('.ib-main')?.innerText,menus:[...document.querySelectorAll('button')].filter(node=>['应用','编辑'].includes(node.innerText.trim())).map(node=>({text:node.innerText,class:node.className,parent:node.parentElement.outerHTML.slice(0,1400)}))}));
- assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry-DOM-click','native-caption-clearance','isolated-new-home');
+ await frame.evaluate(()=>document.querySelector('.ib-overlay .ib-top button').click());
+ assert.equal(await frame.evaluate(()=>Boolean(document.querySelector('.ib-overlay'))),false);
+ assert.equal(await frame.evaluate(()=>document.body.style.getPropertyValue('--ib-native-top')),'');
+ await frame.evaluate(()=>document.querySelector('[title="打开科研课题"]').click());
+ await frame.waitForSelector('.ib-main');
+ assert.ok(await frame.evaluate(()=>document.querySelector('.ib-overlay').getBoundingClientRect().top>=40));
+ assert.match(report.page.text,/科研课题|课题/);report.checks.push('real-packaged-Electron-main-window','official-client-research-entry-DOM-click','native-caption-clearance','close-cleans-offset-and-reopen-restores-it','isolated-new-home');
  report.limits=['DOM click verifies the UI event route; physical mouse acceptance remains unverified because CDP clicks reached the native settings view.'];
  report.ok=true;
 }catch(error){report.error=String(error);if(browser)for(const page of await browser.pages()){await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});report.failureText=await page.evaluate(()=>document.body.innerText).catch(()=>undefined);}throw error;}
