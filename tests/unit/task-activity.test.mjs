@@ -31,8 +31,9 @@ test('waiting review is not a completed scientific task; concurrent work remains
  const activity=new TaskActivity();activity.update('one',{label:'核磁',stage:'标峰',status:'running'});activity.update('two',{label:'Origin',stage:'绘图',status:'running'});
  assert.equal(activity.snapshot([row]).length,3);
 });
-test('completion is briefly visible while other tasks wait, then the pet returns to active work',()=>{
- const tasks=[{id:'review',status:'waiting',updatedAt:100},{id:'pdf',status:'completed',updatedAt:10000}];
- assert.equal(selectPetTask(tasks,12000).id,'pdf');assert.equal(selectPetTask(tasks,16000).id,'review');
- tasks[0].startedAt=11000;assert.equal(selectPetTask(tasks,12000).id,'review');
+test('pet only selects running tasks, excluding queued, review and terminal notifications',()=>{
+ const tasks=['queued','waiting','completed','failed','cancelled'].map(status=>({id:status,status,updatedAt:Date.now()}));
+ assert.equal(selectPetTask(tasks),undefined);
+ tasks.push({id:'pdf',status:'running',stage:'正在下载'});
+ assert.equal(selectPetTask(tasks).id,'pdf');
 });

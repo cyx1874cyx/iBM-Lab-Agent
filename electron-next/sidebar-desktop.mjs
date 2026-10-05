@@ -62,8 +62,15 @@ export class DesktopBrowserGuests extends NextGuests {
    if(request){this.managed.add(id);guest.on('did-start-navigation',(_event,url,_inPlace,mainFrame)=>{
     if(!mainFrame||url!==request.url||request.settled)return;
     request.settled=true;this.requests.delete(request.id);clearTimeout(request.timer);
-    if(request.blank)guest.stop();
-    request.resolve({lease:id,url:request.blank?'about:blank':url,persistent:true,sidebar:true});
+    // Chromium is still inside navigation notification here. Calling stop()
+    // reentrantly can destroy its active navigation and terminate the process.
+    // Complete the reservation only after cancellation on the next event turn,
+    // so the Host cannot race the initial portal with the publisher navigation.
+    setImmediate(()=>{
+     if(guest.isDestroyed()){request.reject(Error('课题侧栏浏览器已关闭'));return;}
+     if(request.blank)guest.stop();
+     request.resolve({lease:id,url:request.blank?'about:blank':url,persistent:true,sidebar:true});
+    });
    });}
    guest.once('destroyed',()=>this.managed.delete(lease.id));
   }));

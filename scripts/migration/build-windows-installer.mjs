@@ -77,6 +77,13 @@ for(const name of ['nature-skills','mnova-mcp'])cpSync(join(repo,'vendor',name),
 cpSync(join(repo,'vendor.lock.json'),join(resources,'vendor.lock.json'));
 cpSync(join(repo,'python/requirements.lock'),join(resources,'requirements.lock'));
 const release={ibm:'0.5.8-rc.1',source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'migration-preview',signed:false,automaticUpdates:false};
+// Use the official pre-boot transport hook: upload Workers do not own NEXT's
+// native main-frame authentication. Compose only the copied frontend document.
+const frontend=join(appDir,'node_modules/@deepseek-ai/dsh-web-frontend/dist');
+const indexFile=join(frontend,'index.html'),index=readFileSync(indexFile,'utf8');
+assert.equal(index.split('<head>').length,2);
+cpSync(join(repo,'electron-next/file-upload.js'),join(frontend,'assets/ibm-file-upload.js'));
+writeFileSync(indexFile,index.replace('<head>','<head><script src="./assets/ibm-file-upload.js"></script>'));
 writeFileSync(join(resources,'release.json'),JSON.stringify(release,null,2)+'\n');
 // Cordis discovers the Desktop client through this exact package identity.
 // Branding belongs to appId/productName/app.setName, not the plugin package name.

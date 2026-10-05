@@ -1,10 +1,7 @@
 /** Real execution and registered workflow states. Never infer a completion percentage. */
 export const TASK_LABELS=Object.freeze({wechat:'微信文献元数据',capture:'文献正文 / SI 获取',reading:'文献精读',ppt:'文献 PPT 制作',synthesis:'合成路线登记',nmr:'核磁标峰',origin:'Origin 绘图'});
-export function selectPetTask(tasks,now=Date.now()){
- const recent=tasks.filter(row=>['completed','failed','cancelled'].includes(row.status)&&now-row.updatedAt<5000).sort((a,b)=>b.updatedAt-a.updatedAt)[0];
- const active=tasks.find(row=>['running','waiting','queued'].includes(row.status));
- return recent&&!(active?.startedAt>recent.updatedAt)?recent:active??tasks[0];
-}
+export const runningPetTasks=tasks=>tasks.filter(row=>row.status==='running');
+export function selectPetTask(tasks){return runningPetTasks(tasks)[0];}
 export function toolActivity(name,args={}) {
  const text=String(name).toLowerCase();let kind,stage;
  if(/wechat/.test(text)){kind='wechat';stage=/fetch/.test(text)?'正在获取微信页面':/doi/.test(text)?'正在核对文献元数据':'正在登记文献元数据';}
