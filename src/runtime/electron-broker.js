@@ -54,6 +54,7 @@ export class ElectronBroker {
      rejectReady(error);
      for (const row of this.pending.values()) { clearTimeout(row.timer); row.reject(error); }
      this.pending.clear();
+     void this.onEvent({event:"browser-failed"});
     });
    });
   });

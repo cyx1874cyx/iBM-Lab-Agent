@@ -37,7 +37,7 @@ function options(partition) {
   webviewTag: false, plugins: false, navigateOnDragDrop: false
  } };
 }
-function publicUrl(value) { const url = new URL(value); return `${url.origin}${url.pathname}`; }
+function publicUrl(value) { const url = new URL(value); return url.protocol === "about:" ? "about:blank" : `${url.origin}${url.pathname}`; }
 function requireLease(id) {
  const row = leases.get(id);
  if (!row || row.window.isDestroyed()) throw new Error("scientific browser lease is closed");
@@ -45,6 +45,8 @@ function requireLease(id) {
 }
 function bind(window, lease) {
  const contents = window.webContents;
+ contents.on("did-start-navigation", (_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame){lease.pageSeq=(lease.pageSeq??0)+1;lease.observation=null;}});
+ contents.on("did-finish-load", ()=>{emit({event:"page-state",lease:lease.id,url:publicUrl(contents.getURL()),pageSeq:lease.pageSeq??1,documentType:lease.documentType??""});});
  contents.setWindowOpenHandler(({ url }) => allowed(url)
   ? { action: "allow", overrideBrowserWindowOptions: options(lease.partition) } : { action: "deny" });
  contents.on("did-create-window", popup => { lease.popups.add(popup); bind(popup, lease); popup.once("closed", () => lease.popups.delete(popup)); });
@@ -63,15 +65,18 @@ function configure(partition) {
   const protocol = new URL(details.url).protocol;
   callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !["about:", "data:", "blob:"].includes(protocol) });
  });
+ browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
  browserSession.on("will-download", (event, item, contents) => {
-  const lease = [...leases.values()].find(row => row.partition === partition &&
+  let lease = [...leases.values()].find(row => row.partition === partition &&
    (row.window.webContents === contents || [...row.popups].some(popup => popup.webContents === contents)));
+  if(!lease&&!contents){const owners=[...leases.values()].filter(row=>row.partition===partition&&captures.has(row.id));if(owners.length===1)lease=owners[0];}
   const armed = lease && captures.get(lease.id);
   if (!armed || item.getTotalBytes() > MAX_BYTES) { event.preventDefault(); return; }
   captures.delete(lease.id);
+  lease.downloadStartedAt=Date.now();emit({event:"capture-progress",lease:lease.id,captureId:armed.captureId,bytes:0});
   const fileId = randomUUID(), path = join(config.downloadsRoot, fileId);
   item.setSavePath(path);
-  item.on("updated", () => { if (item.getReceivedBytes() > MAX_BYTES) item.cancel(); });
+  item.on("updated", () => { emit({event:"capture-progress",lease:lease.id,captureId:armed.captureId,bytes:item.getReceivedBytes()});if (item.getReceivedBytes() > MAX_BYTES) item.cancel(); });
   item.once("done", async (_event, state) => {
    if (state !== "completed") {
     await rm(path, { force: true });
@@ -96,18 +101,23 @@ async function dispatch(method, input = {}) {
    const lease = { id, window, partition, popups: new Set() };
    leases.set(id, lease); bind(window, lease);
    window.once("closed", () => { for (const popup of lease.popups) popup.destroy(); captures.delete(id); leases.delete(id); emit({ event: "lease-closed", lease: id }); });
-   try { await window.loadURL(input.url); }
+   try { await window.loadURL(input.blank === true ? "about:blank" : input.url); }
    catch { window.destroy(); throw new Error("Scientific browser navigation failed"); }
    return { lease: id, url: publicUrl(window.webContents.getURL()), title: window.webContents.getTitle(), persistent: true };
   }
   case "state": {
    const row = requireLease(input.lease);
-   return { lease: row.id, url: publicUrl(row.window.webContents.getURL()), title: row.window.webContents.getTitle(), popups: row.popups.size, persistent: true };
+   return { lease: row.id, url: publicUrl(row.window.webContents.getURL()), title: row.window.webContents.getTitle(), popups: row.popups.size, persistent: true, pageSeq:row.pageSeq??1, documentType:row.documentType??"" };
   }
   case "navigate": {
    const row = requireLease(input.lease);
    if (!allowed(input.url)) throw new Error("blocked scientific browser destination");
-   try { await row.window.loadURL(input.url); } catch { throw new Error("Scientific browser navigation failed"); }
+   const startedAt=Date.now();try { await row.window.loadURL(input.url); } catch(error) {
+    // Electron can report ERR_ABORTED or ERR_FAILED before will-download for
+    // attachments. Success requires an actual download event for this lease.
+    if(['ERR_ABORTED','ERR_FAILED'].includes(error.code)||[-2,-3].includes(error.errno))for(let i=0;i<25&&(row.downloadStartedAt??0)<startedAt;i++)await new Promise(done=>setTimeout(done,20));
+    if((row.downloadStartedAt??0)<startedAt)throw new Error(`Scientific browser navigation failed (${error.code??"unknown"}, ${error.errno??"unknown"})`);
+   }
    return await dispatch("state", input);
   }
   case "links": {
@@ -125,6 +135,30 @@ async function dispatch(method, input = {}) {
     if (!window.isDestroyed()) result.push({ url: publicUrl(url), title: window.webContents.getTitle(), links: links.filter(link => allowed(link.url)).map(link => ({ text: link.text, url: publicUrl(link.url) })) });
    }
    return result;
+  }
+  case "observe": {
+   const row=requireLease(input.lease),observationId=randomUUID();
+   const windows=[row.window,...row.popups].filter(window=>!window.isDestroyed()&&allowed(window.webContents.getURL()));
+   const pages=[];row.observation={id:observationId,windows:[]};
+   for(const window of windows){
+    const contents=window.webContents,url=contents.getURL();
+    const result=await contents.executeJavaScriptInIsolatedWorld(999,[{code:`(()=>{const all=[...document.querySelectorAll('a[href],button,input[type="submit"],[role="button"]')].filter(e=>e.getClientRects().length&&!e.disabled);const match=e=>/pdf|download|supplement|supporting|全文|下载|补充/i.test((e.innerText||e.value||e.title||'')+' '+(e.href||''));const filtered=${JSON.stringify(input.scope)}==='all'?all:all.filter(match);filtered.sort((a,b)=>Number(match(b))-Number(match(a)));const elements=filtered.slice(0,30);globalThis.ibmObservation={id:${JSON.stringify(observationId)},elements};return {candidateCount:filtered.length,candidates:elements.map((e,i)=>({text:(e.innerText||e.value||e.title||'').slice(0,180),tagName:e.tagName,downloadRelated:match(e),index:i}))};})()`}]);
+    const page=row.observation.windows.length;row.observation.windows.push({contents,url});
+    pages.push({url:publicUrl(url),title:contents.getTitle(),...result,candidates:result.candidates.map(c=>({...c,elementId:'e'+(page*30+c.index)}))});
+   }
+   return {observationId,pageSeq:row.pageSeq??1,pages,candidates:pages.flatMap(p=>p.candidates),candidateCount:pages.reduce((sum,p)=>sum+p.candidateCount,0)};
+  }
+  case "click": {
+   const row=requireLease(input.lease),observation=row.observation;
+   if(!observation||observation.id!==input.observationId||!/^e\d{1,2}$/.test(input.elementId??''))throw Error('页面观察已失效，请重新观察');
+   const index=Number(input.elementId.slice(1)),page=observation.windows[Math.floor(index/30)];
+   if(!page||page.contents.isDestroyed()||page.contents.getURL()!==page.url)throw Error('页面已导航，请重新观察');
+   const clicked=await page.contents.executeJavaScriptInIsolatedWorld(999,[{code:`(()=>{const observed=globalThis.ibmObservation;if(observed?.id!==${JSON.stringify(input.observationId)})return false;const element=observed.elements[${index%30}];if(!element?.isConnected||!element.getClientRects().length||element.disabled)return false;element.click();return true;})()`}]);
+   if(!clicked)throw Error('下载入口已变化，请重新观察');return {clicked:true};
+  }
+  case "viewer-download": {
+   const row=requireLease(input.lease);if(!/^application\/pdf(?:;|$)/i.test(row.documentType??'')||!captures.has(row.id))throw Error('当前页面不是可捕获的 PDF，请观察出版社下载入口');
+   row.window.webContents.downloadURL(row.window.webContents.getURL());return {started:true};
   }
   case "close": { const row = requireLease(input.lease); row.window.destroy(); return { closed: true }; }
   case "focus": { const row = requireLease(input.lease); row.window.show(); row.window.focus(); return { shown: true }; }
