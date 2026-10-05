@@ -31,10 +31,12 @@ try{
   report.onboarding=await frame.evaluate(()=>document.querySelector('.dshDesktopSetupContent').innerText);
   assert.match(report.onboarding,/运行模式|桌面|Profile/);report.checks.push('fresh-first-run-onboarding-loaded');
  }else{
-  await frame.evaluate(()=>{const trigger=document.querySelector('[data-slot="settings.trigger"]')?.closest('button');if(trigger)trigger.click();else document.querySelector('[data-slot="settings.launcher"] button')?.click();});
+  await frame.waitForSelector('[data-slot="settings.trigger"], [data-slot="settings.launcher"] button',{timeout:20000});
+  report.settingsTrigger=await frame.evaluate(()=>[...document.querySelectorAll('[data-slot="settings.trigger"], [data-slot="settings.launcher"]')].map(n=>n.outerHTML.slice(0,1800)));
+  await frame.evaluate(()=>{const slot=document.querySelector('[data-slot="settings.trigger"]');const trigger=slot?.closest('button')??slot?.querySelector('button');if(trigger)trigger.click();else document.querySelector('[data-slot="settings.launcher"] button')?.click();});
   for(let attempt=0;attempt<100;attempt++){
    if(await frame.evaluate(()=>[...document.querySelectorAll('button')].some(n=>n.innerText.trim()==='桌面设置')))break;
-   await frame.evaluate(()=>document.querySelector('[role="menu"] button[role="menuitem"]')?.click());
+   await frame.evaluate(()=>{const entry=document.querySelector('[role="menu"] button[role="menuitem"]');if(entry){entry.click();return;}const slot=document.querySelector('[data-slot="settings.trigger"]');const trigger=slot?.closest('button')??slot?.querySelector('button');if(trigger)trigger.click();else document.querySelector('[data-slot="settings.launcher"] button')?.click();});
    await new Promise(done=>setTimeout(done,100));
   }
   assert.ok(await frame.evaluate(()=>[...document.querySelectorAll('button')].some(n=>n.innerText.trim()==='桌面设置')),'Desktop settings section did not register');

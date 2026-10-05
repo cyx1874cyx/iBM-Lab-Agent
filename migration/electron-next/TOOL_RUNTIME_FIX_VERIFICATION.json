@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-05",
+  "ok": true,
+  "issue": "Cannot read properties of undefined (reading prepare) during tool dispatch",
+  "productSource": "ee96bfb171b1fa3368b09254918dc66065f5fdc4",
+  "artifact": {
+    "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\windows\\dist\\iBM-Lab-Agent-0.5.8-rc.1-Electron-x64-Setup.exe",
+    "bytes": 437052219,
+    "sha256": "4D64D10460221CAF34A0B55982112D8ABDAB99DF67853372FE0AD1FB516722A4",
+    "signature": "NotSigned"
+  },
+  "oldFailure": {
+    "error": "TypeError: Cannot read properties of undefined (reading 'prepare')",
+    "evidence": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\old-reproducer\\run-vyIdth\\tool-probe.json"
+  },
+  "checks": [
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\final-runtime\\run-eOg30I\\verification.json",
+      "ok": true,
+      "checks": [
+        "offline-bootstrap",
+        "repeat-bootstrap-no-overwrite",
+        "relocated-bundled-python-and-six-scientific-document-libraries",
+        "Agent-loop-scheduler-Symbol-identity",
+        "real-scheduled-project-memory-read",
+        "real-installed-Electron-node-host",
+        "seven-domain-providers",
+        "native-provider-configured",
+        "Chinese-path-memory-restart"
+      ]
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\repaired-profile\\run-wDQRAK\\verification.json",
+      "ok": true,
+      "checks": [
+        "offline-bootstrap",
+        "repeat-bootstrap-no-overwrite",
+        "relocated-bundled-python-and-six-scientific-document-libraries",
+        "old-profile-v1-memory-and-bootstrap-marker-preserved",
+        "old-kernel-copies-backed-up",
+        "Agent-loop-scheduler-Symbol-identity",
+        "real-scheduled-project-memory-read",
+        "real-installed-Electron-node-host",
+        "seven-domain-providers",
+        "native-provider-configured",
+        "Chinese-path-memory-restart"
+      ]
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\first-run\\run-ZYgoTl\\verification.json",
+      "ok": true,
+      "checks": [
+        "fresh-first-run-onboarding-loaded",
+        "no-permanent-loading-placeholder"
+      ]
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\settings\\run-BPyUOP\\verification.json",
+      "ok": true,
+      "checks": [
+        "native-Desktop-client-registered",
+        "physical-click-Desktop-settings-profile-loaded",
+        "native-state-ready",
+        "no-permanent-loading-placeholder"
+      ]
+    },
+    {
+      "path": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\shell\\run-iFEbXG\\verification.json",
+      "ok": true,
+      "checks": [
+        "real-packaged-Electron-main-window",
+        "official-client-research-entry-physical-click",
+        "no-permanent-settings-loader",
+        "native-caption-clearance",
+        "close-cleans-offset-and-reopen-restores-it",
+        "isolated-new-home"
+      ]
+    }
+  ],
+  "sharedKernelModules": [
+    "@deepseek-ai/cordis",
+    "@deepseek-ai/cosmokit",
+    "@deepseek-ai/dsh-api-gateway",
+    "@deepseek-ai/dsh-deque",
+    "@deepseek-ai/dsh-timeout",
+    "@deepseek-ai/schemastery",
+    "@deepseek-ai/dsh-typert-protocol",
+    "@deepseek-ai/dsh-brand",
+    "@deepseek-ai/dsh-app-boot",
+    "@deepseek-ai/dsh-package-manifest",
+    "@deepseek-ai/dsh-atomic-write",
+    "@deepseek-ai/dsh-home-paths",
+    "@deepseek-ai/dsh-skill",
+    "@deepseek-ai/dsh-util-values",
+    "@deepseek-ai/dsh-skill-filesystem",
+    "@deepseek-ai/dsh-storage",
+    "@deepseek-ai/dsh-storage-domain",
+    "@deepseek-ai/dsh-storage-json",
+    "@deepseek-ai/dsh-tools",
+    "@deepseek-ai/dsh-typert-registry",
+    "@deepseek-ai/dsh-subprocess",
+    "@deepseek-ai/dsh-mcp-client"
+  ],
+  "backup": "H:\\107-iBM-Agent\\iBM-Agent\\outputs\\electron-next-tool-fix\\repaired-profile\\run-wDQRAK\\中文用户 科研数据\\recovery\\ibm-kernel-modules\\repair-8OkYOO",
+  "tests": {
+    "skipped": 8,
+    "log": "outputs/electron-next-tool-fix-tests.log",
+    "passed": 798,
+    "failed": 0,
+    "total": 806
+  },
+  "limits": [
+    "Unsigned migration preview; actual user profile untouched",
+    "Real scheduler prepare/dispatch/finalize and production memory tool tested offline; no paid live LLM account used",
+    "Previous NSIS install/uninstall evidence retained; new final unpacked payload tested, not installed over the running user application",
+    "Native file dialog and full workflow acceptance remain pending"
+  ]
+}

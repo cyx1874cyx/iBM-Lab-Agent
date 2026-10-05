@@ -1,5 +1,7 @@
 # 修复持续“正在加载设置…”
 
+**2026-10-05：该包已被 `outputs/electron-next-tool-fix/windows/dist` 的工具运行修复包替代。新包保留本次设置修复，并处理重复内核模块造成的 prepare 错误。请参见 `TOOL_RUNTIME_FIX_REPORT.md`。**
+
 2026-10-04。产品修复提交 `8e7acc4`；固定 iBM、NEXT、内核与 Electron 版本不变。
 
 用户诊断显示 Host 为 ready，无运行时 failure。本机独立环境复现：科研插件和通用设置能加载，但顶部保留 onboarding 的 loading fallback，桌面设置和 NEXT 的窗口样式没有注册。
