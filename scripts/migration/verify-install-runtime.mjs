@@ -16,7 +16,7 @@ const previousMarker=previousIndex>=0?createHash('sha256').update(readFileSync(j
 const {NextProfiles}=await import(pathToFileURL(join(app,'lib/profiles.js')));
 const initialize=process.argv.includes('--legacy-bootstrap')?(await import(pathToFileURL(join(app,'release-runtime.mjs')))).initializeRelease:initializeRelease;
 const initialized=initialize({home,resources,electron,profiles:NextProfiles});assert.equal(initialized.initialized,previousIndex<0);
-assert.equal(initialize({home,resources,electron,profiles:NextProfiles}).initialized,false);
+const repeated=initialize({home,resources,electron,profiles:NextProfiles});assert.equal(repeated.initialized,false);if(repeated.plugins)assert.equal(repeated.plugins.updated.length,0);
 if(previousMarker)assert.equal(createHash('sha256').update(readFileSync(join(home,'ibm-release.json'))).digest('hex'),previousMarker);
 const manager=new NextProfiles(home);manager.finishOnboarding('ibm-lab');
 process.env.HOME=home;process.env.USERPROFILE=home;process.env.DSH_TELEMETRY_DISABLED='1';
@@ -53,6 +53,7 @@ process.argv[1]=${JSON.stringify(hostEntry)};await import(${JSON.stringify(pathT
 const {DesktopHostProcess}=await import(pathToFileURL(join(app,'lib/host-process.js')));
 const report={ok:false,home,checks:['offline-bootstrap','repeat-bootstrap-no-overwrite'],release:JSON.parse(readFileSync(join(resources,'release.json')))};
 report.kernel=initialized.kernel;report.repairedPreviousHome=previousIndex>=0;
+report.plugins=initialized.plugins;
 report.python=JSON.parse(execFileSync(initialized.python,['-I','-c','import sys,json,pymupdf,numpy,scipy,PIL,lxml,pptx; print(json.dumps({"version":sys.version.split()[0],"executable":sys.executable,"modules":{m.__name__:m.__file__ for m in [pymupdf,numpy,scipy,PIL,lxml,pptx]}}))'],{encoding:'utf8',windowsHide:true}));
 assert.equal(report.python.version,'3.12.11');for(const file of Object.values(report.python.modules))assert.ok(resolve(file).startsWith(resolve(resources)),'Python dependency escaped bundled resources');report.checks.push('relocated-bundled-python-and-six-scientific-document-libraries');
 let host,log='',auth;
