@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
-import { extractPackageArchive, shareKernelModules } from '../../electron-next/release-runtime.mjs';
+import { createHash } from 'node:crypto';
+import { extractPackageArchive, shareKernelModules, refreshProductModules } from '../../electron-next/release-runtime.mjs';
 
 function archive(name,content,type='0'){
  const bytes=Buffer.from(content),header=Buffer.alloc(512);header.write(name);header.write(bytes.length.toString(8).padStart(11,'0'),124);header.write(type,156);
@@ -46,4 +47,23 @@ test('release extraction rejects traversal, external archive entries and links',
  const dir=mkdtempSync(join(tmpdir(),'ibm-release-'));
  try{for(const [name,type] of [['package/../escape','0'],['package/C:/escape','0'],['elsewhere/escape','0'],['package/link','2']])assert.throws(()=>extractPackageArchive(archive(name,'bad',type),join(dir,'package')));assert.equal(existsSync(join(dir,'escape')),false);}
  finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('same-version product refresh backs up stale packages and preserves project/configuration data',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'ibm-products-')),home=join(dir,'home'),resources=join(dir,'resources');
+ try{
+  mkdirSync(join(resources,'archives'),{recursive:true});mkdirSync(home,{recursive:true});
+  const packages=['dsh-lab-agent',...['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name)].map(name=>{
+   const version='0.5.8-rc.1',file=name+'.tgz',bytes=archive('package/package.json',JSON.stringify({name,version,build:'new'}));writeFileSync(join(resources,'archives',file),bytes);
+   const installed=join(home,'profiles/ibm-lab/node_modules',name);mkdirSync(installed,{recursive:true});writeFileSync(join(installed,'package.json'),JSON.stringify({name,version,build:'old'}));writeFileSync(join(installed,'stale.txt'),'recover me');
+   return {name,version,file,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+  });
+  for(const file of ['项目记忆.md','ibm-release.json','.credentials.yaml'])writeFileSync(join(home,file),'fixture preserved');
+  const result=refreshProductModules({home,resources,ledger:{packages}});assert.equal(result.updated.length,8);
+  for(const item of packages){const installed=join(home,'profiles/ibm-lab/node_modules',item.name);assert.equal(JSON.parse(readFileSync(join(installed,'package.json'))).build,'new');assert.equal(existsSync(join(installed,'stale.txt')),false);assert.equal(readFileSync(join(result.backup,'previous',item.name,'stale.txt'),'utf8'),'recover me');}
+  for(const file of ['项目记忆.md','ibm-release.json','.credentials.yaml'])assert.equal(readFileSync(join(home,file),'utf8'),'fixture preserved');
+  assert.deepEqual(refreshProductModules({home,resources,ledger:{packages}}),{updated:[],backup:null});
+  const invalid={packages:packages.map((item,i)=>i===0?{...item,sha256:'corrupt'}:item)};
+  assert.throws(()=>refreshProductModules({home,resources,ledger:invalid}),/integrity/);assert.equal(JSON.parse(readFileSync(join(home,'profiles/ibm-lab/node_modules/dsh-lab-agent/package.json'))).build,'new');
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });

@@ -66,6 +66,36 @@ export function shareKernelModules({home,resources,ledger}){
  return {shared,backup:backup??null};
 }
 
+/** Refresh only installer-owned product packages, including same-version UI
+ * rebuilds. Keep prior files for recovery; never replace profile or lab data. */
+export function refreshProductModules({home,resources,ledger}){
+ const modules=join(resolve(home),'profiles','ibm-lab','node_modules');realDirectory(modules);
+ const rel=relative(realpathSync(home),realpathSync(modules));if(isAbsolute(rel)||rel.startsWith('..'))throw Error('Product module directory escapes home');
+ const names=new Set(['dsh-lab-agent',...['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name)]);
+ const items=ledger.packages.filter(item=>names.has(item.name));if(items.length!==8)throw Error('Incomplete product package ledger');
+ const stamp=join(home,'ibm-plugin-payload.json');
+ const previous=existsSync(stamp)?JSON.parse(readFileSync(stamp)):{};
+ const changed=items.filter(item=>previous.packages?.[item.name]!==item.sha256||!existsSync(join(modules,item.name,'package.json')));
+ if(!changed.length)return {updated:[],backup:null};
+ const bytes=new Map();
+ for(const item of changed){
+  if(!/^[a-z0-9.-]+\.tgz$/i.test(item.file))throw Error('Invalid product archive file');
+  const archive=readFileSync(join(resources,'archives',item.file));if(archive.length!==item.bytes||createHash('sha256').update(archive).digest('hex')!==item.sha256)throw Error('Product archive integrity mismatch');
+  const target=join(modules,item.name),existing=lstatSync(target,{throwIfNoEntry:false});
+  if(existing){if(!existing.isDirectory()||existing.isSymbolicLink())throw Error('Product package is not an owned directory');const manifest=JSON.parse(readFileSync(join(target,'package.json')));if(manifest.name!==item.name||manifest.version!==item.version)throw Error('Unmanaged product package: '+item.name);}
+  bytes.set(item.name,archive);
+ }
+ const recovery=join(home,'recovery','ibm-plugin-modules');realDirectory(join(home,'recovery'));realDirectory(recovery);const backup=mkdtempSync(join(recovery,'refresh-'));
+ // Extract all candidates before replacing any installed file.
+ for(const item of changed)extractPackageArchive(bytes.get(item.name),join(backup,'pending',item.name));
+ const replaced=[];
+ try{
+  for(const item of changed){const target=join(modules,item.name),saved=join(backup,'previous',item.name);mkdirSync(dirname(saved),{recursive:true});const existed=existsSync(target);if(existed)renameSync(target,saved);replaced.push({target,saved,existed,name:item.name});renameSync(join(backup,'pending',item.name),target);}
+  const pendingStamp=join(backup,'payload.json');writeFileSync(pendingStamp,JSON.stringify({packages:Object.fromEntries(items.map(item=>[item.name,item.sha256])),updatedAt:new Date().toISOString()},null,2)+'\n');renameSync(pendingStamp,stamp);
+ }catch(error){for(const row of replaced.reverse()){if(existsSync(row.target)){const failed=join(backup,'failed',row.name);mkdirSync(dirname(failed),{recursive:true});renameSync(row.target,failed);}if(row.existed)renameSync(row.saved,row.target);}throw error;}
+ return {updated:changed.map(item=>item.name),backup};
+}
+
 export function initializeRelease({home,resources,electron,profiles}){
  home=resolve(home);resources=resolve(resources);realDirectory(home);
  const release=JSON.parse(readFileSync(join(resources,'release.json')));
@@ -74,13 +104,13 @@ export function initializeRelease({home,resources,electron,profiles}){
  process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=python;process.env.IBM_LAB_AGENT_BUNDLED_ELECTRON=electron;
  const manager=new profiles(home),marker=join(home,'ibm-release.json');
  const ledger=JSON.parse(readFileSync(join(resources,'archives','release-archives.json')));
- if(existsSync(marker)){const current=JSON.parse(readFileSync(marker));if(current.ibm!==release.ibm)throw Error('Different release data requires an explicit migration');const kernel=shareKernelModules({home,resources,ledger});return {home,initialized:false,python,kernel};}
+ if(existsSync(marker)){const current=JSON.parse(readFileSync(marker));if(current.ibm!==release.ibm)throw Error('Different release data requires an explicit migration');const plugins=refreshProductModules({home,resources,ledger});const kernel=shareKernelModules({home,resources,ledger});return {home,initialized:false,python,kernel,plugins};}
  const profile=manager.ensure('ibm-lab'),modules=join(profile,'node_modules');realDirectory(modules);
  for(const item of ledger.packages){
   if(!/^(@[a-z0-9._-]+\/)?[a-z0-9._-]+$/i.test(item.name))throw Error('Invalid package name');
   const file=join(resources,'archives',item.file),bytes=readFileSync(file);
   if(createHash('sha256').update(bytes).digest('hex')!==item.sha256||bytes.length!==item.bytes)throw Error('Release archive integrity mismatch');
-  if(item.name.startsWith('@deepseek-ai/'))continue;
+  if(item.name.startsWith('@deepseek-ai/')||item.name.startsWith('dsh-lab-'))continue;
   const target=join(modules,item.name);realDirectory(target);extractPackageArchive(bytes,target);
  }
  const file=join(profile,'package.json'),manifest=JSON.parse(readFileSync(file));
@@ -94,6 +124,7 @@ export function initializeRelease({home,resources,electron,profiles}){
  for(const name of ['nature-skills','mnova-mcp'])cpSync(join(resources,'vendor',name),join(lab,'vendor',name),{recursive:true});
  manager.select('ibm-lab');
  const kernel=shareKernelModules({home,resources,ledger});
+ const plugins=refreshProductModules({home,resources,ledger});
  writeFileSync(marker,JSON.stringify({...release,initializedAt:new Date().toISOString()},null,2)+'\n');
- return {home,initialized:true,python,kernel};
+ return {home,initialized:true,python,kernel,plugins};
 }

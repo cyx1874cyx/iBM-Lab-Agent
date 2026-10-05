@@ -446,6 +446,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 					settings: { update: async () => ({ ok: true }) }
 				},
 				slots: { inject: () => {} },
+				locale: { bind: () => key => key },
 				on: () => {},
 				effect: () => () => {},
 				// applyUi 内部还会再注入几次（右侧栏服务、课题壳桥）。
@@ -455,9 +456,10 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 		}
 	});
 
-	assert.deepEqual(Array.from(childInjects[0]), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
+	assert.deepEqual(Array.from(childInjects[0]), ["remote", "remote.lab", "slots", "locale"]);
+	assert.deepEqual(Array.from(childInjects[1]), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
 	// 默认模式那一次：settings 缺失时不能连累面板装配。
-	assert.deepEqual(Array.from(childInjects[1]), ["remote", "remote.settings", "remote.agentPresets"]);
+	assert.deepEqual(Array.from(childInjects[2]), ["remote", "remote.settings", "remote.agentPresets"]);
 	assert.deepEqual(Array.from(webVpnInject), ["slots", "sidebarRightTabs", "sidebarRight"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
