@@ -44,6 +44,7 @@ var h = import_react.default.createElement;
 
 // client/src/theme.js
 var themeCss = `
+.ib-settings{color:var(--ib-text);max-width:100%;font-size:14px}.ib-settings h2{font-size:16px;font-weight:600;margin:0 0 16px}.ib-settings p{color:var(--ib-muted);line-height:1.7}.ib-settings .ib-head{margin-top:24px;align-items:start}.ib-settings .ib-head h1{font-size:18px}.ib-settings .ib-kicker{display:none}.ib-settings .ib-btn,.ib-settings .ib-row,.ib-settings .ib-tm-tab{font-size:13px}.ib-settings .ib-card{margin-top:16px}.ib-settings h3{font-size:14px;margin:0 0 14px}.ib-settings .ib-row{padding:8px 0;flex-wrap:wrap}.ib-settings-runtime{display:grid;gap:6px;margin:12px 0}.ib-settings small{color:var(--ib-muted);overflow-wrap:anywhere}.ib-settings pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:var(--ib-panel);padding:12px;border-radius:8px;max-height:360px;overflow:auto}.ib-settings details{margin-top:18px}.ib-settings button[data-active=true]{border-color:var(--ib-green);background:var(--ib-panel2)}.ib-settings :focus-visible{outline:2px solid var(--ib-green);outline-offset:2px}.ib-settings .ib-btn[data-primary=true]{background:var(--ib-green);color:var(--dsw-alias-label-primary-inverted,#fff)}
 :root,.ib-overlay,body.ib-research-chat {--ib-bg:var(--dsw-alias-bg-base,#fff);--ib-panel:var(--dsw-alias-bg-layer-1,#f7f7f8);--ib-panel2:var(--dsw-alias-bg-layer-2,#eee);--ib-line:var(--dsw-alias-border-l2,#dcdfe5);--ib-text:var(--dsw-alias-label-primary,#202124);--ib-muted:var(--dsw-alias-label-secondary,#616670);--ib-green:var(--dsw-alias-brand-primary,#4d6bfe);--ib-cyan:var(--dsw-alias-brand-text,#4d6bfe);--ib-red:var(--dsw-alias-state-error-primary,#c33)}
 @media(prefers-color-scheme:dark){:root,.ib-overlay,body.ib-research-chat{--ib-bg:var(--dsw-alias-bg-base,#18191b);--ib-panel:var(--dsw-alias-bg-layer-1,#232529);--ib-panel2:var(--dsw-alias-bg-layer-2,#303237);--ib-line:var(--dsw-alias-border-l2,#45474c);--ib-text:var(--dsw-alias-label-primary,#eceef1);--ib-muted:var(--dsw-alias-label-secondary,#b3b6bf)}}
 .ib-overlay,body.ib-research-chat{font-family:Arial,"Microsoft YaHei","微软雅黑",sans-serif;color:var(--ib-text);background:var(--ib-bg)}
@@ -346,6 +347,12 @@ function injectStyles() {
   }
 }
 
+// client/src/components-settings.js
+var import_react3 = require("react");
+
+// client/src/components-templates.js
+var import_react2 = require("react");
+
 // client/src/desktop-client.js
 var invoke = null;
 var project = null;
@@ -374,232 +381,6 @@ async function nativeBrowser(action, input = {}) {
   if (!projectId) throw new Error("请先选择一个课题，再打开科研浏览器");
   return await invoke("desktop_browser", { request: { action, projectId, ...input } });
 }
-
-// client/src/descriptors.js
-function buildDescriptors() {
-  const pass = { parse: (value) => value };
-  const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
-  const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
-  const descriptors = [
-    direct("capabilities"),
-    direct("desktop_status"),
-    direct("desktop_browser", ["request"]),
-    direct("desktop_artifact", ["request"]),
-    ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
-    // 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
-    // LabRemoteService.note_templates_list(request) 读 request.kind），
-    // 但描述符此前声明成 0 参数，前端带参调用会被 wire 层直接拒绝：
-    //   client api: lab/note_templates_list expected 0 argument(s), got 1
-    // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
-    // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
-    ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
-    direct("projects_list")
-  ];
-  descriptors.push(
-    // rc.4 review（§5.2）：synth_route_lock 已移出 Remote 网关——
-    // 「锁定版本」走专用 loopback user-action 端点（可信 UI 用户动作）。
-    direct("synth_compound_resolve_dual", ["request"]),
-    direct("synth_review_batch_create", ["request"]),
-    direct("synth_review_batch_get", ["request"]),
-    direct("synth_review_batch_complete", ["request"]),
-    direct("synth_review_uncertain_apply", ["request"]),
-    direct("experiment_plan_templates_list"),
-    direct("experiment_plan_templates_resolve", ["request"]),
-    direct("experiment_plan_templates_create", ["request"]),
-    direct("experiment_plan_templates_update", ["request"]),
-    direct("experiment_plan_templates_copy", ["request"]),
-    direct("experiment_plan_templates_archive", ["request"]),
-    direct("plot_records_list", ["request"]),
-    direct("plot_records_create", ["request"]),
-    direct("plot_records_update", ["request"]),
-    direct("plot_records_remove", ["request"])
-  );
-  return descriptors;
-}
-
-// client/src/brand-icon.js
-var BRAND_ICON = "data:image/png;base64,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";
-
-// client/src/branding.js
-function applyBranding(onOpen) {
-  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
-  const FLASK_HTML = '<svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16h10l-2.4-3.4h-5.2L7 16Z" fill="#eafff6" opacity="0.9"/><circle cx="12" cy="13.2" r="0.55" fill="#73dce6"/><circle cx="13.6" cy="15" r="0.4" fill="#73dce6"/></svg>';
-  const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
-  const entries = /* @__PURE__ */ new Set();
-  const attributes = /* @__PURE__ */ new Map();
-  const headlines = /* @__PURE__ */ new Map(), heroChildren = /* @__PURE__ */ new Map();
-  let disposed = false;
-  const activate = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onOpen();
-  };
-  const bindEntry = (node) => {
-    if (!node || node.dataset.dshLabResearchEntry === "1") return;
-    attributes.set(node, { title: node.getAttribute("title"), label: node.getAttribute("aria-label") });
-    node.dataset.dshLabResearchEntry = "1";
-    node.setAttribute("title", "打开科研课题");
-    node.addEventListener("click", activate);
-    entries.add(node);
-  };
-  let observer = null;
-  const hideNative = () => {
-    const styleId = "dsh-lab-agent-brand";
-    let style = document.querySelector(`style[data-plugin-css="${styleId}"]`);
-    if (style === null) {
-      style = document.createElement("style");
-      style.dataset.pluginCss = styleId;
-      document.head.appendChild(style);
-    }
-    style.textContent = "[class*='_brand']>:not(.ib-brand-shell),[class*='_brand'] svg,[class*='_railMark'],[class*='_railFish']{display:none!important}";
-  };
-  const inject2 = () => {
-    if (disposed) return false;
-    hideNative();
-    let touched = false;
-    const titleGroup = document.querySelector("[class*='_titleGroup']");
-    const heroHeadline = titleGroup?.firstElementChild || document.querySelector("[class*='_headlineText']") || [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
-    if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
-      if (!headlines.has(heroHeadline)) headlines.set(heroHeadline, heroHeadline.textContent);
-      heroHeadline.textContent = "专注源头创新";
-      touched = true;
-    }
-    document.querySelectorAll("*").forEach((element) => {
-      if (element.children.length === 0 && element.textContent?.trim() === "预览版") {
-        element.remove();
-        touched = true;
-      }
-    });
-    const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']") || heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
-    if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
-      heroChildren.set(heroMarkHost, [...heroMarkHost.childNodes]);
-      const avatar = document.createElement("img");
-      avatar.src = BRAND_ICON;
-      avatar.alt = "";
-      avatar.setAttribute("aria-hidden", "true");
-      avatar.width = 34;
-      avatar.height = 34;
-      avatar.className = `${heroMarkHost.firstElementChild?.getAttribute("class") ?? ""} ib-hero-avatar`.trim();
-      heroMarkHost.replaceChildren(avatar);
-      touched = true;
-    }
-    const row2 = document.querySelector("[class*='_logoRow']");
-    if (!row2) return touched;
-    const brand = row2.querySelector("[class*='_brand']");
-    if (brand && brand.dataset.dshLabResearchEntry !== "1") {
-      bindEntry(brand);
-      brand.setAttribute("aria-label", "打开科研课题");
-      touched = true;
-    }
-    if (brand && !brand.querySelector(".ib-brand-shell")) {
-      const shell = document.createElement("span");
-      shell.className = "ib-brand-shell";
-      shell.setAttribute("data-dsh-lab-brand", "1");
-      shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b></span>`;
-      brand.appendChild(shell);
-      touched = true;
-    }
-    const toggle = row2.querySelector("[class*='_toggle']");
-    if (toggle && !toggle.querySelector(".ib-rail-flask")) {
-      const flask = document.createElement("span");
-      flask.className = "ib-rail-flask";
-      flask.setAttribute("data-dsh-lab-brand", "1");
-      flask.innerHTML = FLASK_RAIL_HTML;
-      toggle.appendChild(flask);
-      touched = true;
-    }
-    return touched;
-  };
-  inject2();
-  let scheduled = false;
-  const schedule = () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      inject2();
-    });
-  };
-  observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true });
-  return () => {
-    disposed = true;
-    if (observer) observer.disconnect();
-    for (const node of entries) {
-      node.removeEventListener("click", activate);
-      delete node.dataset.dshLabResearchEntry;
-      const previous = attributes.get(node);
-      for (const [name, value] of [["title", previous.title], ["aria-label", previous.label]]) {
-        if (value === null) node.removeAttribute(name);
-        else node.setAttribute(name, value);
-      }
-    }
-    for (const node of document.querySelectorAll('[data-dsh-lab-brand="1"]')) node.remove();
-    document.querySelector('style[data-plugin-css="dsh-lab-agent-brand"]')?.remove();
-    attributes.clear();
-    for (const [node, text] of headlines) if (node.textContent === "专注源头创新") node.textContent = text;
-    for (const [node, children] of heroChildren) if (node.querySelector(".ib-hero-avatar")) node.replaceChildren(...children);
-    headlines.clear();
-    heroChildren.clear();
-    entries.clear();
-  };
-}
-
-// client/src/scientific-browser.js
-var import_react2 = require("react");
-function ScientificBrowser({ call, projectId }) {
-  const [state, setState] = (0, import_react2.useState)({ available: false, window: null }), [url, setUrl] = (0, import_react2.useState)(""), [note, setNote] = (0, import_react2.useState)(""), [busy, setBusy] = (0, import_react2.useState)(false);
-  (0, import_react2.useEffect)(() => {
-    let disposed = false, timer;
-    const poll = async () => {
-      try {
-        const next = await call("desktop_browser", { request: { action: "status", projectId } });
-        if (!disposed) setState(next);
-      } catch {
-        if (!disposed) setState({ available: false, window: null });
-      }
-      if (!disposed) timer = setTimeout(poll, 2e3);
-    };
-    void poll();
-    return () => {
-      disposed = true;
-      clearTimeout(timer);
-    };
-  }, [call, projectId]);
-  const act = async (action) => {
-    setBusy(true);
-    setNote("");
-    try {
-      await call("desktop_browser", { request: { action, projectId, ...url.trim() && action === "navigate" ? { url: url.trim() } : {} } });
-      setState(await call("desktop_browser", { request: { action: "status", projectId } }));
-    } catch (error) {
-      setNote(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  if (!state.available) return null;
-  return h(
-    "section",
-    { className: "ib-scientific-browser", style: { marginBottom: 18 } },
-    h(
-      "div",
-      { className: "ib-actions", style: { flexWrap: "wrap" } },
-      h("button", { className: "ib-btn", disabled: busy, onClick: () => void act("open") }, state.window ? "显示科研浏览器" : "打开科研浏览器"),
-      h("input", { value: url, onChange: (event) => setUrl(event.target.value), placeholder: "输入机构资源或文献页面地址", "aria-label": "科研页面地址", style: { flex: "1 1 260px", minWidth: 0 } }),
-      h("button", { className: "ib-btn", disabled: busy || !state.window || !url.trim(), onClick: () => void act("navigate") }, "前往"),
-      h("button", { className: "ib-btn", disabled: busy || !state.window, onClick: () => void act("close") }, "关闭浏览器")
-    ),
-    h("p", { className: "ib-muted" }, state.window ? state.window.title || "科研窗口已打开；登录和下载请在该窗口完成。" : "登录在独立科研窗口中完成。关闭窗口后不会自动重新打开。"),
-    note ? h("div", { className: "ib-error", role: "status" }, note) : null
-  );
-}
-
-// client/src/components-project.js
-var import_react7 = __toESM(require("react"), 1);
-var import_react_dom = __toESM(require("react-dom"), 1);
-var import_react8 = require("react");
 
 // client/src/webvpn-bridge.js
 var WEBVPN_RECT_MESSAGE = "WEBVPN_SET_RECT";
@@ -1172,8 +953,851 @@ function setWebVpnVisibleViaShell(visible) {
   }
 }
 
-// client/src/components-workspace.js
+// client/src/components-templates.js
+function Templates({ call, onBack }) {
+  const [tab, setTab] = (0, import_react2.useState)("notes");
+  const [capabilities, setCapabilities] = (0, import_react2.useState)(null);
+  const [capabilityError, setCapabilityError] = (0, import_react2.useState)("");
+  (0, import_react2.useEffect)(() => {
+    void call("capabilities").then(setCapabilities).catch((reason) => setCapabilityError(reason.message));
+  }, [call]);
+  const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
+  const [notes, setNotes] = (0, import_react2.useState)({ loading: true, list: [], defaultId: null, error: "" });
+  const [ppt, setPpt] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
+  const [exp, setExp] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
+  const [reviews, setReviews] = (0, import_react2.useState)({ loading: true, list: [], defaultId: null, error: "" });
+  const loadNotes = (0, import_react2.useCallback)(async () => {
+    setNotes((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("note_templates_list", { request: { kind: "note" } });
+      setNotes({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
+    } catch (reason) {
+      setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const loadReviews = (0, import_react2.useCallback)(async () => {
+    setReviews((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("note_templates_list", { request: { kind: "review" } });
+      setReviews({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
+    } catch (reason) {
+      setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const setDefault = (0, import_react2.useCallback)(async (id) => {
+    await call("note_templates_set_default", { request: { id } });
+    await Promise.all([loadNotes(), loadReviews()]);
+  }, [call, loadNotes, loadReviews]);
+  const loadPpt = (0, import_react2.useCallback)(async () => {
+    setPpt((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("templates_list");
+      setPpt({ loading: false, list: result.templates || [], error: "" });
+    } catch (reason) {
+      setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const loadExp = (0, import_react2.useCallback)(async () => {
+    setExp((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("experiment_plan_templates_list");
+      setExp({ loading: false, list: result.templates || [], error: "" });
+    } catch (reason) {
+      setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  (0, import_react2.useEffect)(() => {
+    if (capabilities?.documents) {
+      void loadNotes();
+      void loadReviews();
+      void loadPpt();
+    }
+    if (capabilities?.experimentTemplates) void loadExp();
+  }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+    capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
+    h(
+      "div",
+      { className: "ib-tm-tabs" },
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
+      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
+    ),
+    activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
+  );
+}
+function ExperimentPlanTemplates({ call, state, reload }) {
+  const [busy, setBusy] = (0, import_react2.useState)({});
+  const [toast, setToast] = (0, import_react2.useState)("");
+  const [name, setName] = (0, import_react2.useState)("");
+  (0, import_react2.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3200);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const withBusy = (key, fn) => {
+    if (busy[key]) return;
+    setBusy((s) => ({ ...s, [key]: true }));
+    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key]: false })));
+  };
+  const create = () => withBusy("create", async () => {
+    const clean = String(name || "").trim();
+    if (!clean) {
+      setToast("请填写模板名称。");
+      return;
+    }
+    const id = `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    await call("experiment_plan_templates_create", { request: { id, fields: { name: clean } } });
+    setName("");
+    await reload();
+  });
+  const archive = (row2) => withBusy(`arc:${row2.id}`, async () => {
+    await call("experiment_plan_templates_archive", { request: { id: row2.id } });
+    await reload();
+  });
+  return h(
+    "div",
+    null,
+    toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
+    h(
+      "div",
+      { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10 } },
+      h("input", { style: { flex: 1, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 10px", border: "1px solid var(--ib-line)" }, value: name, placeholder: "新实验计划模板名称（默认章节骨架会保留）", onChange: (event) => setName(event.target.value) }),
+      h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.create, onClick: () => void create() }, busy.create ? "创建中…" : "新建模板")
+    ),
+    state.error ? h("div", { className: "ib-error" }, state.error) : null,
+    state.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
+    state.list.length ? h("div", { className: "ib-rows" }, state.list.map((row2) => h(
+      "div",
+      { className: "ib-row", key: row2.id },
+      h("b", { title: row2.id }, row2.name),
+      h("span", null, `v${row2.version}${row2.applicableTo ? " · " + row2.applicableTo : ""} · ${row2.sections?.length || 0} 章节`),
+      row2.status === "archived" ? h("span", { className: "ib-chip" }, "已归档") : h("button", { className: "ib-btn", disabled: !!busy[`arc:${row2.id}`], onClick: () => void archive(row2) }, "归档")
+    ))) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
+  );
+}
+function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
+  const [mode, setMode] = (0, import_react2.useState)("list");
+  const [editing, setEditing] = (0, import_react2.useState)(null);
+  const [busy, setBusy] = (0, import_react2.useState)({});
+  const [toast, setToast] = (0, import_react2.useState)("");
+  const [requirements, setRequirements] = (0, import_react2.useState)(null);
+  (0, import_react2.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const run = async (key, work) => {
+    if (busy[key]) return;
+    setBusy((old) => ({ ...old, [key]: true }));
+    try {
+      await work();
+    } catch (reason) {
+      setToast(reason.message || "操作失败");
+    } finally {
+      setBusy((old) => {
+        const n = { ...old };
+        delete n[key];
+        return n;
+      });
+    }
+  };
+  const setAsDefault = (row2) => run(`def:${row2.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(row2.id);
+    setToast(`已把「${row2.name}」设为默认模板，Agent 生成笔记时优先使用它`);
+  });
+  const clearDefault = (row2) => run(`def:${row2.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(null);
+    setToast(`已取消默认模板「${row2.name}」`);
+  });
+  const remove = (row2) => run(`del:${row2.id}`, async () => {
+    if (!window.confirm(`删除阅读笔记模板「${row2.name}」？任务快照不受影响，历史版本仍可读。`)) return;
+    await call("note_templates_delete", { request: { id: row2.id } });
+    if (defaultId === row2.id && typeof onSetDefault === "function") await onSetDefault(null);
+    setToast(`已删除模板「${row2.name}」`);
+    await reload();
+    setMode("list");
+  });
+  const showRequirements = (row2) => run(`req:${row2.id}`, async () => {
+    if (requirements?.id === row2.id) {
+      setRequirements(null);
+      return;
+    }
+    const result = await call("note_templates_requirements", { request: { id: row2.id, version: row2.version } });
+    setRequirements({ id: row2.id, name: row2.name, data: result.requirements });
+  });
+  const openForm = (row2, copy = false) => run("open", async () => {
+    if (!row2) {
+      setEditing(null);
+      setMode("form");
+      return;
+    }
+    const result = await call("note_templates_resolve", { request: { id: row2.id, version: row2.version } });
+    setEditing(copy ? { ...result.template, _copy: true } : result.template);
+    setMode("form");
+  });
+  if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, onCancel: () => {
+    setMode("list");
+    setEditing(null);
+  }, onSaved: () => {
+    setMode("list");
+    setEditing(null);
+    void reload();
+  } });
+  const cards = state.list.map((row2) => {
+    const isDefault = defaultId === row2.id;
+    return h(
+      "div",
+      { className: "ib-tm-card", key: row2.id, "data-default": isDefault ? "true" : void 0 },
+      h("div", { className: "ib-tm-title" }, h("b", null, row2.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row2.version} · ${when(row2.updatedAt)}`)),
+      h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row2.id)),
+      h("div", { className: "ib-tm-meta" }, (row2.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row2.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
+      h(
+        "div",
+        { className: "ib-tm-acts" },
+        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（Agent 回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：Agent 生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"),
+        h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row2) }, busy[`req:${row2.id}`] ? "…" : requirements?.id === row2.id ? "收起要求" : "生成要求"),
+        h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除")
+      )
+    );
+  });
+  const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。");
+  const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板，并把其中一个设为「默认模板」——设置后 Agent 生成笔记时优先使用它。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
+    state.error ? h("div", { className: "ib-error" }, state.error) : null,
+    listBody,
+    reqPanel,
+    toast ? h("div", { className: "ib-toast" }, toast) : null
+  );
+}
+function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
+  const blank = { id: "", name: "", audience: "课题组组会", language: "zh", length: "单篇 600-1000 字，突出与课题相关的关键内容", topics: [], tags: [], sections: [{ key: "citation", title: "文献信息", required: true, hint: "标题、作者、期刊、年份、DOI 的规范短引用" }, { key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" }], styleRules: [], evidenceRequirements: [], outputRequirements: [], remark: "" };
+  const [form, setForm] = (0, import_react2.useState)(() => initial ? cloneForm(initial) : cloneForm(blank));
+  const [busy, setBusyTemp] = (0, import_react2.useState)(false);
+  const [error, setErrorTemp] = (0, import_react2.useState)("");
+  const isCreate = !initial;
+  const isCopy = !!initial && initial._copy;
+  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const arrayField = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
+  const listField = (key) => (event) => {
+    const value = event.target.value;
+    setForm((old) => ({ ...old, [key]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
+  };
+  const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
+  const addSection = () => setForm((old) => ({ ...old, sections: [...old.sections || [], { key: "", title: "", required: true, hint: "" }] }));
+  const removeSection = (index) => setForm((old) => ({ ...old, sections: (old.sections || []).filter((_, i) => i !== index) }));
+  const fileRef = (0, import_react2.useRef)(null);
+  const importFromMd = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      void (async () => {
+        const text = String(reader.result || "");
+        try {
+          const result = await call("note_templates_parse_markdown", { request: { markdown: text, fileName: file.name || "" } });
+          const parsed = result?.parsed;
+          if (!parsed || !Array.isArray(parsed.sections) || parsed.sections.length === 0) {
+            throw new Error("未能从 Markdown 解析出章节标题（需使用 # / ## 标题）");
+          }
+          setForm((old) => ({
+            ...old,
+            name: old.name?.trim() ? old.name : parsed.name,
+            ...parsed.length ? { length: parsed.length } : {},
+            sections: parsed.sections.map((s) => ({ key: s.key, title: s.title, required: s.required !== false, hint: s.hint || "" })),
+            templateMarkdown: parsed.templateMarkdown || text,
+            remark: old.remark || `从 Markdown 导入：${file.name || ""}`
+          }));
+          setErrorTemp("");
+        } catch (reason) {
+          setErrorTemp(reason.message || "解析 Markdown 失败");
+        }
+      })();
+    };
+    reader.onerror = () => setErrorTemp("读取 Markdown 文件失败");
+    reader.readAsText(file);
+  };
+  const save = async () => {
+    setBusyTemp(true);
+    setErrorTemp("");
+    try {
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      if (isCreate && !/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-note-v2");
+      const fields = { ...form, id: void 0 };
+      let payload;
+      if (isCreate) payload = { id: form.id.trim(), fields };
+      else if (isCopy) payload = { id: initial.id, newId: form.id.trim() || form.name + "-copy", name: form.name };
+      else payload = { id: form.id, fields };
+      const method = isCopy ? "note_templates_copy" : isCreate ? "note_templates_create" : "note_templates_update";
+      const result = await call(method, { request: isCopy ? payload : { id: payload.id, fields } });
+      onSaved(result.template.name || form.name);
+    } catch (reason) {
+      setErrorTemp(reason.message);
+    } finally {
+      setBusyTemp(false);
+    }
+  };
+  return h(
+    "section",
+    { className: "ib-card ib-form" },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : isCreate ? "新模板" : `当前 v${form.version}`)),
+    h(
+      "div",
+      { className: "ib-req" },
+      h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "解析 Markdown 的 #/## 标题为章节骨架（含子节与表格要求），原文一并保留；导入后仍可逐项调整。")),
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+        !isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
+        h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "聚前药精读笔记模板", onChange: field("name") })),
+        h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })),
+        h("div", { className: "ib-req" }, h("label", null, "语言"), h("select", { value: form.language, onChange: field("language") }, ["zh", "en", "zh-en"].map((l) => h("option", { value: l, key: l }, l)))),
+        h("div", { className: "ib-req", style: { gridColumn: "1/-1" } }, h("label", null, "篇幅说明"), h("input", { value: form.length, onChange: field("length") })),
+        h("div", { className: "ib-req" }, h("label", null, "适用课题（逗号分隔）"), h("input", { value: (form.topics || []).join(", "), onChange: listField("topics") })),
+        h("div", { className: "ib-req" }, h("label", null, "标签（逗号分隔）"), h("input", { value: (form.tags || []).join(", "), onChange: listField("tags") }))
+      ),
+      h("label", null, "章节结构（Agent 生成时按此章节组织笔记）"),
+      h("div", { className: "ib-sections" }, (form.sections || []).map((s, index) => h("div", { className: "ib-section-row", key: index }, h("input", { type: "text", value: s.key, placeholder: "key", className: "ib-mini", onChange: (e) => setSection(index, { key: e.target.value }) }), h("input", { type: "text", value: s.title, placeholder: "章节标题", className: "ib-mini", onChange: (e) => setSection(index, { title: e.target.value }) }), h("input", { type: "text", value: s.hint, placeholder: "写作要点", className: "ib-mini", onChange: (e) => setSection(index, { hint: e.target.value }) }), h("input", { type: "checkbox", checked: !!s.required, title: "必填", onChange: (e) => setSection(index, { required: e.target.checked }) }), h("button", { className: "ib-mini ib-lit-btn", onClick: () => removeSection(index) }, "×"))), h("button", { className: "ib-mini ib-lit-btn", onClick: addSection }, "+ 加一节")),
+      h(
+        "div",
+        { className: "vertical-stack", style: { marginTop: 8, display: "grid", gap: 8, gridTemplateColumns: "repeat(2,1fr)" } },
+        h("div", { className: "ib-req" }, h("label", null, "风格规则（每行一条）"), h("textarea", { value: (form.styleRules || []).join("\n"), onChange: arrayField("styleRules") })),
+        h("div", { className: "ib-req" }, h("label", null, "证据与来源要求（每行一条）"), h("textarea", { value: (form.evidenceRequirements || []).join("\n"), onChange: arrayField("evidenceRequirements") })),
+        h("div", { className: "ib-req" }, h("label", null, "附加输出要求（每行一条）"), h("textarea", { value: (form.outputRequirements || []).join("\n"), onChange: arrayField("outputRequirements") }))
+      ),
+      error ? h("div", { className: "ib-error" }, error) : null,
+      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : isCopy ? "保存副本" : "保存"))
+    )
+  );
+}
+function PptTemplates({ call, state, reload }) {
+  const [mode, setMode] = (0, import_react2.useState)("list");
+  const [selected, setSelected] = (0, import_react2.useState)(null);
+  const [meta, setMeta] = (0, import_react2.useState)(null);
+  const [busy, setBusy] = (0, import_react2.useState)({});
+  const [toast, setToast] = (0, import_react2.useState)("");
+  const [validation, setValidation] = (0, import_react2.useState)(null);
+  (0, import_react2.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const run = async (key, work) => {
+    if (busy[key]) return;
+    setBusy((old) => ({ ...old, [key]: true }));
+    try {
+      await work();
+    } catch (reason) {
+      setToast(reason.message || "操作失败");
+    } finally {
+      setBusy((old) => {
+        const n = { ...old };
+        delete n[key];
+        return n;
+      });
+    }
+  };
+  const archive = (row2) => run(`arc:${row2.id}`, async () => {
+    if (!window.confirm(`归档 PPT 模板「${row2.name}」？历史版本仍可读，任务快照不受影响。`)) return;
+    await call("templates_archive", { request: { id: row2.id } });
+    setToast(`已归档「${row2.name}」`);
+    await reload();
+    setSelected(null);
+    setValidation(null);
+  });
+  const preview = (row2) => run(`pv:${row2.id}`, async () => {
+    if (selected?.id === row2.id) {
+      setSelected(null);
+      return;
+    }
+    const result = await call("templates_preview", { request: { id: row2.id, version: row2.version } });
+    setSelected({ id: row2.id, version: row2.version, data: result.preview });
+  });
+  const doValidate = (row2) => run(`vf:${row2.id}`, async () => {
+    const result = await call("templates_validate", { request: { id: row2.id, version: row2.version } });
+    setValidation({ id: row2.id, v: result.validation });
+    setToast(result.validation.ok ? `模板「${row2.name}」参考检查正常` : `模板「${row2.name}」有格式提醒，但不阻止生成`);
+  });
+  const openMeta = (row2) => run("meta", async () => {
+    const result = await call("templates_resolve", { request: { id: row2.id, version: row2.version } });
+    setMeta({ ...result.template });
+  });
+  const saveMeta = (fields) => run("save-meta", async () => {
+    const result = await call("templates_update_meta", { request: { id: fields.id, fields: { name: fields.name, purpose: fields.purpose, audience: fields.audience, notesRequirement: fields.notesRequirement, maxPages: fields.maxPages ? Number(fields.maxPages) : void 0 } } });
+    setToast(`已更新「${result.template.name}」v${result.template.version}`);
+    setMeta(null);
+    await reload();
+  });
+  if (mode === "import") return h(PptTemplateImport, { call, onCancel: () => setMode("list"), onDone: (id) => {
+    setToast(`已导入模板 ${id}，请确认映射后发布`);
+    setMode("list");
+    void reload();
+  } });
+  const statusLabel = (st) => ({ draft: "草稿", ready: "可用", archived: "已归档" })[st] || st;
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "模板只提供版式与风格参考；映射检查用于提示兼容性，不作为生成或人工审核门槛。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
+    state.error ? h("div", { className: "ib-error" }, state.error) : null,
+    state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h(
+      "div",
+      { className: "ib-table" },
+      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+      state.list.map((row2) => h("div", { className: "ib-table-row", key: row2.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row2.id), h("span", { className: "ib-tm-name" }, h("b", null, row2.name), h("small", { style: { display: "block", color: "var(--ib-text)", fontSize: 9 } }, `v${row2.version} · ${row2.pageSize?.ratio || "?"} · ${when(row2.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row2.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row2.status === "ready" ? "accent" : void 0 }, statusLabel(row2.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row2) }, busy[`pv:${row2.id}`] ? "…" : selected?.id === row2.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row2) }, busy[`vf:${row2.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row2) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row2) }, busy[`arc:${row2.id}`] ? "…" : "归档"))))
+    ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
+    validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
+    selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
+    meta ? h(MetaEditor, { call, initial: meta, onCancel: () => setMeta(null), onSaved: saveMeta }) : null,
+    toast ? h("div", { className: "ib-toast" }, toast) : null
+  );
+}
+function PptTemplateImport({ call, onCancel, onDone }) {
+  const [form, setForm] = (0, import_react2.useState)({ id: "", name: "", audience: "课题组组会", purpose: "", file: null });
+  const [busy, setBusy] = (0, import_react2.useState)(false);
+  const [error, setError] = (0, import_react2.useState)("");
+  const [staged, setStaged] = (0, import_react2.useState)(null);
+  const [mapping, setMapping] = (0, import_react2.useState)(null);
+  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const readFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setForm((old) => ({ ...old, file }));
+  };
+  const toBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      resolve(text.includes(",") ? text.split(",")[1] : text);
+    };
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+  const doImport = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-ppt-v3");
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      if (!form.file) throw new Error("请选择 .pptx 文件");
+      const base64 = await toBase64(form.file);
+      const result = await call("templates_import", { request: { id: form.id.trim(), name: form.name.trim(), base64, meta: { audience: form.audience, purpose: form.purpose } } });
+      const profile = result?.profile;
+      const parsed = result?.parsed;
+      const suggestions = result?.suggestions;
+      if (!profile || !parsed || !suggestions || typeof suggestions !== "object") {
+        throw new Error("模板解析结果不完整，请确认文件是有效的 .pptx 后重试");
+      }
+      const initialMapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => {
+        if (!suggestion?.layoutId) throw new Error(`模板解析结果缺少「${role}」版式映射`);
+        return [role, suggestion.layoutId];
+      }));
+      setMapping(initialMapping);
+      setStaged({ profile, parsed, suggestions });
+      setBusy(false);
+    } catch (reason) {
+      setError(reason.message);
+      setBusy(false);
+    }
+  };
+  const confirm = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!mapping) throw new Error("版式映射尚未准备完成，请稍后重试");
+      const result = await call("templates_confirm", { request: { id: staged.profile.id, version: staged.profile.version, mapping: Object.fromEntries(Object.entries(mapping).map(([role, layoutId]) => [role, { layoutId }])) } });
+      if (!result.ok) throw new Error(`模板映射无效：${(result.problems || []).join("；")}`);
+      onDone(result.profile?.id || staged.profile.id);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!staged) {
+    return h(
+      "section",
+      { className: "ib-card ib-form" },
+      h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "导入 PPT 模板"), h("span", { className: "ib-chip" }, "先解析，再映射")),
+      h("div", { className: "ib-req" }, h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, placeholder: "lab-ppt-v3", onChange: field("id") })), h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "课题组组会模板", onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, placeholder: "组会汇报 / 论文答辩", onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, ".pptx 文件"), h("input", { type: "file", accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation", onChange: readFile }))),
+      error ? h("div", { className: "ib-error" }, error) : null,
+      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || (!form.file || !form.id || !form.name), onClick: () => void doImport() }, busy ? "解析中…" : "解析并生成映射"))
+    );
+  }
+  const roles = staged.profile.layoutRoleMapping ? Object.keys(staged.profile.layoutRoleMapping) : [];
+  const roleRows = roles.map((role) => h(
+    "div",
+    { className: "ib-table-row", key: role },
+    h("span", { className: "ib-tm-key", style: { flex: 1 } }, role),
+    h("select", { style: { flex: 1, marginRight: 8 }, value: mapping?.[role] || "", onChange: (e) => setMapping((old) => ({ ...old || {}, [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
+    h("span", { className: "ib-sub", style: { flex: 1 } }, staged.suggestions && staged.suggestions[role] && staged.suggestions[role].reason || "")
+  ));
+  return h(
+    "section",
+    { className: "ib-card ib-form" },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `确认「${staged.profile.name}」角色映射`), h("span", { className: "ib-chip" }, `${staged.parsed?.layoutCount || "?"} 个布局`)),
+    h("div", { className: "ib-lit-note" }, "自动映射已按布局占位符特征生成，可逐角色调整；映射无效会明确拒绝并保持草稿状态，不会静默替换为默认模板。"),
+    h("div", { className: "ib-table" }, [h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 1 } }, "说明")), ...roleRows]),
+    error ? h("div", { className: "ib-error" }, error) : null,
+    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void confirm() }, busy ? "发布中…" : "确认映射并发布到可用"))
+  );
+}
+function MetaEditor({ call, initial, onCancel, onSaved }) {
+  const [form, setFormTemp] = (0, import_react2.useState)({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
+  const [busy, setBusyTemp] = (0, import_react2.useState)(false);
+  const [error, setErrorTemp] = (0, import_react2.useState)("");
+  const field = (key) => (event) => setFormTemp((old) => ({ ...old, [key]: event.target.value }));
+  const save = async () => {
+    setBusyTemp(true);
+    setErrorTemp("");
+    try {
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      await onSaved({ id: initial.id, ...form });
+    } catch (reason) {
+      setErrorTemp(reason.message);
+    } finally {
+      setBusyTemp(false);
+    }
+  };
+  return h(
+    "section",
+    { className: "ib-card ib-form", style: { marginTop: 14 } },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `编辑「${initial.id}」元数据`), h("span", { className: "ib-chip" }, `当前 v${initial.version}`)),
+    h("div", { className: "ib-req", style: { display: "grid", gap: 8 } }, h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, "备注/讲稿要求"), h("input", { value: form.notesRequirement, onChange: field("notesRequirement") })), h("div", { className: "ib-req" }, h("label", null, "最大页数"), h("input", { type: "number", value: form.maxPages, onChange: field("maxPages") }))),
+    error ? h("div", { className: "ib-error" }, error) : null,
+    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
+  );
+}
+function BookSvg({ width = 15, height = 15 }) {
+  return h(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
+    h("path", { d: "M12 6.5C10.2 4.9 7.7 4.2 4 4.2v13.6c3.7 0 6.2.7 8 2.3 1.8-1.6 4.3-2.3 8-2.3V4.2c-3.7 0-6.2.7-8 2.3Z", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
+    h("path", { d: "M12 6.5v13.6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
+  );
+}
+function SiSvg({ width = 15, height = 15 }) {
+  return h(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
+    h("path", { d: "M6 3h8l4 4v14H6V3Z", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
+    h("path", { d: "M14 3v4h4", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
+    h("path", { d: "M12 8.5v6M9 11.5h6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
+  );
+}
+function SpinSvg({ width = 14, height = 14 }) {
+  return h(
+    "svg",
+    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true", className: "ib-spin" },
+    h("circle", { cx: 12, cy: 12, r: 8.5, stroke: "currentColor", strokeWidth: 2.4, opacity: 0.28 }),
+    h("path", { d: "M12 3.5a8.5 8.5 0 0 1 8.5 8.5", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" })
+  );
+}
+
+// client/src/components-settings.js
+var providers = { core: "课题与记忆", runtime: "科研运行时", documents: "文档与模板", literature: "文献工作流", design: "实验设计", analysis: "科研分析", experimentTemplates: "实验计划模板", scientificDesktop: "科研浏览器与文件操作" };
+function Diagnostics({ call }) {
+  const [report, setReport] = (0, import_react3.useState)(null);
+  const [busy, setBusy] = (0, import_react3.useState)(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      const methods = ["capabilities", "runtime_environment", "convert_available", "desktop_status", "versions_list"];
+      const results = await Promise.allSettled(methods.map((method) => call(method)));
+      setReport({ checkedAt: (/* @__PURE__ */ new Date()).toISOString(), checks: Object.fromEntries(results.map((result, i) => [methods[i], result.status === "fulfilled" ? { ok: true, value: result.value } : { ok: false, error: result.reason?.message ?? String(result.reason) }])) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  (0, import_react3.useEffect)(() => {
+    void refresh();
+  }, [call]);
+  const checks = report?.checks;
+  const runtime2 = checks?.runtime_environment?.value;
+  const exportReport = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ibm-plugin-diagnostics-${Date.now()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3e4);
+  };
+  return h(
+    "div",
+    { "data-ibm-diagnostics": true },
+    h("p", null, "检查已启用的服务与本机运行环境。单项失败不影响其余检查；报告包含软件版本和本机路径。"),
+    h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", disabled: busy, onClick: refresh }, busy ? "检查中…" : "重新检查"), h("button", { className: "ib-btn", disabled: busy || !report, onClick: exportReport }, "导出插件诊断")),
+    report ? h("small", null, `检查时间：${new Date(report.checkedAt).toLocaleString()}`) : null,
+    checks?.capabilities?.ok ? h("div", { className: "ib-card" }, h("h3", null, "服务状态"), Object.entries(providers).map(([key, label]) => h("div", { className: "ib-row", key }, h("b", null, label), h("span", null, checks.capabilities.value[key] ? "已启用" : "未启用")))) : null,
+    runtime2 ? h("div", { className: "ib-card" }, h("h3", null, "运行环境"), ["python", "node", "soffice"].map((key) => h("div", { key, className: "ib-settings-runtime" }, h("b", null, key === "soffice" ? "Office PDF 渲染（LibreOffice）" : key === "python" ? "Python" : "Node.js"), h("span", null, runtime2[key]?.available ? `可用 ${runtime2[key].version ?? ""}` : "不可用"), h("small", null, runtime2[key]?.command || runtime2[key]?.hint || "未找到可执行文件"))), ...(runtime2.warnings ?? []).map((text, i) => h("p", { key: i }, text))) : null,
+    checks?.convert_available?.ok ? h("div", { className: "ib-card" }, h("h3", null, "文档转换"), h("span", null, checks.convert_available.value.available ? "MarkItDown 可用" : "MarkItDown 不可用")) : null,
+    Object.entries(checks ?? {}).filter(([, row2]) => !row2.ok).map(([key, row2]) => h("div", { className: "ib-error", key, role: "alert" }, `${key}：${row2.error}`)),
+    report ? h("details", null, h("summary", null, "查看诊断详情与版本登记"), h("pre", null, JSON.stringify(report, null, 2))) : null
+  );
+}
+function PluginSettings({ call }) {
+  const [tab, setTab] = (0, import_react3.useState)("templates");
+  return h(
+    "section",
+    { className: "ib-settings", "data-ibm-plugin-settings": true },
+    h("h2", null, "iBM 插件设置"),
+    h("p", null, "管理科研插件的全局模板与运行诊断。模板设置适用于所有课题。"),
+    h("div", { className: "ib-tm-tabs" }, [["templates", "模板管理"], ["diagnostics", "诊断与版本"]].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
+    tab === "templates" ? h(Templates, { call }) : h(Diagnostics, { call })
+  );
+}
+function registerPluginSettings(ctx) {
+  ctx.effect(() => ctx.locale.register("ibm-plugin-settings", { zh: { title: "iBM 插件设置" }, en: { title: "iBM plugin settings" } }), "iBM settings labels");
+  const t = ctx.locale.bind("ibm-plugin-settings");
+  const call = async (method, args) => {
+    const payload = args?.request ?? args;
+    const result = payload === void 0 ? await ctx.remote.lab[method]() : await ctx.remote.lab[method](payload);
+    if (!result.ok) throw Error(result.error?.message ?? result.error ?? "请求失败");
+    return result.value;
+  };
+  ctx.slots.inject("settings.section", () => ctx.slots.register({ name: "settings.section", id: "ibm-plugin", order: 110, locale: "ibm-plugin-settings", label: () => t("title"), inject: () => ({ call }) }, PluginSettings));
+}
+
+// client/src/descriptors.js
+function buildDescriptors() {
+  const pass = { parse: (value) => value };
+  const strict = (symbol) => ({ mode: "strict", typeSymbol: symbol, create: () => pass });
+  const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
+  const descriptors = [
+    direct("capabilities"),
+    direct("runtime_environment"),
+    direct("desktop_status"),
+    direct("desktop_browser", ["request"]),
+    direct("desktop_artifact", ["request"]),
+    ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
+    // 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
+    // LabRemoteService.note_templates_list(request) 读 request.kind），
+    // 但描述符此前声明成 0 参数，前端带参调用会被 wire 层直接拒绝：
+    //   client api: lab/note_templates_list expected 0 argument(s), got 1
+    // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
+    // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
+    ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    direct("projects_list")
+  ];
+  descriptors.push(
+    // rc.4 review（§5.2）：synth_route_lock 已移出 Remote 网关——
+    // 「锁定版本」走专用 loopback user-action 端点（可信 UI 用户动作）。
+    direct("synth_compound_resolve_dual", ["request"]),
+    direct("synth_review_batch_create", ["request"]),
+    direct("synth_review_batch_get", ["request"]),
+    direct("synth_review_batch_complete", ["request"]),
+    direct("synth_review_uncertain_apply", ["request"]),
+    direct("experiment_plan_templates_list"),
+    direct("experiment_plan_templates_resolve", ["request"]),
+    direct("experiment_plan_templates_create", ["request"]),
+    direct("experiment_plan_templates_update", ["request"]),
+    direct("experiment_plan_templates_copy", ["request"]),
+    direct("experiment_plan_templates_archive", ["request"]),
+    direct("plot_records_list", ["request"]),
+    direct("plot_records_create", ["request"]),
+    direct("plot_records_update", ["request"]),
+    direct("plot_records_remove", ["request"])
+  );
+  return descriptors;
+}
+
+// client/src/brand-icon.js
+var BRAND_ICON = "data:image/png;base64,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";
+
+// client/src/branding.js
+function applyBranding(onOpen) {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+  const FLASK_HTML = '<svg viewBox="0 0 24 24" fill="none" width="18" height="18" aria-hidden="true"><path d="M9 3h6M10 3v5.5L4.8 17.2A3 3 0 0 0 7.4 22h9.2a3 3 0 0 0 2.6-4.8L14 8.5V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16h10l-2.4-3.4h-5.2L7 16Z" fill="#eafff6" opacity="0.9"/><circle cx="12" cy="13.2" r="0.55" fill="#73dce6"/><circle cx="13.6" cy="15" r="0.4" fill="#73dce6"/></svg>';
+  const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
+  const entries = /* @__PURE__ */ new Set();
+  const attributes = /* @__PURE__ */ new Map();
+  const headlines = /* @__PURE__ */ new Map(), heroChildren = /* @__PURE__ */ new Map();
+  let disposed = false;
+  const activate = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpen();
+  };
+  const bindEntry = (node) => {
+    if (!node || node.dataset.dshLabResearchEntry === "1") return;
+    attributes.set(node, { title: node.getAttribute("title"), label: node.getAttribute("aria-label") });
+    node.dataset.dshLabResearchEntry = "1";
+    node.setAttribute("title", "打开科研课题");
+    node.addEventListener("click", activate);
+    entries.add(node);
+  };
+  let observer = null;
+  const hideNative = () => {
+    const styleId = "dsh-lab-agent-brand";
+    let style = document.querySelector(`style[data-plugin-css="${styleId}"]`);
+    if (style === null) {
+      style = document.createElement("style");
+      style.dataset.pluginCss = styleId;
+      document.head.appendChild(style);
+    }
+    style.textContent = "[class*='_brand']>:not(.ib-brand-shell),[class*='_brand'] svg,[class*='_railMark'],[class*='_railFish']{display:none!important}";
+  };
+  const inject2 = () => {
+    if (disposed) return false;
+    hideNative();
+    let touched = false;
+    const titleGroup = document.querySelector("[class*='_titleGroup']");
+    const heroHeadline = titleGroup?.firstElementChild || document.querySelector("[class*='_headlineText']") || [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
+    if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
+      if (!headlines.has(heroHeadline)) headlines.set(heroHeadline, heroHeadline.textContent);
+      heroHeadline.textContent = "专注源头创新";
+      touched = true;
+    }
+    document.querySelectorAll("*").forEach((element) => {
+      if (element.children.length === 0 && element.textContent?.trim() === "预览版") {
+        element.remove();
+        touched = true;
+      }
+    });
+    const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']") || heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
+    if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
+      heroChildren.set(heroMarkHost, [...heroMarkHost.childNodes]);
+      const avatar = document.createElement("img");
+      avatar.src = BRAND_ICON;
+      avatar.alt = "";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.width = 34;
+      avatar.height = 34;
+      avatar.className = `${heroMarkHost.firstElementChild?.getAttribute("class") ?? ""} ib-hero-avatar`.trim();
+      heroMarkHost.replaceChildren(avatar);
+      touched = true;
+    }
+    const row2 = document.querySelector("[class*='_logoRow']");
+    if (!row2) return touched;
+    const brand = row2.querySelector("[class*='_brand']");
+    if (brand && brand.dataset.dshLabResearchEntry !== "1") {
+      bindEntry(brand);
+      brand.setAttribute("aria-label", "打开科研课题");
+      touched = true;
+    }
+    if (brand && !brand.querySelector(".ib-brand-shell")) {
+      const shell = document.createElement("span");
+      shell.className = "ib-brand-shell";
+      shell.setAttribute("data-dsh-lab-brand", "1");
+      shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b></span>`;
+      brand.appendChild(shell);
+      touched = true;
+    }
+    const toggle = row2.querySelector("[class*='_toggle']");
+    if (toggle && !toggle.querySelector(".ib-rail-flask")) {
+      const flask = document.createElement("span");
+      flask.className = "ib-rail-flask";
+      flask.setAttribute("data-dsh-lab-brand", "1");
+      flask.innerHTML = FLASK_RAIL_HTML;
+      toggle.appendChild(flask);
+      touched = true;
+    }
+    return touched;
+  };
+  inject2();
+  let scheduled = false;
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      inject2();
+    });
+  };
+  observer = new MutationObserver(schedule);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    disposed = true;
+    if (observer) observer.disconnect();
+    for (const node of entries) {
+      node.removeEventListener("click", activate);
+      delete node.dataset.dshLabResearchEntry;
+      const previous = attributes.get(node);
+      for (const [name, value] of [["title", previous.title], ["aria-label", previous.label]]) {
+        if (value === null) node.removeAttribute(name);
+        else node.setAttribute(name, value);
+      }
+    }
+    for (const node of document.querySelectorAll('[data-dsh-lab-brand="1"]')) node.remove();
+    document.querySelector('style[data-plugin-css="dsh-lab-agent-brand"]')?.remove();
+    attributes.clear();
+    for (const [node, text] of headlines) if (node.textContent === "专注源头创新") node.textContent = text;
+    for (const [node, children] of heroChildren) if (node.querySelector(".ib-hero-avatar")) node.replaceChildren(...children);
+    headlines.clear();
+    heroChildren.clear();
+    entries.clear();
+  };
+}
+
+// client/src/scientific-browser.js
 var import_react4 = require("react");
+function ScientificBrowser({ call, projectId }) {
+  const [state, setState] = (0, import_react4.useState)({ available: false, window: null }), [url, setUrl] = (0, import_react4.useState)(""), [note, setNote] = (0, import_react4.useState)(""), [busy, setBusy] = (0, import_react4.useState)(false);
+  (0, import_react4.useEffect)(() => {
+    let disposed = false, timer;
+    const poll = async () => {
+      try {
+        const next = await call("desktop_browser", { request: { action: "status", projectId } });
+        if (!disposed) setState(next);
+      } catch {
+        if (!disposed) setState({ available: false, window: null });
+      }
+      if (!disposed) timer = setTimeout(poll, 2e3);
+    };
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [call, projectId]);
+  const act = async (action) => {
+    setBusy(true);
+    setNote("");
+    try {
+      await call("desktop_browser", { request: { action, projectId, ...url.trim() && action === "navigate" ? { url: url.trim() } : {} } });
+      setState(await call("desktop_browser", { request: { action: "status", projectId } }));
+    } catch (error) {
+      setNote(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!state.available) return null;
+  return h(
+    "section",
+    { className: "ib-scientific-browser", style: { marginBottom: 18 } },
+    h(
+      "div",
+      { className: "ib-actions", style: { flexWrap: "wrap" } },
+      h("button", { className: "ib-btn", disabled: busy, onClick: () => void act("open") }, state.window ? "显示科研浏览器" : "打开科研浏览器"),
+      h("input", { value: url, onChange: (event) => setUrl(event.target.value), placeholder: "输入机构资源或文献页面地址", "aria-label": "科研页面地址", style: { flex: "1 1 260px", minWidth: 0 } }),
+      h("button", { className: "ib-btn", disabled: busy || !state.window || !url.trim(), onClick: () => void act("navigate") }, "前往"),
+      h("button", { className: "ib-btn", disabled: busy || !state.window, onClick: () => void act("close") }, "关闭浏览器")
+    ),
+    h("p", { className: "ib-muted" }, state.window ? state.window.title || "科研窗口已打开；登录和下载请在该窗口完成。" : "登录在独立科研窗口中完成。关闭窗口后不会自动重新打开。"),
+    note ? h("div", { className: "ib-error", role: "status" }, note) : null
+  );
+}
+
+// client/src/components-project.js
+var import_react8 = __toESM(require("react"), 1);
+var import_react_dom = __toESM(require("react-dom"), 1);
+var import_react9 = require("react");
+
+// client/src/components-workspace.js
+var import_react6 = require("react");
 
 // client/src/constants.js
 var ROUTE_ORIGIN_LABEL = { "literature-extracted": "文献提取", "human-edited": "人工修改", "agent-optimized": "Agent 优化", retrosynthesis: "逆向候选" };
@@ -1386,7 +2010,7 @@ function stepCompoundsByRole(step, roles) {
 }
 
 // client/src/components-core.js
-var import_react3 = __toESM(require("react"), 1);
+var import_react5 = __toESM(require("react"), 1);
 
 // client/src/reaction-scheme.js
 function textWeight(value) {
@@ -1456,12 +2080,12 @@ function reactionSchemeLabel(value, maxWeight = 30) {
 // client/src/components-core.js
 function StructureCard({ entry, onClick, compact }) {
   const preview = resolveCompoundPreview(entry);
-  const [state, setState] = (0, import_react3.useState)(preview.state === "resolvable" ? "loading" : "not_found");
-  const [image, setImage] = (0, import_react3.useState)(null);
-  const [attempt, setAttempt] = (0, import_react3.useState)(0);
-  const requested = (0, import_react3.useRef)(false);
+  const [state, setState] = (0, import_react5.useState)(preview.state === "resolvable" ? "loading" : "not_found");
+  const [image, setImage] = (0, import_react5.useState)(null);
+  const [attempt, setAttempt] = (0, import_react5.useState)(0);
+  const requested = (0, import_react5.useRef)(false);
   const previewTier = structurePreviewTier(entry?.smiles);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!entry?.smiles) {
       setImage(null);
       setState("not_found");
@@ -1527,8 +2151,8 @@ function StructureCard({ entry, onClick, compact }) {
 function ReactionSchemePreview({ step, reactants = [], products = [], onStructureClick, fallback }) {
   const renderable = [...reactants, ...products].filter((entry) => entry?.smiles);
   const renderKey = renderable.map((entry) => `${entry.id || entry.name}:${entry.smiles}`).join("|");
-  const [previewState, setPreviewState] = (0, import_react3.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
-  (0, import_react3.useEffect)(() => {
+  const [previewState, setPreviewState] = (0, import_react5.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
+  (0, import_react5.useEffect)(() => {
     let alive = true;
     if (!renderable.length) {
       setPreviewState({ state: "ready", images: {} });
@@ -1622,9 +2246,9 @@ function StepReactionLayout({ step, onStructureClick }) {
   );
 }
 function PdfViewerFrame({ row: row2, notify }) {
-  const iframeRef = (0, import_react3.useRef)(null);
-  const [locateState, setLocateState] = (0, import_react3.useState)("loading");
-  const [errorMessage, setErrorMessage] = (0, import_react3.useState)("");
+  const iframeRef = (0, import_react5.useRef)(null);
+  const [locateState, setLocateState] = (0, import_react5.useState)("loading");
+  const [errorMessage, setErrorMessage] = (0, import_react5.useState)("");
   const rawPage = String(row2?.page ?? "").trim();
   const pageMatch = /^(?:S)?([1-9]\d*)$/i.exec(rawPage);
   const pageIsValid = !!pageMatch;
@@ -1634,7 +2258,7 @@ function PdfViewerFrame({ row: row2, notify }) {
   const locatorQuote = pageIsValid ? quote : "";
   const open = !!bundleId;
   const documentKind = row2?.sourceKind === "si" || !row2?.sourceKind && row2?.sourceType === "paper-si" ? "si" : "pdf";
-  (0, import_react3.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!open) {
       setLocateState("error");
       setErrorMessage("未绑定已归档原文，无法定位");
@@ -1699,13 +2323,13 @@ function PdfViewerFrame({ row: row2, notify }) {
   );
 }
 function KetcherEditorModal({ entry, onSave, onCancel }) {
-  const iframeRef = (0, import_react3.useRef)(null);
-  const [status, setStatus] = (0, import_react3.useState)("loading");
-  const [fallbackSmiles, setFallbackSmiles] = (0, import_react3.useState)(entry?.smiles || "");
-  const fallbackTimer = (0, import_react3.useRef)(null);
-  const commitTimer = (0, import_react3.useRef)(null);
+  const iframeRef = (0, import_react5.useRef)(null);
+  const [status, setStatus] = (0, import_react5.useState)("loading");
+  const [fallbackSmiles, setFallbackSmiles] = (0, import_react5.useState)(entry?.smiles || "");
+  const fallbackTimer = (0, import_react5.useRef)(null);
+  const commitTimer = (0, import_react5.useRef)(null);
   const open = entry != null;
-  (0, import_react3.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!open) return void 0;
     setStatus("loading");
     const onMessage = (event) => {
@@ -1774,30 +2398,30 @@ function KetcherEditorModal({ entry, onSave, onCancel }) {
 // client/src/components-workspace.js
 function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify, onRequestPlan, onChanged }) {
   const targetById = (id) => targets.find((row2) => row2.id === id) || null;
-  const [routeId, setRouteId] = (0, import_react4.useState)(routes.length ? routes[0].id : null);
-  const [tick, setTick] = (0, import_react4.useState)(0);
-  const [detail, setDetail] = (0, import_react4.useState)(null);
-  const [selectedStepId, setSelectedStepId] = (0, import_react4.useState)(null);
-  const [assess, setAssess] = (0, import_react4.useState)(null);
-  const [alt, setAlt] = (0, import_react4.useState)(null);
-  const [busy, setBusy] = (0, import_react4.useState)({});
-  const [error, setError] = (0, import_react4.useState)("");
-  const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react4.useState)(null);
-  const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react4.useState)(false);
-  const [correctionFor, setCorrectionFor] = (0, import_react4.useState)(null);
-  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react4.useState)(null);
-  const [batchList, setBatchList] = (0, import_react4.useState)([]);
-  const [newRouteForm, setNewRouteForm] = (0, import_react4.useState)(null);
-  const [moreOpen, setMoreOpen] = (0, import_react4.useState)(false);
-  const [lockBlockers, setLockBlockers] = (0, import_react4.useState)([]);
-  (0, import_react4.useEffect)(() => {
+  const [routeId, setRouteId] = (0, import_react6.useState)(routes.length ? routes[0].id : null);
+  const [tick, setTick] = (0, import_react6.useState)(0);
+  const [detail, setDetail] = (0, import_react6.useState)(null);
+  const [selectedStepId, setSelectedStepId] = (0, import_react6.useState)(null);
+  const [assess, setAssess] = (0, import_react6.useState)(null);
+  const [alt, setAlt] = (0, import_react6.useState)(null);
+  const [busy, setBusy] = (0, import_react6.useState)({});
+  const [error, setError] = (0, import_react6.useState)("");
+  const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react6.useState)(null);
+  const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react6.useState)(false);
+  const [correctionFor, setCorrectionFor] = (0, import_react6.useState)(null);
+  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react6.useState)(null);
+  const [batchList, setBatchList] = (0, import_react6.useState)([]);
+  const [newRouteForm, setNewRouteForm] = (0, import_react6.useState)(null);
+  const [moreOpen, setMoreOpen] = (0, import_react6.useState)(false);
+  const [lockBlockers, setLockBlockers] = (0, import_react6.useState)([]);
+  (0, import_react6.useEffect)(() => {
     if (routes.length && !routes.some((row2) => row2.id === routeId)) setRouteId(routes[0].id);
     if (!routes.length) {
       setDetail(null);
       setSelectedStepId(null);
     }
   }, [routes]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (!routeId) return;
     let stale = false;
     setDetail(null);
@@ -1828,7 +2452,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
   const selectedStep = detail ? (detail.route.steps || []).find((step) => step.id === selectedStepId || `s${step.step}` === selectedStepId) : null;
   const stepEvidence = detail && selectedStep ? evidenceByStep(detail.evidence, selectedStep) : [];
   const routeEvidence = detail ? routeLevelEvidence(detail.evidence) : [];
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (!routeId || !selectedStepId || !detail) return;
     let stale = false;
     setAssess(null);
@@ -2043,7 +2667,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       throw reason;
     }
   });
-  const loadReviewBatches = (0, import_react4.useCallback)(() => {
+  const loadReviewBatches = (0, import_react6.useCallback)(() => {
     if (!routeId) return Promise.resolve([]);
     return call("synth_review_batch_get", { request: { routeId } }).then((result) => {
       setBatchList(result.batches || []);
@@ -2101,7 +2725,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
     setCorrectionFor(null);
     setEvidenceFeedback(null);
   };
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (!reviewDrawerOpen) return void 0;
     const onKey = (event) => {
       if (event.key === "Escape") setReviewDrawerOpen(false);
@@ -2110,10 +2734,10 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
     return () => window.removeEventListener("keydown", onKey);
   }, [reviewDrawerOpen]);
   const activeEvidence = detail && selectedEvidenceId ? stepEvidence.find((row2) => row2.id === selectedEvidenceId) || null : null;
-  const [ketcherModal, setKetcherModal] = (0, import_react4.useState)(null);
-  const [addStepForm, setAddStepForm] = (0, import_react4.useState)(null);
-  const [dualPanel, setDualPanel] = (0, import_react4.useState)(null);
-  const [planPreview, setPlanPreview] = (0, import_react4.useState)(null);
+  const [ketcherModal, setKetcherModal] = (0, import_react6.useState)(null);
+  const [addStepForm, setAddStepForm] = (0, import_react6.useState)(null);
+  const [dualPanel, setDualPanel] = (0, import_react6.useState)(null);
+  const [planPreview, setPlanPreview] = (0, import_react6.useState)(null);
   const routePlan = route ? plans.find((item) => item.routeId === route.id || item.id === `plan-${route.id}` || item.id.startsWith(`plan-${route.id}-`)) : null;
   const requestExperimentPlan = () => {
     if (!route || !onRequestPlan) return;
@@ -2197,12 +2821,12 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       notify(reason.message || "结构式保存失败");
     }
   });
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     const candidates = detail?.evidence || [];
     const rows = selectedStep ? candidates.filter((row2) => row2.stepId === selectedStep.id || row2.stepId === void 0 && row2.stepKey !== void 0 && Number(row2.stepKey) === selectedStep.step) : [];
     setSelectedEvidenceId((current) => current && rows.some((row2) => row2.id === current) ? current : rows[0]?.id ?? null);
   }, [detail, selectedStepId]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (!routeId) return void 0;
     let stale = false;
     call("synth_review_batch_get", { request: { routeId } }).then((result) => {
@@ -2646,7 +3270,7 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
 }
 
 // client/src/components-characterization.js
-var import_react5 = __toESM(require("react"), 1);
+var import_react7 = __toESM(require("react"), 1);
 var labels = { queued: "排队中", running: "处理中", completed: "已完成", failed: "失败" };
 var verdictLabels = { match: "吻合", mismatch: "不吻合", inconclusive: "暂无法判断" };
 var localDate = () => {
@@ -2654,14 +3278,14 @@ var localDate = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) {
-  const [tasks, setTasks] = (0, import_react5.useState)([]), [plots, setPlots] = (0, import_react5.useState)([]), [form, setForm] = (0, import_react5.useState)(null), [error, setError] = (0, import_react5.useState)(""), [busy, setBusy] = (0, import_react5.useState)(false), [notice, setNotice] = (0, import_react5.useState)("");
-  const lock = (0, import_react5.useRef)(false);
+  const [tasks, setTasks] = (0, import_react7.useState)([]), [plots, setPlots] = (0, import_react7.useState)([]), [form, setForm] = (0, import_react7.useState)(null), [error, setError] = (0, import_react7.useState)(""), [busy, setBusy] = (0, import_react7.useState)(false), [notice, setNotice] = (0, import_react7.useState)("");
+  const lock = (0, import_react7.useRef)(false);
   const refresh = async () => {
     const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), call("plot_records_list", { request: { projectId } })]);
     setTasks(a.tasks || []);
     setPlots(b.records || []);
   };
-  (0, import_react5.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -2795,10 +3419,10 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     { className: "ib-characterization-row", key: row2.id },
     kind === "nmr" ? h("div", { className: "ib-nmr-structure" }, row2.compound?.smiles ? h(StructureCard, { entry: row2.compound, compact: true }) : h("span", null, "结构待补充")) : null,
     h("div", { className: "ib-characterization-title" }, h("b", null, row2.title || row2.topic || row2.compound?.name || row2.name), h("time", null, row2.date || row2.createdAt?.slice(0, 10) || "日期待补充"), kind === "nmr" ? assessmentBadge(row2) : null, row2.status && row2.status !== "completed" ? h("small", null, labels[row2.status] || "") : null),
-    kind === "nmr" ? h(import_react5.default.Fragment, null, fileButton(row2, "spectrum", "核磁图", "mnova"), fileButton(row2, "report", "报告", "word")) : fileButton(row2, "origin", "绘图文件", "origin"),
+    kind === "nmr" ? h(import_react7.default.Fragment, null, fileButton(row2, "spectrum", "核磁图", "mnova"), fileButton(row2, "report", "报告", "word")) : fileButton(row2, "origin", "绘图文件", "origin"),
     row2.status === "failed" ? h("button", { className: "ib-btn", disabled: busy, onClick: () => void retry(row2) }, "重试") : null,
     h("button", { className: "ib-btn", "data-danger": true, disabled: busy, onClick: () => void remove(row2, kind), title: `删除${kind === "nmr" ? "核磁" : "绘图"}登记（保留课题文件）` }, "删除"),
-    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row2.error || row2.instructions || ""), kind === "nmr" ? h(import_react5.default.Fragment, null, h("p", null, `CAS ${row2.compound?.casNumber || "待补充"} · ${row2.nucleus || "1H"} · ${row2.deuteratedSolvent || row2.solvent || "氘代溶剂待补充"}`), row2.assessment ? h("p", null, `结构判断：${verdictLabels[row2.assessment.verdict]}；置信度 ${row2.assessment.confidence.toUpperCase()}。${row2.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row2.id), call, onChanged: refresh, onError: setError }) : null)
+    h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row2.error || row2.instructions || ""), kind === "nmr" ? h(import_react7.default.Fragment, null, h("p", null, `CAS ${row2.compound?.casNumber || "待补充"} · ${row2.nucleus || "1H"} · ${row2.deuteratedSolvent || row2.solvent || "氘代溶剂待补充"}`), row2.assessment ? h("p", null, `结构判断：${verdictLabels[row2.assessment.verdict]}；置信度 ${row2.assessment.confidence.toUpperCase()}。${row2.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row2.id), call, onChanged: refresh, onError: setError }) : null)
   );
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
   return h(
@@ -2814,11 +3438,11 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
       const legacy = (kind === "nmr" ? nmrRows : plots).filter((r) => !tasks.some((t) => t.id === r.id)).map((r) => ({ ...r, artifacts: kind === "nmr" ? { spectrum: r.spectrumPath, report: r.reportPath } : { origin: r.artifactPath } }));
       return h("section", { className: "ib-card", key: kind }, h("div", { className: "ib-card-head" }, h("h3", null, kind === "nmr" ? "核磁分析" : "科研绘图"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => start(kind) }, kind === "nmr" ? "提交核磁任务" : "提交绘图任务")), rows.length || legacy.length ? h("div", null, ...rows.map((r) => renderRow(r, kind)), ...legacy.map((r) => renderRow(r, kind))) : h("p", { className: "ib-muted" }, "任务完成后，文件会自动回填到这里。"));
     }),
-    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(import_react5.default.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
+    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(import_react7.default.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
   );
 }
 function PlotEdit({ row: row2, call, onChanged, onError }) {
-  const [topic, setTopic] = (0, import_react5.useState)(row2?.topic || ""), [date, setDate] = (0, import_react5.useState)(row2?.date || "");
+  const [topic, setTopic] = (0, import_react7.useState)(row2?.topic || ""), [date, setDate] = (0, import_react7.useState)(row2?.date || "");
   if (!row2) return null;
   return h("div", { className: "ib-entry-edit" }, h("input", { "aria-label": "绘图主题", value: topic, onChange: (e) => setTopic(e.target.value) }), h("input", { "aria-label": "绘图日期", type: "date", value: date, onChange: (e) => setDate(e.target.value) }), h("button", { className: "ib-btn", onClick: async () => {
     try {
@@ -2828,557 +3452,6 @@ function PlotEdit({ row: row2, call, onChanged, onError }) {
       onError(e.message);
     }
   } }, "保存"));
-}
-
-// client/src/components-templates.js
-var import_react6 = require("react");
-function Templates({ call, onBack }) {
-  const [tab, setTab] = (0, import_react6.useState)("notes");
-  const [capabilities, setCapabilities] = (0, import_react6.useState)(null);
-  (0, import_react6.useEffect)(() => {
-    void call("capabilities").then(setCapabilities);
-  }, [call]);
-  const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
-  const [notes, setNotes] = (0, import_react6.useState)({ loading: true, list: [], defaultId: null, error: "" });
-  const [ppt, setPpt] = (0, import_react6.useState)({ loading: true, list: [], error: "" });
-  const [exp, setExp] = (0, import_react6.useState)({ loading: true, list: [], error: "" });
-  const [reviews, setReviews] = (0, import_react6.useState)({ loading: true, list: [], defaultId: null, error: "" });
-  const loadNotes = (0, import_react6.useCallback)(async () => {
-    setNotes((s) => ({ ...s, loading: true, error: "" }));
-    try {
-      const result = await call("note_templates_list", { request: { kind: "note" } });
-      setNotes({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
-    } catch (reason) {
-      setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
-    }
-  }, [call]);
-  const loadReviews = (0, import_react6.useCallback)(async () => {
-    setReviews((s) => ({ ...s, loading: true, error: "" }));
-    try {
-      const result = await call("note_templates_list", { request: { kind: "review" } });
-      setReviews({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
-    } catch (reason) {
-      setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
-    }
-  }, [call]);
-  const setDefault = (0, import_react6.useCallback)(async (id) => {
-    await call("note_templates_set_default", { request: { id } });
-    await Promise.all([loadNotes(), loadReviews()]);
-  }, [call, loadNotes, loadReviews]);
-  const loadPpt = (0, import_react6.useCallback)(async () => {
-    setPpt((s) => ({ ...s, loading: true, error: "" }));
-    try {
-      const result = await call("templates_list");
-      setPpt({ loading: false, list: result.templates || [], error: "" });
-    } catch (reason) {
-      setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
-    }
-  }, [call]);
-  const loadExp = (0, import_react6.useCallback)(async () => {
-    setExp((s) => ({ ...s, loading: true, error: "" }));
-    try {
-      const result = await call("experiment_plan_templates_list");
-      setExp({ loading: false, list: result.templates || [], error: "" });
-    } catch (reason) {
-      setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
-    }
-  }, [call]);
-  (0, import_react6.useEffect)(() => {
-    if (capabilities?.documents) {
-      void loadNotes();
-      void loadReviews();
-      void loadPpt();
-    }
-    if (capabilities?.experimentTemplates) void loadExp();
-  }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
-  return h(
-    "div",
-    null,
-    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题")),
-    h(
-      "div",
-      { className: "ib-tm-tabs" },
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
-    ),
-    activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
-  );
-}
-function ExperimentPlanTemplates({ call, state, reload }) {
-  const [busy, setBusy] = (0, import_react6.useState)({});
-  const [toast, setToast] = (0, import_react6.useState)("");
-  const [name, setName] = (0, import_react6.useState)("");
-  (0, import_react6.useEffect)(() => {
-    if (!toast) return void 0;
-    const timer = setTimeout(() => setToast(""), 3200);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  const withBusy = (key, fn) => {
-    if (busy[key]) return;
-    setBusy((s) => ({ ...s, [key]: true }));
-    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key]: false })));
-  };
-  const create = () => withBusy("create", async () => {
-    const clean = String(name || "").trim();
-    if (!clean) {
-      setToast("请填写模板名称。");
-      return;
-    }
-    const id = `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    await call("experiment_plan_templates_create", { request: { id, fields: { name: clean } } });
-    setName("");
-    await reload();
-  });
-  const archive = (row2) => withBusy(`arc:${row2.id}`, async () => {
-    await call("experiment_plan_templates_archive", { request: { id: row2.id } });
-    await reload();
-  });
-  return h(
-    "div",
-    null,
-    toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
-    h(
-      "div",
-      { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10 } },
-      h("input", { style: { flex: 1, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 10px", border: "1px solid var(--ib-line)" }, value: name, placeholder: "新实验计划模板名称（默认章节骨架会保留）", onChange: (event) => setName(event.target.value) }),
-      h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.create, onClick: () => void create() }, busy.create ? "创建中…" : "新建模板")
-    ),
-    state.error ? h("div", { className: "ib-error" }, state.error) : null,
-    state.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
-    state.list.length ? h("div", { className: "ib-rows" }, state.list.map((row2) => h(
-      "div",
-      { className: "ib-row", key: row2.id },
-      h("b", { title: row2.id }, row2.name),
-      h("span", null, `v${row2.version}${row2.applicableTo ? " · " + row2.applicableTo : ""} · ${row2.sections?.length || 0} 章节`),
-      row2.status === "archived" ? h("span", { className: "ib-chip" }, "已归档") : h("button", { className: "ib-btn", disabled: !!busy[`arc:${row2.id}`], onClick: () => void archive(row2) }, "归档")
-    ))) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
-  );
-}
-function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
-  const [mode, setMode] = (0, import_react6.useState)("list");
-  const [editing, setEditing] = (0, import_react6.useState)(null);
-  const [busy, setBusy] = (0, import_react6.useState)({});
-  const [toast, setToast] = (0, import_react6.useState)("");
-  const [requirements, setRequirements] = (0, import_react6.useState)(null);
-  (0, import_react6.useEffect)(() => {
-    if (!toast) return void 0;
-    const timer = setTimeout(() => setToast(""), 3500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  const run = async (key, work) => {
-    if (busy[key]) return;
-    setBusy((old) => ({ ...old, [key]: true }));
-    try {
-      await work();
-    } catch (reason) {
-      setToast(reason.message || "操作失败");
-    } finally {
-      setBusy((old) => {
-        const n = { ...old };
-        delete n[key];
-        return n;
-      });
-    }
-  };
-  const setAsDefault = (row2) => run(`def:${row2.id}`, async () => {
-    if (typeof onSetDefault !== "function") return;
-    await onSetDefault(row2.id);
-    setToast(`已把「${row2.name}」设为默认模板，Agent 生成笔记时优先使用它`);
-  });
-  const clearDefault = (row2) => run(`def:${row2.id}`, async () => {
-    if (typeof onSetDefault !== "function") return;
-    await onSetDefault(null);
-    setToast(`已取消默认模板「${row2.name}」`);
-  });
-  const remove = (row2) => run(`del:${row2.id}`, async () => {
-    if (!window.confirm(`删除阅读笔记模板「${row2.name}」？任务快照不受影响，历史版本仍可读。`)) return;
-    await call("note_templates_delete", { request: { id: row2.id } });
-    if (defaultId === row2.id && typeof onSetDefault === "function") await onSetDefault(null);
-    setToast(`已删除模板「${row2.name}」`);
-    await reload();
-    setMode("list");
-  });
-  const showRequirements = (row2) => run(`req:${row2.id}`, async () => {
-    if (requirements?.id === row2.id) {
-      setRequirements(null);
-      return;
-    }
-    const result = await call("note_templates_requirements", { request: { id: row2.id, version: row2.version } });
-    setRequirements({ id: row2.id, name: row2.name, data: result.requirements });
-  });
-  const openForm = (row2, copy = false) => run("open", async () => {
-    if (!row2) {
-      setEditing(null);
-      setMode("form");
-      return;
-    }
-    const result = await call("note_templates_resolve", { request: { id: row2.id, version: row2.version } });
-    setEditing(copy ? { ...result.template, _copy: true } : result.template);
-    setMode("form");
-  });
-  if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, onCancel: () => {
-    setMode("list");
-    setEditing(null);
-  }, onSaved: () => {
-    setMode("list");
-    setEditing(null);
-    void reload();
-  } });
-  const cards = state.list.map((row2) => {
-    const isDefault = defaultId === row2.id;
-    return h(
-      "div",
-      { className: "ib-tm-card", key: row2.id, "data-default": isDefault ? "true" : void 0 },
-      h("div", { className: "ib-tm-title" }, h("b", null, row2.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row2.version} · ${when(row2.updatedAt)}`)),
-      h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row2.id)),
-      h("div", { className: "ib-tm-meta" }, (row2.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row2.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
-      h(
-        "div",
-        { className: "ib-tm-acts" },
-        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（Agent 回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：Agent 生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
-        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"),
-        h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"),
-        h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row2) }, busy[`req:${row2.id}`] ? "…" : requirements?.id === row2.id ? "收起要求" : "生成要求"),
-        h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除")
-      )
-    );
-  });
-  const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。");
-  const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
-  return h(
-    "div",
-    null,
-    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板，并把其中一个设为「默认模板」——设置后 Agent 生成笔记时优先使用它。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
-    state.error ? h("div", { className: "ib-error" }, state.error) : null,
-    listBody,
-    reqPanel,
-    toast ? h("div", { className: "ib-toast" }, toast) : null
-  );
-}
-function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
-  const blank = { id: "", name: "", audience: "课题组组会", language: "zh", length: "单篇 600-1000 字，突出与课题相关的关键内容", topics: [], tags: [], sections: [{ key: "citation", title: "文献信息", required: true, hint: "标题、作者、期刊、年份、DOI 的规范短引用" }, { key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" }], styleRules: [], evidenceRequirements: [], outputRequirements: [], remark: "" };
-  const [form, setForm] = (0, import_react6.useState)(() => initial ? cloneForm(initial) : cloneForm(blank));
-  const [busy, setBusyTemp] = (0, import_react6.useState)(false);
-  const [error, setErrorTemp] = (0, import_react6.useState)("");
-  const isCreate = !initial;
-  const isCopy = !!initial && initial._copy;
-  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
-  const arrayField = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
-  const listField = (key) => (event) => {
-    const value = event.target.value;
-    setForm((old) => ({ ...old, [key]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
-  };
-  const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
-  const addSection = () => setForm((old) => ({ ...old, sections: [...old.sections || [], { key: "", title: "", required: true, hint: "" }] }));
-  const removeSection = (index) => setForm((old) => ({ ...old, sections: (old.sections || []).filter((_, i) => i !== index) }));
-  const fileRef = (0, import_react6.useRef)(null);
-  const importFromMd = (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      void (async () => {
-        const text = String(reader.result || "");
-        try {
-          const result = await call("note_templates_parse_markdown", { request: { markdown: text, fileName: file.name || "" } });
-          const parsed = result?.parsed;
-          if (!parsed || !Array.isArray(parsed.sections) || parsed.sections.length === 0) {
-            throw new Error("未能从 Markdown 解析出章节标题（需使用 # / ## 标题）");
-          }
-          setForm((old) => ({
-            ...old,
-            name: old.name?.trim() ? old.name : parsed.name,
-            ...parsed.length ? { length: parsed.length } : {},
-            sections: parsed.sections.map((s) => ({ key: s.key, title: s.title, required: s.required !== false, hint: s.hint || "" })),
-            templateMarkdown: parsed.templateMarkdown || text,
-            remark: old.remark || `从 Markdown 导入：${file.name || ""}`
-          }));
-          setErrorTemp("");
-        } catch (reason) {
-          setErrorTemp(reason.message || "解析 Markdown 失败");
-        }
-      })();
-    };
-    reader.onerror = () => setErrorTemp("读取 Markdown 文件失败");
-    reader.readAsText(file);
-  };
-  const save = async () => {
-    setBusyTemp(true);
-    setErrorTemp("");
-    try {
-      if (!form.name.trim()) throw new Error("请填写模板名称");
-      if (isCreate && !/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-note-v2");
-      const fields = { ...form, id: void 0 };
-      let payload;
-      if (isCreate) payload = { id: form.id.trim(), fields };
-      else if (isCopy) payload = { id: initial.id, newId: form.id.trim() || form.name + "-copy", name: form.name };
-      else payload = { id: form.id, fields };
-      const method = isCopy ? "note_templates_copy" : isCreate ? "note_templates_create" : "note_templates_update";
-      const result = await call(method, { request: isCopy ? payload : { id: payload.id, fields } });
-      onSaved(result.template.name || form.name);
-    } catch (reason) {
-      setErrorTemp(reason.message);
-    } finally {
-      setBusyTemp(false);
-    }
-  };
-  return h(
-    "section",
-    { className: "ib-card ib-form" },
-    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : isCreate ? "新模板" : `当前 v${form.version}`)),
-    h(
-      "div",
-      { className: "ib-req" },
-      h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "解析 Markdown 的 #/## 标题为章节骨架（含子节与表格要求），原文一并保留；导入后仍可逐项调整。")),
-      h(
-        "div",
-        { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
-        !isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
-        h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "聚前药精读笔记模板", onChange: field("name") })),
-        h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })),
-        h("div", { className: "ib-req" }, h("label", null, "语言"), h("select", { value: form.language, onChange: field("language") }, ["zh", "en", "zh-en"].map((l) => h("option", { value: l, key: l }, l)))),
-        h("div", { className: "ib-req", style: { gridColumn: "1/-1" } }, h("label", null, "篇幅说明"), h("input", { value: form.length, onChange: field("length") })),
-        h("div", { className: "ib-req" }, h("label", null, "适用课题（逗号分隔）"), h("input", { value: (form.topics || []).join(", "), onChange: listField("topics") })),
-        h("div", { className: "ib-req" }, h("label", null, "标签（逗号分隔）"), h("input", { value: (form.tags || []).join(", "), onChange: listField("tags") }))
-      ),
-      h("label", null, "章节结构（Agent 生成时按此章节组织笔记）"),
-      h("div", { className: "ib-sections" }, (form.sections || []).map((s, index) => h("div", { className: "ib-section-row", key: index }, h("input", { type: "text", value: s.key, placeholder: "key", className: "ib-mini", onChange: (e) => setSection(index, { key: e.target.value }) }), h("input", { type: "text", value: s.title, placeholder: "章节标题", className: "ib-mini", onChange: (e) => setSection(index, { title: e.target.value }) }), h("input", { type: "text", value: s.hint, placeholder: "写作要点", className: "ib-mini", onChange: (e) => setSection(index, { hint: e.target.value }) }), h("input", { type: "checkbox", checked: !!s.required, title: "必填", onChange: (e) => setSection(index, { required: e.target.checked }) }), h("button", { className: "ib-mini ib-lit-btn", onClick: () => removeSection(index) }, "×"))), h("button", { className: "ib-mini ib-lit-btn", onClick: addSection }, "+ 加一节")),
-      h(
-        "div",
-        { className: "vertical-stack", style: { marginTop: 8, display: "grid", gap: 8, gridTemplateColumns: "repeat(2,1fr)" } },
-        h("div", { className: "ib-req" }, h("label", null, "风格规则（每行一条）"), h("textarea", { value: (form.styleRules || []).join("\n"), onChange: arrayField("styleRules") })),
-        h("div", { className: "ib-req" }, h("label", null, "证据与来源要求（每行一条）"), h("textarea", { value: (form.evidenceRequirements || []).join("\n"), onChange: arrayField("evidenceRequirements") })),
-        h("div", { className: "ib-req" }, h("label", null, "附加输出要求（每行一条）"), h("textarea", { value: (form.outputRequirements || []).join("\n"), onChange: arrayField("outputRequirements") }))
-      ),
-      error ? h("div", { className: "ib-error" }, error) : null,
-      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : isCopy ? "保存副本" : "保存"))
-    )
-  );
-}
-function PptTemplates({ call, state, reload }) {
-  const [mode, setMode] = (0, import_react6.useState)("list");
-  const [selected, setSelected] = (0, import_react6.useState)(null);
-  const [meta, setMeta] = (0, import_react6.useState)(null);
-  const [busy, setBusy] = (0, import_react6.useState)({});
-  const [toast, setToast] = (0, import_react6.useState)("");
-  const [validation, setValidation] = (0, import_react6.useState)(null);
-  (0, import_react6.useEffect)(() => {
-    if (!toast) return void 0;
-    const timer = setTimeout(() => setToast(""), 3500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  const run = async (key, work) => {
-    if (busy[key]) return;
-    setBusy((old) => ({ ...old, [key]: true }));
-    try {
-      await work();
-    } catch (reason) {
-      setToast(reason.message || "操作失败");
-    } finally {
-      setBusy((old) => {
-        const n = { ...old };
-        delete n[key];
-        return n;
-      });
-    }
-  };
-  const archive = (row2) => run(`arc:${row2.id}`, async () => {
-    if (!window.confirm(`归档 PPT 模板「${row2.name}」？历史版本仍可读，任务快照不受影响。`)) return;
-    await call("templates_archive", { request: { id: row2.id } });
-    setToast(`已归档「${row2.name}」`);
-    await reload();
-    setSelected(null);
-    setValidation(null);
-  });
-  const preview = (row2) => run(`pv:${row2.id}`, async () => {
-    if (selected?.id === row2.id) {
-      setSelected(null);
-      return;
-    }
-    const result = await call("templates_preview", { request: { id: row2.id, version: row2.version } });
-    setSelected({ id: row2.id, version: row2.version, data: result.preview });
-  });
-  const doValidate = (row2) => run(`vf:${row2.id}`, async () => {
-    const result = await call("templates_validate", { request: { id: row2.id, version: row2.version } });
-    setValidation({ id: row2.id, v: result.validation });
-    setToast(result.validation.ok ? `模板「${row2.name}」参考检查正常` : `模板「${row2.name}」有格式提醒，但不阻止生成`);
-  });
-  const openMeta = (row2) => run("meta", async () => {
-    const result = await call("templates_resolve", { request: { id: row2.id, version: row2.version } });
-    setMeta({ ...result.template });
-  });
-  const saveMeta = (fields) => run("save-meta", async () => {
-    const result = await call("templates_update_meta", { request: { id: fields.id, fields: { name: fields.name, purpose: fields.purpose, audience: fields.audience, notesRequirement: fields.notesRequirement, maxPages: fields.maxPages ? Number(fields.maxPages) : void 0 } } });
-    setToast(`已更新「${result.template.name}」v${result.template.version}`);
-    setMeta(null);
-    await reload();
-  });
-  if (mode === "import") return h(PptTemplateImport, { call, onCancel: () => setMode("list"), onDone: (id) => {
-    setToast(`已导入模板 ${id}，请确认映射后发布`);
-    setMode("list");
-    void reload();
-  } });
-  const statusLabel = (st) => ({ draft: "草稿", ready: "可用", archived: "已归档" })[st] || st;
-  return h(
-    "div",
-    null,
-    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "模板只提供版式与风格参考；映射检查用于提示兼容性，不作为生成或人工审核门槛。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
-    state.error ? h("div", { className: "ib-error" }, state.error) : null,
-    state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h(
-      "div",
-      { className: "ib-table" },
-      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
-      state.list.map((row2) => h("div", { className: "ib-table-row", key: row2.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row2.id), h("span", { className: "ib-tm-name" }, h("b", null, row2.name), h("small", { style: { display: "block", color: "var(--ib-text)", fontSize: 9 } }, `v${row2.version} · ${row2.pageSize?.ratio || "?"} · ${when(row2.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row2.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row2.status === "ready" ? "accent" : void 0 }, statusLabel(row2.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row2) }, busy[`pv:${row2.id}`] ? "…" : selected?.id === row2.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row2) }, busy[`vf:${row2.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row2) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row2) }, busy[`arc:${row2.id}`] ? "…" : "归档"))))
-    ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
-    validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
-    selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
-    meta ? h(MetaEditor, { call, initial: meta, onCancel: () => setMeta(null), onSaved: saveMeta }) : null,
-    toast ? h("div", { className: "ib-toast" }, toast) : null
-  );
-}
-function PptTemplateImport({ call, onCancel, onDone }) {
-  const [form, setForm] = (0, import_react6.useState)({ id: "", name: "", audience: "课题组组会", purpose: "", file: null });
-  const [busy, setBusy] = (0, import_react6.useState)(false);
-  const [error, setError] = (0, import_react6.useState)("");
-  const [staged, setStaged] = (0, import_react6.useState)(null);
-  const [mapping, setMapping] = (0, import_react6.useState)(null);
-  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
-  const readFile = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setForm((old) => ({ ...old, file }));
-  };
-  const toBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result || "");
-      resolve(text.includes(",") ? text.split(",")[1] : text);
-    };
-    reader.onerror = () => reject(new Error("读取文件失败"));
-    reader.readAsDataURL(file);
-  });
-  const doImport = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-ppt-v3");
-      if (!form.name.trim()) throw new Error("请填写模板名称");
-      if (!form.file) throw new Error("请选择 .pptx 文件");
-      const base64 = await toBase64(form.file);
-      const result = await call("templates_import", { request: { id: form.id.trim(), name: form.name.trim(), base64, meta: { audience: form.audience, purpose: form.purpose } } });
-      const profile = result?.profile;
-      const parsed = result?.parsed;
-      const suggestions = result?.suggestions;
-      if (!profile || !parsed || !suggestions || typeof suggestions !== "object") {
-        throw new Error("模板解析结果不完整，请确认文件是有效的 .pptx 后重试");
-      }
-      const initialMapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => {
-        if (!suggestion?.layoutId) throw new Error(`模板解析结果缺少「${role}」版式映射`);
-        return [role, suggestion.layoutId];
-      }));
-      setMapping(initialMapping);
-      setStaged({ profile, parsed, suggestions });
-      setBusy(false);
-    } catch (reason) {
-      setError(reason.message);
-      setBusy(false);
-    }
-  };
-  const confirm = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      if (!mapping) throw new Error("版式映射尚未准备完成，请稍后重试");
-      const result = await call("templates_confirm", { request: { id: staged.profile.id, version: staged.profile.version, mapping: Object.fromEntries(Object.entries(mapping).map(([role, layoutId]) => [role, { layoutId }])) } });
-      if (!result.ok) throw new Error(`模板映射无效：${(result.problems || []).join("；")}`);
-      onDone(result.profile?.id || staged.profile.id);
-    } catch (reason) {
-      setError(reason.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  if (!staged) {
-    return h(
-      "section",
-      { className: "ib-card ib-form" },
-      h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "导入 PPT 模板"), h("span", { className: "ib-chip" }, "先解析，再映射")),
-      h("div", { className: "ib-req" }, h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, placeholder: "lab-ppt-v3", onChange: field("id") })), h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "课题组组会模板", onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, placeholder: "组会汇报 / 论文答辩", onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, ".pptx 文件"), h("input", { type: "file", accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation", onChange: readFile }))),
-      error ? h("div", { className: "ib-error" }, error) : null,
-      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || (!form.file || !form.id || !form.name), onClick: () => void doImport() }, busy ? "解析中…" : "解析并生成映射"))
-    );
-  }
-  const roles = staged.profile.layoutRoleMapping ? Object.keys(staged.profile.layoutRoleMapping) : [];
-  const roleRows = roles.map((role) => h(
-    "div",
-    { className: "ib-table-row", key: role },
-    h("span", { className: "ib-tm-key", style: { flex: 1 } }, role),
-    h("select", { style: { flex: 1, marginRight: 8 }, value: mapping?.[role] || "", onChange: (e) => setMapping((old) => ({ ...old || {}, [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
-    h("span", { className: "ib-sub", style: { flex: 1 } }, staged.suggestions && staged.suggestions[role] && staged.suggestions[role].reason || "")
-  ));
-  return h(
-    "section",
-    { className: "ib-card ib-form" },
-    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `确认「${staged.profile.name}」角色映射`), h("span", { className: "ib-chip" }, `${staged.parsed?.layoutCount || "?"} 个布局`)),
-    h("div", { className: "ib-lit-note" }, "自动映射已按布局占位符特征生成，可逐角色调整；映射无效会明确拒绝并保持草稿状态，不会静默替换为默认模板。"),
-    h("div", { className: "ib-table" }, [h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 1 } }, "说明")), ...roleRows]),
-    error ? h("div", { className: "ib-error" }, error) : null,
-    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void confirm() }, busy ? "发布中…" : "确认映射并发布到可用"))
-  );
-}
-function MetaEditor({ call, initial, onCancel, onSaved }) {
-  const [form, setFormTemp] = (0, import_react6.useState)({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
-  const [busy, setBusyTemp] = (0, import_react6.useState)(false);
-  const [error, setErrorTemp] = (0, import_react6.useState)("");
-  const field = (key) => (event) => setFormTemp((old) => ({ ...old, [key]: event.target.value }));
-  const save = async () => {
-    setBusyTemp(true);
-    setErrorTemp("");
-    try {
-      if (!form.name.trim()) throw new Error("请填写模板名称");
-      await onSaved({ id: initial.id, ...form });
-    } catch (reason) {
-      setErrorTemp(reason.message);
-    } finally {
-      setBusyTemp(false);
-    }
-  };
-  return h(
-    "section",
-    { className: "ib-card ib-form", style: { marginTop: 14 } },
-    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `编辑「${initial.id}」元数据`), h("span", { className: "ib-chip" }, `当前 v${initial.version}`)),
-    h("div", { className: "ib-req", style: { display: "grid", gap: 8 } }, h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, "备注/讲稿要求"), h("input", { value: form.notesRequirement, onChange: field("notesRequirement") })), h("div", { className: "ib-req" }, h("label", null, "最大页数"), h("input", { type: "number", value: form.maxPages, onChange: field("maxPages") }))),
-    error ? h("div", { className: "ib-error" }, error) : null,
-    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
-  );
-}
-function BookSvg({ width = 15, height = 15 }) {
-  return h(
-    "svg",
-    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
-    h("path", { d: "M12 6.5C10.2 4.9 7.7 4.2 4 4.2v13.6c3.7 0 6.2.7 8 2.3 1.8-1.6 4.3-2.3 8-2.3V4.2c-3.7 0-6.2.7-8 2.3Z", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
-    h("path", { d: "M12 6.5v13.6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
-  );
-}
-function SiSvg({ width = 15, height = 15 }) {
-  return h(
-    "svg",
-    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true" },
-    h("path", { d: "M6 3h8l4 4v14H6V3Z", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
-    h("path", { d: "M14 3v4h4", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" }),
-    h("path", { d: "M12 8.5v6M9 11.5h6", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" })
-  );
-}
-function SpinSvg({ width = 14, height = 14 }) {
-  return h(
-    "svg",
-    { viewBox: "0 0 24 24", fill: "none", width, height, "aria-hidden": "true", className: "ib-spin" },
-    h("circle", { cx: 12, cy: 12, r: 8.5, stroke: "currentColor", strokeWidth: 2.4, opacity: 0.28 }),
-    h("path", { d: "M12 3.5a8.5 8.5 0 0 1 8.5 8.5", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" })
-  );
 }
 
 // client/src/components-project.js
@@ -3440,9 +3513,9 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
   }
 };
 function CreateProject({ call, defaults, onCancel, onCreated }) {
-  const [form, setForm] = (0, import_react8.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
-  const [busy, setBusy] = (0, import_react8.useState)(false);
-  const [error, setError] = (0, import_react8.useState)("");
+  const [form, setForm] = (0, import_react9.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
+  const [busy, setBusy] = (0, import_react9.useState)(false);
+  const [error, setError] = (0, import_react9.useState)("");
   const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
   const create = async () => {
     setBusy(true);
@@ -3462,10 +3535,10 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 }
 function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
-  const [state, setState] = (0, import_react8.useState)({ loading: true, projects: [], defaults: {}, error: "" });
-  const [creating, setCreating] = (0, import_react8.useState)(false);
-  const [launching, setLaunching] = (0, import_react8.useState)(null);
-  const load = (0, import_react8.useCallback)(async () => {
+  const [state, setState] = (0, import_react9.useState)({ loading: true, projects: [], defaults: {}, error: "" });
+  const [creating, setCreating] = (0, import_react9.useState)(false);
+  const [launching, setLaunching] = (0, import_react9.useState)(null);
+  const load = (0, import_react9.useCallback)(async () => {
     try {
       const capabilities = await call("capabilities");
       const [projects, goals, templates] = await Promise.all([call("projects_list"), capabilities.literature ? call("goals_list") : { goals: [] }, capabilities.documents ? call("templates_list") : { templates: [] }]);
@@ -3474,7 +3547,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
   }, []);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     void load();
   }, [load]);
   const launch = async (project2, presetId) => {
@@ -3521,18 +3594,18 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   for (const item of (presentations || []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (!(item.reportId in presentationByReport)) presentationByReport[item.reportId] = item;
   }
-  const [busy, setBusy] = (0, import_react8.useState)({});
-  const [overview, setOverview] = (0, import_react8.useState)({});
-  const [expandedSearch, setExpandedSearch] = (0, import_react8.useState)(null);
-  const [machineReviews, setMachineReviews] = (0, import_react8.useState)({});
-  const [preview, setPreview] = (0, import_react8.useState)(null);
-  const [reviewVisible, setReviewVisible] = (0, import_react8.useState)(false);
-  const [approval, setApproval] = (0, import_react8.useState)(null);
-  const [captureHint, setCaptureHint] = (0, import_react8.useState)(null);
-  const [captureStopping, setCaptureStopping] = (0, import_react8.useState)(false);
-  const [browserMode, setBrowserMode] = (0, import_react8.useState)("managed-edge");
-  const [opening, setOpening] = (0, import_react8.useState)({});
-  (0, import_react8.useEffect)(() => {
+  const [busy, setBusy] = (0, import_react9.useState)({});
+  const [overview, setOverview] = (0, import_react9.useState)({});
+  const [expandedSearch, setExpandedSearch] = (0, import_react9.useState)(null);
+  const [machineReviews, setMachineReviews] = (0, import_react9.useState)({});
+  const [preview, setPreview] = (0, import_react9.useState)(null);
+  const [reviewVisible, setReviewVisible] = (0, import_react9.useState)(false);
+  const [approval, setApproval] = (0, import_react9.useState)(null);
+  const [captureHint, setCaptureHint] = (0, import_react9.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react9.useState)(false);
+  const [browserMode, setBrowserMode] = (0, import_react9.useState)("managed-edge");
+  const [opening, setOpening] = (0, import_react9.useState)({});
+  (0, import_react9.useEffect)(() => {
     let alive = true;
     call("literature_status", { request: { force: false } }).then((result) => {
       if (alive && result?.browserMode) setBrowserMode(result.browserMode);
@@ -3543,7 +3616,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     };
   }, [call]);
   const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId) return void 0;
     let disposed = false;
@@ -3577,7 +3650,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, call, onChanged]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId || captureHint?.route !== "webvpn") return void 0;
     let disposed = false;
@@ -3950,7 +4023,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const shortOf = (report) => citationOf(report)?.text || report.shortCitation || titleByBundle[report.bundleId] || `精读报告 ${report.id.slice(0, 12)}`;
   const shortNode = (report) => {
     const citation = citationOf(report);
-    return citation ? h(import_react7.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
+    return citation ? h(import_react8.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
   };
   const zhOf = (report) => report.titleZh || shortOf(report);
   const paperCitation = (paper) => {
@@ -4007,7 +4080,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "section",
       { className: "ib-approval-card", role: approval.stage === "approved" ? "status" : "alertdialog", "aria-label": approval.stage === "approved" ? "审核通过" : "审核通过二次确认" },
       approval.stage === "approved" ? h(
-        import_react7.default.Fragment,
+        import_react8.default.Fragment,
         null,
         h("div", { className: "ib-approval-ok" }, h("strong", null, "审核通过"), h("span", null, `${preview?.kind === "ppt" ? "PPTX" : "DOCX"} 已开放下载；你也可以关闭此页面后继续在预览窗口下载。`)),
         h(
@@ -4017,7 +4090,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("button", { className: "ib-preview-btn", "data-primary": true, disabled: busy[preview?.kind === "ppt" ? `ppt:${preview?.report.id}` : `rep:${preview?.report.id}`], onClick: () => void downloadPreviewArtifact() }, preview?.kind === "ppt" ? "下载PPT" : "下载DOCX")
         )
       ) : h(
-        import_react7.default.Fragment,
+        import_react8.default.Fragment,
         null,
         h("h3", null, "审核通过前请确认自查提醒"),
         h("p", null, "自动自查仅供参考，不构成通过门限。请结合上方实际分页预览人工判断；点击确认后将锁定当前文件版本并开放下载。"),
@@ -4032,7 +4105,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ) : null;
   const previewNode = preview ? h(
-    import_react7.default.Fragment,
+    import_react8.default.Fragment,
     null,
     h("div", { className: "ib-preview-backdrop", onClick: closePreview }),
     h(
@@ -4059,7 +4132,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  return h(import_react7.default.Fragment, null, h(
+  return h(import_react8.default.Fragment, null, h(
     "div",
     { className: "ib-lit" },
     // ── 分组一：检索记录 ────────────────────────────────────────────────
@@ -4277,21 +4350,21 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   ), previewNode);
 }
 function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     setDesktopProject(project2.id);
     return () => setDesktopProject(null);
   }, [project2.id]);
-  const [state, setState] = (0, import_react8.useState)({ loading: true, data: null, error: "" });
-  const [tab, setTab] = (0, import_react8.useState)("literature");
-  const [draft, setDraft] = (0, import_react8.useState)("");
-  const [memoryOpen, setMemoryOpen] = (0, import_react8.useState)(false);
-  const memoryDirty = (0, import_react8.useRef)(false);
-  const [note, setNote] = (0, import_react8.useState)("");
-  const [saving, setSaving] = (0, import_react8.useState)(false);
-  const [launching, setLaunching] = (0, import_react8.useState)(false);
-  const [deleting, setDeleting] = (0, import_react8.useState)(false);
-  const [toast, setToast] = (0, import_react8.useState)("");
-  const load = (0, import_react8.useCallback)(async () => {
+  const [state, setState] = (0, import_react9.useState)({ loading: true, data: null, error: "" });
+  const [tab, setTab] = (0, import_react9.useState)("literature");
+  const [draft, setDraft] = (0, import_react9.useState)("");
+  const [memoryOpen, setMemoryOpen] = (0, import_react9.useState)(false);
+  const memoryDirty = (0, import_react9.useRef)(false);
+  const [note, setNote] = (0, import_react9.useState)("");
+  const [saving, setSaving] = (0, import_react9.useState)(false);
+  const [launching, setLaunching] = (0, import_react9.useState)(false);
+  const [deleting, setDeleting] = (0, import_react9.useState)(false);
+  const [toast, setToast] = (0, import_react9.useState)("");
+  const load = (0, import_react9.useCallback)(async () => {
     try {
       const data2 = await call("projects_workspace", { request: { projectId: project2.id } });
       setState({ loading: false, data: data2, error: "" });
@@ -4300,7 +4373,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
       setState({ loading: false, data: null, error: reason.message });
     }
   }, [project2.id]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     memoryDirty.current = false;
     try {
       const cached = sessionStorage.getItem(`ib-memory-draft:${project2.id}`);
@@ -4313,7 +4386,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
     setMemoryOpen(false);
     void load();
   }, [load]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 7e3);
     return () => clearTimeout(timer);
@@ -4407,7 +4480,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
-var OverlayBoundary = class extends (import_react7.default.Component ?? class {
+var OverlayBoundary = class extends (import_react8.default.Component ?? class {
 }) {
   constructor(props) {
     super(props);
@@ -4427,17 +4500,17 @@ var OverlayBoundary = class extends (import_react7.default.Component ?? class {
   }
 };
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
-  const [project2, setProject] = (0, import_react8.useState)(initial ?? null);
-  const [templates, setTemplates] = (0, import_react8.useState)(false);
+  const [project2, setProject] = (0, import_react9.useState)(initial ?? null);
+  const [templates, setTemplates] = (0, import_react9.useState)(false);
   return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/components-literature.js
-var import_react9 = __toESM(require("react"), 1);
+var import_react10 = __toESM(require("react"), 1);
 function useBoundProject(sessionId, call, useSessions) {
   const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
-  const [bound, setBound] = (0, import_react9.useState)(null);
-  (0, import_react9.useEffect)(() => {
+  const [bound, setBound] = (0, import_react10.useState)(null);
+  (0, import_react10.useEffect)(() => {
     if (!sessionId) {
       setBound(null);
       return void 0;
@@ -4467,7 +4540,7 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
     document.body.dataset.ibResearchProject = bound.project.id;
@@ -4478,7 +4551,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       }
     };
   }, [bound?.project?.id]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId) return void 0;
     setBallTaskCancelHandler(async (taskId) => {
@@ -4504,7 +4577,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       setBallTaskRecreateHandler(null);
     };
   }, [bound?.project?.id, call]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
     let disposed = false;
@@ -4679,7 +4752,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
 var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 // client/src/webvpn-tab.js
-var import_react10 = require("react");
+var import_react11 = require("react");
 var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 var WEBVPN_TAB_KIND = "lab-webvpn";
 var formatBytes = (bytes) => {
@@ -4687,8 +4760,8 @@ var formatBytes = (bytes) => {
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 };
 function useSaveToProject(enabled) {
-  const [state, setState] = (0, import_react10.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
-  (0, import_react10.useEffect)(() => {
+  const [state, setState] = (0, import_react11.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
+  (0, import_react11.useEffect)(() => {
     if (!enabled) return void 0;
     let disposed = false;
     let timer;
@@ -4757,10 +4830,10 @@ function useSaveToProject(enabled) {
 function WebVpnTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const visible = tab?.visible === true;
-  const hostRef = (0, import_react10.useRef)(null);
+  const hostRef = (0, import_react11.useRef)(null);
   const inShell = typeof window !== "undefined" && window.parent !== window;
   const save = useSaveToProject(visible && inShell);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (!visible) {
       sendWebVpnRect({ visible: false });
       return void 0;
@@ -4804,8 +4877,8 @@ function WebVpnTabBody({ useTabInfo }) {
       sendWebVpnRect({ visible: false });
     };
   }, [visible]);
-  const portalSeeded = (0, import_react10.useRef)(false);
-  (0, import_react10.useEffect)(() => {
+  const portalSeeded = (0, import_react11.useRef)(false);
+  (0, import_react11.useEffect)(() => {
     if (!visible || portalSeeded.current || !inShell) return;
     portalSeeded.current = true;
     void (async () => {
@@ -4879,7 +4952,7 @@ function registerWebVpnTab(ctx, { openTab }) {
 }
 
 // client/src/project-tab.js
-var import_react11 = require("react");
+var import_react12 = require("react");
 
 // client/src/project-address.js
 var PROJECT_TAB_ID = "dsh-lab-agent/project";
@@ -4935,8 +5008,8 @@ function projectNameOf(projectId) {
   return projectId === void 0 ? void 0 : projectNames.get(projectId);
 }
 function useProjectName(projectId) {
-  const [, bump] = (0, import_react11.useState)(0);
-  (0, import_react11.useEffect)(() => {
+  const [, bump] = (0, import_react12.useState)(0);
+  (0, import_react12.useEffect)(() => {
     const listener = () => bump((value) => value + 1);
     nameListeners.add(listener);
     return () => {
@@ -4965,9 +5038,9 @@ function ProjectTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const revision = tab?.navigation?.revision ?? 0;
-  const [state, setState] = (0, import_react11.useState)({ status: "loading" });
+  const [state, setState] = (0, import_react12.useState)({ status: "loading" });
   const cachedName = useProjectName(projectId);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     if (projectId === void 0) {
       setState({ status: "invalid" });
       return void 0;
@@ -5041,7 +5114,7 @@ function ProjectTabTitle({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const name = useProjectName(projectId);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     ensureProjectName(projectId);
   }, [projectId]);
   return h("span", { className: "ib-project-tab-title", title: name || projectId || "" }, name || "课题");
@@ -5073,24 +5146,24 @@ function registerProjectTab(ctx) {
 
 // client/src/hero-project.js
 var import_react_dom2 = __toESM(require("react-dom"), 1);
-var import_react12 = require("react");
+var import_react13 = require("react");
 var runtime = null;
 function setHeroProjectRuntime(next) {
   runtime = next && typeof next === "object" ? next : null;
 }
 function HeroProjectPicker() {
-  const [session, setSession] = (0, import_react12.useState)(() => runtime?.currentSession?.() ?? null);
-  (0, import_react12.useEffect)(() => {
+  const [session, setSession] = (0, import_react13.useState)(() => runtime?.currentSession?.() ?? null);
+  (0, import_react13.useEffect)(() => {
     const timer = setInterval(() => setSession(runtime?.currentSession?.() ?? null), 3e3);
     return () => clearInterval(timer);
   }, []);
   const blank = session === null || session.blank !== false;
-  const [state, setState] = (0, import_react12.useState)({ projects: [], current: null, loading: true, error: "" });
-  const [menuOpen, setMenuOpen] = (0, import_react12.useState)(false);
-  const [busy, setBusy] = (0, import_react12.useState)("");
-  const [workspaces, setWorkspaces] = (0, import_react12.useState)([]);
+  const [state, setState] = (0, import_react13.useState)({ projects: [], current: null, loading: true, error: "" });
+  const [menuOpen, setMenuOpen] = (0, import_react13.useState)(false);
+  const [busy, setBusy] = (0, import_react13.useState)("");
+  const [workspaces, setWorkspaces] = (0, import_react13.useState)([]);
   const cwd = session?.cwd;
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!blank) return void 0;
     let alive = true;
     const call = runtime?.call;
@@ -5121,7 +5194,7 @@ function HeroProjectPicker() {
       clearInterval(timer);
     };
   }, [blank, cwd]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!menuOpen) return void 0;
     const list = runtime?.listWorkspaces;
     if (typeof list === "function") setWorkspaces(list() ?? []);
@@ -5523,6 +5596,7 @@ async function apply(ctx) {
     return () => document.querySelector("style[data-plugin-css=dsh-lab-agent]")?.remove();
   }, "lab.styles");
   await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
+  ctx.inject(["remote", "remote.lab", "slots", "locale"], registerPluginSettings, "iBM plugin settings section");
   ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
   ctx.inject(["remote", "remote.settings", "remote.agentPresets"], (settingsCtx) => {
     void ensureResearchPresetDefault(settingsCtx.remote).then((result) => {

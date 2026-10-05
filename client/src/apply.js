@@ -2,6 +2,7 @@
 import ReactDOM from "react-dom";
 import { h } from "./h.js";
 import { injectStyles } from "./styles.js";
+import { registerPluginSettings } from "./components-settings.js";
 import { installDesktopClient } from "./desktop-client.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
@@ -326,6 +327,7 @@ export function applyUi(ctx) {
 export async function apply(ctx) {
 	ctx.effect(() => { injectStyles(); return () => document.querySelector("style[data-plugin-css=dsh-lab-agent]")?.remove(); }, "lab.styles");
 	await ctx.remote.$mount({ package: "dsh-lab-agent", descriptors: buildDescriptors() });
+	ctx.inject(["remote", "remote.lab", "slots", "locale"], registerPluginSettings, "iBM plugin settings section");
 	ctx.inject(["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"], applyUi);
 	// 新会话默认模式：单独一次注入。settings 命名空间缺失时只丢失这一项能力，
 	// 绝不能让 applyUi 一起挂掉（inject 未满足时回调根本不会执行）。

@@ -48,6 +48,28 @@ try{
   report.state=await frame.evaluate(async()=>{const value=await window.desktopNext.state();return {phase:value.phase,profile:value.selected,version:value.version};});
   assert.equal(report.state.phase,'ready');assert.equal(report.state.profile,'ibm-lab');
   report.checks.push('native-Desktop-client-registered','physical-click-Desktop-settings-profile-loaded','native-state-ready');
+  if(process.argv.includes('--ibm-settings')) {
+   const clickText=async text=>{const handle=await frame.evaluateHandle(text=>[...document.querySelectorAll('button')].find(n=>n.innerText.trim()===text),text);assert.ok(handle.asElement(),'Missing button: '+text);await handle.asElement().click();await handle.dispose();};
+   await clickText('iBM 插件设置');
+   await frame.waitForSelector('[data-ibm-plugin-settings]');
+   await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-plugin-settings] button')].some(n=>n.innerText==='实验计划模板'&&!n.disabled));
+   for(const tab of ['阅读笔记模板','综述模板','PPT 模板','实验计划模板'])await clickText(tab);
+   const input=await frame.$('[data-ibm-plugin-settings] input[placeholder^="新实验计划模板名称"]');assert.ok(input);await input.type('设置验收模板');await clickText('新建模板');
+   await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-plugin-settings] .ib-row')].some(n=>n.innerText.includes('设置验收模板')));
+   await page.screenshot({path:join(work,'ibm-templates.png')});
+   await clickText('归档');
+   await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-plugin-settings] .ib-row')].some(n=>n.innerText.includes('设置验收模板')&&n.innerText.includes('已归档')));
+   report.checks.push('ibm-settings-slot-registered','four-template-tabs-accessible','template-created-and-archived-through-settings');
+   await clickText('诊断与版本');
+   await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-diagnostics] button')].some(n=>n.innerText==='重新检查'&&!n.disabled),{timeout:60000});
+   report.ibmDiagnostics=await frame.evaluate(()=>JSON.parse(document.querySelector('[data-ibm-diagnostics] pre').innerText));
+   for(const key of ['capabilities','runtime_environment','convert_available','desktop_status','versions_list'])assert.equal(report.ibmDiagnostics.checks[key].ok,true,key);
+   assert.equal(report.ibmDiagnostics.checks.runtime_environment.value.python.available,true);
+   const download=await page.target().createCDPSession();await download.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:work});await clickText('导出插件诊断');
+   await clickText('重新检查');await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-diagnostics] button')].some(n=>n.innerText==='重新检查'&&!n.disabled),{timeout:60000});
+   await page.screenshot({path:join(work,'ibm-diagnostics.png')});
+   report.checks.push('live-runtime-diagnostics-loaded','diagnostics-refresh-and-export-clicked');
+  }
  }
  assert.equal(await frame.evaluate(()=>document.body.innerText.includes('正在加载设置')),false);
  report.checks.push('no-permanent-loading-placeholder');
