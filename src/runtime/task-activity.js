@@ -1,5 +1,10 @@
 /** Real execution and registered workflow states. Never infer a completion percentage. */
 export const TASK_LABELS=Object.freeze({wechat:'微信文献元数据',capture:'文献正文 / SI 获取',reading:'文献精读',ppt:'文献 PPT 制作',synthesis:'合成路线登记',nmr:'核磁标峰',origin:'Origin 绘图'});
+export function selectPetTask(tasks,now=Date.now()){
+ const recent=tasks.filter(row=>['completed','failed','cancelled'].includes(row.status)&&now-row.updatedAt<5000).sort((a,b)=>b.updatedAt-a.updatedAt)[0];
+ const active=tasks.find(row=>['running','waiting','queued'].includes(row.status));
+ return recent&&!(active?.startedAt>recent.updatedAt)?recent:active??tasks[0];
+}
 export function toolActivity(name,args={}) {
  const text=String(name).toLowerCase();let kind,stage;
  if(/wechat/.test(text)){kind='wechat';stage=/fetch/.test(text)?'正在获取微信页面':/doi/.test(text)?'正在核对文献元数据':'正在登记文献元数据';}
@@ -15,14 +20,14 @@ export function toolActivity(name,args={}) {
 export class TaskActivity {
  constructor(now=()=>Date.now()){this.now=now;this.rows=new Map();}
  update(id,patch){const row={...this.rows.get(id),...patch,id,updatedAt:this.now()};this.rows.set(id,row);if(this.rows.size>100){const oldest=[...this.rows.values()].filter(row=>!['running','waiting','queued'].includes(row.status)).sort((a,b)=>a.updatedAt-b.updatedAt)[0];if(oldest)this.rows.delete(oldest.id);}return row;}
- start(exec){const activity=toolActivity(exec.name,exec.arguments);if(!activity)return null;return this.update('tool:'+exec.callId,{...activity,status:'running',projectId:exec.arguments?.projectId,percent:null});}
+ start(exec){const activity=toolActivity(exec.name,exec.arguments);if(!activity)return null;return this.update('tool:'+exec.callId,{...activity,status:'running',startedAt:this.now(),projectId:exec.arguments?.projectId,percent:null});}
  finish(id,result,aborted=false){if(!id)return;const failed=result?.isError===true||result?.value?.ok===false||result?.status==='error';return this.update(id,{status:aborted?'cancelled':failed?'failed':'completed',stage:aborted?'当前操作已取消':failed?'当前操作失败':'当前步骤完成',percent:null});}
  snapshot(extra=[]){const combined=new Map([...this.rows.values()].map(row=>[row.id,row]));for(const row of extra)combined.set(row.id,row);return [...combined.values()].filter(row=>['running','waiting','queued'].includes(row.status)||this.now()-(Number(row.updatedAt)||0)<120000).sort((a,b)=>Number(['running','waiting','queued'].includes(b.status))-Number(['running','waiting','queued'].includes(a.status))||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0)).slice(0,8);}
 }
 const statuses={pending:['queued','等待开始'],queued:['queued','等待执行'],running:['running','正在执行'],armed:['waiting','等待下载入口或机构登录'],'under-review':['waiting','等待检查或人工确认'],prepared:['waiting','等待标峰确认'],'approved-written':['waiting','标峰已写入，等待目视核验'],'visually-verified':['completed','核验完成'],succeeded:['completed','任务完成'],completed:['completed','任务完成'],failed:['failed','任务失败'],cancelled:['cancelled','任务已取消']};
 export function registeredActivity(row,kind,now=Date.now()){
  const [status,stage]=row.status==='expired'?['failed','任务已过期，请重新发起']:row.status==='uploading'?['running','正在归档']:statuses[row.status]??['waiting','等待处理'];
- return {id:kind+':'+row.id,kind,label:TASK_LABELS[kind],projectId:row.projectId,status,stage,percent:null,updatedAt:Date.parse(row.updatedAt??row.completedAt??row.createdAt)||now};
+ return {id:kind+':'+row.id,kind,label:TASK_LABELS[kind],projectId:row.projectId,status,stage,percent:null,startedAt:Date.parse(row.createdAt)||now,updatedAt:Date.parse(row.updatedAt??row.completedAt??row.createdAt)||now};
 }
 export function activitySnapshot(core,ctx) {
  const extra=[];

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {spawn} from 'node:child_process';
-import {mkdirSync,mkdtempSync,writeFileSync,readFileSync} from 'node:fs';
+import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,copyFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import puppeteer from 'puppeteer-core';
@@ -19,6 +19,10 @@ const server=createServer((req,res)=>{
 });server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
 const {NextProfiles}=await import(pathToFileURL(join(app,'lib/profiles.js')));
 initializeRelease({home,resources,electron:executable,profiles:NextProfiles});const profiles=new NextProfiles(home);profiles.finishOnboarding('ibm-lab');profiles.dismissAccountSetup('ibm-lab');
+if(process.argv.includes('--development-client')){
+ copyFileSync(arg('--development-client'),join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-ui/client/index.js'));
+ copyFileSync(join(app,'node_modules/dsh-lab-agent/src/runtime/task-activity.js'),join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-agent/src/runtime/task-activity.js'));
+}
 const fixture=join(profiles.directory('ibm-lab'),'node_modules','dsh-ibm-sidebar-fixture');mkdirSync(fixture,{recursive:true});
 writeFileSync(join(fixture,'package.json'),JSON.stringify({name:'dsh-ibm-sidebar-fixture',version:'1.0.0',type:'module',main:'index.js'}));
 writeFileSync(join(fixture,'index.js'),`export const inject=['ibmCore','ibmScientificDesktop'];export async function apply(ctx){
@@ -33,19 +37,19 @@ const report={ok:false,home,checks:[],scope:'Official NEXT UI and actual Electro
 const delay=ms=>new Promise(done=>setTimeout(done,ms));
 const wait=async(fn,label)=>{for(let i=0;i<300;i++){const result=await fn();if(result)return result;await delay(100);}throw Error('Timed out: '+label);};
 let child,browser,frame,page,pet,log='';
-const launch=async()=>{
+const launch=async(requirePet=true)=>{
  let endpoint;
  child=spawn(executable,[...(process.argv.includes('--staged')?[app]:[]),'--remote-debugging-port=0'],{env:{...process.env,DSH_HOME:home,DSH_DESKTOP_NEXT_HOME:home,ELECTRON_RUN_AS_NODE:undefined,DSH_TELEMETRY_DISABLED:'1',IBM_SIDEBAR_TEST_ORIGINS:JSON.stringify([origin])},stdio:['ignore','pipe','pipe'],windowsHide:true});
  for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{const value=String(chunk);endpoint??=value.match(/DevTools listening on (ws:\/\/\S+)/)?.[1];log+=value.replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');});
  await wait(()=>endpoint,'desktop debug endpoint');browser=await puppeteer.connect({browserWSEndpoint:endpoint,defaultViewport:null});
- await wait(async()=>{for(const candidate of await browser.pages()){if(candidate.url().includes('desktop-pet.html'))pet=candidate;for(const current of candidate.frames())if(await current.$('.ib-hero-chip').catch(()=>false)){page=candidate;frame=current;}}return frame&&pet;},'main and pet');
+ await wait(async()=>{for(const candidate of await browser.pages()){if(candidate.url().includes('desktop-pet.html'))pet=candidate;for(const current of candidate.frames())if(await current.$('[title="打开科研课题"]').catch(()=>false)){page=candidate;frame=current;}}return frame&&(!requirePet||pet);},'main and pet');
 };
 const rpc=(method,request)=>frame.evaluate(async(method,request)=>{
  const response=await fetch('/api/lab/'+method,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/'+method,payload:{args:request?{request}:{}}})});const result=await response.json();if(!result.result?.ok)throw Error(JSON.stringify(result));return result.result.value;
 },method,request);
 const close=async()=>{await browser?.close().catch(()=>{});await wait(()=>child.exitCode!==null,'desktop shutdown').catch(()=>child.kill());browser=null;frame=null;pet=null;};
 try{
- await launch();await frame.click('.ib-hero-chip');
+ await launch();await frame.waitForSelector('.ib-hero-chip');await frame.click('.ib-hero-chip');
  await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-hero-menu-item')].some(node=>node.innerText.includes('侧栏宠物验收')));
  await frame.evaluate(()=>[...document.querySelectorAll('.ib-hero-menu-item')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
  await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
@@ -83,8 +87,8 @@ try{
  report.checks.push('publisher-download-popup-stays-in-sidebar','pet-real-stage-byte-progress-and-archive-completion');
  await rpc('desktop_pet',{visible:false});assert.equal((await rpc('desktop_pet',{})).visible,false);await rpc('desktop_pet',{visible:true});assert.equal((await rpc('desktop_pet',{})).visible,true);report.checks.push('pet-show-hide-preference');
  const pending=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:'sidebar-cancel',kind:'pdf'});await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:pending.task.id});assert.equal((await rpc('manual_capture_get',{taskId:pending.task.id})).task.status,'cancelled');report.checks.push('sidebar-capture-cancellation');
- await rpc('desktop_pet',{visible:false});await close();await launch();assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
+ await rpc('desktop_pet',{visible:false});await close();await launch(false);assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
  const before=cookies.length;await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/check'});await wait(()=>cookies.length>before,'persistent cookie request');assert.match(cookies.at(-1),/ibm_fixture_session=retained/);report.checks.push('browser-login-cookie-survives-application-restart');
  report.ok=true;
-}catch(error){report.error=String(error);if(page)await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});if(frame)report.failureText=await frame.evaluate(()=>document.body.innerText).catch(()=>undefined);throw error;}
+}catch(error){report.error=String(error);if(browser)report.pages=await Promise.all((await browser.pages()).map(async page=>({url:page.url(),text:await page.evaluate(()=>document.body.innerText).catch(()=>undefined)})));if(page)await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});if(frame)report.failureText=await frame.evaluate(()=>document.body.innerText).catch(()=>undefined);throw error;}
 finally{await close().catch(()=>{});await new Promise(done=>server.close(done));writeFileSync(join(work,'desktop.log'),log);writeFileSync(join(work,'verification.json'),JSON.stringify(report,null,2)+'\n');console.log('Sidebar and pet evidence: '+join(work,'verification.json'));}

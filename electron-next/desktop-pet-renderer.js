@@ -1,9 +1,10 @@
+import { selectPetTask } from '../src/runtime/task-activity.js';
 const element=id=>document.getElementById(id);
 element('hide').onclick=()=>window.ibmPet.hide();element('main').onclick=()=>window.ibmPet.openMain();
 window.renderPet=state=>{
  element('portrait').src=state.icon;
  const tasks=state.tasks??[],active=tasks.filter(row=>['running','waiting','queued'].includes(row.status));
- const task=active[0]??tasks[0];
+ const task=selectPetTask(tasks);
  const mood=!task?'idle':task.status==='failed'?'error':task.status==='completed'?'done':['waiting','queued'].includes(task.status)?'waiting':task.status==='cancelled'?'idle':'busy';
  element('pet').className=mood;element('badge').textContent={idle:'·',busy:'↻',waiting:'Ⅱ',done:'✓',error:'!'}[mood];
  element('label').textContent=task?.label??'iBM 科研助手';element('stage').textContent=task?.stage??(state.connected?'准备好开始科研任务':'任务状态连接中…');

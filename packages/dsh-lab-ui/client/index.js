@@ -5001,7 +5001,17 @@ function installSidebarBrowser(ctx) {
       if (!sessionId) throw Error("请先为此课题打开一个对话，再启动文献任务");
       setDesktopProject(request.projectId);
       ctx.uiWorkspace.openSession(sessionId);
-      ctx.sidebarRight.openTabIn(sessionId, "browser", { params: { url: request.url }, revealIfOpened: false });
+      let opened = false;
+      for (let attempt = 0; attempt < 80 && !disposed; attempt++) {
+        if (ctx.sidebarRight.mounted.getSnapshot() === sessionId) try {
+          ctx.sidebarRight.openTab("browser", { params: { url: request.url }, revealIfOpened: false });
+          opened = true;
+          break;
+        } catch {
+        }
+        await new Promise((done) => setTimeout(done, 50));
+      }
+      if (!opened) throw Error("课题侧栏尚未就绪，请进入对应课题对话后重试");
     } catch (error) {
       bridge.rejected(request.id, error.message);
     }

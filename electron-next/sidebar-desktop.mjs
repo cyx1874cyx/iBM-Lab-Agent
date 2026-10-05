@@ -26,7 +26,7 @@ export class DesktopBrowserGuests extends NextGuests {
   this.server=createServer(socket=>{
    let verified=false;const deadline=setTimeout(()=>socket.destroy(),3000);
    const lines=createInterface({input:socket});
-   socket.on('error',()=>{});socket.once('close',()=>{clearTimeout(deadline);this.sockets.delete(socket);});
+   socket.on('error',()=>{});socket.once('close',()=>{clearTimeout(deadline);this.sockets.delete(socket);if(verified&&this.sockets.size===0)void this.pet.update({connected:false,tasks:[]});});
    lines.on('line',line=>{
     let packet;try{packet=JSON.parse(line);}catch{socket.destroy();return;}
     if(!verified){if(packet.auth!==auth){socket.destroy();return;}verified=true;clearTimeout(deadline);this.sockets.add(socket);socket.write(JSON.stringify({event:'ready',electron:process.versions.electron})+'\n');return;}

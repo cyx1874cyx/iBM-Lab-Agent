@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TaskActivity,toolActivity,activitySnapshot,registeredActivity} from '../../src/runtime/task-activity.js';
+import {TaskActivity,toolActivity,activitySnapshot,registeredActivity,selectPetTask} from '../../src/runtime/task-activity.js';
 test('all seven research categories have real execution classifications',()=>{
  for(const [name,kind] of [['lab_tasks_fetch_wechat_article','wechat'],['lab_tasks_get_reading_inputs','reading'],['lab_ppt_build_from_template','ppt'],['lab_synth_route_create','synthesis'],['mnova_apply_assignments_1d','nmr'],['origin_export_graph','origin']])assert.equal(toolActivity(name)?.kind,kind);
  assert.equal(toolActivity('lab_tasks_register_paper_meta'),null);
@@ -30,4 +30,9 @@ test('waiting review is not a completed scientific task; concurrent work remains
  assert.equal(row.status,'waiting');assert.equal(row.percent,null);
  const activity=new TaskActivity();activity.update('one',{label:'核磁',stage:'标峰',status:'running'});activity.update('two',{label:'Origin',stage:'绘图',status:'running'});
  assert.equal(activity.snapshot([row]).length,3);
+});
+test('completion is briefly visible while other tasks wait, then the pet returns to active work',()=>{
+ const tasks=[{id:'review',status:'waiting',updatedAt:100},{id:'pdf',status:'completed',updatedAt:10000}];
+ assert.equal(selectPetTask(tasks,12000).id,'pdf');assert.equal(selectPetTask(tasks,16000).id,'review');
+ tasks[0].startedAt=11000;assert.equal(selectPetTask(tasks,12000).id,'review');
 });
