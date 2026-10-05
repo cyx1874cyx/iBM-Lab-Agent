@@ -1,5 +1,5 @@
 /** Offline first-run setup. No live profiles, credentials or research data are read. */
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync, realpathSync, renameSync, symlinkSync, mkdtempSync } from 'node:fs';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
@@ -32,6 +32,40 @@ function realDirectory(path){
  mkdirSync(path,{recursive:true});
 }
 
+/** Kernel packages contain process-local Symbols; every plugin must import the
+ * same physical modules as the Agent loop. Keep replaced installer copies as
+ * recovery backups, never alter research data or the bundled kernel itself. */
+export function shareKernelModules({home,resources,ledger}){
+ const modules=join(resolve(home),'profiles','ibm-lab','node_modules');realDirectory(modules);
+ const modulesRelative=relative(realpathSync(home),realpathSync(modules));if(isAbsolute(modulesRelative)||modulesRelative.startsWith('..'))throw Error('Kernel module directory escapes home');
+ const packagedModules=join(resolve(resources),'app','node_modules');
+ const runtimeModules=existsSync(packagedModules)?packagedModules:join(resolve(resources),'..','app','node_modules');
+ let backup;const shared=[];
+ for(const item of ledger.packages){
+  if(!/^@deepseek-ai\/[a-z0-9._-]+$/i.test(item.name))continue;
+  const source=join(runtimeModules,item.name),target=join(modules,item.name);
+  const shipped=JSON.parse(readFileSync(join(source,'package.json')));
+  if(shipped.name!==item.name||shipped.version!==item.version)throw Error('Kernel dependency version mismatch: '+item.name);
+  realDirectory(dirname(target));
+  const existing=lstatSync(target,{throwIfNoEntry:false});
+  if(existing?.isSymbolicLink()&&existsSync(target)&&realpathSync(target)===realpathSync(source)){shared.push(item.name);continue;}
+  let saved;
+  if(existing){
+   if(!existing.isSymbolicLink()){
+    const installed=JSON.parse(readFileSync(join(target,'package.json')));
+    if(installed.name!==item.name||installed.version!==item.version)throw Error('Unmanaged kernel dependency: '+item.name);
+    const rel=relative(resolve(home),realpathSync(target));if(isAbsolute(rel)||rel.startsWith('..'))throw Error('Kernel dependency is outside the owned home');
+   }
+   if(!backup){const recovery=join(resolve(home),'recovery','ibm-kernel-modules');realDirectory(join(resolve(home),'recovery'));realDirectory(recovery);backup=mkdtempSync(join(recovery,'repair-'));}
+   saved=join(backup,item.name);mkdirSync(dirname(saved),{recursive:true});renameSync(target,saved);
+  }
+  try{symlinkSync(realpathSync(source),target,process.platform==='win32'?'junction':'dir');}
+  catch(error){if(saved)renameSync(saved,target);throw error;}
+  shared.push(item.name);
+ }
+ return {shared,backup:backup??null};
+}
+
 export function initializeRelease({home,resources,electron,profiles}){
  home=resolve(home);resources=resolve(resources);realDirectory(home);
  const release=JSON.parse(readFileSync(join(resources,'release.json')));
@@ -39,13 +73,14 @@ export function initializeRelease({home,resources,electron,profiles}){
  process.env.DSH_DESKTOP_NEXT_HOME=home;process.env.DSH_HOME=home;
  process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=python;process.env.IBM_LAB_AGENT_BUNDLED_ELECTRON=electron;
  const manager=new profiles(home),marker=join(home,'ibm-release.json');
- if(existsSync(marker)){const current=JSON.parse(readFileSync(marker));if(current.ibm!==release.ibm)throw Error('Different release data requires an explicit migration');return {home,initialized:false,python};}
- const profile=manager.ensure('ibm-lab'),modules=join(profile,'node_modules');realDirectory(modules);
  const ledger=JSON.parse(readFileSync(join(resources,'archives','release-archives.json')));
+ if(existsSync(marker)){const current=JSON.parse(readFileSync(marker));if(current.ibm!==release.ibm)throw Error('Different release data requires an explicit migration');const kernel=shareKernelModules({home,resources,ledger});return {home,initialized:false,python,kernel};}
+ const profile=manager.ensure('ibm-lab'),modules=join(profile,'node_modules');realDirectory(modules);
  for(const item of ledger.packages){
   if(!/^(@[a-z0-9._-]+\/)?[a-z0-9._-]+$/i.test(item.name))throw Error('Invalid package name');
   const file=join(resources,'archives',item.file),bytes=readFileSync(file);
   if(createHash('sha256').update(bytes).digest('hex')!==item.sha256||bytes.length!==item.bytes)throw Error('Release archive integrity mismatch');
+  if(item.name.startsWith('@deepseek-ai/'))continue;
   const target=join(modules,item.name);realDirectory(target);extractPackageArchive(bytes,target);
  }
  const file=join(profile,'package.json'),manifest=JSON.parse(readFileSync(file));
@@ -58,6 +93,7 @@ export function initializeRelease({home,resources,electron,profiles}){
  for(const name of ['vendor.lock.json','requirements.lock'])cpSync(join(resources,name),join(lab,name));
  for(const name of ['nature-skills','mnova-mcp'])cpSync(join(resources,'vendor',name),join(lab,'vendor',name),{recursive:true});
  manager.select('ibm-lab');
+ const kernel=shareKernelModules({home,resources,ledger});
  writeFileSync(marker,JSON.stringify({...release,initializedAt:new Date().toISOString()},null,2)+'\n');
- return {home,initialized:true,python};
+ return {home,initialized:true,python,kernel};
 }
