@@ -1562,7 +1562,7 @@ function DesktopPetSettings({ call }) {
   (0, import_react3.useEffect)(() => {
     void change();
   }, [call]);
-  return h("div", { "data-ibm-pet-settings": true }, h("h3", null, "科研桌面宠物"), h("p", null, "使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。"), h("button", { className: "ib-btn", disabled: busy || !state, onClick: () => void change(!state.visible) }, state?.visible ? "隐藏桌面宠物" : "显示桌面宠物"), error ? h("p", { role: "alert", className: "ib-error" }, error) : null, h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。工具步骤完成和整项任务完成分别显示。"));
+  return h("div", { "data-ibm-pet-settings": true }, h("h3", null, "科研桌面宠物"), h("p", null, "使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。"), h("button", { className: "ib-btn", disabled: busy || !state, onClick: () => void change(!state.visible) }, state?.visible ? "隐藏桌面宠物" : "显示桌面宠物"), error ? h("p", { role: "alert", className: "ib-error" }, error) : null, h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。"));
 }
 function PluginSettings({ call }) {
   const [tab, setTab] = (0, import_react3.useState)("templates");

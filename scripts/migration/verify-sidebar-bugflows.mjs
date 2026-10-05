@@ -57,16 +57,16 @@ try{
  await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='当前没有进行中的任务'),'pet real Host connection');
  const uploadPath=join(work,'对话附件.pdf'),textPath=join(work,'中文记录.txt');writeFileSync(uploadPath,pdf);writeFileSync(textPath,'上传验收');
- const receipts=[];page.on('response',async response=>{if(response.url().includes('/api/session/uploadFileBinary'))try{receipts.push(await response.json());}catch{}});
+ await frame.evaluate(()=>{const original=globalThis.fetch;globalThis.__ibmUploadReceipts=[];globalThis.fetch=async(...args)=>{const response=await original(...args);if(String(args[0]).includes('/api/session/uploadFileBinary'))globalThis.__ibmUploadReceipts.push(await response.clone().json());return response;};});
  report.uploadInputs=await frame.evaluate(()=>[...document.querySelectorAll('input[type=file]')].map(n=>({disabled:n.disabled,hidden:n.hidden,html:n.outerHTML})));
- const uploadInput=await frame.$('input[type=file]');assert.ok(uploadInput,'conversation file picker');await uploadInput.uploadFile(uploadPath,textPath);await wait(()=>receipts.length===2,'two authenticated upload receipts');await delay(500);
+ const uploadInput=await frame.$('input[type=file]');assert.ok(uploadInput,'conversation file picker');await uploadInput.uploadFile(uploadPath,textPath);const receipts=await wait(async()=>{const rows=await frame.evaluate(()=>globalThis.__ibmUploadReceipts);return rows.length===2?rows:false;},'two authenticated upload receipts');await delay(500);
  assert.ok(receipts.every(result=>result.ok&&result.value.receiptId));assert.equal(receipts.find(r=>r.value.file.name==='对话附件.pdf').value.file.bytes,pdf.length);report.uploadReceipts=receipts;report.checks.push('conversation-multiple-PDF-and-Chinese-text-upload-staged-with-real-receipts');
  report.uploadText=await frame.evaluate(()=>document.body.innerText);
  await page.screenshot({path:join(work,'upload.png')});
  assert.ok(!/上传失败|上传出错|background upload|HTTP 403/.test(report.uploadText),'conversation upload failed: '+report.uploadText.slice(-1500));
  const registered=JSON.parse(readFileSync(join(work,'wechat-registration.json'),'utf8'));report.registration=registered;
- const bundleId=registered.bundle.id;
- const coldCapture=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId,kind:'pdf'});
+ const metadataBundleId=registered.bundle.id;
+ const coldCapture=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:metadataBundleId,kind:'pdf'});
  const opened=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window;assert.ok(opened.lease);report.checks.push('wechat-metadata-registration-then-cold-sidebar-capture-without-application-exit');
  await frame.waitForFunction(()=>document.querySelector('webview'));
  await frame.waitForFunction(()=>document.querySelector('webview')?.getURL().includes('/'));
@@ -81,7 +81,7 @@ try{
  },origin);
  assert.notEqual(isolated.partition,info.partition);assert.equal(isolated.cookie.includes('ibm_fixture_session'),false);report.checks.push('institution-session-isolated-between-workspaces');
  let completed;
- for(const [bundleId,kind] of [[bundleId,'pdf'],['sidebar-si','si']]){
+ for(const [bundleId,kind] of [[metadataBundleId,'pdf'],['sidebar-si','si']]){
   const created=kind==='pdf'?coldCapture:await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId,kind});
   assert.ok(!(await pet.evaluate(()=>document.body.innerText)).includes('等待开始'),'pet must exclude queued reading');
   const lease=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease;
