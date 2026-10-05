@@ -34,12 +34,18 @@ function Diagnostics({ call }) {
   report ? h("details", null, h("summary", null, "查看诊断详情与版本登记"), h("pre", null, JSON.stringify(report, null, 2))) : null);
 }
 
+function DesktopPetSettings({call}) {
+ const [state,setState]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const change=async visible=>{setBusy(true);try{setState(await call('desktop_pet',visible===undefined?{}:{visible}));setError('');}catch(reason){setError(reason.message);}finally{setBusy(false);}};
+ useEffect(()=>{void change();},[call]);
+ return h('div',{'data-ibm-pet-settings':true},h('h3',null,'科研桌面宠物'),h('p',null,'使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。'),h('button',{className:'ib-btn',disabled:busy||!state,onClick:()=>void change(!state.visible)},state?.visible?'隐藏桌面宠物':'显示桌面宠物'),error?h('p',{role:'alert',className:'ib-error'},error):null,h('p',null,'支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。工具步骤完成和整项任务完成分别显示。'));
+}
 function PluginSettings({ call }) {
  const [tab, setTab] = useState("templates");
  return h("section", { className: "ib-settings", "data-ibm-plugin-settings": true },
-  h("h2", null, "iBM 插件设置"), h("p", null, "管理科研插件的全局模板与运行诊断。模板设置适用于所有课题。"),
-  h("div", { className: "ib-tm-tabs" }, [ ["templates", "模板管理"], ["diagnostics", "诊断与版本"] ].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
-  tab === "templates" ? h(Templates, { call }) : h(Diagnostics, { call }));
+  h("h2", null, "iBM 插件设置"), h("p", null, "管理全局模板、运行诊断与桌面宠物。模板设置适用于所有课题。"),
+  h("div", { className: "ib-tm-tabs" }, [ ["templates", "模板管理"], ["diagnostics", "诊断与版本"],["pet","桌面宠物"] ].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
+  tab === "templates" ? h(Templates, { call }) : tab==='pet'?h(DesktopPetSettings,{call}):h(Diagnostics, { call }));
 }
 
 export function registerPluginSettings(ctx) {

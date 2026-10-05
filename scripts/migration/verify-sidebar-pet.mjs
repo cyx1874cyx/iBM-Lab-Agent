@@ -1,0 +1,90 @@
+/** Actual official NEXT browser UI + native guest + Host archive, isolated fixtures only. */
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {once} from 'node:events';
+import {spawn} from 'node:child_process';
+import {mkdirSync,mkdtempSync,writeFileSync,readFileSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import puppeteer from 'puppeteer-core';
+import {initializeRelease} from '../../electron-next/release-runtime.mjs';
+const arg=name=>resolve(process.argv[process.argv.indexOf(name)+1]);
+const app=arg('--app'),resources=arg('--resources'),executable=arg('--executable'),output=arg('--output');
+mkdirSync(output,{recursive:true});const work=mkdtempSync(join(output,'run-')),home=join(work,'独立科研 验收');
+const pdf=Buffer.from('%PDF-1.4\n/Type /Page\nSIDEBAR FIXTURE\n'+' '.repeat(200000)+'\n%%EOF');
+const cookies=[];
+const server=createServer((req,res)=>{
+ if(req.url.startsWith('/file')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'attachment; filename="fixture-SI.pdf"','content-length':pdf.length});let offset=0;const timer=setInterval(()=>{res.write(pdf.subarray(offset,offset+20000));offset+=20000;if(offset>=pdf.length){clearInterval(timer);res.end();}},250);res.once('close',()=>clearInterval(timer));}
+ else{if(req.url.startsWith('/check'))cookies.push(req.headers.cookie??'');res.writeHead(200,{'content-type':'text/html',...(!req.url.startsWith('/check')?{'set-cookie':'ibm_fixture_session=retained; Path=/; Max-Age=3600'}:{})});res.end('<title>SIDEBAR PUBLISHER</title><h1>SIDEBAR PUBLISHER</h1><button onclick="window.open(\'/file.pdf\')">Download PDF</button>');}
+});server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
+const {NextProfiles}=await import(pathToFileURL(join(app,'lib/profiles.js')));
+initializeRelease({home,resources,electron:executable,profiles:NextProfiles});const profiles=new NextProfiles(home);profiles.finishOnboarding('ibm-lab');profiles.dismissAccountSetup('ibm-lab');
+const fixture=join(profiles.directory('ibm-lab'),'node_modules','dsh-ibm-sidebar-fixture');mkdirSync(fixture,{recursive:true});
+writeFileSync(join(fixture,'package.json'),JSON.stringify({name:'dsh-ibm-sidebar-fixture',version:'1.0.0',type:'module',main:'index.js'}));
+writeFileSync(join(fixture,'index.js'),`export const inject=['ibmCore','ibmScientificDesktop'];export async function apply(ctx){
+ if(!ctx.ibmCore.getProject('sidebar-test'))await ctx.ibmCore.createProject({id:'sidebar-test',name:'侧栏宠物验收'});
+ for(const id of ['sidebar-pdf','sidebar-si','sidebar-cancel'])if(!ctx.ibmCore.getArtifact('source-bundle',id))await ctx.ibmCore.commitSourceBundle({id,projectId:'sidebar-test',title:'Fixture '+id,doi:'10.1038/fixture-'+id,status:'succeeded',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+ ctx.ibmScientificDesktop.config.portal=${JSON.stringify(origin)};
+ const navigate=ctx.ibmScientificDesktop.navigate.bind(ctx.ibmScientificDesktop);
+ ctx.ibmScientificDesktop.navigate=(lease,url)=>navigate(lease,url.startsWith('https://doi.org/10.1038/fixture-')?${JSON.stringify(origin+'/paper')}:url);
+}`);
+const patch=join(profiles.directory('ibm-lab'),'cordis.patch.yml');writeFileSync(patch,readFileSync(patch,'utf8').replace(/^\[\]\s*$/m,'')+"\n- insert:\n    - id: sidebar-fixture\n      name: 'dsh-ibm-sidebar-fixture'\n");
+const report={ok:false,home,checks:[],scope:'Official NEXT UI and actual Electron download into isolated projects; synthetic publisher, no institution account or model credentials.'};
+const delay=ms=>new Promise(done=>setTimeout(done,ms));
+const wait=async(fn,label)=>{for(let i=0;i<300;i++){const result=await fn();if(result)return result;await delay(100);}throw Error('Timed out: '+label);};
+let child,browser,frame,page,pet,log='';
+const launch=async()=>{
+ let endpoint;
+ child=spawn(executable,[...(process.argv.includes('--staged')?[app]:[]),'--remote-debugging-port=0'],{env:{...process.env,DSH_HOME:home,DSH_DESKTOP_NEXT_HOME:home,ELECTRON_RUN_AS_NODE:undefined,DSH_TELEMETRY_DISABLED:'1',IBM_SIDEBAR_TEST_ORIGINS:JSON.stringify([origin])},stdio:['ignore','pipe','pipe'],windowsHide:true});
+ for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{const value=String(chunk);endpoint??=value.match(/DevTools listening on (ws:\/\/\S+)/)?.[1];log+=value.replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');});
+ await wait(()=>endpoint,'desktop debug endpoint');browser=await puppeteer.connect({browserWSEndpoint:endpoint,defaultViewport:null});
+ await wait(async()=>{for(const candidate of await browser.pages()){if(candidate.url().includes('desktop-pet.html'))pet=candidate;for(const current of candidate.frames())if(await current.$('.ib-hero-chip').catch(()=>false)){page=candidate;frame=current;}}return frame&&pet;},'main and pet');
+};
+const rpc=(method,request)=>frame.evaluate(async(method,request)=>{
+ const response=await fetch('/api/lab/'+method,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/'+method,payload:{args:request?{request}:{}}})});const result=await response.json();if(!result.result?.ok)throw Error(JSON.stringify(result));return result.result.value;
+},method,request);
+const close=async()=>{await browser?.close().catch(()=>{});await wait(()=>child.exitCode!==null,'desktop shutdown').catch(()=>child.kill());browser=null;frame=null;pet=null;};
+try{
+ await launch();await frame.click('.ib-hero-chip');
+ await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-hero-menu-item')].some(node=>node.innerText.includes('侧栏宠物验收')));
+ await frame.evaluate(()=>[...document.querySelectorAll('.ib-hero-menu-item')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
+ await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
+ await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='准备好开始科研任务'),'pet real Host connection');
+ const opened=await rpc('desktop_browser',{action:'open',projectId:'sidebar-test'});assert.equal(opened.sidebar,true);
+ await frame.waitForFunction(()=>document.querySelector('webview'));
+ await frame.waitForFunction(()=>document.querySelector('webview')?.getURL().includes('/'));
+ const info=await frame.evaluate(()=>{const view=document.querySelector('webview');return {url:view.getURL(),parent:!!view.closest('[data-sidebar-right-tab]'),partition:view.getAttribute('partition'),bounds:view.getBoundingClientRect().toJSON(),guestId:view.getWebContentsId()};});
+ assert.equal(info.parent,true);assert.ok(info.partition.startsWith('persist:ibm-sidebar-'));assert.ok(info.bounds.width>100);assert.ok(info.bounds.height>100);report.browser=info;report.checks.push('official-browser-tab-mounted-inside-right-sidebar','persistent-project-storage-partition');
+ await page.screenshot({path:join(work,'sidebar.png')});
+ const isolated=await frame.evaluate(async origin=>{
+  const reservation=await window.dshDesktop.browser.acquire('cwd:independent-fixture-workspace');
+  const guest=document.createElement('webview');guest.setAttribute('partition',reservation.partition);guest.setAttribute('src','about:blank#'+reservation.lease);guest.style.cssText='position:absolute;width:150px;height:100px;left:-1000px;top:-1000px';
+  const ready=new Promise(done=>guest.addEventListener('dom-ready',done,{once:true}));document.body.append(guest);await ready;await guest.loadURL(origin+'/check-other');
+  const cookie=await guest.executeJavaScript('document.cookie');await window.dshDesktop.browser.release(reservation.lease);guest.remove();return {partition:reservation.partition,cookie};
+ },origin);
+ assert.notEqual(isolated.partition,info.partition);assert.equal(isolated.cookie.includes('ibm_fixture_session'),false);report.checks.push('institution-session-isolated-between-workspaces');
+ let completed;
+ for(const [bundleId,kind] of [['sidebar-pdf','pdf'],['sidebar-si','si']]){
+  const created=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId,kind});
+  await wait(()=>pet.evaluate(()=>document.querySelector('#label').innerText.includes('正文')),'pet capture task');
+  const lease=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease;
+  // Actual user click in the official embedded browser; the native download is authoritative.
+  const guest=await wait(async()=>{for(const target of browser.targets())if(target.type()==='webview'){const session=await target.createCDPSession();const value=await session.send('Runtime.evaluate',{expression:'document.title',returnByValue:true});if(value.result.value==='SIDEBAR PUBLISHER')return session;await session.detach();}return false;},'publisher guest');
+  await guest.send('Runtime.evaluate',{expression:'document.querySelector("button").click()',userGesture:true});await guest.detach();
+  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='正在下载'),'real download progress in pet');
+  await pet.screenshot({path:join(work,'pet-downloading-'+kind+'.png'),omitBackground:true});
+  completed=await wait(async()=>{const task=(await rpc('manual_capture_get',{taskId:created.task.id})).task;return task?.status==='completed'?task:false;},'PDF/SI archive');
+  assert.equal(completed.size,pdf.length);assert.ok(completed.fileSha256);
+  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='归档完成'),'pet archived status');
+  report.checks.push(kind+'-actual-sidebar-download-validated-and-archived');report.lease=lease;
+ }
+ await pet.screenshot({path:join(work,'pet-completed.png'),omitBackground:true});
+ assert.equal((await browser.pages()).filter(p=>!p.url().startsWith('dsh-')&&!p.url().includes('desktop-pet.html')&&!p.url().startsWith('devtools:')&&p.url()!=='about:blank').length,0,'publisher opened a standalone window');
+ report.checks.push('publisher-download-popup-stays-in-sidebar','pet-real-stage-byte-progress-and-archive-completion');
+ await rpc('desktop_pet',{visible:false});assert.equal((await rpc('desktop_pet',{})).visible,false);await rpc('desktop_pet',{visible:true});assert.equal((await rpc('desktop_pet',{})).visible,true);report.checks.push('pet-show-hide-preference');
+ const pending=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:'sidebar-cancel',kind:'pdf'});await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:pending.task.id});assert.equal((await rpc('manual_capture_get',{taskId:pending.task.id})).task.status,'cancelled');report.checks.push('sidebar-capture-cancellation');
+ await rpc('desktop_pet',{visible:false});await close();await launch();assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
+ const before=cookies.length;await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/check'});await wait(()=>cookies.length>before,'persistent cookie request');assert.match(cookies.at(-1),/ibm_fixture_session=retained/);report.checks.push('browser-login-cookie-survives-application-restart');
+ report.ok=true;
+}catch(error){report.error=String(error);if(page)await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});if(frame)report.failureText=await frame.evaluate(()=>document.body.innerText).catch(()=>undefined);throw error;}
+finally{await close().catch(()=>{});await new Promise(done=>server.close(done));writeFileSync(join(work,'desktop.log'),log);writeFileSync(join(work,'verification.json'),JSON.stringify(report,null,2)+'\n');console.log('Sidebar and pet evidence: '+join(work,'verification.json'));}

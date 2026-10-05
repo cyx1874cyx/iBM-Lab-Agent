@@ -13,7 +13,7 @@ export function buildDescriptors() {
 		const descriptors = [
  direct("capabilities"),
  direct("runtime_environment"),
- direct("desktop_status"), direct("desktop_browser", ["request"]), direct("desktop_artifact", ["request"]),
+ direct("desktop_status"), direct("desktop_browser", ["request"]), direct("desktop_artifact", ["request"]),direct("desktop_pet",["request"]),
  ...["synth_compound_resolve_first","characterization_list","characterization_submit","characterization_retry","characterization_remove","characterization_dispatch_failed"].map(name=>direct(name,["request"])),
 			// 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
 			// LabRemoteService.note_templates_list(request) 读 request.kind），

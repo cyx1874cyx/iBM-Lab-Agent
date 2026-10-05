@@ -70,6 +70,13 @@ try{
    await clickText('重新检查');await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-diagnostics] button')].some(n=>n.innerText==='重新检查'&&!n.disabled),{timeout:60000});
    await page.screenshot({path:join(work,'ibm-diagnostics.png')});
    report.checks.push('live-runtime-diagnostics-loaded','diagnostics-refresh-and-export-clicked');
+   if(process.argv.includes('--pet')){
+    await clickText('桌面宠物');
+    await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-pet-settings] button')].some(button=>button.innerText==='隐藏桌面宠物'&&!button.disabled));
+    await clickText('隐藏桌面宠物');await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-pet-settings] button')].some(button=>button.innerText==='显示桌面宠物'&&!button.disabled));
+    await clickText('显示桌面宠物');await frame.waitForFunction(()=>[...document.querySelectorAll('[data-ibm-pet-settings] button')].some(button=>button.innerText==='隐藏桌面宠物'&&!button.disabled));
+    await page.screenshot({path:join(work,'ibm-pet-settings.png')});report.checks.push('pet-settings-physical-hide-and-show');
+   }
   }
  }
  assert.equal(await frame.evaluate(()=>document.body.innerText.includes('正在加载设置')),false);

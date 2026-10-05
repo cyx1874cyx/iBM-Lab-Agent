@@ -23,6 +23,10 @@ cpSync(join(runtime,'scripts/node-bin'),join(appDir,'scripts/node-bin'),{recursi
 mkdirSync(join(appDir,'build'));cpSync(join(runtime,'build/app-icon.ico'),join(appDir,'build/app-icon.ico'));
 for(const name of ['ibm-bootstrap.mjs','release-runtime.mjs'])cpSync(join(repo,'electron-next',name),join(appDir,name));
 const mainFile=join(appDir,'lib/main.js');let main=readFileSync(mainFile,'utf8');
+assert.equal(main.split('from "./browser-guests.js"').length,2);
+main=main.replace('from "./browser-guests.js"','from "../node_modules/dsh-lab-agent/electron-next/sidebar-desktop.mjs"');
+const preloadFile=join(appDir,'lib/preload-app.cjs');
+writeFileSync(preloadFile,readFileSync(preloadFile,'utf8')+'\n'+readFileSync(join(repo,'electron-next/sidebar-preload.cjs'),'utf8'));
 assert.equal(main.split('app.setName("DSH NEXT")').length,2);main=main.replace('app.setName("DSH NEXT")','app.setName("iBM Lab Agent")');
 assert.equal(main.split('const updates = new NextUpdates({').length,2);
 main=main.replace(/(const updates = new NextUpdates\(\{[\s\S]*?packaged:) app\.isPackaged/,'$1 false');

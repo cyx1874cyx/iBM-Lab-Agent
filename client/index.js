@@ -11,9 +11,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key2) && key2 !== except)
+        __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
   }
   return to;
 };
@@ -1039,10 +1039,10 @@ function ExperimentPlanTemplates({ call, state, reload }) {
     const timer = setTimeout(() => setToast(""), 3200);
     return () => clearTimeout(timer);
   }, [toast]);
-  const withBusy = (key, fn) => {
-    if (busy[key]) return;
-    setBusy((s) => ({ ...s, [key]: true }));
-    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key]: false })));
+  const withBusy = (key2, fn) => {
+    if (busy[key2]) return;
+    setBusy((s) => ({ ...s, [key2]: true }));
+    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key2]: false })));
   };
   const create = () => withBusy("create", async () => {
     const clean = String(name || "").trim();
@@ -1091,9 +1091,9 @@ function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-  const run = async (key, work) => {
-    if (busy[key]) return;
-    setBusy((old) => ({ ...old, [key]: true }));
+  const run = async (key2, work) => {
+    if (busy[key2]) return;
+    setBusy((old) => ({ ...old, [key2]: true }));
     try {
       await work();
     } catch (reason) {
@@ -1101,7 +1101,7 @@ function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
     } finally {
       setBusy((old) => {
         const n = { ...old };
-        delete n[key];
+        delete n[key2];
         return n;
       });
     }
@@ -1188,11 +1188,11 @@ function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
   const [error, setErrorTemp] = (0, import_react2.useState)("");
   const isCreate = !initial;
   const isCopy = !!initial && initial._copy;
-  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
-  const arrayField = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
-  const listField = (key) => (event) => {
+  const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
+  const arrayField = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
+  const listField = (key2) => (event) => {
     const value = event.target.value;
-    setForm((old) => ({ ...old, [key]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
+    setForm((old) => ({ ...old, [key2]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
   };
   const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
   const addSection = () => setForm((old) => ({ ...old, sections: [...old.sections || [], { key: "", title: "", required: true, hint: "" }] }));
@@ -1294,9 +1294,9 @@ function PptTemplates({ call, state, reload }) {
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-  const run = async (key, work) => {
-    if (busy[key]) return;
-    setBusy((old) => ({ ...old, [key]: true }));
+  const run = async (key2, work) => {
+    if (busy[key2]) return;
+    setBusy((old) => ({ ...old, [key2]: true }));
     try {
       await work();
     } catch (reason) {
@@ -1304,7 +1304,7 @@ function PptTemplates({ call, state, reload }) {
     } finally {
       setBusy((old) => {
         const n = { ...old };
-        delete n[key];
+        delete n[key2];
         return n;
       });
     }
@@ -1369,7 +1369,7 @@ function PptTemplateImport({ call, onCancel, onDone }) {
   const [error, setError] = (0, import_react2.useState)("");
   const [staged, setStaged] = (0, import_react2.useState)(null);
   const [mapping, setMapping] = (0, import_react2.useState)(null);
-  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const readFile = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1457,7 +1457,7 @@ function MetaEditor({ call, initial, onCancel, onSaved }) {
   const [form, setFormTemp] = (0, import_react2.useState)({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
   const [busy, setBusyTemp] = (0, import_react2.useState)(false);
   const [error, setErrorTemp] = (0, import_react2.useState)("");
-  const field = (key) => (event) => setFormTemp((old) => ({ ...old, [key]: event.target.value }));
+  const field = (key2) => (event) => setFormTemp((old) => ({ ...old, [key2]: event.target.value }));
   const save = async () => {
     setBusyTemp(true);
     setErrorTemp("");
@@ -1539,12 +1539,30 @@ function Diagnostics({ call }) {
     h("p", null, "检查已启用的服务与本机运行环境。单项失败不影响其余检查；报告包含软件版本和本机路径。"),
     h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", disabled: busy, onClick: refresh }, busy ? "检查中…" : "重新检查"), h("button", { className: "ib-btn", disabled: busy || !report, onClick: exportReport }, "导出插件诊断")),
     report ? h("small", null, `检查时间：${new Date(report.checkedAt).toLocaleString()}`) : null,
-    checks?.capabilities?.ok ? h("div", { className: "ib-card" }, h("h3", null, "服务状态"), Object.entries(providers).map(([key, label]) => h("div", { className: "ib-row", key }, h("b", null, label), h("span", null, checks.capabilities.value[key] ? "已启用" : "未启用")))) : null,
-    runtime2 ? h("div", { className: "ib-card" }, h("h3", null, "运行环境"), ["python", "node", "soffice"].map((key) => h("div", { key, className: "ib-settings-runtime" }, h("b", null, key === "soffice" ? "Office PDF 渲染（LibreOffice）" : key === "python" ? "Python" : "Node.js"), h("span", null, runtime2[key]?.available ? `可用 ${runtime2[key].version ?? ""}` : "不可用"), h("small", null, runtime2[key]?.command || runtime2[key]?.hint || "未找到可执行文件"))), ...(runtime2.warnings ?? []).map((text, i) => h("p", { key: i }, text))) : null,
+    checks?.capabilities?.ok ? h("div", { className: "ib-card" }, h("h3", null, "服务状态"), Object.entries(providers).map(([key2, label]) => h("div", { className: "ib-row", key: key2 }, h("b", null, label), h("span", null, checks.capabilities.value[key2] ? "已启用" : "未启用")))) : null,
+    runtime2 ? h("div", { className: "ib-card" }, h("h3", null, "运行环境"), ["python", "node", "soffice"].map((key2) => h("div", { key: key2, className: "ib-settings-runtime" }, h("b", null, key2 === "soffice" ? "Office PDF 渲染（LibreOffice）" : key2 === "python" ? "Python" : "Node.js"), h("span", null, runtime2[key2]?.available ? `可用 ${runtime2[key2].version ?? ""}` : "不可用"), h("small", null, runtime2[key2]?.command || runtime2[key2]?.hint || "未找到可执行文件"))), ...(runtime2.warnings ?? []).map((text, i) => h("p", { key: i }, text))) : null,
     checks?.convert_available?.ok ? h("div", { className: "ib-card" }, h("h3", null, "文档转换"), h("span", null, checks.convert_available.value.available ? "MarkItDown 可用" : "MarkItDown 不可用")) : null,
-    Object.entries(checks ?? {}).filter(([, row2]) => !row2.ok).map(([key, row2]) => h("div", { className: "ib-error", key, role: "alert" }, `${key}：${row2.error}`)),
+    Object.entries(checks ?? {}).filter(([, row2]) => !row2.ok).map(([key2, row2]) => h("div", { className: "ib-error", key: key2, role: "alert" }, `${key2}：${row2.error}`)),
     report ? h("details", null, h("summary", null, "查看诊断详情与版本登记"), h("pre", null, JSON.stringify(report, null, 2))) : null
   );
+}
+function DesktopPetSettings({ call }) {
+  const [state, setState] = (0, import_react3.useState)(null), [error, setError] = (0, import_react3.useState)(""), [busy, setBusy] = (0, import_react3.useState)(false);
+  const change = async (visible) => {
+    setBusy(true);
+    try {
+      setState(await call("desktop_pet", visible === void 0 ? {} : { visible }));
+      setError("");
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  (0, import_react3.useEffect)(() => {
+    void change();
+  }, [call]);
+  return h("div", { "data-ibm-pet-settings": true }, h("h3", null, "科研桌面宠物"), h("p", null, "使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。"), h("button", { className: "ib-btn", disabled: busy || !state, onClick: () => void change(!state.visible) }, state?.visible ? "隐藏桌面宠物" : "显示桌面宠物"), error ? h("p", { role: "alert", className: "ib-error" }, error) : null, h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。工具步骤完成和整项任务完成分别显示。"));
 }
 function PluginSettings({ call }) {
   const [tab, setTab] = (0, import_react3.useState)("templates");
@@ -1552,9 +1570,9 @@ function PluginSettings({ call }) {
     "section",
     { className: "ib-settings", "data-ibm-plugin-settings": true },
     h("h2", null, "iBM 插件设置"),
-    h("p", null, "管理科研插件的全局模板与运行诊断。模板设置适用于所有课题。"),
-    h("div", { className: "ib-tm-tabs" }, [["templates", "模板管理"], ["diagnostics", "诊断与版本"]].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
-    tab === "templates" ? h(Templates, { call }) : h(Diagnostics, { call })
+    h("p", null, "管理全局模板、运行诊断与桌面宠物。模板设置适用于所有课题。"),
+    h("div", { className: "ib-tm-tabs" }, [["templates", "模板管理"], ["diagnostics", "诊断与版本"], ["pet", "桌面宠物"]].map(([key2, text]) => h("button", { key: key2, className: "ib-tm-tab", "data-active": tab === key2, onClick: () => setTab(key2) }, text))),
+    tab === "templates" ? h(Templates, { call }) : tab === "pet" ? h(DesktopPetSettings, { call }) : h(Diagnostics, { call })
   );
 }
 function registerPluginSettings(ctx) {
@@ -1580,6 +1598,7 @@ function buildDescriptors() {
     direct("desktop_status"),
     direct("desktop_browser", ["request"]),
     direct("desktop_artifact", ["request"]),
+    direct("desktop_pet", ["request"]),
     ...["synth_compound_resolve_first", "characterization_list", "characterization_submit", "characterization_retry", "characterization_remove", "characterization_dispatch_failed"].map((name) => direct(name, ["request"])),
     // 本次修复：note_templates_list 接受 `{ kind }` 过滤参数（服务端
     // LabRemoteService.note_templates_list(request) 读 request.kind），
@@ -1903,11 +1922,11 @@ function resetKetcherHiddenFrame() {
   return ensureKetcherHiddenFrame();
 }
 function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false, timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 2e4 } = {}) {
-  const key = ketcherCacheKey(smiles, { width, height, theme, format, natural });
-  if (ketcherModule.cache[key]) return Promise.resolve(ketcherModule.cache[key]);
+  const key2 = ketcherCacheKey(smiles, { width, height, theme, format, natural });
+  if (ketcherModule.cache[key2]) return Promise.resolve(ketcherModule.cache[key2]);
   ensureKetcherHiddenFrame();
   return new Promise((resolve) => {
-    const queuedJob = { key, smiles: normName(smiles), width: natural ? void 0 : width, height: natural ? void 0 : height, theme, format, resolve };
+    const queuedJob = { key: key2, smiles: normName(smiles), width: natural ? void 0 : width, height: natural ? void 0 : height, theme, format, resolve };
     ketcherModule.queue.push(queuedJob);
     const drain = () => {
       if (ketcherModule.busy || !ketcherModule.queue.length) return;
@@ -2001,9 +2020,9 @@ function stepCompoundsByRole(step, roles) {
   for (const row2 of step?.structures ?? []) {
     const role = row2.role || "unknown";
     if (!wanted.has(role)) continue;
-    const key = normName(row2.name);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const key2 = normName(row2.name);
+    if (seen.has(key2)) continue;
+    seen.add(key2);
     out.push(row2);
   }
   return out;
@@ -2272,7 +2291,7 @@ function PdfViewerFrame({ row: row2, notify }) {
       try {
         const computed = getComputedStyle(document.body);
         const theme = {};
-        for (const key of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key] = computed.getPropertyValue(`--dsw-alias-${key}`).trim();
+        for (const key2 of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key2] = computed.getPropertyValue(`--dsw-alias-${key2}`).trim();
         iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote: locatorQuote, pageLabel: rawPage }, "*");
       } catch {
       }
@@ -2473,12 +2492,12 @@ function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans =
       stale = true;
     };
   }, [routeId, selectedStepId, !!detail]);
-  const withBusy = (key, work) => {
-    if (busy[key]) return;
-    setBusy((old) => ({ ...old, [key]: true }));
+  const withBusy = (key2, work) => {
+    if (busy[key2]) return;
+    setBusy((old) => ({ ...old, [key2]: true }));
     return Promise.resolve().then(work).catch((reason) => notify(reason.message || "操作失败")).finally(() => setBusy((old) => {
       const next = { ...old };
-      delete next[key];
+      delete next[key2];
       return next;
     }));
   };
@@ -3310,7 +3329,7 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     setError("");
     setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", structurePath: "", instructions: kind === "nmr" ? "根据所附分子结构处理一维核磁原始数据，在 Mnova 中完成峰归属和字母标注，保存可编辑谱图及核磁报告并自动归档。" : "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
   };
-  const change = (key) => (e) => setForm((old) => ({ ...old, [key]: e.target.value }));
+  const change = (key2) => (e) => setForm((old) => ({ ...old, [key2]: e.target.value }));
   const upload = (field2, label) => async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3424,7 +3443,7 @@ function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) 
     h("button", { className: "ib-btn", "data-danger": true, disabled: busy, onClick: () => void remove(row2, kind), title: `删除${kind === "nmr" ? "核磁" : "绘图"}登记（保留课题文件）` }, "删除"),
     h("details", { className: "ib-entry-details" }, h("summary", null, "详情"), h("p", null, row2.error || row2.instructions || ""), kind === "nmr" ? h(import_react7.default.Fragment, null, h("p", null, `CAS ${row2.compound?.casNumber || "待补充"} · ${row2.nucleus || "1H"} · ${row2.deuteratedSolvent || row2.solvent || "氘代溶剂待补充"}`), row2.assessment ? h("p", null, `结构判断：${verdictLabels[row2.assessment.verdict]}；置信度 ${row2.assessment.confidence.toUpperCase()}。${row2.assessment.summary}`) : null) : null, kind === "plot" ? h(PlotEdit, { row: plots.find((p) => p.id === row2.id), call, onChanged: refresh, onError: setError }) : null)
   );
-  const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
+  const field = (key2, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key2], onChange: change(key2) }));
   return h(
     "div",
     { className: "ib-characterization" },
@@ -3516,7 +3535,7 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   const [form, setForm] = (0, import_react9.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
   const [busy, setBusy] = (0, import_react9.useState)(false);
   const [error, setError] = (0, import_react9.useState)("");
-  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const create = async () => {
     setBusy(true);
     setError("");
@@ -3829,16 +3848,16 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
     notify("文献自动捕获仅支持 iBM Lab Agent Windows 桌面应用");
   };
-  const markBusy = (key, value) => setBusy((old) => ({ ...old, [key]: value }));
-  const run = async (key, work) => {
-    if (busy[key]) return;
-    markBusy(key, true);
+  const markBusy = (key2, value) => setBusy((old) => ({ ...old, [key2]: value }));
+  const run = async (key2, work) => {
+    if (busy[key2]) return;
+    markBusy(key2, true);
     try {
       await work();
     } catch (reason) {
       notify(reason.message || "操作失败");
     } finally {
-      markBusy(key, false);
+      markBusy(key2, false);
     }
   };
   const risFor = (search) => run(`ris:${search.id}`, async () => {
@@ -3934,8 +3953,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   };
   const openPreview = (target) => {
     const isPpt = target.kind === "ppt";
-    const key = `${isPpt ? "open-ppt" : "open-report"}:${target.report.id}`;
-    void run(key, async () => {
+    const key2 = `${isPpt ? "open-ppt" : "open-report"}:${target.report.id}`;
+    void run(key2, async () => {
       const url = isPpt ? `/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(target.report.id)}` : `/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(target.report.id)}`;
       const opened = await openOfficeArtifact(url);
       notify(opened.native ? `${isPpt ? "PPT" : "精读报告"} 已交给本机 Office/WPS 打开` : `${isPpt ? "PPT" : "精读报告"} 已下载`);
@@ -4951,6 +4970,86 @@ function registerWebVpnTab(ctx, { openTab }) {
   ctx.effect(() => () => setWebVpnTabOpener(null), "dsh-lab-agent: 文献浏览器 opener");
 }
 
+// client/src/sidebar-browser.js
+var key = (value) => String(value).replaceAll("\\", "/").toLowerCase();
+function installSidebarBrowser(ctx) {
+  const bridge = globalThis.ibmResearchSidebar;
+  if (!bridge) return () => {
+  };
+  const seen = /* @__PURE__ */ new Set();
+  let disposed = false;
+  const stop = bridge.onOpen(async (request) => {
+    if (request.focusContentsId) {
+      for (const view of document.querySelectorAll("webview")) try {
+        if (view.getWebContentsId() === request.focusContentsId) {
+          const tab = view.closest("[data-sidebar-right-tab]");
+          if (tab) ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);
+        }
+      } catch {
+      }
+      return;
+    }
+    if (!request.id || seen.has(request.id) || disposed) return;
+    seen.add(request.id);
+    try {
+      for (let i = 0; i < 40 && ctx.workspaces.list.getSnapshot().phase !== "ready" && !disposed; i++) await new Promise((done) => setTimeout(done, 250));
+      const items = ctx.workspaces.list.getSnapshot().items ?? [];
+      const workspace = items.find((item) => key("cwd:" + item.path) === key(request.workspace));
+      if (!workspace) throw Error("请先进入此课题的工作区对话，再打开文献浏览器");
+      const sessionIds = workspace.sessionIds ?? [];
+      const sessionId = [...request.sessionIds ?? []].reverse().find((id) => sessionIds.includes(id)) ?? sessionIds.at(-1);
+      if (!sessionId) throw Error("请先为此课题打开一个对话，再启动文献任务");
+      setDesktopProject(request.projectId);
+      ctx.uiWorkspace.openSession(sessionId);
+      ctx.sidebarRight.openTabIn(sessionId, "browser", { params: { url: request.url }, revealIfOpened: false });
+    } catch (error) {
+      bridge.rejected(request.id, error.message);
+    }
+  });
+  let timer;
+  const poll = async () => {
+    if (disposed) return;
+    try {
+      const state = await nativeBrowser("status");
+      if (state?.window?.contentsId) for (const view of document.querySelectorAll("webview")) {
+        let id;
+        try {
+          id = view.getWebContentsId();
+        } catch {
+          continue;
+        }
+        if (id !== state.window.contentsId) continue;
+        const tab = view.closest("[data-sidebar-right-tab]"), input = tab?.querySelector("input"), toolbar = input?.closest("div")?.parentElement;
+        if (!toolbar) continue;
+        let button = toolbar.querySelector("[data-ibm-capture-download]");
+        if (!button) {
+          button = document.createElement("button");
+          button.dataset.ibmCaptureDownload = "true";
+          button.style.cssText = "border:0;background:#e4f2e9;color:#23613b;border-radius:5px;padding:4px 6px;font-size:11px;white-space:nowrap;cursor:pointer";
+          toolbar.append(button);
+          button.onclick = () => void nativeBrowser("viewer-download").catch((error) => {
+            button.title = error.message;
+          });
+        }
+        const capture = state.capture;
+        button.hidden = !capture;
+        button.textContent = capture?.state === "uploading" ? "正在归档…" : capture?.state === "downloading" ? "正在下载…" : "归档 PDF";
+        button.disabled = !capture || capture.state !== "waiting-download" || !/^application\/pdf(?:;|$)/i.test(state.window.documentType ?? "");
+        button.title = "将当前 PDF 下载并归档到课题";
+      }
+    } catch {
+    }
+    if (!disposed) timer = setTimeout(poll, 1500);
+  };
+  void poll();
+  return () => {
+    disposed = true;
+    clearTimeout(timer);
+    stop();
+    document.querySelectorAll("[data-ibm-capture-download]").forEach((button) => button.remove());
+  };
+}
+
 // client/src/project-tab.js
 var import_react12 = require("react");
 
@@ -5519,7 +5618,8 @@ function applyUi(ctx) {
   const disposeBranding = applyBranding(() => open());
   ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "lab-project-badge", order: 10 }, (props) => h(ProjectBadge, { ...props, call, openWorkspace, toast, openProjectTab })), "dsh-lab-agent: project badge");
   ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => {
-    registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
+    if (globalThis.ibmResearchSidebar) tabCtx.effect(() => installSidebarBrowser({ sidebarRight: tabCtx.sidebarRight, workspaces: ctx.workspaces, uiWorkspace: ctx.uiWorkspace }), "iBM 官方侧栏浏览器");
+    else registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
     registerProjectTab(tabCtx);
     setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));
     setProjectLoader(async (projectId) => (await call("projects_get", { request: { id: projectId } }))?.project ?? null);

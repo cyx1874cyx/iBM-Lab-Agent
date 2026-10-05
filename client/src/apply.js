@@ -10,6 +10,7 @@ import { OverlayBoundary, Panel, Project } from "./components-project.js";
 import { ProjectBadge } from "./components-literature.js";
 import { installShellRequestBridge, installProjectShellBridge, setWebVpnVisibleViaShell } from "./lib.js";
 import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
+import { installSidebarBrowser } from "./sidebar-browser.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
 
@@ -238,7 +239,8 @@ export function applyUi(ctx) {
 	// 只有这一个能力缺失，不阻塞整个面板。
 	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => {
 		// 文献浏览器：页面 tab（「+」类型列表里可选）。
-		registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
+		if(globalThis.ibmResearchSidebar)tabCtx.effect(()=>installSidebarBrowser({sidebarRight:tabCtx.sidebarRight,workspaces:ctx.workspaces,uiWorkspace:ctx.uiWorkspace}),"iBM 官方侧栏浏览器");
+		else registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
 		// 课题：资源 tab，一个课题一个标签页（页面 tab 的身份只由 kind 决定，
 		// 做不到每课题一标签）。
 		registerProjectTab(tabCtx);

@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { createServer } from "node:net";
+import { createServer, createConnection } from "node:net";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ export class ElectronBroker {
  constructor(processes, config, onEvent = () => {}) { this.processes = processes; this.config = config; this.onEvent = onEvent; this.pending = new Map(); this.sequence = 0; }
  async start() { this.ready ??= this.launch(); return await this.ready; }
  async launch() {
+  if(process.env.IBM_SCIENTIFIC_MAIN_ENDPOINT)return await this.connectMain(JSON.parse(process.env.IBM_SCIENTIFIC_MAIN_ENDPOINT));
   const root = resolve(this.config.root);
   await mkdir(root, { recursive: true });
   const pipe = process.platform === "win32" ? `\\\\.\\pipe\\ibm-scientific-${randomUUID()}` : join(root, `ipc-${randomUUID()}.sock`);
@@ -59,6 +60,22 @@ export class ElectronBroker {
    });
   });
  }
+ async connectMain({pipe,auth}) {
+  this.embedded=true;
+  return await new Promise((resolveReady,reject)=>{
+   const socket=createConnection(pipe);let authenticated=false;
+   const timer=setTimeout(()=>{socket.destroy();reject(Error('应用侧栏连接超时'));},10000);
+   socket.once('connect',()=>socket.write(JSON.stringify({auth})+'\n'));
+   socket.on('error',error=>{clearTimeout(timer);reject(error);});
+   createInterface({input:socket}).on('line',line=>{
+    let packet;try{packet=JSON.parse(line);}catch{socket.destroy();return;}
+    if(!authenticated){if(packet.event!=='ready'){socket.destroy();return;}authenticated=true;clearTimeout(timer);this.socket=socket;resolveReady(packet);return;}
+    if(packet.event)void Promise.resolve(this.onEvent(packet)).catch(error=>{this.lastEventError=error.message;});
+    else {const row=this.pending.get(packet.id);if(!row)return;this.pending.delete(packet.id);clearTimeout(row.timer);packet.error?row.reject(Error(packet.error)):row.resolve(packet.result);}
+   });
+   socket.once('close',()=>{clearTimeout(timer);this.socket=undefined;this.ready=undefined;const error=Error('应用侧栏连接已关闭');reject(error);for(const row of this.pending.values()){clearTimeout(row.timer);row.reject(error);}this.pending.clear();});
+  });
+ }
  async call(method, input, timeoutMs = 30000) {
   await this.start();
   if (!this.socket) throw new Error("scientific Electron transport is closed");
@@ -74,6 +91,7 @@ export class ElectronBroker {
   return await this.closing;
  }
  async close() {
+  if(this.embedded){this.socket?.destroy();return;}
   if (!this.child) return;
   try { await this.call("stop", {}, 3000); } catch { /* a crashed renderer still belongs to the process guardian */ }
   await this.child.stopOwned();
