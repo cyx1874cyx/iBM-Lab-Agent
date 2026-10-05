@@ -40,7 +40,7 @@ export class ElectronBroker {
    const timer = setTimeout(() => { rejectReady(new Error("scientific Electron startup timed out")); server.close(); this.child?.kill(); }, 20000);
    server.once("error", error => { clearTimeout(timer); rejectReady(error); });
    server.listen(pipe, () => {
-    this.child = this.processes.spawn(this.config.electron, [MAIN], { env: {
+    this.child = this.processes.spawn(this.config.electron, [MAIN,'--ibm-scientific-desktop'], { env: {
      IBM_SCIENTIFIC_DESKTOP_CONFIG: JSON.stringify({ pipe, auth, userData: join(root, "session"), downloadsRoot: join(root, "downloads"), headless: this.config.headless ?? false, hostOrigins: this.config.hostOrigins ?? [], allowedLocalOrigins: this.config.allowedLocalOrigins ?? [] }),
      ELECTRON_RUN_AS_NODE: undefined
     } });

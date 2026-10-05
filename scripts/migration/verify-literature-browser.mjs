@@ -3,13 +3,28 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { mkdir,readFile,writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { resolve,join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 import { setTimeout as delay } from 'node:timers/promises';
-import { bootLite } from '../../tests/helpers/boot-lite.mjs';
-import { apply as registerTools } from '../../lib/tasks-tool.js';
+import { bootLite as sourceBootLite } from '../../tests/helpers/boot-lite.mjs';
+import { apply as sourceRegisterTools } from '../../lib/tasks-tool.js';
 const arg=name=>{const index=process.argv.indexOf(name);assert.ok(index>=0,name+' required');return resolve(process.argv[index+1]);};
 const electron=arg('--electron'),python=arg('--python'),output=arg('--output');await mkdir(output,{recursive:true});
+let bootLite=sourceBootLite,registerTools=sourceRegisterTools;
+const app=process.argv.includes('--app')?arg('--app'):null;
+if(app){
+ const plugin=join(app,'node_modules/dsh-lab-agent'),require=createRequire(join(app,'package.json'));
+ let helper=await readFile(new URL('../../tests/helpers/boot-lite.mjs',import.meta.url),'utf8');
+ helper=helper.replace('from "@deepseek-ai/dsh-app-boot"','from '+JSON.stringify(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href));
+ helper=helper.replace(/export const repoRoot = [^;]+;/,'export const repoRoot = '+JSON.stringify(plugin)+';');
+ helper=helper.replaceAll('join(repoRoot, "node_modules"', 'join('+JSON.stringify(app)+', "node_modules"');
+ const file=join(output,'packaged-boot-fixture.mjs');await writeFile(file,helper);bootLite=(await import(pathToFileURL(file))).bootLite;
+ registerTools=(await import(pathToFileURL(join(plugin,'lib/tasks-tool.js')))).apply;
+}
 process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=python;
+process.env.DSH_DESKTOP_NEXT_HOME=join(output,'desktop-app-home');process.env.DSH_HOME=process.env.DSH_DESKTOP_NEXT_HOME;
 const pdf=Buffer.from('%PDF-1.4\n/Type /Page\nDownload fixture\n'+' '.repeat(12000)+'\n%%EOF');
 const server=createServer((req,res)=>{
  const url=new URL(req.url,'http://fixture');
@@ -17,7 +32,7 @@ const server=createServer((req,res)=>{
  else if(url.pathname==='/paper'){res.end('<title>publisher-fixture</title><button onclick="window.open(\'/paper.pdf\',\'download\')">Download PDF</button>');}
  else {res.end('<title>institution-fixture</title>');}
 });server.listen(0,'127.0.0.1');await once(server,'listening');const fixture='http://127.0.0.1:'+server.address().port;
-let handle;const report={ok:false,checks:[],scope:'Real isolated Electron fixture pages and tool execution; no live institution credentials or model account used.'};
+let handle;const report={ok:false,packaged:Boolean(app),checks:[],scope:'Real isolated Electron fixture pages and tool execution; no live institution credentials or model account used.'};
 const wait=async(predicate,label)=>{for(let i=0;i<200;i++){if(await predicate())return;await delay(100);}throw Error('Timed out: '+label);};
 try{
  handle=await bootLite({storageRoot:join(output,'storage'),coreOnly:true,includePython:false,coreConfig:{projectsRoot:join(output,'projects')},extraRows:[
@@ -50,6 +65,7 @@ try{
  const direct=await desktop.browserAction({action:'capture',projectId:'download-test',bundleId:'direct',kind:'pdf'});
  await wait(()=>capture.getTask(direct.task.id).status==='completed','direct attachment capture');assert.deepEqual(await readFile(ctx.ibmCore.getArtifact('source-bundle','direct').pdfPath),pdf);report.checks.push('direct-PDF-navigation-abort-is-a-download-not-a-failure');
  await assert.rejects(desktop.broker.call('click',{lease:window.lease,observationId:observation.observationId,elementId:candidate.elementId}),/失效|导航/);report.checks.push('old-observation-cannot-click-after-navigation');
+ if(app){assert.equal(existsSync(join(output,'desktop-app-home/ibm-release.json')),false);report.checks.push('packaged-sidecar-entry-does-not-initialize-or-open-main-profile');}
  report.ok=true;
 }catch(error){report.error=String(error);throw error;}
 finally{await handle?.dispose();await new Promise(done=>server.close(done));await writeFile(join(output,'verification.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));}
