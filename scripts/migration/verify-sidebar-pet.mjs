@@ -53,7 +53,7 @@ try{
  await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-hero-menu-item')].some(node=>node.innerText.includes('侧栏宠物验收')));
  await frame.evaluate(()=>[...document.querySelectorAll('.ib-hero-menu-item')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
  await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
- await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='准备好开始科研任务'),'pet real Host connection');
+ await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='当前没有进行中的任务'),'pet real Host connection');
  const opened=await rpc('desktop_browser',{action:'open',projectId:'sidebar-test'});assert.equal(opened.sidebar,true);
  await frame.waitForFunction(()=>document.querySelector('webview'));
  await frame.waitForFunction(()=>document.querySelector('webview')?.getURL().includes('/'));
@@ -70,7 +70,7 @@ try{
  let completed;
  for(const [bundleId,kind] of [['sidebar-pdf','pdf'],['sidebar-si','si']]){
   const created=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId,kind});
-  await wait(()=>pet.evaluate(()=>document.querySelector('#label').innerText.includes('正文')),'pet capture task');
+  assert.ok(!(await pet.evaluate(()=>document.body.innerText)).includes('等待开始'),'pet excludes queued tasks');
   const lease=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease;
   // Actual user click in the official embedded browser; the native download is authoritative.
   const guest=await wait(async()=>{for(const target of browser.targets())if(target.type()==='webview'){const session=await target.createCDPSession();const value=await session.send('Runtime.evaluate',{expression:'document.title',returnByValue:true});if(value.result.value==='SIDEBAR PUBLISHER')return session;await session.detach();}return false;},'publisher guest');
@@ -79,12 +79,12 @@ try{
   await pet.screenshot({path:join(work,'pet-downloading-'+kind+'.png'),omitBackground:true});
   completed=await wait(async()=>{const task=(await rpc('manual_capture_get',{taskId:created.task.id})).task;return task?.status==='completed'?task:false;},'PDF/SI archive');
   assert.equal(completed.size,pdf.length);assert.ok(completed.fileSha256);
-  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='归档完成'),'pet archived status');
+  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='当前没有进行中的任务'),'pet archived status');
   report.checks.push(kind+'-actual-sidebar-download-validated-and-archived');report.lease=lease;
  }
  await pet.screenshot({path:join(work,'pet-completed.png'),omitBackground:true});
  assert.equal((await browser.pages()).filter(p=>!p.url().startsWith('dsh-')&&!p.url().includes('desktop-pet.html')&&!p.url().startsWith('devtools:')&&p.url()!=='about:blank').length,0,'publisher opened a standalone window');
- report.checks.push('publisher-download-popup-stays-in-sidebar','pet-real-stage-byte-progress-and-archive-completion');
+ report.checks.push('publisher-download-popup-stays-in-sidebar','pet-only-running-task-real-download-progress');
  await rpc('desktop_pet',{visible:false});assert.equal((await rpc('desktop_pet',{})).visible,false);await rpc('desktop_pet',{visible:true});assert.equal((await rpc('desktop_pet',{})).visible,true);report.checks.push('pet-show-hide-preference');
  const pending=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:'sidebar-cancel',kind:'pdf'});await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:pending.task.id});assert.equal((await rpc('manual_capture_get',{taskId:pending.task.id})).task.status,'cancelled');report.checks.push('sidebar-capture-cancellation');
  await rpc('desktop_pet',{visible:false});await close();await launch(false);assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
