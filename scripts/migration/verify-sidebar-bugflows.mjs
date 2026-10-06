@@ -15,7 +15,8 @@ const pdf=Buffer.from('%PDF-1.4\n/Type /Page\nSIDEBAR FIXTURE\n'+' '.repeat(2000
 const previewPdf=process.argv.includes('--preview-pdf')?readFileSync(arg('--preview-pdf')):Buffer.from(execFileSync(join(resources,'python/python.exe'),['-I','-c','import pymupdf,base64; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"NATIVE PDF SIDEBAR PREVIEW"); print(base64.b64encode(d.tobytes()).decode())'],{encoding:'utf8',windowsHide:true}).trim(),'base64');
 const cookies=[];
 const server=createServer((req,res)=>{
- if(req.url.startsWith('/inline.pdf')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'inline; filename="preview.pdf"','content-length':previewPdf.length});res.end(previewPdf);}
+ if(req.url.startsWith('/verify')){res.writeHead(200,{'content-type':'text/html'});res.end('<title>Just a moment</title><h1>Verify you are human</h1>');}
+ else if(req.url.startsWith('/inline.pdf')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'inline; filename="preview.pdf"','content-length':previewPdf.length});res.end(previewPdf);}
  else if(req.url.startsWith('/file')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'attachment; filename="fixture-SI.pdf"','content-length':pdf.length});let offset=0;const timer=setInterval(()=>{res.write(pdf.subarray(offset,offset+20000));offset+=20000;if(offset>=pdf.length){clearInterval(timer);res.end();}},250);res.once('close',()=>clearInterval(timer));}
  else{if(req.url.startsWith('/check'))cookies.push(req.headers.cookie??'');res.writeHead(200,{'content-type':'text/html',...(!req.url.startsWith('/check')?{'set-cookie':'ibm_fixture_session=retained; Path=/; Max-Age=3600'}:{})});res.end('<title>SIDEBAR PUBLISHER</title><h1>SIDEBAR PUBLISHER</h1><button onclick="window.open(\'/file.pdf\')">Download PDF</button>');}
 });server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
@@ -119,6 +120,13 @@ try{
  assert.equal((await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease,opened.lease);
  report.checks.push('AI-task-reconstruction-reopens-collapsed-sidebar-and-reuses-guest');
  await page.screenshot({path:join(work,'sidebar-ai-rebuilt.png')});
+ await frame.click('button[aria-label="收起右侧边栏"],button[aria-label="Collapse right sidebar"]');
+ await frame.waitForFunction(()=>!document.querySelector('[data-sidebar-right-open]'));
+ await rpc('desktop_browser',{action:'navigate',projectId:'sidebar-test',url:origin+'/verify'});
+ await wait(async()=>{const state=await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'});return state.capture?.access?.state==='verification-required';},'verification access state');
+ await frame.waitForFunction(()=>document.querySelector('[data-sidebar-right-open]')&&document.querySelector('webview')?.checkVisibility());
+ await page.screenshot({path:join(work,'sidebar-verification-visible.png')});
+ report.checks.push('human-verification-page-reveals-collapsed-sidebar-without-automated-verification');
  await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:rebuilt.task.id});
  await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/inline.pdf'});
  report.pdfPreview=await wait(async()=>{const state=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window;if(!state?.url?.includes('/inline.pdf')||!/^application\/pdf/i.test(state.documentType??''))return false;const bounds=await frame.evaluate(()=>{const r=document.querySelector('webview')?.getBoundingClientRect();return {width:r?.width,height:r?.height};});assert.ok(bounds.width>350&&bounds.height>400);return {url:state.url,documentType:state.documentType,...bounds,bytes:previewPdf.length};},'PDF response in full-size official sidebar');
