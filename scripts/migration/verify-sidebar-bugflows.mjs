@@ -75,6 +75,15 @@ try{
  const info=await frame.evaluate(()=>{const view=document.querySelector('webview');return {url:view.getURL(),parent:!!view.closest('[data-sidebar-right-tab]'),partition:view.getAttribute('partition'),bounds:view.getBoundingClientRect().toJSON(),guestId:view.getWebContentsId()};});
  assert.equal(info.parent,true);assert.ok(info.partition.startsWith('persist:ibm-sidebar-'));assert.ok(info.bounds.width>100);assert.ok(info.bounds.height>100);report.browser=info;report.checks.push('official-browser-tab-mounted-inside-right-sidebar','persistent-project-storage-partition');
  await page.screenshot({path:join(work,'sidebar.png')});
+ // A live guest remains mounted when the official column is collapsed.
+ // Reusing that lease must reveal the UI, rather than only focus the app.
+ await frame.click('button[aria-label="收起右侧边栏"],button[aria-label="Collapse right sidebar"]');
+ await frame.waitForFunction(()=>!document.querySelector('[data-sidebar-right-open]'));
+ await rpc('desktop_browser',{action:'open',projectId:'sidebar-test'});
+ await frame.waitForFunction(()=>{const view=document.querySelector('webview'),r=view?.getBoundingClientRect();return document.querySelector('[data-sidebar-right-open]')&&view.checkVisibility()&&r.width>100&&r.height>100;});
+ assert.equal((await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease,opened.lease);
+ report.checks.push('existing-browser-lease-reveals-collapsed-official-sidebar-without-new-guest');
+ await page.screenshot({path:join(work,'sidebar-reopened.png')});
  const isolated=await frame.evaluate(async origin=>{
   const reservation=await window.dshDesktop.browser.acquire('cwd:independent-fixture-workspace');
   const guest=document.createElement('webview');guest.setAttribute('partition',reservation.partition);guest.setAttribute('src','about:blank#'+reservation.lease);guest.style.cssText='position:absolute;width:150px;height:100px;left:-1000px;top:-1000px';

@@ -8,6 +8,7 @@ if(location.protocol==='dsh-app:'&&location.hostname==='app'){
    ipcRenderer.send('ibm:sidebar-ready');
    return ()=>ipcRenderer.removeListener('ibm:sidebar-browser-open',handler);
   },
-  rejected(id,reason){ipcRenderer.send('ibm:sidebar-rejected',{id,reason});}
+  rejected(id,reason){ipcRenderer.send('ibm:sidebar-rejected',{id,reason});},
+  visible(id,contentsId){ipcRenderer.send('ibm:sidebar-visible',{id,contentsId});}
  });
 }

@@ -5,10 +5,6 @@ export function installSidebarBrowser(ctx) {
  const bridge=globalThis.ibmResearchSidebar;if(!bridge)return ()=>{};
  const seen=new Set();let disposed=false;
  const stop=bridge.onOpen(async request=>{
-  if(request.focusContentsId){
-   for(const view of document.querySelectorAll('webview'))try{if(view.getWebContentsId()===request.focusContentsId){const tab=view.closest('[data-sidebar-right-tab]');if(tab)ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);}}catch{}
-   return;
-  }
   if(!request.id||seen.has(request.id)||disposed)return;seen.add(request.id);
   try{
    for(let i=0;i<40&&ctx.workspaces.list.getSnapshot().phase!=='ready'&&!disposed;i++)await new Promise(done=>setTimeout(done,250));
@@ -18,12 +14,21 @@ export function installSidebarBrowser(ctx) {
    const sessionIds=workspace.sessionIds??[];
    const sessionId=[...(request.sessionIds??[])].reverse().find(id=>sessionIds.includes(id))??sessionIds.at(-1);
    if(!sessionId)throw Error('请先为此课题打开一个对话，再启动文献任务');
-   setDesktopProject(request.projectId);ctx.uiWorkspace.openSession(sessionId);
+   if(request.projectId)setDesktopProject(request.projectId);ctx.uiWorkspace.openSession(sessionId);
    // Opening a restored/off-screen Session precedes adoption of its sidebar
    // store. openTabIn silently ignores that gap; openTab validates readiness.
    let opened=false;
    for(let attempt=0;attempt<80&&!disposed;attempt++){
-    if(ctx.sidebarRight.mounted.getSnapshot()===sessionId)try{ctx.sidebarRight.openTab('browser',{params:{url:request.url},revealIfOpened:false});opened=true;break;}catch{}
+    if(ctx.sidebarRight.mounted.getSnapshot()===sessionId)try{
+     if(request.focusContentsId){
+      const view=[...document.querySelectorAll('webview')].find(view=>{try{return view.getWebContentsId()===request.focusContentsId;}catch{return false;}});
+      const tab=view?.closest('[data-sidebar-right-tab]');
+      if(tab){ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);if(!ctx.sidebarRight.isExpanded())ctx.sidebarRight.toggleExpanded();
+       const bounds=view.getBoundingClientRect();
+       if(view.checkVisibility()&&bounds.width>100&&bounds.height>100){bridge.visible(request.id,request.focusContentsId);opened=true;break;}
+      }
+     }else{ctx.sidebarRight.openTab('browser',{params:{url:request.url},revealIfOpened:false});opened=true;break;}
+    }catch{}
     await new Promise(done=>setTimeout(done,50));
    }
    if(!opened)throw Error('课题侧栏尚未就绪，请进入对应课题对话后重试');

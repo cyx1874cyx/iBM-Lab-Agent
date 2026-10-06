@@ -176,7 +176,7 @@ async function dispatch(method, input = {}) {
    row.window.webContents.downloadURL(row.window.webContents.getURL());return {started:true};
   }
   case "close": { const row = requireLease(input.lease); row.window.destroy(); return { closed: true }; }
-  case "focus": { const row = requireLease(input.lease); row.window.show(); row.window.focus(); return { shown: true }; }
+  case "focus": { const row = requireLease(input.lease); const visible=await row.window.show(); row.window.focus(); return visible??{ shown: true }; }
   case "disarm": { const row=requireLease(input.lease); captures.delete(input.lease);row.downloadItem?.cancel(); return { disarmed: true }; }
   case "discard": { const path = files.get(input.fileId); files.delete(input.fileId); if (path) await rm(path, { force: true }); return { discarded: true }; }
   case "revealSaved": { const path = savedFiles.get(input.savedRef); if (!path) throw new Error("Unknown saved artifact"); shell.showItemInFolder(path); return { revealed: true }; }

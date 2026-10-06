@@ -4979,16 +4979,6 @@ function installSidebarBrowser(ctx) {
   const seen = /* @__PURE__ */ new Set();
   let disposed = false;
   const stop = bridge.onOpen(async (request) => {
-    if (request.focusContentsId) {
-      for (const view of document.querySelectorAll("webview")) try {
-        if (view.getWebContentsId() === request.focusContentsId) {
-          const tab = view.closest("[data-sidebar-right-tab]");
-          if (tab) ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);
-        }
-      } catch {
-      }
-      return;
-    }
     if (!request.id || seen.has(request.id) || disposed) return;
     seen.add(request.id);
     try {
@@ -4999,14 +4989,35 @@ function installSidebarBrowser(ctx) {
       const sessionIds = workspace.sessionIds ?? [];
       const sessionId = [...request.sessionIds ?? []].reverse().find((id) => sessionIds.includes(id)) ?? sessionIds.at(-1);
       if (!sessionId) throw Error("请先为此课题打开一个对话，再启动文献任务");
-      setDesktopProject(request.projectId);
+      if (request.projectId) setDesktopProject(request.projectId);
       ctx.uiWorkspace.openSession(sessionId);
       let opened = false;
       for (let attempt = 0; attempt < 80 && !disposed; attempt++) {
         if (ctx.sidebarRight.mounted.getSnapshot() === sessionId) try {
-          ctx.sidebarRight.openTab("browser", { params: { url: request.url }, revealIfOpened: false });
-          opened = true;
-          break;
+          if (request.focusContentsId) {
+            const view = [...document.querySelectorAll("webview")].find((view2) => {
+              try {
+                return view2.getWebContentsId() === request.focusContentsId;
+              } catch {
+                return false;
+              }
+            });
+            const tab = view?.closest("[data-sidebar-right-tab]");
+            if (tab) {
+              ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);
+              if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded();
+              const bounds = view.getBoundingClientRect();
+              if (view.checkVisibility() && bounds.width > 100 && bounds.height > 100) {
+                bridge.visible(request.id, request.focusContentsId);
+                opened = true;
+                break;
+              }
+            }
+          } else {
+            ctx.sidebarRight.openTab("browser", { params: { url: request.url }, revealIfOpened: false });
+            opened = true;
+            break;
+          }
         } catch {
         }
         await new Promise((done) => setTimeout(done, 50));
