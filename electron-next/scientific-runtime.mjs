@@ -5,6 +5,7 @@ import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { classifyLiteratureAccess } from './literature-access.mjs';
+import { nativePdfResource } from './pdf-browser-policy.mjs';
 
 export function createScientificRuntime(config, emit) {
 const leases = new Map(), captures = new Map(), files = new Map(), configured = new Set();
@@ -70,8 +71,7 @@ function configure(partition) {
  browserSession.setPermissionCheckHandler(() => false);
  browserSession.webRequest.onBeforeRequest((details, callback) => {
   const protocol = new URL(details.url).protocol;
-  const nativePdf=protocol==='chrome-extension:'&&new URL(details.url).hostname==='mhjfbmdgcfjbbpaeojofohoefgiehjai';
-  callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !nativePdf&&!["about:", "data:", "blob:"].includes(protocol) });
+  callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !nativePdfResource(details)&&!["about:", "data:", "blob:"].includes(protocol) });
  });
  browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){lease.statusCode=details.statusCode;const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
  browserSession.on("will-download", (event, item, contents) => {
