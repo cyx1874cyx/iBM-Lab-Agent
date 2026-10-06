@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
+import { classifyLiteratureAccess } from './literature-access.mjs';
 
 export function createScientificRuntime(config, emit) {
 const leases = new Map(), captures = new Map(), files = new Map(), configured = new Set();
@@ -36,10 +37,19 @@ function requireLease(id) {
  if (!row || row.window.isDestroyed()) throw new Error("scientific browser lease is closed");
  return row;
 }
+async function inspectAccess(row,contents=row.window.webContents) {
+ let timer;const signals=await Promise.race([
+  contents.executeJavaScriptInIsolatedWorld(998,[{code:`(()=>{const visible=e=>Boolean(e?.getClientRects().length);const body=document.querySelector('[data-test="article-body"],.c-article-body,[itemprop="articleBody"]');return {text:(document.body?.innerText||'').slice(0,60000),password:[...document.querySelectorAll('input[type="password"]')].some(visible),fullText:visible(body)&&(body.innerText||'').length>1500,downloadEntry:[...document.querySelectorAll('a,button')].some(e=>visible(e)&&/download pdf|下载|supplementary|supporting information/i.test(e.innerText||''))};})()`}]).catch(()=>({})),
+  new Promise(resolve=>{timer=setTimeout(()=>resolve({}),1500);})
+ ]).finally(()=>clearTimeout(timer));
+ return classifyLiteratureAccess({...signals,title:contents.isDestroyed()?'':contents.getTitle(),statusCode:contents===row.window.webContents?row.statusCode:0,documentType:contents===row.window.webContents?row.documentType:''});
+}
 function bind(window, lease) {
  const contents = window.webContents;
- contents.on("did-start-navigation", (_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame){emit({event:"page-loading",lease:lease.id});lease.pageSeq=(lease.pageSeq??0)+1;lease.observation=null;}});
- contents.on("did-finish-load", ()=>{emit({event:"page-state",lease:lease.id,url:publicUrl(contents.getURL()),pageSeq:lease.pageSeq??1,documentType:lease.documentType??""});});
+ contents.on("did-start-navigation", (_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame){emit({event:"page-loading",lease:lease.id});lease.pageSeq=(lease.pageSeq??0)+1;lease.observation=null;lease.access=null;lease.statusCode=0;lease.documentType='';}});
+ const reportPage=async()=>{if(contents!==lease.window.webContents)return;const seq=lease.pageSeq;emit({event:'page-checking-access',lease:lease.id});const access=await inspectAccess(lease,contents);if(contents.isDestroyed()||seq!==lease.pageSeq)return;lease.access=access;emit({event:"page-state",lease:lease.id,url:publicUrl(contents.getURL()),pageSeq:seq??1,documentType:lease.documentType??"",access});};
+ contents.on("dom-ready",()=>{void reportPage().catch(()=>{});});
+ contents.on("did-finish-load",()=>{void reportPage().catch(()=>{});});
  contents.setWindowOpenHandler(({ url, postBody }) => {
   if(!allowed(url))return {action:"deny"};
   const authentication=/login|oauth|sso|passport|\/cas\/|\/auth(?:\/|\?)/i.test(new URL(url).hostname+new URL(url).pathname);
@@ -62,7 +72,7 @@ function configure(partition) {
   const protocol = new URL(details.url).protocol;
   callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !["about:", "data:", "blob:"].includes(protocol) });
  });
- browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
+ browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){lease.statusCode=details.statusCode;const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
  browserSession.on("will-download", (event, item, contents) => {
   let lease = [...leases.values()].find(row => row.partition === partition &&
    (row.window.webContents === contents || [...row.popups].some(popup => popup.webContents === contents)));
@@ -107,17 +117,20 @@ async function dispatch(method, input = {}) {
   }
   case "state": {
    const row = requireLease(input.lease);
-   return { lease: row.id, contentsId:row.window.webContents.id,url: publicUrl(row.window.webContents.getURL()), title: row.window.webContents.getTitle(), popups: row.popups.size, persistent: true, pageSeq:row.pageSeq??1, documentType:row.documentType??"" };
+   return { lease: row.id, contentsId:row.window.webContents.id,url: publicUrl(row.window.webContents.getURL()), title: row.window.webContents.getTitle(), popups: row.popups.size, persistent: true, pageSeq:row.pageSeq??1, documentType:row.documentType??"",access:row.access };
   }
   case "navigate": {
    const row = requireLease(input.lease);
    if (!allowed(input.url)) throw new Error("blocked scientific browser destination");
-   const startedAt=Date.now();try { await row.window.loadURL(input.url); } catch(error) {
+   const startedAt=Date.now(),contents=row.window.webContents;let timer,ready;
+   const domReady=new Promise(resolve=>{ready=()=>resolve();contents.once('dom-ready',ready);});
+   try { await Promise.race([row.window.loadURL(input.url),domReady,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Scientific browser navigation timed out before document ready')),20000);})]); } catch(error) {
     // Electron can report ERR_ABORTED or ERR_FAILED before will-download for
     // attachments. Success requires an actual download event for this lease.
     if(['ERR_ABORTED','ERR_FAILED'].includes(error.code)||[-2,-3].includes(error.errno))for(let i=0;i<25&&(row.downloadStartedAt??0)<startedAt;i++)await new Promise(done=>setTimeout(done,20));
     if((row.downloadStartedAt??0)<startedAt)throw new Error(`Scientific browser navigation failed (${error.code??"unknown"}, ${error.errno??"unknown"})`);
-   }
+   }finally{clearTimeout(timer);contents.removeListener('dom-ready',ready);}
+   row.access=await inspectAccess(row);
    return await dispatch("state", input);
   }
   case "links": {
@@ -144,7 +157,8 @@ async function dispatch(method, input = {}) {
     const contents=window.webContents,url=contents.getURL();
     const result=await contents.executeJavaScriptInIsolatedWorld(999,[{code:`(()=>{const all=[...document.querySelectorAll('a[href],button,input[type="submit"],[role="button"]')].filter(e=>e.getClientRects().length&&!e.disabled);const match=e=>/pdf|download|supplement|supporting|全文|下载|补充/i.test((e.innerText||e.value||e.title||'')+' '+(e.href||''));const filtered=${JSON.stringify(input.scope)}==='all'?all:all.filter(match);filtered.sort((a,b)=>Number(match(b))-Number(match(a)));const elements=filtered.slice(0,30);globalThis.ibmObservation={id:${JSON.stringify(observationId)},elements};return {candidateCount:filtered.length,candidates:elements.map((e,i)=>({text:(e.innerText||e.value||e.title||'').slice(0,180),tagName:e.tagName,downloadRelated:match(e),index:i}))};})()`}]);
     const page=row.observation.windows.length;row.observation.windows.push({contents,url});
-    pages.push({url:publicUrl(url),title:contents.getTitle(),...result,candidates:result.candidates.map(c=>({...c,elementId:'e'+(page*30+c.index)}))});
+    const access=await inspectAccess(row,contents);if(window===row.window)row.access=access;
+    pages.push({url:publicUrl(url),title:contents.getTitle(),access,...result,candidates:result.candidates.map(c=>({...c,elementId:'e'+(page*30+c.index)}))});
    }
    return {observationId,pageSeq:row.pageSeq??1,pages,candidates:pages.flatMap(p=>p.candidates),candidateCount:pages.reduce((sum,p)=>sum+p.candidateCount,0)};
   }

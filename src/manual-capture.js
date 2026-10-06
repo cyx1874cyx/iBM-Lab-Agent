@@ -59,6 +59,7 @@ export const labCaptureTaskSchema = z.object({
 	allowOverwrite: z.boolean().default(false),
 	/** R4：机器可读的失败原因码（与 `message` 并存，message 给人看）。 */
 	reasonCode: z.string().optional(),
+	access: z.object({state:z.enum(['unknown','accessible','access-denied','login-required','verification-required','not-found','page-error']),evidence:z.string(),checkedAt:z.string()}).optional(),
 	/** R3：归档冲突的现场信息（已归档的文件名/大小/哈希/时间），供状态与 UI 展示。 */
 	archiveConflict: z.object({
 		kind: z.enum(["pdf", "si"]),

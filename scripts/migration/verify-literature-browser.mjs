@@ -30,6 +30,12 @@ const server=createServer((req,res)=>{
  const url=new URL(req.url,'http://fixture');
  if(url.pathname==='/paper.pdf'){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'attachment; filename="fixture.pdf"'});res.end(pdf);}
  else if(url.pathname==='/paper'){res.end('<title>publisher-fixture</title><button onclick="window.open(\'/paper.pdf\',\'download\')">Download PDF</button>');}
+ else if(url.pathname==='/denied'){res.writeHead(403,{'content-type':'text/html'});res.end('<title>Access denied</title>');}
+ else if(url.pathname==='/paywall'){res.end('<title>Article</title><p>Purchase this article</p><button>Download PDF</button>');}
+ else if(url.pathname==='/login'){res.end('<title>Institution</title><input type="password">');}
+ else if(url.pathname==='/verification'){res.end('<title>Security check</title><p>Verify you are human</p>');}
+ else if(url.pathname==='/slow'){res.end('<title>publisher-fixture</title><img src="/pending-resource"><button>Download PDF</button>');}
+ else if(url.pathname==='/pending-resource'){setTimeout(()=>res.end(''),45000).unref();}
  else {res.end('<title>institution-fixture</title>');}
 });server.listen(0,'127.0.0.1');await once(server,'listening');const fixture='http://127.0.0.1:'+server.address().port;
 let handle;const report={ok:false,packaged:Boolean(app),checks:[],scope:'Real isolated Electron fixture pages and tool execution; no live institution credentials or model account used.'};
@@ -43,12 +49,23 @@ try{
  await ctx.ibmCore.createProject({id:'download-test',name:'下载隔离验收'});
  const originalNavigate=desktop.navigate.bind(desktop);
  // Map only the synthetic DOI destination to our approved local publisher fixture.
- desktop.navigate=(lease,url)=>originalNavigate(lease,url.startsWith('https://doi.org/10.1038/fixture-')?fixture+(url.endsWith('direct')?'/paper.pdf':'/paper'):url);
+ desktop.navigate=(lease,url)=>{const id=url.split('fixture-')[1];return originalNavigate(lease,url.startsWith('https://doi.org/10.1038/fixture-')?fixture+(id==='direct'?'/paper.pdf':['denied','paywall','login','verification','slow'].includes(id)?'/'+id:'/paper'):url);};
  for(const id of ['manual','agent','queued','direct'])await ctx.ibmCore.commitSourceBundle({id,projectId:'download-test',title:'Fixture '+id,doi:'10.1038/fixture-'+id,status:'succeeded',createdAt:'2026-10-05',updatedAt:'2026-10-05'});
  const manual=await desktop.browserAction({action:'capture',projectId:'download-test',bundleId:'manual',kind:'pdf'});
  const window=await desktop.windowForProject('download-test');assert.equal(window.title,'publisher-fixture');
  assert.equal(capture.getTask(manual.task.id).status,'armed');report.checks.push('manual-capture-navigates-to-own-publisher-after-arming');
  await capture.cancelTask(manual.task.id);assert.equal(desktop.status().armed,0);
+ for(const id of ['denied','paywall','login','verification','slow']){
+  await ctx.ibmCore.commitSourceBundle({id,projectId:'download-test',title:'Access fixture '+id,doi:'10.1038/fixture-'+id,status:'succeeded',createdAt:'2026-10-06',updatedAt:'2026-10-06'});
+  const started=Date.now(),created=await desktop.browserAction({action:'capture',projectId:'download-test',bundleId:id,kind:'pdf'});
+  const expected={denied:'access-denied',paywall:'access-denied',login:'login-required',verification:'verification-required',slow:'unknown'}[id];
+  await wait(()=>capture.getTask(created.task.id)?.access?.state===expected,'access evidence '+id);
+  const saved=capture.getTask(created.task.id),view=capture.describeTask(saved);
+  if(['denied','paywall'].includes(id)){assert.equal(saved.status,'failed');assert.equal(view.phase,'access-denied');assert.equal(desktop.status().armed,0);assert.equal(capture.listTaskViews('download-test').filter(x=>!['completed','cancelled','failed'].includes(x.task.status)).length,0);}
+  else{assert.equal(saved.status,'armed');if(id==='slow')assert.ok(Date.now()-started<10000,'DOM-ready must not wait for the pending image');else assert.equal(view.requiresUserAction,true);await capture.cancelTask(saved.id);}
+  assert.equal(ctx.ibmCore.getArtifact('source-bundle',id).pdfPath,undefined);
+  report.checks.push('page-access-'+id);
+ }
  const tools=[];registerTools({tools:{register:tool=>tools.push(tool)},labCapture:capture,labTasks:ctx.labTasks,get:name=>ctx.get(name)});
  const tool=name=>{const row=tools.find(tool=>tool.name===name);assert.ok(row,name);return row;};
  const agent=await tool('lab_publisher_browser_download').execute({projectId:'download-test',bundleId:'agent',kind:'pdf'},{});assert.equal(agent.ok,true,agent.error);assert.equal(agent.taskCreated,true);assert.ok(!JSON.stringify(agent).includes('token'));

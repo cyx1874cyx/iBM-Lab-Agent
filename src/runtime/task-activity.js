@@ -34,6 +34,8 @@ export function activitySnapshot(core,ctx) {
   const task=capture.table.get(id),row=registeredActivity(task,'capture'),live=desktop?.armed?.get(id);
   if(task.status==='completed'){row.stage='归档完成';row.percent=100;}
   if(live){row.status='running';row.stage=live.processing?'正在归档':live.downloading?'正在下载':live.loading?'正在加载页面':live.observing?'正在查找下载入口':'等待下载入口或机构登录';if(!live.processing&&!live.downloading&&!live.loading&&!live.observing)row.status='waiting';row.updatedAt=Date.now();row.percent=!live.processing&&live.downloading&&live.totalBytes>0?Math.min(99,live.bytes/live.totalBytes*100):null;if(live.bytes>0)row.detail=`已下载 ${(live.bytes/1048576).toFixed(2)} MB${live.totalBytes>0?' / '+(live.totalBytes/1048576).toFixed(2)+' MB':''}`;}
+  if(live?.accessChecking&&!live.downloading&&!live.processing){row.status='running';row.stage='正在检查文献访问权限';}
+  if(live?.access&&['login-required','verification-required'].includes(live.access.state)&&!live.downloading&&!live.processing){row.status='waiting';row.stage=live.access.state==='login-required'?'等待机构登录':'等待人机验证';}
   extra.push(row);
  }
  const characterization=ctx.get('labCharacterization');
