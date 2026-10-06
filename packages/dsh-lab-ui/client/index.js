@@ -1,4 +1,4 @@
-window.__ModuleLoader__.load({ id: "dsh-lab-ui", factory: (require) => { var module = { exports: {} }; var exports = module.exports; Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+window.__ModuleLoader__.load({ id: "dsh-lab-agent", factory: (require) => { var module = { exports: {} }; var exports = module.exports; Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1562,7 +1562,7 @@ function DesktopPetSettings({ call }) {
   (0, import_react3.useEffect)(() => {
     void change();
   }, [call]);
-  return h("div", { "data-ibm-pet-settings": true }, h("h3", null, "科研桌面宠物"), h("p", null, "使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。"), h("button", { className: "ib-btn", disabled: busy || !state, onClick: () => void change(!state.visible) }, state?.visible ? "隐藏桌面宠物" : "显示桌面宠物"), error ? h("p", { role: "alert", className: "ib-error" }, error) : null, h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。工具步骤完成和整项任务完成分别显示。"));
+  return h("div", { "data-ibm-pet-settings": true }, h("h3", null, "科研桌面宠物"), h("p", null, "使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。"), h("button", { className: "ib-btn", disabled: busy || !state, onClick: () => void change(!state.visible) }, state?.visible ? "隐藏桌面宠物" : "显示桌面宠物"), error ? h("p", { role: "alert", className: "ib-error" }, error) : null, h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。"));
 }
 function PluginSettings({ call }) {
   const [tab, setTab] = (0, import_react3.useState)("templates");
@@ -4979,16 +4979,6 @@ function installSidebarBrowser(ctx) {
   const seen = /* @__PURE__ */ new Set();
   let disposed = false;
   const stop = bridge.onOpen(async (request) => {
-    if (request.focusContentsId) {
-      for (const view of document.querySelectorAll("webview")) try {
-        if (view.getWebContentsId() === request.focusContentsId) {
-          const tab = view.closest("[data-sidebar-right-tab]");
-          if (tab) ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);
-        }
-      } catch {
-      }
-      return;
-    }
     if (!request.id || seen.has(request.id) || disposed) return;
     seen.add(request.id);
     try {
@@ -4999,14 +4989,35 @@ function installSidebarBrowser(ctx) {
       const sessionIds = workspace.sessionIds ?? [];
       const sessionId = [...request.sessionIds ?? []].reverse().find((id) => sessionIds.includes(id)) ?? sessionIds.at(-1);
       if (!sessionId) throw Error("请先为此课题打开一个对话，再启动文献任务");
-      setDesktopProject(request.projectId);
+      if (request.projectId) setDesktopProject(request.projectId);
       ctx.uiWorkspace.openSession(sessionId);
       let opened = false;
       for (let attempt = 0; attempt < 80 && !disposed; attempt++) {
         if (ctx.sidebarRight.mounted.getSnapshot() === sessionId) try {
-          ctx.sidebarRight.openTab("browser", { params: { url: request.url }, revealIfOpened: false });
-          opened = true;
-          break;
+          if (request.focusContentsId) {
+            const view = [...document.querySelectorAll("webview")].find((view2) => {
+              try {
+                return view2.getWebContentsId() === request.focusContentsId;
+              } catch {
+                return false;
+              }
+            });
+            const tab = view?.closest("[data-sidebar-right-tab]");
+            if (tab) {
+              ctx.sidebarRight.focus(tab.dataset.sidebarRightTab);
+              if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded();
+              const bounds = view.getBoundingClientRect();
+              if (view.checkVisibility() && bounds.width > 100 && bounds.height > 100) {
+                bridge.visible(request.id, request.focusContentsId);
+                opened = true;
+                break;
+              }
+            }
+          } else {
+            ctx.sidebarRight.openTab("browser", { params: { url: request.url }, revealIfOpened: false });
+            opened = true;
+            break;
+          }
         } catch {
         }
         await new Promise((done) => setTimeout(done, 50));

@@ -27,7 +27,7 @@ test('task view reports access separately from navigation and preserves blocked 
 test('denied captures release ownership; login waits; native downloads and public SI remain eligible',async()=>{
  const run=async(kind,access,downloading=false)=>{
   const row={task:{...task,kind},lease:'lease',downloading};let saved={...row.task},disarmed=0;
-  const service=Object.create(ScientificDesktopService.prototype);service.armed=new Map([[task.id,row]]);service.broker={call:async()=>{disarmed++;}};
+  const service=Object.create(ScientificDesktopService.prototype);service.active=true;service.armed=new Map([[task.id,row]]);service.broker={call:async(method)=>{if(method==='disarm')disarmed++;assert.ok(['focus','disarm'].includes(method));}};
   service.ctx={get:()=>({getTask:()=>saved,transit:async(_,patch)=>{saved={...saved,...patch};}})};service.pumpCaptures=()=>{};
   await service.updateAccess(row,access);return {saved,disarmed,active:service.armed.size};
  };

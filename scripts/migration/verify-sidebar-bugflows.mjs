@@ -111,6 +111,15 @@ try{
  report.checks.push('publisher-download-popup-stays-in-sidebar','pet-only-running-task-real-download-progress-no-queued-or-completed-rows');
  await rpc('desktop_pet',{visible:false});assert.equal((await rpc('desktop_pet',{})).visible,false);await rpc('desktop_pet',{visible:true});assert.equal((await rpc('desktop_pet',{})).visible,true);report.checks.push('pet-show-hide-preference');
  const pending=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:'sidebar-cancel',kind:'pdf'});await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:pending.task.id});assert.equal((await rpc('manual_capture_get',{taskId:pending.task.id})).task.status,'cancelled');report.checks.push('sidebar-capture-cancellation');
+ await frame.click('button[aria-label="收起右侧边栏"],button[aria-label="Collapse right sidebar"]');
+ await frame.waitForFunction(()=>!document.querySelector('[data-sidebar-right-open]'));
+ const rebuilt=await rpc('manual_capture_recreate',{taskId:pending.task.id,reason:'sidebar visibility regression'});
+ await wait(async()=>{const state=await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'});return state.capture?.pendingTaskId===rebuilt.task.id;},'AI rebuilt capture bound to existing browser');
+ await frame.waitForFunction(()=>document.querySelector('[data-sidebar-right-open]')&&document.querySelector('webview')?.checkVisibility());
+ assert.equal((await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window.lease,opened.lease);
+ report.checks.push('AI-task-reconstruction-reopens-collapsed-sidebar-and-reuses-guest');
+ await page.screenshot({path:join(work,'sidebar-ai-rebuilt.png')});
+ await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:rebuilt.task.id});
  await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/inline.pdf'});
  report.pdfPreview=await wait(async()=>{const state=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window;if(!state?.url?.includes('/inline.pdf')||!/^application\/pdf/i.test(state.documentType??''))return false;const bounds=await frame.evaluate(()=>{const r=document.querySelector('webview')?.getBoundingClientRect();return {width:r?.width,height:r?.height};});assert.ok(bounds.width>350&&bounds.height>400);return {url:state.url,documentType:state.documentType,...bounds,bytes:previewPdf.length};},'PDF response in full-size official sidebar');
  await delay(8000);await page.screenshot({path:join(work,'native-pdf-preview.png')});report.checks.push('real-PDF-response-in-full-size-official-sidebar-visual-preview-recorded');
