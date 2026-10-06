@@ -54,6 +54,8 @@ export class DesktopBrowserGuests extends NextGuests {
  }
  bind(window,attachInput) {
   super.bind(window,attachInput);const owner=window.webContents;this.owners.add(owner);owner.once('destroyed',()=>this.owners.delete(owner));
+  // Run after official lease validation, changing only the native PDF capability.
+  owner.on('will-attach-webview',(event,preferences,params)=>{const id=String(params.src??'').startsWith('about:blank#')?params.src.slice(12):'';const row=this.leases.get(id);if(!event.defaultPrevented&&row?.owner===owner&&row.partition===params.partition)preferences.plugins=true;});
   owner.on('did-attach-webview',(_event,guest)=>guest.once('dom-ready',()=>{
    const pair=[...this.leases].find(([,row])=>row.guest===guest);if(!pair)return;
    const [id,row]=pair;

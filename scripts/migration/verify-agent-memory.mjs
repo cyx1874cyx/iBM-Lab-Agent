@@ -22,6 +22,8 @@ const manager=new NextProfiles(home);manager.finishOnboarding('ibm-lab');
 process.env.HOME=home;process.env.USERPROFILE=home;process.env.DSH_TELEMETRY_DISABLED='1';
 const entry=join(work,'isolated-host.mjs');
 const probe=process.argv.includes('--tool-probe'),probeFile=join(work,'tool-probe.json');
+const recovery=process.argv.includes('--model-recovery');
+const activityProbe=process.argv.includes('--activity-probe');
 let hostEntry=join(app,'lib/host.js');
 if(probe){
  const require=createRequire(join(app,'package.json'));
@@ -35,10 +37,12 @@ if(probe){
  const scheduler=ctx.tools[root.TOOL_RUNTIME_SCHEDULER];
  if(!scheduler)throw Error('Host scheduler missing');
  if(root.TOOL_RUNTIME_SCHEDULER!==local.TOOL_RUNTIME_SCHEDULER)throw Error('Kernel scheduler module identity mismatch');
- const llm=await import(${JSON.stringify(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href)});let fixtureStep=0;class FixtureAdapter extends llm.LlmAdapter{async *stream(){const block=fixtureStep++===0?{type:'tool-call',id:'loop-memory',name:'lab_project_memory_read',arguments:JSON.stringify({projectId:'installed-smoke'})}:{type:'text',text:'MEMORY TURN DONE'};yield {type:'block-start',index:0,blockType:block.type};yield {type:'block-end',index:0,block};yield {type:'finish',reason:{kind:block.type==='tool-call'?'tool-calls':'stop'}};}}
- ctx.llm.registerAdapter(['ibm-fixture'],new FixtureAdapter());
+ const petUpdates=[];ctx.on('ibm/task-activity',()=>petUpdates.push(ctx.ibmCore.taskActivity()));
+ if(${activityProbe})ctx.tools.register({name:'origin_export_fixture',description:'Isolated task activity probe',parameters:{},execute:async()=>{await new Promise(done=>setTimeout(done,150));return {ok:true};}});
+ const llm=await import(${JSON.stringify(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href)});let fixtureStep=0;class FixtureAdapter extends llm.LlmAdapter{async *stream(){if(${recovery}&&fixtureStep++===0){yield {type:'finish',reason:{kind:'error',failure:{code:'MALFORMED_RESPONSE',message:'DeepSeek Messages stream: tool input is invalid JSON'}}};return;}const block=fixtureStep++===${recovery?2:0}?{type:'tool-call',id:'loop-memory',name:'lab_project_memory_read',arguments:JSON.stringify({projectId:'installed-smoke'})}:{type:'text',text:'MEMORY TURN DONE'};yield {type:'block-start',index:0,blockType:block.type};yield {type:'block-end',index:0,block};if(${activityProbe}&&block.type==='tool-call'){yield {type:'block-start',index:1,blockType:'tool-call'};yield {type:'block-end',index:1,block:{type:'tool-call',id:'loop-origin',name:'origin_export_fixture',arguments:'{}'}};}yield {type:'finish',reason:{kind:block.type==='tool-call'?'tool-calls':'stop'}};}}
+ ctx.llm.registerAdapter(['${recovery?'deepseek-fixture':'ibm-fixture'}'],new FixtureAdapter());
  let scopedAgent,scopedContext;const setup=async(agentCtx,agent)=>{await ctx.agentPresets.mount(agentCtx,'lab-research');scopedAgent=agent;scopedContext=agentCtx;};
- const agentOptions={provider:'ibm-fixture',model:'memory'};
+ const agentOptions={provider:'${recovery?'deepseek-fixture':'ibm-fixture'}',model:'memory'};
  const handle=message.resume?await ctx.agents.resume({resumeSessionId:'agent-memory-probe',agentOptions,setup}):await ctx.agents.create({sessionId:'agent-memory-probe',agentOptions,meta:{cwd:ctx.ibmCore.requireProject('installed-smoke').workspacePath},setup});
  const scopedScheduler=scopedContext.tools[root.TOOL_RUNTIME_SCHEDULER];
  if(!scopedScheduler)throw Error('Agent scheduler missing; root='+Boolean(scheduler)+'; symbols='+Object.getOwnPropertySymbols(scopedContext.tools).map(s=>s.description).join(','));
@@ -49,7 +53,10 @@ if(probe){
  if(final.isError||!JSON.stringify(final).includes('# Installed smoke'))throw Error('Memory tool failed: '+JSON.stringify(final));
  scopedAgent.followup(llm.createUserMessage({content:[{type:'text',text:'Read isolated memory'}],source:{kind:'user'}}));await scopedAgent.whenIdle();
  const events=scopedAgent.session.snapshotEvents(0);const end=events.filter(e=>e.type==='turn/end').at(-1);if(end?.data.reason.kind==='error'||!JSON.stringify(events).includes('# Installed smoke'))throw Error('Agent turn failed: '+JSON.stringify(events));
- result={ok:true,sameSymbol:true,schedulerAvailable:true,resumed:Boolean(message.resume),completedTurns:events.filter(e=>e.type==='turn/end'&&e.data.reason.kind==='completed').length,result:final,agentTurn:events};
+ if(${recovery}&&events.filter(e=>e.type==='assistant/attempt').length!== (message.resume?2:1))throw Error('Malformed-response recovery count mismatch');
+ if(${activityProbe}&&!petUpdates.some(state=>state.tasks.some(row=>row.kind==='origin'&&row.status==='running')))throw Error('Real scoped tool execution did not publish task activity');
+ if(${activityProbe}&&ctx.ibmCore.taskActivity().tasks.some(row=>row.status==='running'))throw Error('Completed Agent turn left an active pet task');
+ result={ok:true,sameSymbol:true,schedulerAvailable:true,resumed:Boolean(message.resume),completedTurns:events.filter(e=>e.type==='turn/end'&&e.data.reason.kind==='completed').length,result:final,agentTurn:events,petUpdates};
  }catch(error){result={ok:false,error:String(error)};}
  writeFileSync(${JSON.stringify(probeFile)},JSON.stringify(result,null,2));});`);
  hostEntry=join(work,'instrumented-host.mjs');writeFileSync(hostEntry,source);

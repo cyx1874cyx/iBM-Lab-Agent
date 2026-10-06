@@ -37,3 +37,16 @@ test('pet only selects running tasks, excluding queued, review and terminal noti
  tasks.push({id:'pdf',status:'running',stage:'正在下载'});
  assert.equal(selectPetTask(tasks).id,'pdf');
 });
+test('skill-led workflows include generic file and script steps until the real turn ends, and publish without a polling delay',()=>{
+ let changes=0;const activity=new TaskActivity(()=>1000,()=>changes++),session={header:{id:'session',cwd:'project'}};
+ activity.event(session,{type:'turn/start'});
+ assert.equal(activity.start({callId:'unrelated',name:'read',agent:{session}}),null);
+ const first=activity.start({callId:'skill',name:'skill',arguments:{name:'nature-reader'},agent:{session}});assert.equal(first.kind,'reading');assert.ok(changes>=2);
+ activity.finish(first.id,{});assert.equal(selectPetTask(activity.snapshot()).kind,'reading');
+ const generic=activity.start({callId:'script',name:'bash',arguments:{command:'private text'},agent:{session}});assert.equal(generic.kind,'reading');assert.match(generic.stage,/脚本/);assert.equal(JSON.stringify(activity.snapshot()).includes('private text'),false);
+ activity.event(session,{type:'turn/end',data:{reason:{kind:'completed'}}});assert.equal(selectPetTask(activity.snapshot()),undefined);
+});
+test('running tasks precede waiting records when the pet payload is limited to eight entries',()=>{
+ const activity=new TaskActivity();for(let i=0;i<12;i++)activity.update('waiting'+i,{status:'waiting',updatedAt:2000});activity.update('actual',{status:'running',kind:'ppt'});assert.equal(selectPetTask(activity.snapshot()).id,'actual');
+ assert.equal(toolActivity('skill',{name:'nature-paper2ppt'}).kind,'ppt');assert.equal(toolActivity('lab_browser_observe').kind,'capture');
+});

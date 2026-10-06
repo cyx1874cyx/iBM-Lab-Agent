@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,copyFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -12,9 +12,11 @@ const arg=name=>resolve(process.argv[process.argv.indexOf(name)+1]);
 const app=arg('--app'),resources=arg('--resources'),executable=arg('--executable'),output=arg('--output');
 mkdirSync(output,{recursive:true});const work=mkdtempSync(join(output,'run-')),home=join(work,'独立科研 验收');
 const pdf=Buffer.from('%PDF-1.4\n/Type /Page\nSIDEBAR FIXTURE\n'+' '.repeat(200000)+'\n%%EOF');
+const previewPdf=process.argv.includes('--preview-pdf')?readFileSync(arg('--preview-pdf')):Buffer.from(execFileSync(join(resources,'python/python.exe'),['-I','-c','import pymupdf,base64; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"NATIVE PDF SIDEBAR PREVIEW"); print(base64.b64encode(d.tobytes()).decode())'],{encoding:'utf8',windowsHide:true}).trim(),'base64');
 const cookies=[];
 const server=createServer((req,res)=>{
- if(req.url.startsWith('/file')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'attachment; filename="fixture-SI.pdf"','content-length':pdf.length});let offset=0;const timer=setInterval(()=>{res.write(pdf.subarray(offset,offset+20000));offset+=20000;if(offset>=pdf.length){clearInterval(timer);res.end();}},250);res.once('close',()=>clearInterval(timer));}
+ if(req.url.startsWith('/inline.pdf')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'inline; filename="preview.pdf"','content-length':previewPdf.length});res.end(previewPdf);}
+ else if(req.url.startsWith('/file')){res.writeHead(200,{'content-type':'application/pdf','content-disposition':'attachment; filename="fixture-SI.pdf"','content-length':pdf.length});let offset=0;const timer=setInterval(()=>{res.write(pdf.subarray(offset,offset+20000));offset+=20000;if(offset>=pdf.length){clearInterval(timer);res.end();}},250);res.once('close',()=>clearInterval(timer));}
  else{if(req.url.startsWith('/check'))cookies.push(req.headers.cookie??'');res.writeHead(200,{'content-type':'text/html',...(!req.url.startsWith('/check')?{'set-cookie':'ibm_fixture_session=retained; Path=/; Max-Age=3600'}:{})});res.end('<title>SIDEBAR PUBLISHER</title><h1>SIDEBAR PUBLISHER</h1><button onclick="window.open(\'/file.pdf\')">Download PDF</button>');}
 });server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
 const {NextProfiles}=await import(pathToFileURL(join(app,'lib/profiles.js')));
@@ -100,6 +102,9 @@ try{
  report.checks.push('publisher-download-popup-stays-in-sidebar','pet-only-running-task-real-download-progress-no-queued-or-completed-rows');
  await rpc('desktop_pet',{visible:false});assert.equal((await rpc('desktop_pet',{})).visible,false);await rpc('desktop_pet',{visible:true});assert.equal((await rpc('desktop_pet',{})).visible,true);report.checks.push('pet-show-hide-preference');
  const pending=await rpc('desktop_browser',{action:'capture',projectId:'sidebar-test',bundleId:'sidebar-cancel',kind:'pdf'});await rpc('desktop_browser',{action:'cancel',projectId:'sidebar-test',taskId:pending.task.id});assert.equal((await rpc('manual_capture_get',{taskId:pending.task.id})).task.status,'cancelled');report.checks.push('sidebar-capture-cancellation');
+ await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/inline.pdf'});
+ report.pdfPreview=await wait(async()=>{for(const target of browser.targets())if(target.type()==='webview'){const session=await target.createCDPSession();try{const tree=await session.send('Page.getFrameTree');const nodes=[];const visit=n=>{nodes.push(n.frame.url);for(const child of n.childFrames??[])visit(child);};visit(tree.frameTree);if(nodes.some(url=>url.startsWith('chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/')))return {frames:nodes,bytes:previewPdf.length};}finally{await session.detach();}}return false;},'native Chromium PDF viewer frame');
+ await delay(1000);await page.screenshot({path:join(work,'native-pdf-preview.png')});report.checks.push('real-valid-PDF-native-viewer-in-official-sidebar');
  await rpc('desktop_pet',{visible:false});await close();await launch(false);assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
  const before=cookies.length;await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/check'});await wait(()=>cookies.length>before,'persistent cookie request');assert.match(cookies.at(-1),/ibm_fixture_session=retained/);report.checks.push('browser-login-cookie-survives-application-restart');
  report.ok=true;

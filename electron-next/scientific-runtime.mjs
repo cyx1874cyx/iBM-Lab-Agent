@@ -28,7 +28,7 @@ function options(partition) {
  return { show: !config.headless, width: 1100, height: 800, webPreferences: {
   partition, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false,
   contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false,
-  webviewTag: false, plugins: false, navigateOnDragDrop: false
+  webviewTag: false, plugins: true, navigateOnDragDrop: false
  } };
 }
 function publicUrl(value) { const url = new URL(value); return url.protocol === "about:" ? "about:blank" : `${url.origin}${url.pathname}`; }
@@ -70,7 +70,8 @@ function configure(partition) {
  browserSession.setPermissionCheckHandler(() => false);
  browserSession.webRequest.onBeforeRequest((details, callback) => {
   const protocol = new URL(details.url).protocol;
-  callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !["about:", "data:", "blob:"].includes(protocol) });
+  const nativePdf=protocol==='chrome-extension:'&&new URL(details.url).hostname==='mhjfbmdgcfjbbpaeojofohoefgiehjai';
+  callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !nativePdf&&!["about:", "data:", "blob:"].includes(protocol) });
  });
  browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){lease.statusCode=details.statusCode;const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
  browserSession.on("will-download", (event, item, contents) => {
