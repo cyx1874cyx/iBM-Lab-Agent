@@ -9,6 +9,8 @@ import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 const arg = name => { const index = process.argv.indexOf(name); assert.ok(index >= 0, `${name} required`); return resolve(process.argv[index + 1]); };
 const next = arg("--next-root"), output = arg("--output"), repo = resolve(".");
+const expectedClient=readFileSync(join(repo,'client/index.js'),'utf8').replaceAll('\r\n','\n').replace('id: "dsh-lab-agent", factory:','id: "dsh-lab-ui", factory:');
+assert.equal(readFileSync(join(repo,'packages/dsh-lab-ui/client/index.js'),'utf8').replaceAll('\r\n','\n'),expectedClient,'UI domain client is stale; rebuild client and domain packages before packing');
 assert.equal(execFileSync("git", ["-C", next, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(), "838ba60fd79362087c0a0d134efee671c284786a");
 const runtime = join(next, "dsh-desktop-next"), require = createRequire(join(runtime, "package.json"));
 const { bundledPnpmEntry, NEXT_PACKAGE } = { ...await import(pathToFileURL(join(runtime, "lib/extensions.js"))), ...await import(pathToFileURL(join(runtime, "lib/profiles.js"))) };

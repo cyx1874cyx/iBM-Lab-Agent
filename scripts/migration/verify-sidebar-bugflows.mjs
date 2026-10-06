@@ -22,7 +22,7 @@ const server=createServer((req,res)=>{
 const {NextProfiles}=await import(pathToFileURL(join(app,'lib/profiles.js')));
 initializeRelease({home,resources,electron:executable,profiles:NextProfiles});const profiles=new NextProfiles(home);profiles.finishOnboarding('ibm-lab');profiles.dismissAccountSetup('ibm-lab');
 if(process.argv.includes('--development-client')){
- copyFileSync(arg('--development-client'),join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-ui/client/index.js'));
+ writeFileSync(join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-ui/client/index.js'),readFileSync(arg('--development-client'),'utf8').replace('id: "dsh-lab-agent", factory:','id: "dsh-lab-ui", factory:'));
  copyFileSync(join(app,'node_modules/dsh-lab-agent/src/runtime/task-activity.js'),join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-agent/src/runtime/task-activity.js'));
 }
 const fixture=join(profiles.directory('ibm-lab'),'node_modules','dsh-ibm-sidebar-fixture');mkdirSync(fixture,{recursive:true});
