@@ -24,6 +24,29 @@ import { entryFileName } from "../../lib/entry-layout.js";
 const entryStemOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryStem;
 const entryDirOf = (tasks, bundleId) => tasks.getBundle(bundleId).entryDir;
 
+test('manual RIS registration and content-based reading folders retain evidence and isolate projects',async()=>{
+ const {handle,dir,fxDir}=await bootTasks();
+ try{
+  const tasks=handle.ctx.labTasks;
+  await tasks.createProject({id:'organization',name:'分类验收',goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
+  await tasks.createProject({id:'other-organization',name:'另一课题',goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
+  const text='TY  - JOUR\nTI  - 核酸递送\nDO  - 10.1038/example\nAU  - Li, A\nAB  - Lipid delivery study\nER  -\n';
+  const input={projectId:'organization',fileName:'人工检索.ris',base64:Buffer.from(text+text).toString('base64')};
+  const imported=await tasks.importSearchRis(input);assert.equal(imported.run.results.length,1);assert.equal(imported.duplicateCount,1);assert.equal(await readFile(imported.run.importedRis.path,'utf8'),text+text);
+  assert.equal((await tasks.importSearchRis(input)).reused,true);assert.equal(tasks.listSearchRuns('organization').length,1);
+  await assert.rejects(()=>tasks.importSearchRis({...input,base64:Buffer.from('not RIS').toString('base64')}));assert.equal(tasks.listSearchRuns('organization').length,1);
+  const bundle=await tasks.preparePaper({projectId:'organization',sourceMapPath:join(fxDir,'min-source-map.json'),title:'Prodrug polymers'});
+  const pending=await tasks.createReadingReport({projectId:'organization',bundleId:bundle.id,goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1'});
+  await assert.rejects(()=>tasks.classifyReadingReport({projectId:'organization',reportId:pending.id,name:'药物递送',reason:'基于报告',source:'agent'}),/完成/);
+  const report=await tasks.completeReadingReport({reportId:pending.id,paperCardPath:join(fxDir,'paper-card-pass.md'),folderName:'聚前药高分子',classificationReason:'报告讨论聚前药聚合物的载药与释放机制'});
+  assert.ok(report.folderId);assert.equal(report.classification.source,'agent');assert.ok(report.classification.reportSha256);const mdPath=report.paperCardPath;
+  const [sameA,sameB]=await Promise.all([tasks.saveReadingFolder({projectId:'organization',name:'聚前药高分子'}),tasks.saveReadingFolder({projectId:'organization',name:'聚前药高分子'})]);assert.equal(sameA.id,sameB.id);assert.equal(tasks.listReadingFolders('organization').length,1);
+  await assert.rejects(()=>tasks.classifyReadingReport({projectId:'other-organization',reportId:report.id,folderId:report.folderId}),/不属于/);
+  await tasks.saveReadingFolder({projectId:'organization',id:report.folderId,name:'聚合物前药'});assert.equal(tasks.getReadingReport(report.id).folderId,report.folderId);
+  await tasks.deleteReadingFolder({projectId:'organization',id:report.folderId});assert.equal(tasks.getReadingReport(report.id).folderId,undefined);assert.equal(tasks.getReadingReport(report.id).paperCardPath,mdPath);assert.ok(existsSync(mdPath));
+ }finally{await handle.dispose();await rm(dir,{recursive:true,force:true});}
+});
+
 /**
  * manifest 派生件（slots.json）的测试替身。
  *

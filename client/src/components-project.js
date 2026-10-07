@@ -10,6 +10,7 @@ import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
 import { Templates } from "./components-templates.js";
 import { BookSvg, SiSvg, SpinSvg } from "./components-templates.js";
+import {fileToBase64} from './components-literature.js';
 
 // 条目操作按钮一律**平铺在条目右侧**（与改版前一致）：次级原文按钮 + 简介 + 精读 +
 // PPT + 删除。试过把这些低频操作收进 `···` 下拉，但在 DSH 的滚动容器里菜单会被裁切、
@@ -154,6 +155,15 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [busy, setBusy] = useState({});
 			const [overview, setOverview] = useState({});
 			const [expandedSearch, setExpandedSearch] = useState(null);
+			const [folders,setFolders]=useState([]),[selectedFolder,setSelectedFolder]=useState('all'),[organizing,setOrganizing]=useState(false),[importingRis,setImportingRis]=useState(false);
+			const risPicker=useRef(null);
+			const loadFolders=useCallback(()=>call('tasks_reading_folders',{request:{projectId}}).then(result=>setFolders(result.folders??[])).catch(error=>notify(error.message)),[call,projectId,notify]);
+			useEffect(()=>{void loadFolders();},[projectId,reports,loadFolders]);
+			const folderAction=async(action,request)=>{try{await call(action,{request:{projectId,...request}});await loadFolders();onChanged?.();}catch(error){notify(error.message);}};
+			const createFolder=()=>{const name=window.prompt('新建精读文件夹名称');if(name?.trim())void folderAction('tasks_reading_folder_save',{name});};
+			const importRis=async file=>{if(!file)return;setImportingRis(true);try{if(file.size>2*1024*1024)throw Error('RIS 文件不能超过 2 MB');const result=await call('tasks_search_import_ris',{request:{projectId,fileName:file.name,base64:await fileToBase64(file)}});notify(`${result.reused?'已登记过此 RIS，复用原记录':'RIS 导入成功'}：${result.run.results.length} 篇，去重 ${result.duplicateCount} 条`);onChanged?.();}catch(error){notify(error.message);}finally{setImportingRis(false);if(risPicker.current)risPicker.current.value='';}};
+			const autoOrganize=async()=>{setOrganizing(true);try{await onRequestArtifact?.('请整理当前课题全部已完成精读的文献：先调用 lab_tasks_list_reading_folders，逐份读取其中报告 Markdown；根据报告的研究主题、材料体系和机制选择简洁的中文文件夹名，优先复用已有同主题文件夹；逐条调用 lab_tasks_classify_reading_report 登记，reason 必须包含报告内容依据。未完成精读的条目保留未分类。',true);}catch(error){notify(error.message);}finally{setOrganizing(false);}};
+			const filteredReports=reports.filter(report=>selectedFolder==='all'||(selectedFolder==='unfiled'?!report.folderId:report.folderId===selectedFolder));
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [reviewVisible, setReviewVisible] = useState(false);
@@ -672,6 +682,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				h("section", { className: "ib-lit-group", key: "searches" },
 					h("div", { className: "ib-group-head" },
 						h("h3", null, "检索记录"),
+						h('button',{className:'ib-act',disabled:importingRis,onClick:()=>risPicker.current?.click()},importingRis?'正在导入…':'上传 RIS'),
+						h('input',{type:'file',accept:'.ris',hidden:true,ref:risPicker,onChange:event=>void importRis(event.target.files?.[0])}),
 						h("span", { className: "ib-group-count" }, `${searches.length} 条`)),
 					searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => {
 						const resultCount = (search.results || []).length;
@@ -681,7 +693,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h("div", { className: "ib-lit-row" },
 							h("div", { className: "ib-lit-main" },
 								h("b", { className: "ib-lit-title" }, search.title || search.query || search.id),
-								h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
+								h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${search.importedRis ? "人工 RIS 导入 · " : ""}${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row) => row.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)),
 							h("div", { className: "ib-lit-acts" },
 								// 主入口只有一个：查看文献（= 展开本会话全部去重文献）
 								h("button", { className: "ib-act", "data-kind": "accent", disabled: !resultCount, onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? null : search.id); }, title: "展开本会话的全部去重文献" }, expanded ? "收起文献" : "查看文献"),
@@ -699,8 +711,11 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				h("section", { className: "ib-lit-group", key: "reports" },
 					h("div", { className: "ib-group-head" },
 						h("h3", null, "精读文献"),
+						h('button',{className:'ib-act',onClick:createFolder},'+ 文件夹'),
+						h('button',{className:'ib-act',disabled:organizing||!reports.some(row=>row.paperCardPath),onClick:()=>void autoOrganize()},'Agent 自动分类'),
 						h("span", { className: "ib-group-count" }, `${reports.length} 篇`)),
-					reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) => {
+					h('div',{className:'ib-reading-folders',style:{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}},[{id:'all',name:'全部'},{id:'unfiled',name:'未分类'},...folders].map(folder=>h('button',{key:folder.id,className:'ib-act','data-selected':selectedFolder===folder.id?'true':undefined,style:selectedFolder===folder.id?{background:'#e4f2e9',color:'#23613b'}:undefined,onClick:()=>setSelectedFolder(folder.id)},`${folder.id==='all'?'':'📁 '}${folder.name} (${reports.filter(row=>folder.id==='all'||(folder.id==='unfiled'?!row.folderId:row.folderId===folder.id)).length})`)),folders.some(row=>row.id===selectedFolder)?h(React.Fragment,null,h('button',{className:'ib-act',onClick:()=>{const name=window.prompt('重命名文件夹',folders.find(row=>row.id===selectedFolder).name);if(name?.trim())void folderAction('tasks_reading_folder_save',{id:selectedFolder,name});}},'重命名'),h('button',{className:'ib-act',onClick:()=>{if(window.confirm('删除该分类文件夹？其中的文献将移到“未分类”，保留报告及归档文件。')){void folderAction('tasks_reading_folder_delete',{id:selectedFolder});setSelectedFolder('unfiled');}}},'删除文件夹')):null),
+					filteredReports.length ? h("div", { className: "ib-lit-list" }, filteredReports.map((report) => {
 						const presentation = presentationByReport[report.id];
 						const bundle = bundleById[report.bundleId] || {};
 						const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
@@ -746,7 +761,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const pptDone = Boolean(presentation?.pptxPath);
 						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
 						const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
+						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。完成精读后根据报告内容判断主题文件夹，先查看已有精读文件夹，优先复用；登记报告时提供 folderName 与 classificationReason 自动归类。`;
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
 						return h("div", { className: "ib-lit-item", key: report.id },
 							// 一行布局（与改版前一致）：左边标题区，右边操作区。操作区把
@@ -790,6 +805,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
 										title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
 									}, pptBusy ? h(SpinSvg, null) : null, pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
+									h('select',{value:report.folderId??'',title:report.classification?.reason??'调整精读文件夹',onChange:event=>void folderAction('tasks_reading_classify',{reportId:report.id,folderId:event.target.value})},h('option',{value:''},'未分类'),folders.map(folder=>h('option',{key:folder.id,value:folder.id},folder.name))),
 									h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除"))
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },

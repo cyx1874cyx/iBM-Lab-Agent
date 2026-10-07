@@ -1607,7 +1607,7 @@ function buildDescriptors() {
     // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
     // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
     ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "tasks_searches", "tasks_search_delete", "tasks_search_import_ris", "tasks_reading_folders", "tasks_reading_folder_save", "tasks_reading_folder_delete", "tasks_reading_classify", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -1811,9 +1811,9 @@ function ScientificBrowser({ call, projectId }) {
 }
 
 // client/src/components-project.js
-var import_react8 = __toESM(require("react"), 1);
+var import_react9 = __toESM(require("react"), 1);
 var import_react_dom = __toESM(require("react-dom"), 1);
-var import_react9 = require("react");
+var import_react10 = require("react");
 
 // client/src/components-workspace.js
 var import_react6 = require("react");
@@ -3473,6 +3473,265 @@ function PlotEdit({ row: row2, call, onChanged, onError }) {
   } }, "保存"));
 }
 
+// client/src/components-literature.js
+var import_react8 = __toESM(require("react"), 1);
+function useBoundProject(sessionId, call, useSessions) {
+  const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
+  const [bound, setBound] = (0, import_react8.useState)(null);
+  (0, import_react8.useEffect)(() => {
+    if (!sessionId) {
+      setBound(null);
+      return void 0;
+    }
+    let alive = true;
+    const lookup = async () => {
+      try {
+        const bySession = await call("projects_by_session", { request: { sessionId } });
+        if (bySession.bound) return bySession.bound;
+        if (cwd) {
+          const byCwd = await call("projects_by_cwd", { request: { path: cwd } });
+          if (byCwd.bound) return byCwd.bound;
+        }
+        return null;
+      } catch (reason) {
+        return null;
+      }
+    };
+    lookup().then((result) => {
+      if (alive) setBound(result);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [sessionId, cwd, call]);
+  return bound;
+}
+function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
+  const bound = useBoundProject(sessionId, call, useSessions);
+  (0, import_react8.useEffect)(() => {
+    if (typeof document === "undefined" || !bound?.project?.id) return void 0;
+    document.body.classList.add("ib-research-chat");
+    document.body.dataset.ibResearchProject = bound.project.id;
+    return () => {
+      if (document.body.dataset.ibResearchProject === bound.project.id) {
+        document.body.classList.remove("ib-research-chat");
+        delete document.body.dataset.ibResearchProject;
+      }
+    };
+  }, [bound?.project?.id]);
+  (0, import_react8.useEffect)(() => {
+    const projectId = bound?.project?.id;
+    if (!projectId) return void 0;
+    setBallTaskCancelHandler(async (taskId) => {
+      await call("manual_capture_cancel", { request: {
+        taskId,
+        reason: "用户从捕获小球删除队列任务"
+      } }).catch(() => {
+      });
+      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
+      });
+    });
+    setBallTaskRecreateHandler(async (taskId) => {
+      await call("manual_capture_recreate", { request: {
+        taskId,
+        reason: "用户从捕获小球重建获取任务"
+      } }).catch(() => {
+      });
+      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
+      });
+    });
+    return () => {
+      setBallTaskCancelHandler(null);
+      setBallTaskRecreateHandler(null);
+    };
+  }, [bound?.project?.id, call]);
+  (0, import_react8.useEffect)(() => {
+    const projectId = bound?.project?.id;
+    if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
+    let disposed = false;
+    let timer;
+    let starting = false;
+    let runningOperation = false;
+    const poll = async () => {
+      if (disposed || starting) return;
+      let claimedTask;
+      starting = true;
+      try {
+        let shellStatus;
+        let iwanStatus;
+        try {
+          [shellStatus, iwanStatus] = await Promise.all([webVpnStatusViaShell(), iwanStatusViaShell()]);
+          await call("manual_capture_desktop_status_update", { request: {
+            state: shellStatus?.state,
+            authenticated: shellStatus?.authenticated,
+            windowOpen: shellStatus?.windowOpen,
+            sidebarVisible: shellStatus?.sidebarVisible,
+            pendingTaskId: shellStatus?.pendingTaskId,
+            automationStage: shellStatus?.automationStage,
+            downloadedBytes: shellStatus?.downloadedBytes,
+            downloadEventBytes: shellStatus?.downloadEventBytes,
+            downloadElapsedMs: shellStatus?.downloadElapsedMs,
+            maxCaptureBytes: shellStatus?.maxCaptureBytes,
+            // 页面级事实与接管关系（C2/C3）：wait 的指纹与
+            // heartbeat-lost/orphaned 判定都靠这两组字段。
+            pageUrl: shellStatus?.pageUrl,
+            documentType: shellStatus?.documentType,
+            httpStatus: shellStatus?.httpStatus,
+            readyState: shellStatus?.readyState,
+            pageSeq: shellStatus?.pageSeq,
+            contentLength: shellStatus?.contentLength,
+            pdfPayload: shellStatus?.pdfPayload,
+            lastPendingTaskId: shellStatus?.lastPendingTaskId,
+            releaseReason: shellStatus?.releaseReason,
+            takenOverAt: shellStatus?.takenOverAt,
+            // 壳侧的失败原因与"已保住的产物"必须上报，否则调用方
+            // 只能靠读日志/读盘反推（2026-09-27 现场 §4）。
+            lastError: shellStatus?.lastError,
+            lastFailure: shellStatus?.lastFailure,
+            iwanInstalled: iwanStatus?.installed,
+            iwanConnected: iwanStatus?.connected,
+            iwanUsable: iwanStatus?.usable,
+            iwanGlobalRoute: iwanStatus?.globalRoute
+          } });
+          const claimedAction = await call("manual_capture_desktop_action_claim", { request: { projectId } });
+          if (claimedAction?.action?.type === "open-login" && !iwanStatus?.usable) {
+            shellStatus = await openWebVpnLoginViaShell();
+            toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
+          } else if (claimedAction?.action?.type === "cancel-capture" && claimedAction.action.taskId) {
+            await cancelWebVpnCaptureViaShell(claimedAction.action.taskId);
+          }
+        } catch {
+        }
+        if (!runningOperation && !disposed) {
+          try {
+            const next = await call("browser_operation_claim", { request: { projectId } });
+            if (next?.operation && !disposed) {
+              const operation = next.operation;
+              runningOperation = true;
+              void (async () => {
+                try {
+                  const result = await webVpnBrowserActionViaShell(operation);
+                  await call("browser_operation_complete", { request: {
+                    projectId,
+                    id: operation.id,
+                    result
+                  } });
+                } catch (reason) {
+                  await call("browser_operation_complete", { request: {
+                    projectId,
+                    id: operation.id,
+                    error: String(reason?.message || reason)
+                  } }).catch(() => {
+                  });
+                } finally {
+                  runningOperation = false;
+                }
+              })();
+            }
+          } catch {
+          }
+        }
+        const listed = await call("manual_capture_list", { request: { projectId } });
+        sendWebVpnBallQueue(listed?.tasks || [], listed?.notice);
+        const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
+        if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status) || ["error", "expired"].includes(shellStatus?.state))) {
+          if (activeTask.status === "armed") {
+            await call("manual_capture_cancel", { request: {
+              taskId: activeTask.id,
+              reason: shellStatus?.lastError || "文献浏览器任务已中断"
+            } }).catch(() => {
+            });
+          }
+          await cancelWebVpnCaptureViaShell(activeTask.id).catch(() => {
+          });
+          return;
+        }
+        const shellBusy = Boolean(shellStatus?.pendingTaskId) || ["navigating", "waiting-download", "downloading", "uploading"].includes(shellStatus?.state);
+        if (shellBusy) return;
+        const queued = (listed?.tasks || []).filter((item) => item.requestedBy === "agent" && item.status === "armed").sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+        const routeNeedsVpn = (item) => item.kind === "pdf" || !(item.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(item.publisherUrl || ""));
+        const task = queued.find((item) => iwanStatus?.usable || !routeNeedsVpn(item) || shellStatus?.windowOpen && shellStatus?.authenticated) || queued[0];
+        if (task && !disposed) {
+          const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
+          const taskNeedsVpn = routeNeedsVpn(task);
+          if (taskNeedsVpn && !iwanStatus?.usable && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
+            if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
+            shellStatus = await confirmWebVpnLoginViaShell();
+            await call("manual_capture_desktop_status_update", { request: {
+              state: shellStatus?.state,
+              authenticated: shellStatus?.authenticated,
+              windowOpen: shellStatus?.windowOpen,
+              sidebarVisible: shellStatus?.sidebarVisible,
+              pendingTaskId: shellStatus?.pendingTaskId
+            } });
+            if (shellStatus?.state !== "ready") return;
+          }
+          const claimed = await call("manual_capture_claim_agent", { request: { taskId: task.id } });
+          claimedTask = claimed?.task;
+          if (!claimedTask?.token || !claimedTask.publisherUrl) throw new Error("AI 文献下载请求缺少有效的捕获入口");
+          await openWebVpnCaptureViaShell({
+            taskId: claimedTask.id,
+            kind: claimedTask.kind,
+            targetUrl: claimedTask.publisherUrl,
+            token: claimedTask.token,
+            directAccess: directSpringerSi
+          });
+          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
+        }
+      } catch (error) {
+        if (claimedTask?.id) {
+          await call("manual_capture_cancel", { request: { taskId: claimedTask.id, reason: error.message || "AI 文献下载请求启动失败" } }).catch(() => {
+          });
+          toast?.(error.message || "AI 文献下载请求启动失败");
+        }
+      } finally {
+        starting = false;
+        if (!disposed) timer = setTimeout(() => void poll(), 1800);
+      }
+    };
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [bound?.project?.id, call, toast]);
+  if (!bound?.project) return null;
+  const projectName = bound.project.name || bound.project.id;
+  return h(
+    "div",
+    { className: "ib-project-entry" },
+    h(
+      "button",
+      {
+        className: "ib-research-badge",
+        title: `打开课题空间：${projectName}`,
+        "aria-label": `打开课题空间：${projectName}`,
+        onClick: () => {
+          if (openProjectTab2?.(bound.project.id)) return;
+          toast?.("右侧栏不可用，已改为全屏打开课题空间");
+          openWorkspace(bound.project);
+        }
+      },
+      h("span", { className: "ib-badge-name", title: projectName }, projectName),
+      h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")
+    )
+  );
+}
+var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`无法读取文件：${file.name}`));
+    reader.onload = () => {
+      const value = String(reader.result ?? "");
+      const comma = value.indexOf(",");
+      if (comma < 0) reject(new Error(`无法编码文件：${file.name}`));
+      else resolve(value.slice(comma + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // client/src/components-project.js
 var formatCaptureBytes = (bytes) => {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
@@ -3532,9 +3791,9 @@ var capturePhaseOf = (state, lastError, downloadedBytes, downloadElapsedMs, auto
   }
 };
 function CreateProject({ call, defaults, onCancel, onCreated }) {
-  const [form, setForm] = (0, import_react9.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
-  const [busy, setBusy] = (0, import_react9.useState)(false);
-  const [error, setError] = (0, import_react9.useState)("");
+  const [form, setForm] = (0, import_react10.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
+  const [busy, setBusy] = (0, import_react10.useState)(false);
+  const [error, setError] = (0, import_react10.useState)("");
   const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const create = async () => {
     setBusy(true);
@@ -3554,10 +3813,10 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "polymer-prodrug-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "聚前药纳米递送课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error ? h("div", { className: "ib-error" }, error) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 }
 function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
-  const [state, setState] = (0, import_react9.useState)({ loading: true, projects: [], defaults: {}, error: "" });
-  const [creating, setCreating] = (0, import_react9.useState)(false);
-  const [launching, setLaunching] = (0, import_react9.useState)(null);
-  const load = (0, import_react9.useCallback)(async () => {
+  const [state, setState] = (0, import_react10.useState)({ loading: true, projects: [], defaults: {}, error: "" });
+  const [creating, setCreating] = (0, import_react10.useState)(false);
+  const [launching, setLaunching] = (0, import_react10.useState)(null);
+  const load = (0, import_react10.useCallback)(async () => {
     try {
       const capabilities = await call("capabilities");
       const [projects, goals, templates] = await Promise.all([call("projects_list"), capabilities.literature ? call("goals_list") : { goals: [] }, capabilities.documents ? call("templates_list") : { templates: [] }]);
@@ -3566,7 +3825,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
   }, []);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     void load();
   }, [load]);
   const launch = async (project2, presetId) => {
@@ -3613,18 +3872,63 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   for (const item of (presentations || []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (!(item.reportId in presentationByReport)) presentationByReport[item.reportId] = item;
   }
-  const [busy, setBusy] = (0, import_react9.useState)({});
-  const [overview, setOverview] = (0, import_react9.useState)({});
-  const [expandedSearch, setExpandedSearch] = (0, import_react9.useState)(null);
-  const [machineReviews, setMachineReviews] = (0, import_react9.useState)({});
-  const [preview, setPreview] = (0, import_react9.useState)(null);
-  const [reviewVisible, setReviewVisible] = (0, import_react9.useState)(false);
-  const [approval, setApproval] = (0, import_react9.useState)(null);
-  const [captureHint, setCaptureHint] = (0, import_react9.useState)(null);
-  const [captureStopping, setCaptureStopping] = (0, import_react9.useState)(false);
-  const [browserMode, setBrowserMode] = (0, import_react9.useState)("managed-edge");
-  const [opening, setOpening] = (0, import_react9.useState)({});
-  (0, import_react9.useEffect)(() => {
+  const [busy, setBusy] = (0, import_react10.useState)({});
+  const [overview, setOverview] = (0, import_react10.useState)({});
+  const [expandedSearch, setExpandedSearch] = (0, import_react10.useState)(null);
+  const [folders, setFolders] = (0, import_react10.useState)([]), [selectedFolder, setSelectedFolder] = (0, import_react10.useState)("all"), [organizing, setOrganizing] = (0, import_react10.useState)(false), [importingRis, setImportingRis] = (0, import_react10.useState)(false);
+  const risPicker = (0, import_react10.useRef)(null);
+  const loadFolders = (0, import_react10.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => setFolders(result.folders ?? [])).catch((error) => notify(error.message)), [call, projectId, notify]);
+  (0, import_react10.useEffect)(() => {
+    void loadFolders();
+  }, [projectId, reports, loadFolders]);
+  const folderAction = async (action, request) => {
+    try {
+      await call(action, { request: { projectId, ...request } });
+      await loadFolders();
+      onChanged?.();
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+  const createFolder = () => {
+    const name = window.prompt("新建精读文件夹名称");
+    if (name?.trim()) void folderAction("tasks_reading_folder_save", { name });
+  };
+  const importRis = async (file) => {
+    if (!file) return;
+    setImportingRis(true);
+    try {
+      if (file.size > 2 * 1024 * 1024) throw Error("RIS 文件不能超过 2 MB");
+      const result = await call("tasks_search_import_ris", { request: { projectId, fileName: file.name, base64: await fileToBase64(file) } });
+      notify(`${result.reused ? "已登记过此 RIS，复用原记录" : "RIS 导入成功"}：${result.run.results.length} 篇，去重 ${result.duplicateCount} 条`);
+      onChanged?.();
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setImportingRis(false);
+      if (risPicker.current) risPicker.current.value = "";
+    }
+  };
+  const autoOrganize = async () => {
+    setOrganizing(true);
+    try {
+      await onRequestArtifact?.("请整理当前课题全部已完成精读的文献：先调用 lab_tasks_list_reading_folders，逐份读取其中报告 Markdown；根据报告的研究主题、材料体系和机制选择简洁的中文文件夹名，优先复用已有同主题文件夹；逐条调用 lab_tasks_classify_reading_report 登记，reason 必须包含报告内容依据。未完成精读的条目保留未分类。", true);
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setOrganizing(false);
+    }
+  };
+  const filteredReports = reports.filter((report) => selectedFolder === "all" || (selectedFolder === "unfiled" ? !report.folderId : report.folderId === selectedFolder));
+  const [machineReviews, setMachineReviews] = (0, import_react10.useState)({});
+  const [preview, setPreview] = (0, import_react10.useState)(null);
+  const [reviewVisible, setReviewVisible] = (0, import_react10.useState)(false);
+  const [approval, setApproval] = (0, import_react10.useState)(null);
+  const [captureHint, setCaptureHint] = (0, import_react10.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react10.useState)(false);
+  const [browserMode, setBrowserMode] = (0, import_react10.useState)("managed-edge");
+  const [opening, setOpening] = (0, import_react10.useState)({});
+  (0, import_react10.useEffect)(() => {
     let alive = true;
     call("literature_status", { request: { force: false } }).then((result) => {
       if (alive && result?.browserMode) setBrowserMode(result.browserMode);
@@ -3635,7 +3939,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     };
   }, [call]);
   const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId) return void 0;
     let disposed = false;
@@ -3669,7 +3973,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, call, onChanged]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId || captureHint?.route !== "webvpn") return void 0;
     let disposed = false;
@@ -4042,7 +4346,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const shortOf = (report) => citationOf(report)?.text || report.shortCitation || titleByBundle[report.bundleId] || `精读报告 ${report.id.slice(0, 12)}`;
   const shortNode = (report) => {
     const citation = citationOf(report);
-    return citation ? h(import_react8.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
+    return citation ? h(import_react9.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
   };
   const zhOf = (report) => report.titleZh || shortOf(report);
   const paperCitation = (paper) => {
@@ -4099,7 +4403,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "section",
       { className: "ib-approval-card", role: approval.stage === "approved" ? "status" : "alertdialog", "aria-label": approval.stage === "approved" ? "审核通过" : "审核通过二次确认" },
       approval.stage === "approved" ? h(
-        import_react8.default.Fragment,
+        import_react9.default.Fragment,
         null,
         h("div", { className: "ib-approval-ok" }, h("strong", null, "审核通过"), h("span", null, `${preview?.kind === "ppt" ? "PPTX" : "DOCX"} 已开放下载；你也可以关闭此页面后继续在预览窗口下载。`)),
         h(
@@ -4109,7 +4413,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("button", { className: "ib-preview-btn", "data-primary": true, disabled: busy[preview?.kind === "ppt" ? `ppt:${preview?.report.id}` : `rep:${preview?.report.id}`], onClick: () => void downloadPreviewArtifact() }, preview?.kind === "ppt" ? "下载PPT" : "下载DOCX")
         )
       ) : h(
-        import_react8.default.Fragment,
+        import_react9.default.Fragment,
         null,
         h("h3", null, "审核通过前请确认自查提醒"),
         h("p", null, "自动自查仅供参考，不构成通过门限。请结合上方实际分页预览人工判断；点击确认后将锁定当前文件版本并开放下载。"),
@@ -4124,7 +4428,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ) : null;
   const previewNode = preview ? h(
-    import_react8.default.Fragment,
+    import_react9.default.Fragment,
     null,
     h("div", { className: "ib-preview-backdrop", onClick: closePreview }),
     h(
@@ -4151,7 +4455,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  return h(import_react8.default.Fragment, null, h(
+  return h(import_react9.default.Fragment, null, h(
     "div",
     { className: "ib-lit" },
     // ── 分组一：检索记录 ────────────────────────────────────────────────
@@ -4164,6 +4468,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         "div",
         { className: "ib-group-head" },
         h("h3", null, "检索记录"),
+        h("button", { className: "ib-act", disabled: importingRis, onClick: () => risPicker.current?.click() }, importingRis ? "正在导入…" : "上传 RIS"),
+        h("input", { type: "file", accept: ".ris", hidden: true, ref: risPicker, onChange: (event) => void importRis(event.target.files?.[0]) }),
         h("span", { className: "ib-group-count" }, `${searches.length} 条`)
       ),
       searches.length ? h("div", { className: "ib-lit-list" }, searches.slice().reverse().map((search) => {
@@ -4180,7 +4486,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               "div",
               { className: "ib-lit-main" },
               h("b", { className: "ib-lit-title" }, search.title || search.query || search.id),
-              h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row2) => row2.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)
+              h("div", { className: "ib-lit-meta" }, `${resultCount} 篇 · ${search.importedRis ? "人工 RIS 导入 · " : ""}${(search.queries || [search.query]).filter(Boolean).length} 轮查询 · OA ${(search.results || []).filter((row2) => row2.isOa === true).length} · ${(search.sources || []).join("/") || "未知来源"}${(search.sourceFailures || []).length ? ` · ${search.sourceFailures.length} 个源降级` : ""} · ${when(search.updatedAt || search.createdAt)}`)
             ),
             h(
               "div",
@@ -4225,9 +4531,20 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         "div",
         { className: "ib-group-head" },
         h("h3", null, "精读文献"),
+        h("button", { className: "ib-act", onClick: createFolder }, "+ 文件夹"),
+        h("button", { className: "ib-act", disabled: organizing || !reports.some((row2) => row2.paperCardPath), onClick: () => void autoOrganize() }, "Agent 自动分类"),
         h("span", { className: "ib-group-count" }, `${reports.length} 篇`)
       ),
-      reports.length ? h("div", { className: "ib-lit-list" }, reports.map((report) => {
+      h("div", { className: "ib-reading-folders", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, className: "ib-act", "data-selected": selectedFolder === folder.id ? "true" : void 0, style: selectedFolder === folder.id ? { background: "#e4f2e9", color: "#23613b" } : void 0, onClick: () => setSelectedFolder(folder.id) }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react9.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
+        const name = window.prompt("重命名文件夹", folders.find((row2) => row2.id === selectedFolder).name);
+        if (name?.trim()) void folderAction("tasks_reading_folder_save", { id: selectedFolder, name });
+      } }, "重命名"), h("button", { className: "ib-act", onClick: () => {
+        if (window.confirm("删除该分类文件夹？其中的文献将移到“未分类”，保留报告及归档文件。")) {
+          void folderAction("tasks_reading_folder_delete", { id: selectedFolder });
+          setSelectedFolder("unfiled");
+        }
+      } }, "删除文件夹")) : null),
+      filteredReports.length ? h("div", { className: "ib-lit-list" }, filteredReports.map((report) => {
         const presentation = presentationByReport[report.id];
         const bundle = bundleById[report.bundleId] || {};
         const awaitingPdf = bundle.acquisitionStatus === "awaiting-pdf";
@@ -4276,7 +4593,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         const pptDone = Boolean(presentation?.pptxPath);
         const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
         const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-        const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
+        const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。完成精读后根据报告内容判断主题文件夹，先查看已有精读文件夹，优先复用；登记报告时提供 folderName 与 classificationReason 自动归类。`;
         const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
         return h(
           "div",
@@ -4337,6 +4654,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
                 title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
               }, pptBusy ? h(SpinSvg, null) : null, pptBusy ? "打开中…" : pptDone ? "打开 PPT" : "制作 PPT"),
+              h("select", { value: report.folderId ?? "", title: report.classification?.reason ?? "调整精读文件夹", onChange: (event) => void folderAction("tasks_reading_classify", { reportId: report.id, folderId: event.target.value }) }, h("option", { value: "" }, "未分类"), folders.map((folder) => h("option", { key: folder.id, value: folder.id }, folder.name))),
               h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除")
             )
           ),
@@ -4369,21 +4687,21 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   ), previewNode);
 }
 function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     setDesktopProject(project2.id);
     return () => setDesktopProject(null);
   }, [project2.id]);
-  const [state, setState] = (0, import_react9.useState)({ loading: true, data: null, error: "" });
-  const [tab, setTab] = (0, import_react9.useState)("literature");
-  const [draft, setDraft] = (0, import_react9.useState)("");
-  const [memoryOpen, setMemoryOpen] = (0, import_react9.useState)(false);
-  const memoryDirty = (0, import_react9.useRef)(false);
-  const [note, setNote] = (0, import_react9.useState)("");
-  const [saving, setSaving] = (0, import_react9.useState)(false);
-  const [launching, setLaunching] = (0, import_react9.useState)(false);
-  const [deleting, setDeleting] = (0, import_react9.useState)(false);
-  const [toast, setToast] = (0, import_react9.useState)("");
-  const load = (0, import_react9.useCallback)(async () => {
+  const [state, setState] = (0, import_react10.useState)({ loading: true, data: null, error: "" });
+  const [tab, setTab] = (0, import_react10.useState)("literature");
+  const [draft, setDraft] = (0, import_react10.useState)("");
+  const [memoryOpen, setMemoryOpen] = (0, import_react10.useState)(false);
+  const memoryDirty = (0, import_react10.useRef)(false);
+  const [note, setNote] = (0, import_react10.useState)("");
+  const [saving, setSaving] = (0, import_react10.useState)(false);
+  const [launching, setLaunching] = (0, import_react10.useState)(false);
+  const [deleting, setDeleting] = (0, import_react10.useState)(false);
+  const [toast, setToast] = (0, import_react10.useState)("");
+  const load = (0, import_react10.useCallback)(async () => {
     try {
       const data2 = await call("projects_workspace", { request: { projectId: project2.id } });
       setState({ loading: false, data: data2, error: "" });
@@ -4392,7 +4710,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
       setState({ loading: false, data: null, error: reason.message });
     }
   }, [project2.id]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     memoryDirty.current = false;
     try {
       const cached = sessionStorage.getItem(`ib-memory-draft:${project2.id}`);
@@ -4405,7 +4723,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
     setMemoryOpen(false);
     void load();
   }, [load]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 7e3);
     return () => clearTimeout(timer);
@@ -4499,7 +4817,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
-var OverlayBoundary = class extends (import_react8.default.Component ?? class {
+var OverlayBoundary = class extends (import_react9.default.Component ?? class {
 }) {
   constructor(props) {
     super(props);
@@ -4519,256 +4837,10 @@ var OverlayBoundary = class extends (import_react8.default.Component ?? class {
   }
 };
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
-  const [project2, setProject] = (0, import_react9.useState)(initial ?? null);
-  const [templates, setTemplates] = (0, import_react9.useState)(false);
+  const [project2, setProject] = (0, import_react10.useState)(initial ?? null);
+  const [templates, setTemplates] = (0, import_react10.useState)(false);
   return import_react_dom.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
-
-// client/src/components-literature.js
-var import_react10 = __toESM(require("react"), 1);
-function useBoundProject(sessionId, call, useSessions) {
-  const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
-  const [bound, setBound] = (0, import_react10.useState)(null);
-  (0, import_react10.useEffect)(() => {
-    if (!sessionId) {
-      setBound(null);
-      return void 0;
-    }
-    let alive = true;
-    const lookup = async () => {
-      try {
-        const bySession = await call("projects_by_session", { request: { sessionId } });
-        if (bySession.bound) return bySession.bound;
-        if (cwd) {
-          const byCwd = await call("projects_by_cwd", { request: { path: cwd } });
-          if (byCwd.bound) return byCwd.bound;
-        }
-        return null;
-      } catch (reason) {
-        return null;
-      }
-    };
-    lookup().then((result) => {
-      if (alive) setBound(result);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [sessionId, cwd, call]);
-  return bound;
-}
-function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
-  const bound = useBoundProject(sessionId, call, useSessions);
-  (0, import_react10.useEffect)(() => {
-    if (typeof document === "undefined" || !bound?.project?.id) return void 0;
-    document.body.classList.add("ib-research-chat");
-    document.body.dataset.ibResearchProject = bound.project.id;
-    return () => {
-      if (document.body.dataset.ibResearchProject === bound.project.id) {
-        document.body.classList.remove("ib-research-chat");
-        delete document.body.dataset.ibResearchProject;
-      }
-    };
-  }, [bound?.project?.id]);
-  (0, import_react10.useEffect)(() => {
-    const projectId = bound?.project?.id;
-    if (!projectId) return void 0;
-    setBallTaskCancelHandler(async (taskId) => {
-      await call("manual_capture_cancel", { request: {
-        taskId,
-        reason: "用户从捕获小球删除队列任务"
-      } }).catch(() => {
-      });
-      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
-      });
-    });
-    setBallTaskRecreateHandler(async (taskId) => {
-      await call("manual_capture_recreate", { request: {
-        taskId,
-        reason: "用户从捕获小球重建获取任务"
-      } }).catch(() => {
-      });
-      await cancelWebVpnCaptureViaShell(taskId).catch(() => {
-      });
-    });
-    return () => {
-      setBallTaskCancelHandler(null);
-      setBallTaskRecreateHandler(null);
-    };
-  }, [bound?.project?.id, call]);
-  (0, import_react10.useEffect)(() => {
-    const projectId = bound?.project?.id;
-    if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
-    let disposed = false;
-    let timer;
-    let starting = false;
-    let runningOperation = false;
-    const poll = async () => {
-      if (disposed || starting) return;
-      let claimedTask;
-      starting = true;
-      try {
-        let shellStatus;
-        let iwanStatus;
-        try {
-          [shellStatus, iwanStatus] = await Promise.all([webVpnStatusViaShell(), iwanStatusViaShell()]);
-          await call("manual_capture_desktop_status_update", { request: {
-            state: shellStatus?.state,
-            authenticated: shellStatus?.authenticated,
-            windowOpen: shellStatus?.windowOpen,
-            sidebarVisible: shellStatus?.sidebarVisible,
-            pendingTaskId: shellStatus?.pendingTaskId,
-            automationStage: shellStatus?.automationStage,
-            downloadedBytes: shellStatus?.downloadedBytes,
-            downloadEventBytes: shellStatus?.downloadEventBytes,
-            downloadElapsedMs: shellStatus?.downloadElapsedMs,
-            maxCaptureBytes: shellStatus?.maxCaptureBytes,
-            // 页面级事实与接管关系（C2/C3）：wait 的指纹与
-            // heartbeat-lost/orphaned 判定都靠这两组字段。
-            pageUrl: shellStatus?.pageUrl,
-            documentType: shellStatus?.documentType,
-            httpStatus: shellStatus?.httpStatus,
-            readyState: shellStatus?.readyState,
-            pageSeq: shellStatus?.pageSeq,
-            contentLength: shellStatus?.contentLength,
-            pdfPayload: shellStatus?.pdfPayload,
-            lastPendingTaskId: shellStatus?.lastPendingTaskId,
-            releaseReason: shellStatus?.releaseReason,
-            takenOverAt: shellStatus?.takenOverAt,
-            // 壳侧的失败原因与"已保住的产物"必须上报，否则调用方
-            // 只能靠读日志/读盘反推（2026-09-27 现场 §4）。
-            lastError: shellStatus?.lastError,
-            lastFailure: shellStatus?.lastFailure,
-            iwanInstalled: iwanStatus?.installed,
-            iwanConnected: iwanStatus?.connected,
-            iwanUsable: iwanStatus?.usable,
-            iwanGlobalRoute: iwanStatus?.globalRoute
-          } });
-          const claimedAction = await call("manual_capture_desktop_action_claim", { request: { projectId } });
-          if (claimedAction?.action?.type === "open-login" && !iwanStatus?.usable) {
-            shellStatus = await openWebVpnLoginViaShell();
-            toast?.("请在右侧 WebVPN 完成登录，然后在对话中选择“我已登录”");
-          } else if (claimedAction?.action?.type === "cancel-capture" && claimedAction.action.taskId) {
-            await cancelWebVpnCaptureViaShell(claimedAction.action.taskId);
-          }
-        } catch {
-        }
-        if (!runningOperation && !disposed) {
-          try {
-            const next = await call("browser_operation_claim", { request: { projectId } });
-            if (next?.operation && !disposed) {
-              const operation = next.operation;
-              runningOperation = true;
-              void (async () => {
-                try {
-                  const result = await webVpnBrowserActionViaShell(operation);
-                  await call("browser_operation_complete", { request: {
-                    projectId,
-                    id: operation.id,
-                    result
-                  } });
-                } catch (reason) {
-                  await call("browser_operation_complete", { request: {
-                    projectId,
-                    id: operation.id,
-                    error: String(reason?.message || reason)
-                  } }).catch(() => {
-                  });
-                } finally {
-                  runningOperation = false;
-                }
-              })();
-            }
-          } catch {
-          }
-        }
-        const listed = await call("manual_capture_list", { request: { projectId } });
-        sendWebVpnBallQueue(listed?.tasks || [], listed?.notice);
-        const activeTask = (listed?.tasks || []).find((item) => item.id === shellStatus?.pendingTaskId);
-        if (activeTask && (["completed", "expired", "failed", "cancelled"].includes(activeTask.status) || ["error", "expired"].includes(shellStatus?.state))) {
-          if (activeTask.status === "armed") {
-            await call("manual_capture_cancel", { request: {
-              taskId: activeTask.id,
-              reason: shellStatus?.lastError || "文献浏览器任务已中断"
-            } }).catch(() => {
-            });
-          }
-          await cancelWebVpnCaptureViaShell(activeTask.id).catch(() => {
-          });
-          return;
-        }
-        const shellBusy = Boolean(shellStatus?.pendingTaskId) || ["navigating", "waiting-download", "downloading", "uploading"].includes(shellStatus?.state);
-        if (shellBusy) return;
-        const queued = (listed?.tasks || []).filter((item) => item.requestedBy === "agent" && item.status === "armed").sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
-        const routeNeedsVpn = (item) => item.kind === "pdf" || !(item.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(item.publisherUrl || ""));
-        const task = queued.find((item) => iwanStatus?.usable || !routeNeedsVpn(item) || shellStatus?.windowOpen && shellStatus?.authenticated) || queued[0];
-        if (task && !disposed) {
-          const directSpringerSi = task.kind === "si" && /(?:doi\.org\/)?10\.(?:1038|1007)(?:%2F|\/)/i.test(task.publisherUrl || "");
-          const taskNeedsVpn = routeNeedsVpn(task);
-          if (taskNeedsVpn && !iwanStatus?.usable && (!shellStatus?.windowOpen || !shellStatus.authenticated)) {
-            if (!task.loginConfirmedByUser || !shellStatus?.windowOpen || shellStatus.state !== "waiting-login") return;
-            shellStatus = await confirmWebVpnLoginViaShell();
-            await call("manual_capture_desktop_status_update", { request: {
-              state: shellStatus?.state,
-              authenticated: shellStatus?.authenticated,
-              windowOpen: shellStatus?.windowOpen,
-              sidebarVisible: shellStatus?.sidebarVisible,
-              pendingTaskId: shellStatus?.pendingTaskId
-            } });
-            if (shellStatus?.state !== "ready") return;
-          }
-          const claimed = await call("manual_capture_claim_agent", { request: { taskId: task.id } });
-          claimedTask = claimed?.task;
-          if (!claimedTask?.token || !claimedTask.publisherUrl) throw new Error("AI 文献下载请求缺少有效的捕获入口");
-          await openWebVpnCaptureViaShell({
-            taskId: claimedTask.id,
-            kind: claimedTask.kind,
-            targetUrl: claimedTask.publisherUrl,
-            token: claimedTask.token,
-            directAccess: directSpringerSi
-          });
-          toast?.(`AI 已发起${claimedTask.kind === "pdf" ? "正文" : "补充材料"}下载，页面已打开，由 Agent 直接操作`);
-        }
-      } catch (error) {
-        if (claimedTask?.id) {
-          await call("manual_capture_cancel", { request: { taskId: claimedTask.id, reason: error.message || "AI 文献下载请求启动失败" } }).catch(() => {
-          });
-          toast?.(error.message || "AI 文献下载请求启动失败");
-        }
-      } finally {
-        starting = false;
-        if (!disposed) timer = setTimeout(() => void poll(), 1800);
-      }
-    };
-    void poll();
-    return () => {
-      disposed = true;
-      clearTimeout(timer);
-    };
-  }, [bound?.project?.id, call, toast]);
-  if (!bound?.project) return null;
-  const projectName = bound.project.name || bound.project.id;
-  return h(
-    "div",
-    { className: "ib-project-entry" },
-    h(
-      "button",
-      {
-        className: "ib-research-badge",
-        title: `打开课题空间：${projectName}`,
-        "aria-label": `打开课题空间：${projectName}`,
-        onClick: () => {
-          if (openProjectTab2?.(bound.project.id)) return;
-          toast?.("右侧栏不可用，已改为全屏打开课题空间");
-          openWorkspace(bound.project);
-        }
-      },
-      h("span", { className: "ib-badge-name", title: projectName }, projectName),
-      h("span", { className: "ib-badge-caret", "aria-hidden": "true" }, "▾")
-    )
-  );
-}
-var MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 // client/src/webvpn-tab.js
 var import_react11 = require("react");

@@ -52,6 +52,7 @@ export const profileRefSchema = z.object({
 export const coreProjectSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	name: z.string().min(1),
+	readingFolders: z.array(z.object({id:z.string().regex(PROFILE_ID_RE),name:z.string().min(1).max(80),createdAt:z.string()})).default([]),
 	goalProfile: profileRefSchema.optional(),
 	template: profileRefSchema.optional(),
 	memoryVersion: z.string().regex(/^\d+$/).default("1"),
@@ -142,6 +143,7 @@ export const literatureSearchRunSchema = z.object({
 	sort: z.string().default("relevance_score"),
 	yearFrom: z.number().int().optional(),
 	results: z.array(searchResultSchema).default([]),
+	importedRis: z.object({fileName:z.string(),sha256:z.string(),path:z.string(),recordCount:z.number().int(),duplicateCount:z.number().int(),encoding:z.string()}).optional(),
 	sourceFailures: z.array(z.object({ source: z.string(), message: z.string() })).default([]),
 	identifier: z.object({ kind: z.enum(["query", "doi", "pmid", "arxiv"]), value: z.string() }).optional(),
 	exports: z.array(z.object({ format: z.string(), path: z.string() })).default([]),
@@ -247,6 +249,8 @@ export const readingReportSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
 	bundleId: z.string().regex(PROFILE_ID_RE),
+	folderId: z.string().regex(PROFILE_ID_RE).optional(),
+	classification: z.object({reason:z.string(),source:z.enum(['agent','human']),updatedAt:z.string(),reportSha256:z.string().optional()}).optional(),
 	goalSnapshot: z.unknown(),
 	paperCardRequirements: z.unknown(),
 	/** 阅读笔记模板快照（版本行深拷贝）+ 使用的模板标识。 */

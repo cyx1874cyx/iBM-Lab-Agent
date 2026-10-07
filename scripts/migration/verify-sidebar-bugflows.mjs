@@ -32,6 +32,7 @@ writeFileSync(join(fixture,'index.js'),`import {writeFileSync} from 'node:fs';ex
  if(!ctx.ibmCore.getProject('sidebar-test'))await ctx.ibmCore.createProject({id:'sidebar-test',name:'侧栏宠物验收'});
  const registered=await ctx.ibmLiteratureWorkflows.registerPaperMeta({projectId:'sidebar-test',sourceType:'wechat',sourceUrl:'https://mp.weixin.qq.com/s/sidebar-fixture',title:'微信登记后捕获验收',doi:'10.1038/fixture-sidebar-pdf',authors:['Fixture Author'],year:2026});
  writeFileSync(${JSON.stringify(join(work,"wechat-registration.json"))},JSON.stringify(registered));
+ ${process.argv.includes('--organization')?`if(!registered.report.paperCardPath){writeFileSync(${JSON.stringify(join(work,'reading-fixture.md'))},'# 精读报告\\n\\n该报告讨论脂质纳米颗粒的大载荷核酸递送及体内编辑机制。\\n');await ctx.ibmLiteratureWorkflows.completeReadingReport({reportId:registered.report.id,paperCardPath:${JSON.stringify(join(work,'reading-fixture.md'))},folderName:'核酸递送',classificationReason:'精读内容讨论脂质纳米颗粒与核酸递送机制'});}`:''}
  for(const id of ['sidebar-si','sidebar-cancel'])if(!ctx.ibmCore.getArtifact('source-bundle',id))await ctx.ibmCore.commitSourceBundle({id,projectId:'sidebar-test',title:'Fixture '+id,doi:'10.1038/fixture-'+id,status:'succeeded',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
  ctx.ibmScientificDesktop.config.portal=${JSON.stringify(origin)};
  const navigate=ctx.ibmScientificDesktop.navigate.bind(ctx.ibmScientificDesktop);
@@ -59,6 +60,28 @@ try{
  await frame.evaluate(()=>[...document.querySelectorAll('.ib-hero-menu-item')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
  await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
  await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='当前没有进行中的任务'),'pet real Host connection');
+ if(process.argv.includes('--organization')){
+  await frame.click('[title="打开科研课题"]');
+  await frame.waitForSelector('.ib-project');
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
+  await frame.waitForSelector('.ib-reading-folders');
+  await frame.waitForFunction(()=>document.querySelector('.ib-reading-folders')?.innerText.includes('核酸递送 (1)'));
+  const risPath=join(work,'人工检索导入.ris');const ris='TY  - JOUR\nTI  - 手工检索核酸递送研究\nDO  - 10.1038/manual-ris-fixture\nAU  - Li, A\nPY  - 2026\nAB  - Delivery study\nER  -\n';writeFileSync(risPath,ris+ris);
+  const picker=await frame.$('input[accept=".ris"]');assert.ok(picker);await picker.uploadFile(risPath);
+  await frame.waitForFunction(()=>document.querySelector('.ib-lit')?.innerText.includes('人工检索导入'));
+  const searches=(await rpc('tasks_searches',{projectId:'sidebar-test'})).runs;const imported=searches.find(row=>row.importedRis?.fileName==='人工检索导入.ris');assert.equal(imported.results.length,1);assert.equal(imported.importedRis.duplicateCount,1);
+  const folders=(await rpc('tasks_reading_folders',{projectId:'sidebar-test'})).folders;assert.equal(folders[0].name,'核酸递送');
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-reading-folders button')].find(node=>node.innerText.includes('核酸递送 (1)')).click());
+  assert.ok(await frame.$('select[title]'));
+  await page.screenshot({path:join(work,'reading-folders-ris.png')});
+  report.checks.push('actual-RIS-file-picker-registers-deduplicated-manual-search','content-based-reading-folder-visible-in-actual-project-panel');
+  await rpc('tasks_reading_folder_save',{projectId:'sidebar-test',id:folders[0].id,name:'脂质核酸递送'});
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-tab-refresh')].forEach(node=>node.click()));
+  await frame.waitForFunction(()=>document.querySelector('.ib-reading-folders')?.innerText.includes('脂质核酸递送'));
+  await page.screenshot({path:join(work,'reading-folder-renamed.png')});
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-overlay button')].find(node=>node.textContent==='返回 Harness')?.click());
+  await frame.waitForFunction(()=>!document.querySelector('.ib-overlay'));
+ }
  const uploadPath=join(work,'对话附件.pdf'),textPath=join(work,'中文记录.txt');writeFileSync(uploadPath,pdf);writeFileSync(textPath,'上传验收');
  await frame.evaluate(()=>{const original=globalThis.fetch;globalThis.__ibmUploadReceipts=[];globalThis.fetch=async(...args)=>{const response=await original(...args);if(String(args[0]).includes('/api/session/uploadFileBinary'))globalThis.__ibmUploadReceipts.push(await response.clone().json());return response;};});
  report.uploadInputs=await frame.evaluate(()=>[...document.querySelectorAll('input[type=file]')].map(n=>({disabled:n.disabled,hidden:n.hidden,html:n.outerHTML})));

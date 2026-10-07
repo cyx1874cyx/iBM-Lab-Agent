@@ -35,6 +35,12 @@ const EXPECTED_PROTO_METHODS = [
 	"createPresentation",
 	"createProject",
 	"createReadingReport",
+	"listReadingFolders",
+	"saveReadingFolder",
+	"deleteReadingFolder",
+	"classifyReadingReport",
+	"withFolderLock",
+	"importSearchRis",
 	"deleteBundle",
 	"deleteProject",
 	"deleteReadingReport",
@@ -116,5 +122,5 @@ test("lib/tasks/index.js 的导出键集合与拆分前逐项一致", () => {
 });
 
 test("LabTasksService.prototype 自有属性名集合与拆分前逐项一致", () => {
-	assert.deepEqual(Object.getOwnPropertyNames(tasks.LabTasksService.prototype).sort(), EXPECTED_PROTO_METHODS);
+	assert.deepEqual(Object.getOwnPropertyNames(tasks.LabTasksService.prototype).sort(), EXPECTED_PROTO_METHODS.slice().sort());
 });
