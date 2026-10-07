@@ -31993,7 +31993,7 @@ function SourceImage({ request, name }) {
 function ReaderBody({ useTabInfo }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key2 = tab?.contentId;
   const [state, setState] = (0, import_react5.useState)({ loading: true }), [doc, setDoc] = (0, import_react5.useState)(null), [page, setPage] = (0, import_react5.useState)(1), [zoom, setZoom] = (0, import_react5.useState)(1), [mode, setMode] = (0, import_react5.useState)("original"), [renderError, setRenderError] = (0, import_react5.useState)(""), [blocks, setBlocks] = (0, import_react5.useState)([]), [busy, setBusy] = (0, import_react5.useState)(false), [query, setQuery] = (0, import_react5.useState)("");
-  const canvas = (0, import_react5.useRef)(), text = (0, import_react5.useRef)(), body = (0, import_react5.useRef)(), renderSequence = (0, import_react5.useRef)(0);
+  const canvas = (0, import_react5.useRef)(), text = (0, import_react5.useRef)(), body = (0, import_react5.useRef)(), renderSequence = (0, import_react5.useRef)(0), extraDocs = (0, import_react5.useRef)(/* @__PURE__ */ new Set());
   const [refresh, setRefresh] = (0, import_react5.useState)(0);
   (0, import_react5.useEffect)(() => {
     const opened = (event) => {
@@ -32021,7 +32021,7 @@ function ReaderBody({ useTabInfo }) {
         if (opened.lease) await call("tasks_reader_close", { ...request, lease: opened.lease });
         return;
       }
-      setState({ ...opened, sourceFormat: opened.format, loading: false });
+      setState({ ...opened, sourceFormat: opened.format, archiveName: opened.fileName, loading: false });
       if (opened.translation?.status === "completed") setMode(preferredModes.get(key2) ?? "original");
       if (opened.format !== "pdf") return;
       port = new Worker(workerUrl, { type: "module" });
@@ -32041,6 +32041,9 @@ function ReaderBody({ useTabInfo }) {
       range?.abort();
       void loadingTask?.destroy();
       port?.terminate();
+      for (const pdf of extraDocs.current) void pdf.destroy().catch(() => {
+      });
+      extraDocs.current.clear();
       if (opened?.lease && runtime) void call("tasks_reader_close", { ...request, lease: opened.lease }).catch(() => {
       });
     };
@@ -32156,6 +32159,14 @@ function ReaderBody({ useTabInfo }) {
     { className: "ib-reader", style: { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", padding: 10 } },
     h("b", null, state.title),
     h("small", null, state.fileName),
+    state.sourceFormat === "zip" && state.format === "pdf" ? button("返回 SI 文件列表", () => {
+      setDoc(null);
+      void doc?.destroy().catch(() => {
+      });
+      extraDocs.current.delete(doc);
+      setRenderError("");
+      setState((old) => ({ ...old, format: "zip", fileName: old.archiveName }));
+    }) : null,
     button("保存材料", () => void downloadVerifiedBinary(`/api/lab-artifacts?kind=${request.kind}&bundleId=${encodeURIComponent(request.bundleId)}`).catch((error) => setRenderError(error.message))),
     h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", padding: "8px 0" } }, button("原文", () => setMode("original"), false, mode === "original"), button("中文", () => setMode("zh"), translation?.status !== "completed", mode === "zh"), button("双语对照", () => setMode("dual"), translation?.status !== "completed", mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", translate, busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
       const row2 = await call("tasks_translation_cancel", { ...request, translationId: tid });
@@ -32168,6 +32179,7 @@ function ReaderBody({ useTabInfo }) {
       try {
         const file = await call("tasks_reader_zip_pdf", { ...request, index: entry.index });
         const loaded = await getDocument2({ data: decode(file.base64), ...pdfResources(call) }).promise;
+        extraDocs.current.add(loaded);
         setDoc(loaded);
         setState((old) => ({ ...old, format: "pdf", fileName: file.name }));
       } catch (error) {

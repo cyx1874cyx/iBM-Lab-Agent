@@ -42,7 +42,7 @@ test('translation requires every source block, protects completed output, suppor
 }finally{await f.dispose();}});
 test('translation tools use session project resolution and a closed result schema',()=>{const tools=[];registerReaderTools({tools:{register:tool=>tools.push(tool)}});assert.equal(tools.length,6);assert.ok(tools.every(tool=>tool.name.startsWith('lab_reader_translation_')));});
 test('translation is bound to its project session and failed Agent turns release queued tasks',async()=>{const f=await fixture();try{
- f.service.ctx.ibmCore.getProjectBySession=id=>id==='valid-session'?{id:'p'}:{id:'other'};
+ f.service.ctx.ibmCore.getProjectBySession=id=>id==='valid-session'?{project:{id:'p'}}:{project:{id:'other'}};
  const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};
  await assert.rejects(()=>f.service.translationBind({...request,sessionId:'wrong-session'}),/不属于/);
  await f.service.translationBind({...request,sessionId:'valid-session'});await f.service.readerTurnEnded('valid-session');
