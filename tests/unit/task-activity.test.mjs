@@ -50,3 +50,10 @@ test('running tasks precede waiting records when the pet payload is limited to e
  const activity=new TaskActivity();for(let i=0;i<12;i++)activity.update('waiting'+i,{status:'waiting',updatedAt:2000});activity.update('actual',{status:'running',kind:'ppt'});assert.equal(selectPetTask(activity.snapshot()).id,'actual');
  assert.equal(toolActivity('skill',{name:'nature-paper2ppt'}).kind,'ppt');assert.equal(toolActivity('lab_browser_observe').kind,'capture');
 });
+test('one translation job does not appear twice as workflow and Agent tool activity',()=>{
+ const activity=new TaskActivity(),session={header:{id:'translation-session'}};activity.event(session,{type:'turn/start'});
+ activity.start({callId:'prepare',name:'lab_reader_translation_prepare',projectId:'p',agent:{session}});
+ activity.update('translation:real',{kind:'translation',projectId:'p',status:'running',stage:'正在翻译全文'});
+ assert.equal(activity.snapshot().filter(row=>row.status==='running').length,1);
+ assert.equal(selectPetTask(activity.snapshot()).id,'translation:real');
+});
