@@ -66,6 +66,10 @@ try{
   await frame.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
   await frame.waitForSelector('.ib-reading-folders');
   await frame.waitForFunction(()=>document.querySelector('.ib-reading-folders')?.innerText.includes('核酸递送 (1)'));
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-lit button')].find(node=>node.textContent==='+ 文件夹').click());
+  await frame.type('input[aria-label="文件夹名称"]','人工测试分类');
+  await frame.click('.ib-folder-editor button[type="submit"]');
+  await frame.waitForFunction(()=>document.querySelector('.ib-reading-folders')?.innerText.includes('人工测试分类'));
   const risPath=join(work,'人工检索导入.ris');const ris='TY  - JOUR\nTI  - 手工检索核酸递送研究\nDO  - 10.1038/manual-ris-fixture\nAU  - Li, A\nPY  - 2026\nAB  - Delivery study\nER  -\n';writeFileSync(risPath,ris+ris);
   const picker=await frame.$('input[accept=".ris"]');assert.ok(picker);await picker.uploadFile(risPath);
   await frame.waitForFunction(()=>document.querySelector('.ib-lit')?.innerText.includes('人工检索导入'));
@@ -75,8 +79,9 @@ try{
   assert.ok(await frame.$('select[title]'));
   await page.screenshot({path:join(work,'reading-folders-ris.png')});
   report.checks.push('actual-RIS-file-picker-registers-deduplicated-manual-search','content-based-reading-folder-visible-in-actual-project-panel');
-  await rpc('tasks_reading_folder_save',{projectId:'sidebar-test',id:folders[0].id,name:'脂质核酸递送'});
-  await frame.evaluate(()=>[...document.querySelectorAll('.ib-tab-refresh')].forEach(node=>node.click()));
+  await frame.evaluate(()=>[...document.querySelectorAll('.ib-reading-folders button')].find(node=>node.textContent==='重命名').click());
+  await frame.click('input[aria-label="文件夹名称"]',{clickCount:3});await frame.type('input[aria-label="文件夹名称"]','脂质核酸递送');
+  await frame.click('.ib-folder-editor button[type="submit"]');
   await frame.waitForFunction(()=>document.querySelector('.ib-reading-folders')?.innerText.includes('脂质核酸递送'));
   await page.screenshot({path:join(work,'reading-folder-renamed.png')});
   await frame.evaluate(()=>[...document.querySelectorAll('.ib-overlay button')].find(node=>node.textContent==='返回 Harness')?.click());
@@ -155,6 +160,12 @@ try{
  report.pdfPreview=await wait(async()=>{const state=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window;if(!state?.url?.includes('/inline.pdf')||!/^application\/pdf/i.test(state.documentType??''))return false;const bounds=await frame.evaluate(()=>{const r=document.querySelector('webview')?.getBoundingClientRect();return {width:r?.width,height:r?.height};});assert.ok(bounds.width>350&&bounds.height>400);return {url:state.url,documentType:state.documentType,...bounds,bytes:previewPdf.length};},'PDF response in full-size official sidebar');
  await delay(8000);await page.screenshot({path:join(work,'native-pdf-preview.png')});report.checks.push('real-PDF-response-in-full-size-official-sidebar-visual-preview-recorded');
  await rpc('desktop_pet',{visible:false});await close();await launch(false);assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
+ if(process.argv.includes('--organization')){
+  const folders=(await rpc('tasks_reading_folders',{projectId:'sidebar-test'})).folders;assert.ok(folders.some(row=>row.name==='脂质核酸递送'));
+  const searches=(await rpc('tasks_searches',{projectId:'sidebar-test'})).runs;assert.equal(searches.filter(row=>row.importedRis?.fileName==='人工检索导入.ris').length,1);
+  const workspace=await rpc('projects_workspace',{projectId:'sidebar-test'});assert.ok(workspace.literature.reports.some(row=>folders.some(folder=>folder.id===row.folderId&&folder.name==='脂质核酸递送')));
+  report.checks.push('reading-folder-assignment-and-manual-RIS-search-persist-across-real-Host-restart');
+ }
  const before=cookies.length;await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/check'});await wait(()=>cookies.length>before,'persistent cookie request');assert.match(cookies.at(-1),/ibm_fixture_session=retained/);report.checks.push('browser-login-cookie-survives-application-restart');
  report.ok=true;
 }catch(error){report.error=String(error);report.processExitCode=child?.exitCode;report.processSignal=child?.signalCode;if(browser)report.pages=await browser.pages().then(pages=>Promise.all(pages.map(async page=>({url:page.url(),text:await page.evaluate(()=>document.body.innerText).catch(()=>undefined)})))).catch(()=>[]);if(page)await page.screenshot({path:join(work,'failure.png')}).catch(()=>{});if(frame)report.failureText=await Promise.resolve().then(()=>frame.evaluate(()=>document.body.innerText)).catch(()=>undefined);throw error;}
