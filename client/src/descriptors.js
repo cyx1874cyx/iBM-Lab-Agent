@@ -12,6 +12,7 @@ export function buildDescriptors() {
 		const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
 		const descriptors = [
  direct("capabilities"),
+ direct('tasks_translation_bind',['request']),
  ...['tasks_reader_open','tasks_reader_chunk','tasks_reader_close','tasks_reader_asset','tasks_reader_zip_pdf','tasks_translation_create','tasks_translation_read','tasks_translation_image','tasks_translation_cancel'].map(name=>direct(name,['request'])),
  direct("runtime_environment"),
  direct("desktop_status"), direct("desktop_browser", ["request"]), direct("desktop_artifact", ["request"]),direct("desktop_pet",["request"]),

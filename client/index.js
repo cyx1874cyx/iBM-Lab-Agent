@@ -31662,6 +31662,7 @@ function buildDescriptors() {
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
     direct("capabilities"),
+    direct("tasks_translation_bind", ["request"]),
     ...["tasks_reader_open", "tasks_reader_chunk", "tasks_reader_close", "tasks_reader_asset", "tasks_reader_zip_pdf", "tasks_translation_create", "tasks_translation_read", "tasks_translation_image", "tasks_translation_cancel"].map((name) => direct(name, ["request"])),
     direct("runtime_environment"),
     direct("desktop_status"),
@@ -31935,6 +31936,19 @@ function translationPrompt(request, translationId) {
   return `请全文翻译当前课题已归档${request.kind === "si" ? "SI" : "正文"} PDF（bundleId: ${request.bundleId}，translationId: ${translationId}，kind: ${request.kind ?? "pdf"}）。先调用 lab_reader_translation_prepare，再循环调用 lab_reader_translation_read（pendingOnly=true, offset=0, limit=8），逐块完整翻译并用 lab_reader_translation_write 保存，直到没有未翻译块。不得以精读报告或摘要代替全文；保留数字、公式、化学式、图注及参考文献。扫描块必须读取 imagePath 图像转写英文并翻译。最后核对完整性、术语和不确定性，调用 lab_reader_translation_finish。失败时说明原因，已归档原文保持可读。`;
 }
 var decode = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+function pdfResources(call) {
+  class CMaps {
+    async fetch({ name }) {
+      return { cMapData: decode((await call("tasks_reader_asset", { group: "cmaps", name: name + ".bcmap" })).base64), compressionType: 1 };
+    }
+  }
+  class Fonts {
+    async fetch({ filename }) {
+      return decode((await call("tasks_reader_asset", { group: "standard_fonts", name: filename })).base64);
+    }
+  }
+  return { useSystemFonts: true, useWasm: false, cMapPacked: true, cMapUrl: "virtual/", CMapReaderFactory: CMaps, standardFontDataUrl: "virtual/", StandardFontDataFactory: Fonts, isEvalSupported: false };
+}
 function makeRange(request, opened, call) {
   return new class extends PDFDataRangeTransport2 {
     constructor(request2, opened2, call2) {
@@ -32003,8 +32017,11 @@ function ReaderBody({ useTabInfo }) {
       workerUrl ??= URL.createObjectURL(new Blob([pdf_worker_default], { type: "text/javascript" }));
       GlobalWorkerOptions2.workerSrc = workerUrl;
       opened = await call("tasks_reader_open", request);
-      if (!alive) return;
-      setState({ ...opened, loading: false });
+      if (!alive) {
+        if (opened.lease) await call("tasks_reader_close", { ...request, lease: opened.lease });
+        return;
+      }
+      setState({ ...opened, sourceFormat: opened.format, loading: false });
       if (opened.translation?.status === "completed") setMode(preferredModes.get(key2) ?? "original");
       if (opened.format !== "pdf") return;
       port = new Worker(workerUrl, { type: "module" });
@@ -32012,17 +32029,7 @@ function ReaderBody({ useTabInfo }) {
       range.onError = (error) => {
         if (alive) setRenderError(error.message);
       };
-      class CMaps {
-        async fetch({ name }) {
-          return { cMapData: decode((await call("tasks_reader_asset", { group: "cmaps", name: name + ".bcmap" })).base64), compressionType: 1 };
-        }
-      }
-      class Fonts {
-        async fetch({ filename }) {
-          return decode((await call("tasks_reader_asset", { group: "standard_fonts", name: filename })).base64);
-        }
-      }
-      loadingTask = getDocument2({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, worker: new PDFWorker2({ port }), useSystemFonts: true, useWasm: false, cMapPacked: true, cMapUrl: "virtual/", CMapReaderFactory: CMaps, standardFontDataUrl: "virtual/", StandardFontDataFactory: Fonts, isEvalSupported: false });
+      loadingTask = getDocument2({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, worker: new PDFWorker2({ port }), ...pdfResources(call) });
       const pdf = await loadingTask.promise;
       if (alive) setDoc(pdf);
       else await pdf.destroy();
@@ -32103,13 +32110,19 @@ function ReaderBody({ useTabInfo }) {
   }, [key2, tid]);
   const translate = async () => {
     setBusy(true);
+    let created;
     try {
       const result = await call("tasks_translation_create", request);
+      created = result;
       setState((old) => ({ ...old, translation: result.translation }));
       if (result.translation.status === "completed") setMode("zh");
       else if (!result.reused) await runtime.translate(request, result.translation.id);
       else setRenderError("此翻译任务已在进行，请查看当前任务对话；需要重新执行时先取消再重试。");
     } catch (error) {
+      if (created && !created.reused) {
+        const cancelled = await call("tasks_translation_cancel", { ...request, translationId: created.translation.id }).catch(() => null);
+        if (cancelled) setState((old) => ({ ...old, translation: cancelled.translation }));
+      }
       setRenderError(error.message);
     } finally {
       setBusy(false);
@@ -32134,7 +32147,7 @@ function ReaderBody({ useTabInfo }) {
       setBusy(false);
     }
   };
-  const button = (label, onClick, disabled = false) => h("button", { type: "button", className: "ib-act", onClick, disabled }, label);
+  const button = (label, onClick, disabled = false, active = false) => h("button", { type: "button", className: "ib-act", "data-active": active ? "true" : void 0, onClick, disabled }, label);
   if (!request) return h("div", null, "文献阅读地址无效");
   if (state.loading) return h("div", { className: "ib-reader" }, "正在读取已归档文献…");
   if (state.error) return h("div", { className: "ib-reader", role: "alert" }, "无法打开文献：" + state.error);
@@ -32144,7 +32157,7 @@ function ReaderBody({ useTabInfo }) {
     h("b", null, state.title),
     h("small", null, state.fileName),
     button("保存材料", () => void downloadVerifiedBinary(`/api/lab-artifacts?kind=${request.kind}&bundleId=${encodeURIComponent(request.bundleId)}`).catch((error) => setRenderError(error.message))),
-    h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", padding: "8px 0" } }, button("原文", () => setMode("original")), button("中文", () => setMode("zh"), translation?.status !== "completed"), button("双语对照", () => setMode("dual"), translation?.status !== "completed"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", translate, busy || ["queued", "running"].includes(translation?.status)), ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
+    h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", padding: "8px 0" } }, button("原文", () => setMode("original"), false, mode === "original"), button("中文", () => setMode("zh"), translation?.status !== "completed", mode === "zh"), button("双语对照", () => setMode("dual"), translation?.status !== "completed", mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", translate, busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
       const row2 = await call("tasks_translation_cancel", { ...request, translationId: tid });
       setState((old) => ({ ...old, translation: row2.translation }));
     }) : null),
@@ -32154,7 +32167,7 @@ function ReaderBody({ useTabInfo }) {
       setBusy(true);
       try {
         const file = await call("tasks_reader_zip_pdf", { ...request, index: entry.index });
-        const loaded = await getDocument2({ data: decode(file.base64), useSystemFonts: true, isEvalSupported: false }).promise;
+        const loaded = await getDocument2({ data: decode(file.base64), ...pdfResources(call) }).promise;
         setDoc(loaded);
         setState((old) => ({ ...old, format: "pdf", fileName: file.name }));
       } catch (error) {
@@ -32170,13 +32183,13 @@ function ReaderBody({ useTabInfo }) {
     mode !== "original" ? h("div", { className: "ib-reader-translated", style: { overflow: "auto", flex: 1, minHeight: 0 } }, h("small", null, "全文翻译阅读 · 图表保留原图 · 可切换原文核对版式"), translation?.notes ? h("p", null, translation.notes) : null, blocks.map((block) => h("section", { key: block.id, style: { padding: "12px 0", borderBottom: "1px solid #ddd" } }, h("small", null, button("原文第 " + block.page + " 页", () => {
       setPage(block.page);
       setMode("original");
-    })), block.image ? h(SourceImage, { request: { ...request, translationId: tid }, name: block.image }) : null, block.kind !== "image" ? h("div", { className: mode === "dual" ? "ib-reader-pair" : void 0 }, mode === "dual" ? h("p", { "data-original": block.id, style: { whiteSpace: "pre-wrap" } }, block.original) : null, h("p", { "data-translation": block.id, style: { whiteSpace: "pre-wrap" } }, block.zh), block.note ? h("small", null, block.note) : null) : null))) : null
+    })), block.image && (block.kind !== "scan" || mode === "dual") ? h(SourceImage, { request: { ...request, translationId: tid }, name: block.image }) : null, block.kind !== "image" ? h("div", { className: mode === "dual" ? "ib-reader-pair" : void 0 }, mode === "dual" ? h("p", { "data-original": block.id, style: { whiteSpace: "pre-wrap" } }, block.original) : null, h("p", { "data-translation": block.id, style: { whiteSpace: "pre-wrap" } }, block.zh), block.note ? h("small", null, block.note) : null) : null))) : null
   );
 }
 function registerReaderTab(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
-    style.textContent = ".ib-reader-text-layer{position:absolute;inset:0;overflow:clip;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none}.ib-reader-text-layer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;font-size:calc(var(--total-scale-factor) * var(--font-height));transform:rotate(var(--rotate,0deg)) scaleX(var(--scale-x,1))}.ib-reader-text-layer ::selection{background:rgba(60,130,220,.3)}.ib-reader-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}.ib-reader p{line-height:1.7;overflow-wrap:anywhere}.ib-reader button:disabled{opacity:.45}";
+    style.textContent = ".ib-reader{font-family:system-ui,Segoe UI,Microsoft YaHei,sans-serif;font-size:14px;color:var(--dsw-alias-label-primary,#24322b);background:var(--dsw-alias-bg-base,#fff);gap:4px}.ib-reader>b{font-size:15px}.ib-reader>small{color:var(--dsw-alias-label-secondary,#6a756e);font-size:12px}.ib-reader .ib-act{font:inherit;font-size:12px;border:1px solid var(--dsw-alias-border-l2,#dce2de);border-radius:6px;background:var(--dsw-alias-bg-layer-1,#f8faf9);color:inherit;padding:5px 9px;cursor:pointer}.ib-reader .ib-act[data-active=true]{background:#e3f2e9;border-color:#98c7ab;color:#23613b}.ib-reader input{font:inherit;font-size:12px;border:1px solid var(--dsw-alias-border-l2,#dce2de);border-radius:5px;padding:4px;background:inherit;color:inherit}.ib-reader-translated section>small{display:block}.ib-reader-translated img{display:block;margin:10px auto}.ib-reader-text-layer{position:absolute;inset:0;overflow:clip;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none}.ib-reader-text-layer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;font-size:calc(var(--total-scale-factor) * var(--font-height));transform:rotate(var(--rotate,0deg)) scaleX(var(--scale-x,1))}.ib-reader-text-layer ::selection{background:rgba(60,130,220,.3)}.ib-reader-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}.ib-reader p{line-height:1.7;overflow-wrap:anywhere}.ib-reader button:disabled{opacity:.45}";
     document.head.append(style);
     return () => style.remove();
   }, "iBM PDF 文字选择与双语布局");
@@ -34757,7 +34770,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         "div",
         { className: "ib-search-actions" },
         h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", "data-opening": opening[searchOpenKey("pdf")] ? "true" : void 0, disabled: !!opening[searchOpenKey("pdf")], title: opening[searchOpenKey("pdf")] ? "正在打开正文 PDF…" : pdfReady ? "在侧栏阅读正文 PDF" : "未提交 PDF · 点击前往 DOI 页面", onClick: (event) => pdfReady ? openSearchInSidebar(event, "pdf", paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-        h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : void 0, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : siReady ? paper.localSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料" : "未提交 SI · 点击前往 DOI 页面", onClick: (event) => siReady ? paper.localSiIsPdf ? openSearchInSidebar(event, "si", paper.localSiUrl) : saveFile(event, paper.localSiUrl) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
+        h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : void 0, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : siReady ? "在侧栏打开 SI 补充材料" : "未提交 SI · 点击前往 DOI 页面", onClick: (event) => siReady ? openSearchInSidebar(event, "si", paper.localSiUrl) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
       )
     );
   };
@@ -34967,14 +34980,19 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         const translation = (bundle.translations ?? []).filter((row2) => row2.kind === "pdf" && (!bundle.pdfSha256 || row2.sourceSha256 === bundle.pdfSha256)).at(-1);
         const translateEntry = async (event) => {
           event.stopPropagation();
+          let created;
+          const request = { projectId, bundleId: bundle.id, kind: "pdf" };
           try {
-            const request = { projectId, bundleId: bundle.id, kind: "pdf" };
             const result = await call("tasks_translation_create", { request });
+            created = result;
             if (result.translation.status === "completed") await openReader({ ...request, mode: "zh" });
-            else if (!result.reused) await onRequestArtifact(translationPrompt(request, result.translation.id), true);
+            else if (!result.reused) await onRequestArtifact(translationPrompt(request, result.translation.id), true, { ...request, translationId: result.translation.id });
             else notify("此翻译任务已在进行；打开正文侧栏可查看进度或取消后重试。");
             onChanged?.();
           } catch (error) {
+            if (created && !created.reused) await call("tasks_translation_cancel", { request: { ...request, translationId: created.translation.id } }).catch(() => {
+            });
+            onChanged?.();
             notify("翻译启动失败：" + error.message);
           }
         };
@@ -35136,11 +35154,11 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat }) {
       setSaving(false);
     }
   };
-  const startTaskChat = async (prompt, autoSubmit = false) => {
+  const startTaskChat = async (prompt, autoSubmit = false, translationIdentity) => {
     if (!state.data || launching) throw new Error("会话正在启动，请稍后重试");
     setLaunching(true);
     try {
-      await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt, autoSubmit });
+      await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt, autoSubmit, translationIdentity });
     } catch (reason) {
       setToast(reason.message);
       setLaunching(false);
@@ -36064,6 +36082,7 @@ function applyUi(ctx) {
     openedNew = true;
     presetApplied = await selectResearchPreset(sessionId, presetId);
     await call("projects_bind_session", { request: { projectId: project2.id, sessionId, workspaceId } });
+    if (opts.translationIdentity) await call("tasks_translation_bind", { request: { ...opts.translationIdentity, sessionId } });
     ctx.uiWorkspace.openSession(sessionId);
     const actx = ctx.sessions.scope(sessionId);
     if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
@@ -36107,7 +36126,7 @@ function applyUi(ctx) {
     registerReaderTab(tabCtx);
     setReaderRuntime({ call, translate: async (request, id) => {
       const { project: project2 } = await call("projects_get", { request: { id: request.projectId } });
-      await launchProject(project2, { presetId: RESEARCH_PRESET_ID, prompt: translationPrompt(request, id), autoSubmit: true });
+      await launchProject(project2, { presetId: RESEARCH_PRESET_ID, prompt: translationPrompt(request, id), autoSubmit: true, translationIdentity: { ...request, translationId: id } });
     }, open: async (address, request) => {
       const binding = (await call("projects_binding", { request: { projectId: request.projectId } })).binding;
       const workspace = ctx.workspaces.list.getSnapshot().items?.find((row2) => row2.workspaceId === binding?.workspaceId);

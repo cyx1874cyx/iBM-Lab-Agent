@@ -191,6 +191,7 @@ export function applyUi(ctx) {
 		openedNew = true;
 		presetApplied = await selectResearchPreset(sessionId, presetId);
 		await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
+		if(opts.translationIdentity)await call('tasks_translation_bind',{request:{...opts.translationIdentity,sessionId}});
 		ctx.uiWorkspace.openSession(sessionId);
 		const actx = ctx.sessions.scope(sessionId);
 		if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
@@ -246,7 +247,7 @@ export function applyUi(ctx) {
 		// 做不到每课题一标签）。
 		registerProjectTab(tabCtx);
 		registerReaderTab(tabCtx);
-		setReaderRuntime({call,translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true});},open:async(address,request)=>{
+		setReaderRuntime({call,translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
 			const binding=(await call('projects_binding',{request:{projectId:request.projectId}})).binding;
 			const workspace=ctx.workspaces.list.getSnapshot().items?.find(row=>row.workspaceId===binding?.workspaceId);
 			let sessionId=workspace?.sessionIds?.at(-1);

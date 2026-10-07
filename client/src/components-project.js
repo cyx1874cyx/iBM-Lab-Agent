@@ -629,7 +629,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h("small", { title: paper.title }, paper.title),
 					h("div", { className: "ib-search-actions" },
 						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", "data-opening": opening[searchOpenKey("pdf")] ? "true" : undefined, disabled: !!opening[searchOpenKey("pdf")], title: opening[searchOpenKey("pdf")] ? "正在打开正文 PDF…" : (pdfReady ? "在侧栏阅读正文 PDF" : "未提交 PDF · 点击前往 DOI 页面"), onClick: (event) => pdfReady ? openSearchInSidebar(event, "pdf", paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : undefined, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : (siReady ? (paper.localSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : "未提交 SI · 点击前往 DOI 页面"), onClick: (event) => siReady ? (paper.localSiIsPdf ? openSearchInSidebar(event, "si", paper.localSiUrl) : saveFile(event, paper.localSiUrl)) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
+						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : undefined, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : (siReady ? "在侧栏打开 SI 补充材料" : "未提交 SI · 点击前往 DOI 页面"), onClick: (event) => siReady ? openSearchInSidebar(event, "si", paper.localSiUrl) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
 					)
 				);
 			};
@@ -761,7 +761,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						// 精读 / PPT 的完成状态只用按钮填充色 + 完成图标表达。
 						const readingDone = Boolean(report.docxPath);
 						const translation=(bundle.translations??[]).filter(row=>row.kind==='pdf'&&(!bundle.pdfSha256||row.sourceSha256===bundle.pdfSha256)).at(-1);
-						const translateEntry=async(event)=>{event.stopPropagation();try{const request={projectId,bundleId:bundle.id,kind:'pdf'};const result=await call('tasks_translation_create',{request});if(result.translation.status==='completed')await openReader({...request,mode:'zh'});else if(!result.reused)await onRequestArtifact(translationPrompt(request,result.translation.id),true);else notify('此翻译任务已在进行；打开正文侧栏可查看进度或取消后重试。');onChanged?.();}catch(error){notify('翻译启动失败：'+error.message);}};
+						const translateEntry=async(event)=>{event.stopPropagation();let created;const request={projectId,bundleId:bundle.id,kind:'pdf'};try{const result=await call('tasks_translation_create',{request});created=result;if(result.translation.status==='completed')await openReader({...request,mode:'zh'});else if(!result.reused)await onRequestArtifact(translationPrompt(request,result.translation.id),true,{...request,translationId:result.translation.id});else notify('此翻译任务已在进行；打开正文侧栏可查看进度或取消后重试。');onChanged?.();}catch(error){if(created&&!created.reused)await call('tasks_translation_cancel',{request:{...request,translationId:created.translation.id}}).catch(()=>{});onChanged?.();notify('翻译启动失败：'+error.message);}};
 						const readingBusy = Boolean(busy[`open-report:${report.id}`]);
 						const pptDone = Boolean(presentation?.pptxPath);
 						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
@@ -866,10 +866,10 @@ export function Project({ call, project, onBack, onDelete, onStartChat }) {
 			// 人工审核要求去掉课题页右上角的「开始科研 Agent 对话」按钮：
 			// 起会话改由具体任务按钮（登记产物、路线方案、表征提交）按需触发，
 			// 这里只保留 startTaskChat 那条路径。
-			const startTaskChat = async (prompt, autoSubmit = false) => {
+			const startTaskChat = async (prompt, autoSubmit = false, translationIdentity) => {
 				if (!state.data || launching) throw new Error("会话正在启动，请稍后重试");
 				setLaunching(true);
-				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt, autoSubmit }); }
+				try { await onStartChat(state.data.project, { memory: state.data.memory, presetId: state.data.presetId, prompt, autoSubmit, translationIdentity }); }
 				catch (reason) { setToast(reason.message); setLaunching(false); throw reason; }
 			};
 			const remove = async () => {

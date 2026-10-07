@@ -57,6 +57,31 @@ def main():
                                                      min(1.5, 1600/max(page.rect.width, page.rect.height))), alpha=False).save(out/image_name)
                 blocks.append({'id': f'p{page_no}-scan', 'page': page_no, 'kind': 'scan', 'image': image_name,
                                'original': '[此页无可靠文本层，请读取页面图像并逐段转写、翻译，勿概括] '})
+            else:
+                # Retain vector figures/tables as source crops, including labels.
+                groups = []
+                for drawing in page.get_drawings()[:3000]:
+                    rect = pymupdf.Rect(drawing['rect'])
+                    rect = (rect + (-2, -2, 2, 2)) & page.rect
+                    if rect.is_empty:
+                        continue
+                    merged = True
+                    while merged:
+                        merged = False
+                        for previous in list(groups):
+                            if (rect + (-6, -6, 6, 6)).intersects(previous):
+                                rect |= previous
+                                groups.remove(previous)
+                                merged = True
+                    groups.append(rect)
+                raster = [pymupdf.Rect(b['bbox']) for b in page_blocks if b['type'] == 1]
+                for index, rect in enumerate(groups, 1):
+                    if rect.width < 40 or rect.height < 30 or any((rect & image).get_area() > rect.get_area() * .6 for image in raster):
+                        continue
+                    image_name = f'p{page_no}-v{index}.png'
+                    scale = min(1.5, 1600 / max(rect.width, rect.height, 1))
+                    page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=rect, alpha=False).save(out/image_name)
+                    blocks.append({'id': f'p{page_no}-v{index}', 'page': page_no, 'kind': 'image', 'image': image_name})
         result = {'schemaVersion': 1, 'pageCount': len(doc), 'scannedPages': scanned, 'blocks': blocks}
     (out / 'source.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
     print(json.dumps({'pageCount': result['pageCount'], 'blockCount': len(blocks), 'scannedPages': scanned}))

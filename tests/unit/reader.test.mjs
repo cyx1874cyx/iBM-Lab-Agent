@@ -41,10 +41,20 @@ test('translation requires every source block, protects completed output, suppor
  await writeFile(join(row.directory,'reader.json'),'{}');await assert.rejects(()=>f.service.translationRead(request),/完整性/);
 }finally{await f.dispose();}});
 test('translation tools use session project resolution and a closed result schema',()=>{const tools=[];registerReaderTools({tools:{register:tool=>tools.push(tool)}});assert.equal(tools.length,6);assert.ok(tools.every(tool=>tool.name.startsWith('lab_reader_translation_')));});
+test('translation is bound to its project session and failed Agent turns release queued tasks',async()=>{const f=await fixture();try{
+ f.service.ctx.ibmCore.getProjectBySession=id=>id==='valid-session'?{id:'p'}:{id:'other'};
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};
+ await assert.rejects(()=>f.service.translationBind({...request,sessionId:'wrong-session'}),/不属于/);
+ await f.service.translationBind({...request,sessionId:'valid-session'});await f.service.readerTurnEnded('valid-session');
+ assert.equal(f.rows.get('reader').translations[0].status,'failed');assert.equal((await f.service.translationCreate(f.request)).translation.id,created.translation.id);
+}finally{await f.dispose();}});
 test('real local PDF extraction retains text, images and scanned page markers',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
  const python=process.env.IBM_READER_TEST_PYTHON,pdfPath=join(f.dir,'source.pdf');
- execFileSync(python,['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"Full paper source paragraph."); d.new_page(); d.save(sys.argv[1])',pdfPath],{windowsHide:true});
+ execFileSync(python,['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"Full paper source paragraph."); p.draw_rect(pymupdf.Rect(72,100,250,200),color=(0,0,0)); d.new_page(); d.save(sys.argv[1])',pdfPath],{windowsHide:true});
  f.setBytes(await readFile(pdfPath));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};
  const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};const prepared=await f.service.translationPrepare(request);
- assert.equal(prepared.translation.pageCount,2);assert.deepEqual(prepared.scannedPages,[2]);const content=await f.service.translationRead(request);assert.ok(content.blocks.some(x=>x.original?.includes('Full paper')));assert.ok(content.blocks.some(x=>x.kind==='scan'&&x.imagePath));
+ assert.equal(prepared.translation.pageCount,2);assert.deepEqual(prepared.scannedPages,[2]);const content=await f.service.translationRead(request);assert.ok(content.blocks.some(x=>x.original?.includes('Full paper')));assert.ok(content.blocks.some(x=>x.kind==='scan'&&x.imagePath));assert.ok(content.blocks.some(x=>x.id.startsWith('p1-v')&&x.imagePath));
+ const zipPath=join(f.dir,'si.zip');execFileSync(python,['-I','-c','import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],"w"); z.write(sys.argv[2],"../source.pdf"); z.writestr("data.txt","numbers"); z.close()',zipPath,pdfPath],{windowsHide:true});
+ const bundle=f.rows.get('reader');await f.service.table().put(bundle.id,{...bundle,siPath:zipPath});
+ const embedded=await f.service.readerZipPdf({...f.request,kind:'si',index:0});assert.ok(Buffer.from(embedded.base64,'base64').subarray(0,4).equals(Buffer.from('%PDF')));assert.equal(embedded.name,'source.pdf');await assert.rejects(()=>f.service.readerZipPdf({...f.request,kind:'si',index:1}),/PDF/);
 }finally{await f.dispose();}});

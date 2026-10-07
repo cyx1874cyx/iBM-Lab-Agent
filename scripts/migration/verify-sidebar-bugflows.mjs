@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {spawn,execFileSync} from 'node:child_process';
-import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,copyFileSync} from 'node:fs';
+import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,copyFileSync,existsSync,appendFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import puppeteer from 'puppeteer-core';
@@ -28,7 +28,7 @@ if(process.argv.includes('--development-client')){
 }
 const fixture=join(profiles.directory('ibm-lab'),'node_modules','dsh-ibm-sidebar-fixture');mkdirSync(fixture,{recursive:true});
 const readerPdfPath=join(work,'reader-source.pdf');
-if(process.argv.includes('--reader'))execFileSync(join(resources,'python/python.exe'),['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"Full paper source paragraph."); pix=pymupdf.Pixmap(pymupdf.csRGB,(0,0,64,64),False); pix.clear_with(180); p.insert_image(pymupdf.Rect(72,130,250,250),stream=pix.tobytes("png")); p=d.new_page(); p.insert_text((72,72),"Methods: lipid nanoparticle delivery."); d.save(sys.argv[1])',readerPdfPath],{windowsHide:true});
+if(process.argv.includes('--reader'))execFileSync(join(resources,'python/python.exe'),['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_textbox(pymupdf.Rect(72,60,500,125),"Full paper source paragraph. "*8,fontsize=10); pix=pymupdf.Pixmap(pymupdf.csRGB,(0,0,64,64),False); pix.clear_with(180); p.insert_image(pymupdf.Rect(72,130,250,250),stream=pix.tobytes("png")); p=d.new_page(); p.insert_textbox(pymupdf.Rect(72,60,500,180),"Methods: lipid nanoparticle delivery. "*8,fontsize=10); d.save(sys.argv[1])',readerPdfPath],{windowsHide:true});
 writeFileSync(join(fixture,'package.json'),JSON.stringify({name:'dsh-ibm-sidebar-fixture',version:'1.0.0',type:'module',main:'index.js'}));
 writeFileSync(join(fixture,'index.js'),`import {writeFileSync} from 'node:fs';export const inject=['ibmCore','ibmScientificDesktop','ibmLiteratureWorkflows'];export async function apply(ctx){
  if(!ctx.ibmCore.getProject('sidebar-test'))await ctx.ibmCore.createProject({id:'sidebar-test',name:'侧栏宠物验收'});
@@ -61,7 +61,7 @@ const launch=async(requirePet=true)=>{
  child=spawn(executable,[...(process.argv.includes('--staged')?[app]:[]),'--remote-debugging-port=0'],{env:{...process.env,DSH_HOME:home,DSH_DESKTOP_NEXT_HOME:home,ELECTRON_RUN_AS_NODE:undefined,DSH_TELEMETRY_DISABLED:'1',IBM_SIDEBAR_TEST_ORIGINS:JSON.stringify([origin])},stdio:['ignore','pipe','pipe'],windowsHide:true});
  for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{const value=String(chunk);endpoint??=value.match(/DevTools listening on (ws:\/\/\S+)/)?.[1];log+=value.replace(/([?&]token=)[^&\s]+/g,'$1<redacted>');});
  await wait(()=>endpoint,'desktop debug endpoint');browser=await puppeteer.connect({browserWSEndpoint:endpoint,defaultViewport:null});
- await wait(async()=>{for(const candidate of await browser.pages()){if(candidate.url().includes('desktop-pet.html'))pet=candidate;for(const current of candidate.frames())if(await current.$('[title="打开科研课题"]').catch(()=>false)){page=candidate;frame=current;}}return frame&&(!requirePet||pet);},'main and pet');
+ const observed=new Set();await wait(async()=>{for(const candidate of await browser.pages()){if(!observed.has(candidate)){observed.add(candidate);const record=value=>appendFileSync(join(work,'renderer.log'),String(value).replace(/([?&]token=)[^&\s]+/g,'$1<redacted>')+'\n');candidate.on('console',message=>record(message.type()+': '+message.text().slice(0,2000)));candidate.on('pageerror',error=>record(error.stack??error.message));}if(candidate.url().includes('desktop-pet.html'))pet=candidate;for(const current of candidate.frames())if(await current.$('[title="打开科研课题"]').catch(()=>false)){page=candidate;frame=current;}}return frame&&(!requirePet||pet);},'main and pet');
 };
 const rpc=(method,request)=>frame.evaluate(async(method,request)=>{
  const response=await fetch('/api/lab/'+method,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/'+method,payload:{args:request?{request}:{}}})});const result=await response.json();if(!result.result?.ok)throw Error(JSON.stringify(result));return result.result.value;
@@ -92,7 +92,7 @@ const readerCheck=async(restarted=false)=>{
 };
 const close=async()=>{await browser?.close().catch(()=>{});await wait(()=>child.exitCode!==null,'desktop shutdown').catch(()=>child.kill());browser=null;frame=null;pet=null;};
 try{
- await launch();await frame.waitForSelector('.ib-hero-chip');await frame.click('.ib-hero-chip');
+ await launch();if(process.argv.includes('--reader'))await wait(()=>existsSync(join(work,'reader-fixture.json')),'translation fixture completes Host initialization');await frame.waitForSelector('.ib-hero-chip');await frame.click('.ib-hero-chip');
  await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-hero-menu-item')].some(node=>node.innerText.includes('侧栏宠物验收')));
  await frame.evaluate(()=>[...document.querySelectorAll('.ib-hero-menu-item')].find(node=>node.innerText.includes('侧栏宠物验收')).click());
  await wait(async()=>(await rpc('projects_binding',{projectId:'sidebar-test'})).binding?.sessionIds?.length,'project session binding');
