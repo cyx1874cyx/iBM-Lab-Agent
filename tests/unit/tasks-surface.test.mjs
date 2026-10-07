@@ -49,6 +49,8 @@ const EXPECTED_PROTO_METHODS = [
 	"readerClose",
 	"readerAsset",
 	"readerZipPdf",
+	"readerCompose",
+	"readerTranslationFile",
 	"translationCreate",
 	"translationBind",
 	"translationStore",

@@ -235,6 +235,7 @@ export const paperSourceBundleSchema = z.object({
 		stage: z.string(), directory: z.string(), createdAt: z.string(), updatedAt: z.string(),
 		pageCount: z.number().optional(), totalBlocks: z.number().optional(), completedBlocks: z.number().optional(),
 		error: z.string().optional(), resultSha256: z.string().optional(), notes: z.string().optional(), sessionId: z.string().optional(),
+		pdfSha256: z.string().optional(), pdfLayoutVersion: z.number().optional(), pdfWarnings: z.array(z.string()).optional(),
 	})).default([]),
 	figuresDir: z.string().optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),

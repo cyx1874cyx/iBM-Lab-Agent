@@ -1,8 +1,80 @@
 """Fixed, local PDF extraction. No network or model credentials."""
 import json, pathlib, sys, zipfile
 
+def compose_pdf(source, directory):
+    """Replace translated text in its original page regions; keep source artwork."""
+    import pymupdf, html, os
+    out = pathlib.Path(directory)
+    data = json.loads((out / 'reader.json').read_text(encoding='utf-8'))
+    warnings, translated = [], 0
+    with pymupdf.open(source) as doc:
+        for number, page in enumerate(doc, 1):
+            native = page.get_text('dict', sort=True)['blocks']
+            jobs = []
+            for index, block in enumerate(native, 1):
+                if block['type'] != 0:
+                    continue
+                prefix = f'p{number}-b{index}-'
+                parts = [b for b in data['blocks'] if b['kind'] == 'text' and b['id'].startswith(prefix)]
+                if not parts:
+                    continue
+                zh = ''.join(data['translations'].get(b['id'], {}).get('zh', '') for b in parts)
+                if not zh.strip():
+                    raise ValueError(f'第 {number} 页存在未翻译文本')
+                spans = [s for line in block['lines'] for s in line['spans']]
+                size = max(s['size'] for s in spans)
+                color = spans[0].get('color', 0)
+                rect = pymupdf.Rect(block['bbox']) & page.rect
+                # Allow a little leading without crossing neighbouring artwork/text.
+                bottom = min(page.rect.y1 - 2, rect.y1 + max(2, size * .5))
+                for other in native:
+                    r = pymupdf.Rect(other['bbox'])
+                    if r.y0 >= rect.y1 - .2 and r.x0 < rect.x1 and r.x1 > rect.x0:
+                        bottom = min(bottom, r.y0 - .5)
+                rect.y1 = max(rect.y1, bottom)
+                flags = spans[0].get('flags', 0)
+                jobs.append((rect, zh, size, color, bool(flags & 16)))
+                # No white paint over figures/backgrounds; remove only source text.
+                page.add_redact_annot(block['bbox'], fill=None, cross_out=False)
+            scanned = [b for b in data['blocks'] if b['page'] == number and b['kind'] == 'scan']
+            if scanned:
+                raise ValueError(f'第 {number} 页为扫描页，需要带位置的 OCR 后才能生成保留版式 PDF；已保存译文，可继续处理')
+            links = page.get_links()
+            if jobs:
+                page.apply_redactions(images=0, graphics=0, text=0)
+            for rect, zh, size, color, bold in jobs:
+                css = f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{size}pt;line-height:1.12;color:#{color:06x};font-weight:{"bold" if bold else "normal"}}}'
+                spare, scale = page.insert_htmlbox(rect, html.escape(' '.join(zh.split())), css=css, scale_low=.35)
+                if spare < 0:
+                    raise ValueError(f'第 {number} 页译文无法排入原位置，未登记 PDF')
+                if size * scale < 5:
+                    warnings.append(f'第 {number} 页一处译文字号较小（{size * scale:.1f} pt）')
+                translated += 1
+            for link in links:
+                # Redaction removes intersecting links. Restore their source targets.
+                if any(pymupdf.Rect(link['from']).intersects(job[0]) for job in jobs):
+                    link.pop('xref', None)
+                    link.pop('id', None)
+                    page.insert_link(link)
+        if not translated:
+            raise ValueError('没有可排版译文块')
+        doc.set_metadata({**doc.metadata, 'subject': 'iBM Agent Chinese translation; source layout preserved'})
+        temp = out / 'translated.pdf.tmp'
+        doc.subset_fonts()
+        doc.save(temp, garbage=4, deflate=True)
+        with pymupdf.open(temp) as check:
+            if len(check) != len(doc) or not any(p.get_text().strip() for p in check):
+                raise ValueError('译文 PDF 完整性校验失败')
+        os.replace(temp, out / 'translated.pdf')
+        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 1}
+        (out / 'pdf-layout.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
+        print(json.dumps(result, ensure_ascii=True))
+
 def main():
     mode, source = sys.argv[1:3]
+    if mode == 'compose':
+        compose_pdf(source, sys.argv[3])
+        return
     if mode == 'zip-list':
         with zipfile.ZipFile(source) as archive:
             entries = [{'name': x.filename, 'bytes': x.file_size, 'index': i, 'pdf': x.filename.lower().endswith('.pdf')}

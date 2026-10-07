@@ -24,6 +24,9 @@ test('reader verifies project, bounded chunks, lease owner and revocation',async
  await assert.rejects(()=>f.service.readerAsset({group:'cmaps',name:'../../secret'}),/无效/);
 }finally{await f.dispose();}});
 test('translation requires every source block, protects completed output, supports cancellation and source invalidation',async()=>{const f=await fixture();try{
+ // This test exercises state transitions with deliberately non-parsable fixture bytes.
+ // Actual PDF composition and integrity are covered by the real Python test below.
+ f.service.readerCompose=async()=>({buffer:Buffer.from('%PDF'),fileName:'test-中文.pdf'});
  const created=await f.service.translationCreate(f.request),id=created.translation.id,request={...f.request,translationId:id};
  assert.equal((await f.service.translationCreate(f.request)).reused,true);
  const row=f.rows.get('reader').translations[0],data={pageCount:2,blocks:[{id:'p1-b1-1',page:1,kind:'text',original:'A complete source paragraph.'},{id:'p2-b1-1',page:2,kind:'text',original:'Another source paragraph.'}],translations:{}};
@@ -41,6 +44,19 @@ test('translation requires every source block, protects completed output, suppor
  await writeFile(join(row.directory,'reader.json'),'{}');await assert.rejects(()=>f.service.translationRead(request),/完整性/);
 }finally{await f.dispose();}});
 test('translation tools use session project resolution and a closed result schema',()=>{const tools=[];registerReaderTools({tools:{register:tool=>tools.push(tool)}});assert.equal(tools.length,6);assert.ok(tools.every(tool=>tool.name.startsWith('lab_reader_translation_')));});
+test('Chinese PDF is generated in source page geometry, retains artwork and rejects tampering',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
+ const python=process.env.IBM_READER_TEST_PYTHON,path=join(f.dir,'paper.pdf');
+ execFileSync(python,['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"Scientific paper translation",fontsize=18); p.insert_textbox(pymupdf.Rect(72,100,280,200),"Original full paragraph about nanoparticles. "*6,fontsize=10); p.insert_textbox(pymupdf.Rect(320,100,530,200),"Another column with methods and figures. "*6,fontsize=10); p.draw_rect(pymupdf.Rect(72,240,280,340),color=(0,0,1)); pix=pymupdf.Pixmap(pymupdf.csRGB,(0,0,32,32),False); pix.clear_with(100); p.insert_image(pymupdf.Rect(320,240,440,340),stream=pix.tobytes("png")); p=d.new_page(); p.insert_text((72,72),"Second page with complete methods."); d.save(sys.argv[1])',path],{windowsHide:true});
+ f.setBytes(await readFile(path));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};await f.service.translationPrepare(request);
+ for(;;){const pending=await f.service.translationRead({...request,pendingOnly:true,limit:40});if(!pending.total)break;await f.service.translationWrite({...request,blocks:pending.blocks.map(b=>({id:b.id,zh:b.original.includes('Scientific')?'科学论文翻译':'纳米颗粒研究与实验方法。'.repeat(5)}))});}
+ await f.service.translationFinish(request);const row=f.service.translationFind(request).row;assert.ok(row.pdfSha256);const opened=await f.service.readerOpen(request);assert.equal(opened.format,'pdf');assert.match(opened.fileName,/中文\.pdf$/);assert.ok(Buffer.from(f.service.readerChunk({...request,lease:opened.lease}).base64,'base64').subarray(0,4).equals(Buffer.from('%PDF')));
+ const proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json; a=pymupdf.open(sys.argv[1]); b=pymupdf.open(sys.argv[2]); print(json.dumps({"pages":len(b),"sameSize":a[0].rect==b[0].rect,"text":b[0].get_text(),"images":len(b[0].get_images()),"drawings":len(b[0].get_drawings())}))',path,join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));
+ assert.equal(proof.pages,2);assert.equal(proof.sameSize,true);assert.match(proof.text,/科学论文翻译/);assert.equal(proof.images,1);assert.ok(proof.drawings>=1);assert.doesNotMatch(proof.text,/Original full paragraph/);
+ // Upgrade already-completed paragraph translations without re-translating.
+ await f.service.translationStore(f.rows.get('reader'),{...row,pdfSha256:undefined,pdfLayoutVersion:undefined});assert.equal((await f.service.readerOpen(request)).format,'pdf');
+ await writeFile(join(row.directory,'translated.pdf'),'%PDF changed');await assert.rejects(()=>f.service.readerOpen(request),/完整性/);
+}finally{await f.dispose();}});
 test('translation is bound to its project session and failed Agent turns release queued tasks',async()=>{const f=await fixture();try{
  f.service.ctx.ibmCore.getProjectBySession=id=>id==='valid-session'?{project:{id:'p'}}:{project:{id:'other'}};
  const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};
