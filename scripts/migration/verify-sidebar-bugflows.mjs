@@ -67,6 +67,8 @@ const rpc=(method,request)=>frame.evaluate(async(method,request)=>{
  const response=await fetch('/api/lab/'+method,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/'+method,payload:{args:request?{request}:{}}})});const result=await response.json();if(!result.result?.ok)throw Error(JSON.stringify(result));return result.result.value;
 },method,request);
 const readerCheck=async(restarted=false)=>{
+ // Keep the official navigation visible when a wide PDF column was left open.
+ await page.setViewport({width:1280,height:900});
  const registered=JSON.parse(readFileSync(join(work,'reader-fixture.json'),'utf8'));
  const openItem=async label=>{await frame.click('[title="打开科研课题"]');await frame.waitForSelector('.ib-project');await frame.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('侧栏宠物验收')).click());await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-lit-item')].some(node=>node.innerText.includes('全文翻译侧栏验收')));await frame.evaluate(label=>[...document.querySelectorAll('.ib-lit-item')].find(node=>node.innerText.includes('全文翻译侧栏验收')).querySelector('button[aria-label="'+label+'"]').click(),label);await frame.waitForSelector('.ib-reader');};
  await openItem('正文 PDF / 获取原文');
