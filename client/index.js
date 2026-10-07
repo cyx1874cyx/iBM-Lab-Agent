@@ -3877,6 +3877,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [expandedSearch, setExpandedSearch] = (0, import_react10.useState)(null);
   const [folders, setFolders] = (0, import_react10.useState)([]), [selectedFolder, setSelectedFolder] = (0, import_react10.useState)("all"), [organizing, setOrganizing] = (0, import_react10.useState)(false), [importingRis, setImportingRis] = (0, import_react10.useState)(false);
   const risPicker = (0, import_react10.useRef)(null);
+  const [folderEditor, setFolderEditor] = (0, import_react10.useState)(null);
   const loadFolders = (0, import_react10.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => setFolders(result.folders ?? [])).catch((error) => notify(error.message)), [call, projectId, notify]);
   (0, import_react10.useEffect)(() => {
     void loadFolders();
@@ -3886,14 +3887,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       await call(action, { request: { projectId, ...request } });
       await loadFolders();
       onChanged?.();
+      return true;
     } catch (error) {
       notify(error.message);
+      return false;
     }
   };
-  const createFolder = () => {
-    const name = window.prompt("新建精读文件夹名称");
-    if (name?.trim()) void folderAction("tasks_reading_folder_save", { name });
-  };
+  const createFolder = () => setFolderEditor({ name: "" });
   const importRis = async (file) => {
     if (!file) return;
     setImportingRis(true);
@@ -4535,9 +4535,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         h("button", { className: "ib-act", disabled: organizing || !reports.some((row2) => row2.paperCardPath), onClick: () => void autoOrganize() }, "Agent 自动分类"),
         h("span", { className: "ib-group-count" }, `${reports.length} 篇`)
       ),
+      folderEditor ? h("form", { className: "ib-folder-editor", style: { display: "flex", gap: 8, marginBottom: 12 }, onSubmit: (event) => {
+        event.preventDefault();
+        void folderAction("tasks_reading_folder_save", folderEditor).then((ok) => {
+          if (ok) setFolderEditor(null);
+        });
+      } }, h("input", { value: folderEditor.name, maxLength: 80, autoFocus: true, "aria-label": "文件夹名称", placeholder: "文件夹名称，例如：核酸递送", onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }) }), h("button", { className: "ib-act", type: "submit" }, "保存文件夹"), h("button", { className: "ib-act", type: "button", onClick: () => setFolderEditor(null) }, "取消")) : null,
       h("div", { className: "ib-reading-folders", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, className: "ib-act", "data-selected": selectedFolder === folder.id ? "true" : void 0, style: selectedFolder === folder.id ? { background: "#e4f2e9", color: "#23613b" } : void 0, onClick: () => setSelectedFolder(folder.id) }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react9.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
-        const name = window.prompt("重命名文件夹", folders.find((row2) => row2.id === selectedFolder).name);
-        if (name?.trim()) void folderAction("tasks_reading_folder_save", { id: selectedFolder, name });
+        setFolderEditor({ id: selectedFolder, name: folders.find((row2) => row2.id === selectedFolder).name });
       } }, "重命名"), h("button", { className: "ib-act", onClick: () => {
         if (window.confirm("删除该分类文件夹？其中的文献将移到“未分类”，保留报告及归档文件。")) {
           void folderAction("tasks_reading_folder_delete", { id: selectedFolder });
