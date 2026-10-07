@@ -229,6 +229,13 @@ export const paperSourceBundleSchema = z.object({
 	paperMdPath: z.string().optional(),
 	sourceMapPath: z.string().optional(),
 	translationNotesPath: z.string().optional(),
+	translations: z.array(z.object({
+		id: z.string(), kind: z.enum(['pdf','si']), sourceSha256: z.string(),
+		status: z.enum(['queued','running','completed','failed','cancelled']),
+		stage: z.string(), directory: z.string(), createdAt: z.string(), updatedAt: z.string(),
+		pageCount: z.number().optional(), totalBlocks: z.number().optional(), completedBlocks: z.number().optional(),
+		error: z.string().optional(), resultSha256: z.string().optional(), notes: z.string().optional(), sessionId: z.string().optional(),
+	})).default([]),
 	figuresDir: z.string().optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
 	/** 命名各段（Agent 可覆盖）：<期刊缩写> <年份> <通讯作者> <中文内容概括> <英文题目前段>。 */

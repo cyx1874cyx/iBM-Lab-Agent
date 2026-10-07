@@ -5,6 +5,7 @@ import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
+import {openReader,translationPrompt} from './reader-tab.js';
 
 import { ResearchDesignWorkspace } from "./components-workspace.js";
 import { CharacterizationPanel } from "./components-characterization.js";
@@ -615,11 +616,11 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				// 与精读条目一致：检索条目交给外部 Edge 时也显示"正在打开"，失败必须 toast。
 				const searchKey = paper.doi || paper.pmid || paper.arxivId || paper.id || paper.title;
 				const searchOpenKey = (kind) => `${kind}:search:${searchKey}`;
-				const openSearchInEdge = (event, kind, url) => {
+				const openSearchInSidebar = (event, kind, url) => {
 					event.stopPropagation();
 					if (opening[searchOpenKey(kind)]) return;
 					setOpening((old) => ({ ...old, [searchOpenKey(kind)]: true }));
-					void openPdfPreview(url)
+					void openReader({projectId,bundleId:new URL(url,location.origin).searchParams.get('bundleId'),kind})
 						.catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`))
 						.finally(() => setOpening((old) => { const next = { ...old }; delete next[searchOpenKey(kind)]; return next; }));
 				};
@@ -627,8 +628,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h("div", { className: "ib-search-citation" }, h("i", null, journal), bibliographic, h("span", null, `（${description}）`), target ? h("a", { href: target, target: "_blank", rel: "noopener noreferrer", onClick: (event) => event.stopPropagation() }, paper.pdfUrl ? "PDF" : "原文") : null),
 					h("small", { title: paper.title }, paper.title),
 					h("div", { className: "ib-search-actions" },
-						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", "data-opening": opening[searchOpenKey("pdf")] ? "true" : undefined, disabled: !!opening[searchOpenKey("pdf")], title: opening[searchOpenKey("pdf")] ? "正在打开正文 PDF…" : (pdfReady ? "在外部 Microsoft Edge 中打开正文 PDF" : "未提交 PDF · 点击前往 DOI 页面"), onClick: (event) => pdfReady ? openSearchInEdge(event, "pdf", paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
-						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : undefined, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : (siReady ? (paper.localSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : "未提交 SI · 点击前往 DOI 页面"), onClick: (event) => siReady ? (paper.localSiIsPdf ? openSearchInEdge(event, "si", paper.localSiUrl) : saveFile(event, paper.localSiUrl)) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
+						h("button", { className: "ib-icon-btn", "data-ready": pdfReady ? "true" : "false", "data-opening": opening[searchOpenKey("pdf")] ? "true" : undefined, disabled: !!opening[searchOpenKey("pdf")], title: opening[searchOpenKey("pdf")] ? "正在打开正文 PDF…" : (pdfReady ? "在侧栏阅读正文 PDF" : "未提交 PDF · 点击前往 DOI 页面"), onClick: (event) => pdfReady ? openSearchInSidebar(event, "pdf", paper.localPdfUrl) : openExternal(event, doiUrl), "aria-label": "PDF 原文" }, h(BookSvg, null)),
+						h("button", { className: "ib-icon-btn", "data-ready": siReady ? "true" : "false", "data-opening": opening[searchOpenKey("si")] ? "true" : undefined, disabled: !!opening[searchOpenKey("si")], title: opening[searchOpenKey("si")] ? "正在打开 SI PDF…" : (siReady ? (paper.localSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : "下载 SI 补充材料") : "未提交 SI · 点击前往 DOI 页面"), onClick: (event) => siReady ? (paper.localSiIsPdf ? openSearchInSidebar(event, "si", paper.localSiUrl) : saveFile(event, paper.localSiUrl)) : openExternal(event, doiUrl), "aria-label": "SI 补充材料" }, h(SiSvg, null))
 					)
 				);
 			};
@@ -736,12 +737,12 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const bundleSiIsPdf = /\.pdf$/i.test(bundle.siPath || "");
 						const bundleSiIsZip = /\.zip$/i.test(bundle.siPath || "");
 						const openKey = (kind) => `${kind}:${report.id}`;
-						/** 正文/SI 交给外部 Edge 打开；期间显示"正在打开"，失败必须 toast，不得静默。 */
-						const openEntryInEdge = (event, kind, url) => {
+						/** 正文/SI 在侧栏阅读；期间显示"正在打开"，失败必须 toast，不得静默。 */
+						const openEntryInSidebar = (event, kind, url) => {
 							event.stopPropagation();
 							if (opening[openKey(kind)]) return;
 							setOpening((old) => ({ ...old, [openKey(kind)]: true }));
-							void openPdfPreview(url)
+							void openReader({projectId,bundleId:bundle.id,kind})
 								.catch((reason) => notify(`无法打开${kind === "pdf" ? "正文 PDF" : "SI PDF"}：${reason?.message ?? reason}`))
 								.finally(() => setOpening((old) => { const next = { ...old }; delete next[openKey(kind)]; return next; }));
 						};
@@ -759,6 +760,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const zhTitle = report.titleZh || bundle.title || null;
 						// 精读 / PPT 的完成状态只用按钮填充色 + 完成图标表达。
 						const readingDone = Boolean(report.docxPath);
+						const translation=(bundle.translations??[]).filter(row=>row.kind==='pdf'&&(!bundle.pdfSha256||row.sourceSha256===bundle.pdfSha256)).at(-1);
+						const translateEntry=async(event)=>{event.stopPropagation();try{const request={projectId,bundleId:bundle.id,kind:'pdf'};const result=await call('tasks_translation_create',{request});if(result.translation.status==='completed')await openReader({...request,mode:'zh'});else if(!result.reused)await onRequestArtifact(translationPrompt(request,result.translation.id),true);else notify('此翻译任务已在进行；打开正文侧栏可查看进度或取消后重试。');onChanged?.();}catch(error){notify('翻译启动失败：'+error.message);}};
 						const readingBusy = Boolean(busy[`open-report:${report.id}`]);
 						const pptDone = Boolean(presentation?.pptxPath);
 						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
@@ -781,18 +784,19 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 										className: "ib-icon-btn", "data-ready": bundlePdfUrl ? "true" : "false", "data-opening": opening[openKey("pdf")] ? "true" : undefined,
 										disabled: !!opening[openKey("pdf")],
 										title: opening[openKey("pdf")] ? "正在打开正文 PDF…" : (bundlePdfUrl
-											? "在外部 Microsoft Edge 中打开正文 PDF"
+											? "在侧栏阅读正文 PDF"
 											: (publisherUrl ? "尚未获取原文 · 点击前往出版社页面并布防捕获下载" : "尚未获取原文 · 未登记 DOI/出版社页面")),
-										onClick: (event) => bundlePdfUrl ? openEntryInEdge(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "正文 PDF / 获取原文"
+										onClick: (event) => bundlePdfUrl ? openEntryInSidebar(event, "pdf", bundlePdfUrl) : armCaptureFor(event, bundle, "pdf"), "aria-label": "正文 PDF / 获取原文"
 									}, h(BookSvg, null)),
 									h("button", {
 										className: "ib-icon-btn", "data-ready": bundleSiUrl ? "true" : "false", "data-opening": opening[openKey("si")] ? "true" : undefined,
 										disabled: !!opening[openKey("si")],
 										title: opening[openKey("si")] ? "正在打开 SI…" : (bundleSiUrl
-											? (bundleSiIsPdf ? "在外部 Microsoft Edge 中打开 SI PDF" : bundleSiIsZip ? "在资源管理器中定位 SI 压缩包" : "下载 SI 补充材料")
+											? "在侧栏打开 SI 补充材料"
 											: (publisherUrl ? "尚未获取 SI · 点击前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")),
-										onClick: (event) => bundleSiUrl ? (bundleSiIsPdf ? openEntryInEdge(event, "si", bundleSiUrl) : bundleSiIsZip ? revealBundleFile(event, bundle.siPath) : downloadBundleFile(event, bundleSiUrl)) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料 / 获取 SI"
+										onClick: (event) => bundleSiUrl ? openEntryInSidebar(event, "si", bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料 / 获取 SI"
 									}, h(SiSvg, null)),
+									h('button',{className:'ib-act',disabled:!bundlePdfUrl,onClick:translateEntry,title:'全文翻译并在侧栏进行中文/双语对照阅读'},translation?.status==='completed'?'阅读译文':['queued','running'].includes(translation?.status)?'翻译中…':'翻译'),
 									// 简介（约 200 字，篇幅要求是给 Agent 的，不写进按钮文案）。
 									h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开文献概览" }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起简介" : "简介")),
 									h("button", {

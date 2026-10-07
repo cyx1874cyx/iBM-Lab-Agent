@@ -42,18 +42,18 @@ test("desktop shell routes artifact save and external URLs through Tauri", async
 	assert.equal(JSON.parse(manifest).exports["./capture-handoff"].default, "./lib/capture-handoff.js");
 });
 
-test("0.1.15 PDF/SI 打开链路：两个按钮都走 OPEN_ARTIFACT_IN_BROWSER 且错误可见", async () => {
+test("归档 PDF/SI 按钮进入侧栏阅读且错误可见", async () => {
 	const [shell, main, client] = await Promise.all([
 		read("desktop/src/index.html"),
 		read("desktop/src-tauri/src/main.rs"),
 		readClientSource(),
 	]);
-	// 精读条目：正文与 SI 按钮已登记后都进入 Edge 打开流程（openEntryInEdge → openPdfPreview → 桌面桥）
-	assert.match(client, /openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);
-	assert.match(client, /bundleSiIsPdf \? openEntryInEdge\(event, "si", bundleSiUrl\)/);
+	// 精读条目：正文与 SI 按钮已登记后都进入 Edge 打开流程（openEntryInSidebar → openPdfPreview → 桌面桥）
+	assert.match(client, /openEntryInSidebar\(event, "pdf", bundlePdfUrl\)/);
+	assert.match(client, /bundleSiUrl \? openEntryInSidebar\(event, "si", bundleSiUrl\)/);
 	// 检索条目同样走该流程
-	assert.match(client, /openSearchInEdge\(event, "pdf", paper\.localPdfUrl\)/);
-	assert.match(client, /openSearchInEdge\(event, "si", paper\.localSiUrl\)/);
+	assert.match(client, /openSearchInSidebar\(event, "pdf", paper\.localPdfUrl\)/);
+	assert.match(client, /openSearchInSidebar\(event, "si", paper\.localSiUrl\)/);
 	// 打开过程中必须显示"正在打开"，失败必须 toast（不得静默）
 	assert.match(client, /data-opening/);
 	assert.match(client, /无法打开/);

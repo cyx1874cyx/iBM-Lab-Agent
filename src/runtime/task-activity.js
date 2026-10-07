@@ -1,10 +1,11 @@
 /** Real execution and registered workflow states. Never infer a completion percentage. */
-export const TASK_LABELS=Object.freeze({wechat:'微信文献元数据',capture:'文献正文 / SI 获取',reading:'文献精读',ppt:'文献 PPT 制作',synthesis:'合成路线登记',nmr:'核磁标峰',origin:'Origin 绘图'});
+export const TASK_LABELS=Object.freeze({wechat:'微信文献元数据',capture:'文献正文 / SI 获取',reading:'文献精读',translation:'文献全文翻译',ppt:'文献 PPT 制作',synthesis:'合成路线登记',nmr:'核磁标峰',origin:'Origin 绘图'});
 export const runningPetTasks=tasks=>tasks.filter(row=>row.status==='running');
 export function selectPetTask(tasks){return runningPetTasks(tasks)[0];}
 export function toolActivity(name,args={}) {
  const text=(String(name)+(name==='skill'?' '+String(args.name??''):'' )).toLowerCase();let kind,stage;
- if(/wechat/.test(text)){kind='wechat';stage=/fetch/.test(text)?'正在获取微信页面':/doi/.test(text)?'正在核对文献元数据':'正在登记文献元数据';}
+ if(/translation/.test(text)){kind='translation';stage=/prepare/.test(text)?'正在解析 PDF 页面':/finish/.test(text)?'正在校验与归档译文':'正在翻译全文';}
+ else if(/wechat/.test(text)){kind='wechat';stage=/fetch/.test(text)?'正在获取微信页面':/doi/.test(text)?'正在核对文献元数据':'正在登记文献元数据';}
  else if(/mnova|nmr/.test(text)){kind='nmr';stage=/prepare|preflight/.test(text)?'正在读取谱图与结构':/assign|written/.test(text)?'正在标峰与写入谱图':/verify/.test(text)?'正在核验标峰':'正在处理核磁谱图';}
  else if(/origin|plot/.test(text)){kind='origin';stage=/export|save/.test(text)?'正在导出与归档图件':'正在处理数据与绘图';}
  else if(/characterization/.test(text)){kind=args.kind==='plot'?'origin':'nmr';stage='正在更新科研分析任务';}

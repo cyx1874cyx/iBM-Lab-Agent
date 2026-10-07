@@ -320,12 +320,12 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /原文待归档/);
 	assert.match(source, /尚未获取原文 · 点击前往出版社页面并布防捕获下载/);
 	assert.match(source, /尚未获取 SI · 点击前往出版社页面并布防捕获下载/);
-	assert.match(source, /bundleSiIsPdf \? openEntryInEdge/);
+	assert.match(source, /bundleSiUrl \? openEntryInSidebar/);
 	assert.match(source, /function openPdfPreview/);
 	assert.match(source, /searchParams\.set\("preview", "1"\)/);
 	assert.match(source, /openArtifactInBrowserViaShell\(kind, bundleId\)/);
 	assert.match(source, /OPEN_ARTIFACT_IN_BROWSER/);
-	assert.match(source, /openEntryInEdge\(event, "pdf", bundlePdfUrl\)/);
+	assert.match(source, /openEntryInSidebar\(event, "pdf", bundlePdfUrl\)/);
 	// 0.1.15：点击后必须有"正在打开"状态，失败必须 toast，不得静默
 	assert.match(source, /正在打开正文 PDF…/);
 	assert.match(source, /正在打开 SI PDF…/);

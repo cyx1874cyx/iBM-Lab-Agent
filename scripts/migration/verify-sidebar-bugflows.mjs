@@ -27,11 +27,24 @@ if(process.argv.includes('--development-client')){
  copyFileSync(join(app,'node_modules/dsh-lab-agent/src/runtime/task-activity.js'),join(profiles.directory('ibm-lab'),'node_modules/dsh-lab-agent/src/runtime/task-activity.js'));
 }
 const fixture=join(profiles.directory('ibm-lab'),'node_modules','dsh-ibm-sidebar-fixture');mkdirSync(fixture,{recursive:true});
+const readerPdfPath=join(work,'reader-source.pdf');
+if(process.argv.includes('--reader'))execFileSync(join(resources,'python/python.exe'),['-I','-c','import pymupdf,sys; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),"Full paper source paragraph."); pix=pymupdf.Pixmap(pymupdf.csRGB,(0,0,64,64),False); pix.clear_with(180); p.insert_image(pymupdf.Rect(72,130,250,250),stream=pix.tobytes("png")); p=d.new_page(); p.insert_text((72,72),"Methods: lipid nanoparticle delivery."); d.save(sys.argv[1])',readerPdfPath],{windowsHide:true});
 writeFileSync(join(fixture,'package.json'),JSON.stringify({name:'dsh-ibm-sidebar-fixture',version:'1.0.0',type:'module',main:'index.js'}));
 writeFileSync(join(fixture,'index.js'),`import {writeFileSync} from 'node:fs';export const inject=['ibmCore','ibmScientificDesktop','ibmLiteratureWorkflows'];export async function apply(ctx){
  if(!ctx.ibmCore.getProject('sidebar-test'))await ctx.ibmCore.createProject({id:'sidebar-test',name:'侧栏宠物验收'});
  const registered=await ctx.ibmLiteratureWorkflows.registerPaperMeta({projectId:'sidebar-test',sourceType:'wechat',sourceUrl:'https://mp.weixin.qq.com/s/sidebar-fixture',title:'微信登记后捕获验收',doi:'10.1038/fixture-sidebar-pdf',authors:['Fixture Author'],year:2026});
  writeFileSync(${JSON.stringify(join(work,"wechat-registration.json"))},JSON.stringify(registered));
+ ${process.argv.includes('--reader')?`
+ const workflow=ctx.ibmLiteratureWorkflows;
+ const readerMeta=await workflow.registerPaperMeta({projectId:'sidebar-test',sourceType:'publisher',sourceUrl:'https://example.org/reader-fixture',title:'全文翻译侧栏验收',doi:'10.1000/reader-fixture'});
+ if(!readerMeta.bundle.pdfPath)await workflow.preparePaper({projectId:'sidebar-test',bundleId:readerMeta.bundle.id,pdfPath:${JSON.stringify(readerPdfPath)},siPath:${JSON.stringify(readerPdfPath)},title:'全文翻译侧栏验收'});
+ const readerIdentity={projectId:'sidebar-test',bundleId:readerMeta.bundle.id,kind:'pdf'};
+ const translation=await workflow.translationCreate(readerIdentity);const request={...readerIdentity,translationId:translation.translation.id};
+ const finishFixture=async identity=>{await workflow.translationPrepare(identity);for(;;){const result=await workflow.translationRead({...identity,pendingOnly:true,limit:40});if(!result.total)break;await workflow.translationWrite({...identity,blocks:result.blocks.map(block=>({id:block.id,zh:block.original.includes('Full paper')?'完整的论文来源段落。':'方法：脂质纳米颗粒递送。'}))});}await workflow.translationFinish({...identity,notes:'验收用固定译文；未调用真实模型。'});};
+ if(translation.translation.status!=='completed')await finishFixture(request);
+ writeFileSync(${JSON.stringify(join(work,'reader-fixture.json'))},JSON.stringify({bundleId:readerMeta.bundle.id,reportId:readerMeta.report.id,translationId:request.translationId}));
+ let working=false;const tick=setInterval(async()=>{if(working)return;const bundle=workflow.getBundle(readerMeta.bundle.id),queued=(bundle.translations??[]).find(row=>row.kind==='si'&&row.status==='queued');if(!queued)return;working=true;try{const identity={...readerIdentity,kind:'si',translationId:queued.id};await workflow.translationPrepare(identity);await new Promise(done=>setTimeout(done,4000));await finishFixture(identity);}finally{working=false;}},1000);ctx.effect(()=>()=>clearInterval(tick),'reader fixture progress');
+ `:''}
  ${process.argv.includes('--organization')?`if(!registered.report.paperCardPath){writeFileSync(${JSON.stringify(join(work,'reading-fixture.md'))},'# 精读报告\\n\\n该报告讨论脂质纳米颗粒的大载荷核酸递送及体内编辑机制。\\n');await ctx.ibmLiteratureWorkflows.completeReadingReport({reportId:registered.report.id,paperCardPath:${JSON.stringify(join(work,'reading-fixture.md'))},folderName:'核酸递送',classificationReason:'精读内容讨论脂质纳米颗粒与核酸递送机制'});}`:''}
  for(const id of ['sidebar-si','sidebar-cancel'])if(!ctx.ibmCore.getArtifact('source-bundle',id))await ctx.ibmCore.commitSourceBundle({id,projectId:'sidebar-test',title:'Fixture '+id,doi:'10.1038/fixture-'+id,status:'succeeded',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
  ctx.ibmScientificDesktop.config.portal=${JSON.stringify(origin)};
@@ -53,6 +66,30 @@ const launch=async(requirePet=true)=>{
 const rpc=(method,request)=>frame.evaluate(async(method,request)=>{
  const response=await fetch('/api/lab/'+method,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method:'lab/'+method,payload:{args:request?{request}:{}}})});const result=await response.json();if(!result.result?.ok)throw Error(JSON.stringify(result));return result.result.value;
 },method,request);
+const readerCheck=async(restarted=false)=>{
+ const registered=JSON.parse(readFileSync(join(work,'reader-fixture.json'),'utf8'));
+ const openItem=async label=>{await frame.click('[title="打开科研课题"]');await frame.waitForSelector('.ib-project');await frame.evaluate(()=>[...document.querySelectorAll('.ib-project')].find(node=>node.innerText.includes('侧栏宠物验收')).click());await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-lit-item')].some(node=>node.innerText.includes('全文翻译侧栏验收')));await frame.evaluate(label=>[...document.querySelectorAll('.ib-lit-item')].find(node=>node.innerText.includes('全文翻译侧栏验收')).querySelector('button[aria-label="'+label+'"]').click(),label);await frame.waitForSelector('.ib-reader');};
+ await openItem('正文 PDF / 获取原文');
+ await frame.waitForFunction(()=>document.querySelector('.ib-reader-text-layer')?.innerText.includes('Full paper source paragraph.'));
+ const pixels=await frame.evaluate(()=>{const c=document.querySelector('.ib-reader canvas'),data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let dark=0;for(let i=0;i<data.length;i+=4)if(data[i+3]===255&&data[i]<100&&data[i+1]<100&&data[i+2]<100)dark++;return {width:c.width,height:c.height,dark};});assert.ok(pixels.dark>100);report.readerPixels=pixels;
+ await page.screenshot({path:join(work,restarted?'reader-original-restarted.png':'reader-original.png')});
+ if(restarted){assert.equal((await rpc('tasks_translation_read',{projectId:'sidebar-test',bundleId:registered.bundleId,kind:'pdf',translationId:registered.translationId})).translation.status,'completed');report.checks.push('archived-reader-and-complete-translation-survive-real-Host-restart');return;}
+ await frame.evaluate(()=>[...document.querySelectorAll('.ib-reader button')].find(node=>node.textContent==='下一页').click());
+ await frame.waitForFunction(()=>document.querySelector('.ib-reader-text-layer')?.innerText.includes('Methods: lipid nanoparticle delivery.'));
+ await frame.type('.ib-reader input[aria-label="查找 PDF 文本"]','Full paper');await frame.focus('.ib-reader input[aria-label="查找 PDF 文本"]');await page.keyboard.press('Enter');await frame.waitForFunction(()=>document.querySelector('.ib-reader-text-layer')?.innerText.includes('Full paper source paragraph.'));
+ await frame.evaluate(()=>[...document.querySelectorAll('.ib-reader button')].find(node=>node.textContent==='双语对照').click());await frame.waitForFunction(()=>document.querySelector('[data-translation]')?.innerText.includes('完整的论文来源段落'));assert.ok(await frame.$('[data-original]'));
+ await frame.waitForFunction(()=>[...document.querySelectorAll('.ib-reader-translated img')].some(image=>image.naturalWidth>0));await page.screenshot({path:join(work,'reader-bilingual.png')});
+ await frame.evaluate(()=>[...document.querySelectorAll('.ib-reader button')].find(node=>node.textContent==='中文').click());await frame.waitForFunction(()=>document.querySelector('[data-translation]')&&!document.querySelector('[data-original]'));await page.screenshot({path:join(work,'reader-chinese.png')});
+ await frame.evaluate(()=>[...document.querySelectorAll('.ib-reader-translated button')].find(node=>node.textContent==='原文第 2 页').click());await frame.waitForFunction(()=>document.querySelector('.ib-reader-text-layer')?.innerText.includes('Methods: lipid nanoparticle delivery.'));
+ report.checks.push('actual-reading-item-opens-archived-PDF-in-sidebar-with-painted-content','PDF-pages-text-search-and-source-anchor-navigation','full-Chinese-and-bilingual-reading-with-source-figures');
+ const before=(await browser.pages()).length;await openItem('正文 PDF / 获取原文');assert.equal((await browser.pages()).length,before);report.checks.push('repeated-archived-PDF-click-reuses-sidebar-without-new-Electron-window');
+ await openItem('SI 补充材料 / 获取 SI');await frame.waitForFunction(()=>document.querySelector('.ib-reader-text-layer')?.innerText.includes('Full paper source paragraph.'));
+ const si=await rpc('tasks_translation_create',{projectId:'sidebar-test',bundleId:registered.bundleId,kind:'si'});assert.notEqual(si.translation.id,registered.translationId);
+ await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText.includes('翻译全文')),'translation progress pushed to desktop pet');await pet.screenshot({path:join(work,'pet-translating.png'),omitBackground:true});
+ await wait(async()=>{try{return (await rpc('tasks_translation_read',{projectId:'sidebar-test',bundleId:registered.bundleId,kind:'si',translationId:si.translation.id})).translation.status==='completed';}catch{return false;}},'independent SI translation completes');
+ await wait(()=>pet.evaluate(()=>document.querySelector('#stage').innerText==='当前没有进行中的任务'),'pet clears completed translation');
+ report.checks.push('SI-opens-in-sidebar-and-has-independent-translation-state','actual-translation-stage-push-and-completed-task-removal-in-pet');
+};
 const close=async()=>{await browser?.close().catch(()=>{});await wait(()=>child.exitCode!==null,'desktop shutdown').catch(()=>child.kill());browser=null;frame=null;pet=null;};
 try{
  await launch();await frame.waitForSelector('.ib-hero-chip');await frame.click('.ib-hero-chip');
@@ -159,7 +196,9 @@ try{
  await rpc('desktop_browser',{action:'open',projectId:'sidebar-test',url:origin+'/inline.pdf'});
  report.pdfPreview=await wait(async()=>{const state=(await rpc('desktop_browser',{action:'status',projectId:'sidebar-test'})).window;if(!state?.url?.includes('/inline.pdf')||!/^application\/pdf/i.test(state.documentType??''))return false;const bounds=await frame.evaluate(()=>{const r=document.querySelector('webview')?.getBoundingClientRect();return {width:r?.width,height:r?.height};});assert.ok(bounds.width>350&&bounds.height>400);return {url:state.url,documentType:state.documentType,...bounds,bytes:previewPdf.length};},'PDF response in full-size official sidebar');
  await delay(8000);await page.screenshot({path:join(work,'native-pdf-preview.png')});report.checks.push('real-PDF-response-in-full-size-official-sidebar-visual-preview-recorded');
+ if(process.argv.includes('--reader'))await readerCheck();
  await rpc('desktop_pet',{visible:false});await close();await launch(false);assert.equal((await rpc('desktop_pet',{})).visible,false);report.checks.push('pet-preference-survives-restart');
+ if(process.argv.includes('--reader'))await readerCheck(true);
  if(process.argv.includes('--organization')){
   const folders=(await rpc('tasks_reading_folders',{projectId:'sidebar-test'})).folders;assert.ok(folders.some(row=>row.name==='脂质核酸递送'));
   const searches=(await rpc('tasks_searches',{projectId:'sidebar-test'})).runs;assert.equal(searches.filter(row=>row.importedRis?.fileName==='人工检索导入.ris').length,1);

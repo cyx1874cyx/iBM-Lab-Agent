@@ -1,0 +1,76 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {h} from './h.js';
+import {downloadVerifiedBinary} from './lib.js';
+import workerSource from '../vendor/pdfjs/pdf.worker.mjs';
+let getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions,pdfModule;
+async function loadPdf(){pdfModule??=import('../vendor/pdfjs/pdf.mjs');({getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions}=await pdfModule);}
+const PREFIX='dsh-resource://lab-reader/',ID='lab-reader',KIND='lab-reader';
+let runtime=null,workerUrl;const preferredModes=new Map();
+export function setReaderRuntime(value){runtime=value;}
+export function readerAddress({projectId,bundleId,kind='pdf'}){return PREFIX+[projectId,bundleId,kind].map(encodeURIComponent).join('/');}
+export function readerIdentity(address){if(!String(address).startsWith(PREFIX))return null;const parts=String(address).slice(PREFIX.length).split('/');if(parts.length!==3)return null;try{const [projectId,bundleId,kind]=parts.map(decodeURIComponent);return projectId&&bundleId&&['pdf','si'].includes(kind)?{projectId,bundleId,kind}:null;}catch{return null;}}
+export async function openReader(request){if(!runtime)throw Error('侧栏阅读器尚未就绪');const address=readerAddress(request);preferredModes.set(address,request.mode??'original');await runtime.open(address,request);window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));}
+export function translationPrompt(request,translationId){return `请全文翻译当前课题已归档${request.kind==='si'?'SI':'正文'} PDF（bundleId: ${request.bundleId}，translationId: ${translationId}，kind: ${request.kind??'pdf'}）。先调用 lab_reader_translation_prepare，再循环调用 lab_reader_translation_read（pendingOnly=true, offset=0, limit=8），逐块完整翻译并用 lab_reader_translation_write 保存，直到没有未翻译块。不得以精读报告或摘要代替全文；保留数字、公式、化学式、图注及参考文献。扫描块必须读取 imagePath 图像转写英文并翻译。最后核对完整性、术语和不确定性，调用 lab_reader_translation_finish。失败时说明原因，已归档原文保持可读。`;}
+const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
+function makeRange(request,opened,call){return new (class extends PDFDataRangeTransport{
+ constructor(request,opened,call){super(opened.bytes,new Uint8Array(),false,opened.fileName);this.request={...request,lease:opened.lease};this.call=call;this.stopped=false;}
+ requestDataRange(begin,end){void(async()=>{const chunks=[];for(let offset=begin;offset<end&&!this.stopped;offset+=262144)chunks.push(decode((await this.call('tasks_reader_chunk',{request:{...this.request,offset,length:Math.min(262144,end-offset)}})).base64));if(this.stopped)return;const all=new Uint8Array(chunks.reduce((sum,x)=>sum+x.length,0));let offset=0;for(const chunk of chunks){all.set(chunk,offset);offset+=chunk.length;}this.onDataRange(begin,all);})().catch(error=>this.onError?.(error));}
+ abort(){this.stopped=true;}
+})(request,opened,call);}
+function SourceImage({request,name}){const [src,setSrc]=useState();useEffect(()=>{let alive=true;runtime.call('tasks_translation_image',{request:{...request,name}}).then(row=>{if(alive)setSrc('data:image/png;base64,'+row.base64);}).catch(()=>{});return()=>{alive=false;};},[request.translationId,name]);return src?h('img',{src,alt:'原文图表',style:{maxWidth:'100%',height:'auto'}}):h('span',null,'正在读取图表…');}
+function ReaderBody({useTabInfo}){
+ const {tab}=useTabInfo(),request=readerIdentity(tab?.contentId),key=tab?.contentId;
+ const [state,setState]=useState({loading:true}),[doc,setDoc]=useState(null),[page,setPage]=useState(1),[zoom,setZoom]=useState(1),[mode,setMode]=useState('original'),[renderError,setRenderError]=useState(''),[blocks,setBlocks]=useState([]),[busy,setBusy]=useState(false),[query,setQuery]=useState('');
+ const canvas=useRef(),text=useRef(),body=useRef(),renderSequence=useRef(0);
+ const [refresh,setRefresh]=useState(0);
+ useEffect(()=>{const opened=event=>{if(event.detail.address===key)setRefresh(value=>value+1);};window.addEventListener('ibm-reader-open',opened);return()=>window.removeEventListener('ibm-reader-open',opened);},[key]);
+ const call=(method,args)=>runtime.call(method,{request:args});
+ useEffect(()=>{if(!request)return;let alive=true,loadingTask,port,range,opened;setState({loading:true});setDoc(null);setPage(1);setMode('original');setBlocks([]);setRenderError('');
+  void(async()=>{await loadPdf();workerUrl??=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));GlobalWorkerOptions.workerSrc=workerUrl;opened=await call('tasks_reader_open',request);if(!alive)return;
+   setState({...opened,loading:false});if(opened.translation?.status==='completed')setMode(preferredModes.get(key)??'original');if(opened.format!=='pdf')return;
+   port=new Worker(workerUrl,{type:'module'});
+   range=makeRange(request,opened,runtime.call);range.onError=error=>{if(alive)setRenderError(error.message);};
+   class CMaps{async fetch({name}){return {cMapData:decode((await call('tasks_reader_asset',{group:'cmaps',name:name+'.bcmap'})).base64),compressionType:1};}}
+   class Fonts{async fetch({filename}){return decode((await call('tasks_reader_asset',{group:'standard_fonts',name:filename})).base64);}}
+   loadingTask=getDocument({range,rangeChunkSize:262144,disableAutoFetch:true,disableStream:true,worker:new PDFWorker({port}),useSystemFonts:true,useWasm:false,cMapPacked:true,cMapUrl:'virtual/',CMapReaderFactory:CMaps,standardFontDataUrl:'virtual/',StandardFontDataFactory:Fonts,isEvalSupported:false});
+   const pdf=await loadingTask.promise;if(alive)setDoc(pdf);else await pdf.destroy();
+  })().catch(error=>{if(alive)setState({loading:false,error:error.message});});
+  return()=>{alive=false;range?.abort();void loadingTask?.destroy();port?.terminate();if(opened?.lease&&runtime)void call('tasks_reader_close',{...request,lease:opened.lease}).catch(()=>{});};
+ },[key,refresh]);
+ useEffect(()=>{if(!doc||mode!=='original'||!canvas.current)return;let cancelled=false,paint,layer;const seq=++renderSequence.current;setRenderError('');
+  void(async()=>{const pdfPage=await doc.getPage(page);if(cancelled)return;const width=Math.max(240,(body.current?.clientWidth??600)-30),base=pdfPage.getViewport({scale:1}),viewport=pdfPage.getViewport({scale:width/base.width*zoom});
+   const c=canvas.current,ratio=devicePixelRatio||1;c.width=Math.floor(viewport.width*ratio);c.height=Math.floor(viewport.height*ratio);c.style.width=viewport.width+'px';c.style.height=viewport.height+'px';
+   text.current.replaceChildren();text.current.style.width=viewport.width+'px';text.current.style.height=viewport.height+'px';text.current.style.setProperty('--scale-factor',viewport.scale);text.current.style.setProperty('--total-scale-factor',viewport.scale);text.current.style.setProperty('--scale-round-x','1px');text.current.style.setProperty('--scale-round-y','1px');
+   paint=pdfPage.render({canvasContext:c.getContext('2d'),viewport,transform:[ratio,0,0,ratio,0,0]});await paint.promise;if(cancelled||seq!==renderSequence.current)return;
+   layer=new TextLayer({textContentSource:await pdfPage.getTextContent(),container:text.current,viewport});await layer.render();
+  })().catch(error=>{if(!cancelled&&error.name!=='RenderingCancelledException')setRenderError(error.message);});
+  return()=>{cancelled=true;paint?.cancel();layer?.cancel();};
+ },[doc,page,zoom,mode]);
+ const translation=state.translation,tid=translation?.id;
+ useEffect(()=>{if(!tid||!request)return;let alive=true,timer;
+  const load=async()=>{try{let result=await call('tasks_translation_read',{...request,translationId:tid,offset:0,limit:40});if(!alive)return;setState(old=>({...old,translation:result.translation}));
+   if(result.translation.status==='completed'){const all=[...result.blocks];for(let offset=40;offset<result.total;offset+=40){const more=await call('tasks_translation_read',{...request,translationId:tid,offset,limit:40});all.push(...more.blocks);}if(alive)setBlocks(all);return;}
+  }catch{}if(alive)timer=setTimeout(load,1500);};void load();return()=>{alive=false;clearTimeout(timer);};
+ },[key,tid]);
+ const translate=async()=>{setBusy(true);try{const result=await call('tasks_translation_create',request);setState(old=>({...old,translation:result.translation}));if(result.translation.status==='completed')setMode('zh');else if(!result.reused)await runtime.translate(request,result.translation.id);else setRenderError('此翻译任务已在进行，请查看当前任务对话；需要重新执行时先取消再重试。');}catch(error){setRenderError(error.message);}finally{setBusy(false);}};
+ const search=async()=>{if(!doc||!query.trim())return;setBusy(true);try{for(let index=0;index<doc.numPages;index++){const number=(page+index-1)%doc.numPages+1,content=await(await doc.getPage(number)).getTextContent();if(content.items.map(x=>x.str??'').join(' ').toLowerCase().includes(query.toLowerCase())){setPage(number);setMode('original');return;}}setRenderError('没有找到该文本');}catch(error){setRenderError(error.message);}finally{setBusy(false);}};
+ const button=(label,onClick,disabled=false)=>h('button',{type:'button',className:'ib-act',onClick,disabled},label);
+ if(!request)return h('div',null,'文献阅读地址无效');
+ if(state.loading)return h('div',{className:'ib-reader'},'正在读取已归档文献…');
+ if(state.error)return h('div',{className:'ib-reader',role:'alert'},'无法打开文献：'+state.error);
+ return h('div',{className:'ib-reader',style:{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden',padding:10}},
+  h('b',null,state.title),h('small',null,state.fileName),button('保存材料',()=>void downloadVerifiedBinary(`/api/lab-artifacts?kind=${request.kind}&bundleId=${encodeURIComponent(request.bundleId)}`).catch(error=>setRenderError(error.message))),
+  h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',padding:'8px 0'}},button('原文',()=>setMode('original')),button('中文',()=>setMode('zh'),translation?.status!=='completed'),button('双语对照',()=>setMode('dual'),translation?.status!=='completed'),button(translation?.status==='completed'?'阅读译文':['queued','running'].includes(translation?.status)?'翻译中…':'翻译',translate,busy||['queued','running'].includes(translation?.status)),['queued','running'].includes(translation?.status)?button('取消翻译',async()=>{const row=await call('tasks_translation_cancel',{...request,translationId:tid});setState(old=>({...old,translation:row.translation}));}):null),
+  translation?h('small',null,translation.stage+(translation.totalBlocks?` · ${translation.completedBlocks??0}/${translation.totalBlocks} 段`:'')+(translation.error?' · '+translation.error:'')):null,
+  renderError?h('p',{role:'alert'},renderError):null,
+  state.format==='zip'?h('div',{style:{overflow:'auto'}},h('p',null,'SI 压缩包内的材料'),(state.entries??[]).map(entry=>h('div',{key:entry.index,style:{padding:8}},entry.name,' · '+Math.round(entry.bytes/1024)+' KB',entry.pdf?button('阅读 PDF',async()=>{setBusy(true);try{const file=await call('tasks_reader_zip_pdf',{...request,index:entry.index});const loaded=await getDocument({data:decode(file.base64),useSystemFonts:true,isEvalSupported:false}).promise;setDoc(loaded);setState(old=>({...old,format:'pdf',fileName:file.name}));}catch(error){setRenderError(error.message);}finally{setBusy(false);}},busy):h('small',null,' · 此格式请保存后使用对应软件打开')))):null,
+  state.format==='unsupported'?h('p',null,'此 SI 格式暂不支持预览，请在条目中保存后使用对应软件打开。'):null,
+  state.format==='pdf'&&mode==='original'?h(React.Fragment,null,h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',padding:'8px 0'}},button('上一页',()=>setPage(value=>Math.max(1,value-1)),!doc||page<=1),h('input',{'aria-label':'PDF 页码',type:'number',min:1,max:doc?.numPages??1,value:page,style:{width:64},onChange:event=>setPage(Math.max(1,Math.min(doc?.numPages??1,Number(event.target.value)||1)))}),h('span',null,'/ '+(doc?.numPages??'…')),button('下一页',()=>setPage(value=>Math.min(doc.numPages,value+1)),!doc||page>=doc.numPages),button('−',()=>setZoom(value=>Math.max(.5,value-.25))),button('+',()=>setZoom(value=>Math.min(3,value+.25))),h('input',{'aria-label':'查找 PDF 文本',placeholder:'查找文本',value:query,style:{width:110},onChange:event=>setQuery(event.target.value),onKeyDown:event=>{if(event.key==='Enter')void search();}}),button('查找',search,!doc||busy)),h('div',{ref:body,style:{overflow:'auto',flex:1,minHeight:0}},h('div',{style:{position:'relative',width:'fit-content'}},h('canvas',{ref:canvas,'aria-label':'归档 PDF 页面'}),h('div',{ref:text,className:'ib-reader-text-layer'})))):null,
+  mode!=='original'?h('div',{className:'ib-reader-translated',style:{overflow:'auto',flex:1,minHeight:0}},h('small',null,'全文翻译阅读 · 图表保留原图 · 可切换原文核对版式'),translation?.notes?h('p',null,translation.notes):null,blocks.map(block=>h('section',{key:block.id,style:{padding:'12px 0',borderBottom:'1px solid #ddd'}},h('small',null,button('原文第 '+block.page+' 页',()=>{setPage(block.page);setMode('original');})),block.image?h(SourceImage,{request:{...request,translationId:tid},name:block.image}):null,block.kind!=='image'?h('div',{className:mode==='dual'?'ib-reader-pair':undefined},mode==='dual'?h('p',{'data-original':block.id,style:{whiteSpace:'pre-wrap'}},block.original):null,h('p',{'data-translation':block.id,style:{whiteSpace:'pre-wrap'}},block.zh),block.note?h('small',null,block.note):null):null))):null);
+}
+export function registerReaderTab(ctx){
+ ctx.effect(()=>{const style=document.createElement('style');style.textContent='.ib-reader-text-layer{position:absolute;inset:0;overflow:clip;line-height:1;text-align:initial;text-size-adjust:none;forced-color-adjust:none}.ib-reader-text-layer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%;font-size:calc(var(--total-scale-factor) * var(--font-height));transform:rotate(var(--rotate,0deg)) scaleX(var(--scale-x,1))}.ib-reader-text-layer ::selection{background:rgba(60,130,220,.3)}.ib-reader-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}.ib-reader p{line-height:1.7;overflow-wrap:anywhere}.ib-reader button:disabled{opacity:.45}';document.head.append(style);return()=>style.remove();},'iBM PDF 文字选择与双语布局');
+ ctx.effect(()=>ctx.sidebarRightTabs.register({id:ID,kind:KIND,patterns:[PREFIX+'**'],priority:'extension',title:()=> '文献阅读'}),'iBM 文献阅读 tab');
+ ctx.effect(()=>ctx.slots.inject('sidebar.right.pane.tab',()=>ctx.slots.register({name:'sidebar.right.pane.tab',key:ID},ReaderBody)),'iBM 文献阅读内容');
+ ctx.effect(()=>()=>setReaderRuntime(null),'iBM 文献阅读清理');
+}

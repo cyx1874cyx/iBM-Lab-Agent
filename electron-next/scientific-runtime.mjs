@@ -258,7 +258,7 @@ async function dispatch(method, input = {}) {
    previewSession.setPermissionCheckHandler(() => false);
    previewSession.webRequest.onBeforeRequest((details, callback) => {
     const request = new URL(details.url);
-    callback({ cancel: !((request.protocol === "file:" && request.hostname === url.hostname && request.pathname === url.pathname) || ["chrome-extension:", "about:", "blob:", "data:"].includes(request.protocol)) });
+    callback({ cancel: !((request.protocol === "file:" && request.hostname === url.hostname && request.pathname === url.pathname) || nativePdfResource(details) || ["about:", "blob:", "data:"].includes(request.protocol)) });
    });
    const window = new BrowserWindow(settings);
    previews.add(window);

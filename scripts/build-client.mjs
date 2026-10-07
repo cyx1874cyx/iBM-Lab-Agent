@@ -52,6 +52,9 @@ const built = await esbuild.build({
   minify: false,
   charset: "utf8",
   target: ["chrome110"],
+  plugins: [{ name: 'pdf-worker-source', setup(build) {
+    build.onLoad({filter: /pdf\.worker\.mjs$/}, async args => ({contents: await readFile(args.path, 'utf8'), loader: 'text'}));
+  } }],
   banner: { js: BANNER },
   footer: { js: FOOTER },
 });

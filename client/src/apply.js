@@ -13,6 +13,7 @@ import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { installSidebarBrowser } from "./sidebar-browser.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
+import {registerReaderTab,setReaderRuntime,translationPrompt} from './reader-tab.js';
 
 /** 科研 Agent 预设 id（presets/lab-research/preset.patch.yml 声明的那一条）。 */
 export const RESEARCH_PRESET_ID = "lab-research";
@@ -244,6 +245,16 @@ export function applyUi(ctx) {
 		// 课题：资源 tab，一个课题一个标签页（页面 tab 的身份只由 kind 决定，
 		// 做不到每课题一标签）。
 		registerProjectTab(tabCtx);
+		registerReaderTab(tabCtx);
+		setReaderRuntime({call,translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true});},open:async(address,request)=>{
+			const binding=(await call('projects_binding',{request:{projectId:request.projectId}})).binding;
+			const workspace=ctx.workspaces.list.getSnapshot().items?.find(row=>row.workspaceId===binding?.workspaceId);
+			let sessionId=workspace?.sessionIds?.at(-1);
+			if(!sessionId){const {project}=await call('projects_get',{request:{id:request.projectId}});sessionId=(await launchProject(project,{presetId:RESEARCH_PRESET_ID})).sessionId;}
+			close();ctx.uiWorkspace.openSession(sessionId);
+			for(let attempt=0;attempt<100;attempt++){if(tabCtx.sidebarRight.mounted.getSnapshot()===sessionId){tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;}await new Promise(done=>setTimeout(done,50));}
+			throw Error('侧栏尚未就绪，请进入课题对话后重试');
+		}});
 		setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));
 		setProjectLoader(async (projectId) => (await call("projects_get", { request: { id: projectId } }))?.project ?? null);
 		// 侧栏 tab 里放的就是全屏面板里的那一页（Project），只是套上 ib-panel-embed 把
