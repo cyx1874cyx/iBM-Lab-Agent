@@ -31946,7 +31946,7 @@ function PdfPage({ doc, number, width, zoom, root, onError }) {
   }, [doc, number, scale, near]);
   return h("div", { ref: element, className: "ib-pdf-page", "data-pdf-page": number, style: { width: w, height } }, near ? h(import_react5.default.Fragment, null, h("canvas", { ref: canvas, "aria-label": "PDF 第 " + number + " 页" }), h("div", { ref: text, className: "ib-reader-text-layer" })) : h("span", { className: "ib-page-placeholder" }, "第 " + number + " 页"));
 }
-function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand }) {
+function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand, restore }) {
   const [width, setWidth] = (0, import_react5.useState)(500), drag = (0, import_react5.useRef)();
   (0, import_react5.useEffect)(() => {
     const el = scrollRef.current, observer = new ResizeObserver(() => setWidth(Math.max(100, el.clientWidth - 24)));
@@ -31954,6 +31954,11 @@ function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand }) {
     setWidth(Math.max(100, el.clientWidth - 24));
     return () => observer.disconnect();
   }, [scrollRef]);
+  (0, import_react5.useEffect)(() => {
+    if (!doc) return;
+    const saved = restore(side), timer = setTimeout(() => jump(scrollRef.current, saved.page, saved.fraction), 100);
+    return () => clearTimeout(timer);
+  }, [doc, zoom, width]);
   return h(
     "div",
     {
@@ -31995,6 +32000,7 @@ function ReaderBody({ useTabInfo }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key2 = tab?.contentId;
   const [state, setState] = (0, import_react5.useState)({ loading: true }), [doc, setDoc] = (0, import_react5.useState)(null), [zhDoc, setZhDoc] = (0, import_react5.useState)(null), [mode, setMode] = (0, import_react5.useState)("original"), [error, setError] = (0, import_react5.useState)(""), [busy, setBusy] = (0, import_react5.useState)(false), [query, setQuery] = (0, import_react5.useState)(""), [refresh, setRefresh] = (0, import_react5.useState)(0), [linked, setLinked] = (0, import_react5.useState)(true), [stacked, setStacked] = (0, import_react5.useState)(false), [hand, setHand] = (0, import_react5.useState)(false), [zoom, setZoom] = (0, import_react5.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react5.useState)({ original: 1, zh: 1 });
   const left = (0, import_react5.useRef)(), right = (0, import_react5.useRef)(), fullscreen = (0, import_react5.useRef)(), syncing = (0, import_react5.useRef)(null), openedZh = (0, import_react5.useRef)(), extraDocs = (0, import_react5.useRef)(/* @__PURE__ */ new Set()), leases = (0, import_react5.useRef)(/* @__PURE__ */ new Set()), ownsFullscreen = (0, import_react5.useRef)(false);
+  const anchors = (0, import_react5.useRef)({ original: { page: 1, fraction: 0 }, zh: { page: 1, fraction: 0 } });
   const runtime3 = readerRuntime(), call = (method, args) => runtime3.call(method, { request: args }), onError = (error2) => setError(error2.message ?? String(error2));
   (0, import_react5.useEffect)(() => {
     const opened = (event) => {
@@ -32005,6 +32011,7 @@ function ReaderBody({ useTabInfo }) {
   }, [key2]);
   (0, import_react5.useEffect)(() => {
     let alive = true, task, port, range, opened;
+    anchors.current = { original: { page: 1, fraction: 0 }, zh: { page: 1, fraction: 0 } };
     setState({ loading: true });
     setDoc(null);
     setZhDoc(null);
@@ -32107,6 +32114,7 @@ function ReaderBody({ useTabInfo }) {
       if (!loaded) {
         range?.abort();
         if (task) void task.destroy();
+        setBusy(false);
       }
     };
   }, [key2, tid, mode === "original", translation?.status]);
@@ -32163,10 +32171,12 @@ function ReaderBody({ useTabInfo }) {
   };
   const onScroll = (side, flow) => {
     const p = position(flow);
+    anchors.current[side] = p;
     setPages((old) => old[side] === p.page ? old : { ...old, [side]: p.page });
     if (syncing.current === side) return;
     if (mode === "dual" && linked) {
       const other = side === "original" ? "zh" : "original";
+      anchors.current[other] = p;
       syncing.current = other;
       jump(other === "zh" ? right.current : left.current, p.page, p.fraction);
       requestAnimationFrame(() => {
@@ -32196,9 +32206,9 @@ function ReaderBody({ useTabInfo }) {
   const button = (label, onClick, disabled = false, active = false, title = label) => h("button", { type: "button", className: "ib-act", "data-active": active || void 0, onClick, disabled, title }, label);
   const toolbar = (side) => {
     const pdf = side === "zh" ? zhDoc : doc;
-    return h("div", { className: "ib-pdf-toolbar" }, h("span", { className: "ib-pdf-language" }, side === "zh" ? "中文 PDF" : "原文 PDF"), h("select", { "aria-label": side + " 缩放", value: zoom[side], onChange: (event) => zoomTo(side, Number(event.target.value)) }, [0.5, 0.75, 1, 1.25, 1.5, 2, 3].map((n) => h("option", { key: n, value: n }, n === 1 ? "适合宽度" : Math.round(n * 100) + "%"))), button("⊖", () => zoomTo(side, Math.max(0.5, zoom[side] - 0.25))), button("⊕", () => zoomTo(side, Math.min(3, zoom[side] + 0.25))), button("✋", () => setHand(true), false, hand, "抓手拖动"), button("Ⅰ", () => setHand(false), false, !hand, "选择文字"), button("↓", () => void save(side).catch(onError), !pdf, false, "下载 " + (side === "zh" ? "中文" : "原文") + " PDF"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")));
+    return h("div", { className: "ib-pdf-toolbar" }, h("span", { className: "ib-pdf-language" }, side === "zh" ? "中文 PDF" : "原文 PDF"), h("select", { "aria-label": side + " 缩放", value: zoom[side], onChange: (event) => zoomTo(side, Number(event.target.value)) }, Array.from({ length: 11 }, (_, i) => 0.5 + i * 0.25).map((n) => h("option", { key: n, value: n }, n === 1 ? "适合宽度" : Math.round(n * 100) + "%"))), button("⊖", () => zoomTo(side, Math.max(0.5, zoom[side] - 0.25))), button("⊕", () => zoomTo(side, Math.min(3, zoom[side] + 0.25))), button("✋", () => setHand(true), false, hand, "抓手拖动"), button("Ⅰ", () => setHand(false), false, !hand, "选择文字"), button("↓", () => void save(side).catch(onError), !pdf, false, "下载 " + (side === "zh" ? "中文" : "原文") + " PDF"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")));
   };
-  const pane = (side) => h("section", { className: "ib-pdf-pane", key: side }, toolbar(side), h(PdfFlow, { doc: side === "zh" ? zhDoc : doc, side, zoom: zoom[side], scrollRef: side === "zh" ? right : left, onScroll, onError, hand }), h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + ((side === "zh" ? zhDoc : doc)?.numPages ?? "…")));
+  const pane = (side) => h("section", { className: "ib-pdf-pane", key: side }, toolbar(side), h(PdfFlow, { doc: side === "zh" ? zhDoc : doc, side, zoom: zoom[side], scrollRef: side === "zh" ? right : left, onScroll, onError, hand, restore: (side2) => anchors.current[side2] }), h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + ((side === "zh" ? zhDoc : doc)?.numPages ?? "…")));
   if (state.loading) return h("div", { className: "ib-reader" }, "正在读取已归档文献…");
   if (state.error) return h("div", { className: "ib-reader", role: "alert" }, "无法打开文献：" + state.error);
   const content = h(
