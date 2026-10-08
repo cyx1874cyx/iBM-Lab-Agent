@@ -4,11 +4,28 @@ import {mkdtemp,writeFile,readFile,rm,mkdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn,execFileSync} from 'node:child_process';
+import {EventEmitter} from 'node:events';
+import {PassThrough} from 'node:stream';
 import {readerMethods} from '../../lib/tasks/reader.js';
 import {organizationMethods} from '../../lib/tasks/organization.js';
 import {registerReaderTools} from '../../lib/tasks/reader-tools.js';
 import {paperSourceBundleSchema} from '../../src/task-models.js';
 const iso='2026-10-07T00:00:00.000Z';
+test('PDF result framing tolerates native diagnostics and rejects ambiguous or failed output',async()=>{
+ const f=await fixture();try{
+  const bundle=f.rows.get('reader');f.rows.set('reader',{...bundle,siPath:'fixture.zip'});
+  const invoke=(output,code=0)=>{
+   f.service.executor={resolvePython:async()=>({command:['fixture-python']}),spawnImpl:()=>{
+    const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{};
+    process.nextTick(()=>{for(const part of output)child.stdout.write(part);child.stderr.write('worker failed');child.emit('close',code);});return child;
+   }};return f.service.readerZipPdf({...f.request,kind:'si',index:0});
+  };
+  const result='IBM_READER_RESULT_V1:{"base64":"JVBERg==","name":"paper.pdf"}';
+  assert.deepEqual(await invoke(['skipping bad link / annot item 0.\n{"diagnostic":true}\n',result.slice(0,20),result.slice(20),'\ntrailing diagnostic']),{base64:'JVBERg==',name:'paper.pdf'});
+  for(const output of ['', '{"base64":"JVBERg=="}',result+'\n'+result,'IBM_READER_RESULT_V1:{bad}','IBM_READER_RESULT_V1:null'])await assert.rejects(()=>invoke([output]),/无效数据/);
+  await assert.rejects(()=>invoke([result],1),/worker failed/);
+ }finally{await f.dispose();}
+});
 async function fixture(){
  const dir=await mkdtemp(join(tmpdir(),'ibm-reader-'));const rows=new Map();let bytes=Buffer.from('%PDF-1.4\nreader fixture\n%%EOF');
  rows.set('reader',paperSourceBundleSchema.parse({id:'reader',projectId:'p',title:'Reader test',entryDir:dir,status:'succeeded',createdAt:iso,updatedAt:iso}));
@@ -39,7 +56,8 @@ test('translation requires every source block, protects completed output, suppor
  const queued=f.rows.get('reader').translations[0];await f.service.translationStore(f.rows.get('reader'),{...queued,status:'running'});
  await f.service.translationWrite({...request,blocks:[{id:'p2-b1-1',zh:'另一个来源段落。'}]});
  f.setBytes(Buffer.from('%PDF changed'));await assert.rejects(()=>f.service.translationFinish(request),/更新/);
- f.setBytes(Buffer.from('%PDF-1.4\nreader fixture\n%%EOF'));await f.service.translationFinish({...request,notes:'测试译文'});
+ f.setBytes(Buffer.from('%PDF-1.4\nreader fixture\n%%EOF'));await writeFile(join(row.directory,'translation_notes.md'),'测试译文：源文待核验');await f.service.translationFinish(request);
+ assert.equal(await readFile(join(row.directory,'translation_notes.md'),'utf8'),'测试译文：源文待核验');
  assert.equal((await f.service.translationRead(request)).translation.status,'completed');assert.match(await readFile(join(row.directory,'paper.md'),'utf8'),/完整的来源段落/);
  await writeFile(join(row.directory,'reader.json'),'{}');await assert.rejects(()=>f.service.translationRead(request),/完整性/);
 }finally{await f.dispose();}});

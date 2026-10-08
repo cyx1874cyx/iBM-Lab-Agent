@@ -1,6 +1,10 @@
 """Fixed, local PDF extraction. No network or model credentials."""
 import json, pathlib, sys, zipfile, re, math
 
+def emit_result(result):
+    """Frame one machine result independently of native-library diagnostics."""
+    print('\nIBM_READER_RESULT_V1:' + json.dumps(result, ensure_ascii=True), flush=True)
+
 def reading_context(blocks, dimensions):
     """Column order within full-width bands, then cross-column/page continuity."""
     ordered = []
@@ -172,7 +176,7 @@ def compose_pdf(source, directory):
         os.replace(temp, out / 'translated.pdf')
         result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 3}
         (out / 'pdf-layout.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
-        print(json.dumps(result, ensure_ascii=True))
+        emit_result(result)
 
 def main():
     mode, source = sys.argv[1:3]
@@ -185,7 +189,7 @@ def main():
                        for i, x in enumerate(archive.infolist()) if not x.is_dir()]
             if len(entries) > 2000:
                 raise ValueError('SI 压缩包超过 2000 个文件')
-            print(json.dumps({'entries': entries}, ensure_ascii=True))
+            emit_result({'entries': entries})
         return
     if mode == 'zip-pdf':
         import base64
@@ -196,7 +200,7 @@ def main():
             data = archive.read(info)
             if not data.startswith(b'%PDF'):
                 raise ValueError('SI 文件不是有效 PDF')
-            print(json.dumps({'base64': base64.b64encode(data).decode(), 'name': pathlib.PurePosixPath(info.filename).name}))
+            emit_result({'base64': base64.b64encode(data).decode(), 'name': pathlib.PurePosixPath(info.filename).name})
         return
     import pymupdf
     out = pathlib.Path(sys.argv[3])
@@ -270,7 +274,7 @@ def main():
         blocks,groups=reading_context(blocks,dimensions)
         result = {'schemaVersion': 2, 'pageCount': len(doc), 'scannedPages': scanned, 'blocks': blocks,'continuityGroups':groups,'ocrEngine':'rapidocr-onnxruntime-1.4.4' if engine else None}
     (out / 'source.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
-    print(json.dumps({'pageCount': result['pageCount'], 'blockCount': len(blocks), 'scannedPages': scanned}))
+    emit_result({'pageCount': result['pageCount'], 'blockCount': len(blocks), 'scannedPages': scanned})
 
 if __name__ == '__main__':
     main()
