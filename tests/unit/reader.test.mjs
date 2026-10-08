@@ -105,3 +105,16 @@ test('column/page continuity and image OCR are extracted and composed into a rea
  await f.service.translationWrite({...request,blocks:content.blocks.filter(b=>['text','figure-text'].includes(b.kind)).map(b=>({id:b.id,zh:b.kind==='figure-text'?'治疗组':'完整来源段落的中文译文。'})),reviewedGroups:[...groups.keys()]});await f.service.translationFinish(request);
  const row=f.service.translationFind(request).row,proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json; d=pymupdf.open(sys.argv[1]); print(json.dumps({"pages":len(d),"text":d[0].get_text(),"images":len(d[0].get_images())}))',join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));assert.equal(proof.pages,2);assert.match(proof.text,/治疗组/);assert.ok(proof.images>0);
 }finally{await f.dispose();}});
+test('translated PDF retains native 90/180/270-degree directions and narrow sidebar notices',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
+ const python=process.env.IBM_READER_TEST_PYTHON,path=join(f.dir,'rotated.pdf');
+ execFileSync(python,['-I','-c',`import pymupdf,sys
+ d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),'Horizontal source paragraph',fontsize=10)
+ p.insert_text((575,70),'Published online at https://svn.example.com DOI 10.1136/review.2022. Protected text for data mining and AI training.',fontsize=8,rotate=270)
+ p.insert_text((24,700),'Vertical source notice and publication details. '*2,fontsize=8,rotate=90)
+ p.insert_text((500,800),'Upside down source footer and references.',fontsize=8,rotate=180)
+ d.save(sys.argv[1])`.replace(/^ /gm,''),path],{windowsHide:true});
+ f.setBytes(await readFile(path));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};await f.service.translationPrepare(request);const content=await f.service.translationRead({...request,limit:40});
+ const directions=['正常横排中文','顺时针竖排版权说明','逆时针竖排中文','倒置中文页脚'];const blocks=content.blocks.filter(b=>b.kind==='text').map(b=>({id:b.id,zh:b.original.includes('Published')?directions[1]+'，首次发表于出版社网页 https://svn.example.com，DOI 10.1136/review.2022，受版权保护，包括文本与数据挖掘及人工智能训练。':b.original.includes('Vertical')?directions[2]+'。'.repeat(30):b.original.includes('Upside')?directions[3]:directions[0]}));await f.service.translationWrite({...request,blocks});await f.service.translationFinish(request);const row=f.service.translationFind(request).row;assert.equal(row.pdfLayoutVersion,3);
+ const proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json; a=pymupdf.open(sys.argv[1]); d=pymupdf.open(sys.argv[2]); print(json.dumps({"pages":len(d),"size":a[0].rect==d[0].rect,"lines":[{"text":"".join(s["text"] for s in line["spans"]),"dir":line["dir"]} for b in d[0].get_text("dict")["blocks"] if b["type"]==0 for line in b["lines"]]}))',path,join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));
+ assert.equal(proof.pages,1);assert.equal(proof.size,true);for(const [i,dir] of [[0,[1,0]],[1,[0,1]],[2,[0,-1]],[3,[-1,0]]]){const line=proof.lines.find(l=>l.text.includes(directions[i]));assert.ok(line,'missing rotated translation '+i);assert.ok(Math.abs(line.dir[0]-dir[0])<.001&&Math.abs(line.dir[1]-dir[1])<.001);}
+}finally{await f.dispose();}});

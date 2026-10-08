@@ -1,5 +1,5 @@
 """Fixed, local PDF extraction. No network or model credentials."""
-import json, pathlib, sys, zipfile, re
+import json, pathlib, sys, zipfile, re, math
 
 def reading_context(blocks, dimensions):
     """Column order within full-width bands, then cross-column/page continuity."""
@@ -112,15 +112,18 @@ def compose_pdf(source, directory):
                 size = max(s['size'] for s in spans)
                 color = spans[0].get('color', 0)
                 rect = pymupdf.Rect(block['bbox']) & page.rect
+                direction = block['lines'][0].get('dir', (1, 0))
+                rotation = (round(-math.degrees(math.atan2(direction[1], direction[0])) / 90) * 90) % 360
                 # Allow a little leading without crossing neighbouring artwork/text.
                 bottom = min(page.rect.y1 - 2, rect.y1 + max(2, size * .5))
                 for other in native:
                     r = pymupdf.Rect(other['bbox'])
                     if r.y0 >= rect.y1 - .2 and r.x0 < rect.x1 and r.x1 > rect.x0:
                         bottom = min(bottom, r.y0 - .5)
-                rect.y1 = max(rect.y1, bottom)
+                if rotation not in (90, 270):
+                    rect.y1 = max(rect.y1, bottom)
                 flags = spans[0].get('flags', 0)
-                jobs.append((rect, zh, size, color, bool(flags & 16)))
+                jobs.append((rect, zh, size, color, bool(flags & 16), rotation, parts[0]['id']))
                 # No white paint over figures/backgrounds; remove only source text.
                 page.add_redact_annot(block['bbox'], fill=None, cross_out=False)
             scanned = [b for b in data['blocks'] if b['page'] == number and b['kind'] == 'scan']
@@ -129,11 +132,11 @@ def compose_pdf(source, directory):
             links = page.get_links()
             if jobs:
                 page.apply_redactions(images=0, graphics=0, text=0)
-            for rect, zh, size, color, bold in jobs:
+            for rect, zh, size, color, bold, rotation, identity in jobs:
                 css = f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{size}pt;line-height:1.12;color:#{color:06x};font-weight:{"bold" if bold else "normal"}}}'
-                spare, scale = page.insert_htmlbox(rect, html.escape(' '.join(zh.split())), css=css, scale_low=.35)
+                spare, scale = page.insert_htmlbox(rect, html.escape(' '.join(zh.split())), css=css, scale_low=.35, rotate=rotation)
                 if spare < 0:
-                    raise ValueError(f'第 {number} 页译文无法排入原位置，未登记 PDF')
+                    raise ValueError(f'第 {number} 页文本块 {identity} 译文无法排入原位置（{rect.width:.1f}×{rect.height:.1f} pt，方向 {rotation}°），未登记 PDF')
                 if size * scale < 5:
                     warnings.append(f'第 {number} 页一处译文字号较小（{size * scale:.1f} pt）')
                 translated += 1
@@ -167,7 +170,7 @@ def compose_pdf(source, directory):
             if len(check) != len(doc) or not any(p.get_text().strip() for p in check):
                 raise ValueError('译文 PDF 完整性校验失败')
         os.replace(temp, out / 'translated.pdf')
-        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 2}
+        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 3}
         (out / 'pdf-layout.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
         print(json.dumps(result, ensure_ascii=True))
 
