@@ -32152,7 +32152,7 @@ function ReaderBody({ useTabInfo }) {
     };
   }, [key2, tid]);
   (0, import_react5.useEffect)(() => {
-    if (mode === "original" || !readingId || zhDoc && openedZh.current?.translation?.id === readingId) return;
+    if (state.loading || mode === "original" || !readingId || zhDoc && openedZh.current?.translation?.id === readingId) return;
     let alive = true, task, range, opened, loaded = false;
     setError("");
     setBusy(true);
@@ -32187,7 +32187,7 @@ function ReaderBody({ useTabInfo }) {
         setBusy(false);
       }
     };
-  }, [key2, readingId, mode === "original"]);
+  }, [key2, refresh, readingId, mode === "original", zhDoc, state.loading]);
   const changeMode = (next) => {
     setMode(next);
     if (ownsFullscreen.current && document.fullscreenElement) void document.exitFullscreen().catch(() => {
