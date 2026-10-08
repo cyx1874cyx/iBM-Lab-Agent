@@ -74,3 +74,32 @@ test('real local PDF extraction retains text, images and scanned page markers',{
  const bundle=f.rows.get('reader');await f.service.table().put(bundle.id,{...bundle,siPath:zipPath});
  const embedded=await f.service.readerZipPdf({...f.request,kind:'si',index:0});assert.ok(Buffer.from(embedded.base64,'base64').subarray(0,4).equals(Buffer.from('%PDF')));assert.equal(embedded.name,'source.pdf');await assert.rejects(()=>f.service.readerZipPdf({...f.request,kind:'si',index:1}),/PDF/);
 }finally{await f.dispose();}});
+test('cross-page fragments require joint review, edits invalidate it, and optimization preserves the previous archive',async()=>{const f=await fixture();try{
+ f.service.readerCompose=async()=>({buffer:Buffer.from('%PDF'),fileName:'test-中文.pdf'});
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id},row=f.service.translationFind(request).row;
+ const group={id:'continuity-a',ids:['a','b'],original:'The treatment group responded better.'};
+ const data={pageCount:2,blocks:[{id:'a',page:1,kind:'text',original:'The treatment group',continuationGroup:group.id},{id:'b',page:2,kind:'text',original:'responded better.',continuationGroup:group.id},{id:'fig',page:2,kind:'figure-text',original:'Treatment',confidence:.95,image:'p2-b3.png'}],continuityGroups:[group],translations:{}};
+ await writeFile(join(row.directory,'draft.json'),JSON.stringify(data));await f.service.translationStore(f.rows.get('reader'),{...row,status:'running',totalBlocks:3});
+ const pending=await f.service.translationRead({...request,pendingOnly:true});assert.equal(pending.blocks[0].continuation.original,group.original);assert.equal(pending.blocks[0].context.after,'responded better.');assert.match(pending.blocks[2].imagePath,/p2-b3.png$/);
+ const blocks=[{id:'a',zh:'治疗组'},{id:'b',zh:'反应更好。'},{id:'fig',zh:'治疗'}];await f.service.translationWrite({...request,blocks});
+ await assert.rejects(()=>f.service.translationFinish(request),/联合复核/);assert.equal((await f.service.translationRead({...request,pendingOnly:true})).total,2);
+ await assert.rejects(()=>f.service.translationWrite({...request,blocks:[blocks[0]],reviewedGroups:[group.id]}),/全部片段/);
+ await f.service.translationWrite({...request,blocks,reviewedGroups:[group.id]});assert.equal((await f.service.translationRead({...request,pendingOnly:true})).total,0);
+ await f.service.translationWrite({...request,blocks:[{id:'b',zh:'反应显著更好。'}]});assert.equal((await f.service.translationRead({...request,pendingOnly:true})).total,2);
+ await f.service.translationWrite({...request,blocks:blocks.slice(0,2),reviewedGroups:[group.id]});await f.service.translationFinish(request);
+ const originalReader=await readFile(join(row.directory,'reader.json'),'utf8'),improved=await f.service.translationCreate({...f.request,improve:true});assert.notEqual(improved.translation.id,request.translationId);assert.equal(await readFile(join(row.directory,'reader.json'),'utf8'),originalReader);assert.equal(f.service.translationFind(request).row.status,'completed');
+ const draft=JSON.parse(await readFile(join(f.service.translationFind({...request,translationId:improved.translation.id}).row.directory,'draft.json'),'utf8'));assert.equal(draft.translations.fig.zh,'治疗');assert.equal(draft.continuityReviews,undefined);
+}finally{await f.dispose();}});
+
+test('column/page continuity and image OCR are extracted and composed into a real Chinese PDF',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
+ const python=process.env.IBM_READER_TEST_PYTHON,path=join(f.dir,'paper.pdf');
+ execFileSync(python,['-I','-c',`import pymupdf,sys
+ d=pymupdf.open(); p=d.new_page(); p.insert_textbox(pymupdf.Rect(72,80,285,180),'The findings suggest that the treatment group showed substantial improvement in the',fontsize=12); p.insert_textbox(pymupdf.Rect(320,80,530,180),'overall outcome and clinical response across all measured parameters during the trial.',fontsize=12)
+ p.insert_textbox(pymupdf.Rect(320,230,530,310),'Further tests confirmed that the response continued into the next',fontsize=12)
+ image=pymupdf.open(); q=image.new_page(width=350,height=120); q.insert_text((20,70),'Treatment group',fontsize=27); p.insert_image(pymupdf.Rect(72,340,422,460),stream=q.get_pixmap().tobytes('png'))
+ p=d.new_page(); p.insert_textbox(pymupdf.Rect(72,80,285,180),'phase of the investigation with consistent efficacy.',fontsize=12); d.save(sys.argv[1])`.replace(/^ /gm,''),path],{windowsHide:true});
+ f.setBytes(await readFile(path));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};await f.service.translationPrepare(request);
+ const content=await f.service.translationRead({...request,limit:40});const groups=new Map(content.blocks.filter(b=>b.continuation).map(b=>[b.continuation.id,b.continuation]));assert.ok([...groups.values()].some(g=>g.original.includes('in the overall')));assert.ok([...groups.values()].some(g=>g.original.includes('next phase')));const label=content.blocks.find(b=>b.kind==='figure-text'&&b.original.includes('Treatment'));assert.ok(label);assert.ok(label.confidence>.8);assert.equal(label.bbox.length,4);
+ await f.service.translationWrite({...request,blocks:content.blocks.filter(b=>['text','figure-text'].includes(b.kind)).map(b=>({id:b.id,zh:b.kind==='figure-text'?'治疗组':'完整来源段落的中文译文。'})),reviewedGroups:[...groups.keys()]});await f.service.translationFinish(request);
+ const row=f.service.translationFind(request).row,proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json; d=pymupdf.open(sys.argv[1]); print(json.dumps({"pages":len(d),"text":d[0].get_text(),"images":len(d[0].get_images())}))',join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));assert.equal(proof.pages,2);assert.match(proof.text,/治疗组/);assert.ok(proof.images>0);
+}finally{await f.dispose();}});

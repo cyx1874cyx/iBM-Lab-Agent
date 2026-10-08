@@ -30383,6 +30383,7 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 // client/src/styles.js
 function injectStyles() {
   let css = [
+    "html,body{height:100%;max-height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body>#root{height:100%;min-height:0;overflow:hidden}",
     ":root{--ib-bg:#06110f;--ib-panel:#0c1d19;--ib-panel2:#102720;--ib-line:rgba(129,205,178,.16);--ib-text:#eff9f5;--ib-muted:#88a69b;--ib-green:#51d4a3;--ib-cyan:#73dce6;--ib-red:#ff8989}",
     ".ib-overlay{position:fixed;inset:var(--ib-native-top,0px) 0 0;z-index:1000;overflow:auto;background:var(--ib-panel);color:var(--ib-text);font-family:Arial,'Microsoft YaHei','微软雅黑',sans-serif}",
     ".ib-top{height:68px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:0 28px;border-bottom:1px solid var(--ib-line);background:var(--ib-panel);backdrop-filter:blur(18px)}",
@@ -31888,9 +31889,43 @@ var import_react11 = require("react");
 // client/src/reader-pdf-ui.js
 var import_react5 = __toESM(require("react"), 1);
 var import_react_dom = __toESM(require("react-dom"), 1);
+
+// client/src/reader-render-queue.js
+function createRenderQueue(limit = 2) {
+  let active = 0;
+  const pending = [];
+  const drain = () => {
+    while (active < limit && pending.length) {
+      const row2 = pending.shift();
+      if (row2.cancelled) {
+        row2.resolve();
+        continue;
+      }
+      active++;
+      Promise.resolve().then(() => row2.cancelled ? void 0 : row2.work()).then(row2.resolve, row2.reject).finally(() => {
+        active--;
+        drain();
+      });
+    }
+  };
+  return (work) => {
+    let row2;
+    const promise = new Promise((resolve, reject) => {
+      row2 = { work, resolve, reject, cancelled: false };
+      pending.push(row2);
+      drain();
+    });
+    return { promise, cancel: () => {
+      row2.cancelled = true;
+    } };
+  };
+}
+var queuePdfRender = createRenderQueue(2);
+
+// client/src/reader-pdf-ui.js
 var decode = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
-function PdfPage({ doc, number, width, zoom, root, onError }) {
-  const element = (0, import_react5.useRef)(), canvas = (0, import_react5.useRef)(), text = (0, import_react5.useRef)();
+var PdfPage = import_react5.default.memo(function PdfPage2({ doc, number, width, zoom, root, onError }) {
+  const element = (0, import_react5.useRef)(), canvas = (0, import_react5.useRef)(), text = (0, import_react5.useRef)(), painted = (0, import_react5.useRef)(null);
   const [near, setNear] = (0, import_react5.useState)(number === 1), [size, setSize] = (0, import_react5.useState)({ width: 595, height: 842 });
   (0, import_react5.useEffect)(() => {
     let alive = true;
@@ -31905,18 +31940,35 @@ function PdfPage({ doc, number, width, zoom, root, onError }) {
     };
   }, [doc, number]);
   (0, import_react5.useEffect)(() => {
-    const observer = new IntersectionObserver((entries) => setNear(entries[0].isIntersecting), { root: root.current, rootMargin: "1000px 0px" });
+    const observer = new IntersectionObserver((entries) => setNear(entries[0].isIntersecting), { root: root.current, rootMargin: "600px 0px" });
     observer.observe(element.current);
-    return () => observer.disconnect();
+    let timer;
+    const release = new IntersectionObserver((entries) => {
+      clearTimeout(timer);
+      if (!entries[0].isIntersecting) timer = setTimeout(() => {
+        painted.current = null;
+        if (canvas.current) {
+          canvas.current.width = 1;
+          canvas.current.height = 1;
+        }
+        text.current?.replaceChildren();
+      }, 1200);
+    }, { root: root.current, rootMargin: "3000px 0px" });
+    release.observe(element.current);
+    return () => {
+      observer.disconnect();
+      release.disconnect();
+      clearTimeout(timer);
+    };
   }, [doc, number, root]);
   const scale = width / size.width * zoom, w = size.width * scale, height = size.height * scale;
   (0, import_react5.useEffect)(() => {
-    if (!near) return;
+    if (!near || painted.current === scale) return;
     let stopped = false, paint, layer;
-    void (async () => {
+    const queued = queuePdfRender(async () => {
       const page = await doc.getPage(number);
       if (stopped) return;
-      const viewport = page.getViewport({ scale }), ratio = Math.min(devicePixelRatio || 1, 2), c = canvas.current;
+      const viewport = page.getViewport({ scale }), ratio = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(4e6 / (viewport.width * viewport.height))), c = canvas.current;
       c.width = Math.ceil(viewport.width * ratio);
       c.height = Math.ceil(viewport.height * ratio);
       c.style.width = viewport.width + "px";
@@ -31930,23 +31982,31 @@ function PdfPage({ doc, number, width, zoom, root, onError }) {
       t.style.setProperty("--scale-round-x", "1px");
       t.style.setProperty("--scale-round-y", "1px");
       paint = page.render({ canvasContext: c.getContext("2d"), viewport, transform: [ratio, 0, 0, ratio, 0, 0] });
+      paint.onContinue = (continuePaint) => requestAnimationFrame(() => {
+        if (!stopped) continuePaint();
+      });
       await paint.promise;
+      if (stopped) return;
+      await new Promise((done) => requestAnimationFrame(done));
       if (stopped) return;
       const { TextLayer: TextLayer3 } = pdfTypes();
       layer = new TextLayer3({ textContentSource: await page.getTextContent(), container: t, viewport });
       await layer.render();
-    })().catch((error) => {
+      if (!stopped) painted.current = scale;
+    });
+    void queued.promise.catch((error) => {
       if (!stopped && error.name !== "RenderingCancelledException") onError(error);
     });
     return () => {
       stopped = true;
+      queued.cancel();
       paint?.cancel();
       layer?.cancel();
     };
   }, [doc, number, scale, near]);
-  return h("div", { ref: element, className: "ib-pdf-page", "data-pdf-page": number, style: { width: w, height } }, near ? h(import_react5.default.Fragment, null, h("canvas", { ref: canvas, "aria-label": "PDF 第 " + number + " 页" }), h("div", { ref: text, className: "ib-reader-text-layer" })) : h("span", { className: "ib-page-placeholder" }, "第 " + number + " 页"));
-}
-function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand, restore }) {
+  return h("div", { ref: element, className: "ib-pdf-page", "data-pdf-page": number, style: { width: w, height } }, h("canvas", { ref: canvas, "aria-label": "PDF 第 " + number + " 页" }), h("div", { ref: text, className: "ib-reader-text-layer" }));
+});
+var PdfFlow = import_react5.default.memo(function PdfFlow2({ doc, side, zoom, scrollRef, onScroll, onError, hand, restore }) {
   const [width, setWidth] = (0, import_react5.useState)(500), drag = (0, import_react5.useRef)();
   (0, import_react5.useEffect)(() => {
     const el = scrollRef.current, observer = new ResizeObserver(() => setWidth(Math.max(100, el.clientWidth - 24)));
@@ -31956,7 +32016,9 @@ function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand, restore 
   }, [scrollRef]);
   (0, import_react5.useEffect)(() => {
     if (!doc) return;
-    const saved = restore(side), timer = setTimeout(() => jump(scrollRef.current, saved.page, saved.fraction), 100);
+    const saved = restore(side), before = scrollRef.current.scrollTop, timer = setTimeout(() => {
+      if (Math.abs(scrollRef.current.scrollTop - before) < 1) jump(scrollRef.current, saved.page, saved.fraction);
+    }, 100);
     return () => clearTimeout(timer);
   }, [doc, zoom, width]);
   return h(
@@ -31987,10 +32049,18 @@ function PdfFlow({ doc, side, zoom, scrollRef, onScroll, onError, hand, restore 
     },
     doc ? Array.from({ length: doc.numPages }, (_, i) => h(PdfPage, { key: i, doc, number: i + 1, width, zoom, root: scrollRef, onError })) : h("p", { className: "ib-reader-loading" }, "正在读取 PDF…")
   );
-}
+});
 function position(flow) {
-  const y = flow.scrollTop + 8, pages = [...flow.querySelectorAll("[data-pdf-page]")], item = pages.find((p) => p.offsetTop + p.offsetHeight > y) ?? pages.at(-1);
-  return item ? { page: Number(item.dataset.pdfPage), fraction: Math.max(0, Math.min(1, (y - item.offsetTop) / item.offsetHeight)) } : { page: 1, fraction: 0 };
+  if (!flow?.isConnected) return { page: 1, fraction: 0 };
+  const y = flow.scrollTop + 8, pages = flow.children;
+  let low = 0, high = pages.length - 1;
+  while (low < high) {
+    const mid = low + high >> 1, item2 = pages[mid];
+    if (item2.offsetTop + item2.offsetHeight > y) high = mid;
+    else low = mid + 1;
+  }
+  const item = pages[low];
+  return item?.dataset.pdfPage ? { page: Number(item.dataset.pdfPage), fraction: Math.max(0, Math.min(1, (y - item.offsetTop) / item.offsetHeight)) } : { page: 1, fraction: 0 };
 }
 function jump(flow, page, fraction = 0) {
   const item = flow?.querySelector(`[data-pdf-page="${page}"]`);
@@ -32001,7 +32071,7 @@ function ReaderBody({ useTabInfo }) {
   const [state, setState] = (0, import_react5.useState)({ loading: true }), [doc, setDoc] = (0, import_react5.useState)(null), [zhDoc, setZhDoc] = (0, import_react5.useState)(null), [mode, setMode] = (0, import_react5.useState)("original"), [error, setError] = (0, import_react5.useState)(""), [busy, setBusy] = (0, import_react5.useState)(false), [query, setQuery] = (0, import_react5.useState)(""), [refresh, setRefresh] = (0, import_react5.useState)(0), [linked, setLinked] = (0, import_react5.useState)(true), [stacked, setStacked] = (0, import_react5.useState)(false), [hand, setHand] = (0, import_react5.useState)(false), [zoom, setZoom] = (0, import_react5.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react5.useState)({ original: 1, zh: 1 });
   const left = (0, import_react5.useRef)(), right = (0, import_react5.useRef)(), fullscreen = (0, import_react5.useRef)(), syncing = (0, import_react5.useRef)(null), openedZh = (0, import_react5.useRef)(), extraDocs = (0, import_react5.useRef)(/* @__PURE__ */ new Set()), leases = (0, import_react5.useRef)(/* @__PURE__ */ new Set()), ownsFullscreen = (0, import_react5.useRef)(false);
   const anchors = (0, import_react5.useRef)({ original: { page: 1, fraction: 0 }, zh: { page: 1, fraction: 0 } });
-  const runtime3 = readerRuntime(), call = (method, args) => runtime3.call(method, { request: args }), onError = (error2) => setError(error2.message ?? String(error2));
+  const runtime3 = readerRuntime(), call = (method, args) => runtime3.call(method, { request: args }), onError = (0, import_react5.useCallback)((error2) => setError(error2.message ?? String(error2)), []);
   (0, import_react5.useEffect)(() => {
     const opened = (event) => {
       if (event.detail.address === key2) setRefresh((value) => value + 1);
@@ -32082,7 +32152,7 @@ function ReaderBody({ useTabInfo }) {
     };
   }, [key2, tid]);
   (0, import_react5.useEffect)(() => {
-    if (mode === "original" || zhDoc || translation?.status !== "completed") return;
+    if (mode === "original" || translation?.status !== "completed" || zhDoc && openedZh.current?.translation?.id === tid) return;
     let alive = true, task, range, opened, loaded = false;
     setError("");
     setBusy(true);
@@ -32152,11 +32222,11 @@ function ReaderBody({ useTabInfo }) {
       });
     }, 0);
   };
-  const translate = async () => {
+  const translate = async (improve = false) => {
     setBusy(true);
     let created;
     try {
-      created = await call("tasks_translation_create", request);
+      created = await call("tasks_translation_create", { ...request, improve: improve === true });
       setState((old) => ({ ...old, translation: created.translation }));
       if (created.translation.status === "completed") setMode("zh");
       else if (!created.reused) await runtime3.translate(request, created.translation.id);
@@ -32169,21 +32239,28 @@ function ReaderBody({ useTabInfo }) {
       setBusy(false);
     }
   };
-  const onScroll = (side, flow) => {
-    const p = position(flow);
-    anchors.current[side] = p;
-    setPages((old) => old[side] === p.page ? old : { ...old, [side]: p.page });
+  const scrollFrame = (0, import_react5.useRef)(0), scrollWork = (0, import_react5.useRef)(null);
+  (0, import_react5.useEffect)(() => () => cancelAnimationFrame(scrollFrame.current), []);
+  const onScroll = (0, import_react5.useCallback)((side, flow) => {
     if (syncing.current === side) return;
-    if (mode === "dual" && linked) {
-      const other = side === "original" ? "zh" : "original";
-      anchors.current[other] = p;
-      syncing.current = other;
-      jump(other === "zh" ? right.current : left.current, p.page, p.fraction);
-      requestAnimationFrame(() => {
-        syncing.current = null;
-      });
-    }
-  };
+    scrollWork.current = { side, flow };
+    if (scrollFrame.current) return;
+    scrollFrame.current = requestAnimationFrame(() => {
+      scrollFrame.current = 0;
+      const { side: side2, flow: flow2 } = scrollWork.current, p = position(flow2);
+      anchors.current[side2] = p;
+      setPages((old) => old[side2] === p.page ? old : { ...old, [side2]: p.page });
+      if (mode === "dual" && linked) {
+        const other = side2 === "original" ? "zh" : "original";
+        anchors.current[other] = p;
+        syncing.current = other;
+        jump(other === "zh" ? right.current : left.current, p.page, p.fraction);
+        requestAnimationFrame(() => {
+          syncing.current = null;
+        });
+      }
+    });
+  }, [mode, linked]);
   const zoomTo = (side, value) => setZoom((old) => linked ? { original: value, zh: value } : { ...old, [side]: value });
   const navigate = (side, number) => {
     const d = side === "zh" ? zhDoc : doc, n = Math.max(1, Math.min(d?.numPages ?? 1, number || 1));
@@ -32208,14 +32285,15 @@ function ReaderBody({ useTabInfo }) {
     const pdf = side === "zh" ? zhDoc : doc;
     return h("div", { className: "ib-pdf-toolbar" }, h("span", { className: "ib-pdf-language" }, side === "zh" ? "中文 PDF" : "原文 PDF"), h("select", { "aria-label": side + " 缩放", value: zoom[side], onChange: (event) => zoomTo(side, Number(event.target.value)) }, Array.from({ length: 11 }, (_, i) => 0.5 + i * 0.25).map((n) => h("option", { key: n, value: n }, n === 1 ? "适合宽度" : Math.round(n * 100) + "%"))), button("⊖", () => zoomTo(side, Math.max(0.5, zoom[side] - 0.25))), button("⊕", () => zoomTo(side, Math.min(3, zoom[side] + 0.25))), button("✋", () => setHand(true), false, hand, "抓手拖动"), button("Ⅰ", () => setHand(false), false, !hand, "选择文字"), button("↓", () => void save(side).catch(onError), !pdf, false, "下载 " + (side === "zh" ? "中文" : "原文") + " PDF"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")));
   };
-  const pane = (side) => h("section", { className: "ib-pdf-pane", key: side }, toolbar(side), h(PdfFlow, { doc: side === "zh" ? zhDoc : doc, side, zoom: zoom[side], scrollRef: side === "zh" ? right : left, onScroll, onError, hand, restore: (side2) => anchors.current[side2] }), h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + ((side === "zh" ? zhDoc : doc)?.numPages ?? "…")));
+  const restore = (0, import_react5.useCallback)((side) => anchors.current[side], []);
+  const pane = (side) => h("section", { className: "ib-pdf-pane", key: side }, toolbar(side), h(PdfFlow, { doc: side === "zh" ? zhDoc : doc, side, zoom: zoom[side], scrollRef: side === "zh" ? right : left, onScroll, onError, hand, restore }), h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + ((side === "zh" ? zhDoc : doc)?.numPages ?? "…")));
   if (state.loading) return h("div", { className: "ib-reader" }, "正在读取已归档文献…");
   if (state.error) return h("div", { className: "ib-reader", role: "alert" }, "无法打开文献：" + state.error);
   const content = h(
     "div",
     { ref: mode === "dual" ? fullscreen : void 0, className: "ib-reader" + (mode === "dual" ? " ib-reader-fullscreen" : ""), "data-reader-mode": mode },
     h("header", { className: "ib-reader-header" }, h("span", { title: state.title }, state.title), mode === "dual" ? button("退出全屏", exitDual) : null),
-    h("nav", { className: "ib-reader-controls" }, button("原文", () => changeMode("original"), false, mode === "original"), button("中文", () => changeMode("zh"), translation?.status !== "completed", mode === "zh"), button("双语对照", dual, translation?.status !== "completed", mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", translate, busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
+    h("nav", { className: "ib-reader-controls" }, button("原文", () => changeMode("original"), false, mode === "original"), button("中文", () => changeMode("zh"), translation?.status !== "completed", mode === "zh"), button("双语对照", dual, translation?.status !== "completed", mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", () => void translate(), busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), translation?.status === "completed" ? button("优化译文", () => void translate(true), busy, false, "联合复核跨栏/跨页段落并翻译图片文字，保留已有 PDF") : null, ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
       try {
         const result = await call("tasks_translation_cancel", { ...request, translationId: tid });
         setState((old) => ({ ...old, translation: result.translation }));
@@ -32319,7 +32397,7 @@ async function openReader(request) {
   window.dispatchEvent(new CustomEvent("ibm-reader-open", { detail: { address } }));
 }
 function translationPrompt(request, translationId) {
-  return `请全文翻译当前课题已归档${request.kind === "si" ? "SI" : "正文"} PDF（bundleId: ${request.bundleId}，translationId: ${translationId}，kind: ${request.kind ?? "pdf"}）。先调用 lab_reader_translation_prepare，再循环调用 lab_reader_translation_read（pendingOnly=true, offset=0, limit=8），逐块完整翻译并用 lab_reader_translation_write 保存，直到没有未翻译块。不得以精读报告或摘要代替全文；保留数字、公式、化学式、图注及参考文献。扫描块必须读取 imagePath 图像转写英文并翻译。最后核对完整性、术语和不确定性，调用 lab_reader_translation_finish。失败时说明原因，已归档原文保持可读。`;
+  return `请全文翻译当前课题已归档${request.kind === "si" ? "SI" : "正文"} PDF（bundleId: ${request.bundleId}，translationId: ${translationId}，kind: ${request.kind ?? "pdf"}）。先调用 lab_reader_translation_prepare，再循环调用 lab_reader_translation_read（pendingOnly=true, offset=0, limit=8），逐块完整翻译并用 lab_reader_translation_write 保存，直到没有未翻译块。不得以精读报告或摘要代替全文；保留数字、公式、化学式、图注及参考文献。每个文本块结合 context 前后文理解。遇到 continuation，先整体理解其 original，再把连续译文准确分配到全部 fragments 的原位置，不重复也不遗漏；同批提交全部片段并附 reviewedGroups=[continuation.id]，必要时单独读取或写入该组。figure-text 是图片中的英文标签，须结合 imagePath 检查 OCR、翻译标签，保留数字、单位和化学式；低置信度或模糊内容用 note 标注，不得猜测。扫描块必须读取 imagePath 图像转写英文并翻译。最后核对完整性、术语和不确定性，调用 lab_reader_translation_finish。失败时说明原因，已归档原文保持可读。`;
 }
 var decode2 = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 function pdfResources(call) {

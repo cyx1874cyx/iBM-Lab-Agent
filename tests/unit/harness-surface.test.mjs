@@ -406,6 +406,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 
 	assert.equal(registration?.id, "dsh-lab-agent");
 	const react = {
+		memo: (value) => value,
 		createElement: () => undefined,
 		useState: () => [undefined, () => {}],
 		useEffect: () => {},

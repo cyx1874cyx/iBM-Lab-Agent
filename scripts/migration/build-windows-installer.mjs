@@ -21,6 +21,11 @@ const skip=path=>!path.split(/[\\/]/).some(part=>['node_modules','.git','__pycac
 for(const name of ['lib','assets','cordis.patch.yml','host.cordis.patch.yml'])cpSync(join(runtime,name),join(appDir,name),{recursive:true,dereference:true,filter:skip});
 cpSync(join(runtime,'scripts/node-bin'),join(appDir,'scripts/node-bin'),{recursive:true});
 mkdirSync(join(appDir,'build'));cpSync(join(runtime,'build/app-icon.ico'),join(appDir,'build/app-icon.ico'));
+// Both the native shell and its embedded frontend own inner scroll regions.
+// Keep wheel gestures at their edges from scrolling either document viewport.
+const shellHtml=join(appDir,'lib/native-ui/index.html');
+writeFileSync(shellHtml,readFileSync(shellHtml,'utf8').replace('</head>','<style>html,body{height:100%;max-height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body>#root{height:100%;min-height:0;overflow:hidden}</style></head>'));
+execFileSync(join(python,'python.exe'),['-I','-c','from rapidocr_onnxruntime import RapidOCR; RapidOCR(intra_op_num_threads=1,inter_op_num_threads=1)'],{windowsHide:true});
 for(const name of ['ibm-bootstrap.mjs','release-runtime.mjs'])cpSync(join(repo,'electron-next',name),join(appDir,name));
 const mainFile=join(appDir,'lib/main.js');let main=readFileSync(mainFile,'utf8');
 assert.equal(main.split('from "./browser-guests.js"').length,2);

@@ -1,5 +1,92 @@
 """Fixed, local PDF extraction. No network or model credentials."""
-import json, pathlib, sys, zipfile
+import json, pathlib, sys, zipfile, re
+
+def reading_context(blocks, dimensions):
+    """Column order within full-width bands, then cross-column/page continuity."""
+    ordered = []
+    for page_no, width, height in dimensions:
+        text = [b for b in blocks if b['page'] == page_no and b['kind'] == 'text']
+        wide = [b for b in text if b['bbox'][2] - b['bbox'][0] > width * .65]
+        narrow = [b for b in text if b not in wide]
+        left = [b for b in narrow if b['bbox'][0] < width * .45]
+        right = [b for b in narrow if b['bbox'][0] >= width * .45]
+        columns = any(len(b['original']) > 70 for b in left) and any(len(b['original']) > 70 for b in right)
+        for b in text:
+            b['column'] = (0 if b in left else 1) if columns and b not in wide else -1
+            b['role'] = 'margin' if b['bbox'][1] < height * .055 or b['bbox'][3] > height * .945 else 'body'
+        remaining = list(narrow)
+        for anchor in sorted(wide, key=lambda b:(b['bbox'][1],b['id'])):
+            band = [b for b in remaining if b['bbox'][1] < anchor['bbox'][1]]
+            ordered.extend(sorted(band, key=lambda b:(b['column'] if columns else 0,b['bbox'][1],b['bbox'][0],b['id'])))
+            remaining = [b for b in remaining if b not in band]
+            ordered.append(anchor)
+        ordered.extend(sorted(remaining, key=lambda b:(b['column'] if columns else 0,b['bbox'][1],b['bbox'][0],b['id'])))
+    body = [b for b in ordered if b['role'] == 'body']
+    groups = []
+    for previous, current in zip(body, body[1:]):
+        across = previous['page'] != current['page'] or previous['column'] != current['column'] or previous['id'].rsplit('-',1)[0] == current['id'].rsplit('-',1)[0]
+        a, b = previous['original'].rstrip(), current['original'].lstrip()
+        if across and a and b and not re.search(r'[.!?。！？:;]$',a) and re.match(r'[a-z(]',b) and abs(previous.get('fontSize',10)-current.get('fontSize',10)) < 2.5:
+            if groups and groups[-1]['ids'][-1] == previous['id']:
+                group = groups[-1]
+            else:
+                group = {'id':'continuity-'+previous['id'],'ids':[previous['id']]}
+                groups.append(group)
+            group['ids'].append(current['id'])
+    by_id = {b['id']:b for b in ordered}
+    for group in groups:
+        original = ''
+        for identity in group['ids']:
+            fragment = by_id[identity]['original']
+            original = original[:-1]+fragment if original.endswith('-') else original+(' ' if original else '')+fragment
+            by_id[identity]['continuationGroup'] = group['id']
+        group['original'] = original
+    for i, block in enumerate(ordered):
+        block['readingOrder'] = i
+    return sorted(blocks,key=lambda b:(b['page'],b.get('readingOrder',100000),b['id'])),groups
+
+def figure_ocr(image_path, clip, identity, page_no, engine):
+    from PIL import Image
+    import numpy as np
+    image = Image.open(image_path).convert('RGB')
+    result, _ = engine(str(image_path))
+    result = list(result or [])
+    # A second orientation recovers vertical axes that the line detector misses.
+    rotated, _ = engine(np.ascontiguousarray(np.rot90(np.asarray(image)[:, :, ::-1])))
+    for quad, text, confidence in rotated or []:
+        mapped = [[image.width-1-p[1],p[0]] for p in quad]
+        box = [min(p[0] for p in mapped),min(p[1] for p in mapped),max(p[0] for p in mapped),max(p[1] for p in mapped)]
+        if box[3]-box[1] < (box[2]-box[0])*1.8:
+            continue
+        duplicate = False
+        for existing, _, _ in result:
+            other = [min(p[0] for p in existing),min(p[1] for p in existing),max(p[0] for p in existing),max(p[1] for p in existing)]
+            overlap = max(0,min(box[2],other[2])-max(box[0],other[0]))*max(0,min(box[3],other[3])-max(box[1],other[1]))
+            if overlap > .35*min((box[2]-box[0])*(box[3]-box[1]),(other[2]-other[0])*(other[3]-other[1])):
+                duplicate = True
+                break
+        if not duplicate:
+            result.append([mapped,text,confidence])
+    found=[]
+    for index, (quad, text, confidence) in enumerate(result or [],1):
+        if len(re.findall('[A-Za-z]',text)) < 2:
+            continue
+        x0,y0,x1,y1=min(p[0] for p in quad),min(p[1] for p in quad),max(p[0] for p in quad),max(p[1] for p in quad)
+        if x1-x0 < 2 or y1-y0 < 2:
+            continue
+        # Most frequent edge color, to cover only lettering rather than the diagram.
+        edge=[]
+        for x in range(max(0,int(x0)-1),min(image.width,int(x1)+2)):
+            for y in [max(0,int(y0)-1),min(image.height-1,int(y1)+1)]:
+                edge.append(image.getpixel((x,y)))
+        background=max(set(edge),key=edge.count) if edge else (255,255,255)
+        sx,sy=clip.width/image.width,clip.height/image.height
+        found.append({'id':f'{identity}-ocr{index}','page':page_no,'kind':'figure-text','original':text,
+                      'bbox':[clip.x0+x0*sx,clip.y0+y0*sy,clip.x0+x1*sx,clip.y0+y1*sy],
+                      'image':pathlib.Path(image_path).name,'confidence':float(confidence),
+                      'background':[c/255 for c in background], 'rotation':90 if y1-y0 > (x1-x0)*1.8 else 0,
+                      'fontSize':max(5,min((x1-x0)*sx,(y1-y0)*sy)*.85)})
+    return found
 
 def compose_pdf(source, directory):
     """Replace translated text in its original page regions; keep source artwork."""
@@ -50,6 +137,20 @@ def compose_pdf(source, directory):
                 if size * scale < 5:
                     warnings.append(f'第 {number} 页一处译文字号较小（{size * scale:.1f} pt）')
                 translated += 1
+            for block in [b for b in data['blocks'] if b['page']==number and b['kind']=='figure-text']:
+                zh=data['translations'].get(block['id'],{}).get('zh','')
+                if not zh.strip():
+                    raise ValueError(f'第 {number} 页图片文字尚未翻译')
+                rect=pymupdf.Rect(block['bbox']) & page.rect
+                page.draw_rect(rect,color=None,fill=tuple(block.get('background',[1,1,1])),overlay=True)
+                spare,scale=page.insert_htmlbox(rect,html.escape(zh),css=f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{block.get("fontSize",8)}pt;line-height:1}}',scale_low=.3,rotate=block.get('rotation',0))
+                if spare<0:
+                    raise ValueError(f'第 {number} 页图中文字无法排入原位置')
+                if block.get('confidence',1)<.8:
+                    warnings.append(f'第 {number} 页图中文字识别置信度较低，请对照原图复核')
+                if block.get('fontSize',8)*scale<5:
+                    warnings.append(f'第 {number} 页一处图片译文字号较小，请放大阅读')
+                translated += 1
             for link in links:
                 # Redaction removes intersecting links. Restore their source targets.
                 if any(pymupdf.Rect(link['from']).intersects(job[0]) for job in jobs):
@@ -66,7 +167,7 @@ def compose_pdf(source, directory):
             if len(check) != len(doc) or not any(p.get_text().strip() for p in check):
                 raise ValueError('译文 PDF 完整性校验失败')
         os.replace(temp, out / 'translated.pdf')
-        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 1}
+        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 2}
         (out / 'pdf-layout.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
         print(json.dumps(result, ensure_ascii=True))
 
@@ -97,11 +198,13 @@ def main():
     import pymupdf
     out = pathlib.Path(sys.argv[3])
     out.mkdir(parents=True, exist_ok=True)
-    blocks, scanned = [], []
+    blocks, scanned, dimensions = [], [], []
+    engine = None
     with pymupdf.open(source) as doc:
         if doc.needs_pass or len(doc) > 2000:
             raise ValueError('PDF 加密或超过 2000 页')
         for page_no, page in enumerate(doc, 1):
+            dimensions.append((page_no,page.rect.width,page.rect.height))
             page_blocks = page.get_text('dict', sort=True)['blocks']
             text_count = 0
             for index, block in enumerate(page_blocks, 1):
@@ -110,10 +213,13 @@ def main():
                     text = '\n'.join(''.join(span['text'] for span in line['spans']) for line in block['lines']).strip()
                     if not text:
                         continue
+                    text = re.sub(r'(?<=[A-Za-z])-\s*\n\s*(?=[a-z])','',text)
+                    text = re.sub(r'\s*\n\s*',' ',text)
                     text_count += len(text)
                     # Bound model batch sizes without silently dropping text.
                     for part, start in enumerate(range(0, len(text), 3000), 1):
-                        blocks.append({'id': f'{block_id}-{part}', 'page': page_no, 'kind': 'text', 'original': text[start:start+3000]})
+                        spans=[s for line in block['lines'] for s in line['spans']]
+                        blocks.append({'id': f'{block_id}-{part}', 'page': page_no, 'kind': 'text', 'original': text[start:start+3000], 'bbox':list(block['bbox']), 'fontSize':max(s['size'] for s in spans)})
                 elif block['type'] == 1:
                     image_name = f'{block_id}.png'
                     clip = pymupdf.Rect(block['bbox']) & page.rect
@@ -122,6 +228,10 @@ def main():
                     scale = min(1.5, 1600 / max(clip.width, clip.height, 1))
                     page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip, alpha=False).save(out / image_name)
                     blocks.append({'id': block_id, 'page': page_no, 'kind': 'image', 'image': image_name})
+                    if engine is None:
+                        from rapidocr_onnxruntime import RapidOCR
+                        engine=RapidOCR(intra_op_num_threads=1,inter_op_num_threads=1)
+                    blocks.extend(figure_ocr(out/image_name,clip,block_id,page_no,engine))
             if text_count < 8:
                 scanned.append(page_no)
                 image_name = f'p{page_no}-scan.png'
@@ -154,7 +264,8 @@ def main():
                     scale = min(1.5, 1600 / max(rect.width, rect.height, 1))
                     page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=rect, alpha=False).save(out/image_name)
                     blocks.append({'id': f'p{page_no}-v{index}', 'page': page_no, 'kind': 'image', 'image': image_name})
-        result = {'schemaVersion': 1, 'pageCount': len(doc), 'scannedPages': scanned, 'blocks': blocks}
+        blocks,groups=reading_context(blocks,dimensions)
+        result = {'schemaVersion': 2, 'pageCount': len(doc), 'scannedPages': scanned, 'blocks': blocks,'continuityGroups':groups,'ocrEngine':'rapidocr-onnxruntime-1.4.4' if engine else None}
     (out / 'source.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
     print(json.dumps({'pageCount': result['pageCount'], 'blockCount': len(blocks), 'scannedPages': scanned}))
 

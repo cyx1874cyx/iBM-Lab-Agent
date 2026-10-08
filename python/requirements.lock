@@ -115,3 +115,12 @@ mdurl==0.1.2
 shellingham==1.5.4
 annotated-doc==0.0.5
 colorama==0.4.6
+
+# 2026-10-08: local figure-label OCR with bundled models (Windows Python 3.12).
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.30.0
+opencv-python==5.0.0.93
+shapely==2.2.0
+pyclipper==1.4.0
+flatbuffers==25.12.19
+protobuf==7.36.2

@@ -4,6 +4,7 @@ import { redesignCss } from "./redesign.js";
 // 注入时机：factory 执行时调用（与原来一致，避免模块加载时误操作 document）。
 export function injectStyles() {
 		let css = [
+			"html,body{height:100%;max-height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body>#root{height:100%;min-height:0;overflow:hidden}",
 			":root{--ib-bg:#06110f;--ib-panel:#0c1d19;--ib-panel2:#102720;--ib-line:rgba(129,205,178,.16);--ib-text:#eff9f5;--ib-muted:#88a69b;--ib-green:#51d4a3;--ib-cyan:#73dce6;--ib-red:#ff8989}",
 			".ib-overlay{position:fixed;inset:var(--ib-native-top,0px) 0 0;z-index:1000;overflow:auto;background:var(--ib-panel);color:var(--ib-text);font-family:Arial,'Microsoft YaHei','微软雅黑',sans-serif}",
 			".ib-top{height:68px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;padding:0 28px;border-bottom:1px solid var(--ib-line);background:var(--ib-panel);backdrop-filter:blur(18px)}",

@@ -79,6 +79,16 @@ const readerCheck=async(restarted=false)=>{
  await frame.evaluate(()=>{const flow=document.querySelector('[data-pdf-side="original"]');flow.scrollTop=flow.querySelector('[data-pdf-page="2"]').offsetTop;});
  await frame.waitForFunction(()=>document.querySelector('input[aria-label="original PDF 页码"]').value==='2');
  assert.equal(await frame.$$eval('[data-pdf-side="original"] [data-pdf-page]',nodes=>nodes.length),2);
+ // Exercise wheel gestures through Chromium rather than synthetic scroll events.
+ await frame.evaluate(()=>{const flow=document.querySelector('[data-pdf-side="original"]');flow.scrollTop=0;window.__readerCanvas=flow.querySelector('canvas');});await delay(250);
+ const flowHandle=await frame.$('[data-pdf-side="original"]'),flowBox=await flowHandle.boundingBox();await page.mouse.move(flowBox.x+flowBox.width/2,flowBox.y+flowBox.height/2);await page.mouse.wheel({deltaY:420});await delay(200);
+ assert.ok(await frame.$eval('[data-pdf-side="original"]',node=>node.scrollTop)>100);
+ await page.mouse.wheel({deltaY:-420});await delay(300);assert.equal(await frame.evaluate(()=>document.querySelector('[data-pdf-side="original"] canvas')===window.__readerCanvas),true);
+ // Scrolling over the edge and past the document bottom must not move either app viewport.
+ await page.mouse.wheel({deltaY:20000});await delay(200);await page.mouse.move(flowBox.x+flowBox.width-1,flowBox.y+flowBox.height-2);await page.mouse.wheel({deltaY:20000});await delay(200);await page.mouse.move(1,898);await page.mouse.wheel({deltaY:20000});await delay(200);
+ const viewport=await frame.evaluate(()=>({top:document.scrollingElement.scrollTop,x:scrollX,y:scrollY,overflow:getComputedStyle(document.documentElement).overflow}));assert.equal(viewport.top,0);assert.equal(viewport.y,0);assert.equal(viewport.x,0);assert.equal(viewport.overflow,'hidden');assert.equal(await page.evaluate(()=>document.scrollingElement.scrollTop),0);report.viewportScroll=viewport;
+ report.checks.push('native-wheel-scrolls-PDF-continuously-with-cached-canvas','wheel-at-sidebar-and-app-edges-keeps-both-document-viewports-fixed');
+ await frame.evaluate(()=>{document.querySelector('[data-pdf-side="original"]').scrollTop=0;});
  await frame.type('.ib-reader input[aria-label="查找 PDF 文本"]','Full paper');await frame.focus('.ib-reader input[aria-label="查找 PDF 文本"]');await page.keyboard.press('Enter');await frame.waitForFunction(()=>document.querySelector('[data-pdf-side="original"]').scrollTop<100);
  await frame.evaluate(()=>[...document.querySelectorAll('.ib-reader button')].find(node=>node.textContent==='双语对照').click());
  await frame.waitForFunction(()=>document.querySelector('.ib-reader-fullscreen [data-pdf-side="zh"] .ib-reader-text-layer')?.innerText.includes('完整的论文来源段落'));
