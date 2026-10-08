@@ -88,6 +88,8 @@ test('cross-page fragments require joint review, edits invalidate it, and optimi
  await f.service.translationWrite({...request,blocks:[{id:'b',zh:'反应显著更好。'}]});assert.equal((await f.service.translationRead({...request,pendingOnly:true})).total,2);
  await f.service.translationWrite({...request,blocks:blocks.slice(0,2),reviewedGroups:[group.id]});await f.service.translationFinish(request);
  const originalReader=await readFile(join(row.directory,'reader.json'),'utf8'),improved=await f.service.translationCreate({...f.request,improve:true});assert.notEqual(improved.translation.id,request.translationId);assert.equal(await readFile(join(row.directory,'reader.json'),'utf8'),originalReader);assert.equal(f.service.translationFind(request).row.status,'completed');
+ assert.equal((await f.service.readerOpen(f.request)).completedTranslation.id,request.translationId);
+ const improvedRequest={...request,translationId:improved.translation.id};await f.service.translationCancel(improvedRequest);assert.equal((await f.service.readerOpen(f.request)).completedTranslation.id,request.translationId);
  const draft=JSON.parse(await readFile(join(f.service.translationFind({...request,translationId:improved.translation.id}).row.directory,'draft.json'),'utf8'));assert.equal(draft.translations.fig.zh,'治疗');assert.equal(draft.continuityReviews,undefined);
 }finally{await f.dispose();}});
 

@@ -32131,7 +32131,7 @@ function ReaderBody({ useTabInfo }) {
       });
     };
   }, [key2, refresh]);
-  const translation = state.translation, tid = translation?.id;
+  const translation = state.translation, tid = translation?.id, readable = translation?.status === "completed" ? translation : state.completedTranslation, readingId = readable?.id;
   (0, import_react5.useEffect)(() => {
     if (!tid) return;
     let alive = true, timer;
@@ -32152,19 +32152,19 @@ function ReaderBody({ useTabInfo }) {
     };
   }, [key2, tid]);
   (0, import_react5.useEffect)(() => {
-    if (mode === "original" || translation?.status !== "completed" || zhDoc && openedZh.current?.translation?.id === tid) return;
+    if (mode === "original" || !readingId || zhDoc && openedZh.current?.translation?.id === readingId) return;
     let alive = true, task, range, opened, loaded = false;
     setError("");
     setBusy(true);
     void (async () => {
-      opened = await call("tasks_reader_open", { ...request, translationId: tid });
+      opened = await call("tasks_reader_open", { ...request, translationId: readingId });
       if (!alive) {
         await call("tasks_reader_close", { ...request, lease: opened.lease });
         return;
       }
       leases.current.add(opened.lease);
       openedZh.current = opened;
-      setState((old) => ({ ...old, translation: opened.translation }));
+      setState((old) => ({ ...old, completedTranslation: opened.translation, translation: old.translation?.id === readingId ? opened.translation : old.translation }));
       range = makeRange(request, opened, runtime3.call);
       range.onError = onError;
       task = pdfTypes().getDocument({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, ...pdfResources(call) });
@@ -32187,7 +32187,7 @@ function ReaderBody({ useTabInfo }) {
         setBusy(false);
       }
     };
-  }, [key2, tid, mode === "original", translation?.status]);
+  }, [key2, readingId, mode === "original"]);
   const changeMode = (next) => {
     setMode(next);
     if (ownsFullscreen.current && document.fullscreenElement) void document.exitFullscreen().catch(() => {
@@ -32227,7 +32227,7 @@ function ReaderBody({ useTabInfo }) {
     let created;
     try {
       created = await call("tasks_translation_create", { ...request, improve: improve === true });
-      setState((old) => ({ ...old, translation: created.translation }));
+      setState((old) => ({ ...old, completedTranslation: old.translation?.status === "completed" ? old.translation : old.completedTranslation, translation: created.translation }));
       if (created.translation.status === "completed") setMode("zh");
       else if (!created.reused) await runtime3.translate(request, created.translation.id);
       else setError("任务正在进行，请查看翻译对话。");
@@ -32249,7 +32249,7 @@ function ReaderBody({ useTabInfo }) {
       scrollFrame.current = 0;
       const { side: side2, flow: flow2 } = scrollWork.current, p = position(flow2);
       anchors.current[side2] = p;
-      setPages((old) => old[side2] === p.page ? old : { ...old, [side2]: p.page });
+      setPages((old) => mode === "dual" && linked ? old.original === p.page && old.zh === p.page ? old : { original: p.page, zh: p.page } : old[side2] === p.page ? old : { ...old, [side2]: p.page });
       if (mode === "dual" && linked) {
         const other = side2 === "original" ? "zh" : "original";
         anchors.current[other] = p;
@@ -32267,7 +32267,7 @@ function ReaderBody({ useTabInfo }) {
     jump(side === "zh" ? right.current : left.current, n);
     if (linked && mode === "dual") jump(side === "zh" ? left.current : right.current, n);
   };
-  const save = async (side) => downloadVerifiedBinary(side === "original" ? `/api/lab-artifacts?kind=${request.kind}&bundleId=${encodeURIComponent(request.bundleId)}` : `/api/lab-artifacts?kind=translation&material=${request.kind}&projectId=${encodeURIComponent(request.projectId)}&bundleId=${encodeURIComponent(request.bundleId)}&translationId=${encodeURIComponent(tid)}`);
+  const save = async (side) => downloadVerifiedBinary(side === "original" ? `/api/lab-artifacts?kind=${request.kind}&bundleId=${encodeURIComponent(request.bundleId)}` : `/api/lab-artifacts?kind=translation&material=${request.kind}&projectId=${encodeURIComponent(request.projectId)}&bundleId=${encodeURIComponent(request.bundleId)}&translationId=${encodeURIComponent(readingId)}`);
   const search = async () => {
     const side = mode === "zh" ? "zh" : "original", pdf = side === "zh" ? zhDoc : doc;
     if (!pdf || !query.trim()) return;
@@ -32293,7 +32293,7 @@ function ReaderBody({ useTabInfo }) {
     "div",
     { ref: mode === "dual" ? fullscreen : void 0, className: "ib-reader" + (mode === "dual" ? " ib-reader-fullscreen" : ""), "data-reader-mode": mode },
     h("header", { className: "ib-reader-header" }, h("span", { title: state.title }, state.title), mode === "dual" ? button("退出全屏", exitDual) : null),
-    h("nav", { className: "ib-reader-controls" }, button("原文", () => changeMode("original"), false, mode === "original"), button("中文", () => changeMode("zh"), translation?.status !== "completed", mode === "zh"), button("双语对照", dual, translation?.status !== "completed", mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", () => void translate(), busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), translation?.status === "completed" ? button("优化译文", () => void translate(true), busy, false, "联合复核跨栏/跨页段落并翻译图片文字，保留已有 PDF") : null, ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
+    h("nav", { className: "ib-reader-controls" }, button("原文", () => changeMode("original"), false, mode === "original"), button("中文", () => changeMode("zh"), !readingId, mode === "zh"), button("双语对照", dual, !readingId, mode === "dual"), button(translation?.status === "completed" ? "阅读译文" : ["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", () => void translate(), busy || state.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)), translation?.status === "completed" ? button("优化译文", () => void translate(true), busy, false, "联合复核跨栏/跨页段落并翻译图片文字，保留已有 PDF") : null, ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
       try {
         const result = await call("tasks_translation_cancel", { ...request, translationId: tid });
         setState((old) => ({ ...old, translation: result.translation }));
@@ -32305,7 +32305,7 @@ function ReaderBody({ useTabInfo }) {
     } }), button("查找", () => void search().catch(onError), !doc)),
     error ? h("div", { className: "ib-reader-error", role: "alert" }, error) : null,
     translation && translation.status !== "completed" ? h("small", { className: "ib-reader-status" }, translation.stage + (translation.totalBlocks ? ` · ${translation.completedBlocks ?? 0}/${translation.totalBlocks} 段` : "") + (translation.error ? " · " + translation.error : "")) : null,
-    (translation?.pdfWarnings ?? []).length ? h("small", { className: "ib-reader-status" }, translation.pdfWarnings.join("；")) : null,
+    (readable?.pdfWarnings ?? []).length ? h("small", { className: "ib-reader-status" }, readable.pdfWarnings.join("；")) : null,
     state.format === "pdf" ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, mode === "dual" ? h(import_react5.default.Fragment, null, pane("original"), pane("zh")) : pane(mode === "zh" ? "zh" : "original")) : null,
     state.format === "zip" ? h("div", { className: "ib-reader-files" }, button("保存 SI", () => void save("original").catch(onError)), h("p", null, "SI 文件列表"), (state.entries ?? []).map((entry) => h("div", { key: entry.index }, entry.name, " · " + Math.round(entry.bytes / 1024) + " KB", entry.pdf ? button("阅读 PDF", async () => {
       try {
