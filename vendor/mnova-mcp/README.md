@@ -66,9 +66,18 @@ uv run python tests/stdio_probe.py
 ## MCP 工具
 
 - `mnova_status`
+- `mnova_probe_runtime`
 - `mnova_process_1d`
 - `mnova_prepare_structure_1d`
 - `mnova_apply_assignments_1d`
+
+Windows 使用 [ShellExecuteExW](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw) 启动已安装的 Mnova；启动失败时直接报错，不退回 `subprocess.run`。参数按 Windows 命令行规则传递，任务通过 JSON 响应完成。宿主启动不捕获 stdout/stderr，`mnova.launch.json` 会明确记录启动通道和是否捕获日志，不能把空日志解释为没有错误。
+
+`mnova_probe_runtime(input_path)` 提供只读诊断：要求 5 秒内 `nmr_type == "object"` 且 `open_fid == true`，不处理 FID、不保存 Mnova 文档或导出谱图。处理和 prepare 自动执行同样的 FID 探针；apply 在同一次启动中检查 NMR 模块及 `prepared.mnova` 是否能打开，使用 `open_document` 记录结果。任一检查失败或超时，立即停止进入后续处理；被转交给已有 GUI 的超时请求也会被桥接脚本拒绝。
+
+任务保留 `startup-probe.json`，只记录实际结果。探针失败不能证明某个 DLL、IPC 或许可文件是根因。此启动修复不更改 Mnova 的授权、身份或安装配置。
+
+打包时必须使用由当前 `vendor/mnova-mcp` 源码构建的捆绑 Python；只更新 vendor/skill 目录不足以更新已安装的 `mnova_mcp` 模块。Electron 安装器准备阶段会拒绝携带旧模块的 Python 资源。
 
 结构指认采用两阶段流程：
 

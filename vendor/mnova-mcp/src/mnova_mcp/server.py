@@ -9,6 +9,7 @@ from .runner import (
     apply_assignments_1d,
     prepare_structure_1d,
     process_1d,
+    probe_runtime,
     status,
 )
 
@@ -21,6 +22,9 @@ mcp = FastMCP(
         "structure file. Build an auditable assignment-plan JSON from the returned "
         "atom indices and multiplet UUIDs, then call mnova_apply_assignments_1d. "
         "Never overwrite raw data; keep low-confidence assignments unresolved by default."
+        " Windows tasks use the shell launch channel and a mandatory startup probe."
+        " Use mnova_probe_runtime for a read-only five-second diagnosis;"
+        " require nmr_type='object' and open_fid=true, and stop after a probe failure."
     ),
 )
 
@@ -29,6 +33,19 @@ mcp = FastMCP(
 def mnova_status() -> dict[str, Any]:
     """Check MestReNova, bridge readiness, supported formats, and workflow."""
     return status()
+
+
+@mcp.tool(name="mnova_probe_runtime")
+def mnova_probe_runtime(input_path: str) -> dict[str, Any]:
+    """Read-only startup probe: require nmr_type='object' and open_fid=true.
+
+    Uses the same launch channel as prepare/apply and does not process the data
+    or save a Mnova document. A failed probe stops the workflow immediately.
+    """
+    try:
+        return probe_runtime(input_path)
+    except MnovaError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 @mcp.tool(name="mnova_process_1d")

@@ -12,6 +12,13 @@ const repo=fileURLToPath(new URL('../..',import.meta.url));
 const arg=name=>{const index=process.argv.indexOf(name);assert.ok(index>=0,name+' required');return resolve(process.argv[index+1]);};
 const next=arg('--next-root'),python=arg('--python-resource'),archives=arg('--archives'),output=arg('--output');
 assert.equal(process.platform,'win32');assert.equal(process.arch,'x64');
+// A reused scientific Python resource must include the local Mnova fixes.
+// Vendor/skill copying alone does not update the installed Python module.
+for(const file of ['__init__.py','__main__.py','config.py','runner.py','server.py','assets/bridge.qs']){
+ const normalize=path=>readFileSync(path,'utf8').replace(/^\uFEFF/,'').replaceAll('\r\n','\n');
+ assert.ok(normalize(join(python,'Lib/site-packages/mnova_mcp',file))===normalize(join(repo,'vendor/mnova-mcp/src/mnova_mcp',file)),
+  'Bundled Mnova MCP is stale: '+file+'. Rebuild the scientific Python resource from the current vendor source before packing.');
+}
 assert.equal(execFileSync('git',['-C',next,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),'838ba60fd79362087c0a0d134efee671c284786a');
 const runtime=join(next,'dsh-desktop-next'),require=createRequire(join(runtime,'package.json'));
 const nextManifest=JSON.parse(readFileSync(join(runtime,'package.json')));

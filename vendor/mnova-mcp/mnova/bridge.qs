@@ -770,8 +770,47 @@ function runJob(requestPath) {
     try {
         request = JSON.parse(readText(requestPath));
         request.operation = request.operation || "process_1d";
-        documentWindow = new DocumentWindow(Application.mainWindow.newWindow());
-        if (request.operation === "process_1d") {
+        var startupProbe = {nmr_type: typeof nmr};
+        var openingDocument = request.operation === "apply_assignments_1d";
+        var openedKey = openingDocument ? "open_document" : "open_fid";
+        startupProbe[openedKey] = false;
+        var probeExpired = function () {
+            return request.startup_deadline_ms &&
+                (new Date()).getTime() >= request.startup_deadline_ms;
+        };
+        if (startupProbe.nmr_type === "object" && !probeExpired()) {
+            documentWindow = new DocumentWindow(Application.mainWindow.newWindow());
+            try {
+                startupProbe[openedKey] = serialization.open(
+                    openingDocument ? request.prepared_mnova_path : request.input_path
+                ) === true;
+            } catch (probeError) {
+                startupProbe.error = String(probeError);
+            }
+        }
+        startupProbe.expired = !!probeExpired();
+        writeText(request.startup_probe_path, asciiJson(startupProbe, 2));
+        if (startupProbe.expired) {
+            throw new Error("Mnova read-only startup probe exceeded 5 seconds; processing stopped");
+        }
+        if (startupProbe.nmr_type !== "object" || startupProbe[openedKey] !== true) {
+            throw new Error("Mnova runtime probe failed: typeof nmr=" +
+                startupProbe.nmr_type + "; " + openedKey + "=" + startupProbe[openedKey]);
+        }
+        if (request.operation === "probe_runtime") {
+            response = {
+                schema_version: "1.1", status: "ok", operation: "probe_runtime",
+                job_id: request.job_id, nmr_type: startupProbe.nmr_type,
+                open_fid: startupProbe.open_fid
+            };
+        } else {
+            // Keep the actual processing/import sequence in a fresh document.
+            documentWindow.close();
+            documentWindow = new DocumentWindow(Application.mainWindow.newWindow());
+        }
+        if (request.operation === "probe_runtime") {
+            /* Read-only probe: do not process, save a document, or export spectra. */
+        } else if (request.operation === "process_1d") {
             response = process1D(request, warnings);
         } else if (request.operation === "prepare_structure_1d") {
             response = prepareStructure1D(request, warnings);
@@ -781,10 +820,9 @@ function runJob(requestPath) {
             throw new Error("Unsupported operation: " + request.operation);
         }
 
-        writeText(
-            request.output_dir + "/analysis.json",
-            asciiJson(response, 2)
-        );
+        if (request.operation !== "probe_runtime") {
+            writeText(request.output_dir + "/analysis.json", asciiJson(response, 2));
+        }
         writeText(request.response_path, asciiJson(response, 2));
         if (documentWindow) {
             documentWindow.close();

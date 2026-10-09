@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,141 @@ ASSIGNMENT_LABEL_RE = re.compile(r"^[a-z]+$")
 
 class MnovaError(RuntimeError):
     """A user-facing Mnova bridge error."""
+
+
+class _WindowsShellProcess:
+    """Launch the installed GUI through the Windows shell, without elevation."""
+
+    def __init__(self, command: list[str], cwd: Path):
+        from ctypes import wintypes
+
+        class ExecuteInfo(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD), ("fMask", wintypes.ULONG),
+                ("hwnd", wintypes.HWND), ("lpVerb", wintypes.LPCWSTR),
+                ("lpFile", wintypes.LPCWSTR), ("lpParameters", wintypes.LPCWSTR),
+                ("lpDirectory", wintypes.LPCWSTR), ("nShow", ctypes.c_int),
+                ("hInstApp", wintypes.HINSTANCE), ("lpIDList", ctypes.c_void_p),
+                ("lpClass", wintypes.LPCWSTR), ("hkeyClass", wintypes.HKEY),
+                ("dwHotKey", wintypes.DWORD), ("hIcon", wintypes.HANDLE),
+                ("hProcess", wintypes.HANDLE),
+            ]
+
+        shell = ctypes.WinDLL("shell32", use_last_error=True)
+        shell.ShellExecuteExW.argtypes = [ctypes.POINTER(ExecuteInfo)]
+        shell.ShellExecuteExW.restype = wintypes.BOOL
+        ole = ctypes.WinDLL("ole32", use_last_error=True)
+        ole.CoInitializeEx.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+        ole.CoInitializeEx.restype = ctypes.c_long
+        initialized = ole.CoInitializeEx(None, 0x2 | 0x4) in (0, 1)
+        info = ExecuteInfo()
+        info.cbSize = ctypes.sizeof(info)
+        info.fMask = 0x40 | 0x100  # NOCLOSEPROCESS | NOASYNC
+        info.lpVerb = "open"
+        info.lpFile = command[0]
+        info.lpParameters = subprocess.list2cmdline(command[1:])
+        info.lpDirectory = str(cwd)
+        info.nShow = 0  # background bridge; keep the user's foreground app
+        try:
+            if not shell.ShellExecuteExW(ctypes.byref(info)):
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            if initialized:
+                ole.CoUninitialize()
+        self.handle = info.hProcess
+        self.kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        self.kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        self.kernel.WaitForSingleObject.restype = wintypes.DWORD
+        self.kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        self.kernel.GetExitCodeProcess.restype = wintypes.BOOL
+        self.kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        self.kernel.TerminateProcess.restype = wintypes.BOOL
+        self.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        self.kernel.CloseHandle.restype = wintypes.BOOL
+
+    def poll(self) -> int | None:
+        # DDE may hand the request to an existing GUI without returning a handle.
+        if not self.handle:
+            return None
+        from ctypes import wintypes
+        state = self.kernel.WaitForSingleObject(self.handle, 0)
+        if state == 258:  # WAIT_TIMEOUT
+            return None
+        if state != 0:
+            raise ctypes.WinError(ctypes.get_last_error())
+        code = wintypes.DWORD()
+        if not self.kernel.GetExitCodeProcess(self.handle, ctypes.byref(code)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return code.value
+
+    def terminate(self) -> None:
+        # Never terminate by executable name or touch a reused user GUI.
+        if self.handle and self.poll() is None:
+            self.kernel.TerminateProcess(self.handle, 1)
+            self.kernel.WaitForSingleObject(self.handle, 1000)
+
+    def close(self) -> None:
+        if self.handle:
+            self.kernel.CloseHandle(self.handle)
+            self.handle = None
+
+
+def _read_complete_json(path: Path) -> dict[str, Any] | None:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+
+
+def _require_runtime_probe(probe: dict[str, Any], operation: str) -> None:
+    if probe.get("expired") is True:
+        raise MnovaError("Mnova 在 5 秒内未完成只读启动探针，已停止处理")
+    opened_key = "open_document" if operation == "apply_assignments_1d" else "open_fid"
+    if probe.get("nmr_type") != "object" or probe.get(opened_key) is not True:
+        raise MnovaError(
+            "Mnova 启动探针失败，已停止处理："
+            f"typeof nmr={probe.get('nmr_type')!r}; "
+            f"{opened_key}={probe.get(opened_key)!r}。"
+            "请检查 Mnova 的正常启动与 NMR 模块授权。"
+        )
+
+
+def _run_windows_shell(
+    command: list[str], *, executable: Path, response_path: Path,
+    probe_path: Path, operation: str, timeout: int,
+) -> subprocess.CompletedProcess:
+    started = time.monotonic()
+    process = _WindowsShellProcess(command, executable.parent)
+    probe_deadline = started + min(5, timeout)
+    deadline = started + timeout
+    ready = False
+    completed = False
+    try:
+        while True:
+            if not ready:
+                if time.monotonic() >= probe_deadline:
+                    raise MnovaError("Mnova 在 5 秒内未完成只读启动探针，已停止处理")
+                probe = _read_complete_json(probe_path)
+                if probe is not None:
+                    _require_runtime_probe(probe, operation)
+                    ready = True
+            response = _read_complete_json(response_path)
+            if ready and response is not None:
+                completed = True
+                return subprocess.CompletedProcess(command, process.poll() or 0, "", "")
+            code = process.poll()
+            if code not in (None, 0):
+                raise MnovaError(f"Mnova 宿主启动任务提前退出：exit_code={code}")
+            if time.monotonic() >= deadline:
+                raise MnovaError(f"Mnova 任务超过 {timeout} 秒，已停止处理")
+            time.sleep(0.05)
+    finally:
+        try:
+            if not completed:
+                process.terminate()
+        finally:
+            process.close()
 
 
 def _is_within(path: Path, root: Path) -> bool:
@@ -313,6 +449,9 @@ def status(settings: Settings | None = None) -> dict[str, Any]:
         "mnova_version": _file_version(executable) if executable else None,
         "bridge_script": str(settings.bridge_script),
         "bridge_script_exists": settings.bridge_script.is_file(),
+        "launch_channel": "windows-shell" if os.name == "nt" else "subprocess",
+        "runtime_probe_required": True,
+        "runtime_probe_timeout_seconds": 5,
         "project_root": str(settings.project_root),
         "output_root": str(settings.output_root),
         "supported_scope": (
@@ -336,8 +475,10 @@ def _run_request(
 ) -> dict[str, Any]:
     request_path = output / "job.request.json"
     response_path = output / "job.response.json"
+    probe_path = output / "startup-probe.json"
     request["output_dir"] = str(output)
     request["response_path"] = str(response_path)
+    request["startup_probe_path"] = str(probe_path)
     request_path.write_text(
         # Mnova 15's QtScript TextStream can ignore the requested codec on
         # some Windows builds. ASCII JSON escapes keep all paths reversible.
@@ -360,26 +501,37 @@ def _run_request(
     shutil.copy2(request_path, runtime_request)
 
     lock_path = settings.output_root / ".mnova.lock"
+    command = [str(executable), str(runtime_bridge), "-sf", f"runJob,{runtime_request}", "-w"]
     try:
         with FileLock(str(lock_path), timeout=settings.timeout_seconds):
-            completed = subprocess.run(
-                [
-                    str(executable),
-                    str(runtime_bridge),
-                    "-sf",
-                    f"runJob,{runtime_request}",
-                    "-w",
-                ],
-                cwd=str(executable.parent),
-                capture_output=True,
-                text=True,
-                timeout=settings.timeout_seconds,
-                check=False,
-            )
+            # A shell request can be forwarded to an existing GUI. Its bridge
+            # must also refuse a late request, even without an owned handle.
+            request["startup_deadline_ms"] = int((time.time() + min(5, settings.timeout_seconds)) * 1000)
+            request_path.write_text(json.dumps(request, ensure_ascii=True, indent=2), encoding="ascii")
+            shutil.copy2(request_path, runtime_request)
+            if os.name == "nt":
+                completed = _run_windows_shell(
+                    command, executable=executable, response_path=response_path,
+                    probe_path=probe_path, operation=request["operation"],
+                    timeout=settings.timeout_seconds,
+                )
+            else:
+                completed = subprocess.run(
+                    command, cwd=str(executable.parent), capture_output=True,
+                    text=True, timeout=settings.timeout_seconds, check=False,
+                )
     except FileLockTimeout as exc:
         raise MnovaError("另一个 Mnova 任务仍在运行，等待锁超时") from exc
     except subprocess.TimeoutExpired as exc:
         raise MnovaError(f"Mnova 任务超过 {settings.timeout_seconds} 秒") from exc
+    except OSError as exc:
+        raise MnovaError(f"Mnova 宿主启动失败：{exc}") from exc
+
+    (output / "mnova.launch.json").write_text(json.dumps({
+        "channel": "windows-shell" if os.name == "nt" else "subprocess",
+        "stdout_stderr_captured": os.name != "nt",
+        "runtime_probe": _read_complete_json(probe_path),
+    }, ensure_ascii=True, indent=2), encoding="utf-8")
 
     (output / "mnova.stdout.log").write_text(
         completed.stdout or "", encoding="utf-8"
@@ -400,6 +552,19 @@ def _run_request(
         message = response.get("error") or completed.stderr[-1000:] or "Mnova 任务失败"
         raise MnovaError(message)
     return response
+
+
+def probe_runtime(input_path: str, settings: Settings | None = None) -> dict[str, Any]:
+    """Open an input read-only; no processing, assignment, or document export."""
+    settings, executable = _ready(settings)
+    dataset, input_root = resolve_dataset(input_path, settings)
+    job_id = uuid.uuid4().hex
+    output = _make_output_dir(None, settings, input_root, job_id)
+    request = {
+        "schema_version": "1.1", "operation": "probe_runtime",
+        "job_id": job_id, "input_path": str(dataset),
+    }
+    return _run_request(request=request, output=output, settings=settings, executable=executable)
 
 
 def _ready(settings: Settings | None) -> tuple[Settings, Path]:
