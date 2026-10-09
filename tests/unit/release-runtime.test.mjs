@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { extractPackageArchive, shareKernelModules, refreshProductModules } from '../../electron-next/release-runtime.mjs';
+import { extractPackageArchive, shareKernelModules, refreshProductModules, initializeRelease, compatibleReleaseUpgrade } from '../../electron-next/release-runtime.mjs';
+import { load } from 'js-yaml';
 
 function archive(name,content,type='0'){
  const bytes=Buffer.from(content),header=Buffer.alloc(512);header.write(name);header.write(bytes.length.toString(8).padStart(11,'0'),124);header.write(type,156);
@@ -65,5 +66,49 @@ test('same-version product refresh backs up stale packages and preserves project
   assert.deepEqual(refreshProductModules({home,resources,ledger:{packages}}),{updated:[],backup:null});
   const invalid={packages:packages.map((item,i)=>i===0?{...item,sha256:'corrupt'}:item)};
   assert.throws(()=>refreshProductModules({home,resources,ledger:invalid}),/integrity/);assert.equal(JSON.parse(readFileSync(join(home,'profiles/ibm-lab/node_modules/dsh-lab-agent/package.json'))).build,'new');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('cross-version upgrades require a declared source and the same NEXT/kernel',()=>{
+ const current={ibm:'0.5.8-rc.1',kernel:'0.2.0-rc.2',nextCommit:'pinned-next'};
+ const release={...current,ibm:'0.6.0-rc.1',upgradeFrom:['0.5.8-rc.1']};
+ assert.equal(compatibleReleaseUpgrade(current,release),true);
+ assert.equal(compatibleReleaseUpgrade(current,{...release,upgradeFrom:[]}),false);
+ assert.equal(compatibleReleaseUpgrade(current,{...release,kernel:'another-kernel'}),false);
+ assert.equal(compatibleReleaseUpgrade(current,{...release,nextCommit:'another-next'}),false);
+ assert.equal(compatibleReleaseUpgrade(release,current),false);
+});
+
+test('0.5.8 Electron data upgrades to 0.6.0 with package backups and preserved user data',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'ibm-release-upgrade-')),home=join(dir,'home'),resources=join(dir,'resources');
+ const names=['dsh-lab-agent',...['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name)];
+ const profile=join(home,'profiles/ibm-lab');
+ try{
+  mkdirSync(join(profile,'node_modules'),{recursive:true});mkdirSync(join(resources,'archives'),{recursive:true});mkdirSync(join(resources,'python'),{recursive:true});
+  writeFileSync(join(resources,'python/python.exe'),'fixture');
+  const packages=names.map(name=>{
+   const installed=join(profile,'node_modules',name);mkdirSync(installed,{recursive:true});writeFileSync(join(installed,'package.json'),JSON.stringify({name,version:'0.5.8-rc.1'}));
+   const bytes=archive('package/package.json',JSON.stringify({name,version:'0.6.0-rc.1'})),file=name+'-0.6.0-rc.1.tgz';writeFileSync(join(resources,'archives',file),bytes);
+   return {name,version:'0.6.0-rc.1',file,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+  });
+  const current={ibm:'0.5.8-rc.1',kernel:'0.2.0-rc.2',nextCommit:'pinned-next',initializedAt:'2026-10-02T00:00:00.000Z'};
+  writeFileSync(join(home,'ibm-release.json'),JSON.stringify(current));
+  writeFileSync(join(home,'ibm-plugin-payload.json'),JSON.stringify({packages:Object.fromEntries(names.map(name=>[name,'old']))}));
+  writeFileSync(join(resources,'release.json'),JSON.stringify({...current,ibm:'0.6.0-rc.1',upgradeFrom:['0.5.8-rc.1']}));
+  writeFileSync(join(resources,'archives/release-archives.json'),JSON.stringify({packages}));
+  writeFileSync(join(profile,'package.json'),JSON.stringify({dependencies:{'my-plugin':'1.2.3'},dsh:{profile:{bundles:['my-plugin','dsh-lab-ui']}}}));
+  writeFileSync(join(profile,'pnpm-workspace.yaml'),'packages: []\noverrides:\n  my-plugin: 1.2.3\n');
+  const sentinels=new Map([[join(profile,'cordis.patch.yml'),'custom profile configuration'],[join(home,'project.json'),'retained project and conversation'],[join(home,'desktop-pet.json'),'saved quote and position']]);
+  for(const [path,value] of sentinels)writeFileSync(path,value);
+  class Profiles { ensure(){throw Error('Existing profile must be preserved');} }
+  const result=initializeRelease({home,resources,electron:process.execPath,profiles:Profiles});
+  assert.deepEqual(result.plugins.updated,names);assert.equal(result.initialized,false);
+  for(const name of names){assert.equal(JSON.parse(readFileSync(join(profile,'node_modules',name,'package.json'))).version,'0.6.0-rc.1');assert.equal(JSON.parse(readFileSync(join(result.plugins.backup,'previous',name,'package.json'))).version,'0.5.8-rc.1');}
+  const manifest=JSON.parse(readFileSync(join(profile,'package.json'))),workspace=load(readFileSync(join(profile,'pnpm-workspace.yaml'),'utf8'));
+  assert.equal(manifest.dependencies['my-plugin'],'1.2.3');assert.deepEqual(manifest.dsh.profile.bundles,['my-plugin','dsh-lab-ui']);assert.equal(workspace.overrides['my-plugin'],'1.2.3');
+  for(const item of packages){assert.ok(manifest.dependencies[item.name].endsWith(item.file));assert.equal(workspace.overrides[item.name],manifest.dependencies[item.name]);}
+  for(const [path,value] of sentinels)assert.equal(readFileSync(path,'utf8'),value);
+  const marker=JSON.parse(readFileSync(join(home,'ibm-release.json')));assert.equal(marker.ibm,'0.6.0-rc.1');assert.equal(marker.upgradedFrom,'0.5.8-rc.1');assert.equal(marker.initializedAt,current.initializedAt);
+  assert.deepEqual(initializeRelease({home,resources,electron:process.execPath,profiles:Profiles}).plugins.updated,[]);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });

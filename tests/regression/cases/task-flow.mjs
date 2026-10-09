@@ -33,6 +33,7 @@ export default {
 			vendorDir: join(repoRoot, "vendor", "nature-skills"),
 			lockFile: join(repoRoot, "vendor.lock.json"),
 			includePython: false,
+			officePdfFixture: true,
 			extraRows: [
 				{ id: "lab-goal-profiles", name: "dsh-lab-agent/goal-profiles", inject: ["storageDomain"] },
 				{ id: "lab-note-templates", name: "dsh-lab-agent/note-templates", inject: ["storageDomain"] },

@@ -11,6 +11,35 @@ import { buildDocx } from "../fixtures/office-builder.mjs";
 import { buildPptx } from "../fixtures/pptx-builder.mjs";
 import { resolveDesktopArtifact } from "../../src/runtime/desktop-artifacts.js";
 
+test('browser actions keep separate leases for two conversations in the same project and never focus the older conversation',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'ibm-browser-session-'));let handle,uninstall,current='old-session';
+ const windows=new Map(),calls=[];
+ try{
+  handle=await bootLite({storageRoot:join(dir,'storage'),coreOnly:true,includePython:false,extraRows:[
+   {id:'runtime',name:'dsh-lab-agent/runtime'},{id:'desktop',name:'dsh-lab-agent/scientific-desktop'},
+   {id:'typert',name:'@deepseek-ai/dsh-typert-registry'},{id:'gateway',name:'@deepseek-ai/dsh-api-gateway'},{id:'remote',name:'dsh-lab-agent/remote'}
+  ]});
+  const {ctx}=handle;await ctx.ibmCore.createProject({id:'same-project',name:'同课题两个对话'});
+  ctx.ibmScientificDesktop.broker={dispose:async()=>{},call:async(method,input)=>{
+   calls.push({method,input});
+   if(method==='open'){const lease=randomUUID();windows.set(lease,input);return {lease};}
+   if(method==='state'){if(!windows.has(input.lease))throw Error('scientific browser lease is closed');return {lease:input.lease};}
+   if(method==='focus')return {shown:true};
+   if(method==='close'){windows.delete(input.lease);return {closed:true};}
+   throw Error('Unexpected operation: '+method);
+  }};
+  uninstall=installDesktopClient((method,args)=>ctx.typertGateway.invoke({namespace:'lab',method,args:args?.request?{request:args.request}:{}}),()=>current);
+  setDesktopProject('same-project');
+  const old=await nativeBrowser('open');current='new-session';const fresh=await nativeBrowser('open');
+  assert.notEqual(fresh.lease,old.lease);assert.equal(windows.get(fresh.lease).sessionId,'new-session');
+  calls.length=0;assert.equal((await nativeBrowser('open')).lease,fresh.lease);
+  assert.ok(calls.some(row=>row.method==='focus'&&row.input.lease===fresh.lease));
+  assert.equal(calls.some(row=>row.method==='focus'&&row.input.lease===old.lease),false);
+  await nativeBrowser('close');assert.equal((await nativeBrowser('status')).window,null);
+  current='old-session';assert.equal((await nativeBrowser('status')).window.lease,old.lease);
+ }finally{uninstall?.();await handle?.dispose();await rm(dir,{recursive:true,force:true});}
+});
+
 test("client native actions resolve registered bytes, deny raw paths and teardown staged copies; closed windows stay closed", async () => {
  const dir = await mkdtemp(join(tmpdir(), "ibm-native-ui-")); let handle, uninstall;
  const windows = new Map(), staged = new Map(), calls = [];

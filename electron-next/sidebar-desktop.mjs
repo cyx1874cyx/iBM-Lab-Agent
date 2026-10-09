@@ -62,7 +62,7 @@ export class DesktopBrowserGuests extends NextGuests {
    const [id,row]=pair;
    const lease=this.runtime.attachGuest(id,guest,row.workspace,row.partition,()=>this.revealGuest(window,owner,guest,row));
    const request=[...this.requests.values()].find(request=>!request.focusContentsId&&request.owner===owner&&workspaceKey(request.workspace)===workspaceKey(row.workspace));
-   if(request){row.projectId=request.projectId;row.sessionIds=request.sessionIds;}
+   if(request){row.projectId=request.projectId;row.sessionIds=request.sessionIds;row.sessionId=request.sessionId;lease.sessionId=request.sessionId;}
    if(request){this.managed.add(id);guest.on('did-start-navigation',(_event,url,_inPlace,mainFrame)=>{
     if(!mainFrame||url!==request.url||request.settled)return;
     request.settled=true;this.requests.delete(request.id);clearTimeout(request.timer);
@@ -79,18 +79,18 @@ export class DesktopBrowserGuests extends NextGuests {
    guest.once('destroyed',()=>this.managed.delete(lease.id));
   }));
  }
- notify(request,owner) {request.owner=owner;owner.send(CHANNEL,{id:request.id,workspace:request.workspace,url:request.url,projectId:request.projectId,sessionIds:request.sessionIds??[],focusContentsId:request.focusContentsId});}
+ notify(request,owner) {request.owner=owner;owner.send(CHANNEL,{id:request.id,workspace:request.workspace,url:request.url,projectId:request.projectId,sessionId:request.sessionId,sessionIds:request.sessionIds??[],focusContentsId:request.focusContentsId});}
  revealGuest(window,owner,guest,row){
   window.show();window.focus();
   return new Promise((resolve,reject)=>{
-   const request={id:randomUUID(),owner,workspace:row.workspace,projectId:row.projectId,sessionIds:row.sessionIds,focusContentsId:guest.id,resolve,reject};
+   const request={id:randomUUID(),owner,workspace:row.workspace,projectId:row.projectId,sessionId:row.sessionId,sessionIds:row.sessionIds,focusContentsId:guest.id,resolve,reject};
    request.timer=setTimeout(()=>{this.requests.delete(request.id);reject(Error('文献侧栏未显示，请进入对应课题对话后重试'));},15000);
    this.requests.set(request.id,request);this.notify(request,owner);
   });
  }
  async openGuest(input) {
   input={...input,url:new URL(input.url).href};
-  for(const id of this.managed){const row=this.runtime.leases.get(id);if(row&&!row.window.isDestroyed()&&workspaceKey(row.workspace)===workspaceKey(input.workspace)){await this.runtime.dispatch('focus',{lease:id});if(!input.blank)await this.runtime.dispatch('navigate',{lease:id,url:input.url});return this.runtime.dispatch('state',{lease:id});}}
+  for(const id of this.managed){const row=this.runtime.leases.get(id);if(row&&!row.window.isDestroyed()&&workspaceKey(row.workspace)===workspaceKey(input.workspace)&&(!input.sessionId||row.sessionId===input.sessionId)){await this.runtime.dispatch('focus',{lease:id});if(!input.blank)await this.runtime.dispatch('navigate',{lease:id,url:input.url});return this.runtime.dispatch('state',{lease:id});}}
   const owner=[...this.owners].find(owner=>!owner.isDestroyed()&&owner.getURL().startsWith('dsh-app://app/'));
   if(!owner)throw Error('请先打开应用主界面，再启动文献任务');
   return new Promise((resolve,reject)=>{

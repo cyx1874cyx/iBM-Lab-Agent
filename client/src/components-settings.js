@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { h } from "./h.js";
 import { Templates } from "./components-templates.js";
+import { normalizePetQuotes } from "../../src/runtime/pet-quotes.js";
 
 const providers = { core: "课题与记忆", runtime: "科研运行时", documents: "文档与模板", literature: "文献工作流", design: "实验设计", analysis: "科研分析", experimentTemplates: "实验计划模板", scientificDesktop: "科研浏览器与文件操作" };
 
@@ -36,9 +37,30 @@ function Diagnostics({ call }) {
 
 function DesktopPetSettings({call}) {
  const [state,setState]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const change=async visible=>{setBusy(true);try{setState(await call('desktop_pet',visible===undefined?{}:{visible}));setError('');}catch(reason){setError(reason.message);}finally{setBusy(false);}};
- useEffect(()=>{void change();},[call]);
- return h('div',{'data-ibm-pet-settings':true},h('h3',null,'科研桌面宠物'),h('p',null,'使用 iBM 人像 Logo 显示当前任务阶段。可拖动头像调整位置；下载总量已知时显示百分比，其余任务显示真实阶段。'),h('button',{className:'ib-btn',disabled:busy||!state,onClick:()=>void change(!state.visible)},state?.visible?'隐藏桌面宠物':'显示桌面宠物'),error?h('p',{role:'alert',className:'ib-error'},error):null,h('p',null,'支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。'));
+ const [quoteText,setQuoteText]=useState(''),[message,setMessage]=useState('');
+ const change=async(input={},syncQuotes=false)=>{
+  setBusy(true);setError('');setMessage('');
+  try{
+   const value=await call('desktop_pet',input);setState(value);
+   if(syncQuotes)setQuoteText((value.quotes??[]).join('\n'));
+   if(input.quotes)setMessage(`已保存 ${value.quotes.length} 条语录`);
+  }catch(reason){setError(reason.message);}finally{setBusy(false);}
+ };
+ useEffect(()=>{void change({},true);},[call]);
+ return h('div',{'data-ibm-pet-settings':true},
+  h('h3',null,'科研桌面宠物'),
+  h('p',null,'使用 iBM 人像 Logo 显示当前任务阶段。单击头像随机显示语录，拖动头像调整位置。'),
+  h('button',{className:'ib-btn',disabled:busy||!state,onClick:()=>void change({visible:!state.visible})},state?.visible?'隐藏桌面宠物':'显示桌面宠物'),
+  h('div',{className:'ib-card'},
+   h('h3',null,'宠物语录'),
+   h('div',{className:'ib-field'},
+    h('label',{htmlFor:'ibm-pet-quotes'},'语录内容（每行一条）'),
+    h('textarea',{id:'ibm-pet-quotes',rows:6,value:quoteText,disabled:busy||!state,placeholder:'在这里添加语录，每行一条',onChange:event=>{setQuoteText(event.target.value);setMessage('');}})),
+   h('p',null,'保存后立即生效。空行和重复语录会自动忽略；清空后保存可移除全部语录。'),
+   h('button',{className:'ib-btn','data-primary':true,disabled:busy||!state,onClick:()=>void change({quotes:normalizePetQuotes(quoteText.split(/\r\n|\r|\n/))},true)},busy?'处理中…':'保存语录'),
+   message?h('p',{role:'status'},message):null),
+  error?h('p',{role:'alert',className:'ib-error'},error):null,
+  h('p',null,'支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。'));
 }
 function PluginSettings({ call }) {
  const [tab, setTab] = useState("templates");

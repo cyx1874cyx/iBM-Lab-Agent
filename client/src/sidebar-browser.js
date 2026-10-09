@@ -1,4 +1,4 @@
-import { nativeBrowser, setDesktopProject } from './desktop-client.js';
+import { nativeBrowser, setDesktopProject, currentDesktopSessionId } from './desktop-client.js';
 const key=value=>String(value).replaceAll('\\','/').toLowerCase();
 /** Use NEXT's browser page/controller; no custom research WebView is mounted. */
 export function installSidebarBrowser(ctx) {
@@ -12,9 +12,11 @@ export function installSidebarBrowser(ctx) {
    const workspace=items.find(item=>key('cwd:'+item.path)===key(request.workspace));
    if(!workspace)throw Error('请先进入此课题的工作区对话，再打开文献浏览器');
    const sessionIds=workspace.sessionIds??[];
-   const sessionId=[...(request.sessionIds??[])].reverse().find(id=>sessionIds.includes(id))??sessionIds.at(-1);
+   const current=currentDesktopSessionId(ctx.sessions)??ctx.sidebarRight.mounted.getSnapshot();
+   if(request.sessionId&&!sessionIds.includes(request.sessionId))throw Error('发起文献任务的对话已不在此课题工作区，请从课题对话重新发起');
+   const sessionId=request.sessionId??(sessionIds.includes(current)?current:undefined)??[...(request.sessionIds??[])].reverse().find(id=>sessionIds.includes(id))??sessionIds.at(-1);
    if(!sessionId)throw Error('请先为此课题打开一个对话，再启动文献任务');
-   if(request.projectId)setDesktopProject(request.projectId);ctx.uiWorkspace.openSession(sessionId);
+   if(request.projectId)setDesktopProject(request.projectId);if(current!==sessionId)ctx.uiWorkspace.openSession(sessionId);
    // Opening a restored/off-screen Session precedes adoption of its sidebar
    // store. openTabIn silently ignores that gap; openTab validates readiness.
    let opened=false;
@@ -28,7 +30,7 @@ export function installSidebarBrowser(ctx) {
        if(view.checkVisibility()&&bounds.width>100&&bounds.height>100){bridge.visible(request.id,request.focusContentsId);opened=true;break;}
       }
      }else{ctx.sidebarRight.openTab('browser',{params:{url:request.url},revealIfOpened:false});opened=true;break;}
-    }catch{}
+    }catch{/* Wait until the session has adopted its sidebar store. */}
     await new Promise(done=>setTimeout(done,50));
    }
    if(!opened)throw Error('课题侧栏尚未就绪，请进入对应课题对话后重试');
@@ -49,7 +51,7 @@ export function installSidebarBrowser(ctx) {
     button.textContent=capture?.state==='uploading'?'正在归档…':capture?.state==='downloading'?'正在下载…':'归档 PDF';
     button.disabled=!capture||capture.state!=='waiting-download'||!/^application\/pdf(?:;|$)/i.test(state.window.documentType??'');button.title='将当前 PDF 下载并归档到课题';
    }
-  }catch{}
+  }catch{/* The optional browser may be unavailable between session switches. */}
   if(!disposed)timer=setTimeout(poll,1500);
  };
  void poll();

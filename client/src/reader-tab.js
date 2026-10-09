@@ -2,8 +2,9 @@ import {ReaderBody,readerStyles} from './reader-pdf-ui.js';
 import {h} from './h.js';
 import {downloadVerifiedBinary} from './lib.js';
 import workerSource from '../vendor/pdfjs/pdf.worker.mjs';
-let getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions,pdfModule;
+let getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions,pdfModule,viewerModule;
 export async function loadPdf(){pdfModule??=import('../vendor/pdfjs/pdf.mjs');({getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions}=await pdfModule);}
+export async function loadPdfViewer(){await loadPdf();return viewerModule??=import('../vendor/pdfjs/web/pdf_viewer.mjs');}
 const PREFIX='dsh-resource://lab-reader/',ID='lab-reader',KIND='lab-reader';
 let runtime=null,workerUrl;const preferredModes=new Map();
 export function setReaderRuntime(value){runtime=value;}

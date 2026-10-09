@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {pdfDocumentStatePlugin} from './pdfjs-document-state.mjs';
 /**
  * dsh-lab-agent client 单文件构建管线（Doc2 客户端工程化，rc1 起步；0.4.1 模块化）。
  *
@@ -25,6 +26,7 @@
 import { mkdir, readFile, writeFile, copyFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pdfViewerStylePlugin } from './pdfjs-viewer-style.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = resolve(here, "..", "client");
@@ -52,7 +54,7 @@ const built = await esbuild.build({
   minify: false,
   charset: "utf8",
   target: ["chrome110"],
-  plugins: [{ name: 'pdf-worker-source', setup(build) {
+  plugins: [pdfDocumentStatePlugin(),pdfViewerStylePlugin(),{ name: 'pdf-worker-source', setup(build) {
     build.onLoad({filter: /pdf\.worker\.mjs$/}, async args => ({contents: await readFile(args.path, 'utf8'), loader: 'text'}));
   } }],
   banner: { js: BANNER },

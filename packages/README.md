@@ -1,6 +1,6 @@
 # iBM P5 独立激活包
 
-六个 Host 领域包加一个 UI 包。构建版本均为 0.5.8-rc.1；开发验收使用固定 NEXT v2.0.17-next 和内核 0.2.0-rc.2。
+六个 Host 领域包加一个 UI 包。构建版本均为 0.6.0-rc.1；开发验收使用固定 NEXT v2.0.17-next 和内核 0.2.0-rc.2。
 
 | 包 | 必须先启用的包 |
 | --- | --- |
@@ -12,7 +12,7 @@
 | dsh-lab-analysis | core、runtime |
 | dsh-lab-ui | core |
 
-这些包拥有独立 DSH bundle patch、导出入口和依赖声明，统一依赖固定 `dsh-lab-agent@0.5.8-rc.1` 共享实现。安装该库不等于启用它的完整兼容 bundle；**不得与这七个分域 bundle 同时启用完整兼容 bundle**，否则会重复注册服务与存储域。当前没有把公共实现复制成七份，也没有实现物理资源瘦身。
+这些包拥有独立 DSH bundle patch、导出入口和依赖声明，统一依赖固定 `dsh-lab-agent@0.6.0-rc.1` 共享实现。安装该库不等于启用它的完整兼容 bundle；**不得与这七个分域 bundle 同时启用完整兼容 bundle**，否则会重复注册服务与存储域。当前没有把公共实现复制成七份，也没有实现物理资源瘦身。
 
 `node scripts/migration/build-domain-packages.mjs` 根据已冻结的领域组合及当前客户端生成包，`--check` 检查漂移。先执行客户端构建，再生成包；生成文件不手工编辑。包生成不修改 NEXT 或内核。
 

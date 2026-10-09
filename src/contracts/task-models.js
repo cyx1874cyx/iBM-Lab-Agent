@@ -268,6 +268,9 @@ export const readingReportSchema = z.object({
 	/** 暂存并供预览/下载的实际 Word 文件，不再在下载时临时重建。 */
 	docxPath: z.string().optional(),
 	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	previewPdfPath: z.string().optional(),
+	previewPdfSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	previewSourceSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	locatorMode: z.enum(LOCATOR_MODES).default("structure-grounded"),
 	auditReportPath: z.string().optional(),
 	audit: z
@@ -301,6 +304,9 @@ export const presentationRunSchema = z.object({
 	outlinePath: z.string().optional(),
 	pptxPath: z.string().optional(),
 	artifactSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	previewPdfPath: z.string().optional(),
+	previewPdfSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	previewSourceSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	speechNotesPath: z.string().optional(),
 	figureSourcesPath: z.string().optional(),
 	/** PPT 生成契约与模板符合性报告（按模板生成与校验）。 */

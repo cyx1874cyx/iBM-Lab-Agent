@@ -1,6 +1,6 @@
 {
   "name": "dsh-lab-design",
-  "version": "0.5.8-rc.1",
+  "version": "0.6.0-rc.1",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
@@ -21,11 +21,11 @@
     "cordis.patch.yml"
   ],
   "dependencies": {
-    "dsh-lab-agent": "0.5.8-rc.1"
+    "dsh-lab-agent": "0.6.0-rc.1"
   },
   "peerDependencies": {
-    "dsh-lab-core": "0.5.8-rc.1",
-    "dsh-lab-runtime": "0.5.8-rc.1"
+    "dsh-lab-core": "0.6.0-rc.1",
+    "dsh-lab-runtime": "0.6.0-rc.1"
   },
   "dsh": {
     "bundle": {

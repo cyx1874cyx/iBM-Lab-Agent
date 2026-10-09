@@ -57,8 +57,9 @@ test("下载工具只创建 Agent 操作任务，不再暴露旧自动点击模�
 	const tool = tools.find((item) => item.name === "lab_publisher_browser_download");
 	assert.ok(tool, "必须注册下载工具");
 	assert.equal(tool.parameters.properties.mode, undefined);
-	await tool.execute({ projectId: "proj-test", bundleId: "bundle-1", kind: "pdf" }, {});
+	await tool.execute({ projectId: "proj-test", bundleId: "bundle-1", kind: "pdf" }, { agent: { session: { id: "new-dialog" } } });
 	assert.equal(calls[0].mode, "ai");
+	assert.equal(calls[0].sessionId, "new-dialog", "下载任务必须记录发起工具调用的新对话");
 });
 
 test("旧壳保存工具已移除，原生 PDF 下载以异步操作提供", () => {

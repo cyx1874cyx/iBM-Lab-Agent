@@ -28,6 +28,7 @@ async function bootRemote() {
 		vendorDir: vendorRoot,
 		lockFile: fileURLToPath(new URL("../../vendor.lock.json", import.meta.url)),
 		includePython: false,
+		officePdfFixture: true,
 		extraRows: [
 			{ id: "typert", name: "@deepseek-ai/dsh-typert-registry" },
 			{ id: "api-gateway", name: "@deepseek-ai/dsh-api-gateway" },

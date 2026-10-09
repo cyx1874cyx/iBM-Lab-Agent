@@ -36,3 +36,18 @@ test('denied captures release ownership; login waits; native downloads and publi
  const download=await run('pdf',classify({statusCode:403}),true);assert.equal(download.saved.status,'armed');assert.equal(download.disarmed,0);
  const si=await run('si',classify({text:'Purchase this article'}));assert.equal(si.saved.status,'armed');assert.equal(si.active,1);
 });
+
+test('queued Agent click and alternate navigation cannot interrupt a human verification page',async()=>{
+ for(const action of ['click','navigate']){
+  let completed;const calls=[];
+  const operation={id:'browser-fixture',taskId:task.id,projectId:'p',action};
+  const row={task,lease:'lease'};
+  const service=Object.create(ScientificDesktopService.prototype);
+  service.active=true;service.armed=new Map([[task.id,row]]);
+  service.ctx={get:()=>({claimBrowserOperation:()=>operation,completeBrowserOperation:value=>{completed=value;}})};
+  service.broker={call:async(method)=>{calls.push(method);assert.equal(method,'state');return {access:classify({cfMitigated:'challenge'})};}};
+  await service.executeBrowserOperation(operation);
+  assert.deepEqual(calls,['state']);assert.match(completed.error,/人机验证/);
+  assert.equal(service.armed.get(task.id),row);
+ }
+});

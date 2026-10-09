@@ -23,10 +23,19 @@ export default [
       "**/dist/**",
       "**/assets/**",
       "client/index.js",
+      "client/vendor/**",
       "scripts/ketcher-shell/public/**",
       "scripts/pdf-viewer-shell/public/**",
       "**/*.d.ts"
     ]
+  },
+  {
+    files: ["electron-next/**/*.js", "scripts/migration/verify-sidebar-pet.mjs", "scripts/migration/verify-sidebar-bugflows.mjs", "tests/browser/reader-preview.test.mjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } }
+  },
+  {
+    files: ["electron-next/**/*.cjs"],
+    languageOptions: { sourceType: "commonjs", globals: { ...globals.node, ...globals.browser } }
   },
   js.configs.recommended,
   {

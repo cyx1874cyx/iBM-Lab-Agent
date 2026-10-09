@@ -316,7 +316,10 @@
                     - 临时文件（转 PDF/PNG 的中间产物、LibreOffice profile 等）一律放在它返回的
                       tempDir 下：桌面壳的沙箱会拒绝写 `%LOCALAPPDATA%\Temp`，而 LibreOffice
                       写不了 user profile 时会**静默不产出 PDF**（0.5.4 现场踩过）；
-                    - 渲染 PPT/PDF 用它返回的 renderHelper（`scripts/render-deck.mjs`），
+                    - 渲染 PPT/PDF 优先调用 lab_render_deck：由软件宿主执行官方
+                      renderHelper（`scripts/render-deck.mjs`），Agent 保持受限模式，
+                      不需要申请 danger-full-access，也不要为渲染放宽沙箱权限。
+                      输入必须在当前会话工作区内，工具自动把产物放在工作区 .lab-tmp 下。
                       不要自己拼 soffice 命令行；需要人眼核对多页时用它的 contact sheet
                       一次看完整套页面，不要逐页读图。该助手**优先用 DSH 自带的 LibreOffice kit**
                       （已随安装包分发，用户无需自己装 LibreOffice），宿主 soffice 只是兜底；

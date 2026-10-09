@@ -76,6 +76,7 @@ async function bootTasks() {
 		vendorDir: vendorRoot,
 		lockFile: fileURLToPath(new URL("../../vendor.lock.json", import.meta.url)),
 		includePython: false,
+		officePdfFixture: true,
 		extraRows: [
 			{ id: "system-prompt", name: "@deepseek-ai/dsh-system-prompt" },
 			{ id: "tools", name: "@deepseek-ai/dsh-tools" },
@@ -274,6 +275,9 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		assert.equal(completed.review.status, "pending");
 		assert.equal(completed.audit.ok, true, "登记完成后自动机器评审");
 		assert.equal(completed.audit.errors, 0);
+		const archivedReport = tasks.getReadingReport(report.id);
+		assert.equal(archivedReport.previewSourceSha256, archivedReport.artifactSha256);
+		assert.match((await readFile(archivedReport.previewPdfPath)).toString(), /^%PDF-/);
 		const reportReview = await tasks.machineReviewDetails({ reportId: report.id });
 		assert.equal(reportReview.ok, true);
 		assert.ok(reportReview.findings.length > 0, "machine review details are explainable");
@@ -298,6 +302,9 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const done = await tasks.completePresentation({ runId: pres.id, pptxPath, outlinePath: join(dir, "outline.json"), speechNotesPath: join(dir, "notes.md") });
 		assert.equal(done.status, "under-review");
 		assert.equal(done.qa.ok, true, "PPT 登记完成后自动机器 QA");
+		const archivedPresentation = tasks.getPresentationRun(pres.id);
+		assert.equal(archivedPresentation.previewSourceSha256, archivedPresentation.artifactSha256);
+		assert.match((await readFile(archivedPresentation.previewPdfPath)).toString(), /^%PDF-/);
 		assert.deepEqual(done.qa.high, 0);
 		const pptReview = await tasks.machineReviewDetails({ runId: pres.id });
 		assert.equal(pptReview.ok, true);

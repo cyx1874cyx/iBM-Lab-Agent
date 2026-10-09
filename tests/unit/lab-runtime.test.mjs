@@ -126,8 +126,8 @@ test("lab_runtime_env：输出字段必须落在自己声明的 schema 内", asy
 		tools: { register: (definition) => registered.push(definition) },
 		get: (name) => name === "ibmRuntime" ? { environment: runtimeEnvironment } : undefined
 	});
-	assert.equal(registered.length, 1);
-	const tool = registered[0];
+	assert.equal(registered.length, 2);
+	const tool = registered.find(tool=>tool.name==='lab_runtime_env');
 	assert.equal(tool.name, "lab_runtime_env");
 
 	const workspace = await mkdtemp(join(tmpdir(), "lab-runtime-tool-"));

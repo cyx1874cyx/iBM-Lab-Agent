@@ -44,6 +44,8 @@ export const labCaptureTaskSchema = z.object({
 	id: z.string().min(1),
 	projectId: z.string().min(1),
 	bundleId: z.string().min(1),
+	/** 发起获取的对话；浏览器侧栏跟随此对话，不按课题历史列表切换。 */
+	sessionId: z.string().min(1).optional(),
 	/** pdf | si：决定匹配的下载类型与登记字段。 */
 	kind: z.enum(["pdf", "si"]),
 	/** user：界面点击；agent：由 AI Tool 排队，等待桌面界面一次性领取令牌。 */

@@ -25,6 +25,16 @@ test("release metadata and Linux installer describe the current version", async 
 	assert.equal(JSON.parse(desktopPackageJson).version, expected);
 	assert.equal(JSON.parse(tauriJson).version, expected);
 	assert.equal(JSON.parse(manifestJson).ibmLabAgent, expected);
+	for (const domain of ["core", "runtime", "documents", "literature", "design", "analysis", "ui"]) {
+		const manifest = JSON.parse(await read(`packages/dsh-lab-${domain}/package.json`));
+		assert.equal(manifest.version, expected);
+		assert.equal(manifest.dependencies["dsh-lab-agent"], expected);
+		for (const [name, version] of Object.entries(manifest.peerDependencies ?? {})) if (name.startsWith("dsh-lab-")) assert.equal(version, expected);
+	}
+	for (const path of ["package-lock.json", "desktop/package-lock.json"]) {
+		const lock = JSON.parse(await read(path));
+		assert.equal(lock.version, expected);assert.equal(lock.packages[""].version, expected);
+	}
 	assert.match(cargoToml, new RegExp(`^version = "${expected.replaceAll(".", "\\.")}"$`, "m"));
 	// Cargo.lock 同样带着本包版本，而且 cargo 会在构建时就地改写它。漏改的后果不是少个字段，
 	// 而是下一次发布构建因为「工作树脏」被闸门拒绝（2026-09-22 实际踩过）。

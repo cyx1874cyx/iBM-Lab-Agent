@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { h } from "./h.js";
 import { injectStyles } from "./styles.js";
 import { registerPluginSettings } from "./components-settings.js";
-import { installDesktopClient } from "./desktop-client.js";
+import { installDesktopClient, currentDesktopSessionId } from "./desktop-client.js";
 import { buildDescriptors } from "./descriptors.js";
 import { applyBranding } from "./branding.js";
 import { OverlayBoundary, Panel, Project } from "./components-project.js";
@@ -88,7 +88,7 @@ export function applyUi(ctx) {
 	};
 	let root = null;
 	let previousNativeTop = "";
- ctx.effect(() => installDesktopClient(call), "lab.native-desktop-client");
+ ctx.effect(() => installDesktopClient(call,()=>currentDesktopSessionId(ctx.sessions)), "lab.native-desktop-client");
 	const close = () => {
 		if (!root) return;
 		const node = root;
@@ -241,18 +241,19 @@ export function applyUi(ctx) {
 	// 只有这一个能力缺失，不阻塞整个面板。
 	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => {
 		// 文献浏览器：页面 tab（「+」类型列表里可选）。
-		if(globalThis.ibmResearchSidebar)tabCtx.effect(()=>installSidebarBrowser({sidebarRight:tabCtx.sidebarRight,workspaces:ctx.workspaces,uiWorkspace:ctx.uiWorkspace}),"iBM 官方侧栏浏览器");
+		if(globalThis.ibmResearchSidebar)tabCtx.effect(()=>installSidebarBrowser({sidebarRight:tabCtx.sidebarRight,workspaces:ctx.workspaces,uiWorkspace:ctx.uiWorkspace,sessions:ctx.sessions}),"iBM 官方侧栏浏览器");
 		else registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
 		// 课题：资源 tab，一个课题一个标签页（页面 tab 的身份只由 kind 决定，
 		// 做不到每课题一标签）。
 		registerProjectTab(tabCtx);
 		registerReaderTab(tabCtx);
-		setReaderRuntime({call,translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
+		const readerSessions=new Map();
+		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
 			const binding=(await call('projects_binding',{request:{projectId:request.projectId}})).binding;
 			const workspace=ctx.workspaces.list.getSnapshot().items?.find(row=>row.workspaceId===binding?.workspaceId);
 			let sessionId=workspace?.sessionIds?.at(-1);
 			if(!sessionId){const {project}=await call('projects_get',{request:{id:request.projectId}});sessionId=(await launchProject(project,{presetId:RESEARCH_PRESET_ID})).sessionId;}
-			close();ctx.uiWorkspace.openSession(sessionId);
+			readerSessions.set(address,sessionId);close();ctx.uiWorkspace.openSession(sessionId);
 			for(let attempt=0;attempt<100;attempt++){if(tabCtx.sidebarRight.mounted.getSnapshot()===sessionId){tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;}await new Promise(done=>setTimeout(done,50));}
 			throw Error('侧栏尚未就绪，请进入课题对话后重试');
 		}});

@@ -45,6 +45,7 @@ const EXPECTED_PROTO_METHODS = [
 	"readerTurnEnded",
 	"readerBundle",
 	"readerOpen",
+	"readerMaterials",
 	"readerChunk",
 	"readerClose",
 	"readerAsset",

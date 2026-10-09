@@ -13,10 +13,7 @@ import { Templates } from "./components-templates.js";
 import { BookSvg, SiSvg, SpinSvg } from "./components-templates.js";
 import {fileToBase64} from './components-literature.js';
 
-// 条目操作按钮一律**平铺在条目右侧**（与改版前一致）：次级原文按钮 + 简介 + 精读 +
-// PPT + 删除。试过把这些低频操作收进 `···` 下拉，但在 DSH 的滚动容器里菜单会被裁切、
-// 跑到屏幕外，等于把「200 字简介」「删除条目」这些原有功能藏没了。所以不再有下拉菜单，
-// 任何操作都不藏在弹层里。
+// 条目操作保持可见。精读条目分为文件/分类和产物两排，窄容器放到标题下方。
 
 // WebVPN 会话状态 → 捕获提示文案/色调。桌面壳按 `WebVpnSessionState`
 // （kebab-case）返回 state；这里把「加载出版社页 / 等待下载 / 归档中」映射成
@@ -515,17 +512,11 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				setMachineReviews((old) => ({ ...old, [context.key]: detail }));
 				return detail;
 			};
-			// Desktop does not use an in-app Office preview or a review gate: save the
-			// actual DOCX/PPTX and let the user's default Office/WPS association open it.
 			const openPreview = (target) => {
 				const isPpt = target.kind === "ppt";
 				const key = `${isPpt ? "open-ppt" : "open-report"}:${target.report.id}`;
 				void run(key, async () => {
-					const url = isPpt
-						? `/api/lab-artifacts?kind=ppt&reportId=${encodeURIComponent(target.report.id)}`
-						: `/api/lab-artifacts?kind=report&format=docx&reportId=${encodeURIComponent(target.report.id)}`;
-					const opened = await openOfficeArtifact(url);
-					notify(opened.native ? `${isPpt ? "PPT" : "精读报告"} 已交给本机 Office/WPS 打开` : `${isPpt ? "PPT" : "精读报告"} 已下载`);
+					await openReader({projectId:target.report.projectId,bundleId:target.report.bundleId,kind:'pdf',mode:isPpt?'ppt':'report'});
 				});
 			};
 			const closePreview = () => { setPreview(null); setReviewVisible(false); setApproval(null); };
@@ -758,9 +749,11 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						].filter(Boolean).join(" · ");
 						// 中文副标题：没有译文时保留可识别的原标题，绝不编造译名。
 						const zhTitle = report.titleZh || bundle.title || null;
-						// 精读 / PPT 的完成状态只用按钮填充色 + 完成图标表达。
+						// 翻译、精读、PPT 保持固定名称，以完成产物决定按钮颜色。
 						const readingDone = Boolean(report.docxPath);
 						const translation=(bundle.translations??[]).filter(row=>row.kind==='pdf'&&(!bundle.pdfSha256||row.sourceSha256===bundle.pdfSha256)).at(-1);
+						const translationDone = translation?.status === 'completed';
+						const translationBusy = ['queued', 'running'].includes(translation?.status);
 						const translateEntry=async(event)=>{event.stopPropagation();let created;const request={projectId,bundleId:bundle.id,kind:'pdf'};try{const result=await call('tasks_translation_create',{request});created=result;if(result.translation.status==='completed')await openReader({...request,mode:'zh'});else if(!result.reused)await onRequestArtifact(translationPrompt(request,result.translation.id),true,{...request,translationId:result.translation.id});else notify('此翻译任务已在进行；打开正文侧栏可查看进度或取消后重试。');onChanged?.();}catch(error){if(created&&!created.reused)await call('tasks_translation_cancel',{request:{...request,translationId:created.translation.id}}).catch(()=>{});onChanged?.();notify('翻译启动失败：'+error.message);}};
 						const readingBusy = Boolean(busy[`open-report:${report.id}`]);
 						const pptDone = Boolean(presentation?.pptxPath);
@@ -769,15 +762,14 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。完成精读后根据报告内容判断主题文件夹，先查看已有精读文件夹，优先复用；登记报告时提供 folderName 与 classificationReason 自动归类。`;
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
 						return h("div", { className: "ib-lit-item", key: report.id },
-							// 一行布局（与改版前一致）：左边标题区，右边操作区。操作区把
-							// 次级原文按钮、200 字简介、精读、PPT、删除**全部平铺**出来，
-							// 不再有任何下拉菜单。
+							// 操作固定两排，窄容器将整个操作区移到标题下方。
 							h("div", { className: "ib-lit-row" },
 								h("div", { className: "ib-lit-main" },
 									h("b", { className: "ib-lit-title ib-citation", title: shortOf(report) }, shortNode(report)),
 									zhTitle ? h("div", { className: "ib-lit-zh", title: zhTitle }, zhTitle) : null,
 									awaitingPdf ? h("div", null, h("span", { className: "ib-lit-flag" }, "原文待归档")) : null),
-								h("div", { className: "ib-lit-acts" },
+								h("div", { className: "ib-lit-acts ib-reading-acts" },
+									h("div", { className: "ib-reading-act-row", "data-row": "files" },
 									// 次级操作：PDF / SI 一律是图标按钮——已归档点亮、未归档灰着，
 									// 点灰的就去出版社页面布防捕获。不写字（原来的样式）。
 									h("button", {
@@ -796,23 +788,30 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 											: (publisherUrl ? "尚未获取 SI · 点击前往出版社页面并布防捕获下载" : "尚未获取 SI · 未登记 DOI/出版社页面")),
 										onClick: (event) => bundleSiUrl ? openEntryInSidebar(event, "si", bundleSiUrl) : armCaptureFor(event, bundle, "si"), "aria-label": "SI 补充材料 / 获取 SI"
 									}, h(SiSvg, null)),
-									h('button',{className:'ib-act',disabled:!bundlePdfUrl,onClick:translateEntry,title:'全文翻译并在侧栏进行中文/双语对照阅读'},translation?.status==='completed'?'阅读译文':['queued','running'].includes(translation?.status)?'翻译中…':'翻译'),
 									// 简介（约 200 字，篇幅要求是给 Agent 的，不写进按钮文案）。
 									h("button", { className: "ib-act", disabled: !!busy[`ov:${report.id}`], onClick: () => void openOverview(report), title: awaitingPdf ? "展开已提取的元数据摘要" : "展开文献概览" }, busy[`ov:${report.id}`] ? "…" : (report.id in overview ? "收起简介" : "简介")),
+									h('select',{value:report.folderId??'','aria-label':'精读文件夹',title:report.classification?.reason??'调整精读文件夹',onChange:event=>void folderAction('tasks_reading_classify',{reportId:report.id,folderId:event.target.value})},h('option',{value:''},'未分类'),folders.map(folder=>h('option',{key:folder.id,value:folder.id},folder.name)))
+									),
+									h("div", { className: "ib-reading-act-row", "data-row": "artifacts" },
+									h('button', {
+										className: 'ib-act', 'data-kind': 'translation', 'data-done': translationDone ? 'true' : 'false', 'data-busy': translationBusy ? 'true' : undefined,
+										'aria-busy': translationBusy, disabled: !bundlePdfUrl || translationBusy, onClick: translateEntry,
+										title: translationBusy ? '翻译进行中，可在正文侧栏查看进度' : translationDone ? '在侧栏阅读已完成的中文译文' : '全文翻译并在侧栏进行中文/双语对照阅读'
+									}, translationBusy ? h(SpinSvg, null) : null, '翻译'),
 									h("button", {
-										className: "ib-act", "data-kind": "reading", "data-done": readingDone ? "true" : undefined, "data-busy": readingBusy ? "true" : undefined,
+										className: "ib-act", "data-kind": "reading", "data-done": readingDone ? "true" : "false", "data-busy": readingBusy ? "true" : undefined, "aria-busy": readingBusy,
 										disabled: readingBusy,
 										onClick: () => readingDone ? openPreview({ kind: "report", report }) : onRequestArtifact(readingPrompt),
 										title: readingDone ? "打开已生成的精读报告" : "在当前课题工作区新建对话并预填精读任务"
-									}, readingBusy ? h(SpinSvg, null) : null, readingBusy ? "打开中…" : (readingDone ? "打开精读" : "开始精读")),
+									}, readingBusy ? h(SpinSvg, null) : null, "精读"),
 									h("button", {
-										className: "ib-act", "data-kind": "ppt", "data-done": pptDone ? "true" : undefined, "data-busy": pptBusy ? "true" : undefined,
+										className: "ib-act", "data-kind": "ppt", "data-done": pptDone ? "true" : "false", "data-busy": pptBusy ? "true" : undefined, "aria-busy": pptBusy,
 										disabled: pptBusy,
 										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : onRequestArtifact(pptPrompt),
 										title: pptDone ? "打开已生成的汇报 PPT" : "在当前课题工作区新建对话并预填 PPT 任务"
-									}, pptBusy ? h(SpinSvg, null) : null, pptBusy ? "打开中…" : (pptDone ? "打开 PPT" : "制作 PPT")),
-									h('select',{value:report.folderId??'',title:report.classification?.reason??'调整精读文件夹',onChange:event=>void folderAction('tasks_reading_classify',{reportId:report.id,folderId:event.target.value})},h('option',{value:''},'未分类'),folders.map(folder=>h('option',{key:folder.id,value:folder.id},folder.name))),
+									}, pptBusy ? h(SpinSvg, null) : null, "PPT"),
 									h("button", { className: "ib-act ib-act-danger", disabled: !!busy[`delete-report:${report.id}`], onClick: () => deleteReport(report, bundle), title: "删除这条精读条目（关联报告、PPT 与本地归档一并删除）" }, busy[`delete-report:${report.id}`] ? "…" : "删除"))
+								)
 							),
 							captureActive ? h("div", { className: "ib-capture-hint", "data-tone": captureHint?.phase?.tone || "waiting" },
 								h("div", { className: "ib-capture-head" },

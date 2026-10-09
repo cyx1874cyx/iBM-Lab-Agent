@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync, 
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
+import { load, dump } from 'js-yaml';
 
 export function extractPackageArchive(bytes, destination) {
  const tar=gunzipSync(bytes);let offset=0,pax={},longName;
@@ -68,7 +69,7 @@ export function shareKernelModules({home,resources,ledger}){
 
 /** Refresh only installer-owned product packages, including same-version UI
  * rebuilds. Keep prior files for recovery; never replace profile or lab data. */
-export function refreshProductModules({home,resources,ledger}){
+export function refreshProductModules({home,resources,ledger,previousVersion}){
  const modules=join(resolve(home),'profiles','ibm-lab','node_modules');realDirectory(modules);
  const rel=relative(realpathSync(home),realpathSync(modules));if(isAbsolute(rel)||rel.startsWith('..'))throw Error('Product module directory escapes home');
  const names=new Set(['dsh-lab-agent',...['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name)]);
@@ -82,7 +83,7 @@ export function refreshProductModules({home,resources,ledger}){
   if(!/^[a-z0-9.-]+\.tgz$/i.test(item.file))throw Error('Invalid product archive file');
   const archive=readFileSync(join(resources,'archives',item.file));if(archive.length!==item.bytes||createHash('sha256').update(archive).digest('hex')!==item.sha256)throw Error('Product archive integrity mismatch');
   const target=join(modules,item.name),existing=lstatSync(target,{throwIfNoEntry:false});
-  if(existing){if(!existing.isDirectory()||existing.isSymbolicLink())throw Error('Product package is not an owned directory');const manifest=JSON.parse(readFileSync(join(target,'package.json')));if(manifest.name!==item.name||manifest.version!==item.version)throw Error('Unmanaged product package: '+item.name);}
+  if(existing){if(!existing.isDirectory()||existing.isSymbolicLink())throw Error('Product package is not an owned directory');const manifest=JSON.parse(readFileSync(join(target,'package.json')));if(manifest.name!==item.name||(manifest.version!==item.version&&manifest.version!==previousVersion))throw Error('Unmanaged product package: '+item.name);}
   bytes.set(item.name,archive);
  }
  const recovery=join(home,'recovery','ibm-plugin-modules');realDirectory(join(home,'recovery'));realDirectory(recovery);const backup=mkdtempSync(join(recovery,'refresh-'));
@@ -104,7 +105,17 @@ export function initializeRelease({home,resources,electron,profiles}){
  process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=python;process.env.IBM_LAB_AGENT_BUNDLED_ELECTRON=electron;
  const manager=new profiles(home),marker=join(home,'ibm-release.json');
  const ledger=JSON.parse(readFileSync(join(resources,'archives','release-archives.json')));
- if(existsSync(marker)){const current=JSON.parse(readFileSync(marker));if(current.ibm!==release.ibm)throw Error('Different release data requires an explicit migration');const plugins=refreshProductModules({home,resources,ledger});const kernel=shareKernelModules({home,resources,ledger});return {home,initialized:false,python,kernel,plugins};}
+ if(existsSync(marker)){
+  const current=JSON.parse(readFileSync(marker));
+  if(!compatibleReleaseUpgrade(current,release))throw Error('Different release data requires an explicit migration');
+  const plugins=refreshProductModules({home,resources,ledger,previousVersion:current.ibm});
+  const kernel=shareKernelModules({home,resources,ledger});
+  if(current.ibm!==release.ibm){
+   refreshProfileArchives({home,resources,ledger,backup:plugins.backup});
+   writeFileSync(marker,JSON.stringify({...release,initializedAt:current.initializedAt,upgradedFrom:current.ibm,upgradedAt:new Date().toISOString()},null,2)+'\n');
+  }
+  return {home,initialized:false,python,kernel,plugins};
+ }
  const profile=manager.ensure('ibm-lab'),modules=join(profile,'node_modules');realDirectory(modules);
  for(const item of ledger.packages){
   if(!/^(@[a-z0-9._-]+\/)?[a-z0-9._-]+$/i.test(item.name))throw Error('Invalid package name');
@@ -127,4 +138,23 @@ export function initializeRelease({home,resources,electron,profiles}){
  const plugins=refreshProductModules({home,resources,ledger});
  writeFileSync(marker,JSON.stringify({...release,initializedAt:new Date().toISOString()},null,2)+'\n');
  return {home,initialized:true,python,kernel,plugins};
+}
+
+/** Product-only upgrades require an explicit source version and the same kernel. */
+export function compatibleReleaseUpgrade(current,release){
+ return current.ibm===release.ibm||Boolean(release.upgradeFrom?.includes(current.ibm)&&current.kernel===release.kernel&&current.nextCommit===release.nextCommit);
+}
+
+/** Refresh installer-owned archive references while keeping custom profile fields. */
+export function refreshProfileArchives({home,resources,ledger,backup}){
+ const profile=join(home,'profiles','ibm-lab'),manifestFile=join(profile,'package.json'),workspaceFile=join(profile,'pnpm-workspace.yaml');
+ const manifest=JSON.parse(readFileSync(manifestFile)),workspace=load(readFileSync(workspaceFile,'utf8'))??{};
+ manifest.dependencies??={};workspace.overrides??={};
+ for(const item of ledger.packages){
+  const reference='file:'+join(resources,'archives',item.file).replaceAll('\\','/');
+  manifest.dependencies[item.name]=reference;workspace.overrides[item.name]=reference;
+ }
+ if(backup){mkdirSync(join(backup,'profile'),{recursive:true});cpSync(manifestFile,join(backup,'profile/package.json'));cpSync(workspaceFile,join(backup,'profile/pnpm-workspace.yaml'));}
+ writeFileSync(manifestFile,JSON.stringify(manifest,null,2)+'\n');
+ writeFileSync(workspaceFile,dump(workspace,{lineWidth:-1,noRefs:true}));
 }

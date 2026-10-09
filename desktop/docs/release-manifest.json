@@ -1,5 +1,5 @@
 {
-  "ibmLabAgent": "0.5.8-rc.1",
+  "ibmLabAgent": "0.6.0-rc.1",
   "dsh": "0.2.0-rc.2",
   "python": "3.12",
   "node": "24.16.0",

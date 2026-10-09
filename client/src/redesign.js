@@ -72,16 +72,14 @@ export const redesignCss = `
 /* ── 分组标题与条目列表（需求 §3.1）────────────────────────────────────── */
 .ib-overlay .ib-lit{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
 .ib-lit-group{display:grid;gap:2px;min-width:0;container-type:inline-size}
-.ib-overlay .ib-group-head{display:flex;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--ib-hair)}
+.ib-overlay .ib-group-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--ib-hair)}
 .ib-overlay .ib-group-head h3{margin:0;font-size:17px;font-weight:600;color:var(--ib-text)}
 .ib-overlay .ib-group-count{font-size:14px;color:var(--ib-soft)}
 .ib-overlay .ib-lit-list{display:grid;gap:0;margin:0}
 .ib-overlay .ib-lit-item{display:grid;gap:8px;padding:16px 2px;border-bottom:1px solid var(--ib-hair);border-radius:0;background:none}
 .ib-overlay .ib-lit-item:last-child{border-bottom:0}
 .ib-overlay .ib-lit-item:hover{background:var(--ib-hover)}
-/* 条目行：两列网格 —— 左列标题/中文标题占满剩余宽度，右列操作按钮始终在同一行右侧。
-   之前用 flex+wrap，操作区会被整体挤到下一行（截图里按钮跑到标题下方），所以这里
-   用 grid 的 auto 第二列把它钉在右侧；只有真的很窄（<=720px 的侧栏）才让按钮换行。 */
+/* 宽面板左标题、右操作；窄容器将操作移到标题下方，保留正文可读宽度。 */
 .ib-overlay .ib-lit-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 16px;padding:0;border:0;background:none;border-radius:0}
 .ib-overlay .ib-lit-main{flex:1 1 320px;min-width:0;display:grid;gap:5px}
 .ib-overlay .ib-lit-title{display:block;font-size:18px;font-weight:600;line-height:1.42;color:var(--ib-text);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
@@ -89,13 +87,18 @@ export const redesignCss = `
 .ib-overlay .ib-lit-zh{font-size:16px;font-weight:400;line-height:1.55;color:var(--ib-soft);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .ib-overlay .ib-lit-meta{font-size:14.5px;line-height:1.5;color:var(--ib-soft);white-space:normal;overflow-wrap:anywhere}
 .ib-overlay .ib-lit-acts{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:560px}
+.ib-overlay .ib-lit-acts.ib-reading-acts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;width:352px;max-width:100%;min-width:0;align-self:start}
+.ib-overlay .ib-reading-act-row{display:grid;align-items:center;gap:8px;min-width:0}
+.ib-overlay .ib-reading-act-row[data-row=files]{grid-template-columns:32px 32px 84px minmax(0,1fr)}
+.ib-overlay .ib-reading-act-row[data-row=artifacts]{grid-template-columns:repeat(3,minmax(0,1fr)) 64px}
+.ib-overlay .ib-reading-act-row :is(.ib-act,select){width:100%;min-width:0;box-sizing:border-box;white-space:nowrap}
+.ib-overlay .ib-reading-act-row select{height:var(--ib-action-h);padding:0 6px;text-overflow:ellipsis;overflow:hidden;color:var(--ib-text)}
 .ib-overlay .ib-lit-flag{display:inline-block;margin-top:6px;font-size:13px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;padding:2px 8px}
 .ib-overlay .ib-lit-overview{margin-top:2px;font-size:14.5px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap;border-left:2px solid var(--ib-accent-line);padding:8px 0 8px 12px}
 .ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
 .ib-overlay .ib-lit-overview-meta,.ib-overlay .ib-lit-overview-time{display:block;font-size:13.5px;color:var(--ib-soft)}
 /* ── 操作按钮：用填充色表达完成状态（需求 §5.1）────────────────────────── */
-/* 固定最小宽度 + 居中：同一列在「开始精读/打开精读」「简介/收起简介」之间切换时
-   宽度不变，多行条目的按钮才会对齐成列（现场反馈「按钮参差不齐」）。 */
+/* 固定宽度并居中，条目按钮按列对齐。 */
 .ib-overlay .ib-act{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:84px;height:var(--ib-action-h);padding:0 11px;border-radius:9px;border:1px solid var(--ib-hair);background:var(--ib-bg);color:var(--ib-text);font-size:14px;font-weight:600;line-height:1;cursor:pointer;box-shadow:none}
 .ib-overlay .ib-act:hover:enabled{background:var(--ib-hover);border-color:var(--ib-accent-line)}
 .ib-overlay .ib-act:disabled{cursor:default;opacity:.6}
@@ -105,6 +108,9 @@ export const redesignCss = `
 .ib-overlay .ib-act[data-done=true][data-kind=reading]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
 .ib-overlay .ib-act[data-done=true][data-kind=ppt]{background:var(--ib-blue);border-color:transparent;color:#fff}
 .ib-overlay .ib-act[data-done=true][data-kind=ppt]:hover:enabled{background:#1d4ed8;border-color:transparent;color:#fff}
+.ib-overlay .ib-reading-acts .ib-act[data-done=true]{background:var(--ib-accent);border-color:transparent;color:#fff}
+.ib-overlay .ib-reading-acts .ib-act[data-done=true]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
+.ib-overlay .ib-reading-acts .ib-act[data-done=false]:hover:enabled{background:var(--ib-hover);border-color:var(--ib-soft)}
 .ib-overlay .ib-act[data-busy=true]{color:var(--ib-soft);background:var(--ib-panel);border-color:var(--ib-hair)}
 .ib-spin{animation:ib-spin 900ms linear infinite}
 @keyframes ib-spin{to{transform:rotate(360deg)}}
@@ -195,7 +201,7 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 .ib-overlay.ib-panel-embed .ib-project-copy h1{font-size:20px}
 .ib-overlay.ib-panel-embed .ib-head h1{font-size:22px}
 .ib-overlay.ib-panel-embed .ib-tabs{gap:18px}
-/* 侧栏一列宽度放不下「标题 + 一排按钮」时，按钮整行移到标题下面（需求 §3.2：
+/* 侧栏一列宽度放不下「标题 + 操作区」时，按钮移到标题下面（需求 §3.2：
    宽度不足优先换行，不缩小字号）。桌面宽面板保持按钮在右侧。 */
 @media(max-width:720px){
   .ib-overlay .ib-lit-row,.ib-overlay.ib-panel-embed .ib-lit-row{grid-template-columns:minmax(0,1fr);align-items:flex-start}
@@ -205,7 +211,7 @@ header:has([data-conversation-header-corner]) span[class*='_label']{display:none
 /* 同一份判断的容器版：右侧栏课题 tab 的列宽只有 360–560px，但浏览器视口很宽，
    视口媒体查询看不到这种"容器很窄"的情况，所以按分组宽度再判一次。 */
 @container (max-width:700px){
-  .ib-lit-row{grid-template-columns:minmax(0,1fr);align-items:flex-start}
-  .ib-lit-acts{justify-content:flex-start;max-width:100%}
+  .ib-overlay .ib-lit-row{grid-template-columns:minmax(0,1fr);align-items:flex-start}
+  .ib-overlay .ib-lit-acts{justify-content:flex-start;max-width:100%}
 }
 `;

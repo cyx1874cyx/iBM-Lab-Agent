@@ -301,12 +301,10 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /function openOfficeArtifact/);
 	assert.match(source, /function openSavedPathViaDesktop/);
 	assert.match(source, /OPEN_SAVED_PATH/);
-	// 本次改版 §5.1：完成状态用按钮文字 + 填充色表达
-	// （「打开精读」青绿填充 / 「打开 PPT」蓝色填充），不再是「打开PPT」。
-	assert.match(source, /打开精读/);
-	assert.match(source, /打开 PPT/);
-	assert.match(source, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
-	assert.match(source, /已交给本机 Office\/WPS 打开/);
+	// 精读条目的产物入口固定名称，完成状态用填充色表达。
+	assert.match(source, /"data-kind": "reading", "data-done": readingDone \? "true" : "false"/);
+	assert.match(source, /"data-kind": "ppt", "data-done": pptDone \? "true" : "false"/);
+	assert.match(source, /ibm\.office\.preview/);
 	// PDF/SI 是图标按钮：已归档点亮、未归档灰着（点击去布防捕获），不写文字。
 	assert.match(source, /className: "ib-icon-btn", "data-ready": bundlePdfUrl \? "true" : "false"/);
 	assert.match(source, /className: "ib-icon-btn", "data-ready": bundleSiUrl \? "true" : "false"/);

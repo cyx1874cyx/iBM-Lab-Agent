@@ -1,7 +1,8 @@
 /** Page evidence only: a visible abstract or PDF link does not prove entitlement. */
-export function classifyLiteratureAccess({text='',title='',statusCode=0,documentType='',password=false,fullText=false,downloadEntry=false}={}) {
+export function classifyLiteratureAccess({text='',title='',statusCode=0,documentType='',cfMitigated='',password=false,fullText=false,downloadEntry=false}={}) {
  const content=(title+'\n'+text).slice(0,60000);
  const verdict=(state,evidence)=>({state,evidence,checkedAt:new Date().toISOString()});
+ if(cfMitigated==='challenge')return verdict('verification-required','Cloudflare 响应要求人机验证');
  if(/verify (?:you are|that you are) human|checking your browser|security check|captcha|人机验证|安全验证|just a moment/i.test(content))return verdict('verification-required','页面要求人机或安全验证');
  if(password||/^(?:sign in|log in|登录|统一身份认证)$/i.test(title.trim()))return verdict('login-required','当前页面要求登录');
  if(statusCode===404||statusCode===410||/article (?:not found|has been removed)|page not found|页面不存在|文章不存在/i.test(content))return verdict('not-found','文章页面不存在或已移除');

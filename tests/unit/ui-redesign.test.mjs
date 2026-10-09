@@ -86,20 +86,17 @@ test("§4 精读条目：短引用主标题 + 中文副标题，无独立状态�
 	assert.doesNotMatch(project, /className: "ib-lit-main"[^\n]*h\("small"/);
 });
 
-test("§5.1 完成状态用按钮填充色 + 完成图标表达", async () => {
+test("§5.1 精读产物固定名称，完成状态用统一填充色表达", async () => {
 	const [project, redesign] = await Promise.all([read("components-project.js"), read("redesign.js")]);
-	assert.match(project, /"data-kind": "reading", "data-done": readingDone \? "true" : undefined/);
-	assert.match(project, /"data-kind": "ppt", "data-done": pptDone \? "true" : undefined/);
+	assert.match(project, /"data-kind": "reading", "data-done": readingDone \? "true" : "false"/);
+	assert.match(project, /"data-kind": "ppt", "data-done": pptDone \? "true" : "false"/);
 	// 完成态只靠填充色：不再额外加对号（现场反馈「已经标色了就不需要再加对号」）。
 	assert.match(project, /readingBusy \? h\(SpinSvg, null\) : null/);
 	assert.doesNotMatch(project, /CheckSvg/);
-	// 同一列在两种文案之间宽度不变，多行条目按钮才对得齐。
+	// 固定名称不因完成状态改变，完成状态仍由已有产物决定。
 	assert.match(redesign, /\.ib-overlay \.ib-act\{[^}]*justify-content:center;[^}]*min-width:84px/);
-	// 文字与颜色：开始精读/打开精读（青绿）、制作 PPT/打开 PPT（蓝）。
-	assert.match(project, /readingDone \? "打开精读" : "开始精读"/);
-	assert.match(project, /pptDone \? "打开 PPT" : "制作 PPT"/);
-	assert.match(redesign, /\[data-done=true\]\[data-kind=reading\]\{background:var\(--ib-accent\)/);
-	assert.match(redesign, /\[data-done=true\]\[data-kind=ppt\]\{background:var\(--ib-blue\)/);
+	assert.doesNotMatch(project, /打开精读|开始精读|制作 PPT|阅读译文/);
+	assert.match(redesign, /\.ib-reading-acts \.ib-act\[data-done=true\]\{background:var\(--ib-accent\)/);
 	assert.match(redesign, /\.ib-act\{[^}]*height:var\(--ib-action-h\)[^}]*font-size:14px/);
 	// 加载态必须有加载图标。
 	assert.match(redesign, /@keyframes ib-spin/);
@@ -114,7 +111,7 @@ test("条目操作全部平铺在右侧，原有功能不被藏进弹层", async
 	assert.doesNotMatch(project, /MoreMenu|ib-more-menu|ib-more-item/);
 	assert.doesNotMatch(literature, /ib-badge-menu|ib-more-item|setMenuOpen/);
 	assert.doesNotMatch(redesign, /\.ib-more\b|\.ib-more-menu|\.ib-badge-menu/);
-	// 行布局是两列网格：左标题、右操作，第二列 auto 保证按钮钉在右侧同一行。
+	// 宽面板为左标题、右操作；窄容器由同等优先级的容器规则换行。
 	assert.match(redesign, /\.ib-overlay \.ib-lit-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
 	// 恢复的功能：简介 + 删除条目（精读条目）、导出 RIS + 删除（检索条目）。
 	// 按钮文案不写「200 字」——篇幅是给 Agent 的约束，不是给人看的标签。

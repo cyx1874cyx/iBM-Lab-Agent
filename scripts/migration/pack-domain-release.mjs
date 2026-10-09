@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, cp } from "node:fs/promises";
+import {withOfficePreviewFactory} from '../dsh-office-preview-factory.mjs';
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, join, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -32,6 +33,14 @@ collect(repo);
 const rootManifest = JSON.parse(readFileSync(join(repo, "package.json")));
 for (const name of Object.keys(rootManifest.peerDependencies)) collect(dependencyDirectory(name, repo));
 for (const domain of ["core", "runtime", "documents", "literature", "design", "analysis", "ui"]) directories.set(`dsh-lab-${domain}`, { directory: join(repo, "packages", `dsh-lab-${domain}`), version: rootManifest.version });
+// Expose the pinned native renderer as reusable factories without touching NEXT.
+const officeName='@deepseek-ai/dsh-client-ui-sidebar-documentpreview';
+const officeDirectory=join(output,'native-office');
+const officeSource=dependencyDirectory(officeName,runtime);
+await cp(officeSource,officeDirectory,{recursive:true,filter:path=>!path.slice(officeSource.length+1).split(/[\\/]/).includes('node_modules')});
+const officeClient=join(officeDirectory,'lib/client.js');
+await writeFile(officeClient,withOfficePreviewFactory(await readFile(officeClient,'utf8')));
+directories.set(officeName,{directory:officeDirectory,version:'0.2.0-rc.2'});
 for (const [name, { directory }] of directories) {
  const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
  const path = join(output, `${manifest.name.replaceAll("/", "-").replaceAll("@", "")}-${manifest.version}.tgz`);

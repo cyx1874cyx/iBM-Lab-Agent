@@ -91,7 +91,7 @@ function renderYaml(rows) {
 
 /**
  * Boot the lab rows in isolation.
- * @param options {{ storageRoot: string, vendorDir?: string, lockFile?: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, coreOnly?: boolean, coreConfig?: object, extraRows?: Array, extraPatches?: Array }}
+ * @param options {{ storageRoot: string, vendorDir?: string, lockFile?: string, venvDir?: string, requirementsLock?: string, includePython?: boolean, officePdfFixture?: boolean, coreOnly?: boolean, coreConfig?: object, extraRows?: Array, extraPatches?: Array }}
  *   `extraPatches` are Loader `PatchOptions` (see `loadOverlayPatches`) appended
  *   after the base rows — how a test composes a real bundle patch file.
  * @returns {{ ctx, dir, dispose(): Promise<void> }}
@@ -104,6 +104,7 @@ export async function bootLite(options) {
 		venvDir,
 		requirementsLock,
 		includePython = true,
+		officePdfFixture = false,
 		extraRows = [],
 		extraPatches = [],
 		coreOnly = false,
@@ -139,6 +140,7 @@ export async function bootLite(options) {
          ...(extraRows.some(row => row.name === "dsh-lab-agent/characterization") ? [{ id: "ibm-analysis", name: "dsh-lab-agent/analysis" }] : []),
          ...(extraRows.some(row => row.name === "dsh-lab-agent/tasks") ? [{ id: "ibm-literature-workflows", name: "dsh-lab-agent/workflows", config: extraRows.find(row => row.name === "dsh-lab-agent/tasks")?.config }] : [])
         ] : []),
+		...(officePdfFixture ? [{id:'office-pdf-fixture',name:pathToFileURL(join(repoRoot,'tests/fixtures/office-pdf-service.mjs')).href}] : []),
 		...extraRows
 	];
 	if (includePython && !coreOnly) {

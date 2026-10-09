@@ -472,8 +472,9 @@ test("capture: R6 — 面板发起（human）的任务拒绝一切自动化浏�
 			);
 		}
 		// AI 任务（agent）同样要过状态检查，但不会被"模式"这一条拒绝
-		const ai = await ctx.labCapture.createAgentCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf" });
+		const ai = await ctx.labCapture.createAgentCaptureTask({ projectId: "capture-project", bundleId: "bundle-cap-1", kind: "pdf", sessionId: "new-conversation" });
 		assert.equal(ai.requestedBy, "agent");
+		assert.equal(ctx.labCapture.getTask(ai.id).sessionId, "new-conversation", "持久化后的任务仍指向发起获取的新对话");
 		assert.throws(
 			() => ctx.labCapture.createBrowserOperation({
 				projectId: "capture-project", taskId: ai.id, action: "viewer-download",

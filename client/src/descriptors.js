@@ -13,7 +13,7 @@ export function buildDescriptors() {
 		const descriptors = [
  direct("capabilities"),
  direct('tasks_translation_bind',['request']),
- ...['tasks_reader_open','tasks_reader_chunk','tasks_reader_close','tasks_reader_asset','tasks_reader_zip_pdf','tasks_translation_create','tasks_translation_read','tasks_translation_image','tasks_translation_cancel'].map(name=>direct(name,['request'])),
+ ...['tasks_reader_open','tasks_reader_materials','tasks_reader_chunk','tasks_reader_close','tasks_reader_asset','tasks_reader_zip_pdf','tasks_translation_create','tasks_translation_read','tasks_translation_image','tasks_translation_cancel'].map(name=>direct(name,['request'])),
  direct("runtime_environment"),
  direct("desktop_status"), direct("desktop_browser", ["request"]), direct("desktop_artifact", ["request"]),direct("desktop_pet",["request"]),
  ...["synth_compound_resolve_first","characterization_list","characterization_submit","characterization_retry","characterization_remove","characterization_dispatch_failed"].map(name=>direct(name,["request"])),

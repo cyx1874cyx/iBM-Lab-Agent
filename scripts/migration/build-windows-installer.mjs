@@ -32,7 +32,11 @@ assert.equal(main.split('from "./browser-guests.js"').length,2);
 main=main.replace('from "./browser-guests.js"','from "../node_modules/dsh-lab-agent/electron-next/sidebar-desktop.mjs"');
 const preloadFile=join(appDir,'lib/preload-app.cjs');
 writeFileSync(preloadFile,readFileSync(preloadFile,'utf8')+'\n'+readFileSync(join(repo,'electron-next/sidebar-preload.cjs'),'utf8'));
-assert.equal(main.split('app.setName("DSH NEXT")').length,2);main=main.replace('app.setName("DSH NEXT")','app.setName("iBM Lab Agent")');
+// Use the product's short name for Electron's native application identity.
+// Keep the actual Electron/Chromium versions and the installer branding.
+// ScienceDirect's human challenge loops with iBMLabAgent, but the same
+// full sidebar and session successfully verify with the iBM Lab product name.
+assert.equal(main.split('app.setName("DSH NEXT")').length,2);main=main.replace('app.setName("DSH NEXT")','app.setName("iBM Lab")');
 assert.equal(main.split('const updates = new NextUpdates({').length,2);
 main=main.replace(/(const updates = new NextUpdates\(\{[\s\S]*?packaged:) app\.isPackaged/,'$1 false');
 assert.ok(main.includes('const updates = new NextUpdates({\n\tversion,\n\tplatform: process.platform,\n\tpackaged: false'));
@@ -67,13 +71,13 @@ function collect(name,parent,destinationParent=appDir,ancestors=new Map()){
 }
 for(const name of Object.keys(nextManifest.dependencies))rootVersions.set(name,JSON.parse(readFileSync(join(locate(name,runtime),'package.json'))).version);
 for(const name of Object.keys(nextManifest.dependencies))collect(name,runtime);
-const ledger=JSON.parse(readFileSync(join(archives,'release-archives.json')));assert.equal(ledger.packages.length,81);
+const ledger=JSON.parse(readFileSync(join(archives,'release-archives.json')));assert.equal(ledger.packages.length,82);
 const archivedDir=join(resources,'archives');mkdirSync(archivedDir);
 for(const item of ledger.packages){
  const bytes=readFileSync(item.path);assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);
  let destination=join(appDir,'node_modules',item.name);
  if(existsSync(join(destination,'package.json'))&&JSON.parse(readFileSync(join(destination,'package.json'))).version!==item.version)destination=join(appDir,'node_modules/dsh-lab-agent/node_modules',item.name);
- if(!existsSync(join(destination,'package.json')))extractPackageArchive(bytes,destination);
+ if(!existsSync(join(destination,'package.json'))||item.name==='@deepseek-ai/dsh-client-ui-sidebar-documentpreview')extractPackageArchive(bytes,destination);
  item.file=basename(item.path);delete item.path;writeFileSync(join(archivedDir,item.file),bytes);
 }
 writeFileSync(join(archivedDir,'release-archives.json'),JSON.stringify(ledger,null,2)+'\n');
@@ -81,7 +85,8 @@ cpSync(python,join(resources,'python'),{recursive:true,dereference:true,filter:s
 for(const name of ['nature-skills','mnova-mcp'])cpSync(join(repo,'vendor',name),join(resources,'vendor',name),{recursive:true,dereference:true,filter:skip});
 cpSync(join(repo,'vendor.lock.json'),join(resources,'vendor.lock.json'));
 cpSync(join(repo,'python/requirements.lock'),join(resources,'requirements.lock'));
-const release={ibm:'0.5.8-rc.1',source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'migration-preview',signed:false,automaticUpdates:false};
+const productVersion=JSON.parse(readFileSync(join(repo,'package.json'))).version;
+const release={ibm:productVersion,upgradeFrom:productVersion==='0.6.0-rc.1'?['0.5.8-rc.1']:[],source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'migration-preview',signed:false,automaticUpdates:false};
 // Use the official pre-boot transport hook: upload Workers do not own NEXT's
 // native main-frame authentication. Compose only the copied frontend document.
 const frontend=join(appDir,'node_modules/@deepseek-ai/dsh-web-frontend/dist');

@@ -43,11 +43,11 @@ async function inspectAccess(row,contents=row.window.webContents) {
   contents.executeJavaScriptInIsolatedWorld(998,[{code:`(()=>{const visible=e=>Boolean(e?.getClientRects().length);const body=document.querySelector('[data-test="article-body"],.c-article-body,[itemprop="articleBody"]');return {text:(document.body?.innerText||'').slice(0,60000),password:[...document.querySelectorAll('input[type="password"]')].some(visible),fullText:visible(body)&&(body.innerText||'').length>1500,downloadEntry:[...document.querySelectorAll('a,button')].some(e=>visible(e)&&/download pdf|下载|supplementary|supporting information/i.test(e.innerText||''))};})()`}]).catch(()=>({})),
   new Promise(resolve=>{timer=setTimeout(()=>resolve({}),1500);})
  ]).finally(()=>clearTimeout(timer));
- return classifyLiteratureAccess({...signals,title:contents.isDestroyed()?'':contents.getTitle(),statusCode:contents===row.window.webContents?row.statusCode:0,documentType:contents===row.window.webContents?row.documentType:''});
+ return classifyLiteratureAccess({...signals,title:contents.isDestroyed()?'':contents.getTitle(),statusCode:contents===row.window.webContents?row.statusCode:0,documentType:contents===row.window.webContents?row.documentType:'',cfMitigated:contents===row.window.webContents?row.cfMitigated:''});
 }
 function bind(window, lease) {
  const contents = window.webContents;
- contents.on("did-start-navigation", (_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame){emit({event:"page-loading",lease:lease.id});lease.pageSeq=(lease.pageSeq??0)+1;lease.observation=null;lease.access=null;lease.statusCode=0;lease.documentType='';}});
+ contents.on("did-start-navigation", (_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame){if(!lease.requestedUrl&&allowed(_url))lease.requestedUrl=new URL(_url).href;emit({event:"page-loading",lease:lease.id});lease.pageSeq=(lease.pageSeq??0)+1;lease.observation=null;lease.access=null;lease.statusCode=0;lease.documentType='';lease.cfMitigated='';}});
  const reportPage=async()=>{if(contents!==lease.window.webContents)return;const seq=lease.pageSeq;emit({event:'page-checking-access',lease:lease.id});const access=await inspectAccess(lease,contents);if(contents.isDestroyed()||seq!==lease.pageSeq)return;lease.access=access;emit({event:"page-state",lease:lease.id,url:publicUrl(contents.getURL()),pageSeq:seq??1,documentType:lease.documentType??"",access});};
  contents.on("dom-ready",()=>{void reportPage().catch(()=>{});});
  contents.on("did-finish-load",()=>{void reportPage().catch(()=>{});});
@@ -73,7 +73,7 @@ function configure(partition) {
   const protocol = new URL(details.url).protocol;
   callback({ cancel: ["http:", "https:", "ws:", "wss:"].includes(protocol) ? !allowed(details.url.replace(/^ws/, "http")) : !nativePdfResource(details)&&!["about:", "data:", "blob:"].includes(protocol) });
  });
- browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease){lease.statusCode=details.statusCode;const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";}}callback({cancel:false});});
+ browserSession.webRequest.onHeadersReceived((details,callback)=>{if(details.resourceType==="mainFrame"){const lease=[...leases.values()].find(row=>row.partition===partition&&(row.window.webContents.id===details.webContentsId||[...row.popups].some(p=>p.webContents.id===details.webContentsId)));if(lease&&lease.window.webContents.id===details.webContentsId){lease.statusCode=details.statusCode;const headers=details.responseHeaders??{};lease.documentType=Object.entries(headers).find(([key])=>key.toLowerCase()==="content-type")?.[1]?.[0]??"";lease.cfMitigated=Object.entries(headers).find(([key])=>key.toLowerCase()==="cf-mitigated")?.[1]?.[0]??"";}}callback({cancel:false});});
  browserSession.on("will-download", (event, item, contents) => {
   let lease = [...leases.values()].find(row => row.partition === partition &&
    (row.window.webContents === contents || [...row.popups].some(popup => popup.webContents === contents)));
@@ -123,6 +123,15 @@ async function dispatch(method, input = {}) {
   case "navigate": {
    const row = requireLease(input.lease);
    if (!allowed(input.url)) throw new Error("blocked scientific browser destination");
+   const destination = new URL(input.url).href;
+   // Opening the same download again must not interrupt a human challenge.
+   // Compare complete URLs internally; public state intentionally omits queries.
+   if (row.navigation?.url === destination) return await row.navigation.promise;
+   if (row.access?.state === 'verification-required' &&
+       [row.window.webContents.getURL(), row.requestedUrl].includes(destination))
+    return await dispatch("state", input);
+   row.requestedUrl = destination;
+   const navigate = async () => {
    const startedAt=Date.now(),contents=row.window.webContents;let timer,ready;
    const domReady=new Promise(resolve=>{ready=()=>resolve();contents.once('dom-ready',ready);});
    try { await Promise.race([row.window.loadURL(input.url),domReady,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Scientific browser navigation timed out before document ready')),20000);})]); } catch(error) {
@@ -131,8 +140,12 @@ async function dispatch(method, input = {}) {
     if(['ERR_ABORTED','ERR_FAILED'].includes(error.code)||[-2,-3].includes(error.errno))for(let i=0;i<25&&(row.downloadStartedAt??0)<startedAt;i++)await new Promise(done=>setTimeout(done,20));
     if((row.downloadStartedAt??0)<startedAt)throw new Error(`Scientific browser navigation failed (${error.code??"unknown"}, ${error.errno??"unknown"})`);
    }finally{clearTimeout(timer);contents.removeListener('dom-ready',ready);}
-   row.access=await inspectAccess(row);
+   const seq=row.pageSeq,access=await inspectAccess(row);
+   if(seq===row.pageSeq)row.access=access;
    return await dispatch("state", input);
+   };
+   const navigation={url:destination,promise:navigate()};row.navigation=navigation;
+   try{return await navigation.promise;}finally{if(row.navigation===navigation)row.navigation=null;}
   }
   case "links": {
    const row = requireLease(input.lease);
