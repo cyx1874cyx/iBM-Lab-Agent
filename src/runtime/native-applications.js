@@ -3,7 +3,7 @@ import { applicationSpec } from "../../lib/applications/registry.js";
 import { GUARDIAN } from "./process-supervisor.js";
 
 /** No executable/module/argv from a client. Installation controls the interpreter. */
-export function nativeMcpConfig(appKey, { python, toolProfile = "compact", workspaceRoot }) {
+export function nativeMcpConfig(appKey, { python, toolProfile = "full", workspaceRoot }) {
  const spec = applicationSpec(appKey);
  if (!isAbsolute(python ?? "")) throw new Error("native MCP requires an absolute managed Python path");
  if (!["compact", "full"].includes(toolProfile)) throw new Error("unsupported Origin tool profile");

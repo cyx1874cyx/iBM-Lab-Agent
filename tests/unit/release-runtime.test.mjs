@@ -128,6 +128,7 @@ test('0.5.8 Electron data upgrades to 0.6.0 with package backups and preserved u
   for(const [path,value] of sentinels)writeFileSync(path,value);
   class Profiles { ensure(){throw Error('Existing profile must be preserved');} }
   const result=initializeRelease({home,resources,electron:process.execPath,profiles:Profiles});
+  assert.equal(process.env.ORIGIN_MCP_TOOL_PROFILE,'full');
   assert.deepEqual(result.plugins.updated,names);assert.equal(result.initialized,false);
   for(const name of names){assert.equal(JSON.parse(readFileSync(join(profile,'node_modules',name,'package.json'))).version,'0.6.0-rc.1');assert.equal(JSON.parse(readFileSync(join(result.plugins.backup,'previous',name,'package.json'))).version,'0.5.8-rc.1');}
   const manifest=JSON.parse(readFileSync(join(profile,'package.json'))),workspace=load(readFileSync(join(profile,'pnpm-workspace.yaml'),'utf8'));

@@ -52,6 +52,9 @@ test("native MCP startup is selected exclusively by the frozen application regis
  assert.throws(() => nativeMcpConfig("origin", { python: process.execPath, toolProfile: "unknown" }), /profile/);
  const config = nativeMcpConfig("origin", { python: process.execPath });
  assert.equal(config.args.at(-1), "origin_mcp");
+ assert.equal(config.env.ORIGIN_MCP_TOOL_PROFILE, "full");
+ assert.equal(nativeMcpConfig("origin", { python: process.execPath, toolProfile: "compact" }).env.ORIGIN_MCP_TOOL_PROFILE, "compact");
+ assert.equal(nativeMcpConfig("mnova", { python: process.execPath }).env.ORIGIN_MCP_TOOL_PROFILE, undefined);
  assert.equal(config.command, process.execPath);
  assert.equal(config.reconnect.enabled, false);
 });

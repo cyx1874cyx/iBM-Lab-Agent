@@ -114,6 +114,9 @@ export function initializeRelease({home,resources,electron,profiles}){
  const python=join(resources,'python','python.exe');if(!existsSync(python))throw Error('Bundled Python is missing');
  process.env.DSH_DESKTOP_NEXT_HOME=home;process.env.DSH_HOME=home;
  process.env.IBM_LAB_AGENT_BUNDLED_PYTHON=python;process.env.IBM_LAB_AGENT_BUNDLED_ELECTRON=electron;
+ // Apply the product default to Origin MCP workers launched from the desktop,
+ // including direct Python module calls by the Agent.
+ process.env.ORIGIN_MCP_TOOL_PROFILE="full";
  const manager=new profiles(home),marker=join(home,'ibm-release.json');
  const ledger=JSON.parse(readFileSync(join(resources,'archives','release-archives.json')));
  if(existsSync(marker)){

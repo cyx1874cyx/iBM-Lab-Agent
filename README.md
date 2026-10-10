@@ -23,7 +23,7 @@ iBM Lab Agent 是面向科研课题组的本地科研工作台，将课题对话
 
 安装包包含 Electron、科研插件、Python、固定版本的 Nature Skills、Mnova MCP 及离线查看器。课题数据默认位于 `%LOCALAPPDATA%\iBM-Lab-Agent-Electron\dsh`，与安装目录分离；模型密钥由用户配置。
 
-Origin 自动化需要本机安装 Origin，Mnova GUI 工作流需要已安装并授权的 MestReNova。文件型 NMR 分析可独立执行。
+Origin 自动化需要本机安装 Origin 并启动 Origin MCP Bridge Start，桌面端默认使用 `full` 工具集，提供当前随包版本的全部 237 个工具。Mnova GUI 工作流需要已安装并授权的 MestReNova。文件型 NMR 分析可独立执行。
 
 ## 主要能力
 
