@@ -83,7 +83,18 @@ export function refreshProductModules({home,resources,ledger,previousVersion}){
   if(!/^[a-z0-9.-]+\.tgz$/i.test(item.file))throw Error('Invalid product archive file');
   const archive=readFileSync(join(resources,'archives',item.file));if(archive.length!==item.bytes||createHash('sha256').update(archive).digest('hex')!==item.sha256)throw Error('Product archive integrity mismatch');
   const target=join(modules,item.name),existing=lstatSync(target,{throwIfNoEntry:false});
-  if(existing){if(!existing.isDirectory()||existing.isSymbolicLink())throw Error('Product package is not an owned directory');const manifest=JSON.parse(readFileSync(join(target,'package.json')));if(manifest.name!==item.name||(manifest.version!==item.version&&manifest.version!==previousVersion))throw Error('Unmanaged product package: '+item.name);}
+  if(existing){
+   if(!existing.isDirectory()||existing.isSymbolicLink())throw Error('Product package is not an owned directory');
+   const ownedRelative=relative(realpathSync(home),realpathSync(target));if(isAbsolute(ownedRelative)||ownedRelative.startsWith('..'))throw Error('Product package escapes home');
+   const manifestFile=join(target,'package.json');
+   if(existsSync(manifestFile)){
+    const manifest=JSON.parse(readFileSync(manifestFile));if(manifest.name!==item.name||(manifest.version!==item.version&&manifest.version!==previousVersion))throw Error('Unmanaged product package: '+item.name);
+   }else if(!/^[a-f0-9]{64}$/i.test(previous.packages?.[item.name]??'')){
+    // Only a previously registered installer package may be repaired. Preserve
+    // its incomplete directory in the normal refresh backup before replacement.
+    throw Error('Missing manifest in an unregistered product package: '+item.name);
+   }
+  }
   bytes.set(item.name,archive);
  }
  const recovery=join(home,'recovery','ibm-plugin-modules');realDirectory(join(home,'recovery'));realDirectory(recovery);const backup=mkdtempSync(join(recovery,'refresh-'));

@@ -69,6 +69,32 @@ test('same-version product refresh backs up stale packages and preserves project
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
+test('registered incomplete product folders recover from archives with backups; unknown folders are preserved',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'ibm-products-repair-')),home=join(dir,'home'),resources=join(dir,'resources');
+ try{
+  mkdirSync(join(resources,'archives'),{recursive:true});mkdirSync(home,{recursive:true});
+  const packages=['dsh-lab-agent',...['core','runtime','documents','literature','design','analysis','ui'].map(name=>'dsh-lab-'+name)].map(name=>{
+   const version='0.6.0-rc.1',file=name+'.tgz',bytes=archive('package/package.json',JSON.stringify({name,version}));
+   writeFileSync(join(resources,'archives',file),bytes);
+   return {name,version,file,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+  });
+  const target=join(home,'profiles/ibm-lab/node_modules/dsh-lab-agent');mkdirSync(target,{recursive:true});writeFileSync(join(target,'partial.txt'),'preserve interrupted installation');
+  const data=join(home,'project.json');writeFileSync(data,'preserve project and conversation');
+  assert.throws(()=>refreshProductModules({home,resources,ledger:{packages}}),/unregistered product package/);
+  assert.equal(readFileSync(join(target,'partial.txt'),'utf8'),'preserve interrupted installation');
+  writeFileSync(join(home,'ibm-plugin-payload.json'),JSON.stringify({packages:Object.fromEntries(packages.map(item=>[item.name,item.sha256]))}));
+  // Matching archive stamps cannot hide a missing manifest after interruption.
+  const result=refreshProductModules({home,resources,ledger:{packages}});
+  assert.equal(JSON.parse(readFileSync(join(target,'package.json'))).name,'dsh-lab-agent');
+  assert.equal(readFileSync(join(result.backup,'previous/dsh-lab-agent/partial.txt'),'utf8'),'preserve interrupted installation');
+  assert.equal(readFileSync(data,'utf8'),'preserve project and conversation');
+  assert.deepEqual(refreshProductModules({home,resources,ledger:{packages}}).updated,[]);
+ }finally{
+  assert.equal(dir.startsWith(join(tmpdir(),'ibm-products-repair-')),true);
+  rmSync(dir,{recursive:true,force:true});
+ }
+});
+
 test('cross-version upgrades require a declared source and the same NEXT/kernel',()=>{
  const current={ibm:'0.5.8-rc.1',kernel:'0.2.0-rc.2',nextCommit:'pinned-next'};
  const release={...current,ibm:'0.6.0-rc.1',upgradeFrom:['0.5.8-rc.1']};
