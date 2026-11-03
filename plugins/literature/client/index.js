@@ -43355,6 +43355,19 @@ function ReadingLinkUpload({ projectId, onRequestArtifact, onSubmitted, notify }
   );
 }
 
+// client/src/reader-host.js
+var PREFIX = "dsh-resource://lab-reader/";
+var runtime = null;
+function readerAddress({ projectId, bundleId, kind = "pdf" }) {
+  return PREFIX + [projectId, bundleId, kind].map(encodeURIComponent).join("/");
+}
+async function openReader(request) {
+  if (!runtime) throw Error("侧栏阅读器尚未就绪");
+  const address = readerAddress(request);
+  await runtime.open(address, request);
+  window.dispatchEvent(new CustomEvent("ibm-reader-open", { detail: { address } }));
+}
+
 // client/src/sdk.js
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -44794,17 +44807,17 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
   const [doc, setDoc] = (0, import_react11.useState)(null), [error, setError] = (0, import_react11.useState)(""), [attempt, setAttempt] = (0, import_react11.useState)(0);
   (0, import_react11.useEffect)(() => {
     let alive = true, opened, range, task;
-    const runtime2 = readerRuntime(), identity = { ...request, kind: material.kind ?? request.kind, translationId: material.translationId, materialId: material.officeKind ? material.id : void 0 };
+    const runtime3 = readerRuntime(), identity = { ...request, kind: material.kind ?? request.kind, translationId: material.translationId, materialId: material.officeKind ? material.id : void 0 };
     setDoc(null);
     setError("");
     onDocument(props.side, null);
     props.onLoading(props.side, true);
     void (async () => {
       await loadPdf();
-      opened = await runtime2.call("tasks_reader_open", { request: identity });
+      opened = await runtime3.call("tasks_reader_open", { request: identity });
       if (!alive) return;
       if (opened.format !== "pdf") throw Error("该材料无法作为 PDF 预览");
-      range = makeRange(identity, opened, runtime2.call);
+      range = makeRange(identity, opened, runtime3.call);
       range.onError = (error2) => {
         if (alive) {
           setError(error2.message);
@@ -44812,7 +44825,7 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
           void task?.destroy();
         }
       };
-      task = pdfTypes().getDocument({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, ...pdfResources((method, args) => runtime2.call(method, { request: args })) });
+      task = pdfTypes().getDocument({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, ...pdfResources((method, args) => runtime3.call(method, { request: args })) });
       const pdf = await task.promise;
       if (alive) {
         setDoc(pdf);
@@ -44824,14 +44837,14 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
         props.onLoading(props.side, false);
       }
     }).finally(() => {
-      if (!alive && opened?.lease) void runtime2.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
+      if (!alive && opened?.lease) void runtime3.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
       });
     });
     return () => {
       alive = false;
       range?.abort();
       void task?.destroy();
-      if (opened?.lease) void runtime2.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
+      if (opened?.lease) void runtime3.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
       });
     };
   }, [material.id, attempt]);
@@ -51861,7 +51874,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
     linked: () => preferences.current.mode === "dual" && preferences.current.linked && preferences.current.pdfLinked,
     onPosition: (positions) => setPages((old) => old.original === positions.original.page && old.zh === positions.zh.page ? old : { original: positions.original.page, zh: positions.zh.page })
   });
-  const runtime2 = readerRuntime(), call = (method, args) => runtime2.call(method, { request: args }), onError = (0, import_react12.useCallback)((error2) => setError(error2.message ?? String(error2)), []);
+  const runtime3 = readerRuntime(), call = (method, args) => runtime3.call(method, { request: args }), onError = (0, import_react12.useCallback)((error2) => setError(error2.message ?? String(error2)), []);
   const onScroll = (0, import_react12.useCallback)((side, flow) => scroll.current.onScroll(side, flow), []), onLayout = (0, import_react12.useCallback)((side) => scroll.current.restore(side), []);
   const onLoading = (0, import_react12.useCallback)((side, value) => setViewLoading((old) => old[side] === value ? old : { ...old, [side]: value }), []);
   (0, import_react12.useEffect)(() => () => {
@@ -51937,7 +51950,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       }
       if (opened.format !== "pdf") return;
       port = new Worker(workerUrl2, { type: "module" });
-      range = makeRange(request, opened, runtime2.call);
+      range = makeRange(request, opened, runtime3.call);
       range.onError = (error2) => {
         if (alive) {
           onError(error2);
@@ -52006,7 +52019,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       }
       leases.current.add(opened.lease);
       setState((old) => ({ ...old, completedTranslation: opened.translation, translation: old.translation?.id === readingId ? opened.translation : old.translation }));
-      range = makeRange(request, opened, runtime2.call);
+      range = makeRange(request, opened, runtime3.call);
       range.onError = (error2) => {
         if (alive) {
           onError(error2);
@@ -52093,7 +52106,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         setState((old) => ({ ...old, translation: done.translation, completedTranslation: done.translation }));
         setRefresh((n) => n + 1);
         changeMode("zh");
-      } else if (!created.reused) await runtime2.translate(request, created.translation.id, translationPrompt(request, created.translation.id));
+      } else if (!created.reused) await runtime3.translate(request, created.translation.id, translationPrompt(request, created.translation.id));
       else setError("任务正在进行，请查看翻译对话。");
     } catch (error2) {
       if (created && !created.reused && !created.readyToCompose) await call("tasks_translation_cancel", { ...request, translationId: created.translation.id }).catch(() => {
@@ -52245,17 +52258,17 @@ async function loadPdfViewer() {
   await loadPdf();
   return viewerModule ??= Promise.resolve().then(() => (init_pdf_viewer(), pdf_viewer_exports));
 }
-var PREFIX = "dsh-resource://lab-reader/";
+var PREFIX2 = "dsh-resource://lab-reader/";
 var ID = "lab-reader";
 var KIND = "lab-reader";
-var runtime = null;
+var runtime2 = null;
 var workerUrl;
 var preferredModes = /* @__PURE__ */ new Map();
 function setReaderRuntime(value) {
-  runtime = value;
+  runtime2 = value;
 }
 function readerRuntime() {
-  return runtime;
+  return runtime2;
 }
 function pdfTypes() {
   return { getDocument: getDocument3, PDFWorker: PDFWorker3, TextLayer: TextLayer3, GlobalWorkerOptions: GlobalWorkerOptions3 };
@@ -52267,8 +52280,8 @@ function readerWorker() {
   return workerUrl ??= URL.createObjectURL(new Blob([pdf_worker_default], { type: "text/javascript" }));
 }
 function readerIdentity(address) {
-  if (!String(address).startsWith(PREFIX)) return null;
-  const parts = String(address).slice(PREFIX.length).split("/");
+  if (!String(address).startsWith(PREFIX2)) return null;
+  const parts = String(address).slice(PREFIX2.length).split("/");
   if (parts.length !== 3) return null;
   try {
     const [projectId, bundleId, kind] = parts.map(decodeURIComponent);
@@ -52325,7 +52338,7 @@ function registerReaderTab(ctx) {
     document.head.append(style);
     return () => style.remove();
   }, "iBM PDF 文字选择与双语布局");
-  ctx.effect(() => ctx.sidebarRightTabs.register({ id: ID, kind: KIND, patterns: [PREFIX + "**"], priority: "extension", title: () => "文献阅读" }), "iBM 文献阅读 tab");
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: ID, kind: KIND, patterns: [PREFIX2 + "**"], priority: "extension", title: () => "文献阅读" }), "iBM 文献阅读 tab");
   ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({ name: "sidebar.right.pane.tab", key: ID }, ReaderBody)), "iBM 文献阅读内容");
   ctx.effect(() => () => setReaderRuntime(null), "iBM 文献阅读清理");
 }

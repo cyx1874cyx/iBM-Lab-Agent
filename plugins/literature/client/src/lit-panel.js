@@ -11,6 +11,7 @@ import {
 	ReadingNoteSvg, OverviewSvg, TranslateSvg, PresentationSvg, SpinSvg, BookSvg, SiSvg,
 	saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview,
 	openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell,
+	openReader,
 	openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell,
 	cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop, when, statusOf
 } from "dsh-lab-agent/client-sdk";
