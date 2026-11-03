@@ -277,7 +277,6 @@ export function applyUi(ctx) {
 		// 课题：资源 tab，一个课题一个标签页（页面 tab 的身份只由 kind 决定，
 		// 做不到每课题一标签）。
 		registerProjectTab(tabCtx);
-		registerReaderTab(tabCtx);
 		const readerSessions=new Map();
 		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id,prompt)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:prompt??translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
 			const {sessionId}=await openReadingPreviewConversation(call,launchProject,request);

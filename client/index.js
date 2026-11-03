@@ -31543,7 +31543,6 @@ function applyUi(ctx) {
     if (globalThis.ibmResearchSidebar) tabCtx.effect(() => installSidebarBrowser({ sidebarRight: tabCtx.sidebarRight, workspaces: ctx.workspaces, uiWorkspace: ctx.uiWorkspace, sessions: ctx.sessions }), "iBM 官方侧栏浏览器");
     else registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
     registerProjectTab(tabCtx);
-    registerReaderTab(tabCtx);
     const readerSessions = /* @__PURE__ */ new Map();
     setReaderRuntime({ call, sessionId: (address) => readerSessions.get(address), translate: async (request, id, prompt) => {
       const { project: project2 } = await call("projects_get", { request: { id: request.projectId } });
