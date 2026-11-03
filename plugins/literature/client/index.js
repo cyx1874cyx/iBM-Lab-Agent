@@ -1793,9 +1793,9 @@ var init_pdf = __esm({
             } else if (value.prototype) value.prototype = void 0;
           } catch (error) {
           }
-          var state2 = enforceInternalState(value);
-          if (!hasOwn(state2, "source")) {
-            state2.source = join(TEMPLATE, typeof name == "string" ? name : "");
+          var state3 = enforceInternalState(value);
+          if (!hasOwn(state3, "source")) {
+            state3.source = join(TEMPLATE, typeof name == "string" ? name : "");
           }
           return value;
         };
@@ -2080,11 +2080,11 @@ var init_pdf = __esm({
         };
         var getterFor = function(TYPE) {
           return function(it) {
-            var state2;
-            if (!isObject(it) || (state2 = get(it)).type !== TYPE) {
+            var state3;
+            if (!isObject(it) || (state3 = get(it)).type !== TYPE) {
               throw new TypeError2("Incompatible receiver, " + TYPE + " required");
             }
-            return state2;
+            return state3;
           };
         };
         if (NATIVE_WEAK_MAP || shared.state) {
@@ -2694,21 +2694,21 @@ var init_pdf = __esm({
           sumPrecise: function sumPrecise(items) {
             var numbers = [];
             var count = 0;
-            var state2 = MINUS_ZERO;
+            var state3 = MINUS_ZERO;
             iterate(items, function(n2) {
               if (++count >= MAX_SAFE_INTEGER) throw new $RangeError("Maximum allowed index exceeded");
               if (typeof n2 != "number") throw new $TypeError("Value is not a number");
-              if (state2 !== NOT_A_NUMBER) {
-                if (n2 !== n2) state2 = NOT_A_NUMBER;
-                else if (n2 === $Infinity) state2 = state2 === MINUS_INFINITY ? NOT_A_NUMBER : PLUS_INFINITY;
-                else if (n2 === -$Infinity) state2 = state2 === PLUS_INFINITY ? NOT_A_NUMBER : MINUS_INFINITY;
-                else if ((n2 !== 0 || 1 / n2 === $Infinity) && (state2 === MINUS_ZERO || state2 === FINITE)) {
-                  state2 = FINITE;
+              if (state3 !== NOT_A_NUMBER) {
+                if (n2 !== n2) state3 = NOT_A_NUMBER;
+                else if (n2 === $Infinity) state3 = state3 === MINUS_INFINITY ? NOT_A_NUMBER : PLUS_INFINITY;
+                else if (n2 === -$Infinity) state3 = state3 === PLUS_INFINITY ? NOT_A_NUMBER : MINUS_INFINITY;
+                else if ((n2 !== 0 || 1 / n2 === $Infinity) && (state3 === MINUS_ZERO || state3 === FINITE)) {
+                  state3 = FINITE;
                   push(numbers, n2);
                 }
               }
             });
-            switch (state2) {
+            switch (state3) {
               case NOT_A_NUMBER:
                 return $NaN;
               case MINUS_INFINITY:
@@ -3444,8 +3444,8 @@ var init_pdf = __esm({
         var getTypedArrayConstructor = function(it) {
           var proto = getPrototypeOf(it);
           if (!isObject(proto)) return;
-          var state2 = getInternalState(proto);
-          return state2 && hasOwn(state2, TYPED_ARRAY_CONSTRUCTOR) ? state2[TYPED_ARRAY_CONSTRUCTOR] : getTypedArrayConstructor(proto);
+          var state3 = getInternalState(proto);
+          return state3 && hasOwn(state3, TYPED_ARRAY_CONSTRUCTOR) ? state3[TYPED_ARRAY_CONSTRUCTOR] : getTypedArrayConstructor(proto);
         };
         var isTypedArray = function(it) {
           if (!isObject(it)) return false;
@@ -5522,32 +5522,32 @@ var init_pdf = __esm({
           var getInternalState = InternalStateModule.getterFor(IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER);
           return defineBuiltIns(create(IteratorPrototype), {
             next: function next() {
-              var state2 = getInternalState(this);
-              if (IS_ITERATOR) return state2.nextHandler();
-              if (state2.done) return createIterResultObject(void 0, true);
+              var state3 = getInternalState(this);
+              if (IS_ITERATOR) return state3.nextHandler();
+              if (state3.done) return createIterResultObject(void 0, true);
               try {
-                var result = state2.nextHandler();
-                return state2.returnHandlerResult ? result : createIterResultObject(result, state2.done);
+                var result = state3.nextHandler();
+                return state3.returnHandlerResult ? result : createIterResultObject(result, state3.done);
               } catch (error) {
-                state2.done = true;
+                state3.done = true;
                 throw error;
               }
             },
             "return": function() {
-              var state2 = getInternalState(this);
-              var iterator = state2.iterator;
-              state2.done = true;
+              var state3 = getInternalState(this);
+              var iterator = state3.iterator;
+              state3.done = true;
               if (IS_ITERATOR) {
                 var returnMethod = getMethod(iterator, "return");
                 return returnMethod ? call(returnMethod, iterator) : createIterResultObject(void 0, true);
               }
-              if (state2.inner) try {
-                iteratorClose(state2.inner.iterator, NORMAL);
+              if (state3.inner) try {
+                iteratorClose(state3.inner.iterator, NORMAL);
               } catch (error) {
                 return iteratorClose(iterator, THROW, error);
               }
-              if (state2.openIters) try {
-                iteratorCloseAll(state2.openIters, NORMAL);
+              if (state3.openIters) try {
+                iteratorCloseAll(state3.openIters, NORMAL);
               } catch (error) {
                 return iteratorClose(iterator, THROW, error);
               }
@@ -5560,17 +5560,17 @@ var init_pdf = __esm({
         var IteratorHelperPrototype = createIteratorProxyPrototype(false);
         createNonEnumerableProperty(IteratorHelperPrototype, TO_STRING_TAG, "Iterator Helper");
         module2.exports = function(nextHandler, IS_ITERATOR, RETURN_HANDLER_RESULT) {
-          var IteratorProxy = function Iterator2(record, state2) {
-            if (state2) {
-              state2.iterator = record.iterator;
-              state2.next = record.next;
-            } else state2 = record;
-            state2.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
-            state2.returnHandlerResult = !!RETURN_HANDLER_RESULT;
-            state2.nextHandler = nextHandler;
-            state2.counter = 0;
-            state2.done = false;
-            setInternalState(this, state2);
+          var IteratorProxy = function Iterator2(record, state3) {
+            if (state3) {
+              state3.iterator = record.iterator;
+              state3.next = record.next;
+            } else state3 = record;
+            state3.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
+            state3.returnHandlerResult = !!RETURN_HANDLER_RESULT;
+            state3.nextHandler = nextHandler;
+            state3.counter = 0;
+            state3.done = false;
+            setInternalState(this, state3);
           };
           IteratorProxy.prototype = IS_ITERATOR ? WrapForValidIteratorPrototype : IteratorHelperPrototype;
           return IteratorProxy;
@@ -8879,8 +8879,8 @@ var init_pdf = __esm({
             editor.show(visible);
           }
         }
-        const state2 = this.#showAllStates?.get(AnnotationEditorParamsType.HIGHLIGHT_SHOW_ALL) ?? true;
-        if (state2 !== visible) {
+        const state3 = this.#showAllStates?.get(AnnotationEditorParamsType.HIGHLIGHT_SHOW_ALL) ?? true;
+        if (state3 !== visible) {
           this.#dispatchUpdateUI([[AnnotationEditorParamsType.HIGHLIGHT_SHOW_ALL, visible]]);
         }
       }
@@ -16995,28 +16995,28 @@ var init_pdf = __esm({
         const operator = array[0];
         for (let i = 1; i < length; i++) {
           const element = array[i];
-          let state2;
+          let state3;
           if (Array.isArray(element)) {
-            state2 = this.#evaluateVisibilityExpression(element);
+            state3 = this.#evaluateVisibilityExpression(element);
           } else if (this.#groups.has(element)) {
-            state2 = this.#groups.get(element).visible;
+            state3 = this.#groups.get(element).visible;
           } else {
             warn(`Optional content group not found: ${element}`);
             return true;
           }
           switch (operator) {
             case "And":
-              if (!state2) {
+              if (!state3) {
                 return false;
               }
               break;
             case "Or":
-              if (state2) {
+              if (state3) {
                 return true;
               }
               break;
             case "Not":
-              return !state2;
+              return !state3;
             default:
               return true;
           }
@@ -17111,11 +17111,11 @@ var init_pdf = __esm({
         this.#cachedGetHash = null;
       }
       setOCGState({
-        state: state2,
+        state: state3,
         preserveRB
       }) {
         let operator;
-        for (const elem of state2) {
+        for (const elem of state3) {
           switch (elem) {
             case "ON":
             case "OFF":
@@ -30225,21 +30225,21 @@ function watchScroll(viewAreaElement, callback, abortSignal = void 0) {
     rAF = window.requestAnimationFrame(function viewAreaElementScrolled() {
       rAF = null;
       const currentX = viewAreaElement.scrollLeft;
-      const lastX = state2.lastX;
+      const lastX = state3.lastX;
       if (currentX !== lastX) {
-        state2.right = currentX > lastX;
+        state3.right = currentX > lastX;
       }
-      state2.lastX = currentX;
+      state3.lastX = currentX;
       const currentY = viewAreaElement.scrollTop;
-      const lastY = state2.lastY;
+      const lastY = state3.lastY;
       if (currentY !== lastY) {
-        state2.down = currentY > lastY;
+        state3.down = currentY > lastY;
       }
-      state2.lastY = currentY;
-      callback(state2);
+      state3.lastY = currentY;
+      callback(state3);
     });
   };
-  const state2 = {
+  const state3 = {
     right: true,
     down: true,
     lastX: viewAreaElement.scrollLeft,
@@ -30254,7 +30254,7 @@ function watchScroll(viewAreaElement, callback, abortSignal = void 0) {
   abortSignal?.addEventListener("abort", () => window.cancelAnimationFrame(rAF), {
     once: true
   });
-  return state2;
+  return state3;
 }
 function parseQueryString(query) {
   const params = /* @__PURE__ */ new Map();
@@ -31442,9 +31442,9 @@ var init_pdf_viewer = __esm({
             } else if (value.prototype) value.prototype = void 0;
           } catch (error) {
           }
-          var state2 = enforceInternalState(value);
-          if (!hasOwn(state2, "source")) {
-            state2.source = join(TEMPLATE, typeof name == "string" ? name : "");
+          var state3 = enforceInternalState(value);
+          if (!hasOwn(state3, "source")) {
+            state3.source = join(TEMPLATE, typeof name == "string" ? name : "");
           }
           return value;
         };
@@ -31659,11 +31659,11 @@ var init_pdf_viewer = __esm({
         };
         var getterFor = function(TYPE) {
           return function(it) {
-            var state2;
-            if (!isObject(it) || (state2 = get(it)).type !== TYPE) {
+            var state3;
+            if (!isObject(it) || (state3 = get(it)).type !== TYPE) {
               throw new TypeError2("Incompatible receiver, " + TYPE + " required");
             }
-            return state2;
+            return state3;
           };
         };
         if (NATIVE_WEAK_MAP || shared.state) {
@@ -32761,8 +32761,8 @@ var init_pdf_viewer = __esm({
         var getTypedArrayConstructor = function(it) {
           var proto = getPrototypeOf(it);
           if (!isObject(proto)) return;
-          var state2 = getInternalState(proto);
-          return state2 && hasOwn(state2, TYPED_ARRAY_CONSTRUCTOR) ? state2[TYPED_ARRAY_CONSTRUCTOR] : getTypedArrayConstructor(proto);
+          var state3 = getInternalState(proto);
+          return state3 && hasOwn(state3, TYPED_ARRAY_CONSTRUCTOR) ? state3[TYPED_ARRAY_CONSTRUCTOR] : getTypedArrayConstructor(proto);
         };
         var isTypedArray = function(it) {
           if (!isObject(it)) return false;
@@ -34428,32 +34428,32 @@ var init_pdf_viewer = __esm({
           var getInternalState = InternalStateModule.getterFor(IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER);
           return defineBuiltIns(create(IteratorPrototype), {
             next: function next() {
-              var state2 = getInternalState(this);
-              if (IS_ITERATOR) return state2.nextHandler();
-              if (state2.done) return createIterResultObject(void 0, true);
+              var state3 = getInternalState(this);
+              if (IS_ITERATOR) return state3.nextHandler();
+              if (state3.done) return createIterResultObject(void 0, true);
               try {
-                var result = state2.nextHandler();
-                return state2.returnHandlerResult ? result : createIterResultObject(result, state2.done);
+                var result = state3.nextHandler();
+                return state3.returnHandlerResult ? result : createIterResultObject(result, state3.done);
               } catch (error) {
-                state2.done = true;
+                state3.done = true;
                 throw error;
               }
             },
             "return": function() {
-              var state2 = getInternalState(this);
-              var iterator = state2.iterator;
-              state2.done = true;
+              var state3 = getInternalState(this);
+              var iterator = state3.iterator;
+              state3.done = true;
               if (IS_ITERATOR) {
                 var returnMethod = getMethod(iterator, "return");
                 return returnMethod ? call(returnMethod, iterator) : createIterResultObject(void 0, true);
               }
-              if (state2.inner) try {
-                iteratorClose(state2.inner.iterator, NORMAL);
+              if (state3.inner) try {
+                iteratorClose(state3.inner.iterator, NORMAL);
               } catch (error) {
                 return iteratorClose(iterator, THROW, error);
               }
-              if (state2.openIters) try {
-                iteratorCloseAll(state2.openIters, NORMAL);
+              if (state3.openIters) try {
+                iteratorCloseAll(state3.openIters, NORMAL);
               } catch (error) {
                 return iteratorClose(iterator, THROW, error);
               }
@@ -34466,17 +34466,17 @@ var init_pdf_viewer = __esm({
         var IteratorHelperPrototype = createIteratorProxyPrototype(false);
         createNonEnumerableProperty(IteratorHelperPrototype, TO_STRING_TAG, "Iterator Helper");
         module2.exports = function(nextHandler, IS_ITERATOR, RETURN_HANDLER_RESULT) {
-          var IteratorProxy = function Iterator2(record, state2) {
-            if (state2) {
-              state2.iterator = record.iterator;
-              state2.next = record.next;
-            } else state2 = record;
-            state2.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
-            state2.returnHandlerResult = !!RETURN_HANDLER_RESULT;
-            state2.nextHandler = nextHandler;
-            state2.counter = 0;
-            state2.done = false;
-            setInternalState(this, state2);
+          var IteratorProxy = function Iterator2(record, state3) {
+            if (state3) {
+              state3.iterator = record.iterator;
+              state3.next = record.next;
+            } else state3 = record;
+            state3.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
+            state3.returnHandlerResult = !!RETURN_HANDLER_RESULT;
+            state3.nextHandler = nextHandler;
+            state3.counter = 0;
+            state3.done = false;
+            setInternalState(this, state3);
           };
           IteratorProxy.prototype = IS_ITERATOR ? WrapForValidIteratorPrototype : IteratorHelperPrototype;
           return IteratorProxy;
@@ -34948,18 +34948,18 @@ var init_pdf_viewer = __esm({
         this._pdfDocument = pdfDocument;
         this._firstPageCapability.resolve();
       }
-      #onFind(state2) {
-        if (!state2) {
+      #onFind(state3) {
+        if (!state3) {
           return;
         }
         const pdfDocument = this._pdfDocument;
         const {
           type
-        } = state2;
-        if (this.#state === null || this.#shouldDirtyMatch(state2)) {
+        } = state3;
+        if (this.#state === null || this.#shouldDirtyMatch(state3)) {
           this._dirtyMatch = true;
         }
-        this.#state = state2;
+        this.#state = state3;
         if (type !== "highlightallchange") {
           this.#updateUIState(FindState.PENDING);
         }
@@ -35061,8 +35061,8 @@ var init_pdf_viewer = __esm({
         }
         return (query || []).filter((q) => !!q).map((q) => normalize(q)[0]);
       }
-      #shouldDirtyMatch(state2) {
-        const newQuery = state2.query, prevQuery = this.#state.query;
+      #shouldDirtyMatch(state3) {
+        const newQuery = state3.query, prevQuery = this.#state.query;
         const newType = typeof newQuery, prevType = typeof prevQuery;
         if (newType !== prevType) {
           return true;
@@ -35074,7 +35074,7 @@ var init_pdf_viewer = __esm({
         } else if (JSON.stringify(newQuery) !== JSON.stringify(prevQuery)) {
           return true;
         }
-        switch (state2.type) {
+        switch (state3.type) {
           case "again":
             const pageNumber = this._selected.pageIdx + 1;
             const linkService = this._linkService;
@@ -35378,19 +35378,19 @@ var init_pdf_viewer = __esm({
         }
       }
       #updateMatch(found = false) {
-        let state2 = FindState.NOT_FOUND;
+        let state3 = FindState.NOT_FOUND;
         const wrapped = this._offset.wrapped;
         this._offset.wrapped = false;
         if (found) {
           const previousPage = this._selected.pageIdx;
           this._selected.pageIdx = this._offset.pageIdx;
           this._selected.matchIdx = this._offset.matchIdx;
-          state2 = wrapped ? FindState.WRAPPED : FindState.FOUND;
+          state3 = wrapped ? FindState.WRAPPED : FindState.FOUND;
           if (previousPage !== -1 && previousPage !== this._selected.pageIdx) {
             this.#updatePage(previousPage);
           }
         }
-        this.#updateUIState(state2, this.#state.findPrevious);
+        this.#updateUIState(state3, this.#state.findPrevious);
         if (this._selected.pageIdx !== -1) {
           this._scrollMatches = true;
           this.#updatePage(this._selected.pageIdx);
@@ -35459,13 +35459,13 @@ var init_pdf_viewer = __esm({
           matchesCount: this.#requestMatchesCount()
         });
       }
-      #updateUIState(state2, previous = false) {
-        if (!this.#updateMatchesCountOnProgress && (this.#visitedPagesCount !== this._linkService.pagesCount || state2 === FindState.PENDING)) {
+      #updateUIState(state3, previous = false) {
+        if (!this.#updateMatchesCountOnProgress && (this.#visitedPagesCount !== this._linkService.pagesCount || state3 === FindState.PENDING)) {
           return;
         }
         this._eventBus.dispatch("updatefindcontrolstate", {
           source: this,
-          state: state2,
+          state: state3,
           previous,
           entireWord: this.#state?.entireWord ?? null,
           matchesCount: this.#requestMatchesCount(),
@@ -35935,12 +35935,12 @@ var init_pdf_viewer = __esm({
           this.div.hidden = false;
         }
       }
-      #updatePresentationModeState(state2) {
+      #updatePresentationModeState(state3) {
         if (!this.div) {
           return;
         }
         let disableFormElements = false;
-        switch (state2) {
+        switch (state3) {
           case PresentationModeState.FULLSCREEN:
             disableFormElements = true;
             break;
@@ -37179,7 +37179,7 @@ var init_pdf_viewer = __esm({
         this._updateUrl = updateUrl === true;
         this._initialized = true;
         this.#bindEvents();
-        const state2 = window.history.state;
+        const state3 = window.history.state;
         this._popStateInProgress = false;
         this._blockHashChange = 0;
         this._currentHash = getCurrentHash();
@@ -37187,7 +37187,7 @@ var init_pdf_viewer = __esm({
         this._uid = this._maxUid = 0;
         this._destination = null;
         this._position = null;
-        if (!this.#isValidState(state2, true) || resetHistory) {
+        if (!this.#isValidState(state3, true) || resetHistory) {
           const {
             hash,
             page,
@@ -37204,8 +37204,8 @@ var init_pdf_viewer = __esm({
           }, true);
           return;
         }
-        const destination = state2.destination;
-        this.#updateInternalState(destination, state2.uid, true);
+        const destination = state3.destination;
+        this.#updateInternalState(destination, state3.uid, true);
         if (destination.rotation !== void 0) {
           this._initialRotation = destination.rotation;
         }
@@ -37315,8 +37315,8 @@ var init_pdf_viewer = __esm({
         if (!this._initialized || this._popStateInProgress) {
           return;
         }
-        const state2 = window.history.state;
-        if (this.#isValidState(state2) && state2.uid > 0) {
+        const state3 = window.history.state;
+        if (this.#isValidState(state3) && state3.uid > 0) {
           window.history.back();
         }
       }
@@ -37324,8 +37324,8 @@ var init_pdf_viewer = __esm({
         if (!this._initialized || this._popStateInProgress) {
           return;
         }
-        const state2 = window.history.state;
-        if (this.#isValidState(state2) && state2.uid < this._maxUid) {
+        const state3 = window.history.state;
+        if (this.#isValidState(state3) && state3.uid < this._maxUid) {
           window.history.forward();
         }
       }
@@ -37397,13 +37397,13 @@ var init_pdf_viewer = __esm({
       #isValidPage(val) {
         return Number.isInteger(val) && val > 0 && val <= this.linkService.pagesCount;
       }
-      #isValidState(state2, checkReload = false) {
-        if (!state2) {
+      #isValidState(state3, checkReload = false) {
+        if (!state3) {
           return false;
         }
-        if (state2.fingerprint !== this._fingerprint) {
+        if (state3.fingerprint !== this._fingerprint) {
           if (checkReload) {
-            if (typeof state2.fingerprint !== "string" || state2.fingerprint.length !== this._fingerprint.length) {
+            if (typeof state3.fingerprint !== "string" || state3.fingerprint.length !== this._fingerprint.length) {
               return false;
             }
             const [perfEntry] = performance.getEntriesByType("navigation");
@@ -37414,10 +37414,10 @@ var init_pdf_viewer = __esm({
             return false;
           }
         }
-        if (!Number.isInteger(state2.uid) || state2.uid < 0) {
+        if (!Number.isInteger(state3.uid) || state3.uid < 0) {
           return false;
         }
-        if (state2.destination === null || typeof state2.destination !== "object") {
+        if (state3.destination === null || typeof state3.destination !== "object") {
           return false;
         }
         return true;
@@ -37478,11 +37478,11 @@ var init_pdf_viewer = __esm({
         }
       }
       #popState({
-        state: state2
+        state: state3
       }) {
         const newHash = getCurrentHash(), hashChanged = this._currentHash !== newHash;
         this._currentHash = newHash;
-        if (!state2) {
+        if (!state3) {
           this._uid++;
           const {
             hash,
@@ -37496,7 +37496,7 @@ var init_pdf_viewer = __esm({
           }, true);
           return;
         }
-        if (!this.#isValidState(state2)) {
+        if (!this.#isValidState(state3)) {
           return;
         }
         this._popStateInProgress = true;
@@ -37510,8 +37510,8 @@ var init_pdf_viewer = __esm({
             this._blockHashChange--;
           });
         }
-        const destination = state2.destination;
-        this.#updateInternalState(destination, state2.uid, true);
+        const destination = state3.destination;
+        this.#updateInternalState(destination, state3.uid, true);
         if (isValidRotation(destination.rotation)) {
           this.linkService.rotation = destination.rotation;
         }
@@ -38164,16 +38164,16 @@ var init_pdf_viewer = __esm({
       get renderingState() {
         return this.#renderingState;
       }
-      set renderingState(state2) {
-        if (state2 === this.#renderingState) {
+      set renderingState(state3) {
+        if (state3 === this.#renderingState) {
           return;
         }
-        this.#renderingState = state2;
+        this.#renderingState = state3;
         if (this.#loadingId) {
           clearTimeout(this.#loadingId);
           this.#loadingId = null;
         }
-        switch (state2) {
+        switch (state3) {
           case RenderingStates.PAUSED:
             this.div.classList.remove("loading");
             this.#startTime = 0;
@@ -41580,13 +41580,13 @@ var init_pdf_viewer = __esm({
         if (this._scrollMode !== ScrollMode.PAGE) {
           throw new Error("#ensurePageViewVisible: Invalid scrollMode value.");
         }
-        const pageNumber = this._currentPageNumber, state2 = this.#scrollModePageState, viewer = this.viewer;
+        const pageNumber = this._currentPageNumber, state3 = this.#scrollModePageState, viewer = this.viewer;
         viewer.textContent = "";
-        state2.pages.length = 0;
+        state3.pages.length = 0;
         if (this._spreadMode === SpreadMode.NONE && !this.isInPresentationMode) {
           const pageView = this._pages[pageNumber - 1];
           viewer.append(pageView.div);
-          state2.pages.push(pageView);
+          state3.pages.push(pageView);
         } else {
           const pageIndexSet = /* @__PURE__ */ new Set(), parity = this._spreadMode - 1;
           if (parity === -1) {
@@ -41611,12 +41611,12 @@ var init_pdf_viewer = __esm({
               continue;
             }
             spread.append(pageView.div);
-            state2.pages.push(pageView);
+            state3.pages.push(pageView);
           }
           viewer.append(spread);
         }
-        state2.scrollDown = pageNumber >= state2.previousPageNumber;
-        state2.previousPageNumber = pageNumber;
+        state3.scrollDown = pageNumber >= state3.previousPageNumber;
+        state3.previousPageNumber = pageNumber;
       }
       _scrollUpdate() {
         if (this.pagesCount === 0) {
@@ -42600,9 +42600,9 @@ function writeValue(key, value) {
 }
 function useProjectViewValue(projectId, field, fallback) {
   const key = viewKey(projectId, field);
-  const [state2, setState] = (0, import_react2.useState)(() => ({ key, value: readValue(key, fallback) }));
-  const value = state2.key === key ? state2.value : readValue(key, fallback);
-  if (state2.key !== key) setState({ key, value });
+  const [state3, setState] = (0, import_react2.useState)(() => ({ key, value: readValue(key, fallback) }));
+  const value = state3.key === key ? state3.value : readValue(key, fallback);
+  if (state3.key !== key) setState({ key, value });
   const update = (0, import_react2.useCallback)((next) => {
     const value2 = typeof next === "function" ? next(readValue(key, fallback)) : next;
     writeValue(key, value2);
@@ -42673,12 +42673,12 @@ function registerProjectPanel(panel) {
   if (panel === null || typeof panel !== "object") throw new TypeError("项目面板必须是对象");
   if (typeof panel.id !== "string" || panel.id.length === 0) throw new TypeError("项目面板缺少 id");
   if (typeof panel.render !== "function") throw new TypeError(`项目面板 ${panel.id} 缺少 render 组件`);
-  const state2 = store();
+  const state3 = store();
   const row = Object.freeze({ label: void 0, ...panel });
-  state2.panels.set(row.id, row);
+  state3.panels.set(row.id, row);
   return () => {
-    const current = state2.panels.get(row.id);
-    if (current?.render === row.render) state2.panels.delete(row.id);
+    const current = state3.panels.get(row.id);
+    if (current?.render === row.render) state3.panels.delete(row.id);
   };
 }
 
@@ -43357,14 +43357,19 @@ function ReadingLinkUpload({ projectId, onRequestArtifact, onSubmitted, notify }
 
 // client/src/reader-host.js
 var PREFIX = "dsh-resource://lab-reader/";
-var runtime = null;
+var HOST_KEY = Symbol.for("ibm.lab.reader-host");
+function state2() {
+  if (globalThis[HOST_KEY] === void 0) globalThis[HOST_KEY] = { runtime: null };
+  return globalThis[HOST_KEY];
+}
 function readerAddress({ projectId, bundleId, kind = "pdf" }) {
   return PREFIX + [projectId, bundleId, kind].map(encodeURIComponent).join("/");
 }
 async function openReader(request) {
-  if (!runtime) throw Error("侧栏阅读器尚未就绪");
+  const runtime2 = state2().runtime;
+  if (!runtime2) throw Error("侧栏阅读器尚未就绪");
   const address = readerAddress(request);
-  await runtime.open(address, request);
+  await runtime2.open(address, request);
   window.dispatchEvent(new CustomEvent("ibm-reader-open", { detail: { address } }));
 }
 
@@ -43426,8 +43431,8 @@ var formatCaptureElapsed = (milliseconds) => {
   const seconds = Math.max(0, Math.floor(Number(milliseconds) / 1e3) || 0);
   return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 };
-var capturePhaseOf = (state2, lastError, downloadedBytes, downloadElapsedMs, automationStage, extra = {}) => {
-  switch (state2) {
+var capturePhaseOf = (state3, lastError, downloadedBytes, downloadElapsedMs, automationStage, extra = {}) => {
+  switch (state3) {
     case "opening":
       return { text: "正在打开文献浏览侧栏…", tone: "waiting" };
     case "waiting-login":
@@ -44708,11 +44713,11 @@ var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, a
       const view = new PDFViewer2({ container: flow, viewer: viewerElement.current, eventBus, linkService, abortSignal: lifecycle.signal, annotationEditorMode: -1, annotationMode: 1, maxCanvasPixels: 4e6, enableDetailCanvas: false, enableAutoLinking: false, minDurationToUpdateCanvas: 100, removePageBorders: true });
       engine.current = { viewer: view, finished: RenderingStates2.FINISHED, pageWidth: first.getViewport({ scale: 1 }).width };
       flow.dataset.pdfEngine = "PDF.js 5.4.624";
-      const markPage = (number, state2) => {
+      const markPage = (number, state3) => {
         const page = view.getPageView(number - 1);
         if (!page) return;
-        page.div.dataset.pdfState = state2;
-        page.div.dataset.pdfReady = String(state2 === "ready");
+        page.div.dataset.pdfState = state3;
+        page.div.dataset.pdfReady = String(state3 === "ready");
         page.div.dataset.pdfPage = String(number);
         page.div.classList.add("ib-pdf-page");
         page.div.querySelector(".textLayer")?.classList.add("ib-reader-text-layer");
@@ -44807,17 +44812,17 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
   const [doc, setDoc] = (0, import_react11.useState)(null), [error, setError] = (0, import_react11.useState)(""), [attempt, setAttempt] = (0, import_react11.useState)(0);
   (0, import_react11.useEffect)(() => {
     let alive = true, opened, range, task;
-    const runtime3 = readerRuntime(), identity = { ...request, kind: material.kind ?? request.kind, translationId: material.translationId, materialId: material.officeKind ? material.id : void 0 };
+    const runtime2 = readerRuntime(), identity = { ...request, kind: material.kind ?? request.kind, translationId: material.translationId, materialId: material.officeKind ? material.id : void 0 };
     setDoc(null);
     setError("");
     onDocument(props.side, null);
     props.onLoading(props.side, true);
     void (async () => {
       await loadPdf();
-      opened = await runtime3.call("tasks_reader_open", { request: identity });
+      opened = await runtime2.call("tasks_reader_open", { request: identity });
       if (!alive) return;
       if (opened.format !== "pdf") throw Error("该材料无法作为 PDF 预览");
-      range = makeRange(identity, opened, runtime3.call);
+      range = makeRange(identity, opened, runtime2.call);
       range.onError = (error2) => {
         if (alive) {
           setError(error2.message);
@@ -44825,7 +44830,7 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
           void task?.destroy();
         }
       };
-      task = pdfTypes().getDocument({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, ...pdfResources((method, args) => runtime3.call(method, { request: args })) });
+      task = pdfTypes().getDocument({ range, rangeChunkSize: 262144, disableAutoFetch: true, disableStream: true, ...pdfResources((method, args) => runtime2.call(method, { request: args })) });
       const pdf = await task.promise;
       if (alive) {
         setDoc(pdf);
@@ -44837,14 +44842,14 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
         props.onLoading(props.side, false);
       }
     }).finally(() => {
-      if (!alive && opened?.lease) void runtime3.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
+      if (!alive && opened?.lease) void runtime2.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
       });
     });
     return () => {
       alive = false;
       range?.abort();
       void task?.destroy();
-      if (opened?.lease) void runtime3.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
+      if (opened?.lease) void runtime2.call("tasks_reader_close", { request: { ...identity, lease: opened.lease } }).catch(() => {
       });
     };
   }, [material.id, attempt]);
@@ -51853,7 +51858,7 @@ var icons = { minus: "M5 12h14", plus: "M5 12h14M12 5v14", hand: "M8 13V7a2 2 0 
 var icon2 = (name) => h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: icons[name] }));
 function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
-  const [state2, setState] = (0, import_react12.useState)({ loading: true }), [doc, setDoc] = (0, import_react12.useState)(null), [zhDoc, setZhDoc] = (0, import_react12.useState)(null), [mode, setMode] = (0, import_react12.useState)("original");
+  const [state3, setState] = (0, import_react12.useState)({ loading: true }), [doc, setDoc] = (0, import_react12.useState)(null), [zhDoc, setZhDoc] = (0, import_react12.useState)(null), [mode, setMode] = (0, import_react12.useState)("original");
   const [error, setError] = (0, import_react12.useState)(""), [busy, setBusy] = (0, import_react12.useState)(false), [query, setQuery] = (0, import_react12.useState)(""), [refresh, setRefresh] = (0, import_react12.useState)(0);
   const [linked, setLinked] = (0, import_react12.useState)(true), [stacked, setStacked] = (0, import_react12.useState)(false), [hand, setHand] = (0, import_react12.useState)(false);
   const [zoom, setZoom] = (0, import_react12.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react12.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react12.useState)({ original: true, zh: false });
@@ -51874,7 +51879,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
     linked: () => preferences.current.mode === "dual" && preferences.current.linked && preferences.current.pdfLinked,
     onPosition: (positions) => setPages((old) => old.original === positions.original.page && old.zh === positions.zh.page ? old : { original: positions.original.page, zh: positions.zh.page })
   });
-  const runtime3 = readerRuntime(), call = (method, args) => runtime3.call(method, { request: args }), onError = (0, import_react12.useCallback)((error2) => setError(error2.message ?? String(error2)), []);
+  const runtime2 = readerRuntime(), call = (method, args) => runtime2.call(method, { request: args }), onError = (0, import_react12.useCallback)((error2) => setError(error2.message ?? String(error2)), []);
   const onScroll = (0, import_react12.useCallback)((side, flow) => scroll.current.onScroll(side, flow), []), onLayout = (0, import_react12.useCallback)((side) => scroll.current.restore(side), []);
   const onLoading = (0, import_react12.useCallback)((side, value) => setViewLoading((old) => old[side] === value ? old : { ...old, [side]: value }), []);
   (0, import_react12.useEffect)(() => () => {
@@ -51918,7 +51923,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
     return () => {
       alive = false;
     };
-  }, [key, refresh, state2.translation?.status]);
+  }, [key, refresh, state3.translation?.status]);
   (0, import_react12.useEffect)(() => {
     let alive = true, task, port, range, opened;
     scroll.current.reset();
@@ -51950,7 +51955,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       }
       if (opened.format !== "pdf") return;
       port = new Worker(workerUrl2, { type: "module" });
-      range = makeRange(request, opened, runtime3.call);
+      range = makeRange(request, opened, runtime2.call);
       range.onError = (error2) => {
         if (alive) {
           onError(error2);
@@ -51985,7 +51990,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       });
     };
   }, [key, refresh]);
-  const translation = state2.translation, tid = translation?.id, readable = translation?.status === "completed" ? translation : state2.completedTranslation, readingId = readable?.id;
+  const translation = state3.translation, tid = translation?.id, readable = translation?.status === "completed" ? translation : state3.completedTranslation, readingId = readable?.id;
   (0, import_react12.useEffect)(() => {
     if (!tid) return;
     let alive = true, timer;
@@ -52006,7 +52011,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
     };
   }, [key, tid]);
   (0, import_react12.useEffect)(() => {
-    if (state2.loading || !wantTranslation || !readingId) return;
+    if (state3.loading || !wantTranslation || !readingId) return;
     let alive = true, task, range, opened, loaded = false;
     setError("");
     setZhError("");
@@ -52019,7 +52024,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       }
       leases.current.add(opened.lease);
       setState((old) => ({ ...old, completedTranslation: opened.translation, translation: old.translation?.id === readingId ? opened.translation : old.translation }));
-      range = makeRange(request, opened, runtime3.call);
+      range = makeRange(request, opened, runtime2.call);
       range.onError = (error2) => {
         if (alive) {
           onError(error2);
@@ -52049,7 +52054,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         });
       }
     };
-  }, [key, refresh, readingId, wantTranslation, state2.loading, translationAttempt]);
+  }, [key, refresh, readingId, wantTranslation, state3.loading, translationAttempt]);
   const changeMode = (next) => {
     if (next === "zh" || next === "dual") {
       setWantTranslation(true);
@@ -52106,7 +52111,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         setState((old) => ({ ...old, translation: done.translation, completedTranslation: done.translation }));
         setRefresh((n) => n + 1);
         changeMode("zh");
-      } else if (!created.reused) await runtime3.translate(request, created.translation.id, translationPrompt(request, created.translation.id));
+      } else if (!created.reused) await runtime2.translate(request, created.translation.id, translationPrompt(request, created.translation.id));
       else setError("任务正在进行，请查看翻译对话。");
     } catch (error2) {
       if (created && !created.reused && !created.readyToCompose) await call("tasks_translation_cancel", { ...request, translationId: created.translation.id }).catch(() => {
@@ -52177,11 +52182,11 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const content = h(
     "div",
     { ref: fullscreen, className: "ib-reader" + (mode === "dual" ? " ib-reader-fullscreen" : ""), "data-reader-mode": mode },
-    state2.loading ? loading("正在读取已归档文献…") : state2.error && !["report", "ppt"].includes(mode) ? h("div", { className: "ib-reader-error", role: "alert" }, "无法打开文献：" + state2.error) : h(
+    state3.loading ? loading("正在读取已归档文献…") : state3.error && !["report", "ppt"].includes(mode) ? h("div", { className: "ib-reader-error", role: "alert" }, "无法打开文献：" + state3.error) : h(
       import_react12.default.Fragment,
       null,
-      h("header", { className: "ib-reader-header" }, h("span", { title: state2.title }, state2.title), mode === "dual" ? button("退出全屏", exitDual) : null),
-      h("nav", { className: "ib-reader-controls" }, modeButton("原文", "original"), modeButton("中文", "zh", !readingId), modeButton("精读", "report", !materials.some((row) => row.officeKind === "docx")), modeButton("PPT", "ppt", !materials.some((row) => row.officeKind === "pptx")), modeButton("全屏对照", "dual", !materials.length), translation?.status !== "completed" ? button(["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", () => void translate(), busy || state2.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)) : null, ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
+      h("header", { className: "ib-reader-header" }, h("span", { title: state3.title }, state3.title), mode === "dual" ? button("退出全屏", exitDual) : null),
+      h("nav", { className: "ib-reader-controls" }, modeButton("原文", "original"), modeButton("中文", "zh", !readingId), modeButton("精读", "report", !materials.some((row) => row.officeKind === "docx")), modeButton("PPT", "ppt", !materials.some((row) => row.officeKind === "pptx")), modeButton("全屏对照", "dual", !materials.length), translation?.status !== "completed" ? button(["queued", "running"].includes(translation?.status) ? "翻译中…" : "翻译", () => void translate(), busy || state3.sourceFormat !== "pdf" || ["queued", "running"].includes(translation?.status)) : null, ["queued", "running"].includes(translation?.status) ? button("取消翻译", async () => {
         try {
           const result = await call("tasks_translation_cancel", { ...request, translationId: tid });
           setState((old) => ({ ...old, translation: result.translation }));
@@ -52201,8 +52206,8 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original"))),
       error ? h("div", { className: "ib-reader-error", role: "alert" }, error) : null,
       translation && translation.status !== "completed" ? h("small", { className: "ib-reader-status" }, translation.stage + (translation.totalBlocks ? ` · ${translation.completedBlocks ?? 0}/${translation.totalBlocks} 段` : "") + (translation.error ? " · " + translation.error : "")) : null,
-      state2.format === "pdf" || mode === "dual" || ["report", "ppt"].includes(mode) ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, pane("original"), pane("zh"), modeLoading ? h("div", { className: "ib-reader-view-status", role: "status", "aria-live": "polite" }, spinner(), "正在加载" + (mode === "dual" ? "对照视图" : mode === "zh" ? "译文" : mode === "report" ? "精读" : mode === "ppt" ? "PPT" : "原文") + "…") : null) : null,
-      state2.format === "zip" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("div", { className: "ib-reader-files" }, button("保存 SI", () => void save("original").catch(onError)), h("p", null, "SI 文件列表"), (state2.entries ?? []).map((entry) => h("div", { key: entry.index }, entry.name, " · " + Math.round(entry.bytes / 1024) + " KB", entry.pdf ? button("阅读 PDF", async () => {
+      state3.format === "pdf" || mode === "dual" || ["report", "ppt"].includes(mode) ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, pane("original"), pane("zh"), modeLoading ? h("div", { className: "ib-reader-view-status", role: "status", "aria-live": "polite" }, spinner(), "正在加载" + (mode === "dual" ? "对照视图" : mode === "zh" ? "译文" : mode === "report" ? "精读" : mode === "ppt" ? "PPT" : "原文") + "…") : null) : null,
+      state3.format === "zip" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("div", { className: "ib-reader-files" }, button("保存 SI", () => void save("original").catch(onError)), h("p", null, "SI 文件列表"), (state3.entries ?? []).map((entry) => h("div", { key: entry.index }, entry.name, " · " + Math.round(entry.bytes / 1024) + " KB", entry.pdf ? button("阅读 PDF", async () => {
         try {
           const file = await call("tasks_reader_zip_pdf", { ...request, index: entry.index }), pdf = await pdfTypes().getDocument({ data: decode(file.base64), ...pdfResources(call) }).promise;
           extraDocs.current.add(pdf);
@@ -52212,14 +52217,14 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
           onError(error2);
         }
       }) : null))) : null,
-      state2.sourceFormat === "zip" && state2.format === "pdf" ? button("返回 SI 文件列表", () => {
+      state3.sourceFormat === "zip" && state3.format === "pdf" ? button("返回 SI 文件列表", () => {
         setDoc(null);
         void doc?.destroy().catch(() => {
         });
         extraDocs.current.delete(doc);
         setState((old) => ({ ...old, format: "zip" }));
       }) : null,
-      state2.format === "unsupported" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("p", null, "此格式请保存后使用对应软件打开。", button("保存材料", () => void save("original").catch(onError))) : null
+      state3.format === "unsupported" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("p", null, "此格式请保存后使用对应软件打开。", button("保存材料", () => void save("original").catch(onError))) : null
     )
   );
   return h(import_react12.default.Fragment, null, h("div", { className: "ib-reader-mount" }, h("div", { ref: slot, className: "ib-reader-slot", hidden: mode === "dual" }), mode === "dual" ? h("div", { className: "ib-reader" }, "材料对照已全屏打开", button("返回侧栏", exitDual)) : null), import_react_dom2.default.createPortal(content, host));
@@ -52261,14 +52266,14 @@ async function loadPdfViewer() {
 var PREFIX2 = "dsh-resource://lab-reader/";
 var ID = "lab-reader";
 var KIND = "lab-reader";
-var runtime2 = null;
+var runtime = null;
 var workerUrl;
 var preferredModes = /* @__PURE__ */ new Map();
 function setReaderRuntime(value) {
-  runtime2 = value;
+  runtime = value;
 }
 function readerRuntime() {
-  return runtime2;
+  return runtime;
 }
 function pdfTypes() {
   return { getDocument: getDocument3, PDFWorker: PDFWorker3, TextLayer: TextLayer3, GlobalWorkerOptions: GlobalWorkerOptions3 };
