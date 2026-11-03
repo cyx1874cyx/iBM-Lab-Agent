@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -70,7 +71,7 @@ class _WindowsShellProcess:
         info.lpFile = command[0]
         info.lpParameters = subprocess.list2cmdline(command[1:])
         info.lpDirectory = str(cwd)
-        info.nShow = 0  # background bridge; keep the user's foreground app
+        info.nShow = 1  # Match a normal interactive Shell open (including startup dialogs).
         try:
             if not shell.ShellExecuteExW(ctypes.byref(info)):
                 raise ctypes.WinError(ctypes.get_last_error())
@@ -123,9 +124,67 @@ def _read_complete_json(path: Path) -> dict[str, Any] | None:
         return None
 
 
+def _visible_mnova_window(executable: Path) -> bool:
+    """Read-only check for a visible window owned by this exact installed binary."""
+    from ctypes import wintypes
+    user = ctypes.WinDLL("user32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
+    user.IsWindowVisible.argtypes = [wintypes.HWND]
+    user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    found = False
+    expected = os.path.normcase(str(executable.resolve()))
+
+    @callback_type
+    def inspect(hwnd, _):
+        nonlocal found
+        if not user.IsWindowVisible(hwnd):
+            return True
+        pid = wintypes.DWORD()
+        user.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        handle = kernel.OpenProcess(0x1000, False, pid.value)
+        if not handle:
+            return True
+        try:
+            path = ctypes.create_unicode_buffer(32768)
+            size = wintypes.DWORD(len(path))
+            if kernel.QueryFullProcessImageNameW(handle, 0, path, ctypes.byref(size)):
+                found = os.path.normcase(path.value) == expected
+        finally:
+            kernel.CloseHandle(handle)
+        return not found
+
+    user.EnumWindows(inspect, 0)
+    return found
+
+
+def _ensure_windows_host_ready(executable: Path, timeout: float = 30) -> None:
+    # Cold GUI startup has its own budget. Only an interactive, normally opened
+    # host receives the subsequent read-only NMR capability probe.
+    if _visible_mnova_window(executable):
+        return
+    process = _WindowsShellProcess([str(executable)], executable.parent)
+    try:
+        deadline = time.monotonic() + timeout
+        while not _visible_mnova_window(executable):
+            if process.poll() not in (None, 0):
+                raise MnovaError("Mnova 正常窗口启动失败，请先手动启动并查看软件提示")
+            if time.monotonic() >= deadline:
+                raise MnovaError("Mnova 尚未进入可交互状态，请先手动打开并处理启动提示后重试")
+            time.sleep(0.2)
+    finally:
+        # This GUI is the user's interactive host; never terminate it on timeout.
+        process.close()
+
+
 def _require_runtime_probe(probe: dict[str, Any], operation: str) -> None:
     if probe.get("expired") is True:
-        raise MnovaError("Mnova 在 5 秒内未完成只读启动探针，已停止处理")
+        raise MnovaError("Mnova 只读启动探针超时，已停止处理")
     opened_key = "open_document" if operation == "apply_assignments_1d" else "open_fid"
     if probe.get("nmr_type") != "object" or probe.get(opened_key) is not True:
         raise MnovaError(
@@ -142,7 +201,7 @@ def _run_windows_shell(
 ) -> subprocess.CompletedProcess:
     started = time.monotonic()
     process = _WindowsShellProcess(command, executable.parent)
-    probe_deadline = started + min(5, timeout)
+    probe_deadline = started + min(30, timeout)
     deadline = started + timeout
     ready = False
     completed = False
@@ -150,7 +209,7 @@ def _run_windows_shell(
         while True:
             if not ready:
                 if time.monotonic() >= probe_deadline:
-                    raise MnovaError("Mnova 在 5 秒内未完成只读启动探针，已停止处理")
+                    raise MnovaError("Mnova 只读启动探针超时，已停止处理")
                 probe = _read_complete_json(probe_path)
                 if probe is not None:
                     _require_runtime_probe(probe, operation)
@@ -160,7 +219,9 @@ def _run_windows_shell(
                 completed = True
                 return subprocess.CompletedProcess(command, process.poll() or 0, "", "")
             code = process.poll()
-            if code not in (None, 0):
+            # The shell forwarding process can exit 105 while an existing
+            # Mnova host continues and writes the response asynchronously.
+            if code not in (None, 0, 105):
                 raise MnovaError(f"Mnova 宿主启动任务提前退出：exit_code={code}")
             if time.monotonic() >= deadline:
                 raise MnovaError(f"Mnova 任务超过 {timeout} 秒，已停止处理")
@@ -344,6 +405,8 @@ def _validate_assignment_plan(
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise MnovaError(f"指认计划不是有效的 UTF-8 JSON: {path}") from exc
     assignments = plan.get("assignments")
+    if plan.get("display_assignments"):
+        raise MnovaError("归属计划不能使用仅显示的模拟标注")
     if not isinstance(assignments, list) or not assignments:
         raise MnovaError("指认计划必须包含非空 assignments 数组")
 
@@ -451,7 +514,7 @@ def status(settings: Settings | None = None) -> dict[str, Any]:
         "bridge_script_exists": settings.bridge_script.is_file(),
         "launch_channel": "windows-shell" if os.name == "nt" else "subprocess",
         "runtime_probe_required": True,
-        "runtime_probe_timeout_seconds": 5,
+        "runtime_probe_timeout_seconds": min(30, settings.timeout_seconds),
         "project_root": str(settings.project_root),
         "output_root": str(settings.output_root),
         "supported_scope": (
@@ -504,9 +567,11 @@ def _run_request(
     command = [str(executable), str(runtime_bridge), "-sf", f"runJob,{runtime_request}", "-w"]
     try:
         with FileLock(str(lock_path), timeout=settings.timeout_seconds):
+            if os.name == "nt":
+                _ensure_windows_host_ready(executable)
             # A shell request can be forwarded to an existing GUI. Its bridge
             # must also refuse a late request, even without an owned handle.
-            request["startup_deadline_ms"] = int((time.time() + min(5, settings.timeout_seconds)) * 1000)
+            request["startup_deadline_ms"] = int((time.time() + min(30, settings.timeout_seconds)) * 1000)
             request_path.write_text(json.dumps(request, ensure_ascii=True, indent=2), encoding="ascii")
             shutil.copy2(request_path, runtime_request)
             if os.name == "nt":
@@ -526,12 +591,16 @@ def _run_request(
         raise MnovaError(f"Mnova 任务超过 {settings.timeout_seconds} 秒") from exc
     except OSError as exc:
         raise MnovaError(f"Mnova 宿主启动失败：{exc}") from exc
-
-    (output / "mnova.launch.json").write_text(json.dumps({
-        "channel": "windows-shell" if os.name == "nt" else "subprocess",
-        "stdout_stderr_captured": os.name != "nt",
-        "runtime_probe": _read_complete_json(probe_path),
-    }, ensure_ascii=True, indent=2), encoding="utf-8")
+    finally:
+        failure = sys.exc_info()[1]
+        (output / "mnova.launch.json").write_text(json.dumps({
+            "channel": "windows-shell" if os.name == "nt" else "subprocess",
+            "window_mode": "normal-interactive" if os.name == "nt" else None,
+            "stdout_stderr_captured": os.name != "nt",
+            "runtime_probe": _read_complete_json(probe_path),
+            "error_type": type(failure).__name__ if failure else None,
+            "error": str(failure) if failure else None,
+        }, ensure_ascii=True, indent=2), encoding="utf-8")
 
     (output / "mnova.stdout.log").write_text(
         completed.stdout or "", encoding="utf-8"
@@ -654,6 +723,12 @@ def apply_assignments_1d(
         settings,
         allow_low_confidence=allow_low_confidence,
     )
+    if plan.get("synthetic") is True:
+        analysis_path = _project_file(plan.get("source_analysis_path", ""), settings, label="准备分析", suffixes={".json"})
+        validator = Path(__file__).resolve().parents[2] / "skill" / "nmr-analyze-simulate" / "scripts" / "validate_mnova_assignment_plan.py"
+        checked = subprocess.run([sys.executable, "-I", str(validator), str(analysis_path), str(plan_path)], capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
+        if checked.returncode != 0:
+            raise MnovaError("核磁技能归属计划校验失败：" + (checked.stdout or checked.stderr)[-3000:])
     job_id = uuid.uuid4().hex
     output = _make_output_dir(output_dir, settings, prepared, job_id)
     request = {

@@ -72,10 +72,12 @@ function runAction(name, warnings) {
     }
 }
 
-function configureAnalysis(spec, warnings) {
+// IBM_SYNTHETIC_FID_BRIDGE_V1: do not classify modelled peaks as solvents.
+function configureAnalysis(spec, warnings, synthetic) {
     try {
         var processing = new NMRProcessing(spec.proc);
         processing.setParameter("pp.apply", true);
+        if (synthetic) processing.setParameter("PP.AutoClassify", false);
         processing.setParameter("integration.apply", true);
         processing.setParameter("integration.method", "Auto");
         processing.setParameter("integration.auto.algorithm", "PeakPicking");
@@ -85,8 +87,50 @@ function configureAnalysis(spec, warnings) {
     } catch (error) {
         warnings.push("parameter-based analysis: " + error);
     }
-    runAction("nmrAutoPeakPicking", warnings);
+    if (!synthetic) runAction("nmrAutoPeakPicking", warnings);
+    if (synthetic) {
+        // The input contains only modelled compound components: no solvent or
+        // impurities are synthesised. Mnova may auto-classify a component as
+        // water during import, so restore its type before multiplet analysis.
+        try {
+            var pickedPeaks = new Peaks(spec.peaks());
+            var syntheticPeaks = new Peaks();
+            for (var p = 0; p < pickedPeaks.count; ++p) {
+                var syntheticPeak = new Peak(pickedPeaks.at(p).delta(), spec);
+                syntheticPeak.type = Peak.Types.Compound;
+                syntheticPeak.annotation = "";
+                syntheticPeaks.append(syntheticPeak);
+            }
+            spec.setPeaks(syntheticPeaks);
+            spec.setMultiplets(new Multiplets());
+            spec.update();
+        } catch (error) {
+            throw new Error("Could not clear synthetic peak auto-classification: " + error);
+        }
+    }
     runAction("nmrMultipletsAuto", warnings);
+    if (synthetic) {
+        // Mnova may retain an import-time solvent exclusion even after peak
+        // reclassification. Create a multiplet only for an existing synthetic
+        // peak which the automatic multiplet pass omitted.
+        var allPeaks = new Peaks(spec.peaks());
+        var allMultiplets = new Multiplets(spec.multiplets());
+        for (var k = 0; k < allPeaks.count; ++k) {
+            var center = allPeaks.at(k).delta();
+            var covered = false;
+            for (var m = 0; m < allMultiplets.count; ++m) {
+                var existing = allMultiplets.at(m);
+                if (center >= Math.min(existing.rangeMin, existing.rangeMax) && center <= Math.max(existing.rangeMin, existing.rangeMax)) { covered = true; break; }
+            }
+            if (!covered) {
+                var replacement = new Multiplet(spec, new SpectrumRegion(center - 0.02, center + 0.02));
+                if (!replacement.isValid()) throw new Error("Cannot construct synthetic multiplet at " + center);
+                allMultiplets.append(replacement);
+            }
+        }
+        spec.setMultiplets(allMultiplets);
+        spec.update();
+    }
 }
 
 function activeSpectrum1D() {
@@ -346,7 +390,7 @@ function process1D(request, warnings) {
     if (request.processing_template_path) {
         nmr.process(request.processing_template_path);
     }
-    configureAnalysis(spec, warnings);
+    configureAnalysis(spec, warnings, /synthetic_1d\.fid/i.test(request.input_path));
     spec.update();
 
     var outputDir = request.output_dir;
@@ -381,7 +425,7 @@ function prepareStructure1D(request, warnings) {
     if (request.processing_template_path) {
         nmr.process(request.processing_template_path);
     }
-    configureAnalysis(spec, warnings);
+    configureAnalysis(spec, warnings, /synthetic_1d\.fid/i.test(request.input_path));
     spec.update();
     mol.update();
 
@@ -482,8 +526,9 @@ function buildMnovaAssignments(spec, mol, plan) {
     var output = [];
     var assignmentModel = new NMRAssignments(mol);
     var nucleus = String(spec.nucleus());
-    for (var i = 0; i < plan.assignments.length; ++i) {
-        var source = plan.assignments[i];
+    var sources = plan.assignments;
+    for (var i = 0; i < sources.length; ++i) {
+        var source = sources[i];
         if (source.atom_index < 1 || source.atom_index > mol.atomCount) {
             throw new Error(
                 "Assignment " + i + " has atom_index outside molecule: " +
@@ -523,15 +568,23 @@ function buildMnovaAssignments(spec, mol, plan) {
             // represents attached proton sites as a/b/c labels.
             atomRef.h = protonLabel(hIndex);
         }
-        output.push({
-            atom: atomRef,
-            shift: [{
+        var shift = {
                 shift: source.ppm,
                 min: Math.min(source.range_min_ppm, source.range_max_ppm),
                 max: Math.max(source.range_min_ppm, source.range_max_ppm),
                 idTypes: [{type: "Multiplet", uuid: source.multiplet_uuid}]
-            }]
-        });
+            };
+        var existing = null;
+        if (plan.synthetic === true) {
+            for (var j = 0; j < output.length; ++j) {
+                if (output[j].atom.index === atomRef.index && output[j].atom.h === atomRef.h) {
+                    existing = output[j];
+                    break;
+                }
+            }
+        }
+        if (existing) existing.shift.push(shift);
+        else output.push({atom: atomRef, shift: [shift]});
     }
     return output;
 }
@@ -556,8 +609,9 @@ function letterLabelMaps(plan) {
     var atoms = {};
     var multiplets = {};
     var i;
-    for (i = 0; i < plan.assignments.length; ++i) {
-        var assignment = plan.assignments[i];
+    var labelAssignments = plan.assignments;
+    for (i = 0; i < labelAssignments.length; ++i) {
+        var assignment = labelAssignments[i];
         var atomKey = String(assignment.atom_index);
         if (!atoms[atomKey]) {
             atoms[atomKey] = [];
@@ -720,7 +774,8 @@ function applyAssignments1D(request, warnings) {
     mol.setNMRAssignments(assignments, true);
     mol.update();
     spec.update();
-    runAction("nmrAssignmentsHide", warnings);
+    if (plan.synthetic === true) showAssignments(spec, mol, warnings);
+    else runAction("nmrAssignmentsHide", warnings);
     var displayLabels = applyLetterLabels(spec, mol, plan, warnings);
     var outputDir = request.output_dir;
     var pdfPath = outputDir + "/assigned.pdf";
@@ -791,7 +846,7 @@ function runJob(requestPath) {
         startupProbe.expired = !!probeExpired();
         writeText(request.startup_probe_path, asciiJson(startupProbe, 2));
         if (startupProbe.expired) {
-            throw new Error("Mnova read-only startup probe exceeded 5 seconds; processing stopped");
+            throw new Error("Mnova read-only startup probe exceeded its deadline; processing stopped");
         }
         if (startupProbe.nmr_type !== "object" || startupProbe[openedKey] !== true) {
             throw new Error("Mnova runtime probe failed: typeof nmr=" +

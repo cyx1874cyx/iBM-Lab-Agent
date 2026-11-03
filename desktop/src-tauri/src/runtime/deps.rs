@@ -298,7 +298,7 @@ fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
             "python",
             "内置 Python",
             format!("缺失：{}", python.display()),
-            "必须使用软件内置 Python 3.12.x；安装包不完整，请重新安装 iBM Lab Agent。",
+            "必须使用软件内置 Python 3.12.x；安装包不完整，请重新安装 iBM Lab。",
         );
     }
     if !is_plausible_pe(&python) {
@@ -306,7 +306,7 @@ fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
             "python",
             "内置 Python",
             format!("捆绑的 python.exe 不是有效的可执行文件（{}）", python.display()),
-            "安装文件不完整或被安全软件截断；请重新安装 iBM Lab Agent。",
+            "安装文件不完整或被安全软件截断；请重新安装 iBM Lab。",
         );
     }
     let command = python.to_string_lossy();
@@ -321,13 +321,13 @@ fn python_status(layout: &RuntimeLayout) -> DependencyStatus {
             "python",
             "内置 Python",
             format!("{version}（{}）", python.display()),
-            "当前安装包应内置 Python 3.12.x；请升级或重新安装 iBM Lab Agent。",
+            "当前安装包应内置 Python 3.12.x；请升级或重新安装 iBM Lab。",
         ),
         None => missing(
             "python",
             "内置 Python",
             format!("无法启动：{}", python.display()),
-            "需要可用的内置 Python 3.12.x；请重新安装 iBM Lab Agent，安装系统 Python 无法修复此问题。",
+            "需要可用的内置 Python 3.12.x；请重新安装 iBM Lab，安装系统 Python 无法修复此问题。",
         ),
     }
 }
@@ -416,7 +416,7 @@ fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
                 "node",
                 "内置 Node.js",
                 format!("捆绑的 node.exe 不是有效的可执行文件（{}）", node.display()),
-                "安装文件不完整或被安全软件截断；请重新安装 iBM Lab Agent，不要把该文件加入杀软隔离。",
+                "安装文件不完整或被安全软件截断；请重新安装 iBM Lab，不要把该文件加入杀软隔离。",
             );
         }
         let version = std::process::Command::new(&node)
@@ -446,7 +446,7 @@ fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
                     },
                     node.display()
                 ),
-                "当前安装包要求内置 Node.js v24.16.0；请升级或重新安装 iBM Lab Agent。",
+                "当前安装包要求内置 Node.js v24.16.0；请升级或重新安装 iBM Lab。",
             )
         }
     } else {
@@ -454,7 +454,7 @@ fn node_status(layout: &RuntimeLayout) -> DependencyStatus {
             "node",
             "内置 Node.js",
             "捆绑的 node.exe 缺失",
-            "安装文件不完整，请重新安装 iBM Lab Agent。",
+            "安装文件不完整，请重新安装 iBM Lab。",
         )
     }
 }
@@ -493,7 +493,7 @@ fn bridge_status(layout: &RuntimeLayout) -> DependencyStatus {
         problems.join("；")
     };
     let hint = if snapshot.registered && snapshot.origins_match {
-        "桥文件不完整，请重新安装 iBM Lab Agent。"
+        "桥文件不完整，请重新安装 iBM Lab。"
     } else {
         "桌面应用启动时会自动注册；若持续失败请查看日志（%LOCALAPPDATA%\\iBM-Lab-Agent\\logs）。\
          扩展重载后请通过 edge://quit 完全退出 Edge 再重开，使注册生效。"

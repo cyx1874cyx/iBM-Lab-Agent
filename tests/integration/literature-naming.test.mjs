@@ -56,7 +56,7 @@ test("命名规范：元数据登记即固化条目目录，正文/SI 按规范�
 		await tasks.createProject({
 			id: "proj-naming",
 			name: "命名规范验证",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -128,7 +128,7 @@ test("命名规范：命名段可后补且不互相覆盖，缺失时回显缺�
 		await tasks.createProject({
 			id: "proj-patch",
 			name: "命名补全",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -176,3 +176,4 @@ test("命名规范：命名段可后补且不互相覆盖，缺失时回显缺�
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

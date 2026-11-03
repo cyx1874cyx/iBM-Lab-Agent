@@ -107,8 +107,8 @@ test("research preset ships as a 0.1.7 declaration row in the bundle patch list"
 	// 0.1.7：preset 是 bundle patch 里的声明行，不再是 $DSH_HOME/.agent-presets 目录。
 	assert.match(preset, /name:\s*'@deepseek-ai\/dsh-agent-preset'/);
 	assert.match(preset, /id:\s*preset-lab-research/);
-	assert.match(preset, /config:\n\s+id: lab-research\n/);
-	assert.match(preset, /name: iBM科研Agent/);
+	assert.match(preset, /config:\r?\n\s+id: lab-research\r?\n/);
+	assert.match(preset, /name: iBM Lab 科研助手/);
 	assert.match(preset, /plugins:/);
 	assert.match(preset, /^\s+- id: persona$/m);
 	const parsed = JSON.parse(manifest);
@@ -121,7 +121,7 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.match(source, /选择一个课题继续/);
 	assert.match(source, /课题核心记忆\.md/);
 	assert.match(source, /提交新版本/);
-	assert.match(source, /开始科研 Agent 对话/);
+	assert.match(source, /开始科研助手对话/);
 	assert.match(source, /文献资料/);
 	// 视觉改版 §7：布局解释与常驻说明文字整段删除，功能本身保留
 	// （检索记录仍会展开本会话全部去重文献 → ib-search-results）。
@@ -134,7 +134,8 @@ test("web client exposes the project-first research workspace shell", async () =
 	assert.doesNotMatch(source, /收起数据库状态|文献数据库实时状态/);
 	assert.match(source, /aria-expanded/);
 	assert.match(source, /研究设计/);
-	assert.match(source, /表征分析/);
+	assert.match(source, /核磁解析/);
+	assert.match(source, /科研绘图/);
 	assert.match(source, /ctx\.conversation\.input\.for\(actx\)\.setDraft\(prompt\)/);
 	assert.match(source, /applyBranding\(\(\) => open\(\)\)/);
 	assert.match(source, /brand\.setAttribute\("aria-label", "打开科研课题"\)/);
@@ -161,7 +162,7 @@ test("PPT template import initializes role mappings before rendering the staged 
 });
 
 test("literature summary tools expose public identifiers and diagnostics", async () => {
-	const source = await readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8");
+	const source = await readFile(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8");
 	assert.match(source, /lab_tasks_get_search_summary_inputs/);
 	assert.match(source, /runId:/);
 	assert.match(source, /待提炼论文（paperId 可直接使用）/);
@@ -172,7 +173,7 @@ test("literature summary tools expose public identifiers and diagnostics", async
 
 test("research preset and task tools expose the WeChat metadata intake workflow", async () => {
 	const [toolsSource, preset] = await Promise.all([
-		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8"),
 		readFile(presetPath, "utf8")
 	]);
 	assert.match(toolsSource, /lab_tasks_register_wechat_paper/);
@@ -188,7 +189,7 @@ test("research preset and task tools expose the WeChat metadata intake workflow"
 
 test("generic paper metadata tool (non-wechat) registers into the reading queue", async () => {
 	const [toolsSource, preset] = await Promise.all([
-		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8"),
 		readFile(presetPath, "utf8")
 	]);
 	assert.match(toolsSource, /lab_tasks_register_paper_meta/);
@@ -201,7 +202,7 @@ test("generic paper metadata tool (non-wechat) registers into the reading queue"
 
 test("Nature browser download is exposed as an AI tool without returning capture tokens", async () => {
 	const [toolsSource, preset, clientSource] = await Promise.all([
-		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8"),
 		readFile(presetPath, "utf8"),
 		readClientSource()
 	]);
@@ -248,7 +249,7 @@ test("synthesis workspace tools are exposed to the agent (lab_synth_*)", async (
 
 test("reading reports inventory PDF and SI before using note templates", async () => {
 	const [toolsSource, preset] = await Promise.all([
-		readFile(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8"),
+		readFile(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8"),
 		readFile(presetPath, "utf8")
 	]);
 	assert.match(toolsSource, /lab_tasks_get_reading_inputs/);
@@ -315,7 +316,7 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /检索/);
 	assert.match(source, /原文/);
 	assert.match(source, /精读/);
-	assert.match(source, /原文待归档/);
+	assert.doesNotMatch(source, /SI 已归档 · 正文待归档|原文待归档/);
 	assert.match(source, /尚未获取原文 · 点击前往出版社页面并布防捕获下载/);
 	assert.match(source, /尚未获取 SI · 点击前往出版社页面并布防捕获下载/);
 	assert.match(source, /bundleSiUrl \? openEntryInSidebar/);
@@ -341,14 +342,13 @@ test("web client auto-launches per-project workspace + research session and cust
 	assert.match(source, /ctx\.inject\(\["remote", "remote\.lab", "remote\.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"\]/);
 	// 品牌覆盖：展开侧栏使用人像 Logo；烧瓶作为原生侧栏开关图标。
 	assert.match(source, /function applyBranding/);
-	assert.match(source, /iBM Agent/);
+	assert.match(source, /iBM Lab/);
 	assert.match(source, /based on DSH/);
 	assert.match(source, /const BRAND_ICON = "data:image\/png;base64,/);
 	assert.match(source, /ib-brand-avatar/);
-	assert.match(source, /heroMarkHost\.replaceChildren\(avatar\)/);
-	assert.match(source, /class\*='_fishHitbox'/);
-	assert.match(source, /\.ib-hero-avatar\{[^}]*width:68px!important;height:68px!important/);
-	assert.match(source, /专注源头创新/);
+	assert.match(source, /className: ['"]ib-wb-brand-mark['"]/);
+	assert.match(source, /src: BRAND_ICON/);
+	assert.doesNotMatch(source, /专注源头创新/);
 	assert.match(source, /function FlaskSvg/);
 	assert.match(source, /const FLASK_RAIL_HTML/);
 	assert.match(source, /ib-rail-flask/);
@@ -459,7 +459,7 @@ test("web client bundle exposes valid strict Remote descriptors", async () => {
 	assert.deepEqual(Array.from(childInjects[1]), ["remote", "remote.lab", "remote.agentPresets", "slots", "sessions", "workspaces", "uiWorkspace", "conversation"]);
 	// 默认模式那一次：settings 缺失时不能连累面板装配。
 	assert.deepEqual(Array.from(childInjects[2]), ["remote", "remote.settings", "remote.agentPresets"]);
-	assert.deepEqual(Array.from(webVpnInject), ["slots", "sidebarRightTabs", "sidebarRight"]);
+	assert.deepEqual(Array.from(webVpnInject), ["slots", "sidebarRightTabs", "sidebarRight", "layout"]);
 	assert.equal(contribution.package, "dsh-lab-agent");
 	assert.ok(contribution.descriptors.length > 0);
 	for (const descriptor of contribution.descriptors) {

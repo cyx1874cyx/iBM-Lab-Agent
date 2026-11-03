@@ -1,6 +1,6 @@
 /** Independently activated DSH bundles; shared implementation is an exact dependency, not an active bundle. */
 import assert from "node:assert/strict";
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync,renameSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const catalog = JSON.parse(readFileSync(join(root, "bundles/catalog.json"), "utf8"));
 const check = process.argv.includes("--check");
 const primary = { core: "core", runtime: "runtime", documents: "documents", literature: "workflows", design: "design", analysis: "analysis", ui: "" };
-const output = (path, contents) => { if (check) assert.equal(readFileSync(path, "utf8").replaceAll("\r\n", "\n"), contents, path); else { mkdirSync(join(path, ".."), { recursive: true }); writeFileSync(path, contents); } };
+const output = (path, contents) => { if (check) assert.equal(readFileSync(path, "utf8").replaceAll("\r\n", "\n"), contents, path); else { mkdirSync(join(path, ".."), { recursive: true }); const pending=path+"."+process.pid+".tmp";writeFileSync(pending, contents);renameSync(pending,path); } };
 for (const domain of [...Object.keys(catalog.domains), "ui"]) {
  const name = `dsh-lab-${domain}`, directory = join(root, "packages", name);
  const spec = catalog.domains[domain];

@@ -1,8 +1,8 @@
-# iBM Lab Agent
+# iBM Lab
 
-iBM Lab Agent 是面向科研课题组的本地科研工作台，将课题对话、文献获取、全文阅读、实验设计、科研产物和版本化核心记忆放在同一工作区。
+iBM Lab 是通用科研助手，适用于不同学科与研究主题，将课题对话、知识库问答、文献获取、全文阅读、实验设计、科研产物和版本化核心记忆放在同一工作区。
 
-当前候选版本为 **v0.6.0-rc.1**，桌面端采用 **Electron 44 + DSH NEXT v2.0.17-next**，科研服务以 DeepSeek Harness 插件运行。完整更新记录见 [发布说明](docs/releases/v0.6.0-rc.1.md)。
+当前候选版本为 **v0.8.0-rc.1**，桌面端采用 **Electron 44 + DSH NEXT v2.0.17-next**，科研服务以 DeepSeek Harness 插件运行。完整更新记录见 [发布说明](docs/releases/v0.8.0-rc.1.md)。
 
 **[下载 Windows x64 安装包](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.6.0-rc.1/iBM-Lab-Agent-0.6.0-rc.1-Electron-x64-Setup.exe)** · [GitHub Release](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/tag/v0.6.0-rc.1) · [GitLab Release](https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/releases/v0.6.0-rc.1) · [SHA-256 校验清单](https://github.com/cyx1874cyx/iBM-Lab-Agent/releases/download/v0.6.0-rc.1/SHA256SUMS-v0.6.0-rc.1.txt)
 
@@ -33,7 +33,7 @@ Origin 自动化需要本机安装 Origin 并启动 Origin MCP Bridge Start，�
 | 文献工作流 | 多源检索、去重、RIS 导出、DOI 核验、PDF/SI 捕获、精读报告、文献 PPT 与人工审核 |
 | 全文与成果阅读 | PDF 连续分页、原文与译文对照、双屏同步、精读笔记和 PPT 的归档 PDF 预览 |
 | 合成与实验设计 | 靶标、路线、逐步条件、结构式、来源证据、可行性检查、版本修订与人工锁定 |
-| 化学与高分子计算 | 化学实体及来源登记、分子量与聚合物指标计算、实验方案审核 |
+| 化学计算 | 化学实体及来源登记、分子量与相关指标计算、实验方案审核 |
 | NMR 与表征 | FID/ZIP 和结构文件提交、预检、标峰、报告、归档与置信度记录 |
 | 模板与文档 | 全局默认模板、阅读笔记与 PPT 模板版本化、Office/PDF 转换及产物哈希 |
 | 桌面宠物 | 任务状态、窗口拖动、显示控制、用户自定义随机语录 |
@@ -44,7 +44,7 @@ Origin 自动化需要本机安装 Origin 并启动 Origin MCP Bridge Start，�
 
 | 组件 | 版本 |
 |---|---|
-| iBM Lab Agent 及分域包 | 0.6.0-rc.1 |
+| iBM Lab 及分域包 | 0.8.0-rc.1 |
 | DSH NEXT 桌面基座 | 2.0.17-next；commit `838ba60fd79362087c0a0d134efee671c284786a` |
 | DeepSeek Harness 内核 | 0.2.0-rc.2 |
 | Electron | 44.0.0 |
@@ -80,3 +80,11 @@ Linux 源码部署方法见 [Linux 安装说明](docs/LINUX_RELEASE.md)；本次
 - [PPT 渲染工作区隔离](docs/ppt-render-sandbox.md)
 - [Electron 迁移计划与基线](docs/ELECTRON_MIGRATION_PLAN.md)
 - [历史 v0.5.8-rc.1 发布说明](docs/releases/v0.5.8-rc.1.md)
+
+### iBM Origin 作图 Skill
+
+项目内置 `skills/ibm-origin-plotting`，通过现有第一方 Skill provider 自动发现。按课题组规范作图或验收时先加载此 Skill；包含11页源规范、精确样式流程、原生导出、OPJU/OTPU验证与PPT OLE编辑性要求。
+
+实际测试入口：`scripts/migration/verify-origin-plot-standard.py --output <独立输出目录>`，需使用随包 Python 且 Origin MCP Bridge 已启动。加 `--ppt` 测试PPT编辑性。测试创建独立文件夹并恢复原活动窗口，保留测试结果供复核，不替换当前工程。
+
+桌面端 `lab-research` 科研预设会在就绪前挂载 Origin stdio MCP（full），不依赖用户先打开 Origin。Origin 内部 Bridge Start 与模型侧 MCP 客户端是两层：前者服务软件操作，后者发布工具；GUI 重连或改变端口不代表 MCP 已挂载。工具实际执行仍要求 Origin 内部桥可达。非桌面端不启动此客户端。

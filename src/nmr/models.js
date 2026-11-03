@@ -53,7 +53,8 @@ export const nmrDatasetSchema = z.object({
 	compound: z.object({
 		name: z.string().min(1),
 		casNumber: z.string().optional(),
-		smiles: z.string().optional()
+		smiles: z.string().optional(),
+		formula: z.string().optional()
 	}).optional(),
 	/** 谱类型（1H/13C/2D...）。 */
 	nucleus: z.string().default("1H"),

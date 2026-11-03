@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { apply } from "../../lib/tasks-tool.js";
+import { apply } from "../../plugins/literature/lib/tools.js";
 import { LabCaptureService, SAVE_OPERATION_TTL_MS } from "../../lib/manual-capture.js";
 import {
 	CAPTURE_HEARTBEAT_TTL_MS,
@@ -397,7 +397,7 @@ test("R2.1/C9：wait 的指纹必须含页面维度，否则导航永远算「�
 	assert.equal(after.page.pageSeq, 7);
 	assert.equal(after.page.readyState, "complete");
 
-	const source = await readFile(new URL("../../lib/tasks-tool.js", import.meta.url), "utf8");
+	const source = await readFile(new URL("../../plugins/literature/lib/tools.js", import.meta.url), "utf8");
 	const fingerprint = source.match(/const fingerprint = \(value\) => \[([\s\S]*?)\]/)?.[1] ?? "";
 	for (const field of ["page?.url", "page?.documentType", "page?.readyState", "page?.pageSeq"]) {
 		assert.match(fingerprint, new RegExp(field.replace(/[?.]/g, "\\$&")), `指纹必须含 ${field}`);
@@ -624,7 +624,7 @@ test("D6：总量未知时不给假的百分比，速度由相邻两次采样给
 });
 
 test("D7：指纹含载荷完整性维度，wait 才能在「收完」那一刻返回", async () => {
-	const source = await readFile(new URL("../../lib/tasks-tool.js", import.meta.url), "utf8");
+	const source = await readFile(new URL("../../plugins/literature/lib/tools.js", import.meta.url), "utf8");
 	const fingerprint = source.match(/const fingerprint = \(value\) => \[([\s\S]*?)\]/)?.[1] ?? "";
 	for (const field of ["pdf?.complete", "pdf?.contentLength", "progress?.receivedBytes"]) {
 		assert.match(fingerprint, new RegExp(field.replace(/[?.]/g, "\\$&")), `指纹必须含 ${field}`);

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { apply } from "../../lib/tasks-tool.js";
+import { apply } from "../../plugins/literature/lib/tools.js";
 
 /**
  * AI 主导的文献浏览器闭环（2026-09-27 需求）。
@@ -121,7 +121,7 @@ test("闭环接线：observe scope、wait 工具，客户端不再传旧自动�
 	const [rust, shell, plugin, client, capture] = await Promise.all([
 		read("desktop/src-tauri/src/webvpn.rs"),
 		read("desktop/src/index.html"),
-		read("lib/tasks-tool.js"),
+		read("plugins/literature/lib/tools.js"),
 		read("client/src/components-literature.js"),
 		read("lib/manual-capture.js"),
 	]);

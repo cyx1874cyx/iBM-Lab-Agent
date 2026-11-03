@@ -2,7 +2,7 @@
  * dsh-lab-agent: 统一的「Agent 运行时环境」解析器。
  *
  * 0.5.4 现场反馈：Agent 在 shell 里干活时会去猜宿主机上的 python / node / soffice ——
- * 结果硬编码了 `C:\Program Files\iBM Lab Agent\node\node.exe`，还因为桌面壳的沙箱
+ * 结果硬编码了 `C:\Program Files\iBM Lab\node\node.exe`，还因为桌面壳的沙箱
  * 不让写 `%LOCALAPPDATA%\Temp` 而让 LibreOffice 建不出 user profile、**静默不产出
  * PDF**。本模块把这些路径收敛成一个可查询的事实源，优先级固定为：
  *
@@ -167,7 +167,7 @@ export async function resolveAgentRuntime({ env = process.env, platform = proces
 	const nodeResolved = await resolveNodeExecutable({ env });
 	const nodeArgv = argvOf(nodeResolved.command);
 	if (nodeArgv.length === 0) {
-		warnings.push("没有可用的 Node.js：安装包可能不完整，请重新安装 iBM Lab Agent。");
+		warnings.push("没有可用的 Node.js：安装包可能不完整，请重新安装 iBM Lab。");
 	}
 	const isolated = bundledPythonFromEnv(env) !== undefined || bundledNodeFromEnv(env) !== undefined;
 	return {

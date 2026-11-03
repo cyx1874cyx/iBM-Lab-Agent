@@ -1,7 +1,7 @@
 [package]
 name = "ibm-lab-desktop"
-version = "0.6.0-rc.1"
-description = "iBM Lab Agent Windows desktop client"
+version = "0.8.0-rc.1"
+description = "iBM Lab Windows desktop client"
 authors = ["iBM Lab"]
 edition = "2021"
 license = "MIT"

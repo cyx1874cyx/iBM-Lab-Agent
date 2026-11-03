@@ -53,11 +53,14 @@ export const coreProjectSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	name: z.string().min(1),
 	readingFolders: z.array(z.object({id:z.string().regex(PROFILE_ID_RE),name:z.string().min(1).max(80),createdAt:z.string()})).default([]),
+	readingOrder: z.array(z.string().regex(PROFILE_ID_RE)).default([]),
 	goalProfile: profileRefSchema.optional(),
 	template: profileRefSchema.optional(),
 	memoryVersion: z.string().regex(/^\d+$/).default("1"),
 	/** 项目专属工作区目录（workspace.create 采纳的绝对路径）；旧数据可缺省。 */
 	workspacePath: z.string().min(1).optional(),
+	projectFilePath: z.string().min(1).optional(),
+	projectUid: z.string().uuid().optional(),
 	status: z.enum(["active", "archived"]).default("active"),
 	createdAt: z.string(),
 	updatedAt: z.string()
@@ -200,6 +203,11 @@ export const entryNamingSchema = z.object({
 export const paperSourceBundleSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
+	/** Stable research conversation shared by this paper's translation, reading and PPT tasks. */
+	conversationSessionId: z.string().optional(),
+	/** Duplicate records retain their original files and IDs for history. */
+	mergedInto: z.string().optional(),
+	sourceVersions: z.array(z.object({bundleId:z.string(),kind:z.enum(['pdf','si']),path:z.string(),sha256:z.string()})).default([]),
 	title: z.string().default(""),
 	/** 来源入口：普通原文登记（document）、AI 从微信公众号文章提取的元数据
 	 *  占位（wechat）、publisher 页/DOI 直达页的通用“仅元数据”占位
@@ -220,18 +228,30 @@ export const paperSourceBundleSchema = z.object({
 	abstract: z.string().optional(),
 	keywords: z.array(z.string()).default([]),
 	metadataExtractedAt: z.string().optional(),
+	/** PDF 上传后的独立后台识别任务；与精读报告生成状态分开。 */
+	pdfIntake: z.object({
+		status: z.enum(['queued', 'running', 'completed', 'failed', 'rejected']),
+		stage: z.string(), originalFileName: z.string(), attempt: z.number().int().positive(),
+		kind: z.enum(['pdf','si','non-paper']).optional(),
+		matchRevision: z.string().optional(),
+		sessionId: z.string().optional(), error: z.string().optional(),
+		createdAt: z.string(), updatedAt: z.string()
+	}).optional(),
 	/** PDF is optional when the bundle was prepared from a structure-grounded source map only. */
 	pdfPath: z.string().min(1).optional(),
 	pdfSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 	/** SI（Supplementary Information）原文文件路径与哈希；登记 bundle 时可一并提交。 */
 	siPath: z.string().optional(),
 	siSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+	siMdPath: z.string().optional(),
 	paperMdPath: z.string().optional(),
 	sourceMapPath: z.string().optional(),
 	translationNotesPath: z.string().optional(),
 	translations: z.array(z.object({
 		id: z.string(), kind: z.enum(['pdf','si']), sourceSha256: z.string(),
-		status: z.enum(['queued','running','completed','failed','cancelled']),
+		status: z.enum(['queued','running','paused','completed','failed','cancelled']),
+		phase: z.enum(['extracting','translating','composing','completed']).optional(),
+		failureKind: z.enum(['processing','interrupted','layout']).optional(),
 		stage: z.string(), directory: z.string(), createdAt: z.string(), updatedAt: z.string(),
 		pageCount: z.number().optional(), totalBlocks: z.number().optional(), completedBlocks: z.number().optional(),
 		error: z.string().optional(), resultSha256: z.string().optional(), notes: z.string().optional(), sessionId: z.string().optional(),
@@ -257,6 +277,9 @@ export const readingReportSchema = z.object({
 	id: z.string().regex(PROFILE_ID_RE),
 	projectId: z.string().regex(PROFILE_ID_RE),
 	bundleId: z.string().regex(PROFILE_ID_RE),
+	mergedInto: z.string().optional(),
+	/** Most recent explicitly dispatched or registered conversation for this entry. */
+	sessionId: z.string().optional(),
 	folderId: z.string().regex(PROFILE_ID_RE).optional(),
 	classification: z.object({reason:z.string(),source:z.enum(['agent','human']),updatedAt:z.string(),reportSha256:z.string().optional()}).optional(),
 	goalSnapshot: z.unknown(),

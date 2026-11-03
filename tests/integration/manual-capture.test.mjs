@@ -99,7 +99,7 @@ async function bootCapture({ storageRoot } = {}) {
 			id: "capture-project",
 			name: "捕获测试课题",
 			coreMarkdown: "# 捕获测试课题",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -265,7 +265,7 @@ test("capture: 普通来源无 DOI 可使用 HTTPS 出版社页；无入口仍�
 		// 越权 bundle：属于其他课题
 		await ctx.labTasks.createProject({
 			id: "other-project", name: "其他课题",
-			goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1",
+			goalProfileId: "default-research", goalProfileVersion: "1",
 			templateId: "nature-default", templateVersion: "1"
 		});
 		await boot.putBundle({ id: "bundle-cap-other", title: "他人文献", doi: "10.1000/other.1", sourceType: "document", status: "pending" });
@@ -687,7 +687,7 @@ test("capture: 成功上传后复用原 bundle，记录 provenance，下载接�
 		assert.equal(ctx.labTasks.listProvenance("capture-project").filter((row) => row.source === "manual-browser-capture").length, 2,
 			"正文与 SI 捕获须各保留一条 provenance，不得因 bundleId 相同互相覆盖");
 		// 精读报告不被捕获改动（不冒充全文精读完成）
-		const report = await ctx.labTasks.createReadingReport({ projectId: "capture-project", bundleId: "bundle-cap-1", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		const report = await ctx.labTasks.createReadingReport({ projectId: "capture-project", bundleId: "bundle-cap-1", goalProfileId: "default-research", goalProfileVersion: "1" });
 		assert.equal(report.status, "pending");
 		assert.equal(report.paperCardPath, undefined);
 	} finally {
@@ -898,3 +898,4 @@ test("capture: 扩展仅作为桌面 loopback handoff 下载桥", async () => {
 	assert.match(host, /X-Capture-Source/);
 	assert.match(host, /download bridge accepts upload only/);
 });
+

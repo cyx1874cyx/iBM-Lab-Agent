@@ -1,0 +1,13 @@
+# iBM Lab 子插件：科研绘图（可独立安装、可停用）
+#
+# 绘图任务进自有域 lab_plot.tasks；历史 lab_characterization 中 kind=plot 的行
+# 由一次性迁移导入（旧行保留只读）。Origin / 图像处理能力经宿主运行时提供。
+- insert:
+    - id: lab-plot-tasks
+      name: '@ibm-lab/plotting'
+      inject: [storageDomain, ibmCore]
+
+    # 绘图领域工具：Origin 图稿编辑（记录服务暂由宿主提供）
+    - id: lab-plot-tools
+      name: '@ibm-lab/plotting/plot-tools'
+      inject: [tools, ibmCore, labPlotRecords]

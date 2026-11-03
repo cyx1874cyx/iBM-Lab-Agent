@@ -1,0 +1,10 @@
+interface:
+  display_name: "iBM Origin 科研作图"
+  short_description: "按 iBM 课题组规范创建、修改并核查可编辑 Origin 科研图"
+  default_prompt: "Use $ibm-origin-plotting to create and verify an editable iBM-compliant Origin figure from my data."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "origin"
+      description: "Origin/OriginPro MCP server for data, plotting, styling, QA, templates, projects, and exports"

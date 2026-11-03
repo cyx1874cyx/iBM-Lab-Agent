@@ -23,7 +23,7 @@ import {pdfDocumentStatePlugin} from './pdfjs-document-state.mjs';
  * 用法：npm run build:client
  */
 
-import { mkdir, readFile, writeFile, copyFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, copyFile, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pdfViewerStylePlugin } from './pdfjs-viewer-style.mjs';
@@ -60,7 +60,8 @@ const built = await esbuild.build({
   banner: { js: BANNER },
   footer: { js: FOOTER },
 });
-const body = built.outputFiles?.[0]?.text;
+// Preserve bundled license text while removing whitespace-only lines from third-party notices.
+const body = built.outputFiles?.[0]?.text.replace(/\/\*! Bundled license information:[\s\S]*?\*\//g, notice => notice.replace(/[ \t]+$/gm, ''));
 if (!body) throw new Error("esbuild 未返回客户端产物");
 const registrations = body.match(/__ModuleLoader__\.load\s*\(/g) ?? [];
 if (registrations.length !== 1 || !body.includes('id: "dsh-lab-agent"') || !body.includes("return module.exports")) {
@@ -76,7 +77,9 @@ if (checkOnly) {
   console.log(`[build:client] 一致性检查通过 → ${runtimeEntry}（${body.length} 字节）`);
 } else {
   await mkdir(outDir, { recursive: true });
-  await writeFile(runtimeEntry, body, "utf8");
+  const pending=runtimeEntry+"."+process.pid+".tmp";
+  await writeFile(pending, body, "utf8");
+  await rename(pending,runtimeEntry);
   await copyFile(runtimeEntry, outFile);
   console.log(`[build:client] esbuild 构建（多模块 → 单文件）→ ${runtimeEntry}（${body.length} 字节）→ ${outFile}`);
 }

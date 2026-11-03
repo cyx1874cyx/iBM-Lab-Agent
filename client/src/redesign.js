@@ -20,11 +20,13 @@ export const redesignCss = `
   --ib-blue:#2563eb;--ib-blue-soft:#e8effd;--ib-blue-line:rgba(37,99,235,.28);
   --ib-hover:rgba(15,23,42,.045);--ib-hair:rgba(15,23,42,.09);--ib-soft:#4b5563;
   --ib-radius:10px;--ib-control-h:36px;--ib-action-h:34px;
+  --ib-row-base:#fff;--ib-row-alt:#f3f6f8;
 }
 @media(prefers-color-scheme:dark){:root,.ib-overlay,body.ib-research-chat{
   --ib-accent:#2ec9b6;--ib-green:#2ec9b6;--ib-accent-ink:#8fe8db;--ib-accent-soft:rgba(46,201,182,.16);--ib-accent-line:rgba(46,201,182,.38);
   --ib-blue:#5b8cf7;--ib-blue-soft:rgba(91,140,247,.18);--ib-blue-line:rgba(91,140,247,.4);
   --ib-hover:rgba(255,255,255,.05);--ib-hair:rgba(255,255,255,.12);--ib-soft:var(--ib-muted);
+  --ib-row-base:var(--ib-bg);--ib-row-alt:var(--ib-panel);
 }}
 /* ── 内容区：白底、浅灰顶栏 ─────────────────────────────────────────────── */
 .ib-overlay{background:var(--ib-bg)}
@@ -74,11 +76,18 @@ export const redesignCss = `
 .ib-lit-group{display:grid;gap:2px;min-width:0;container-type:inline-size}
 .ib-overlay .ib-group-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--ib-hair)}
 .ib-overlay .ib-group-head h3{margin:0;font-size:17px;font-weight:600;color:var(--ib-text)}
+.ib-reading-link-upload{display:contents}
+.ib-reading-link-form{order:1;flex:0 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0 2px}
+.ib-reading-link-form input{flex:1 1 260px;min-width:0;border:1px solid var(--ib-line);border-radius:8px;background:var(--ib-panel);color:var(--ib-text);padding:8px 10px;font:inherit}
+.ib-reading-link-form [role=alert]{flex-basis:100%;color:var(--ib-red)}
 .ib-overlay .ib-group-count{font-size:14px;color:var(--ib-soft)}
 .ib-overlay .ib-lit-list{display:grid;gap:0;margin:0}
-.ib-overlay .ib-lit-item{display:grid;gap:8px;padding:16px 2px;border-bottom:1px solid var(--ib-hair);border-radius:0;background:none}
+.ib-overlay .ib-lit-item{display:grid;gap:8px;padding:16px 12px;border-bottom:1px solid var(--ib-hair);border-radius:0;background:var(--ib-row-base)}
+.ib-overlay .ib-lit-list>.ib-lit-item:nth-child(even){background:var(--ib-row-alt)}
+.ib-overlay .ib-search-results>.ib-search-paper{background:var(--ib-row-base);padding:10px 12px}
+.ib-overlay .ib-search-results>.ib-search-paper:nth-child(even){background:var(--ib-row-alt)}
 .ib-overlay .ib-lit-item:last-child{border-bottom:0}
-.ib-overlay .ib-lit-item:hover{background:var(--ib-hover)}
+.ib-overlay .ib-lit-list>.ib-lit-item:hover,.ib-overlay .ib-search-results>.ib-search-paper:hover{background:var(--ib-accent-soft)}
 /* 宽面板左标题、右操作；窄容器将操作移到标题下方，保留正文可读宽度。 */
 .ib-overlay .ib-lit-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 16px;padding:0;border:0;background:none;border-radius:0}
 .ib-overlay .ib-lit-main{flex:1 1 320px;min-width:0;display:grid;gap:5px}
@@ -87,12 +96,9 @@ export const redesignCss = `
 .ib-overlay .ib-lit-zh{font-size:16px;font-weight:400;line-height:1.55;color:var(--ib-soft);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .ib-overlay .ib-lit-meta{font-size:14.5px;line-height:1.5;color:var(--ib-soft);white-space:normal;overflow-wrap:anywhere}
 .ib-overlay .ib-lit-acts{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:560px}
-.ib-overlay .ib-lit-acts.ib-reading-acts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;width:352px;max-width:100%;min-width:0;align-self:start}
-.ib-overlay .ib-reading-act-row{display:grid;align-items:center;gap:8px;min-width:0}
-.ib-overlay .ib-reading-act-row[data-row=files]{grid-template-columns:32px 32px 84px minmax(0,1fr)}
-.ib-overlay .ib-reading-act-row[data-row=artifacts]{grid-template-columns:repeat(3,minmax(0,1fr)) 64px}
-.ib-overlay .ib-reading-act-row :is(.ib-act,select){width:100%;min-width:0;box-sizing:border-box;white-space:nowrap}
-.ib-overlay .ib-reading-act-row select{height:var(--ib-action-h);padding:0 6px;text-overflow:ellipsis;overflow:hidden;color:var(--ib-text)}
+.ib-overlay .ib-lit-acts.ib-reading-acts{display:flex;flex-wrap:wrap;gap:8px;width:272px;max-width:100%;min-width:0;align-self:start}
+.ib-overlay .ib-reading-act-row{display:contents}
+.ib-overlay .ib-reading-acts .ib-icon-btn{flex:0 0 32px;box-sizing:border-box}
 .ib-overlay .ib-lit-flag{display:inline-block;margin-top:6px;font-size:13px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;padding:2px 8px}
 .ib-overlay .ib-lit-overview{margin-top:2px;font-size:14.5px;line-height:1.75;color:var(--ib-text);white-space:pre-wrap;border-left:2px solid var(--ib-accent-line);padding:8px 0 8px 12px}
 .ib-overlay .ib-lit-overview b{display:block;font-size:14.5px;color:var(--ib-soft);margin-bottom:4px;font-weight:600}
@@ -108,10 +114,12 @@ export const redesignCss = `
 .ib-overlay .ib-act[data-done=true][data-kind=reading]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
 .ib-overlay .ib-act[data-done=true][data-kind=ppt]{background:var(--ib-blue);border-color:transparent;color:#fff}
 .ib-overlay .ib-act[data-done=true][data-kind=ppt]:hover:enabled{background:#1d4ed8;border-color:transparent;color:#fff}
-.ib-overlay .ib-reading-acts .ib-act[data-done=true]{background:var(--ib-accent);border-color:transparent;color:#fff}
-.ib-overlay .ib-reading-acts .ib-act[data-done=true]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
-.ib-overlay .ib-reading-acts .ib-act[data-done=false]:hover:enabled{background:var(--ib-hover);border-color:var(--ib-soft)}
-.ib-overlay .ib-act[data-busy=true]{color:var(--ib-soft);background:var(--ib-panel);border-color:var(--ib-hair)}
+.ib-overlay .ib-reading-acts .ib-icon-btn[data-done=true]{background:var(--ib-accent);border-color:transparent;color:#fff}
+.ib-overlay .ib-reading-acts .ib-icon-btn[data-done=true]:hover:enabled{background:var(--ib-accent-ink);border-color:transparent;color:#fff}
+.ib-overlay .ib-reading-acts .ib-icon-btn[data-done=false]:hover:enabled{background:var(--ib-hover);border-color:var(--ib-soft)}
+.ib-overlay .ib-reading-acts .ib-icon-btn[data-active=true]{background:var(--ib-accent-soft);border-color:var(--ib-accent-line);color:var(--ib-accent-ink)}
+.ib-overlay .ib-reading-acts .ib-icon-btn:disabled{cursor:default;opacity:.6}
+.ib-overlay .ib-reading-acts .ib-icon-btn[data-busy=true],.ib-overlay .ib-act[data-busy=true]{color:var(--ib-soft);background:var(--ib-panel);border-color:var(--ib-hair)}
 .ib-spin{animation:ib-spin 900ms linear infinite}
 @keyframes ib-spin{to{transform:rotate(360deg)}}
 /* 次级操作：PDF / SI */

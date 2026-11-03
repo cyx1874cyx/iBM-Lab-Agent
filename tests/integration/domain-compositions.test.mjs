@@ -79,7 +79,10 @@ test("real literature composition: scoped workflows and explicit document proces
  const dir = await mkdtemp(join(tmpdir(), "ibm-p3-literature-"));
  let handle;
  try {
-  handle = await bootLite(options(dir, ["literature"]));
+  const composed = options(dir, ["literature"]);
+  // 文献工具已迁入插件：按部署形态把插件工具行一起装上。
+  composed.extraRows.push({ id: "lab-literature-tools", name: new URL("../../plugins/literature/lib/tools.js", import.meta.url).href, inject: ["tools", "ibmCore", "labTasks"] });
+  handle = await bootLite(composed);
   assert.ok(handle.ctx.get("ibmLiteratureWorkflows"));
   assert.equal(handle.ctx.get("ibmDesign"), undefined);
   assert.equal(handle.ctx.get("ibmAnalysis"), undefined);
@@ -90,7 +93,7 @@ test("real literature composition: scoped workflows and explicit document proces
   assert.ok(goals.goals.length > 0);
   const templates = await invoke(handle.ctx, "labDocuments", "note_templates_list", {});
   assert.ok(templates.templates.length > 0);
-  const { project } = await invoke(handle.ctx, "lab", "projects_create", { fields: { id: "paper-project", name: "独立文献", goalProfileId: "default-prodrug-polymer", templateId: "nature-default" } });
+  const { project } = await invoke(handle.ctx, "lab", "projects_create", { fields: { id: "paper-project", name: "独立文献", goalProfileId: "default-research", templateId: "nature-default" } });
   const card = join(project.workspacePath, "card.md"); await writeFile(card, "# Explicit document\n文档处理仅接收输入快照。");
   const output = await handle.ctx.ibmDocuments.renderReadingDocx({ report: { id: "explicit", paperCardPath: card, titleZh: "显式文档" }, bundle: { title: "Explicit paper" }, workspacePath: project.workspacePath });
   assert.equal(output.buffer.subarray(0, 2).toString(), "PK");
@@ -124,6 +127,7 @@ test("source changes notify design after persistence and reconcile missed change
   await assert.rejects(ctx.ibmCore.commitSourceBundle({ ...source, pdfSha256: "a".repeat(64) }), /hash mismatch/);
   assert.equal(notified, false);
   await ctx.ibmCore.commitSourceBundle({ ...source, pdfSha256: hash(second) });
+  assert.deepEqual((await ctx.ibmCore.bundleFile(source.id, 'pdf')).buffer, second);
   assert.equal(notified, true); unsubscribe();
   assert.equal(ctx.labSynthesis.evidenceById(evidence.id).shotVerification.status, "stale");
   await ctx.labSynthesis.registerEvidenceShotVerification(evidence.id, { status: "ready", sourceDigest: hash(second).slice(0, 16) });
@@ -136,7 +140,9 @@ test("source changes notify design after persistence and reconcile missed change
   await handle.dispose(); handle = undefined;
   handle = await bootLite(options(dir, ["design"]));
   assert.equal(handle.ctx.labSynthesis.evidenceById(evidence.id).shotVerification.status, "stale");
-  await writeFile(path, second);
+  const registered = handle.ctx.ibmCore.getArtifact('source-bundle', source.id);
+  await writeFile(registered.pdfPath, second);
   await assert.rejects(handle.ctx.ibmCore.bundleFile(source.id, "pdf"), /changed after registration/);
  } finally { await handle?.dispose(); await rm(dir, { recursive: true, force: true }); }
 });
+

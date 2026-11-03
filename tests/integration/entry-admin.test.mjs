@@ -51,7 +51,7 @@ async function seedEntry(tasks) {
 	const project = await tasks.createProject({
 		id: "proj-admin",
 		name: "条目管理",
-		goalProfileId: "default-prodrug-polymer",
+		goalProfileId: "default-research",
 		goalProfileVersion: "1",
 		templateId: "nature-default",
 		templateVersion: "1"
@@ -156,3 +156,4 @@ test("删除条目：未确认时拒绝；确认后删目录、报告、PPT 与�
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

@@ -1,3 +1,5 @@
+import {NmrPanel} from './components-nmr.js';
+import {PlottingPanel} from './components-plotting.js';
 import React, { useState, useEffect, useRef } from "react";
 import { h } from "./h.js";
 import { StructureCard } from "./components-core.js";
@@ -8,21 +10,22 @@ const localDate = () => {
   const d = /* @__PURE__ */ new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [] }) {
+export function CharacterizationPanel(props){return props.taskKind==='plot'?h(PlottingPanel,props):h(NmrPanel,props);}
+function LegacyCharacterizationPanel({ projectId, call, onSubmitTask, nmrRows = [], taskKind = 'nmr' }) {
   const [tasks, setTasks] = useState([]), [plots, setPlots] = useState([]), [form, setForm] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
   const lock = useRef(false);
   const refresh = async () => {
-    const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), call("plot_records_list", { request: { projectId } })]);
-    setTasks(a.tasks || []);
+    const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), taskKind === 'plot' ? call("plot_records_list", { request: { projectId } }) : { records: [] }]);
+    setTasks((a.tasks || []).filter(row => row.kind === taskKind));
     setPlots(b.records || []);
   };
   useEffect(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
-        const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), call("plot_records_list", { request: { projectId } })]);
+        const [a, b] = await Promise.all([call("characterization_list", { request: { projectId } }), taskKind === 'plot' ? call("plot_records_list", { request: { projectId } }) : { records: [] }]);
         if (alive) {
-          setTasks(a.tasks || []);
+          setTasks((a.tasks || []).filter(row => row.kind === taskKind));
           setPlots(b.records || []);
         }
       } catch (e) {
@@ -36,7 +39,7 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
       alive = false;
       clearTimeout(timer);
     };
-  }, [projectId, call]);
+  }, [projectId, call, taskKind]);
   const start = (kind) => {
     setError("");
     setForm({ id: `${kind}-${crypto.randomUUID()}`, kind, title: "", date: localDate(), inputPath: "", structurePath: "", instructions: kind === "nmr" ? "根据所附分子结构处理一维核磁原始数据，在 Mnova 中完成峰归属和字母标注，保存可编辑谱图及核磁报告并自动归档。" : "", compoundName: "", smiles: "", nucleus: "1H", deuteratedSolvent: "" });
@@ -156,10 +159,10 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
   const field = (key, label, type = "text") => h("label", { className: "ib-field" }, h("span", null, label), h("input", { type, value: form[key], onChange: change(key) }));
   return h(
     "div",
-    { className: "ib-characterization" },
+    { className: "ib-characterization", 'data-task-kind': taskKind },
     error ? h("div", { className: "ib-error", role: "alert" }, error) : null,
     notice ? h("p", { role: "status" }, notice) : null,
-    ...["nmr", "plot"].map((kind) => {
+    ...[taskKind].map((kind) => {
       const rows = tasks.filter((t) => t.kind === kind).map((t) => {
         const p = plots.find((p2) => p2.id === t.id);
         return kind === "plot" && p ? { ...t, title: p.topic, date: p.date } : t;
@@ -167,7 +170,7 @@ export function CharacterizationPanel({ projectId, call, onSubmitTask, nmrRows =
       const legacy = (kind === "nmr" ? nmrRows : plots).filter((r) => !tasks.some((t) => t.id === r.id)).map((r) => ({ ...r, artifacts: kind === "nmr" ? { spectrum: r.spectrumPath, report: r.reportPath } : { origin: r.artifactPath } }));
       return h("section", { className: "ib-card", key: kind }, h("div", { className: "ib-card-head" }, h("h3", null, kind === "nmr" ? "核磁分析" : "科研绘图"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => start(kind) }, kind === "nmr" ? "提交核磁任务" : "提交绘图任务")), rows.length || legacy.length ? h("div", null, ...rows.map((r) => renderRow(r, kind)), ...legacy.map((r) => renderRow(r, kind))) : h("p", { className: "ib-muted" }, "任务完成后，文件会自动回填到这里。"));
     }),
-    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": "提交表征任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(React.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, "分析 / 绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
+    form ? h("section", { className: "ib-card ib-task-form", role: "dialog", "aria-label": taskKind === "plot" ? "提交绘图任务" : "提交核磁任务" }, h("h3", null, form.kind === "nmr" ? "提交核磁任务" : "提交绘图任务"), h("div", { className: "ib-form-grid" }, field("title", form.kind === "nmr" ? "名称" : "绘图主题"), field("date", "日期", "date"), h("label", { className: "ib-field" }, form.kind === "nmr" ? "上传 FID 压缩包（ZIP）" : "上传数据文件", h("input", { type: "file", accept: form.kind === "nmr" ? ".zip" : void 0, disabled: busy, onChange: upload("inputPath", form.kind === "nmr" ? "FID 压缩包" : "数据文件") })), field("inputPath", form.kind === "nmr" ? "FID ZIP 或课题目录内 FID 目录路径" : "课题目录内文件路径"), form.kind === "nmr" ? h(React.Fragment, null, h("label", { className: "ib-field" }, "上传结构文件（MOL）", h("input", { type: "file", accept: ".mol,.sdf,.cdx,.cdxml,.mrv,.cml,.smi,.inchi", disabled: busy, onChange: upload("structurePath", "结构文件") })), field("structurePath", "课题目录内 MOL / 结构文件路径"), field("compoundName", "化合物名称"), field("smiles", "结构 SMILES（可选）"), field("nucleus", "谱核"), field("deuteratedSolvent", "氘代溶剂")) : null), h("label", { className: "ib-field" }, form.kind === "nmr" ? "分析要求" : "绘图要求", h("textarea", { value: form.instructions, onChange: change("instructions") })), h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", disabled: busy, onClick: () => setForm(null) }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || !form.title.trim() || !form.inputPath.trim() || form.kind === "nmr" && !form.structurePath.trim() || !form.instructions.trim(), onClick: () => void submit() }, busy ? "提交中…" : "提交任务"))) : null
   );
 }
 function PlotEdit({ row, call, onChanged, onError }) {

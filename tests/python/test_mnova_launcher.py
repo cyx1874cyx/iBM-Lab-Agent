@@ -57,6 +57,18 @@ class MnovaLauncherTests(unittest.TestCase):
         self.assertTrue(process.closed)
         self.assertFalse(process.terminated)
 
+    def test_forwarder_exit_105_waits_for_host_response(self):
+        self.probe.write_text(json.dumps({"nmr_type": "object", "open_fid": True}))
+        process = FakeProcess(105)
+        def finish_job(_):
+            self.response.write_text(json.dumps({"status": "ok"}))
+        with patch.object(runner, "_WindowsShellProcess", return_value=process), \
+             patch.object(runner.time, "sleep", side_effect=finish_job), \
+             patch.object(runner.time, "monotonic", side_effect=[0, 0, 0]):
+            result = runner._run_windows_shell(["mnova"], executable=self.root / "MestReNova.exe", response_path=self.response, probe_path=self.probe, operation="prepare_structure_1d", timeout=90)
+        self.assertEqual(result.returncode, 105)
+        self.assertFalse(process.terminated)
+
     def test_missing_nmr_or_failed_open_stops_and_closes_owned_handle(self):
         for probe in ({"nmr_type": "undefined", "open_fid": False},
                       {"nmr_type": "object", "open_fid": False},
@@ -71,18 +83,18 @@ class MnovaLauncherTests(unittest.TestCase):
                 self.assertTrue(process.terminated)
                 self.assertTrue(process.closed)
 
-    def test_probe_timeout_is_five_seconds(self):
+    def test_probe_timeout_is_thirty_seconds(self):
         process = FakeProcess()
-        with self.assertRaisesRegex(runner.MnovaError, "5 秒"):
-            self.run_shell(process, clock=[0, 5])
+        with self.assertRaisesRegex(runner.MnovaError, "探针超时"):
+            self.run_shell(process, clock=[0, 30])
         self.assertTrue(process.terminated)
         self.assertTrue(process.closed)
 
     def test_partial_probe_does_not_start_processing(self):
         self.probe.write_text('{"nmr_type":')
         process = FakeProcess()
-        with self.assertRaisesRegex(runner.MnovaError, "5 秒"):
-            self.run_shell(process, clock=[0, 5])
+        with self.assertRaisesRegex(runner.MnovaError, "探针超时"):
+            self.run_shell(process, clock=[0, 30])
         self.assertTrue(process.closed)
 
     def test_apply_checks_the_prepared_document_without_claiming_fid_open(self):
@@ -101,6 +113,32 @@ class MnovaLauncherTests(unittest.TestCase):
         self.assertTrue(process.terminated)
         self.assertTrue(process.closed)
 
+    def test_existing_interactive_gui_is_reused_without_relaunch(self):
+        with patch.object(runner, '_visible_mnova_window', return_value=True), \
+             patch.object(runner, '_WindowsShellProcess') as launch:
+            runner._ensure_windows_host_ready(self.root / 'MestReNova.exe')
+        launch.assert_not_called()
+
+    def test_cold_start_waits_for_a_normal_gui_before_the_probe(self):
+        process = FakeProcess()
+        with patch.object(runner, '_visible_mnova_window', side_effect=[False, False, True]), \
+             patch.object(runner, '_WindowsShellProcess', return_value=process) as launch, \
+             patch.object(runner.time, 'sleep'):
+            runner._ensure_windows_host_ready(self.root / 'MestReNova.exe')
+        launch.assert_called_once_with([str(self.root / 'MestReNova.exe')], self.root)
+        self.assertTrue(process.closed)
+        self.assertFalse(process.terminated)
+
+    def test_gui_timeout_is_distinct_from_authorization_and_preserves_gui(self):
+        process = FakeProcess()
+        with patch.object(runner, '_visible_mnova_window', return_value=False), \
+             patch.object(runner, '_WindowsShellProcess', return_value=process), \
+             patch.object(runner.time, 'monotonic', side_effect=[0, 31]):
+            with self.assertRaisesRegex(runner.MnovaError, '可交互状态'):
+                runner._ensure_windows_host_ready(self.root / 'MestReNova.exe')
+        self.assertTrue(process.closed)
+        self.assertFalse(process.terminated)
+
     @unittest.skipUnless(os.name == "nt", "Windows launch routing")
     def test_windows_launch_failure_never_falls_back_to_subprocess(self):
         output = self.root / "output"
@@ -110,12 +148,16 @@ class MnovaLauncherTests(unittest.TestCase):
         settings = Settings(self.root, output, self.root / "MestReNova.exe", bridge)
         request = {"job_id": "test", "operation": "prepare_structure_1d"}
         with patch.dict(os.environ, {"MNOVA_MCP_RUNTIME_ROOT": str(self.root / "runtime")}), \
+             patch.object(runner, '_ensure_windows_host_ready'), \
              patch.object(runner, "_run_windows_shell", side_effect=OSError("launch failed")), \
              patch.object(runner.subprocess, "run") as child_launch:
             with self.assertRaisesRegex(runner.MnovaError, "宿主启动失败"):
                 runner._run_request(request=request, output=output, settings=settings,
                                     executable=settings.mnova_exe)
             child_launch.assert_not_called()
+        diagnostic = json.loads((output / 'mnova.launch.json').read_text())
+        self.assertEqual(diagnostic['window_mode'], 'normal-interactive')
+        self.assertIn('launch failed', diagnostic['error'])
 
 
 if __name__ == "__main__":

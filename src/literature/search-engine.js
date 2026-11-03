@@ -345,7 +345,7 @@ function hasCodeQueryTokens(paper, query) {
 async function response(fetchImpl, url, accept = "application/json") {
 	const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
 	try {
-		const result = await fetchImpl(url, { headers: { Accept: accept, "User-Agent": "dsh-lab-agent/0.1 academic-search" }, signal: controller.signal, redirect: "follow" });
+		const result = await fetchImpl(url, { headers: { Accept: accept, "User-Agent": "iBM Lab/0.6 academic-search" }, signal: controller.signal, redirect: "follow" });
 		if (!result.ok) throw new Error(`HTTP ${result.status}`);
 		return result;
 	} finally { clearTimeout(timer); }

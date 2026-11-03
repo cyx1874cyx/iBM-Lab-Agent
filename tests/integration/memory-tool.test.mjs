@@ -27,14 +27,14 @@ async function bootMemoryTool() {
 			{ id: "lab-ppt-templates", name: "dsh-lab-agent/ppt-templates", inject: ["storageDomain"] },
 			{ id: "lab-tasks", name: "dsh-lab-agent/tasks", inject: ["storageDomain", "labGoals", "labNoteTemplates", "labTemplates", "labVersions"], config: { projectsRoot: join(dir, "projects") } },
 			{ id: "lab-memory-tool", name: "dsh-lab-agent/memory-tool", inject: ["tools", "labTasks"] },
-			{ id: "lab-tasks-tool", name: "dsh-lab-agent/tasks-tool", inject: ["tools", "labTasks"] }
+			{ id: "lab-tasks-tool", name: new URL("../../plugins/literature/lib/tools.js", import.meta.url).href, inject: ["tools", "ibmCore", "labTasks"] }
 		]
 	});
 	// 造一个课题 + 绑定会话（模拟课题 launch 后的环境）
 	const project = await handle.ctx.labTasks.createProject({
 		id: "mtool-project",
 		name: "记忆工具课题",
-		goalProfileId: "default-prodrug-polymer",
+		goalProfileId: "default-research",
 		goalProfileVersion: "1",
 		templateId: "nature-default",
 		templateVersion: "1"
@@ -124,3 +124,4 @@ test("memory tools: register, resolve project by session, read and update core m
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

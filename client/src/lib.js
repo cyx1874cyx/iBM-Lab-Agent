@@ -175,13 +175,21 @@ export async function revealSavedPathViaDesktop(path) {
 	});
 }
 		/** 桌面优先走 Tauri 原生保存；Web 宿主保留浏览器校验下载。 */
-export async function downloadVerifiedBinary(url) {
+function checkArtifactSaveResult(result) {
+ if(result&&(result.error||result.ok===false||result.success===false||!result.cancelled&&result.saved===false)){
+  const detail=typeof result.error==='string'?result.error:result.error?.message||result.message||'桌面文件保存未完成';
+  throw new Error('保存失败：'+detail);
+ }
+}
+export async function downloadVerifiedBinary(url, { silentCancel = false } = {}) {
  const native = await nativeArtifact("save", { url });
- if (native) { if (native.cancelled) throw new Error("已取消保存"); return native.fileName; }
+ checkArtifactSaveResult(native);
+ if (native) { if (native.cancelled) { if (silentCancel) return; throw new Error("已取消保存"); } return native.fileName; }
 			if (window.parent !== window) {
 				try {
 					const saved = await saveArtifactViaDesktop(url);
-					if (saved?.cancelled) throw new Error("已取消保存");
+					checkArtifactSaveResult(saved);
+					if (saved?.cancelled) { if (silentCancel) return; throw new Error("已取消保存"); }
 					return saved?.fileName || "artifact";
 				} catch (error) {
 					if (error?.code !== "NO_DESKTOP_SHELL") throw error;
@@ -271,7 +279,7 @@ export const openInEdgeViaShell = (url) => new Promise((resolve, reject) => {
 				if (data.payload?.ok) finish(resolve, data.payload);
 				else finish(reject, new Error(data.payload?.error || "桌面客户端未能在 Edge 中打开页面"));
 			};
-			const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应（未收到 open_in_edge 确认）；请检查是否运行在 iBM Lab Agent 桌面版")), 4000);
+			const timer = setTimeout(() => finish(reject, new Error("桌面客户端未响应（未收到 open_in_edge 确认）；请检查是否运行在 iBM Lab 桌面版")), 4000);
 			window.addEventListener("message", onResult);
 			try { window.parent.postMessage({ source: "ibm-lab-agent", type: "OPEN_IN_EDGE", requestId, url }, "*"); }
 			catch (reason) { finish(reject, reason); }

@@ -73,11 +73,11 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		// goals_list（无参）
 		const listed = await invoke(ctx, "goals_list");
 		assert.ok(Array.isArray(listed.goals));
-		assert.ok(listed.goals.some((g) => g.id === "default-prodrug-polymer"));
+		assert.ok(listed.goals.some((g) => g.id === "default-research"));
 
 		// goals_resolve（request 对象）
-		const resolved = await invoke(ctx, "goals_resolve", { request: { id: "default-prodrug-polymer", version: "1" } });
-		assert.equal(resolved.goal.id, "default-prodrug-polymer");
+		const resolved = await invoke(ctx, "goals_resolve", { request: { id: "default-research", version: "1" } });
+		assert.equal(resolved.goal.id, "default-research");
 
 		// goals_create + goals_delete（写路径）
 		const created = await invoke(ctx, "goals_create", { request: { id: "remote-test-goal", fields: { name: "remote goal", researchQuestions: ["Q"] } } });
@@ -115,7 +115,7 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 			id: "remote-project",
 			name: "远程课题",
 			coreMarkdown: "# 远程课题\n\n## 核心假设\nA",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -221,7 +221,7 @@ test("lab remote: gateway dispatches marked methods with request-argument contra
 		assert.equal(wsWithFiles.literature.searches[0].results[0].localSiUrl, `/api/lab-artifacts?kind=si&bundleId=${fileBundle.bundle.id}`);
 
 		// 精读报告：创建（草稿）→ 完成（登记 paper-card 路径）
-		const report = await invoke(ctx, "tasks_report_create", { request: { fields: { projectId: "remote-project", bundleId: bundle.bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" } } });
+		const report = await invoke(ctx, "tasks_report_create", { request: { fields: { projectId: "remote-project", bundleId: bundle.bundle.id, goalProfileId: "default-research", goalProfileVersion: "1" } } });
 		assert.equal(report.report.status, "pending");
 		const completed = await invoke(ctx, "tasks_report_complete", { request: { fields: { reportId: report.report.id, paperCardPath: join(fxDir, "paper-card-pass.md") } } });
 		assert.equal(completed.report.status, "under-review");
@@ -295,7 +295,7 @@ test("project deletion refuses a workspace outside the managed projects root", a
 			id: "unsafe-project",
 			name: "越界目录测试",
 			coreMarkdown: "# 越界目录测试",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -316,3 +316,4 @@ test("project deletion refuses a workspace outside the managed projects root", a
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

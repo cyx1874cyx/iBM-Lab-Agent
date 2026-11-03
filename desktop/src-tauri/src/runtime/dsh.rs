@@ -194,7 +194,7 @@ fn configure_default_preset(
 pub fn bootstrap_user_data(layout: &RuntimeLayout, logger: &AppLogger) -> Result<(), RuntimeError> {
     if !layout.node_exe().exists() || !layout.dsh_bin().exists() {
         return Err(RuntimeError::new(
-            "Bundled Node.js or DSH runtime is missing. Reinstall iBM Lab Agent.",
+            "Bundled Node.js or DSH runtime is missing. Reinstall iBM Lab.",
         ));
     }
     let profile_dir = layout.dsh_home.join("profiles").join("ibm-lab");

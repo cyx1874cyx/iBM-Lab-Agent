@@ -290,13 +290,13 @@ export function renderNoteContract({ template, requirements, resources = [], mus
 	return lines.join("\n");
 }
 
-/** 内置默认阅读笔记模板（课题组聚前药/高分子场景）。 */
+/** 内置通用科研阅读笔记模板。 */
 export function createDefaultNoteTemplate(now = new Date().toISOString()) {
 	return noteTemplateSchema.parse({
 		id: "note-default",
 		version: "1",
-		name: "课题组阅读笔记模板（默认）",
-		topics: ["聚前药", "高分子材料设计", "药物递送"],
+		name: "通用科研阅读笔记模板（默认）",
+		topics: [],
 		tags: ["note", "default"],
 		audience: "课题组组会",
 		language: "zh",
@@ -306,8 +306,8 @@ export function createDefaultNoteTemplate(now = new Date().toISOString()) {
 			{ key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" },
 			{ key: "background-gap", title: "背景与空缺", required: true, hint: "研究背景、现有不足、本文切入点" },
 			{ key: "core-idea", title: "核心思路", required: true, hint: "表面方法 + 核心洞察" },
-			{ key: "methods", title: "方法与实验设计", required: true, hint: "输入输出、模块、表征手段、关键数据" },
-			{ key: "key-results", title: "关键结果与证据链", required: true, hint: "关键参数（Mn/DP/取代度/载药量/粒径/释放）带来源" },
+			{ key: "methods", title: "方法与研究设计", required: true, hint: "研究对象、数据来源、方法、对照与评价标准" },
+			{ key: "key-results", title: "关键结果与证据链", required: true, hint: "与研究问题相关的主要结果、指标或推导，附原文定位" },
 			{ key: "conclusions-boundary", title: "结论与边界", required: true, hint: "作者结论 + 任务范围/人群边界 + 未验证部分" },
 			{ key: "limitations", title: "作者明确局限", required: true, hint: "仅作者承认的局限，附未来方向" },
 			{ key: "critical-analysis", title: "批判性分析", required: false, hint: "可验证的疑点或替代解释" },
@@ -328,7 +328,7 @@ export function createDefaultNoteTemplate(now = new Date().toISOString()) {
 			"输出为 Markdown，用模板章节作为二级标题",
 			"每条结论与来源一一对应，避免泛泛而谈"
 		],
-		remark: "默认阅读笔记模板：Agent 生成阅读笔记时若未指定模板，使用本模板。",
+		remark: "通用默认阅读笔记模板：根据论文类型与当前课题选取内容，不预设学科方向。",
 		status: "active",
 		createdAt: now,
 		updatedAt: now
@@ -341,8 +341,8 @@ export function createDefaultReviewTemplate(now = new Date().toISOString()) {
 		id: "review-default",
 		version: "1",
 		kind: "review",
-		name: "课题组文献综述模板（默认）",
-		topics: ["聚前药", "高分子材料设计", "药物递送"],
+		name: "通用科研文献综述模板（默认）",
+		topics: [],
 		tags: ["review", "default"],
 		audience: "课题组组会与开题材料",
 		language: "zh",
@@ -350,9 +350,9 @@ export function createDefaultReviewTemplate(now = new Date().toISOString()) {
 		sections: [
 			{ key: "scope", title: "综述范围与检索策略", required: true, hint: "检索式、数据源、时间窗、纳入与排除标准" },
 			{ key: "background", title: "研究背景与问题", required: true, hint: "领域现状、未解决的关键问题" },
-			{ key: "taxonomy", title: "技术路线归类", required: true, hint: "按设计策略/材料体系/机制把文献分组，给出各组代表工作" },
+			{ key: "taxonomy", title: "研究路线归类", required: true, hint: "按研究问题、方法或理论路径分组，给出各组代表工作" },
 			{ key: "progress", title: "关键进展", required: true, hint: "分组论述代表性结果与数据，标注来源文献" },
-			{ key: "comparison", title: "横向对比", required: true, hint: "跨组对比指标（载药量/释放行为/靶向性/疗效），指出可比与不可比之处" },
+			{ key: "comparison", title: "横向对比", required: true, hint: "比较研究设计、适用条件、结果和评价指标，指出可比与不可比之处" },
 			{ key: "challenges", title: "挑战与争议", required: true, hint: "证据冲突、方法学局限、重复性存疑处" },
 			{ key: "outlook", title: "趋势与展望", required: true, hint: "可验证的下一步方向，区分已有证据与推测" },
 			{ key: "project-link", title: "与本课题的关系", required: true, hint: "对本课题选题/设计/实验的直接启发" },

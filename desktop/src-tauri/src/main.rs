@@ -933,7 +933,7 @@ fn main() {
             webvpn_clear_session
         ])
         .run(tauri::generate_context!())
-        .expect("failed to run iBM Lab Agent");
+        .expect("failed to run iBM Lab");
 }
 
 #[cfg(test)]

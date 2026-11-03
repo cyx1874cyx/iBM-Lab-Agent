@@ -76,7 +76,7 @@ export function nextVersion(versions) {
 	return String(max + 1);
 }
 
-/** 课题组聚前药/高分子默认精读目标（计划 §三 默认配置）。 */
+/** 历史版本兼容入口；通用科研默认使用 createDefaultResearchGoal。 */
 export function createDefaultProdrugPolymerGoal(now = new Date().toISOString()) {
 	return readingGoalProfileSchema.parse({
 		id: "default-prodrug-polymer",
@@ -147,8 +147,40 @@ export function createDefaultProdrugPolymerGoal(now = new Date().toISOString()) 
 	});
 }
 
-/** 内置默认精读目标（服务种子用）。 */
-export const BUILTIN_GOALS = [createDefaultProdrugPolymerGoal()];
+export const DEFAULT_RESEARCH_GOAL_ID = 'default-research';
+
+/** General research defaults; discipline-specific goals remain explicit choices. */
+export function createDefaultResearchGoal(now = new Date().toISOString()) {
+	return readingGoalProfileSchema.parse({
+		id: DEFAULT_RESEARCH_GOAL_ID, version: '1', name: '通用科研精读（默认）',
+		topics: [], tags: ['research', 'default'], audience: '科研阅读与讨论', language: 'zh', depth: 'detailed',
+		researchQuestions: [
+			'研究试图回答什么问题，现有证据的不足是什么？',
+			'核心假设、研究设计和方法是什么，为什么采用这些方法？',
+			'数据来源、样本或研究对象、对照与评价标准是否适当？',
+			'主要结果有哪些，对应的原始证据、统计分析或推导是什么？',
+			'结论是否由证据支持，适用范围、局限和替代解释是什么？',
+			'研究过程能否复现，对当前课题有哪些可验证的启发？'
+		],
+		reviewSections: ['研究问题与背景', '研究设计与方法', '结果与证据', '结论与局限', '复现与课题联系'],
+		requiredEvidenceTypes: ['原文中的关键数据、图表、公式或论证', '研究设计、数据或样本来源及评价方法', '结论与证据之间的对应关系'],
+		externalVerifications: ['关键结论与数字追溯到原文位置', '根据研究类型核对统计、计算或推理的适用性'],
+		metricsToExtract: ['与当前研究问题相关的指标、定义、单位和不确定性', '适用时提取样本量、对照、效应大小和统计结果'],
+		excludedContent: ['与研究问题无关的泛泛背景', '没有来源支持的结论或数字'], customTerms: {},
+		outputRequirements: ['关键结论附页码、图表、公式或来源块定位', '区分作者报告、复算结果和推测，证据不足时明确说明', '根据当前课题与论文类型选取指标，不预设学科方向'],
+		status: 'active', createdAt: now, updatedAt: now
+	});
+}
+
+/** Resolve implicit defaults without changing historical project/task snapshots. */
+export function projectReadingGoal(project) {
+	const goal=project?.goalProfile;
+	return !goal || (goal.id==='default-prodrug-polymer'&&goal.version==='1')
+		? {id:DEFAULT_RESEARCH_GOAL_ID,version:'1'} : {id:goal.id,version:goal.version};
+}
+
+/** Legacy ID remains resolvable for saved reports and explicit user selections. */
+export const BUILTIN_GOALS = [createDefaultResearchGoal(),{...createDefaultProdrugPolymerGoal(),name:'聚前药/高分子精读（历史配置）',tags:['prodrug','polymer','legacy']}];
 
 /**
  * 转换为 nature-paper-card 的重点审查要求（计划 §三 规则 2）。

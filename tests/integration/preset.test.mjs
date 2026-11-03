@@ -40,8 +40,9 @@ test("lab-research preset declaration is registered and composes", async () => {
 			const presets = await handle.ctx.agentPresets.list();
 			const lab = presets.find((preset) => preset.id === "lab-research");
 			assert.ok(lab, "lab-research declared");
-			assert.equal(lab.name, "iBM科研Agent");
-			assert.match(lab.description, /Nature Skills/);
+			assert.equal(lab.name, "iBM Lab 科研助手");
+			assert.match(lab.description, /通用科研助手/);
+			assert.doesNotMatch(lab.description, /聚前药|高分子/);
 			assert.equal(handle.ctx.agentPresets.defaultId, "lab-research");
 			// bootLite 只有 storage + lab 行，没有 dsh-base 的 tools/systemPrompt/skills
 			// 等宿主服务，所以声明里的行会停在 "waiting for"；这恰好证明 Loader 接受
@@ -59,6 +60,8 @@ test("lab-research preset declaration is registered and composes", async () => {
 			const document = await handle.ctx.agentPresets.readDocument("lab-research");
 			assert.equal(document.agentPreset, "lab-research");
 			const text = document.content;
+			assert.match(text, /iBM Lab 通用科研助手/);
+			assert.doesNotMatch(text, /聚前药与高分子材料设计方向/);
 			assert.match(text, /tool-skill/);
 			assert.match(text, /skill-filesystem/);
 			assert.match(text, /@deepseek-ai\/dsh-skill-filesystem/);
@@ -67,6 +70,8 @@ test("lab-research preset declaration is registered and composes", async () => {
 			assert.match(text, /lab-memory-tool/);
 			assert.match(text, /dsh-lab-agent\/convert-tool/);
 			assert.match(text, /dsh-lab-agent\/memory-tool/);
+			assert.match(text, /lab-origin-mcp/);
+			assert.match(text, /dsh-lab-agent\/origin-mcp/);
 		} finally {
 			await handle.dispose();
 		}

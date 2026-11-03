@@ -2,7 +2,7 @@
   "name": "ibm-lab-agent-linux-runtime",
   "version": "0.1.0",
   "private": true,
-  "description": "Pinned local launcher runtime for iBM Lab Agent",
+  "description": "Pinned local launcher runtime for iBM Lab",
   "license": "MIT",
   "packageManager": "pnpm@10.34.5",
   "dependencies": {

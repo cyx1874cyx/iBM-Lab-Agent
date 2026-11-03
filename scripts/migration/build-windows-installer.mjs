@@ -35,6 +35,9 @@ writeFileSync(shellHtml,readFileSync(shellHtml,'utf8').replace('</head>','<style
 execFileSync(join(python,'python.exe'),['-I','-c','from rapidocr_onnxruntime import RapidOCR; RapidOCR(intra_op_num_threads=1,inter_op_num_threads=1)'],{windowsHide:true});
 for(const name of ['ibm-bootstrap.mjs','release-runtime.mjs'])cpSync(join(repo,'electron-next',name),join(appDir,name));
 const mainFile=join(appDir,'lib/main.js');let main=readFileSync(mainFile,'utf8');
+const {adaptDesktopPreviews}=await import('../desktop-preview-adapter.mjs');
+const webDocument=join(appDir,'lib/web-document.js');
+writeFileSync(webDocument,adaptDesktopPreviews(readFileSync(webDocument,'utf8')));
 assert.equal(main.split('from "./browser-guests.js"').length,2);
 main=main.replace('from "./browser-guests.js"','from "../node_modules/dsh-lab-agent/electron-next/sidebar-desktop.mjs"');
 const preloadFile=join(appDir,'lib/preload-app.cjs');
@@ -78,7 +81,7 @@ function collect(name,parent,destinationParent=appDir,ancestors=new Map()){
 }
 for(const name of Object.keys(nextManifest.dependencies))rootVersions.set(name,JSON.parse(readFileSync(join(locate(name,runtime),'package.json'))).version);
 for(const name of Object.keys(nextManifest.dependencies))collect(name,runtime);
-const ledger=JSON.parse(readFileSync(join(archives,'release-archives.json')));assert.equal(ledger.packages.length,82);
+const ledger=JSON.parse(readFileSync(join(archives,'release-archives.json')));assert.equal(ledger.packages.length,87);
 const archivedDir=join(resources,'archives');mkdirSync(archivedDir);
 for(const item of ledger.packages){
  const bytes=readFileSync(item.path);assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);
@@ -88,12 +91,15 @@ for(const item of ledger.packages){
  item.file=basename(item.path);delete item.path;writeFileSync(join(archivedDir,item.file),bytes);
 }
 writeFileSync(join(archivedDir,'release-archives.json'),JSON.stringify(ledger,null,2)+'\n');
+const {adaptWorkbenchLayout}=await import('../workbench-layout-adapter.mjs');
+const layoutClient=join(appDir,'node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js');
+writeFileSync(layoutClient,adaptWorkbenchLayout(readFileSync(layoutClient,'utf8')));
 cpSync(python,join(resources,'python'),{recursive:true,dereference:true,filter:skip});
 for(const name of ['nature-skills','mnova-mcp'])cpSync(join(repo,'vendor',name),join(resources,'vendor',name),{recursive:true,dereference:true,filter:skip});
 cpSync(join(repo,'vendor.lock.json'),join(resources,'vendor.lock.json'));
 cpSync(join(repo,'python/requirements.lock'),join(resources,'requirements.lock'));
 const productVersion=JSON.parse(readFileSync(join(repo,'package.json'))).version;
-const release={ibm:productVersion,upgradeFrom:productVersion==='0.6.0-rc.1'?['0.5.8-rc.1']:[],source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'migration-preview',signed:false,automaticUpdates:false};
+const release={ibm:productVersion,upgradeFrom:['0.5.8-rc.1','0.6.0-rc.1'],source:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),sourceDirty:execFileSync('git',['-C',repo,'status','--porcelain'],{encoding:'utf8'}).trim().length>0,next:'2.0.17-next',nextCommit:'838ba60fd79362087c0a0d134efee671c284786a',kernel:'0.2.0-rc.2',electron:'44.0.0',python:'3.12.11',channel:'release-candidate',signed:false,automaticUpdates:false};
 // Use the official pre-boot transport hook: upload Workers do not own NEXT's
 // native main-frame authentication. Compose only the copied frontend document.
 const frontend=join(appDir,'node_modules/@deepseek-ai/dsh-web-frontend/dist');
@@ -104,12 +110,12 @@ writeFileSync(indexFile,index.replace('<head>','<head><script src="./assets/ibm-
 writeFileSync(join(resources,'release.json'),JSON.stringify(release,null,2)+'\n');
 // Cordis discovers the Desktop client through this exact package identity.
 // Branding belongs to appId/productName/app.setName, not the plugin package name.
-const manifest={...nextManifest,version:release.ibm,main:'ibm-bootstrap.mjs',description:'iBM Lab Agent Electron migration preview',author:'iBM Lab',scripts:{}};delete manifest.build;delete manifest.devDependencies;
+const manifest={...nextManifest,version:release.ibm,main:'ibm-bootstrap.mjs',description:'iBM Lab 科研助手',author:'iBM Lab',scripts:{}};delete manifest.build;delete manifest.devDependencies;
 assert.equal(manifest.name,'dsh-desktop-next');
 for(const item of ledger.packages)if(item.name.startsWith('dsh-lab-'))manifest.dependencies[item.name]=item.version;
 writeFileSync(join(appDir,'package.json'),JSON.stringify(manifest,null,2)+'\n');
 writeFileSync(join(work,'payload-packages.json'),JSON.stringify(packages,null,2)+'\n');
-const config={appId:'cn.ibm.lab-agent.electron',productName:'iBM Lab Agent Electron',asar:false,npmRebuild:false,electronVersion:'44.0.0',electronDist:dirname(require('electron')),directories:{app:appDir,output:join(output,'dist'),buildResources:join(runtime,'build')},files:['**/*'],extraResources:[{from:resources,to:'.',filter:['**/*']}],electronFuses:{runAsNode:true,onlyLoadAppFromAsar:false,enableEmbeddedAsarIntegrityValidation:false},win:{target:[{target:'nsis',arch:['x64']}],icon:join(runtime,'build/app-icon.ico'),signAndEditExecutable:true,artifactName:'iBM-Lab-Agent-${version}-Electron-x64-Setup.${ext}'},nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,createDesktopShortcut:true,createStartMenuShortcut:true,shortcutName:'iBM Lab Agent Electron',deleteAppDataOnUninstall:false,runAfterFinish:false,include:join(next,'dsh-plugin-desktop-beta/build/installer.nsh')},publish:null};
+const config={appId:'cn.ibm.lab-agent.electron',productName:'iBM Lab',asar:false,npmRebuild:false,electronVersion:'44.0.0',electronDist:dirname(require('electron')),directories:{app:appDir,output:join(output,'dist'),buildResources:join(runtime,'build')},files:['**/*'],extraResources:[{from:resources,to:'.',filter:['**/*']}],electronFuses:{runAsNode:true,onlyLoadAppFromAsar:false,enableEmbeddedAsarIntegrityValidation:false},win:{target:[{target:'nsis',arch:['x64']}],icon:join(runtime,'build/app-icon.ico'),signAndEditExecutable:true,artifactName:'iBM-Lab-${version}-Electron-x64-Setup.${ext}'},nsis:{oneClick:false,perMachine:false,allowToChangeInstallationDirectory:true,createDesktopShortcut:true,createStartMenuShortcut:true,shortcutName:'iBM Lab',deleteAppDataOnUninstall:false,runAfterFinish:false,include:join(next,'dsh-plugin-desktop-beta/build/installer.nsh')},publish:null};
 config.toolsets={nsis:'1.2.1'};
 writeFileSync(join(work,'builder.json'),JSON.stringify(config,null,2)+'\n');
 writeFileSync(join(output,'build-location.json'),JSON.stringify({work,appDir,resources,release},null,2)+'\n');

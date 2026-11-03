@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { h } from "./h.js";
 import { Templates } from "./components-templates.js";
+import { hydratePluginSwitches } from "./plugin-switches.js";
 import { normalizePetQuotes } from "../../src/runtime/pet-quotes.js";
 
 const providers = { core: "课题与记忆", runtime: "科研运行时", documents: "文档与模板", literature: "文献工作流", design: "实验设计", analysis: "科研分析", experimentTemplates: "实验计划模板", scientificDesktop: "科研浏览器与文件操作" };
@@ -62,12 +63,52 @@ function DesktopPetSettings({call}) {
   error?h('p',{role:'alert',className:'ib-error'},error):null,
   h('p',null,'支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。'));
 }
-function PluginSettings({ call }) {
+function PluginSwitches({ call }) {
+ const [data, setData] = useState(null);
+ const [busy, setBusy] = useState(false);
+ const [error, setError] = useState("");
+ const [notice, setNotice] = useState("");
+ const load = async () => {
+  setError("");
+  try { const value = await call("plugins_list"); setData(value); hydratePluginSwitches(value.plugins); }
+  catch (reason) { setError(reason.message); }
+ };
+ useEffect(() => { void load(); }, [call]);
+ const change = async (row, mode) => {
+  setBusy(true); setError(""); setNotice("");
+  try {
+   const enabled = mode === "soft" ? !row.soft : !row.hard;
+   const value = await call(mode === "soft" ? "plugins_set_soft" : "plugins_set_hard", { id: row.id, enabled });
+   setData(value);
+   hydratePluginSwitches(value.plugins);
+   setNotice(mode === "soft"
+    ? `${row.name} 已${enabled ? "启用" : "停用"}，立即生效（服务仍驻留，重启后保持）。`
+    : `${row.name} 已${enabled ? "启用" : "停用"}，下次启动生效。`);
+  } catch (reason) { setError(reason.message); } finally { setBusy(false); }
+ };
+ return h("div", { "data-ibm-plugin-switches": true },
+  h("h3", null, "子插件"),
+  h("p", null, "每个子插件都可以独立启停。软启停立即隐藏入口与页面（服务仍驻留）；硬启停会改写 profile 的装配列表，下次启动不再加载该插件（工具与服务一起消失）。停用不会删除任何课题数据。"),
+  error ? h("p", { role: "alert", className: "ib-error" }, error) : null,
+  notice ? h("p", { role: "status" }, notice) : null,
+  !data ? h("p", null, "正在读取插件状态…") : h("div", { className: "ib-card" },
+   data.plugins.map(row => h("div", { key: row.id, className: "ib-row", "data-plugin": row.id, style: { alignItems: "center", gap: 12, flexWrap: "wrap" } },
+    h("div", { style: { minWidth: 220 } },
+     h("b", null, row.name),
+     h("small", { style: { display: "block", opacity: 0.7 } }, row.detail)),
+    h("span", { "data-state": row.installed ? "installed" : "missing" }, row.installed ? "已安装" : "未安装"),
+    h("button", { className: row.soft ? "ib-btn" : "ib-btn ib-btn-danger", disabled: busy, "data-soft": row.id, onClick: () => void change(row, "soft") }, row.soft ? "软停用" : "软启用"),
+    h("button", { className: "ib-btn", disabled: busy, "data-hard": row.id, onClick: () => void change(row, "hard") }, row.hard ? "硬停用（下次启动）" : "硬启用（下次启动）"),
+    h("small", null, `软：${row.soft ? "开" : "关"} · 硬：${row.hard ? "开" : "关"}`)))),
+  h("p", null, data?.profileDir ? `装配 profile：${data.profileDir}` : "未找到可管理的 profile，硬启停不可用。"));
+}
+
+export function PluginSettings({ call }) {
  const [tab, setTab] = useState("templates");
  return h("section", { className: "ib-settings", "data-ibm-plugin-settings": true },
-  h("h2", null, "iBM 插件设置"), h("p", null, "管理全局模板、运行诊断与桌面宠物。模板设置适用于所有课题。"),
-  h("div", { className: "ib-tm-tabs" }, [ ["templates", "模板管理"], ["diagnostics", "诊断与版本"],["pet","桌面宠物"] ].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
-  tab === "templates" ? h(Templates, { call }) : tab==='pet'?h(DesktopPetSettings,{call}):h(Diagnostics, { call }));
+  h("h2", null, "iBM 插件设置"), h("p", null, "管理全局模板、子插件启停、运行诊断与桌面宠物。模板设置适用于所有课题。"),
+  h("div", { className: "ib-tm-tabs" }, [ ["templates", "模板管理"], ["plugins", "子插件"], ["diagnostics", "诊断与版本"],["pet","桌面宠物"] ].map(([key, text]) => h("button", { key, className: "ib-tm-tab", "data-active": tab === key, onClick: () => setTab(key) }, text))),
+  tab === "templates" ? h(Templates, { call }) : tab === "plugins" ? h(PluginSwitches, { call }) : tab==='pet'?h(DesktopPetSettings,{call}):h(Diagnostics, { call }));
 }
 
 export function registerPluginSettings(ctx) {

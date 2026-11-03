@@ -80,7 +80,24 @@ test('translation is bound to its project session and failed Agent turns release
  const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};
  await assert.rejects(()=>f.service.translationBind({...request,sessionId:'wrong-session'}),/不属于/);
  await f.service.translationBind({...request,sessionId:'valid-session'});await f.service.readerTurnEnded('valid-session');
- assert.equal(f.rows.get('reader').translations[0].status,'failed');assert.equal((await f.service.translationCreate(f.request)).translation.id,created.translation.id);
+ assert.equal(f.rows.get('reader').translations[0].status,'paused');assert.equal(f.rows.get('reader').translations[0].error,undefined);assert.equal((await f.service.translationCreate(f.request)).translation.id,created.translation.id);
+}finally{await f.dispose();}});
+test('a paused translation resumes from its verified draft without parsing again or retaining a stale error',async()=>{const f=await fixture();try{
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};const row=f.service.translationFind(request).row;
+ const data={sourceSha256:row.sourceSha256,pageCount:1,blocks:[{id:'one',page:1,kind:'text',original:'Provided document'}],translations:{}};
+ await writeFile(join(row.directory,'draft.json'),JSON.stringify(data));f.service.executor={resolvePython:()=>{throw Error('Parser must not run again');}};
+ await f.service.translationPrepare(request);await f.service.translationStore(f.rows.get('reader'),{...f.service.translationFind(request).row,sessionId:'chat',error:'old failure'});
+ await f.service.readerTurnEnded('chat');assert.equal(f.service.translationFind(request).row.status,'paused');
+ await f.service.translationWrite({...request,blocks:[{id:'one',zh:'用户提供的文档'}]});assert.equal(f.service.translationFind(request).row.status,'running');assert.equal(f.service.translationFind(request).row.error,undefined);
+ await f.service.translationPrepare(request);assert.equal((await f.service.translationRead({...request,pendingOnly:true})).total,0);
+}finally{await f.dispose();}});
+test('PDF composition failure can retry directly with all saved translations and clears the failure on success',async()=>{const f=await fixture();try{
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id},row=f.service.translationFind(request).row;
+ await writeFile(join(row.directory,'draft.json'),JSON.stringify({sourceSha256:row.sourceSha256,pageCount:1,blocks:[{id:'one',page:1,kind:'text',original:'Provided document'}],translations:{one:{zh:'用户提供的文档'}}}));
+ let fails=true;f.service.readerCompose=async()=>{if(fails)throw Error('layout: one');return{buffer:Buffer.from('%PDF'),fileName:'reader.pdf'};};
+ await assert.rejects(f.service.translationFinish(request),/layout/);assert.equal(f.service.translationFind(request).row.failureKind,'layout');
+ fails=false;const retry=await f.service.translationCreate(f.request);assert.equal(retry.readyToCompose,true);assert.equal(retry.translation.id,row.id);
+ const done=await f.service.translationFinish(request);assert.equal(done.translation.status,'completed');assert.equal(done.translation.error,undefined);assert.equal(f.service.translationFind(request).row.failureKind,undefined);
 }finally{await f.dispose();}});
 test('real local PDF extraction retains text, images and scanned page markers',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
  const python=process.env.IBM_READER_TEST_PYTHON,pdfPath=join(f.dir,'source.pdf');
@@ -132,7 +149,19 @@ test('translated PDF retains native 90/180/270-degree directions and narrow side
  p.insert_text((500,800),'Upside down source footer and references.',fontsize=8,rotate=180)
  d.save(sys.argv[1])`.replace(/^ /gm,''),path],{windowsHide:true});
  f.setBytes(await readFile(path));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id};await f.service.translationPrepare(request);const content=await f.service.translationRead({...request,limit:40});
- const directions=['正常横排中文','顺时针竖排版权说明','逆时针竖排中文','倒置中文页脚'];const blocks=content.blocks.filter(b=>b.kind==='text').map(b=>({id:b.id,zh:b.original.includes('Published')?directions[1]+'，首次发表于出版社网页 https://svn.example.com，DOI 10.1136/review.2022，受版权保护，包括文本与数据挖掘及人工智能训练。':b.original.includes('Vertical')?directions[2]+'。'.repeat(30):b.original.includes('Upside')?directions[3]:directions[0]}));await f.service.translationWrite({...request,blocks});await f.service.translationFinish(request);const row=f.service.translationFind(request).row;assert.equal(row.pdfLayoutVersion,3);
+ const directions=['正常横排中文','顺时针竖排版权说明','逆时针竖排中文','倒置中文页脚'];const blocks=content.blocks.filter(b=>b.kind==='text').map(b=>({id:b.id,zh:b.original.includes('Published')?directions[1]+'，首次发表于出版社网页 https://svn.example.com，DOI 10.1136/review.2022，受版权保护，包括文本与数据挖掘及人工智能训练。':b.original.includes('Vertical')?directions[2]+'。'.repeat(30):b.original.includes('Upside')?directions[3]:directions[0]}));await f.service.translationWrite({...request,blocks});await f.service.translationFinish(request);const row=f.service.translationFind(request).row;assert.equal(row.pdfLayoutVersion,4);
  const proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json; a=pymupdf.open(sys.argv[1]); d=pymupdf.open(sys.argv[2]); print(json.dumps({"pages":len(d),"size":a[0].rect==d[0].rect,"lines":[{"text":"".join(s["text"] for s in line["spans"]),"dir":line["dir"]} for b in d[0].get_text("dict")["blocks"] if b["type"]==0 for line in b["lines"]]}))',path,join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));
  assert.equal(proof.pages,1);assert.equal(proof.size,true);for(const [i,dir] of [[0,[1,0]],[1,[0,1]],[2,[0,-1]],[3,[-1,0]]]){const line=proof.lines.find(l=>l.text.includes(directions[i]));assert.ok(line,'missing rotated translation '+i);assert.ok(Math.abs(line.dir[0]-dir[0])<.001&&Math.abs(line.dir[1]-dir[1])<.001);}
+}finally{await f.dispose();}});
+
+test('tiny figure labels preserve the original image and put complete legible translations in a source-linked legend',{skip:!process.env.IBM_READER_TEST_PYTHON},async()=>{const f=await fixture();try{
+ const python=process.env.IBM_READER_TEST_PYTHON,path=join(f.dir,'figure.pdf');
+ execFileSync(python,['-I','-c',"import pymupdf,sys;d=pymupdf.open();p=d.new_page();p.insert_text((72,72),'Paper paragraph');s=pymupdf.open();q=s.new_page(width=200,height=100);q.insert_text((20,50),'Treatment group');p.insert_image(pymupdf.Rect(72,100,272,200),stream=q.get_pixmap().tobytes('png'));d.save(sys.argv[1])",path],{windowsHide:true});
+ f.setBytes(await readFile(path));f.service.executor={resolvePython:async()=>({command:[python]}),spawnImpl:spawn};
+ const created=await f.service.translationCreate(f.request),request={...f.request,translationId:created.translation.id},row=f.service.translationFind(request).row;
+ const data={pageCount:1,sourceSha256:row.sourceSha256,blocks:[{id:'p1-b1-1',page:1,kind:'text',original:'Paper paragraph'},{id:'p1-b2-ocr1',page:1,kind:'figure-text',original:'Treatment group',bbox:[75,105,77,107],fontSize:8,rotation:90,confidence:.7,image:'p1-b2.png'}],translations:{'p1-b1-1':{zh:'论文段落'},'p1-b2-ocr1':{zh:'治疗组完整说明：保留全部标签内容，不能为了排版省略译文。',note:'低置信度，请核对原图'}}};
+ await writeFile(join(row.directory,'draft.json'),JSON.stringify(data));const done=await f.service.translationFinish(request);assert.equal(done.translation.status,'completed');
+ const layout=JSON.parse(await readFile(join(row.directory,'pdf-layout.json'),'utf8'));assert.equal(layout.sourcePageCount,1);assert.ok(layout.legendPages>=1);assert.equal(layout.overflowLabels[0].id,'p1-b2-ocr1');
+ const proof=JSON.parse(execFileSync(python,['-I','-c','import pymupdf,sys,json;d=pymupdf.open(sys.argv[1]);print(json.dumps({"pages":len(d),"images":len(d[0].get_images()),"legend":"".join(p.get_text() for p in list(d)[1:])}))',join(row.directory,'translated.pdf')],{encoding:'utf8',windowsHide:true}));
+ assert.ok(proof.images>0);assert.match(proof.legend,/Treatment group/);assert.match(proof.legend.replace(/\s+/g,''),/治疗组完整说明/);assert.match(done.translation.pdfWarnings.join(' '),/p1-b2-ocr1/);
 }finally{await f.dispose();}});

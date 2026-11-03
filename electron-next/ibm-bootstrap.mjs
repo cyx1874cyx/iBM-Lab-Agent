@@ -18,5 +18,5 @@ try{
  }
 }catch(error){
  console.error('iBM release initialization failed:',error.message);
- dialog.showErrorBox('iBM Lab Agent 启动失败',error.message);app.exit(1);
+ dialog.showErrorBox('iBM Lab 启动失败',error.message);app.exit(1);
 }

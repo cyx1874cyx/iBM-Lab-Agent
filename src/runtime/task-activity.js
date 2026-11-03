@@ -44,6 +44,6 @@ export function activitySnapshot(core,ctx) {
   extra.push(row);
  }
  const characterization=ctx.get('labCharacterization');
- if(characterization?.table)for(const id of characterization.table.keys()){const task=characterization.table.get(id);extra.push(registeredActivity(task,task.kind==='plot'?'origin':'nmr'));}
+ if(characterization?.table)for(const id of characterization.table.keys()){const task=characterization.table.get(id);if(task.status==='draft')continue;extra.push(registeredActivity(task,task.kind==='plot'?'origin':'nmr'));}
  return {connected:true,tasks:core.activity.snapshot(extra)};
 }

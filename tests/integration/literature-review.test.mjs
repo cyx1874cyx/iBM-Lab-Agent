@@ -49,7 +49,7 @@ async function seedSearchRun(tasks) {
 	const project = await tasks.createProject({
 		id: "proj-review",
 		name: "综述写作",
-		goalProfileId: "default-prodrug-polymer",
+		goalProfileId: "default-research",
 		goalProfileVersion: "1",
 		templateId: "nature-default",
 		templateVersion: "1"
@@ -142,3 +142,4 @@ test("综述写作：契约与报告落在检索条目自己的目录，可覆�
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

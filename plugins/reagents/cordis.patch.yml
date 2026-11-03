@@ -1,0 +1,10 @@
+# iBM Lab 子插件：试剂管理（可独立安装、可停用）
+#
+# 本 patch 只装配插件自己的宿主服务。母插件通过 lab.reagents_* 兼容接口委托，
+# 插件不存在时该接口返回 feature-unavailable，母插件其余功能不受影响。
+- insert:
+    - id: lab-reagents
+      name: '@ibm-lab/reagents'
+      config:
+        # 清单配置与缓存目录；与母插件共享 $DSH_HOME 布局但不读取其代码。
+        root: !!js dshHomePath('lab-agent/reagents')

@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';import {mkdir,readFile,writeFile} from 'node:fs/promises';import {resolve,join} from 'node:path';import {spawn} from 'node:child_process';
+import {bootLite} from '../../tests/helpers/boot-lite.mjs';import {runPlotJob} from '../../src/runtime/plot-job.js';import {plotSpecSchema} from '../../src/plot/workspace.js';
+const output=resolve(process.env.PLOT_P1_OUTPUT||'../../work/plot-p1-workflow-'+Date.now());await mkdir(output,{recursive:true});console.log(output);
+const config={command:'H:/107-iBM-Agent/iBM-Agent/work/workbench-dev-20261021/resources/python/python.exe',cwd:process.cwd(),env:{...process.env,ORIGIN_MCP_TOOL_PROFILE:'full'}},spawnImpl=(c,a,o)=>spawn(c,a,{...o,windowsHide:true});
+const handle=await bootLite({storageRoot:join(output,'storage'),coreConfig:{projectsRoot:join(output,'projects')},includePython:false});let final;
+async function idle(service,id){while(service.plotJobs.has(id))await service.plotJobs.get(id).job;const row=await service.get(id);if(row.workflow.status==='failed'||row.workflow.error)throw Error(row.workflow.error||row.workflow.stage);return row;}
+try{
+ const service=handle.ctx.labPlotRecords;await handle.ctx.ibmCore.createProject({id:'p1',name:'绘图主流程验收'});let renders=0;
+ handle.ctx.ibmRuntime.plot=async(projectId,action,args,options)=>{if(action==='render')renders++;return runPlotJob(config,action,args,{...options,spawnImpl});};
+ service.plotAskModel=async()=>{throw Error('AI intentionally offline for manual workflow verification');};
+ const raw=await readFile('tests/fixtures/plot-p1/nonadjacent.csv');const {record}=await service.plotUpload({projectId:'p1',name:'非相邻列.csv',base64:raw.toString('base64'),inspectOnly:true});let row=await idle(service,record.id);assert.equal(row.workflow.status,'inspected');assert.equal(row.workflow.originData,undefined);
+ const id=row.id,spec=plotSpecSchema.parse({kind:'bar',xCol:0,yCols:[4,2],fontSize:16,titleSize:18,showLegend:true,legendStyle:{size:10},series:[{column:4,label:'B first',color:'#C23D51',fillColor:'#C23D51',borderColor:'#314159',lineWidth:2,lineStyle:1,barGap:35},{column:2,label:'A second',color:'#168C60',fillColor:'#168C60',borderColor:'#314159',lineWidth:2,lineStyle:1,barGap:35}]});
+ await service.plotRender({projectId:'p1',id,spec,revision:row.workflow.revision});row=await idle(service,id);
+ await service.plotRender({projectId:'p1',id,spec:row.workflow.spec,revision:row.workflow.revision,save:true});row=await idle(service,id);const original=row.workflow.saved,originalSpec=row.workflow.savedSpec;
+ const revised=plotSpecSchema.parse({...originalSpec,series:originalSpec.series.map(s=>({...s,fillColor:s.color,color:s.color,lineWidth:3}))});
+ const preview=await service.plotPreview({projectId:'p1',id,spec:revised,clientId:'native-p1',requestSeq:1,wait:true});assert.ok(preview.preview);
+ await service.plotRender({projectId:'p1',id,spec:revised,revision:row.workflow.revision,save:true});row=await idle(service,id);const second=row.workflow.saved,secondSpec=row.workflow.savedSpec,beforeRestore=renders;
+ await service.plotRestore({projectId:'p1',id,index:0,mode:'original',revision:row.workflow.revision});row=await idle(service,id);assert.equal(renders,beforeRestore);assert.equal(row.workflow.draft.origin.sha256,original.origin.sha256);assert.equal(row.workflow.draft.preview.sha256,original.preview.sha256);
+ await service.plotRender({projectId:'p1',id,spec:row.workflow.spec,revision:row.workflow.revision,save:true});row=await idle(service,id);assert.equal(renders,beforeRestore);assert.equal(row.workflow.saved.origin.sha256,original.origin.sha256);assert.deepEqual(row.workflow.savedSpec,originalSpec);
+ await service.plotRestore({projectId:'p1',id,index:1,mode:'redraw',revision:row.workflow.revision});row=await idle(service,id);assert.equal(renders,beforeRestore+1);assert.equal(row.workflow.saved.origin.sha256,original.origin.sha256);assert.deepEqual(row.workflow.renderedSpec,secondSpec);
+ final={output:join(output,'reopen'),cases:[{name:'restored-original',path:row.workflow.profile.normalizedPath,expectedRows:4,expectedFirst:['A',81,11],spec:originalSpec,artifacts:original},{name:'saved-latest',path:row.workflow.profile.normalizedPath,expectedRows:4,expectedFirst:['A',81,11],spec:secondSpec,artifacts:second},{name:'redrawn-history',path:row.workflow.profile.normalizedPath,expectedRows:4,expectedFirst:['A',81,11],spec:secondSpec,artifacts:row.workflow.draft}]};
+ await writeFile(join(output,'workflow-report.json'),JSON.stringify({ok:true,record:row,renders,restorationUsedOriginalBytes:true,manualWorkflowWithoutAI:true},null,2));
+}finally{await handle.dispose();}
+await mkdir(final.output,{recursive:true});const request=join(output,'reopen-request.json');await writeFile(request,JSON.stringify(final));
+const child=spawn(config.command,['-I',resolve('scripts/migration/verify-origin-p1.py'),request],{windowsHide:true,env:config.env,stdio:'inherit'});process.exitCode=await new Promise(r=>child.once('exit',r));

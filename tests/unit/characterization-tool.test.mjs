@@ -40,3 +40,35 @@ test("characterization tools bind the active project and pass attempt-scoped out
   assert.equal((await recomplete.execute({ taskId: "nmr-a", attempt: 2, spectrumPath: "b.mnova", reportPath: "b.docx",assessment:{verdict:"inconclusive",confidence:"medium",summary:"overlap"} }, { agent: { session: { id: "session-a" } } })).status, "completed");
   assert.equal((await update.execute({ projectId: "missing", taskId: "nmr-a", attempt: 2, status: "running" }, {})).ok, false);
 });
+
+test("插件持有任务时，工具按行归属调用插件服务", async () => {
+  const definitions = [];
+  const pluginCalls = [];
+  const legacyCalls = [];
+  const plugin = {
+    has(id) { return id === "plugin-task"; },
+    async complete(id, projectId, fields) { pluginCalls.push(["complete", id, fields]); return { id, status: "completed" }; },
+    async update(id, projectId, patch) { pluginCalls.push(["update", id, patch]); return { id, status: patch.status }; },
+    async submit(fields) { pluginCalls.push(["submit", fields]); return { task: { ...fields, id: fields.id, attempt: 1, status: "queued" }, prompt: "plugin" }; },
+    get(id, projectId) { return { id, projectId, kind: "nmr" }; }
+  };
+  const ctx = {
+    tools: { register(definition) { definitions.push(definition); } },
+    root: { get(name) { return name === "labNmrTasks" ? plugin : undefined; } },
+    get(name) { return name === "ibmCore" ? { getProject: () => ({ id: "project-a" }), getProjectBySession: () => ({ project: { id: "project-a" } }) } : undefined; },
+    labTasks: { getProject: () => ({ id: "project-a" }), getProjectBySession: () => ({ project: { id: "project-a" } }) },
+    labCharacterization: {
+      async complete(id) { legacyCalls.push(["complete", id]); return { id, status: "completed" }; },
+      async update(id) { legacyCalls.push(["update", id]); return { id, status: "running" }; },
+      async submit() { legacyCalls.push(["submit"]); return { task: { id: "legacy" }, prompt: "legacy" }; }
+    }
+  };
+  apply(ctx);
+  const complete = definitions.find(item => item.name === "lab_characterization_complete");
+  const update = definitions.find(item => item.name === "lab_characterization_update");
+  const created = await complete.execute({ taskId: "plugin-task", attempt: 1, spectrumPath: "a.mnova", reportPath: "a.docx" }, { agent: { session: { id: "session-a" } } });
+  assert.equal(created.status, "completed");
+  await update.execute({ taskId: "plugin-task", attempt: 1, status: "running" }, { agent: { session: { id: "session-a" } } });
+  assert.deepEqual(pluginCalls.map(call => call[0]), ["complete", "update"]);
+  assert.deepEqual(legacyCalls, [], "插件任务不得落到母包服务");
+});

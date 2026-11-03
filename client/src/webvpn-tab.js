@@ -171,7 +171,7 @@ export function WebVpnTabBody({ useTabInfo }) {
 				h("b", null, "文献浏览器"),
 				h("p", null, inShell
 					? "软件内浏览器由桌面窗口渲染。若此处为空，请回到「文献工作流」点击「打开 WebVPN」。"
-					: "软件内浏览器仅在 iBM Lab Agent 桌面版可用；网页版请在新标签页打开文献链接。"))),
+					: "软件内浏览器仅在 iBM Lab 桌面版可用；网页版请在新标签页打开文献链接。"))),
 		// 操作条在浏览区域外；仅在捕获任务进行时出现。
 		save.hasTask ? h("div", { className: "ib-webvpn-bar" },
 			h("button", {

@@ -42,7 +42,7 @@ export function Templates({ call, onBack }) {
 			}, [call]);
 			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } if (capabilities?.experimentTemplates) void loadExp(); }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
 			return h("div", null,
-				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研 Agent 生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null, h("div", { className: "ib-tm-tabs" },
 					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"),
 					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : undefined, onClick: () => setTab("reviews") }, "综述模板"),
@@ -230,7 +230,7 @@ export function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
 					h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "解析 Markdown 的 #/## 标题为章节骨架（含子节与表格要求），原文一并保留；导入后仍可逐项调整。")),
 					h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
 						!isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
-						h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "聚前药精读笔记模板", onChange: field("name") })),
+						h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "科研精读笔记模板", onChange: field("name") })),
 						h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })),
 						h("div", { className: "ib-req" }, h("label", null, "语言"), h("select", { value: form.language, onChange: field("language") }, ["zh", "en", "zh-en"].map((l) => h("option", { value: l, key: l }, l)))),
 						h("div", { className: "ib-req", style: { gridColumn: "1/-1" } }, h("label", null, "篇幅说明"), h("input", { value: form.length, onChange: field("length") })),
@@ -439,3 +439,4 @@ export function SpinSvg({ width = 14, height = 14 }) {
 				h("path", { d: "M12 3.5a8.5 8.5 0 0 1 8.5 8.5", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" })
 			);
 		}
+

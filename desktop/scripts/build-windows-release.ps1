@@ -368,7 +368,7 @@ try {
 
   $installerRoot = Join-Path $desktopRoot 'src-tauri\target\release\bundle\nsis'
   $installer = Get-ChildItem -LiteralPath $installerRoot -File -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -eq "iBM Lab Agent_${version}_x64-setup.exe" -and $_.LastWriteTimeUtc -ge $buildStartedAt.AddMinutes(-1)
+    $_.Name -eq "iBM Lab_${version}_x64-setup.exe" -and $_.LastWriteTimeUtc -ge $buildStartedAt.AddMinutes(-1)
   } | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
   if (-not $installer) { throw "Tauri exited successfully but did not create a fresh exact-version installer for $version below $installerRoot" }
 

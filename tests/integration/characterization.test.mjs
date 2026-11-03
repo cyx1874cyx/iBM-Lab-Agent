@@ -20,7 +20,7 @@ test("characterization persists tasks, retries, validates artifacts and updates 
  ]};
  try{
   await mkdir(join(dir,"templates"));handle=await bootLite(options);const {ctx}=handle;
-  await ctx.labTasks.createProject({id:"p-test",name:"test",goalProfileId:"default-prodrug-polymer",goalProfileVersion:"1",templateId:"nature-default",templateVersion:"1"});
+  await ctx.labTasks.createProject({id:"p-test",name:"test",goalProfileId:"default-research",goalProfileVersion:"1",templateId:"nature-default",templateVersion:"1"});
   const workspace=(await ctx.labTasks.ensureProjectWorkspace("p-test")).path;
   await mkdir(join(workspace,"sample.fid"));await writeFile(join(workspace,"sample.fid","fid"),"fixture fid");await writeFile(join(workspace,"sample.fid","procpar"),"fixture procpar");await writeFile(join(workspace,"structure.mol"),"fixture mol");
   const fields={id:"nmr-test",projectId:"p-test",kind:"nmr",title:"sample",inputPath:"sample.fid",structurePath:"structure.mol",instructions:"analyze",compound:{name:"ethanol",smiles:"CCO"},deuteratedSolvent:"CDCl3"};
@@ -79,3 +79,4 @@ test("characterization persists tasks, retries, validates artifacts and updates 
   await handle.dispose();handle=await bootLite(options);assert.equal(handle.ctx.labCharacterization.list("p-test").some(row=>row.id===a.task.id),false);assert.equal(await handle.ctx.labPlotRecords.get(plot.task.id),null);
  }finally{await handle?.dispose();await rm(dir,{recursive:true,force:true});}
 });
+

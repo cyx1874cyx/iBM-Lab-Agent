@@ -1,0 +1,200 @@
+[
+  {
+    "id": "note-default",
+    "version": "1",
+    "kind": "note",
+    "name": "课题组阅读笔记模板（默认）",
+    "topics": [
+      "聚前药",
+      "高分子材料设计",
+      "药物递送"
+    ],
+    "tags": [
+      "note",
+      "default"
+    ],
+    "audience": "课题组组会",
+    "language": "zh",
+    "length": "单篇 600-1000 字，突出与课题相关的关键内容",
+    "sections": [
+      {
+        "key": "citation",
+        "title": "文献信息",
+        "required": true,
+        "hint": "标题、作者、期刊、年份、DOI 的规范短引用"
+      },
+      {
+        "key": "one-sentence-summary",
+        "title": "一句话概述",
+        "required": true,
+        "hint": "问题、做法、机制、成果各一短句"
+      },
+      {
+        "key": "background-gap",
+        "title": "背景与空缺",
+        "required": true,
+        "hint": "研究背景、现有不足、本文切入点"
+      },
+      {
+        "key": "core-idea",
+        "title": "核心思路",
+        "required": true,
+        "hint": "表面方法 + 核心洞察"
+      },
+      {
+        "key": "methods",
+        "title": "方法与实验设计",
+        "required": true,
+        "hint": "输入输出、模块、表征手段、关键数据"
+      },
+      {
+        "key": "key-results",
+        "title": "关键结果与证据链",
+        "required": true,
+        "hint": "关键参数（Mn/DP/取代度/载药量/粒径/释放）带来源"
+      },
+      {
+        "key": "conclusions-boundary",
+        "title": "结论与边界",
+        "required": true,
+        "hint": "作者结论 + 任务范围/人群边界 + 未验证部分"
+      },
+      {
+        "key": "limitations",
+        "title": "作者明确局限",
+        "required": true,
+        "hint": "仅作者承认的局限，附未来方向"
+      },
+      {
+        "key": "critical-analysis",
+        "title": "批判性分析",
+        "required": false,
+        "hint": "可验证的疑点或替代解释"
+      },
+      {
+        "key": "link-to-project",
+        "title": "与本课题的联系",
+        "required": true,
+        "hint": "对本课题可能的价值、可借鉴方法与启发"
+      },
+      {
+        "key": "questions",
+        "title": "待讨论问题",
+        "required": false,
+        "hint": "组会可讨论的开放问题"
+      }
+    ],
+    "styleRules": [
+      "用中文正文，保留规范英文术语并用括号标注中文释义",
+      "每个数字必须带来源定位（页码/图表/来源块）",
+      "区分数据库实测值、计算值与模型预测值"
+    ],
+    "evidenceRequirements": [
+      "关键数字追溯到原文图表、页码或来源块",
+      "来源不足处标注“无法判断”，不补写不可见内容",
+      "统计显著性（n、对照、p 值）核验后写入"
+    ],
+    "outputRequirements": [
+      "输出为 Markdown，用模板章节作为二级标题",
+      "每条结论与来源一一对应，避免泛泛而谈"
+    ],
+    "templateMarkdown": "",
+    "remark": "默认阅读笔记模板：Agent 生成阅读笔记时若未指定模板，使用本模板。",
+    "status": "active",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "review-default",
+    "version": "1",
+    "kind": "review",
+    "name": "课题组文献综述模板（默认）",
+    "topics": [
+      "聚前药",
+      "高分子材料设计",
+      "药物递送"
+    ],
+    "tags": [
+      "review",
+      "default"
+    ],
+    "audience": "课题组组会与开题材料",
+    "language": "zh",
+    "length": "3000-6000 字，按主题归类而不是逐篇摘要",
+    "sections": [
+      {
+        "key": "scope",
+        "title": "综述范围与检索策略",
+        "required": true,
+        "hint": "检索式、数据源、时间窗、纳入与排除标准"
+      },
+      {
+        "key": "background",
+        "title": "研究背景与问题",
+        "required": true,
+        "hint": "领域现状、未解决的关键问题"
+      },
+      {
+        "key": "taxonomy",
+        "title": "技术路线归类",
+        "required": true,
+        "hint": "按设计策略/材料体系/机制把文献分组，给出各组代表工作"
+      },
+      {
+        "key": "progress",
+        "title": "关键进展",
+        "required": true,
+        "hint": "分组论述代表性结果与数据，标注来源文献"
+      },
+      {
+        "key": "comparison",
+        "title": "横向对比",
+        "required": true,
+        "hint": "跨组对比指标（载药量/释放行为/靶向性/疗效），指出可比与不可比之处"
+      },
+      {
+        "key": "challenges",
+        "title": "挑战与争议",
+        "required": true,
+        "hint": "证据冲突、方法学局限、重复性存疑处"
+      },
+      {
+        "key": "outlook",
+        "title": "趋势与展望",
+        "required": true,
+        "hint": "可验证的下一步方向，区分已有证据与推测"
+      },
+      {
+        "key": "project-link",
+        "title": "与本课题的关系",
+        "required": true,
+        "hint": "对本课题选题/设计/实验的直接启发"
+      },
+      {
+        "key": "references",
+        "title": "参考文献",
+        "required": true,
+        "hint": "只列本次检索结果中实际引用的条目，含 DOI"
+      }
+    ],
+    "styleRules": [
+      "用中文正文，保留规范英文术语并用括号标注中文释义",
+      "按主题组织，禁止逐篇罗列摘要式段落",
+      "每个论断标注来源文献（作者 年份 或 DOI）"
+    ],
+    "evidenceRequirements": [
+      "只使用本次检索条目的题名/摘要/已登记全文，不补写未检索到的内容",
+      "摘要不足以下结论时写明「摘要信息不足」",
+      "对比表格中的数字必须来自所选文献的可见内容"
+    ],
+    "outputRequirements": [
+      "输出为 Markdown，模板章节作为二级标题",
+      "参考文献与正文引用一一对应"
+    ],
+    "templateMarkdown": "",
+    "remark": "默认文献综述模板：对某个检索条目的多篇结果写综述时若未指定模板，使用本模板。",
+    "status": "active",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  }
+]

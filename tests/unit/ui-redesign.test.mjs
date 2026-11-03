@@ -28,9 +28,10 @@ test("§2.1/§9 品牌去重：产品名只在侧栏保留一处", async () => {
 	const [branding, project, shell, redesign] = await Promise.all([
 		read("branding.js"), read("components-project.js"), readFile(shellPath, "utf8"), read("redesign.js"),
 	]);
-	// 侧栏：Logo + iBM Agent，无英文副标题。
-	assert.match(branding, /<b>iBM Agent<\/b>/);
-	assert.doesNotMatch(branding, /ib-brand-text"><b>iBM Agent<\/b><small>/);
+	// 产品名称统一为 iBM Lab，无英文副标题。
+	assert.match(branding, /<b>iBM Lab<\/b>/);
+	assert.doesNotMatch(branding, /<b>iBM\s*(?:Lab\s*)?Agent<\/b>/i);
+	assert.doesNotMatch(branding, /ib-brand-text"><b>iBM Lab<\/b><small>/);
 	// 面板顶栏不再重复 Logo + 产品名 + Project Research Workspace。
 	assert.doesNotMatch(project, /"iBM Lab Agent", h\("small", null, "Project Research Workspace"\)/);
 	assert.doesNotMatch(project, /className: "ib-brand"/);
@@ -57,14 +58,15 @@ test("§2.2/§9 课题入口：图标 + 名称 + 下拉箭头，无英文标签�
 
 test("§3.1 课题页去嵌套：单行标签页 + 分组标题，无外层大框与副标题", async () => {
 	const [project, redesign] = await Promise.all([read("components-project.js"), read("redesign.js")]);
-	// 分类导航：三项单行标签，且不再有解释性副标题。
-	assert.match(project, /const tabs = \[\s*\["literature", "文献资料"\], \["planning", "研究设计"\], \["characterization", "表征分析"\]\]/);
+	// 分类导航使用单行标签，核磁解析和科研绘图分别展示。
+	assert.match(project, /const tabs = \[\s*\["literature", "文献资料"\], \["planning", "研究设计"\], \["characterization", "核磁解析"\], \["plotting", "科研绘图"\]\]/);
 	assert.match(project, /tabs\.map\(\(\[id, label\]\) => h\("button", \{ className: "ib-tab"/);
 	// 不再有 meta 副标题表 / 外层 ib-board 大框。
 	assert.doesNotMatch(project, /const meta = \{ literature: \["文献资料"/);
 	assert.doesNotMatch(project, /className: "ib-board"/);
 	// 分组标题（保留条目数量）与条目列表直接铺在内容区。
-	assert.match(project, /className: "ib-lit-group"/);
+	assert.match(project, /className: "ib-lit-group ib-search-drop ib-literature-drop"/);
+	assert.match(project, /className: "ib-lit-group ib-reading-drop ib-literature-drop"/);
 	assert.match(project, /className: "ib-group-head"/);
 	assert.match(project, /className: "ib-group-count"/);
 	// 标签页选中态用下划线。
@@ -86,38 +88,38 @@ test("§4 精读条目：短引用主标题 + 中文副标题，无独立状态�
 	assert.doesNotMatch(project, /className: "ib-lit-main"[^\n]*h\("small"/);
 });
 
-test("§5.1 精读产物固定名称，完成状态用统一填充色表达", async () => {
+test("§5.1 精读操作采用图标，完成状态用统一填充色表达", async () => {
 	const [project, redesign] = await Promise.all([read("components-project.js"), read("redesign.js")]);
 	assert.match(project, /"data-kind": "reading", "data-done": readingDone \? "true" : "false"/);
 	assert.match(project, /"data-kind": "ppt", "data-done": pptDone \? "true" : "false"/);
 	// 完成态只靠填充色：不再额外加对号（现场反馈「已经标色了就不需要再加对号」）。
-	assert.match(project, /readingBusy \? h\(SpinSvg, null\) : null/);
+	assert.match(project, /readingBusy \? h\(SpinSvg, null\) : h\(ReadingNoteSvg,null\)/);
 	assert.doesNotMatch(project, /CheckSvg/);
 	// 固定名称不因完成状态改变，完成状态仍由已有产物决定。
 	assert.match(redesign, /\.ib-overlay \.ib-act\{[^}]*justify-content:center;[^}]*min-width:84px/);
 	assert.doesNotMatch(project, /打开精读|开始精读|制作 PPT|阅读译文/);
-	assert.match(redesign, /\.ib-reading-acts \.ib-act\[data-done=true\]\{background:var\(--ib-accent\)/);
+	assert.match(redesign, /\.ib-reading-acts \.ib-icon-btn\[data-done=true\]\{background:var\(--ib-accent\)/);
 	assert.match(redesign, /\.ib-act\{[^}]*height:var\(--ib-action-h\)[^}]*font-size:14px/);
 	// 加载态必须有加载图标。
 	assert.match(redesign, /@keyframes ib-spin/);
 });
 
-test("条目操作全部平铺在右侧，原有功能不被藏进弹层", async () => {
+test("常用条目操作平铺在右侧，精读删除使用右键菜单", async () => {
 	const [project, redesign, literature] = await Promise.all([
 		read("components-project.js"), read("redesign.js"), read("components-literature.js"),
 	]);
-	// 不再有下拉菜单：现场发现弹层会被 DSH 的滚动容器裁切、跑到屏幕外，
-	// 等于把「200 字简介」「删除条目」这些原有功能藏没了。
+	// 常用操作不收进更多菜单；精读删除使用挂到 body 的右键菜单，避开滚动容器裁切。
 	assert.doesNotMatch(project, /MoreMenu|ib-more-menu|ib-more-item/);
 	assert.doesNotMatch(literature, /ib-badge-menu|ib-more-item|setMenuOpen/);
 	assert.doesNotMatch(redesign, /\.ib-more\b|\.ib-more-menu|\.ib-badge-menu/);
 	// 宽面板为左标题、右操作；窄容器由同等优先级的容器规则换行。
 	assert.match(redesign, /\.ib-overlay \.ib-lit-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
-	// 恢复的功能：简介 + 删除条目（精读条目）、导出 RIS + 删除（检索条目）。
+	// 精读简介保持平铺，删除移入右键菜单；检索条目保留导出 RIS 与删除。
 	// 按钮文案不写「200 字」——篇幅是给 Agent 的约束，不是给人看的标签。
-	assert.match(project, /report\.id in overview \? "收起简介" : "简介"/);
+	assert.match(project, /'aria-label':report\.id in overview\?'收起简介':'简介'/);
 	assert.doesNotMatch(project, /"200 字简介"/);
-	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteReport\(report, bundle\)/);
+	assert.match(project, /h\(ReadingContextMenu,\{menu:entryMenu,onClose:closeEntryMenu,onDelete:deleteReports\}/);
+	assert.doesNotMatch(project, /ib-reading-selection|aria-label.*精读文件夹/);
 	assert.match(project, /className: "ib-act ib-act-danger"[^\n]*deleteSearch\(search\)/);
 	assert.match(project, /导出 RIS/);
 	assert.match(redesign, /\.ib-act-danger\{color:#b42318/);
@@ -137,15 +139,16 @@ test("§7/§9 两段常驻解释文字与布局说明完整删除", async () => 
 	assert.doesNotMatch(source, /NMR 等结构表征和审核结果/);
 });
 
-test("§6/§9 字号整体放大，条目悬停用淡灰背景", async () => {
-	const [redesign, project] = await Promise.all([read("redesign.js"), read("components-project.js")]);
+test("§6/§9 字号整体放大，条目交替底色并保留悬停提示", async () => {
+	const redesign = await read("redesign.js");
 	assert.match(redesign, /--ib-action-h:34px/);
 	assert.match(redesign, /\.ib-overlay \.ib-group-head h3\{margin:0;font-size:17px;font-weight:600/);
 	assert.match(redesign, /\.ib-project-copy h1\{font-size:22px;font-weight:600\}/);
 	assert.match(redesign, /\.ib-lit-meta\{font-size:14\.5px/);
-	assert.match(redesign, /\.ib-lit-item:hover\{background:var\(--ib-hover\)\}/);
+	assert.match(redesign, /\.ib-lit-item:nth-child\(even\)\{background:var\(--ib-row-alt\)\}/);
+	assert.match(redesign, /\.ib-search-paper:hover\{background:var\(--ib-accent-soft\)\}/);
 	// 一屏显示更少条目：条目留白随字号同步增加，且不靠缩字换空间。
-	assert.match(redesign, /\.ib-lit-item\{[^}]*padding:16px 2px/);
+	assert.match(redesign, /\.ib-lit-item\{[^}]*padding:16px 12px/);
 	assert.match(redesign, /\.ib-lit-title\{[^}]*white-space:normal/);
 });
 

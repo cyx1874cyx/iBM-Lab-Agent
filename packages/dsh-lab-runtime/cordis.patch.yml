@@ -38,7 +38,7 @@
     #
     # Host service `ctx.labGoals`: 可保存/复制/修改/版本化的精读目标。版本行
     # 不可变（id@version），任务引用版本快照；删除只归档，历史与快照始终
-    # 可读。内置聚前药默认目标幂等种子。Phase 3 的任务接口在这里取配置并
+    # 可读。内置通用科研默认目标幂等种子。Phase 3 的任务接口在这里取配置并
     # 转换为 nature-paper-card 重点审查要求。
     - id: lab-llm-diag
       name: 'dsh-lab-runtime/llm-diag'
@@ -62,7 +62,7 @@
         customSkillDirs:
           - !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
 
-    # First-party publisher browser guidance ships with this plugin, separate
+    # First-party publisher and Origin plotting skills ship with this plugin, separate
     # from the pinned third-party Nature Skills tree and its version registry.
     - id: lab-publisher-skill-filesystem
       name: '@deepseek-ai/dsh-skill-filesystem'

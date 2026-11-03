@@ -14,6 +14,8 @@ import { installSidebarBrowser } from "./sidebar-browser.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
 import {registerReaderTab,setReaderRuntime,translationPrompt} from './reader-tab.js';
+import { createWorkbenchController, registerWorkbench } from './workbench.js';
+import {projectSessionId,openProjectConversation,taskEntryIdentity,createEntryOperationQueue,resolveEntryConversation,openReadingPreviewConversation,prefillEntryTask} from './project-task-session.js';
 
 /** 科研 Agent 预设 id（presets/lab-research/preset.patch.yml 声明的那一条）。 */
 export const RESEARCH_PRESET_ID = "lab-research";
@@ -53,6 +55,7 @@ export async function ensureResearchPresetDefault(remote) {
 }
 
 export function applyUi(ctx) {
+ console.info('[iBM Lab] workbench UI services ready');
  // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
  // 该分类不看实际内容宽度，会让同为四列的短表和长表走同一套横向布局，
  // 并在重新布局后保留错误的横向滚动位置。科研界面统一交给 CSS 的实际
@@ -87,6 +90,8 @@ export function applyUi(ctx) {
 		return result.value;
 	};
 	let root = null;
+	const workbench = createWorkbenchController();
+	let workbenchReady = false;
 	let previousNativeTop = "";
  ctx.effect(() => installDesktopClient(call,()=>currentDesktopSessionId(ctx.sessions)), "lab.native-desktop-client");
 	const close = () => {
@@ -119,6 +124,7 @@ export function applyUi(ctx) {
 			`当前课题为「${project.name}」（项目编号：${project.id}）。`,
 			`请先读取 ${fileRef}（课题工作区根目录，当前版本 v${memory?.version || project.memoryVersion || "?"}）了解课题背景，`
 			+ "再开始工作；后续产物归档到这个项目。如发现信息冲突，先向我确认。",
+			'当前工作目录就是工程文件所在的项目文件夹。研究文件、分析结果与产物均保存在该目录内；如有「对话」目录，可按需查看历史对话归档。',
 			"",
 			"开场请简短说明你已读取记忆、理解的课题背景，然后等待我的具体任务。"
 		];
@@ -156,13 +162,17 @@ export function applyUi(ctx) {
 	/**
 	 * 课题 launch：绑定是**工作区级**的——一个课题一个专属 workspace，
 	 * 空间内所有对话共享课题标识与核心记忆。流程：复用或创建专属
-	 * 工作区 → 在课题工作区里开启**新会话**（connectWorkspace 复用空白
-	 * 会话或新建）→ 选择科研 Agent 预设（agentPresets.select，仅对
+	 * 工作区 → 文献与核磁任务复用条目对话，其他任务按需创建；打开工程可沿用
+	 * 当前会话 → 新会话选择科研助手预设（agentPresets.select，仅对
 	 * 空白会话有效）→ 记录会话绑定 → 打开会话 → 把当前版本核心记忆
 	 * 预填进输入框。旧项目（无 workspacePath）补建工作区，不沿用当前
 	 * 会话。
 	 */
-	const launchProject = async (project, opts = {}) => {
+	const entryOperations=createEntryOperationQueue();
+	const launchProject = (project, opts = {}) => entryOperations(project.id,taskEntryIdentity(opts),()=>launchProjectOperation(project,opts));
+	const launchProjectOperation = async (project, opts = {}) => {
+		const entry=taskEntryIdentity(opts);
+		if(opts.openSessionId&&!entry){const opened=await openProjectConversation(ctx,call,{projectId:project.id,sessionId:opts.openSessionId});if(workbenchReady)workbench.open(project);close();return opened;}
 		const presetId = opts.presetId;
 		let sessionId;
 		let workspaceId;
@@ -170,10 +180,10 @@ export function applyUi(ctx) {
 		let presetApplied = "ok";
 		// 确保课题有专属目录 + 核心记忆文件「项目记忆.md」（幂等，旧项目补建）
 		const ensured = await call("projects_ensure_workspace", { request: { projectId: project.id } });
-		project = { ...project, workspacePath: ensured.path };
+		project = { ...project, ...ensured.project, workspacePath: ensured.path };
 		const bound = (await call("projects_binding", { request: { projectId: project.id } })).binding ?? null;
 		const wsSnapshot = ctx.workspaces.list.getSnapshot();
-		const hasWorkspace = (id) => (wsSnapshot.items ?? []).some((item) => item.workspaceId === id);
+		const hasWorkspace = (id) => (wsSnapshot.items ?? []).some((item) => item.workspaceId === id && String(item.path ?? item.cwd ?? '').replaceAll('\\', '/').replace(/\/$/, '').toLowerCase() === project.workspacePath.replaceAll('\\', '/').replace(/\/$/, '').toLowerCase());
 		if (bound?.workspaceId && hasWorkspace(bound.workspaceId)) {
 			// 已有课题工作区（仍存活）：在空间里开启新对话
 			workspaceId = bound.workspaceId;
@@ -186,23 +196,34 @@ export function applyUi(ctx) {
 			try { await ctx.workspaces.rename(workspaceId, project.name); } catch (reason) { console.warn("dsh-lab-agent: workspace rename failed", reason); }
 			await call("projects_bind_workspace", { request: { projectId: project.id, workspaceId } });
 		}
-		// 在课题工作区开启新对话：connectWorkspace 复用该空间空白会话或新建
-		sessionId = await ctx.uiWorkspace.connectWorkspace(workspaceId);
-		openedNew = true;
-		presetApplied = await selectResearchPreset(sessionId, presetId);
+		// Entry tasks share their persisted conversation; other panel tasks stay independent.
+		const currentId = currentDesktopSessionId(ctx.sessions);
+		const currentWorkspace = (wsSnapshot.items ?? []).find(item => item.workspaceId === workspaceId);
+		const fresh = Boolean(opts.freshSession || opts.prompt || opts.autoSubmit);
+		const entryConversation=entry?await resolveEntryConversation(ctx,call,{projectId:project.id,workspaceId,entry}):null;
+		const canReuse = entryConversation?!entryConversation.created:!fresh && opts.reuseCurrent && currentId && ((currentWorkspace?.sessionIds ?? []).includes(currentId) || (bound?.sessionIds ?? []).includes(currentId));
+		sessionId = entryConversation?.sessionId??await projectSessionId(ctx,{workspaceId,reuseSessionId:canReuse?currentId:undefined,fresh});
+		openedNew = entryConversation?entryConversation.created:!canReuse;
+		return ctx.sessions.using(sessionId,{source:'controllerOperation'},async()=>{
+		if (!canReuse) presetApplied = await selectResearchPreset(sessionId, presetId || RESEARCH_PRESET_ID);
 		await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
+		if(opts.knowledge)await call('knowledge_chat_bind',{request:{...opts.knowledge,projectId:project.id,sessionId}});
 		if(opts.translationIdentity)await call('tasks_translation_bind',{request:{...opts.translationIdentity,sessionId}});
+		if(opts.characterizationIdentity)await call('characterization_bind_session',{request:{...opts.characterizationIdentity,projectId:project.id,sessionId}});
+		if(entry?.kind==='reading')await call('tasks_reading_bind_session',{request:{projectId:project.id,reportId:entryConversation.reportId,bundleId:entryConversation.bundleId,sessionId,canonical:true,previousSessionId:entryConversation.previousSessionId}});
+		if(entry?.kind==='plot')await call('plot_records_bind_session',{request:{projectId:project.id,id:entry.recordId,sessionId}});
 		ctx.uiWorkspace.openSession(sessionId);
 		const actx = ctx.sessions.scope(sessionId);
-		if (!actx) throw new Error("科研 Agent 会话尚未就绪，请稍后重试");
-		// 面板中的产物按钮可提供一个明确任务；仍复用同一课题工作区与科研
-		// Agent 预设，但在新对话输入框中优先放入该任务，而不是通用开场白。
+		if (!actx) throw new Error("科研助手会话尚未就绪，请稍后重试");
+		// Entry continuations preserve earlier turns and any unsent draft.
 		const prompt = String(opts.prompt || "").trim() || promptFor(project, opts.memory);
-		if (opts.autoSubmit) await actx.get("conversation").send(prompt);
-		else ctx.conversation.input.for(actx).setDraft(prompt);
+		if (!opts.entryOpenOnly&&opts.autoSubmit) await actx.get("conversation").send(prompt);
+		else if (!opts.entryOpenOnly&&!opts.preserveDraft) prefillEntryTask(ctx.conversation.input.for(actx),prompt,Boolean(entry&&canReuse));
+		if (workbenchReady) workbench.open(project);
 		close();
 		if (presetApplied !== "ok") toast(`⚠️ ${presetApplied}`);
 		return { sessionId, workspaceId, openedNew, presetApplied };
+		});
 	};
 	const deleteProject = async (project) => {
 		// 先从 Harness 工作区注册表移除；Host 端随后校验并物理删除专属目录。
@@ -214,6 +235,7 @@ export function applyUi(ctx) {
 		return await call("projects_delete", { request: { projectId: project.id } });
 	};
 	const open = (initial) => {
+		if (workbenchReady) { workbench.open(initial ?? null); return; }
 		if (root) return;
 		// 原生子 WebView 永远盖在网页之上：面板打开期间先把它收起来，
 		// 否则课题面板会被文献浏览器挡住（关掉面板时再恢复）。
@@ -239,7 +261,15 @@ export function applyUi(ctx) {
 	// 文献浏览器 tab：DSH 右侧栏是可扩展停靠面，把 WebVPN 子 WebView 挂成其中一类
 	// 页面 tab（与自带「文件」「文档预览」并列）。单独一次 inject，右侧栏未挂载时
 	// 只有这一个能力缺失，不阻塞整个面板。
-	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight"], (tabCtx) => {
+	ctx.inject(["slots", "sidebarRightTabs", "sidebarRight", "layout"], (tabCtx) => {
+  console.info('[iBM Lab] workbench layout services ready');
+		tabCtx.effect(() => tabCtx.slots.inject('lab.workbench', () => {
+			let dispose;
+			try { dispose = registerWorkbench(tabCtx, { controller: workbench, ctx, call, layout: tabCtx.layout, sidebarRight: tabCtx.sidebarRight, launchProject, deleteProject }); }
+			catch (reason) { console.error('[iBM Lab] workbench registration failed', reason); throw reason; }
+			workbenchReady = true;
+			return () => { workbenchReady = false; dispose(); };
+		}), "iBM Lab workbench layout");
 		// 文献浏览器：页面 tab（「+」类型列表里可选）。
 		if(globalThis.ibmResearchSidebar)tabCtx.effect(()=>installSidebarBrowser({sidebarRight:tabCtx.sidebarRight,workspaces:ctx.workspaces,uiWorkspace:ctx.uiWorkspace,sessions:ctx.sessions}),"iBM 官方侧栏浏览器");
 		else registerWebVpnTab(tabCtx, { openTab: () => tabCtx.sidebarRight.openTab(WEBVPN_TAB_KIND) });
@@ -249,11 +279,9 @@ export function applyUi(ctx) {
 		registerReaderTab(tabCtx);
 		const readerSessions=new Map();
 		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
-			const binding=(await call('projects_binding',{request:{projectId:request.projectId}})).binding;
-			const workspace=ctx.workspaces.list.getSnapshot().items?.find(row=>row.workspaceId===binding?.workspaceId);
-			let sessionId=workspace?.sessionIds?.at(-1);
-			if(!sessionId){const {project}=await call('projects_get',{request:{id:request.projectId}});sessionId=(await launchProject(project,{presetId:RESEARCH_PRESET_ID})).sessionId;}
-			readerSessions.set(address,sessionId);close();ctx.uiWorkspace.openSession(sessionId);
+			const {sessionId}=await openReadingPreviewConversation(call,launchProject,request);
+			if(workbenchReady)workbench.showChat();
+			readerSessions.set(address,sessionId);close();
 			for(let attempt=0;attempt<100;attempt++){if(tabCtx.sidebarRight.mounted.getSnapshot()===sessionId){tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;}await new Promise(done=>setTimeout(done,50));}
 			throw Error('侧栏尚未就绪，请进入课题对话后重试');
 		}});

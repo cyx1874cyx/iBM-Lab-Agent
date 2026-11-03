@@ -1,0 +1,17 @@
+# iBM Lab 子插件：文献阅读（可独立安装、可停用）
+#
+# 服务名与母插件历史服务不同（labLiteratureTasks）：母插件保留
+# ibmLiteratureWorkflows 作为兼容壳，方法级委托到本插件。
+# 文档转换 / 模板 / 精读目标属于其他插件能力，缺失时这些方法返回 feature-unavailable。
+- insert:
+    - id: lab-literature
+      name: '@ibm-lab/literature'
+      inject: [ibmCore, ibmRuntime]
+      config:
+        skillsRoot: !!js dshHomePath('lab-agent/vendor/nature-skills/skills')
+        venvDir: !!js dshHomePath('lab-agent/.venv')
+
+    # 文献领域工具（检索/登记/精读/PPT/检索记录）；依赖文献服务与宿主工具注册表。
+    - id: lab-literature-tools
+      name: '@ibm-lab/literature/tools'
+      inject: [tools, ibmCore, labTasks]

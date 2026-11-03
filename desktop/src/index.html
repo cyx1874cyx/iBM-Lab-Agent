@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>iBM Lab Agent</title>
+  <title>iBM Lab</title>
   <style>
     :root { color-scheme: light dark; font-family: Arial, "Microsoft YaHei", sans-serif; background: var(--shell-panel); color: var(--shell-text); }
     * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: var(--shell-panel); }
@@ -143,7 +143,7 @@
       <button id="project-entry" class="tool project-main" type="button" data-empty="true" title="打开课题空间"><span class="project-name" id="project-name">选择课题</span></button>
     </nav>
     <section class="workspace">
-      <iframe id="app" title="iBM Lab Agent 本地工作台"></iframe>
+      <iframe id="app" title="iBM Lab 本地工作台"></iframe>
       <section id="update-panel" role="dialog" aria-modal="true" aria-labelledby="update-title">
         <h2 id="update-title">软件更新</h2>
         <div id="update-summary">正在检查 GitLab 最新发布版本…</div>
@@ -160,7 +160,7 @@
         <div class="diag-head"><h2>应用与连接诊断</h2><span class="state" id="diag-state">加载中…</span></div>
         <p class="diag-sub">按应用或运行组件检查本机状态；只有已配置 MCP 的应用才显示 MCP 连接状态。</p>
         <p id="diag-service">本地服务地址：尚未启动</p>
-        <div class="first-run-note" id="first-run-note"><strong>欢迎使用 iBM Lab Agent。</strong><br>这是首次启动检查。下方会明确列出当前可用功能、受限功能以及需要升级或重新安装的软件版本。</div>
+        <div class="first-run-note" id="first-run-note"><strong>欢迎使用 iBM Lab。</strong><br>这是首次启动检查。下方会明确列出当前可用功能、受限功能以及需要升级或重新安装的软件版本。</div>
         <div class="diag-overview">
           <div class="diag-card"><h3>现在可执行的功能</h3><ul id="available-features"><li>正在评估…</li></ul></div>
           <div class="diag-card"><h3>需要处理 / 升级</h3><ul id="upgrade-summary"><li>正在评估…</li></ul></div>
@@ -206,7 +206,7 @@
         <div id="bridge-detail" style="display:none"></div>
       </section>
       <section id="splash">
-        <div class="spinner" id="spinner"></div><div class="title" id="title">正在启动 iBM Lab Agent</div>
+        <div class="spinner" id="spinner"></div><div class="title" id="title">正在启动 iBM Lab</div>
         <p class="detail" id="detail">首次启动会准备内置运行环境；这不会打开浏览器，也不会连接公网。</p>
         <div id="error-actions"><button id="retry-button" type="button">重试启动</button></div>
       </section>
@@ -520,7 +520,7 @@
     }
     window.ibmLabRuntimeStarting = () => {
       frame.style.display = 'none'; splash.style.display = 'block'; $('spinner').style.display = 'block';
-      $('error-actions').style.display = 'none'; setText('title', '正在启动 iBM Lab Agent'); setText('detail', '正在选择本地端口并检查服务状态…'); setText('state', '本地服务启动中');
+      $('error-actions').style.display = 'none'; setText('title', '正在启动 iBM Lab'); setText('detail', '正在选择本地端口并检查服务状态…'); setText('state', '本地服务启动中');
     };
     // 顶栏状态文字的「稳定值」与「瞬态提示」：瞬态提示（如正在启动 iWAN）到点自动回落，
     // 否则它会一直占着这一行、让人以为状态不再更新（现场反馈）。

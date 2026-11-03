@@ -34,7 +34,14 @@ test("plot records: create / list by project / update topic+date / remove", asyn
 
 		// topic 必填；remove
 		await assert.rejects(() => plots.update("plot-01", { topic: "  " }), /topic required/);
+		plots.plotPreviews.set('plot-02',{job:Promise.resolve(),controller:new AbortController()});
+		await assert.rejects(()=>plots.remove('plot-02'),/预览正在更新/);
+		assert.ok(await plots.get('plot-02'));
+		plots.plotPreviews.get('plot-02').job=null;
+		plots.plotPreviewCache.set('prj-x:plot-02:fixture',{path:'owned-preview'});
 		assert.equal(await plots.remove("plot-02"), true);
+		assert.equal(plots.plotPreviews.has('plot-02'),false);
+		assert.equal(plots.plotPreviewCache.has('prj-x:plot-02:fixture'),false);
 		assert.equal((await plots.list("prj-x")).length, 1);
 	} finally {
 		await handle.dispose();

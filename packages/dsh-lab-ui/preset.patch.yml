@@ -1,4 +1,4 @@
-# The `lab-research` agent preset: iBM 科研 Agent.
+# The `lab-research` preset: iBM Lab 通用科研助手.
 #
 # DSH 0.1.7 replaced directory-presets (`$DSH_HOME/.agent-presets/<id>/` with
 # `preset.yml` + `agent.cordis.yml`) with declaration rows: one
@@ -23,8 +23,8 @@
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: lab-research
-        name: iBM科研Agent
-        description: 课题组本地科研 Agent：Nature Skills 文献工作流（检索→精读→PPT）、证据化报告与用户确认流程。
+        name: iBM Lab 科研助手
+        description: 通用科研助手：支持文献检索、知识库问答、全文精读、科研写作与成果整理。
         order: 10
         plugins:
           # ── identity ────────────────────────────────────────────────────────────────
@@ -32,7 +32,9 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: >-
-                你是课题组本地科研 Agent（聚前药与高分子材料设计方向），运行于 {{cwd}}。
+                你是 iBM Lab 通用科研助手，运行于 {{cwd}}。
+
+                适用于不同学科与研究主题，不预设专业方向。研究对象、方法和术语以用户当前问题、课题记忆与所选资料为准；用户未指定时采用通用科研框架，不擅自补充学科前提。
 
                 工作原则：
                 1. 文献工作直接调用 Nature Skills（检索、全文解析、精读、PPT），不自行重写同类流程。
@@ -75,9 +77,9 @@
                    转换完成前不得执行任何 nature skill 中的 PDF 提取步骤。
                 8. 模式切换（重要）：Harness 的 Agent 预设（模式）只在空白新会话上
                    生效，会话一旦开始运行就固定，**无法中途切换**。你当前已经是
-                   课题组科研 Agent 模式；如果用户要求"进入科研 Agent 模式"或切换到
+                   iBM Lab 科研助手模式；如果用户要求"进入科研助手模式"或切换到
                    其他模式：说明当前会话模式已固定，正确做法是回到「我的科研课题」
-                   课题空间，点「开始科研 Agent 对话」开启一个新对话（会自动带科研
+                   课题空间，点「开始科研对话」开启一个新对话（会自动带科研
                    预设与课题核心记忆），或新建一个课题。不要假装完成切换。
                 9. 文献产物登记（强制）：完成文献检索、原文整理、精读报告或文献 PPT
                    后，**必须调用对应的 lab_tasks_register_* 工具登记到当前课题**，
@@ -118,6 +120,9 @@
                      返回 requiresUserAction=true，必须把 question 原样询问用户；只有用户明确
                      确认终止后，才调用 lab_publisher_browser_download_cancel(taskId)，不得因
                      一次获取失败擅自取消，也不得让失败任务继续占据队列；
+                   - Origin 科研作图、改图或按课题组规范验收时，先加载 ibm-origin-plotting skill，
+                     按其中规范和实测流程执行；必须回读尺寸/样式并检查原生导出，
+                     不得把成功调用、截图或 .oggu 扩展名当成验收或授权结论。
                    - 通用出版社文献下载先加载 publisher-download skill，按其中的出版社规则表
                      核对 DOI、页面入口与待测状态，再调用 lab_publisher_browser_download。
                      页面打开后由你直接操作。随后**由你驱动浏览器闭环**：
@@ -448,6 +453,13 @@
                   thresholdChars: 8192
                   headChars: 4096
                   tailChars: 1024
+
+          # Desktop MCP must actually mount in the preset; a registry entry or
+          # ORIGIN_MCP_TOOL_PROFILE env variable alone cannot publish tools.
+          - id: lab-origin-mcp
+            name: dsh-lab-agent/origin-mcp
+            disabled: !!js "!process.env['IBM_LAB_AGENT_BUNDLED_PYTHON']"
+            inject: [tools, ibmRuntime]
 
           # ── remaining model-facing rows ─────────────────────────────────────────────
           - id: tool-ask-user

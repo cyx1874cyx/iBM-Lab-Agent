@@ -28,7 +28,7 @@ test("core alone: historical Remote projects/memory/bindings persist, missing fe
   await invoke("projects_memory_update", { fields: { projectId: project.id, markdown: "# 核心记忆 v2" } });
   await invoke("projects_bind_session", { projectId: project.id, sessionId: "session-p2", workspaceId: "workspace-p2" });
   await assert.rejects(invoke("goals_list"), error => error.code === "feature-unavailable" && error.details.service === "labGoals");
-  await assert.rejects(invoke("projects_create", { fields: { id: "profiles-required", name: "未启用模板", goalProfileId: "default-prodrug-polymer" } }), error => error.code === "feature-unavailable");
+  await assert.rejects(invoke("projects_create", { fields: { id: "profiles-required", name: "未启用模板", goalProfileId: "default-research" } }), error => error.code === "feature-unavailable");
   assert.equal(ctx.ibmCore.getProject("profiles-required"), undefined);
   await assert.rejects(ctx.storageDomain.open(labTasksDomainSpec), /already|open/i);
   const repositories = ctx.ibmCore.repositories;
@@ -83,7 +83,7 @@ test("compatibility facade shares the core owner; old projects and approved hist
    { id: "lab-tasks", name: "dsh-lab-agent/tasks", config: { projectsRoot: join(dir, "projects") } }
   ] });
   const { ctx } = handle;
-  const project = await ctx.labTasks.createProject({ id: "compat", name: "兼容课题", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1", templateId: "nature-default", templateVersion: "1" });
+  const project = await ctx.labTasks.createProject({ id: "compat", name: "兼容课题", goalProfileId: "default-research", goalProfileVersion: "1", templateId: "nature-default", templateVersion: "1" });
   assert.deepEqual(ctx.ibmCore.getProject("compat"), project);
   assert.equal(ctx.labTasks.table("reports"), ctx.ibmCore.table("reports"));
   await assert.rejects(ctx.storageDomain.open(labTasksDomainSpec), /already|open/i);
@@ -108,3 +108,4 @@ test("compatibility facade shares the core owner; old projects and approved hist
   assert.equal(result.deleted.reports, 1);
  } finally { await handle?.dispose(); await rm(dir, { recursive: true, force: true }); }
 });
+

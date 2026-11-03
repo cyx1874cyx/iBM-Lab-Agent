@@ -32,7 +32,7 @@ async function callSites() {
 	const sites = [];
 	for (const name of names) {
 		const source = await readFile(join(clientSrcDir, name), "utf8");
-		const pattern = /call\(\s*"([a-z0-9_]+)"\s*(,)?/g;
+		const pattern = /call\(\s*['"]([a-z0-9_]+)['"]\s*(,)?/g;
 		let match;
 		while ((match = pattern.exec(source)) !== null) {
 			sites.push({

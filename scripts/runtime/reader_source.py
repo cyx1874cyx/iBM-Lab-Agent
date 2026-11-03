@@ -1,5 +1,24 @@
 """Fixed, local PDF extraction. No network or model credentials."""
-import json, pathlib, sys, zipfile, re, math
+import json, pathlib, sys, zipfile, re, math, io, unicodedata
+
+def legend_text(text):
+    """Bound mixed CJK/Latin runs even on Story builds without CJK wrapping."""
+    lines, current, width = [], '', 0
+    for character in str(text):
+        weight = 1 if unicodedata.east_asian_width(character) in ('W','F') else .65
+        if character == '\n' or width + weight > 44:
+            lines.append(html_escape(current))
+            current, width = '', 0
+        if character != '\n':
+            current += character
+            width += weight
+    if current:
+        lines.append(html_escape(current))
+    return '<br>'.join(lines)
+
+def html_escape(text):
+    import html
+    return html.escape(text)
 
 def emit_result(result):
     """Frame one machine result independently of native-library diagnostics."""
@@ -97,8 +116,10 @@ def compose_pdf(source, directory):
     import pymupdf, html, os
     out = pathlib.Path(directory)
     data = json.loads((out / 'reader.json').read_text(encoding='utf-8'))
-    warnings, translated = [], 0
+    warnings, translated, overflow = [], 0, []
     with pymupdf.open(source) as doc:
+        source_page_count = len(doc)
+        probe = pymupdf.open()
         for number, page in enumerate(doc, 1):
             native = page.get_text('dict', sort=True)['blocks']
             jobs = []
@@ -127,6 +148,16 @@ def compose_pdf(source, directory):
                 if rotation not in (90, 270):
                     rect.y1 = max(rect.y1, bottom)
                 flags = spans[0].get('flags', 0)
+                css=f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{size}pt;line-height:1.12;color:#{color:06x};font-weight:{"bold" if flags & 16 else "normal"}}}'
+                test_page=probe.new_page(width=page.rect.width,height=page.rect.height)
+                spare,scale=(-1,0) if rect.is_empty else test_page.insert_htmlbox(rect,html.escape(' '.join(zh.split())),css=css,scale_low=.35,rotate=rotation)
+                probe.delete_page(0)
+                if spare<0:
+                    original=' '.join(part.get('original','') for part in parts)
+                    overflow.append({'page':number,'id':parts[0]['id'],'kind':'text','original':original,'zh':zh,'note':'原文正文或表格区域过小，保留原文并提供完整中文对照。','bbox':list(rect),'rotation':rotation})
+                    warnings.append(f'第 {number} 页文本块 {parts[0]["id"]}（{rect.width:.1f}×{rect.height:.1f} pt，方向 {rotation}°）译文见文末对照页；原文已保留')
+                    translated+=1
+                    continue
                 jobs.append((rect, zh, size, color, bool(flags & 16), rotation, parts[0]['id']))
                 # No white paint over figures/backgrounds; remove only source text.
                 page.add_redact_annot(block['bbox'], fill=None, cross_out=False)
@@ -149,10 +180,26 @@ def compose_pdf(source, directory):
                 if not zh.strip():
                     raise ValueError(f'第 {number} 页图片文字尚未翻译')
                 rect=pymupdf.Rect(block['bbox']) & page.rect
+                size=block.get('fontSize',8)
+                rotation=block.get('rotation',0)
+                if rotation not in (0,90,180,270):
+                    raise ValueError(f'第 {number} 页图内标签 {block["id"]} 方向无效：{rotation}')
+                css=f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{size}pt;line-height:1}}'
+                test_page=probe.new_page(width=page.rect.width,height=page.rect.height)
+                spare,scale=(-1,0) if rect.is_empty else test_page.insert_htmlbox(rect,html.escape(zh),css=css,scale_low=.3,rotate=rotation)
+                probe.delete_page(0)
+                # Never erase a source label unless its replacement fits legibly.
+                # Keep the original figure and retain the complete translation in
+                # an appended, source-linked legend instead of aborting the paper.
+                if spare<0 or size*scale<5:
+                    overflow.append({'page':number,'id':block['id'],'kind':'figure-text','original':block.get('original',''),'zh':zh,'note':data['translations'].get(block['id'],{}).get('note',''),'bbox':list(rect),'rotation':rotation})
+                    warnings.append(f'第 {number} 页图内标签 {block["id"]}（{rect.width:.1f}×{rect.height:.1f} pt，方向 {rotation}°）译文见文末对照页；原图标签已保留')
+                    translated+=1
+                    continue
                 page.draw_rect(rect,color=None,fill=tuple(block.get('background',[1,1,1])),overlay=True)
-                spare,scale=page.insert_htmlbox(rect,html.escape(zh),css=f'*{{margin:0;padding:0}} body{{font-family:serif;font-size:{block.get("fontSize",8)}pt;line-height:1}}',scale_low=.3,rotate=block.get('rotation',0))
+                spare,scale=page.insert_htmlbox(rect,html.escape(zh),css=css,scale_low=.3,rotate=rotation)
                 if spare<0:
-                    raise ValueError(f'第 {number} 页图中文字无法排入原位置')
+                    raise ValueError(f'第 {number} 页图内标签 {block["id"]} 无法排入原位置（{rect.width:.1f}×{rect.height:.1f} pt，方向 {rotation}°）')
                 if block.get('confidence',1)<.8:
                     warnings.append(f'第 {number} 页图中文字识别置信度较低，请对照原图复核')
                 if block.get('fontSize',8)*scale<5:
@@ -166,7 +213,30 @@ def compose_pdf(source, directory):
                     page.insert_link(link)
         if not translated:
             raise ValueError('没有可排版译文块')
-        doc.set_metadata({**doc.metadata, 'subject': 'iBM Agent Chinese translation; source layout preserved'})
+        probe.close()
+        if overflow:
+            content='<h1>补充文字对照</h1><p>以下译文无法在原文区域内清晰排下，原文或原图文字已保留。可按原文页码与英文内容核对。</p>'
+            for item in overflow:
+                content+=f'<div class="label"><h3>原文第 {item["page"]} 页 · {html.escape(item["id"])}</h3><p><b>原文：</b>{legend_text(item["original"])}</p><p><b>中文：</b>{legend_text(item["zh"])}</p>'
+                if item['note']:
+                    content+=f'<p class="note">核对说明：{legend_text(item["note"])}</p>'
+                content+='</div>'
+            story=pymupdf.Story(html=content,user_css='body{font-family:serif;font-size:10pt;line-height:1.5} h1{font-size:20pt} h3{font-size:11pt;margin-bottom:4pt} p{margin:4pt 0} .label{margin-bottom:14pt} .note{color:#555}')
+            stream=io.BytesIO()
+            writer=pymupdf.DocumentWriter(stream)
+            for _ in range(100):
+                device=writer.begin_page(pymupdf.Rect(0,0,595,842))
+                more,_=story.place(pymupdf.Rect(42,42,553,800))
+                story.draw(device)
+                writer.end_page()
+                if not more:
+                    break
+            else:
+                raise ValueError('补充文字对照页超过 100 页，请检查异常译文')
+            writer.close()
+            with pymupdf.open(stream=stream.getvalue(),filetype='pdf') as legend:
+                doc.insert_pdf(legend)
+        doc.set_metadata({**doc.metadata, 'subject': 'iBM Lab Chinese translation; source layout preserved'})
         temp = out / 'translated.pdf.tmp'
         doc.subset_fonts()
         doc.save(temp, garbage=4, deflate=True)
@@ -174,7 +244,7 @@ def compose_pdf(source, directory):
             if len(check) != len(doc) or not any(p.get_text().strip() for p in check):
                 raise ValueError('译文 PDF 完整性校验失败')
         os.replace(temp, out / 'translated.pdf')
-        result = {'pageCount': len(doc), 'blocks': translated, 'warnings': warnings, 'layoutVersion': 3}
+        result = {'pageCount': len(doc), 'sourcePageCount': source_page_count, 'legendPages': len(doc)-source_page_count, 'overflowLabels': overflow, 'blocks': translated, 'warnings': warnings, 'layoutVersion': 4}
         (out / 'pdf-layout.json').write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
         emit_result(result)
 

@@ -52,7 +52,7 @@ test("nature skills are discovered through the lab provider", async () => {
 			const catalog = await handle.ctx.skills.list({});
 			const candidates = Array.isArray(catalog) ? catalog : catalog.candidates;
 			const names = candidates.map((c) => c.name);
-			for (const expected of ["nature-reader", "nature-paper-card", "nature-paper2ppt", "nature-academic-search", "nature-shared", "publisher-download"]) {
+			for (const expected of ["nature-reader", "nature-paper-card", "nature-paper2ppt", "nature-academic-search", "nature-shared", "publisher-download", "ibm-origin-plotting"]) {
 				assert.ok(names.includes(expected), `catalog must include ${expected}; got ${names.join(", ")}`);
 			}
 			// the full body of a pinned skill loads through the registry
@@ -63,6 +63,10 @@ test("nature skills are discovered through the lab provider", async () => {
 			const publisher = await handle.ctx.skills.get("publisher-download");
 			assert.equal(publisher?.provider, "lab-publisher");
 			assert.match(publisher?.content ?? "", /lab_browser_navigate/);
+			const origin = await handle.ctx.skills.get("ibm-origin-plotting");
+			assert.equal(origin?.provider, "lab-publisher");
+			assert.match(origin?.content ?? "", /9 cm × 8 cm/);
+			assert.match(origin?.content ?? "", /references\/tested-workflow\.md/);
 		} finally {
 			await handle.dispose();
 		}

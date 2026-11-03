@@ -1,4 +1,6 @@
 import { isAbsolute, join } from "node:path";
+import {tmpdir} from 'node:os';
+import {createHash} from 'node:crypto';
 import { applicationSpec } from "../../lib/applications/registry.js";
 import { GUARDIAN } from "./process-supervisor.js";
 
@@ -14,7 +16,7 @@ export function nativeMcpConfig(appKey, { python, toolProfile = "full", workspac
   ...(workspaceRoot ? { cwd: workspaceRoot } : {}),
   env: appKey === "origin" ? { ORIGIN_MCP_TOOL_PROFILE: toolProfile } : {
    MNOVA_MCP_TIMEOUT_SEC: "90",
-   ...(workspaceRoot ? { MNOVA_MCP_WORKSPACE: workspaceRoot, MNOVA_MCP_OUTPUT_ROOT: join(workspaceRoot, "mnova-output"), MNOVA_MCP_RUNTIME_ROOT: join(workspaceRoot, "mnova-runtime") } : {})
+   ...(workspaceRoot ? { MNOVA_MCP_WORKSPACE: workspaceRoot, MNOVA_MCP_OUTPUT_ROOT: join(workspaceRoot, "mnova-output"), MNOVA_MCP_RUNTIME_ROOT: join(tmpdir(),'ibm-mnova-runtime',createHash('sha256').update(workspaceRoot).digest('hex').slice(0,16)) } : {})
   },
   toolCallTimeoutMs: 120000, failOnStartupError: true, reconnect: { enabled: false }
  };

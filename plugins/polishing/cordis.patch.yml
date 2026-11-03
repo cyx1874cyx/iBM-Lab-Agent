@@ -1,0 +1,6 @@
+# iBM Lab 子插件：论文润色（占位）
+#
+# 只装配状态服务；不注册润色工具、不写草稿。真实实现落地时在此行追加配置。
+- insert:
+    - id: lab-polishing
+      name: '@ibm-lab/polishing'

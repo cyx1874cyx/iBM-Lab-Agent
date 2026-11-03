@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { PROFILE_ID_RE } from "../goal-profile.js";
+import {plotWorkflowSchema} from './workspace.js';
+import {imageRecordSchema} from './image.js';
+import {layoutRecordSchema} from './layout.js';
 
 /** 绘图登记（0.4.0）：课题内成图/表征图的登记簿。 */
 export const plotRecordSchema = z.object({
@@ -11,8 +14,12 @@ export const plotRecordSchema = z.object({
 	date: z.string().min(1),
 	artifactPath: z.string().optional(),
 	taskId: z.string().optional(),
+	conversationSessionId: z.string().min(1).optional(),
 	source: z.string().default("manual"),
 	notes: z.string().optional(),
+	workflow: plotWorkflowSchema.optional(),
+	image: imageRecordSchema.optional(),
+	layout: layoutRecordSchema.optional(),
 	createdAt: z.string(),
 	updatedAt: z.string()
 });

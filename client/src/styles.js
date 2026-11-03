@@ -1,5 +1,10 @@
 import { themeCss } from "./theme.js";
 import { redesignCss } from "./redesign.js";
+import {nmrCss} from './nmr.css.js';
+import { workbenchCss } from "./workbench.css.js";
+import {reagentsCss} from './reagents.css.js';
+import {knowledgeCss} from './knowledge.css.js';
+import {plottingCss} from './plotting.css.js';
 // 内联 CSS（从原 client/index.js 单文件抽离）。
 // 注入时机：factory 执行时调用（与原来一致，避免模块加载时误操作 document）。
 export function injectStyles() {
@@ -94,10 +99,21 @@ export function injectStyles() {
 		// 视觉改版层必须排在 themeCss 之后：它要覆盖的正是 themeCss
 		// 自己写下的按钮 / 标签页规格（见 redesign.js 文件头）。
 		css += redesignCss;
+		css += workbenchCss;
+        css += nmrCss;
+        css += plottingCss;
+        css += reagentsCss;
+        css += knowledgeCss;
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=dsh-lab-agent]") === null) {
 			const style = document.createElement("style");
 			style.dataset.pluginCss = "dsh-lab-agent";
+			css += ".ib-overlay .ib-literature-drop{position:relative;border-radius:8px}.ib-overlay .ib-literature-drop[data-dragging=true]{outline:2px dashed var(--ib-accent);outline-offset:-2px;background:var(--ib-row-alt)}.ib-overlay .ib-lit-item.ib-pdf-processing{display:flex;align-items:center;gap:14px;background:var(--ib-row-alt);color:var(--ib-muted);min-height:80px;padding:18px;box-sizing:border-box}.ib-pdf-processing>svg{flex:none;width:22px;height:22px}.ib-pdf-processing>div{min-width:0;overflow-wrap:anywhere}.ib-pdf-processing b{font-size:16px;font-weight:500}.ib-pdf-processing>div>div{font-size:14px;margin-top:7px}.ib-pdf-intake-error{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:9px;color:var(--ib-red);font-size:14px}";
 			style.textContent = css;
+            style.textContent += '.ib-reading-context-menu{position:fixed;z-index:10000;min-width:180px;max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-bg);box-shadow:0 6px 24px #0002;font:15px/1.5 Arial,"Microsoft YaHei",sans-serif}.ib-reading-context-menu button{display:block;width:100%;border:0;border-radius:6px;padding:9px 14px;background:transparent;color:var(--ib-red);font:inherit;text-align:left;cursor:pointer}.ib-reading-context-menu button:hover,.ib-reading-context-menu button:focus-visible{background:var(--ib-accent-soft);outline:2px solid var(--ib-accent);outline-offset:-2px}';
+			style.textContent += '.ib-overlay .ib-reading-drop .ib-lit-item[data-selected=true][data-located=true]{animation:ib-lit-selected-locate .8s ease-in-out 3;outline-color:var(--ib-accent)}@keyframes ib-lit-selected-locate{0%,100%{background:var(--ib-accent-soft);box-shadow:inset 5px 0 var(--ib-accent)}50%{background:color-mix(in srgb,var(--ib-accent) 30%,var(--ib-panel));box-shadow:inset 5px 0 var(--ib-accent),inset 0 0 0 2px var(--ib-accent)}}';
+			style.textContent += '.ib-overlay .ib-reading-folders{position:sticky;top:0;z-index:4;padding:8px 0;background:var(--ib-panel)}.ib-overlay .ib-reading-drop .ib-lit-item[draggable=true]{position:relative;cursor:grab;user-select:none}.ib-overlay .ib-reading-drop .ib-lit-item[data-selected=true]{background:var(--ib-accent-soft);outline:2px solid var(--ib-accent);outline-offset:-2px;box-shadow:inset 5px 0 var(--ib-accent)}.ib-overlay .ib-reading-drop .ib-lit-item[data-selected=true] .ib-lit-title,.ib-overlay .ib-reading-drop .ib-lit-item[data-selected=true] .ib-lit-zh{color:var(--ib-accent-ink)}.ib-overlay .ib-reading-drop .ib-lit-item[data-dragging-entry=true]{opacity:.45}.ib-overlay .ib-reading-drop .ib-lit-item[data-drop-position=before]::before,.ib-overlay .ib-reading-drop .ib-lit-item[data-drop-position=after]::after{content:"";position:absolute;left:0;right:0;height:4px;background:var(--ib-accent);z-index:2;pointer-events:none}.ib-overlay .ib-reading-drop .ib-lit-item[data-drop-position=before]::before{top:0}.ib-overlay .ib-reading-drop .ib-lit-item[data-drop-position=after]::after{bottom:0}.ib-overlay .ib-reading-folders button[data-drop-folder=true]{outline:3px solid var(--ib-accent);background:var(--ib-accent-soft)!important;color:var(--ib-accent-ink);transform:translateY(-2px)}';
+			style.textContent += '.ib-non-paper-notices{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:5000;display:grid;gap:10px;width:min(640px,80vw);pointer-events:none}.ib-non-paper-notice{padding:16px 20px;border:2px solid var(--ib-red);border-radius:12px;background:var(--ib-panel);color:var(--ib-text);box-shadow:0 6px 24px #0002;overflow-wrap:anywhere;animation:ib-non-paper-flash 1s ease-in-out 3}.ib-non-paper-notice b{display:block;color:var(--ib-red);font-size:17px}.ib-non-paper-notice div{margin-top:6px;font-size:15px}.ib-non-paper-notice small{display:block;margin-top:4px;font-size:14px}@keyframes ib-non-paper-flash{0%,100%{background:var(--ib-panel);box-shadow:0 6px 24px #0002}50%{background:color-mix(in srgb,var(--ib-red) 15%,var(--ib-panel));box-shadow:0 0 0 3px color-mix(in srgb,var(--ib-red) 25%,transparent)}}@media(prefers-reduced-motion:reduce){.ib-non-paper-notice{animation:none}}';
+			style.textContent += '.ib-overlay .ib-lit-item[data-located=true]{animation:ib-lit-locate .8s ease-in-out 3;outline:2px solid var(--ib-accent);outline-offset:-2px;scroll-margin:24px}@keyframes ib-lit-locate{0%,100%{background-color:var(--ib-row-alt);box-shadow:inset 4px 0 var(--ib-accent)}50%{background-color:color-mix(in srgb,var(--ib-accent) 22%,var(--ib-panel));box-shadow:inset 4px 0 var(--ib-accent),inset 0 0 0 2px var(--ib-accent)}}@media(prefers-reduced-motion:reduce){.ib-overlay .ib-lit-item[data-located=true]{animation:none;background-color:var(--ib-row-alt)}}';
 			document.head.appendChild(style);
 		}
 }

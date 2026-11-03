@@ -1,0 +1,17 @@
+# iBM Lab 子插件：核磁解析（可独立安装、可停用）
+#
+# 任务数据进自有域 lab_nmr.tasks；启动时一次性迁移历史 lab_characterization 中
+# kind=nmr 的行（旧行保留只读）。Mnova 等外部能力经宿主 MCP / 运行时提供。
+- insert:
+    - id: lab-nmr-tasks
+      name: '@ibm-lab/nmr'
+      inject: [storageDomain, ibmCore]
+
+    # 核磁领域工具：Mnova 操作与模拟谱（插件未启用时不注册）
+    - id: lab-nmr-tools
+      name: '@ibm-lab/nmr/mnova-tools'
+      inject: [tools, ibmCore, ibmRuntime]
+
+    - id: lab-nmr-simulation-tools
+      name: '@ibm-lab/nmr/simulation-tools'
+      inject: [tools, ibmCore]

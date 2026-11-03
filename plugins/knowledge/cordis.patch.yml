@@ -1,0 +1,16 @@
+# iBM Lab 子插件：RAG 知识库（可独立安装、可停用）
+#
+# 检索内核与索引逻辑都在本包内；母插件只保留 lab.knowledge_* 兼容转发。
+# 停用插件不会删除 .ibm-rag 索引，重新启用后继续可用。
+- insert:
+    - id: lab-knowledge
+      name: '@ibm-lab/knowledge'
+      inject: [ibmCore]
+      config:
+        # 共享知识库登记文件 libraries.json 所在目录。
+        root: !!js dshHomePath('lab-agent/knowledge')
+
+    # 知识库工具：随插件启用而出现；插件缺席时模型看不到这些能力。
+    - id: lab-knowledge-tools
+      name: '@ibm-lab/knowledge/tools'
+      inject: [tools, ibmCore]

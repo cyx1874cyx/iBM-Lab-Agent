@@ -1,11 +1,13 @@
 /** Private Electron sidecar. Research pages have no preload or host transport. */
 import { app, BrowserWindow, session, dialog, shell, safeStorage } from "electron";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { mkdir, writeFile, readFile, rm, stat } from "node:fs/promises";
+import { join, basename, isAbsolute, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { classifyLiteratureAccess } from './literature-access.mjs';
 import { nativePdfResource } from './pdf-browser-policy.mjs';
+import {openInMnova} from './mnova-open.mjs';
+import {openOriginProject,validateOriginProject} from './origin-open.mjs';
 
 export function createScientificRuntime(config, emit) {
 const leases = new Map(), captures = new Map(), files = new Map(), configured = new Set();
@@ -213,6 +215,21 @@ async function dispatch(method, input = {}) {
    await writeFile(path, buffer); files.set(fileId, path);
    return { fileId };
   }
+  case 'project-file-dialog': {
+   const filters = [{ name: 'iBM Lab 项目', extensions: ['ibmproject'] }];
+   const owner = BrowserWindow.getAllWindows().find(window => !window.isDestroyed() && window.webContents.getURL().startsWith('dsh-app:'));
+   if (input.action === 'open') {
+    const options = { title: '打开 iBM Lab 项目', filters, properties: ['openFile'] };
+    const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+    return { cancelled: result.canceled, path: result.filePaths[0] ?? null };
+   }
+   if (input.action !== 'save') throw Error('未知的工程文件操作');
+   const name = String(input.name || '新建项目').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100);
+   const options = { title: '新建 iBM Lab 项目（请选择独立项目文件夹）', filters, defaultPath: name + '.ibmproject', properties: ['createDirectory', 'showOverwriteConfirmation'] };
+   const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
+   const path = result.filePath && (/\.ibmproject$/i.test(result.filePath) ? result.filePath : result.filePath + '.ibmproject');
+   return { cancelled: result.canceled, path: path ?? null };
+  }
   case "save": {
    const path = files.get(input.fileId);
    if (!path) throw new Error("unknown artifact");
@@ -239,12 +256,40 @@ async function dispatch(method, input = {}) {
    const savedRef = randomUUID(); savedFiles.set(savedRef, result.filePath);
    return { cancelled: false, saved: true, savedRef, size: saved.length, sha256: createHash("sha256").update(saved).digest("hex") };
   }
+  case 'mnovaOpen':return openInMnova(input.path);
+  case 'chooseKnowledgeIndex':{
+   const owner=BrowserWindow.getFocusedWindow(),settings={title:'关联已有知识库的索引文件夹（含 config.json 和 catalogs）',properties:['openDirectory']};
+   const result=owner?await dialog.showOpenDialog(owner,settings):await dialog.showOpenDialog(settings);
+   return result.canceled||!result.filePaths[0]?{cancelled:true}:{cancelled:false,path:result.filePaths[0]};
+  }
+  case 'revealKnowledgeSource':{
+   if(typeof input.path!=='string'||!isAbsolute(input.path)||!['.pdf','.docx','.pptx','.txt','.md','.markdown'].includes(extname(input.path).toLowerCase())||!(await stat(input.path)).isFile())throw Error('知识库来源文件不存在');
+   shell.showItemInFolder(input.path);return {revealed:true};
+  }
+  case 'chooseReagentSource':{
+   const owner=BrowserWindow.getFocusedWindow(),settings={title:'关联试剂清单',properties:['openFile'],filters:[{name:'Excel 清单',extensions:['xlsx']}]};
+   const result=owner?await dialog.showOpenDialog(owner,settings):await dialog.showOpenDialog(settings);
+   return result.canceled||!result.filePaths[0]?{cancelled:true}:{cancelled:false,path:result.filePaths[0]};
+  }
+  case 'openReagentSource':{
+   if(typeof input.path!=='string'||!isAbsolute(input.path)||extname(input.path).toLowerCase()!=='.xlsx'||!(await stat(input.path)).isFile())throw Error('清单文件不存在');
+   const error=await shell.openPath(input.path);if(error)throw Error('无法打开清单：'+error);
+   return {opened:true};
+  }
+  case 'openFolder':{
+   if(typeof input.path!=='string'||!isAbsolute(input.path)||!(await stat(input.path)).isDirectory())throw Error('条目文件夹不存在');
+   const error=await shell.openPath(input.path);if(error)throw Error('无法打开条目文件夹：'+error);
+   return {opened:true};
+  }
+  case 'originOpen':return openOriginProject(input.path,{openPath:path=>shell.openPath(path)});
   case "artifactOpen": {
    const path = files.get(input.fileId);
    if (!path) throw new Error("unknown artifact");
    const bytes = await readFile(path);
-   const extension = bytes.subarray(0, 4).toString() === "%PDF" ? "pdf" : /\.(docx|pptx)$/i.exec(input.name ?? "")?.[1]?.toLowerCase();
-   if (!extension || (extension !== "pdf" && bytes.subarray(0, 2).toString() !== "PK")) throw new Error("System open supports validated PDF/DOCX/PPTX artifacts");
+   const origin=/\.(opju|opj)$/i.exec(input.name||'')?.[1]?.toLowerCase();
+   if(origin)validateOriginProject(bytes,input.name);
+   const extension = origin|| (bytes.subarray(0, 4).toString() === "%PDF" ? "pdf" : /\.(docx|pptx)$/i.exec(input.name ?? "")?.[1]?.toLowerCase());
+   if (!extension || (extension !== "pdf" && !origin&&bytes.subarray(0, 2).toString() !== "PK")) throw new Error("支持打开有效的 PDF、DOCX、PPTX 和 Origin 工程文件");
    const directory = join(config.userData, "exports");
    await mkdir(directory, { recursive: true });
    const exported = join(directory, `${input.fileId}.${extension}`);
@@ -278,6 +323,7 @@ async function dispatch(method, input = {}) {
    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
    window.webContents.on("will-navigate", event => event.preventDefault());
    window.once("closed", () => { previews.delete(window); void rm(previewPath, { force: true }).catch(() => {}); });
+   if(Number.isInteger(input.page)&&input.page>0&&input.page<=5000)url.hash='page='+input.page;
    try { await window.loadURL(url.href); } catch { window.destroy(); throw new Error("Artifact PDF preview failed"); }
    return { previewOpened: true };
   }

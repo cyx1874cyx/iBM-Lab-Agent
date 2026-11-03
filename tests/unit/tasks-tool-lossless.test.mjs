@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { apply } from "../../lib/tasks-tool.js";
+import { apply } from "../../plugins/literature/lib/tools.js";
 
 function hasUndefinedValue(value) {
 	if (Array.isArray(value)) return value.some(hasUndefinedValue);

@@ -1,0 +1,9 @@
+import {spawn} from 'node:child_process';
+import {readFile,writeFile,mkdir,copyFile} from 'node:fs/promises';
+import {createPlotSession} from '../../src/runtime/plot-session.js';
+const root='H:/107-iBM-Agent/iBM-Agent/work/plot-editor-20261031';const args=JSON.parse(await readFile(root+'/range-final-request.json','utf8'));
+const outputRoot=process.argv.includes('--unicode')?root+'/科研绘图/数据副本':root;await mkdir(outputRoot,{recursive:true});
+if(process.argv.includes('--unicode')){const source=outputRoot+'/实验数据.csv';await copyFile(args.path,source);args.path=source;}
+const run=Date.now();const worker=createPlotSession({command:'H:/107-iBM-Agent/iBM-Agent/work/workbench-dev-20261021/resources/python/python.exe',cwd:process.cwd(),env:{...process.env,ORIGIN_MCP_TOOL_PROFILE:'full'}},(c,a,o)=>spawn(c,a,{...o,windowsHide:true}));
+try{const report=[];for(let i=0;i<(process.argv.includes('--interactive')?6:3);i++){const start=Date.now();const result=await worker.run({...args,...(process.argv.includes('--timings')?{_profile:true}:{}),output:outputRoot+'/session-native-'+run+'-'+i,...((i===1||process.argv.includes('--interactive')&&i>0&&i<5)?{tier:'preview'}:{}),spec:{...args.spec,...(process.argv.includes('--tight')&&i>0?{pageFit:'tight'}:{}),lineWidth:i===0?3:5,...(process.argv.includes('--edge')&&i>0?{titleStyle:{x:.98-(process.argv.includes('--interactive')?Math.max(0,i-1)*.01:0),y:.01},legendX:.98-(process.argv.includes('--interactive')?Math.max(0,i-1)*.01:0),legendY:.01}:{}),...(process.argv.includes('--labels')&&i>0?{titleText:'Updated title',showLegend:true,annotations:[{id:'test-note',kind:'text',text:'Updated note',x:.3,y:.3,style:{}}]}:{})}});report.push({i,ms:Date.now()-start,result});}await writeFile(outputRoot+'/session-native-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report.map(r=>({i:r.i,ms:r.ms,tier:r.result.tier||'full',equal:r.result.pixelVerification?.equal}))));}finally{await worker.close();}
+

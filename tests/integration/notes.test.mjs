@@ -40,7 +40,7 @@ test("note templates: seed, create, update, snapshot, copy, requirements, delete
 		const seeded = await notes.list();
 		assert.ok(seeded.some((t) => t.id === "note-default"));
 		const def = await notes.resolve("note-default");
-		assert.equal(def.name, "课题组阅读笔记模板（默认）");
+		assert.equal(def.name, "通用科研阅读笔记模板（默认）");
 
 		// 新建 v1
 		const created = await notes.create("note-lab-v1", {

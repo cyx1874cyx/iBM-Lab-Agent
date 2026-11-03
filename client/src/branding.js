@@ -7,7 +7,6 @@ export function applyBranding(onOpen) {
 	const FLASK_RAIL_HTML = FLASK_HTML.replace('width="18"', 'width="13"').replace('height="18"', 'height="13"');
 	const entries = new Set();
 	const attributes = new Map();
-	const headlines = new Map(), heroChildren = new Map();
 	let disposed = false;
 	const activate = (event) => {
 		event.preventDefault();
@@ -39,37 +38,12 @@ export function applyBranding(onOpen) {
 		if (disposed) return false;
 		hideNative();
 		let touched = false;
-		// DSH 0.1.5 把 headlineText 改成 headline + titleGroup。优先按结构取标题，
-		// 再以原文兜底，避免后续 CSS module 哈希或类名微调让品牌覆盖失效。
-		const titleGroup = document.querySelector("[class*='_titleGroup']");
-		const heroHeadline = titleGroup?.firstElementChild
-			|| document.querySelector("[class*='_headlineText']")
-			|| [...document.querySelectorAll("span")].find((node) => node.children.length === 0 && node.textContent?.trim() === "探索未至之境");
-		if (heroHeadline && heroHeadline.textContent?.trim() !== "专注源头创新") {
-			if (!headlines.has(heroHeadline)) headlines.set(heroHeadline, heroHeadline.textContent);
-			heroHeadline.textContent = "专注源头创新";
-			touched = true;
-		}
 		document.querySelectorAll("*").forEach((element) => {
 			if (element.children.length === 0 && element.textContent?.trim() === "预览版") {
 				element.remove();
 				touched = true;
 			}
 		});
-		const heroMarkHost = heroHeadline?.closest("[class*='_headline']")?.querySelector("[class*='_fishHitbox']")
-			|| heroHeadline?.parentElement?.parentElement?.querySelector("[class*='_fishHitbox']");
-		if (heroMarkHost && !heroMarkHost.querySelector(".ib-hero-avatar")) {
-			heroChildren.set(heroMarkHost, [...heroMarkHost.childNodes]);
-			const avatar = document.createElement("img");
-			avatar.src = BRAND_ICON;
-			avatar.alt = "";
-			avatar.setAttribute("aria-hidden", "true");
-			avatar.width = 34;
-			avatar.height = 34;
-			avatar.className = `${heroMarkHost.firstElementChild?.getAttribute("class") ?? ""} ib-hero-avatar`.trim();
-			heroMarkHost.replaceChildren(avatar);
-			touched = true;
-		}
 		const row = document.querySelector("[class*='_logoRow']");
 		if (!row) return touched;
 		// 宽栏：人像 Logo + iBM Agent，并把整个品牌按钮设为科研课题入口。
@@ -85,7 +59,7 @@ export function applyBranding(onOpen) {
 			shell.setAttribute("data-dsh-lab-brand", "1");
 			// 品牌去重：只保留 Logo +「iBM Agent」，删掉英文副标题
 			// （based on DSH）——界面上醒目的产品品牌只保留这一处。
-			shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Agent</b></span>`;
+			shell.innerHTML = `<span class="ib-brand-avatar"><img src="${BRAND_ICON}" alt="" aria-hidden="true"></span><span class="ib-brand-text"><b>iBM Lab</b></span>`;
 			brand.appendChild(shell);
 			touched = true;
 		}
@@ -126,9 +100,6 @@ export function applyBranding(onOpen) {
 		for (const node of document.querySelectorAll('[data-dsh-lab-brand="1"]')) node.remove();
 		document.querySelector('style[data-plugin-css="dsh-lab-agent-brand"]')?.remove();
 		attributes.clear();
-		for (const [node, text] of headlines) if (node.textContent === "专注源头创新") node.textContent = text;
-		for (const [node, children] of heroChildren) if (node.querySelector(".ib-hero-avatar")) node.replaceChildren(...children);
-		headlines.clear(); heroChildren.clear();
 		entries.clear();
 	};
 }

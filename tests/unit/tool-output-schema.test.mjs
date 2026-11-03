@@ -21,7 +21,7 @@ import { readingGoalProfileSchema } from "../../src/goal-profile.js";
 import LabNoteTemplatesService from "../../lib/note-templates.js";
 import LabGoalsService from "../../lib/goal-profiles.js";
 import { apply as applyTemplatesTool } from "../../lib/templates-tool.js";
-import { withRegistrationNextStep } from "../../lib/tasks-tool.js";
+import { withRegistrationNextStep } from "../../plugins/literature/lib/tools.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -167,7 +167,7 @@ test("lab goals：同一套解析语义（latest 归一化 + 删除后不可用 
 });
 
 test("登记 PPT 的前置条件写进 description，且错误被翻译成可执行下一步", () => {
-	const source = readFileSync(fileURLToPath(new URL("../../lib/tasks-tool.js", import.meta.url)), "utf8");
+	const source = readFileSync(fileURLToPath(new URL("../../plugins/literature/lib/tools.js", import.meta.url)), "utf8");
 	assert.match(source, /前置依赖：必须先有已暂存的精读报告/, "description 必须写明依赖链");
 	assert.match(source, /lab_tasks_register_report/, "必须点名生成精读报告的工具");
 	assert.match(source, /不会自动生成精读报告/, "必须说明元数据登记不会生成报告");

@@ -39,9 +39,9 @@ test("goal profiles: seed, create, update, snapshot, copy, delete", async () => 
 
 		// builtin default seeded
 		const seeded = await goals.list();
-		assert.ok(seeded.some((g) => g.id === "default-prodrug-polymer"));
-		const def = await goals.resolve("default-prodrug-polymer");
-		assert.equal(def.name, "聚前药/高分子精读（默认）");
+		assert.ok(seeded.some((g) => g.id === "default-research"));
+		const def = await goals.resolve("default-research");
+		assert.equal(def.name, "通用科研精读（默认）");
 
 		// create v1
 		const created = await goals.create("prodrug-advanced", {
@@ -72,7 +72,7 @@ test("goal profiles: seed, create, update, snapshot, copy, delete", async () => 
 		assert.equal(copy.name, "副本");
 
 		// paper-card requirements conversion keeps the 01-16 contract
-		const req = goals.toPaperCardRequirements(await goals.resolve("default-prodrug-polymer"));
+		const req = goals.toPaperCardRequirements(await goals.resolve("default-research"));
 		assert.equal(req.paperCardContract.sections, PAPER_CARD_SECTION_CONTRACT);
 
 		// delete: removed from list, history + snapshot still readable
@@ -159,3 +159,4 @@ test("templates: import three templates, suggest, confirm, validate, preview, de
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

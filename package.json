@@ -1,7 +1,7 @@
 {
   "name": "dsh-lab-agent",
-  "version": "0.6.0-rc.1",
-  "description": "课题组本地科研 Agent（DeepSeek Harness 插件）：Nature Skills 集成、精读目标、PPT 模板、版本登记与回归框架。不修改 Harness 核心。",
+  "version": "0.8.0-rc.1",
+  "description": "iBM Lab 通用科研助手：知识库问答、文献检索与精读、科研写作、实验设计和成果管理。",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
@@ -100,6 +100,63 @@
     "./client": {
       "default": "./client/index.js"
     },
+    "./client-sdk": {
+      "default": "./client/src/sdk.js"
+    },
+    "./task-models": {
+      "default": "./src/task-models.js"
+    },
+    "./office-package": {
+      "default": "./src/office-package.js"
+    },
+    "./json-boundary": {
+      "default": "./src/json-boundary.js"
+    },
+    "./goal-profile": {
+      "default": "./src/goal-profile.js"
+    },
+    "./note-template": {
+      "default": "./src/note-template.js"
+    },
+    "./capture-model": {
+      "default": "./src/manual-capture.js"
+    },
+    "./artifact-integrity": {
+      "default": "./src/artifact-integrity.js"
+    },
+    "./reading-note-audit": {
+      "default": "./src/reading-note-audit.js"
+    },
+    "./core-domain": {
+      "default": "./lib/core/domain.js"
+    },
+    "./rag-core": {
+      "default": "./lib/rag/core.mjs"
+    },
+    "./project-context": {
+      "default": "./lib/project-context.js"
+    },
+    "./ppt-template-lint": {
+      "default": "./lib/ppt-template-lint.js"
+    },
+    "./literature/*": {
+      "default": "./src/literature/*.js"
+    },
+    "./pptx-*": {
+      "default": "./src/pptx-*.js"
+    },
+    "./plot/*": {
+      "default": "./src/plot/*.js"
+    },
+    "./nmr/*": {
+      "default": "./src/nmr/*.js"
+    },
+    "./chemistry/*": {
+      "default": "./src/chemistry/*.js"
+    },
+    "./reagents/*": {
+      "default": "./src/reagents/*.js"
+    },
     "./invariant": {
       "default": "./lib/invariant.js"
     },
@@ -110,6 +167,12 @@
     },
     "./characterization": {
       "default": "./lib/characterization.js"
+    },
+    "./characterization-schema": {
+      "default": "./src/characterization.js"
+    },
+    "./characterization-domain": {
+      "default": "./src/characterization-domain.js"
     },
     "./characterization-tool": {
       "default": "./lib/characterization-tool.js"
@@ -155,10 +218,23 @@
     },
     "./scientific-desktop": {
       "default": "./lib/scientific-desktop.js"
+    },
+    "./origin-mcp": {
+      "default": "./lib/origin-mcp.js"
+    },
+    "./capabilities": {
+      "default": "./lib/capabilities.js"
+    },
+    "./capture-phase": {
+      "default": "./lib/capture-phase.js"
+    },
+    "./plugin-settings": {
+      "default": "./lib/plugin-settings.js"
     }
   },
   "files": [
     "lib",
+    "plugins/reagents",
     "client",
     "cordis.patch.yml",
     "presets",
@@ -191,6 +267,8 @@
         "@deepseek-ai/dsh-client-ui-workspace",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-conversation"
       ],
       "platform": "web"
@@ -212,14 +290,25 @@
     "dev:link": "node scripts/dev-link.mjs",
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "build:client": "node scripts/build-client.mjs",
+    "build:rag": "node scripts/build-rag.mjs",
+    "dev:workbench": "node scripts/dev-workbench.mjs",
     "check:client": "node scripts/build-client.mjs --check",
+    "check:plugins": "node scripts/verify-plugins.mjs",
+    "check:decoupling": "node scripts/check-decoupling.mjs",
+    "build:plugins": "node scripts/build-plugin-clients.mjs",
+    "check:plugin-clients": "node scripts/build-plugin-clients.mjs --check",
+    "plugins:register": "node scripts/register-plugins.mjs",
+    "smoke:plugins": "node scripts/smoke-plugin-packages.mjs",
     "lint": "eslint lib src scripts tests client browser-extension --max-warnings=200",
     "check:preset-exports": "node scripts/check-preset-exports.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",
+    "indigo-ketcher": "1.46.0",
     "js-yaml": "^4.1.0",
     "jszip": "^3.10.1",
+    "openchemlib-extended": "4.0.1",
+    "xml2js": "0.4.23",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
@@ -227,18 +316,26 @@
     "@deepseek-ai/dsh-api-gateway": "0.2.0-rc.2",
     "@deepseek-ai/dsh-app-boot": "0.2.0-rc.2",
     "@deepseek-ai/dsh-home-paths": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session-log-export": "0.2.0-rc.2",
     "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
     "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2",
     "@deepseek-ai/dsh-storage": "0.2.0-rc.2",
     "@deepseek-ai/dsh-storage-domain": "0.2.0-rc.2",
     "@deepseek-ai/dsh-storage-json": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-subprocess": "0.2.0-rc.2",
     "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
     "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-typert-registry": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-subprocess": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2"
+    "@deepseek-ai/dsh-typert-registry": "0.2.0-rc.2"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-session-log-export": {
+      "optional": true
+    },
     "@deepseek-ai/cordis": {
       "optional": true
     },
@@ -295,12 +392,12 @@
     "url": "https://git.ustc.edu.cn/qbdeng2025/iBM-Lab-Agent/-/issues"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-storage-json": "0.2.0-rc.2",
     "@eslint/js": "^10.0.1",
     "esbuild": "0.24.0",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
-    "puppeteer-core": "^24.43.1",
-    "@deepseek-ai/dsh": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-storage-json": "0.2.0-rc.2"
+    "puppeteer-core": "^24.43.1"
   }
 }

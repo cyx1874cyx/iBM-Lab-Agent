@@ -73,6 +73,8 @@ uv run python tests/stdio_probe.py
 
 Windows 使用 [ShellExecuteExW](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw) 启动已安装的 Mnova；启动失败时直接报错，不退回 `subprocess.run`。参数按 Windows 命令行规则传递，任务通过 JSON 响应完成。宿主启动不捕获 stdout/stderr，`mnova.launch.json` 会明确记录启动通道和是否捕获日志，不能把空日志解释为没有错误。
 
+Windows 先复用同一安装路径已有的可见窗口；没有可见窗口时，通过 Shell 的正常显示模式打开交互窗口，最多等待 30 秒进入可交互状态，再发送带独立 5 秒期限的 NMR 只读探针。窗口启动超时不等同于授权失败，也不会终止交互窗口。启动失败同样保存 `mnova.launch.json`，记录实际错误类型与消息；不修改授权、身份或安装配置。
+
 `mnova_probe_runtime(input_path)` 提供只读诊断：要求 5 秒内 `nmr_type == "object"` 且 `open_fid == true`，不处理 FID、不保存 Mnova 文档或导出谱图。处理和 prepare 自动执行同样的 FID 探针；apply 在同一次启动中检查 NMR 模块及 `prepared.mnova` 是否能打开，使用 `open_document` 记录结果。任一检查失败或超时，立即停止进入后续处理；被转交给已有 GUI 的超时请求也会被桥接脚本拒绝。
 
 任务保留 `startup-probe.json`，只记录实际结果。探针失败不能证明某个 DLL、IPC 或许可文件是根因。此启动修复不更改 Mnova 的授权、身份或安装配置。

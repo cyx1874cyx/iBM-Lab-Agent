@@ -28,15 +28,15 @@ test('manual RIS registration and content-based reading folders retain evidence 
  const {handle,dir,fxDir}=await bootTasks();
  try{
   const tasks=handle.ctx.labTasks;
-  await tasks.createProject({id:'organization',name:'分类验收',goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
-  await tasks.createProject({id:'other-organization',name:'另一课题',goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
+  await tasks.createProject({id:'organization',name:'分类验收',goalProfileId:'default-research',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
+  await tasks.createProject({id:'other-organization',name:'另一课题',goalProfileId:'default-research',goalProfileVersion:'1',templateId:'nature-default',templateVersion:'1'});
   const text='TY  - JOUR\nTI  - 核酸递送\nDO  - 10.1038/example\nAU  - Li, A\nAB  - Lipid delivery study\nER  -\n';
   const input={projectId:'organization',fileName:'人工检索.ris',base64:Buffer.from(text+text).toString('base64')};
   const imported=await tasks.importSearchRis(input);assert.equal(imported.run.results.length,1);assert.equal(imported.duplicateCount,1);assert.equal(await readFile(imported.run.importedRis.path,'utf8'),text+text);
   assert.equal((await tasks.importSearchRis(input)).reused,true);assert.equal(tasks.listSearchRuns('organization').length,1);
   await assert.rejects(()=>tasks.importSearchRis({...input,base64:Buffer.from('not RIS').toString('base64')}));assert.equal(tasks.listSearchRuns('organization').length,1);
   const bundle=await tasks.preparePaper({projectId:'organization',sourceMapPath:join(fxDir,'min-source-map.json'),title:'Prodrug polymers'});
-  const pending=await tasks.createReadingReport({projectId:'organization',bundleId:bundle.id,goalProfileId:'default-prodrug-polymer',goalProfileVersion:'1'});
+  const pending=await tasks.createReadingReport({projectId:'organization',bundleId:bundle.id,goalProfileId:'default-research',goalProfileVersion:'1'});
   await assert.rejects(()=>tasks.classifyReadingReport({projectId:'organization',reportId:pending.id,name:'药物递送',reason:'基于报告',source:'agent'}),/完成/);
   const report=await tasks.completeReadingReport({reportId:pending.id,paperCardPath:join(fxDir,'paper-card-pass.md'),folderName:'聚前药高分子',classificationReason:'报告讨论聚前药聚合物的载药与释放机制'});
   assert.ok(report.folderId);assert.equal(report.classification.source,'agent');assert.ok(report.classification.reportSha256);const mdPath=report.paperCardPath;
@@ -118,12 +118,12 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const project = await tasks.createProject({
 			id: "proj-1",
 			name: "聚前药组会",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
 		});
-		assert.equal(project.goalProfile.id, "default-prodrug-polymer");
+		assert.equal(project.goalProfile.id, "default-research");
 		await assert.rejects(() => tasks.createProject({ id: "proj-1", name: "重复项目" }), /already exists/);
 		assert.equal(project.memoryVersion, "1");
 		assert.match(tasks.getProjectMemory("proj-1").markdown, /聚前药组会/);
@@ -232,19 +232,19 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		const report = await tasks.createReadingReport({
 			projectId: "proj-1",
 			bundleId: bundle.id,
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1"
 		});
 		assert.equal(report.status, "pending");
 		assert.equal(report.paperCardRequirements.paperCardContract.sections, PAPER_CARD_SECTION_CONTRACT);
-		assert.equal(report.goalSnapshot.id, "default-prodrug-polymer");
+		assert.equal(report.goalSnapshot.id, "default-research");
 		// 默认按内置 note-default 阅读笔记模板快照（报告保存引用，后续模板修改不影响旧报告）
 		assert.equal(report.noteTemplateSnapshot?.id, "note-default");
 		assert.equal(report.noteTemplateSnapshot?.version, "1");
 		assert.ok(report.noteRequirements?.sections?.length > 0, "reading report carries note template requirements");
 		// 显式指定自定义阅读笔记模板时同样快照
 		const customNote = await handle.ctx.labNoteTemplates.create("proj-note-custom", { name: "自定义笔记模板", sections: [{ key: "takeaways", title: "要点", required: true, hint: "" }] });
-		const reportCustom = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1", noteTemplateId: "proj-note-custom", noteTemplateVersion: "1" });
+		const reportCustom = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, goalProfileId: "default-research", goalProfileVersion: "1", noteTemplateId: "proj-note-custom", noteTemplateVersion: "1" });
 		assert.equal(reportCustom.noteTemplateSnapshot?.id, "proj-note-custom");
 		assert.equal(reportCustom.noteRequirements.sections[0].key, "takeaways");
 		// 微信占位等既有待精读条目，也能在生成产物前切换并固化所选模板。
@@ -257,12 +257,12 @@ test("full flow: search → prepare → report → audit gate → presentation �
 		// 本次改版：模板管理里设置的全局默认模板优先于内置 note-default
 		// （未显式传 noteTemplateId 时生效；清除后回到内置回退）。
 		await handle.ctx.labNoteTemplates.setDefault("proj-note-custom");
-		const reportByDefault = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		const reportByDefault = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template", goalProfileId: "default-research", goalProfileVersion: "1" });
 		assert.equal(reportByDefault.noteTemplateSnapshot?.id, "proj-note-custom", "默认模板必须优先于 note-default");
 		const inputsByDefault = await tasks.readingReportInputs({ projectId: "proj-1", reportId: "report-default-template" });
 		assert.equal(inputsByDefault.templateId, "proj-note-custom");
 		await handle.ctx.labNoteTemplates.setDefault(null);
-		const reportAfterClear = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template-cleared", goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		const reportAfterClear = await tasks.createReadingReport({ projectId: "proj-1", bundleId: bundle.id, reportId: "report-default-template-cleared", goalProfileId: "default-research", goalProfileVersion: "1" });
 		assert.equal(reportAfterClear.noteTemplateSnapshot?.id, "note-default", "清除默认模板后回退内置模板");
 		// 清理这两条验证用报告：它们共用同一个 bundle，留着会让后面
 		// 「最后一个精读条目删除后清理归档目录」的断言失去意义。
@@ -353,7 +353,7 @@ test("self-check findings do not block staging, human review, or PPT generation"
 		await tasks.createProject({
 			id: "proj-2",
 			name: "门禁测试",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -362,7 +362,7 @@ test("self-check findings do not block staging, human review, or PPT generation"
 		const report = await tasks.createReadingReport({
 			projectId: "proj-2",
 			bundleId: bundle.id,
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1"
 		});
 		// 登记后实际 DOCX 先暂存；即使自查发现问题也保持可人工预览/审核。
@@ -390,7 +390,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		await tasks.createProject({
 			id: "proj-panel",
 			name: "面板数据",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -421,7 +421,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		const created = await tasks.createReadingReport({
 			projectId: "proj-panel",
 			bundleId: bundle.id,
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			shortCitation: "Tang et al., Nature 630, 84-90 (2024)",
 			titleZh: "聚前药高分子给药平台",
@@ -445,7 +445,7 @@ test("panel helpers: search RIS, overview, report download, ppt download, sessio
 		assert.match(overview.summary, /预设概览正文/);
 
 		// 未登记 summary 时：从 paper-card 推导 200 字概览
-		const noSummary = await tasks.createReadingReport({ projectId: "proj-panel", bundleId: bundle.id, goalProfileId: "default-prodrug-polymer", goalProfileVersion: "1" });
+		const noSummary = await tasks.createReadingReport({ projectId: "proj-panel", bundleId: bundle.id, goalProfileId: "default-research", goalProfileVersion: "1" });
 		await tasks.completeReadingReport({ reportId: noSummary.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
 		const derived = await tasks.readingReportOverview(noSummary.id);
 		assert.ok(derived.summary.length <= 204, "derived summary roughly 200 chars");
@@ -503,7 +503,7 @@ test("createPresentation accepts a staged report before human review and records
 		await tasks.createProject({
 			id: "proj-skip",
 			name: "跳过审计登记链",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -512,7 +512,7 @@ test("createPresentation accepts a staged report before human review and records
 		const report = await tasks.createReadingReport({
 			projectId: "proj-skip",
 			bundleId: bundle.id,
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1"
 		});
 		await tasks.completeReadingReport({ reportId: report.id, paperCardPath: join(fxDir, "paper-card-pass.md") });
@@ -541,7 +541,7 @@ test("one session aggregates multiple literature queries into one entry and one 
 		await tasks.createProject({
 			id: "proj-session-search",
 			name: "会话检索聚合",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -598,7 +598,7 @@ test("search summary width counts Han characters (2–9) and reports the actual 
 		await tasks.createProject({
 			id: "proj-summary-width",
 			name: "摘要字数口径",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -642,7 +642,7 @@ test("WeChat metadata enters the reading queue without a PDF and later reuses th
 		await tasks.createProject({
 			id: "proj-wechat",
 			name: "公众号文献收集",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -719,7 +719,7 @@ test("WeChat DOI verification resolves a candidate and registers the DOI into th
 		await tasks.createProject({
 			id: "proj-wechat-doi",
 			name: "公众号 DOI 校验",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -763,7 +763,7 @@ test("publisher/DOI metadata registers an awaiting-pdf entry without a wechat UR
 		await tasks.createProject({
 			id: "proj-meta",
 			name: "通用元数据登记",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -842,7 +842,7 @@ test("staged reading report accepts the same template idempotently and rejects a
 		await tasks.createProject({
 			id: "proj-tpl",
 			name: "模板幂等",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -888,7 +888,7 @@ test("legacy bundle 无 entryStem 时可正常读取并受控迁移到条目目�
 		await tasks.createProject({
 			id: "proj-migrate",
 			name: "迁移测试",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -949,7 +949,7 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		await tasks.createProject({
 			id: "proj-ppt-tpl",
 			name: "PPT 模板课题",
-			goalProfileId: "default-prodrug-polymer",
+			goalProfileId: "default-research",
 			goalProfileVersion: "1",
 			templateId: "nature-default",
 			templateVersion: "1"
@@ -1067,3 +1067,4 @@ test("PPT 模板生成契约：导入模板 → 落盘映射/主题/构建命令
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+

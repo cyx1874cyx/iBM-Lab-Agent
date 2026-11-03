@@ -97,12 +97,12 @@ export function resetKetcherHiddenFrame() {
 		 *  返回（不无限"渲染中"），单项失败只 resolve(null) 不阻塞队列后续。
 		 *  队列中因 iframe 永不 ready 而超时的任务会被**彻底移除**（含 pending
 		 *  清理），不会遗留大量 cancelled job 堆积。 */
-export function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false, timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 20000 } = {}) {
-			const key = ketcherCacheKey(smiles, { width, height, theme, format, natural });
+export function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false, timeoutMs = KETCHER_OVERALL_MS, readyTimeoutMs = 20000, preserveFormat = false } = {}) {
+			const key = ketcherCacheKey(smiles, { width, height, theme, format, natural })+(preserveFormat?'|source:'+smiles:'');
 			if (ketcherModule.cache[key]) return Promise.resolve(ketcherModule.cache[key]);
 			ensureKetcherHiddenFrame();
 			return new Promise((resolve) => {
-				const queuedJob = { key, smiles: normName(smiles), width: natural ? undefined : width, height: natural ? undefined : height, theme, format, resolve };
+				const queuedJob = { key, smiles: preserveFormat?String(smiles):normName(smiles), width: natural ? undefined : width, height: natural ? undefined : height, theme, format, resolve };
 				ketcherModule.queue.push(queuedJob);
 				const drain = () => {
 					if (ketcherModule.busy || !ketcherModule.queue.length) return;
