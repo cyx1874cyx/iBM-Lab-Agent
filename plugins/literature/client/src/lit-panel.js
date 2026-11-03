@@ -14,6 +14,7 @@ import {
 	openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell,
 	cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop, when, statusOf
 } from "dsh-lab-agent/client-sdk";
+import { translationPrompt } from "./translation-prompt.js";
 import { publicationCitation, usableShortCitation } from "dsh-lab-agent/literature/citation";
 
 function NonPaperNotice({notice,onDismiss}) {
