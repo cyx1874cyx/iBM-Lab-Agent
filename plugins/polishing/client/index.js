@@ -110,6 +110,9 @@ var import_react7 = require("react");
 // client/src/reading-link-upload.js
 var import_react8 = require("react");
 
+// client/src/reader-host.js
+var HOST_KEY = Symbol.for("ibm.lab.reader-host");
+
 // plugins/polishing/client/src/panel.js
 function PolishingPanel() {
   return h(

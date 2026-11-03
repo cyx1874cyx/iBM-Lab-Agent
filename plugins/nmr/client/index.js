@@ -2754,6 +2754,9 @@ var import_react7 = require("react");
 // client/src/reading-link-upload.js
 var import_react8 = require("react");
 
+// client/src/reader-host.js
+var HOST_KEY = Symbol.for("ibm.lab.reader-host");
+
 // client/src/sdk.js
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
