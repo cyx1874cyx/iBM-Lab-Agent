@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { h } from './h.js';
 import { Project, OverlayBoundary } from './components-project.js';
 import { Templates } from './components-templates.js';
-import { PluginSettings } from './components-settings.js';
 import { useProjectViewValue } from './project-view-state.js';
 import { currentDesktopSessionId } from './desktop-client.js';
 import { BRAND_ICON } from './brand-icon.js';
@@ -12,7 +11,7 @@ import {ReagentPanel} from './components-reagents.js';
 import {KnowledgePanel} from './components-knowledge.js';
 import {taskEntryIdentity} from './project-task-session.js';
 import {listWorkbenchModules, subscribeWorkbenchModules} from './module-registry.js';
-import {subscribePluginSwitches, isPluginEnabled} from './plugin-switches.js';
+import {subscribePluginSwitches, isPluginEnabled, hydratePluginSwitches, setPluginEnabled} from './plugin-switches.js';
 
 export const WORKBENCH_MODULES = [
  { id: 'literature', label: '文献阅读', icon: 'book', caption: '检索、阅读与整理研究文献' },
@@ -82,6 +81,80 @@ function SettingsModal({ title, onClose, children }) {
    h('div', { 'data-plugin-settings-page': title === '插件设置' ? true : undefined }, children)));
 }
 
+/**
+ * 可选功能：左侧研究工具底部的「+」打开。
+ * 右栏是未添加功能，点击加入左侧；左栏点击移回右侧，拖动可调整顺序。
+ * 所有变更都是硬启停（改写 profile 装配），关闭时询问是否立即重启。
+ */
+function OptionalFeatures({ call, onClose, onChange }) {
+ const [data, setData] = useState(null);
+ const [error, setError] = useState('');
+ const [busy, setBusy] = useState(false);
+ const [dirty, setDirty] = useState(false);
+ const [askRestart, setAskRestart] = useState(false);
+ const [restarting, setRestarting] = useState(false);
+ const [dragId, setDragId] = useState(null);
+ useEffect(() => {
+  let alive = true;
+  Promise.resolve(call('plugins_list')).then(value => { if (alive) setData(value); }).catch(reason => { if (alive) setError(reason.message); });
+  return () => { alive = false; };
+ }, [call]);
+ const added = data?.plugins.filter(row => row.enabled) ?? [];
+ const optional = data?.plugins.filter(row => !row.enabled) ?? [];
+ const mutate = async (method, payload) => {
+  setBusy(true); setError('');
+  try { const value = await call(method, payload); setData(value); onChange?.(value); setDirty(true); }
+  catch (reason) { setError(reason.message); }
+  finally { setBusy(false); }
+ };
+ const close = () => { if (dirty) setAskRestart(true); else onClose(); };
+ const restart = async () => {
+  setRestarting(true);
+  try { if (globalThis.desktopNext?.command) { await globalThis.desktopNext.command({ type: 'restart' }); return; } } catch { /* fall through */ }
+  globalThis.location.reload();
+ };
+ const reorderBefore = targetId => {
+  const ids = added.map(row => row.id);
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(targetId);
+  if (from < 0 || to < 0 || from === to) return undefined;
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  return ids;
+ };
+ const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', border: '1px solid var(--ib-line)', borderRadius: '10px', background: 'var(--ib-panel)', cursor: 'pointer', textAlign: 'left', width: '100%', color: 'var(--ib-text)', font: 'inherit' };
+ return h('div', { role: 'presentation', onClick: event => { if (event.target === event.currentTarget) close(); }, style: { position: 'fixed', inset: 0, zIndex: 9000, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,0.35)', padding: '24px' } },
+  h('section', { role: 'dialog', 'aria-modal': 'true', 'aria-label': '可选功能', 'data-optional-features-modal': true, style: { width: 'min(900px,94vw)', maxHeight: 'calc(100vh - 48px)', overflow: 'auto', background: 'var(--ib-bg)', border: '1px solid var(--ib-line)', borderRadius: '14px', padding: '16px 20px', boxSizing: 'border-box', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' } },
+   h('header', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' } }, h('h2', { style: { margin: 0 } }, '可选功能'), h('button', { className: 'ib-btn', 'data-modal-close': true, disabled: busy, onClick: close }, '完成')),
+   h('p', { style: { margin: '0 0 14px', color: 'var(--ib-soft)', fontSize: '14px' } }, '点击右侧功能添加到左侧；点击左侧移回右侧；拖动左侧条目可调整顺序。所有更改在重启应用后生效。'),
+   error ? h('p', { role: 'alert', className: 'ib-error' }, error) : null,
+   h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '18px' } },
+    h('div', null,
+     h('h3', { style: { margin: '0 0 10px', fontSize: '15px' } }, `已添加（${added.length}）`),
+     h('div', { style: { display: 'grid', gap: '8px' } }, added.length === 0 ? h('p', { style: { color: 'var(--ib-soft)' } }, '还没有添加功能') : added.map(row => h('div', {
+      key: row.id, draggable: true, 'data-added': row.id,
+      onDragStart: () => setDragId(row.id),
+      onDragOver: event => event.preventDefault(),
+      onDrop: event => { event.preventDefault(); const order = reorderBefore(row.id); if (order) void mutate('plugins_set_order', { order }); setDragId(null); },
+      onDragEnd: () => setDragId(null),
+      onClick: () => void mutate('plugins_set_enabled', { id: row.id, enabled: false }),
+      style: { ...rowStyle, opacity: dragId === row.id ? 0.5 : 1, cursor: 'grab' }
+     }, h('span', null, h('b', null, row.name), h('small', { style: { display: 'block', color: 'var(--ib-soft)' } }, row.detail)), h('span', { style: { color: 'var(--ib-soft)', fontSize: '13px' } }, '移除'))))),
+    h('div', null,
+     h('h3', { style: { margin: '0 0 10px', fontSize: '15px' } }, `可选功能（${optional.length}）`),
+     h('div', { style: { display: 'grid', gap: '8px' } }, optional.length === 0 ? h('p', { style: { color: 'var(--ib-soft)' } }, '全部功能都已添加') : optional.map(row => h('button', {
+      key: row.id, type: 'button', 'data-optional': row.id, disabled: busy,
+      onClick: () => void mutate('plugins_set_enabled', { id: row.id, enabled: true }),
+      style: rowStyle
+     }, h('span', null, h('b', null, row.name), h('small', { style: { display: 'block', color: 'var(--ib-soft)' } }, row.detail)), h('span', { style: { color: 'var(--ib-accent-ink)' } }, '添加')))))),
+   askRestart ? h('div', { role: 'presentation', style: { position: 'fixed', inset: 0, zIndex: 9100, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,0.45)', padding: '24px' } },
+    h('section', { role: 'alertdialog', 'aria-label': '是否立即重启', 'data-restart-prompt': true, style: { width: 'min(420px,92vw)', background: 'var(--ib-bg)', borderRadius: '12px', padding: '20px', border: '1px solid var(--ib-line)', boxShadow: '0 16px 40px rgba(0,0,0,0.3)' } },
+     h('h3', { style: { marginTop: 0 } }, '可选功能已更新'),
+     h('p', null, '更改需要重启应用后生效。是否立即重启？'),
+     h('div', { style: { display: 'flex', gap: '10px', justifyContent: 'flex-end' } },
+      h('button', { className: 'ib-btn', disabled: restarting, onClick: () => { setAskRestart(false); onClose(); } }, '稍后'),
+      h('button', { className: 'ib-btn', 'data-primary': true, disabled: restarting, onClick: () => void restart() }, restarting ? '正在重启…' : '立即重启')))) : null));
+}
+
 export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  const { controller, call, ctx, layout, sidebarRight, launchProject, deleteProject } = runtime;
  const [project, setProject] = useState(controller.get);
@@ -89,16 +162,31 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  // 插件自带模块（由各自 client bundle 通过注册表登记）。
  // 默认内置优先；插件声明 override:true 时接管同名内置页面（迁移期语义）。
  const [pluginModules, setPluginModules] = useState(() => listWorkbenchModules());
+ const [pluginOrder, setPluginOrder] = useState([]);
  useEffect(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
  // 软启停：切换后立即重算可见模块（隐藏/恢复入口）。
  useEffect(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
+ // 可选功能（子插件）的启用状态与顺序来自宿主；首屏缓存只用于避免闪烁。
+ useEffect(() => {
+  let alive = true;
+  Promise.resolve(call('plugins_list')).then(value => {
+   if (!alive || !value) return;
+   hydratePluginSwitches(value.plugins);
+   setPluginOrder(Array.isArray(value.order) ? value.order : []);
+  }).catch(() => {});
+  return () => { alive = false; };
+ }, [call]);
  const pluginById = new Map(pluginModules.map(item => [item.id, item]));
  // 软停用的插件连同其接管的内置页面一起隐藏（避免"停用后仍是旧版页面"的错觉）。
  const MODULE_PLUGINS = { literature: 'literature', knowledge: 'knowledge', reagents: 'reagents', characterization: 'nmr', plotting: 'plotting', polishing: 'polishing' };
  const allModules = [
   ...WORKBENCH_MODULES.map(builtin => pluginById.get(builtin.id)?.override === true ? pluginById.get(builtin.id) : builtin),
   ...pluginModules.filter(item => !WORKBENCH_MODULES.some(builtin => builtin.id === item.id))
- ].filter(item => !MODULE_PLUGINS[item.id] || isPluginEnabled(MODULE_PLUGINS[item.id]));
+ ].filter(item => !MODULE_PLUGINS[item.id] || isPluginEnabled(MODULE_PLUGINS[item.id]))
+  .sort((left, right) => {
+   const indexOf = item => { const id = MODULE_PLUGINS[item.id] ?? item.id; const index = pluginOrder.indexOf(id); return index < 0 ? 999 : index; };
+   return indexOf(left) - indexOf(right);
+  });
  const module = allModules.find(item => item.id === moduleId) || allModules[0] || WORKBENCH_MODULES[0];
  const pluginPanel = pluginModules.find(item => item.id === module.id && typeof item.render === 'function' && (item.override === true || !WORKBENCH_MODULES.some(builtin => builtin.id === item.id)));
  const pageTitle = project ? module.label : '科研项目';
@@ -106,7 +194,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  const [chatHidden, setChatHidden] = useProjectViewValue('_layout', 'chat-hidden', false);
  const [chatWidth, setChatWidth] = useProjectViewValue('_layout', 'chat-width', 380);
  const [templates, setTemplates] = useState(false);
- const [pluginsSettings, setPluginsSettings] = useState(false);
+ const [optionalOpen, setOptionalOpen] = useState(false);
  const [openingProject, setOpeningProject] = useState(false);
  const [chatDragging, setChatDragging] = useState(false);
  const [resourceWidth, setResourceWidth] = useState(800);
@@ -157,7 +245,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
   if (sidebarRight.isExpanded()) sidebarRight.toggleExpanded();
  }, [sidebarRight]);
  const navigate = id => {
-  layout.selectPanel(null); closeResources(); setTemplates(false); setPluginsSettings(false); setModuleId(id); setHistoryOpen(false); setError('');
+  layout.selectPanel(null); closeResources(); setTemplates(false); setModuleId(id); setHistoryOpen(false); setError('');
  };
  const onTask = async (target, options = {}) => {
   setChatHidden(false); setError('');
@@ -237,8 +325,9 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
    project&&!knowledgeActive ? h('button', { className: 'ib-wb-tool', 'aria-expanded': !chatHidden, onClick: () => setChatHidden(value => !value) }, chatHidden ? '展开对话' : '收起对话') : null),
   h('aside', { className: 'ib-wb-nav', 'aria-label': '科研功能', hidden: !project },
    h('div', { className: 'ib-wb-nav-label' }, '研究工具'),
-   h('nav', null, allModules.map(item => h('button', { key: item.id, className: 'ib-wb-nav-item', 'data-module': item.id, 'aria-current': module.id === item.id && !templates ? 'page' : undefined, title: item.label, onClick: () => navigate(item.id) }, h(Icon, { name: item.icon }), h('span', null, item.label)))),
-   h('div', { className: 'ib-wb-nav-bottom' }, h('button', { className: 'ib-wb-nav-item', onClick: () => { layout.selectPanel(null); closeResources(); setPluginsSettings(false); setTemplates(true); } }, h(Icon, { name: 'file' }), h('span', null, '模板管理')), h('button', { className: 'ib-wb-nav-item', 'data-plugins-settings': true, onClick: () => { layout.selectPanel(null); closeResources(); setTemplates(false); setPluginsSettings(true); } }, h(Icon, { name: 'settings' }), h('span', null, '插件设置')), h('small', null, 'iBM Lab · 科研工作台'))),
+   h('nav', null, allModules.map(item => h('button', { key: item.id, className: 'ib-wb-nav-item', 'data-module': item.id, 'aria-current': module.id === item.id && !templates ? 'page' : undefined, title: item.label, onClick: () => navigate(item.id) }, h(Icon, { name: item.icon }), h('span', null, item.label))),
+    h('button', { className: 'ib-wb-nav-item', 'data-optional-features': true, title: '添加可选功能', onClick: () => setOptionalOpen(true) }, h('span', { style: { fontSize: '22px', lineHeight: 1, width: '19px', textAlign: 'center' }, 'aria-hidden': true }, '+'), h('span', null, '添加可选功能'))),
+   h('div', { className: 'ib-wb-nav-bottom' }, h('button', { className: 'ib-wb-nav-item', onClick: () => { layout.selectPanel(null); closeResources(); setTemplates(true); } }, h(Icon, { name: 'file' }), h('span', null, '模板管理')), h('small', null, 'iBM Lab · 科研工作台'))),
   h('main', { className: 'ib-wb-center', ref: centerRef, 'aria-label': project ? '业务工作区' : '欢迎页', onMouseUp: () => { const selected = window.getSelection(); if (selected && centerRef.current?.contains(selected.anchorNode)) setSelection(String(selected).trim().slice(0, 6000)); } },
    h('div', { className: 'ib-wb-page-head', hidden: !project }, h('div', null, h('div', { className: 'ib-wb-breadcrumb' }, '工作台', h('span', null, '/'), pageTitle), h('h1', null, pageTitle), h('p', null, project ? module.caption : '创建或打开工程文件，继续你的研究工作')),knowledgeActive?h('div',{className:'ib-wb-page-actions',ref:setKnowledgeHeaderTarget}):null,module.id==='plotting'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions',ref:setPlottingHeaderTarget}):null, project && selection ? h('button', { className: 'ib-btn', onClick: quoteSelection, onMouseDown: event => event.preventDefault() }, '引用选中文本 →') : null),
    error ? h('div', { className: 'ib-wb-alert', role: 'alert' }, error) : null,
@@ -250,7 +339,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
      pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module.id === 'polishing' ? h(PolishingPlaceholder) : module.id==='reagents'?h(ReagentPanel,{call}):null,
      module.id==='knowledge' ? h(KnowledgePanel,{key:project.id,project,call,openChat:openKnowledgeChat,activeSessionId,headerTarget:knowledgeHeaderTarget,conversation:knowledgeActive?renderSlot('main',{}, {entryKey:'conversation'}):null}) : null) : null),
    project && templates ? h(SettingsModal, { title: '模板管理', onClose: () => setTemplates(false) }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,
-   project && pluginsSettings ? h(SettingsModal, { title: '插件设置', onClose: () => setPluginsSettings(false) }, h(PluginSettings, { call, onBack: () => setPluginsSettings(false) })) : null,
+   project && optionalOpen ? h(OptionalFeatures, { call, onClose: () => setOptionalOpen(false), onChange: value => { hydratePluginSwitches(value.plugins); setPluginOrder(Array.isArray(value.order) ? value.order : []); setPluginModules(listWorkbenchModules()); } }) : null,
    project && activePanel ? h('div', { className: 'ib-wb-global' }, h('button', { className: 'ib-wb-back ib-btn', onClick: () => layout.selectPanel(null) }, '← 返回工作区'), renderSlot('main', {}, { entryKey: activePanel })) : null,
    h('div', { className: 'ib-wb-resources', 'data-rightbar-col': true, hidden: !project }, renderSlot('rightbar', { width: resourceWidth, viewportWidth: Math.max(800, window.innerWidth), canShow: Boolean(project) }))),
   h('div', { className: 'ib-wb-resize', hidden: !project, role: 'separator', 'aria-label': '调整对话宽度', 'aria-orientation': 'vertical', tabIndex: 0, onPointerDown: resize, onPointerUp: event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }, onKeyDown: event => { if (['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); setChatWidth(width => Math.max(320, Math.min(620, width + (event.key === 'ArrowLeft' ? 24 : -24)))); } } }),

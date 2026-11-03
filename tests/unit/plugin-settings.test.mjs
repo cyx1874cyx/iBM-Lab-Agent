@@ -18,53 +18,53 @@ async function fixture() {
 	return { home, profile };
 }
 
-test("子插件设置：默认全开，软开关落盘且不影响硬开关", async () => {
-	const { home } = await fixture();
-	const previous = process.env.DSH_HOME;
-	process.env.DSH_HOME = home;
-	try {
-		const service = new PluginSettingsBackend({});
-		const initial = await service.list();
-		assert.equal(initial.plugins.length, 6);
-		for (const row of initial.plugins) {
-			assert.equal(row.soft, true);
-			assert.equal(row.hard, true);
-			assert.equal(row.installed, true);
-		}
-		const after = await service.setSoft({ id: "nmr", enabled: false });
-		assert.equal(after.plugins.find(row => row.id === "nmr").soft, false);
-		assert.equal(after.plugins.find(row => row.id === "nmr").hard, true, "软开关不应改装配");
-		assert.equal(after.restartRequired, false);
-		const flags = JSON.parse(await readFile(join(home, "lab-agent", "plugin-flags.json"), "utf8"));
-		assert.equal(flags.soft.nmr, false);
-	} finally {
-		if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous;
-		await rm(home, { recursive: true, force: true });
-	}
-});
-
-test("子插件设置：硬启停改写 profile 的 bundles 并要求重启", async () => {
+test("可选功能：默认全部启用，禁用会改写 bundles 并要求重启", async () => {
 	const { home, profile } = await fixture();
 	const previous = process.env.DSH_HOME;
 	process.env.DSH_HOME = home;
 	try {
-		const service = new PluginSettingsBackend({});
-		const after = await service.setHard({ id: "plotting", enabled: false });
-		assert.equal(after.plugins.find(row => row.id === "plotting").hard, false);
+		const backend = new PluginSettingsBackend({});
+		const initial = await backend.list();
+		assert.equal(initial.plugins.length, 6);
+		for (const row of initial.plugins) {
+			assert.equal(row.enabled, true);
+			assert.equal(row.installed, true);
+		}
+		const after = await backend.setEnabled({ id: "nmr", enabled: false });
+		assert.equal(after.plugins.find(row => row.id === "nmr").enabled, false);
 		assert.equal(after.restartRequired, true);
 		const manifest = JSON.parse(await readFile(join(profile, "package.json"), "utf8"));
-		assert.equal(manifest.dsh.profile.bundles.includes("@ibm-lab/plotting"), false);
-		assert.ok(manifest.dependencies["@ibm-lab/plotting"], "依赖保留，重新启用不需要重装");
-		await service.setHard({ id: "plotting", enabled: true });
+		assert.equal(manifest.dsh.profile.bundles.includes("@ibm-lab/nmr"), false);
+		assert.ok(manifest.dependencies["@ibm-lab/nmr"], "依赖保留，重新启用不需要重装");
+		await backend.setEnabled({ id: "nmr", enabled: true });
 		const restored = JSON.parse(await readFile(join(profile, "package.json"), "utf8"));
-		assert.ok(restored.dsh.profile.bundles.includes("@ibm-lab/plotting"));
+		assert.ok(restored.dsh.profile.bundles.includes("@ibm-lab/nmr"));
 	} finally {
 		if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous;
 		await rm(home, { recursive: true, force: true });
 	}
 });
 
-test("子插件设置：未知 id 被拒绝", async () => {
-	const service = new PluginSettingsBackend({});
-	await assert.rejects(() => service.setSoft({ id: "nope", enabled: false }), /未知子插件/);
+test("可选功能：顺序写入 order 文件并按顺序返回", async () => {
+	const { home } = await fixture();
+	const previous = process.env.DSH_HOME;
+	process.env.DSH_HOME = home;
+	try {
+		const backend = new PluginSettingsBackend({});
+		const after = await backend.setOrder({ order: ["plotting", "literature", "knowledge", "reagents", "nmr", "polishing"] });
+		assert.deepEqual(after.order, ["plotting", "literature", "knowledge", "reagents", "nmr", "polishing"]);
+		assert.equal(after.plugins[0].id, "plotting");
+		const stored = JSON.parse(await readFile(join(home, "lab-agent", "plugin-order.json"), "utf8"));
+		assert.deepEqual(stored.order, after.order);
+		assert.equal(after.restartRequired, true);
+	} finally {
+		if (previous === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previous;
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("可选功能：未知 id 被拒绝", async () => {
+	const backend = new PluginSettingsBackend({});
+	await assert.rejects(() => backend.setEnabled({ id: "nope", enabled: false }), /未知子插件/);
+	await assert.rejects(() => backend.setOrder({ order: ["nope"] }), /未知子插件/);
 });

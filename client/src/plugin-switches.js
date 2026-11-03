@@ -33,27 +33,27 @@ function notify() {
 	}
 }
 
-/** 子插件是否处于软启用状态（默认启用）。 */
+/** 子插件是否启用（默认启用；宿主硬启停状态为准，本地缓存用于首屏）。 */
 export function isPluginEnabled(id) {
 	return state[id] !== false;
 }
 
-/** 当前全部软开关状态（诊断/设置页用）。 */
+/** 当前全部可见性状态（诊断用）。 */
 export function pluginSoftStates() {
 	return { ...state };
 }
 
-/** 设置软开关；`enabled=false` 表示立即隐藏该插件的入口与面板。 */
+/** 本地即时可见性（拖动/增删后立即生效；真正持久化由宿主硬启停负责）。 */
 export function setPluginEnabled(id, enabled) {
 	state = { ...state, [id]: enabled !== false };
 	persist();
 	notify();
 }
 
-/** 用宿主返回的状态覆盖本地（设置页加载时调用）。 */
+/** 用宿主返回的状态覆盖本地缓存。 */
 export function hydratePluginSwitches(plugins) {
 	if (!Array.isArray(plugins)) return;
-	state = Object.fromEntries(plugins.map(plugin => [plugin.id, plugin.soft !== false]));
+	state = Object.fromEntries(plugins.map(plugin => [plugin.id, plugin.enabled !== false]));
 	persist();
 	notify();
 }

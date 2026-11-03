@@ -46713,47 +46713,6 @@ function SpinSvg({ width = 14, height = 14 }) {
   );
 }
 
-// client/src/plugin-switches.js
-var STORAGE_KEY = "ibm-lab:plugin-soft";
-function load() {
-  try {
-    const parsed = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) ?? "{}");
-    return parsed !== null && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-var state = load();
-var listeners = /* @__PURE__ */ new Set();
-function persist() {
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-  }
-}
-function notify() {
-  for (const listener of [...listeners]) {
-    try {
-      listener();
-    } catch {
-    }
-  }
-}
-function isPluginEnabled(id) {
-  return state[id] !== false;
-}
-function hydratePluginSwitches(plugins) {
-  if (!Array.isArray(plugins)) return;
-  state = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin.soft !== false]));
-  persist();
-  notify();
-}
-function subscribePluginSwitches(listener) {
-  if (typeof listener !== "function") throw new TypeError("listener 必须是函数");
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
 // src/runtime/pet-quotes.js
 function normalizePetQuotes(values2) {
   if (!Array.isArray(values2) || values2.some((value) => typeof value !== "string")) {
@@ -46851,77 +46810,15 @@ function DesktopPetSettings({ call }) {
     h("p", null, "支持微信文献元数据、正文/SI 捕获、文献精读、PPT 制作、合成路线登记、核磁标峰与 Origin 绘图。只显示正在执行的任务；等待开始、等待确认及已结束的任务不显示。")
   );
 }
-function PluginSwitches({ call }) {
-  const [data, setData] = (0, import_react3.useState)(null);
-  const [busy, setBusy] = (0, import_react3.useState)(false);
-  const [error62, setError] = (0, import_react3.useState)("");
-  const [notice, setNotice] = (0, import_react3.useState)("");
-  const load2 = async () => {
-    setError("");
-    try {
-      const value = await call("plugins_list");
-      setData(value);
-      hydratePluginSwitches(value.plugins);
-    } catch (reason) {
-      setError(reason.message);
-    }
-  };
-  (0, import_react3.useEffect)(() => {
-    void load2();
-  }, [call]);
-  const change = async (row2, mode) => {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const enabled = mode === "soft" ? !row2.soft : !row2.hard;
-      const value = await call(mode === "soft" ? "plugins_set_soft" : "plugins_set_hard", { id: row2.id, enabled });
-      setData(value);
-      hydratePluginSwitches(value.plugins);
-      setNotice(mode === "soft" ? `${row2.name} 已${enabled ? "启用" : "停用"}，立即生效（服务仍驻留，重启后保持）。` : `${row2.name} 已${enabled ? "启用" : "停用"}，下次启动生效。`);
-    } catch (reason) {
-      setError(reason.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return h(
-    "div",
-    { "data-ibm-plugin-switches": true },
-    h("h3", null, "子插件"),
-    h("p", null, "每个子插件都可以独立启停。软启停立即隐藏入口与页面（服务仍驻留）；硬启停会改写 profile 的装配列表，下次启动不再加载该插件（工具与服务一起消失）。停用不会删除任何课题数据。"),
-    error62 ? h("p", { role: "alert", className: "ib-error" }, error62) : null,
-    notice ? h("p", { role: "status" }, notice) : null,
-    !data ? h("p", null, "正在读取插件状态…") : h(
-      "div",
-      { className: "ib-card" },
-      data.plugins.map((row2) => h(
-        "div",
-        { key: row2.id, className: "ib-row", "data-plugin": row2.id, style: { alignItems: "center", gap: 12, flexWrap: "wrap" } },
-        h(
-          "div",
-          { style: { minWidth: 220 } },
-          h("b", null, row2.name),
-          h("small", { style: { display: "block", opacity: 0.7 } }, row2.detail)
-        ),
-        h("span", { "data-state": row2.installed ? "installed" : "missing" }, row2.installed ? "已安装" : "未安装"),
-        h("button", { className: row2.soft ? "ib-btn" : "ib-btn ib-btn-danger", disabled: busy, "data-soft": row2.id, onClick: () => void change(row2, "soft") }, row2.soft ? "软停用" : "软启用"),
-        h("button", { className: "ib-btn", disabled: busy, "data-hard": row2.id, onClick: () => void change(row2, "hard") }, row2.hard ? "硬停用（下次启动）" : "硬启用（下次启动）"),
-        h("small", null, `软：${row2.soft ? "开" : "关"} · 硬：${row2.hard ? "开" : "关"}`)
-      ))
-    ),
-    h("p", null, data?.profileDir ? `装配 profile：${data.profileDir}` : "未找到可管理的 profile，硬启停不可用。")
-  );
-}
 function PluginSettings({ call }) {
   const [tab, setTab] = (0, import_react3.useState)("templates");
   return h(
     "section",
     { className: "ib-settings", "data-ibm-plugin-settings": true },
     h("h2", null, "iBM 插件设置"),
-    h("p", null, "管理全局模板、子插件启停、运行诊断与桌面宠物。模板设置适用于所有课题。"),
-    h("div", { className: "ib-tm-tabs" }, [["templates", "模板管理"], ["plugins", "子插件"], ["diagnostics", "诊断与版本"], ["pet", "桌面宠物"]].map(([key2, text]) => h("button", { key: key2, className: "ib-tm-tab", "data-active": tab === key2, onClick: () => setTab(key2) }, text))),
-    tab === "templates" ? h(Templates, { call }) : tab === "plugins" ? h(PluginSwitches, { call }) : tab === "pet" ? h(DesktopPetSettings, { call }) : h(Diagnostics, { call })
+    h("p", null, "管理全局模板、运行诊断与桌面宠物。模板设置适用于所有课题。"),
+    h("div", { className: "ib-tm-tabs" }, [["templates", "模板管理"], ["diagnostics", "诊断与版本"], ["pet", "桌面宠物"]].map(([key2, text]) => h("button", { key: key2, className: "ib-tm-tab", "data-active": tab === key2, onClick: () => setTab(key2) }, text))),
+    tab === "templates" ? h(Templates, { call }) : tab === "pet" ? h(DesktopPetSettings, { call }) : h(Diagnostics, { call })
   );
 }
 function registerPluginSettings(ctx) {
@@ -46964,7 +46861,7 @@ function buildDescriptors() {
     // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
     // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
     ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry", "plugins_list"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "plugins_set_soft", "plugins_set_hard", "tasks_searches", "tasks_search_delete", "tasks_search_import_ris", "tasks_reading_folders", "tasks_reading_folder_save", "tasks_reading_folder_delete", "tasks_reading_classify", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "plugins_set_enabled", "plugins_set_order", "tasks_searches", "tasks_search_delete", "tasks_search_import_ris", "tasks_reading_folders", "tasks_reading_folder_save", "tasks_reading_folder_delete", "tasks_reading_classify", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -78300,6 +78197,47 @@ function CharacterizationPanel(props) {
   return props.taskKind === "plot" ? h(PlottingPanel, props) : h(NmrPanel, props);
 }
 
+// client/src/plugin-switches.js
+var STORAGE_KEY = "ibm-lab:plugin-soft";
+function load() {
+  try {
+    const parsed = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) ?? "{}");
+    return parsed !== null && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+var state = load();
+var listeners = /* @__PURE__ */ new Set();
+function persist() {
+  try {
+    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+  }
+}
+function notify() {
+  for (const listener of [...listeners]) {
+    try {
+      listener();
+    } catch {
+    }
+  }
+}
+function isPluginEnabled(id) {
+  return state[id] !== false;
+}
+function hydratePluginSwitches(plugins) {
+  if (!Array.isArray(plugins)) return;
+  state = Object.fromEntries(plugins.map((plugin) => [plugin.id, plugin.enabled !== false]));
+  persist();
+  notify();
+}
+function subscribePluginSwitches(listener) {
+  if (typeof listener !== "function") throw new TypeError("listener 必须是函数");
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 // client/src/panel-registry.js
 var REGISTRY_KEY = Symbol.for("ibm.lab.project-panels");
 function store() {
@@ -81262,19 +81200,169 @@ function SettingsModal({ title, onClose, children }) {
     )
   );
 }
+function OptionalFeatures({ call, onClose, onChange }) {
+  const [data, setData] = (0, import_react34.useState)(null);
+  const [error62, setError] = (0, import_react34.useState)("");
+  const [busy, setBusy] = (0, import_react34.useState)(false);
+  const [dirty, setDirty] = (0, import_react34.useState)(false);
+  const [askRestart, setAskRestart] = (0, import_react34.useState)(false);
+  const [restarting, setRestarting] = (0, import_react34.useState)(false);
+  const [dragId, setDragId] = (0, import_react34.useState)(null);
+  (0, import_react34.useEffect)(() => {
+    let alive = true;
+    Promise.resolve(call("plugins_list")).then((value) => {
+      if (alive) setData(value);
+    }).catch((reason) => {
+      if (alive) setError(reason.message);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [call]);
+  const added = data?.plugins.filter((row2) => row2.enabled) ?? [];
+  const optional2 = data?.plugins.filter((row2) => !row2.enabled) ?? [];
+  const mutate = async (method, payload) => {
+    setBusy(true);
+    setError("");
+    try {
+      const value = await call(method, payload);
+      setData(value);
+      onChange?.(value);
+      setDirty(true);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const close = () => {
+    if (dirty) setAskRestart(true);
+    else onClose();
+  };
+  const restart = async () => {
+    setRestarting(true);
+    try {
+      if (globalThis.desktopNext?.command) {
+        await globalThis.desktopNext.command({ type: "restart" });
+        return;
+      }
+    } catch {
+    }
+    globalThis.location.reload();
+  };
+  const reorderBefore = (targetId) => {
+    const ids = added.map((row2) => row2.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return void 0;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    return ids;
+  };
+  const rowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "12px 14px", border: "1px solid var(--ib-line)", borderRadius: "10px", background: "var(--ib-panel)", cursor: "pointer", textAlign: "left", width: "100%", color: "var(--ib-text)", font: "inherit" };
+  return h(
+    "div",
+    { role: "presentation", onClick: (event) => {
+      if (event.target === event.currentTarget) close();
+    }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } },
+    h(
+      "section",
+      { role: "dialog", "aria-modal": "true", "aria-label": "可选功能", "data-optional-features-modal": true, style: { width: "min(900px,94vw)", maxHeight: "calc(100vh - 48px)", overflow: "auto", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: "16px 20px", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" } },
+      h("header", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "8px" } }, h("h2", { style: { margin: 0 } }, "可选功能"), h("button", { className: "ib-btn", "data-modal-close": true, disabled: busy, onClick: close }, "完成")),
+      h("p", { style: { margin: "0 0 14px", color: "var(--ib-soft)", fontSize: "14px" } }, "点击右侧功能添加到左侧；点击左侧移回右侧；拖动左侧条目可调整顺序。所有更改在重启应用后生效。"),
+      error62 ? h("p", { role: "alert", className: "ib-error" }, error62) : null,
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: "18px" } },
+        h(
+          "div",
+          null,
+          h("h3", { style: { margin: "0 0 10px", fontSize: "15px" } }, `已添加（${added.length}）`),
+          h("div", { style: { display: "grid", gap: "8px" } }, added.length === 0 ? h("p", { style: { color: "var(--ib-soft)" } }, "还没有添加功能") : added.map((row2) => h("div", {
+            key: row2.id,
+            draggable: true,
+            "data-added": row2.id,
+            onDragStart: () => setDragId(row2.id),
+            onDragOver: (event) => event.preventDefault(),
+            onDrop: (event) => {
+              event.preventDefault();
+              const order = reorderBefore(row2.id);
+              if (order) void mutate("plugins_set_order", { order });
+              setDragId(null);
+            },
+            onDragEnd: () => setDragId(null),
+            onClick: () => void mutate("plugins_set_enabled", { id: row2.id, enabled: false }),
+            style: { ...rowStyle, opacity: dragId === row2.id ? 0.5 : 1, cursor: "grab" }
+          }, h("span", null, h("b", null, row2.name), h("small", { style: { display: "block", color: "var(--ib-soft)" } }, row2.detail)), h("span", { style: { color: "var(--ib-soft)", fontSize: "13px" } }, "移除"))))
+        ),
+        h(
+          "div",
+          null,
+          h("h3", { style: { margin: "0 0 10px", fontSize: "15px" } }, `可选功能（${optional2.length}）`),
+          h("div", { style: { display: "grid", gap: "8px" } }, optional2.length === 0 ? h("p", { style: { color: "var(--ib-soft)" } }, "全部功能都已添加") : optional2.map((row2) => h("button", {
+            key: row2.id,
+            type: "button",
+            "data-optional": row2.id,
+            disabled: busy,
+            onClick: () => void mutate("plugins_set_enabled", { id: row2.id, enabled: true }),
+            style: rowStyle
+          }, h("span", null, h("b", null, row2.name), h("small", { style: { display: "block", color: "var(--ib-soft)" } }, row2.detail)), h("span", { style: { color: "var(--ib-accent-ink)" } }, "添加"))))
+        )
+      ),
+      askRestart ? h(
+        "div",
+        { role: "presentation", style: { position: "fixed", inset: 0, zIndex: 9100, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.45)", padding: "24px" } },
+        h(
+          "section",
+          { role: "alertdialog", "aria-label": "是否立即重启", "data-restart-prompt": true, style: { width: "min(420px,92vw)", background: "var(--ib-bg)", borderRadius: "12px", padding: "20px", border: "1px solid var(--ib-line)", boxShadow: "0 16px 40px rgba(0,0,0,0.3)" } },
+          h("h3", { style: { marginTop: 0 } }, "可选功能已更新"),
+          h("p", null, "更改需要重启应用后生效。是否立即重启？"),
+          h(
+            "div",
+            { style: { display: "flex", gap: "10px", justifyContent: "flex-end" } },
+            h("button", { className: "ib-btn", disabled: restarting, onClick: () => {
+              setAskRestart(false);
+              onClose();
+            } }, "稍后"),
+            h("button", { className: "ib-btn", "data-primary": true, disabled: restarting, onClick: () => void restart() }, restarting ? "正在重启…" : "立即重启")
+          )
+        )
+      ) : null
+    )
+  );
+}
 function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
   const { controller, call, ctx, layout, sidebarRight, launchProject, deleteProject } = runtime3;
   const [project2, setProject] = (0, import_react34.useState)(controller.get);
   const [moduleId, setModuleId] = useProjectViewValue(project2?.id || "_home", "workbench-module", "literature");
   const [pluginModules, setPluginModules] = (0, import_react34.useState)(() => listWorkbenchModules());
+  const [pluginOrder, setPluginOrder] = (0, import_react34.useState)([]);
   (0, import_react34.useEffect)(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
   (0, import_react34.useEffect)(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
+  (0, import_react34.useEffect)(() => {
+    let alive = true;
+    Promise.resolve(call("plugins_list")).then((value) => {
+      if (!alive || !value) return;
+      hydratePluginSwitches(value.plugins);
+      setPluginOrder(Array.isArray(value.order) ? value.order : []);
+    }).catch(() => {
+    });
+    return () => {
+      alive = false;
+    };
+  }, [call]);
   const pluginById = new Map(pluginModules.map((item) => [item.id, item]));
   const MODULE_PLUGINS = { literature: "literature", knowledge: "knowledge", reagents: "reagents", characterization: "nmr", plotting: "plotting", polishing: "polishing" };
   const allModules = [
     ...WORKBENCH_MODULES.map((builtin) => pluginById.get(builtin.id)?.override === true ? pluginById.get(builtin.id) : builtin),
     ...pluginModules.filter((item) => !WORKBENCH_MODULES.some((builtin) => builtin.id === item.id))
-  ].filter((item) => !MODULE_PLUGINS[item.id] || isPluginEnabled(MODULE_PLUGINS[item.id]));
+  ].filter((item) => !MODULE_PLUGINS[item.id] || isPluginEnabled(MODULE_PLUGINS[item.id])).sort((left, right) => {
+    const indexOf = (item) => {
+      const id = MODULE_PLUGINS[item.id] ?? item.id;
+      const index2 = pluginOrder.indexOf(id);
+      return index2 < 0 ? 999 : index2;
+    };
+    return indexOf(left) - indexOf(right);
+  });
   const module2 = allModules.find((item) => item.id === moduleId) || allModules[0] || WORKBENCH_MODULES[0];
   const pluginPanel = pluginModules.find((item) => item.id === module2.id && typeof item.render === "function" && (item.override === true || !WORKBENCH_MODULES.some((builtin) => builtin.id === item.id)));
   const pageTitle = project2 ? module2.label : "科研项目";
@@ -81282,7 +81370,7 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
   const [chatHidden, setChatHidden] = useProjectViewValue("_layout", "chat-hidden", false);
   const [chatWidth, setChatWidth] = useProjectViewValue("_layout", "chat-width", 380);
   const [templates, setTemplates] = (0, import_react34.useState)(false);
-  const [pluginsSettings, setPluginsSettings] = (0, import_react34.useState)(false);
+  const [optionalOpen, setOptionalOpen] = (0, import_react34.useState)(false);
   const [openingProject, setOpeningProject] = (0, import_react34.useState)(false);
   const [chatDragging, setChatDragging] = (0, import_react34.useState)(false);
   const [resourceWidth, setResourceWidth] = (0, import_react34.useState)(800);
@@ -81347,7 +81435,6 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
     layout.selectPanel(null);
     closeResources();
     setTemplates(false);
-    setPluginsSettings(false);
     setModuleId(id);
     setHistoryOpen(false);
     setError("");
@@ -81497,18 +81584,17 @@ ${selection}` }).catch((reason) => setError(reason.message));
       "aside",
       { className: "ib-wb-nav", "aria-label": "科研功能", hidden: !project2 },
       h("div", { className: "ib-wb-nav-label" }, "研究工具"),
-      h("nav", null, allModules.map((item) => h("button", { key: item.id, className: "ib-wb-nav-item", "data-module": item.id, "aria-current": module2.id === item.id && !templates ? "page" : void 0, title: item.label, onClick: () => navigate(item.id) }, h(Icon, { name: item.icon }), h("span", null, item.label)))),
+      h(
+        "nav",
+        null,
+        allModules.map((item) => h("button", { key: item.id, className: "ib-wb-nav-item", "data-module": item.id, "aria-current": module2.id === item.id && !templates ? "page" : void 0, title: item.label, onClick: () => navigate(item.id) }, h(Icon, { name: item.icon }), h("span", null, item.label))),
+        h("button", { className: "ib-wb-nav-item", "data-optional-features": true, title: "添加可选功能", onClick: () => setOptionalOpen(true) }, h("span", { style: { fontSize: "22px", lineHeight: 1, width: "19px", textAlign: "center" }, "aria-hidden": true }, "+"), h("span", null, "添加可选功能"))
+      ),
       h("div", { className: "ib-wb-nav-bottom" }, h("button", { className: "ib-wb-nav-item", onClick: () => {
         layout.selectPanel(null);
         closeResources();
-        setPluginsSettings(false);
         setTemplates(true);
-      } }, h(Icon, { name: "file" }), h("span", null, "模板管理")), h("button", { className: "ib-wb-nav-item", "data-plugins-settings": true, onClick: () => {
-        layout.selectPanel(null);
-        closeResources();
-        setTemplates(false);
-        setPluginsSettings(true);
-      } }, h(Icon, { name: "settings" }), h("span", null, "插件设置")), h("small", null, "iBM Lab · 科研工作台"))
+      } }, h(Icon, { name: "file" }), h("span", null, "模板管理")), h("small", null, "iBM Lab · 科研工作台"))
     ),
     h(
       "main",
@@ -81532,7 +81618,11 @@ ${selection}` }).catch((reason) => setError(reason.message));
         ) : null
       ),
       project2 && templates ? h(SettingsModal, { title: "模板管理", onClose: () => setTemplates(false) }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,
-      project2 && pluginsSettings ? h(SettingsModal, { title: "插件设置", onClose: () => setPluginsSettings(false) }, h(PluginSettings, { call, onBack: () => setPluginsSettings(false) })) : null,
+      project2 && optionalOpen ? h(OptionalFeatures, { call, onClose: () => setOptionalOpen(false), onChange: (value) => {
+        hydratePluginSwitches(value.plugins);
+        setPluginOrder(Array.isArray(value.order) ? value.order : []);
+        setPluginModules(listWorkbenchModules());
+      } }) : null,
       project2 && activePanel ? h("div", { className: "ib-wb-global" }, h("button", { className: "ib-wb-back ib-btn", onClick: () => layout.selectPanel(null) }, "← 返回工作区"), renderSlot("main", {}, { entryKey: activePanel })) : null,
       h("div", { className: "ib-wb-resources", "data-rightbar-col": true, hidden: !project2 }, renderSlot("rightbar", { width: resourceWidth, viewportWidth: Math.max(800, window.innerWidth), canShow: Boolean(project2) }))
     ),
