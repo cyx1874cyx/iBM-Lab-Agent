@@ -1,10 +1,10 @@
 import {ReaderBody,readerStyles} from './reader-pdf-ui.js';
-import {h} from './h.js';
-import {downloadVerifiedBinary} from './lib.js';
-import workerSource from '../vendor/pdfjs/pdf.worker.mjs';
+import {h} from 'dsh-lab-agent/client-sdk';
+import {downloadVerifiedBinary} from 'dsh-lab-agent/client-sdk';
+import workerSource from 'dsh-lab-agent/client-vendor/pdfjs/pdf.worker.mjs';
 let getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions,pdfModule,viewerModule;
-export async function loadPdf(){pdfModule??=import('../vendor/pdfjs/pdf.mjs');({getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions}=await pdfModule);}
-export async function loadPdfViewer(){await loadPdf();return viewerModule??=import('../vendor/pdfjs/web/pdf_viewer.mjs');}
+export async function loadPdf(){pdfModule??=import('dsh-lab-agent/client-vendor/pdfjs/pdf.mjs');({getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions}=await pdfModule);}
+export async function loadPdfViewer(){await loadPdf();return viewerModule??=import('dsh-lab-agent/client-vendor/pdfjs/web/pdf_viewer.mjs');}
 const PREFIX='dsh-resource://lab-reader/',ID='lab-reader',KIND='lab-reader';
 let runtime=null,workerUrl;const preferredModes=new Map();
 export function setReaderRuntime(value){runtime=value;}
@@ -15,7 +15,7 @@ export function readerWorker(){return workerUrl??=URL.createObjectURL(new Blob([
 export function readerAddress({projectId,bundleId,kind='pdf'}){return PREFIX+[projectId,bundleId,kind].map(encodeURIComponent).join('/');}
 export function readerIdentity(address){if(!String(address).startsWith(PREFIX))return null;const parts=String(address).slice(PREFIX.length).split('/');if(parts.length!==3)return null;try{const [projectId,bundleId,kind]=parts.map(decodeURIComponent);return projectId&&bundleId&&['pdf','si'].includes(kind)?{projectId,bundleId,kind}:null;}catch{return null;}}
 export async function openReader(request){if(!runtime)throw Error('侧栏阅读器尚未就绪');const address=readerAddress(request);preferredModes.set(address,request.mode??'original');await runtime.open(address,request);window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));}
-export { translationPrompt } from './translation-prompt.js';
+export { translationPrompt } from '../translation-prompt.js';
 const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
 export function pdfResources(call){
  class CMaps{async fetch({name}){return {cMapData:decode((await call('tasks_reader_asset',{group:'cmaps',name:name+'.bcmap'})).base64),compressionType:1};}}

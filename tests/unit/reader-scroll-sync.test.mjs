@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {pdfPosition,scrollPdfTo,createPdfScrollSync} from '../../client/src/reader-scroll-sync.js';
+import {pdfPosition,scrollPdfTo,createPdfScrollSync} from '../../plugins/literature/client/src/reader/reader-scroll-sync.js';
 const flow=height=>({clientHeight:500,scrollTop:0,scrollHeight:12+6*(height+14),children:Array.from({length:6},(_,i)=>({dataset:{pdfPage:String(i+1)},offsetTop:12+i*(height+14),offsetHeight:height}))});
 test('PDF anchors preserve page and fraction across different pane sizes and clamp page inputs',()=>{
  const left=flow(800),right=flow(1200);scrollPdfTo(left,{page:3,fraction:.4});scrollPdfTo(right,pdfPosition(left));

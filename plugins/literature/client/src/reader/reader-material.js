@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {h} from './h.js';
+import {h} from 'dsh-lab-agent/client-sdk';
 import {readerRuntime,loadPdf,pdfTypes,pdfResources,makeRange} from './reader-tab.js';
 import {PdfFlow} from './reader-pdf-flow.js';
 

@@ -6,7 +6,8 @@ import ReactDOM from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
-import {openReader,translationPrompt} from './reader-tab.js';
+import {openReader} from './reader-host.js';
+import {translationPrompt} from './translation-prompt.js';
 
 
 import { CharacterizationPanel } from "./components-characterization.js";

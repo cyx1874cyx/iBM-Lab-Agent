@@ -14,6 +14,8 @@
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pdfDocumentStatePlugin } from "./pdfjs-document-state.mjs";
+import { pdfViewerStylePlugin } from "./pdfjs-viewer-style.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -85,6 +87,11 @@ const built = await esbuild.build({
 				if (target !== undefined) return { path: target };
 				return { errors: [{ text: `子插件不得导入母包内部实现：${args.path}（只允许 package.json exports 里的公开导出）` }] };
 			});
+		}
+	}, pdfDocumentStatePlugin(), pdfViewerStylePlugin(), {
+		name: "pdf-worker-source",
+		setup(build) {
+			build.onLoad({ filter: /pdf\.worker\.mjs$/ }, async args => ({ contents: await readFile(args.path, "utf8"), loader: "text" }));
 		}
 	}],
 	banner: { js: BANNER },

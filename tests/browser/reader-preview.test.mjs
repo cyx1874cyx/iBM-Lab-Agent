@@ -28,9 +28,9 @@ function fixturePdf(label,translated=false,count=30){
 test('translation preview stays responsive while loading, preserves canvases and synchronizes logical PDF positions',{skip:!executable||!reactRoot,timeout:120000},async()=>{
  const fixture=`
 import React from 'react';import {createRoot} from 'react-dom/client';
-import {ReaderBody,readerStyles} from './client/src/reader-pdf-ui.js';
-import {setReaderRuntime,readerAddress} from './client/src/reader-tab.js';
-import {pdfPosition} from './client/src/reader-scroll-sync.js';
+import {ReaderBody,readerStyles} from './plugins/literature/client/src/reader/reader-pdf-ui.js';
+import {setReaderRuntime,readerAddress} from './plugins/literature/client/src/reader/reader-tab.js';
+import {pdfPosition} from './plugins/literature/client/src/reader/reader-scroll-sync.js';
 import {installDesktopClient} from './client/src/desktop-client.js';
 window.fixtureSaved=[];installDesktopClient(async(method,args)=>{if(method==='desktop_status')return {available:true};if(method==='desktop_artifact'){window.fixtureSaved.push(args.request);return {fileName:args.request.url.includes('kind=report')?'notes.docx':'slides.pptx'};}throw Error('unexpected desktop action');});
 const style=document.createElement('style');style.textContent=readerStyles;document.head.append(style);

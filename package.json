@@ -230,7 +230,8 @@
     },
     "./plugin-settings": {
       "default": "./lib/plugin-settings.js"
-    }
+    },
+    "./client-vendor/*": "./client/vendor/*"
   },
   "files": [
     "lib",

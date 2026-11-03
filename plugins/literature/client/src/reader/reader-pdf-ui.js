@@ -1,12 +1,13 @@
 import React,{useEffect,useLayoutEffect,useRef,useState,useCallback} from 'react';
 import ReactDOM from 'react-dom';
-import {h} from './h.js';
-import {downloadVerifiedBinary,downloadOfficeArtifact} from './lib.js';
+import {h} from 'dsh-lab-agent/client-sdk';
+import { translationPrompt } from '../translation-prompt.js';
+import {downloadVerifiedBinary,downloadOfficeArtifact} from 'dsh-lab-agent/client-sdk';
 import {readerIdentity,readerRuntime,readerPreferredMode,loadPdf,pdfTypes,readerWorker,pdfResources,makeRange} from './reader-tab.js';
 import {PdfFlow} from './reader-pdf-flow.js';
 import {createPdfScrollSync} from './reader-scroll-sync.js';
 import {PdfMaterial} from './reader-material.js';
-import pdfViewerStyles from '../vendor/pdfjs/web/pdf_viewer.css';
+import pdfViewerStyles from 'dsh-lab-agent/client-vendor/pdfjs/web/pdf_viewer.css';
 const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
 const spinner=()=>h('span',{className:'ib-reader-spinner','aria-hidden':true});
 const loading=label=>h('div',{className:'ib-reader-loading',role:'status'},spinner(),label);
@@ -85,7 +86,7 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
  };
  const exitDual=()=>changeMode('zh');
  useEffect(()=>{if(mode!=='dual')return;const keydown=event=>{if(event.key==='Escape')exitDual();};const exited=()=>{if(ownsFullscreen.current&&!document.fullscreenElement){ownsFullscreen.current=false;changeMode('zh');}};window.addEventListener('keydown',keydown);document.addEventListener('fullscreenchange',exited);return()=>{window.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',exited);};},[mode,linked,zhError]);
- const translate=async(improve=false)=>{setBusy(true);let created;try{created=await call('tasks_translation_create',{...request,improve:improve===true});setState(old=>({...old,completedTranslation:old.translation?.status==='completed'?old.translation:old.completedTranslation,translation:created.translation}));if(created.translation.status==='completed')changeMode('zh');else if(created.readyToCompose){const done=await call('tasks_translation_finish',{...request,translationId:created.translation.id});setState(old=>({...old,translation:done.translation,completedTranslation:done.translation}));setRefresh(n=>n+1);changeMode('zh');}else if(!created.reused)await runtime.translate(request,created.translation.id);else setError('任务正在进行，请查看翻译对话。');}catch(error){if(created&&!created.reused&&!created.readyToCompose)await call('tasks_translation_cancel',{...request,translationId:created.translation.id}).catch(()=>{});onError(error);}finally{setBusy(false);}};
+ const translate=async(improve=false)=>{setBusy(true);let created;try{created=await call('tasks_translation_create',{...request,improve:improve===true});setState(old=>({...old,completedTranslation:old.translation?.status==='completed'?old.translation:old.completedTranslation,translation:created.translation}));if(created.translation.status==='completed')changeMode('zh');else if(created.readyToCompose){const done=await call('tasks_translation_finish',{...request,translationId:created.translation.id});setState(old=>({...old,translation:done.translation,completedTranslation:done.translation}));setRefresh(n=>n+1);changeMode('zh');}else if(!created.reused)await runtime.translate(request,created.translation.id,translationPrompt(request,created.translation.id));else setError('任务正在进行，请查看翻译对话。');}catch(error){if(created&&!created.reused&&!created.readyToCompose)await call('tasks_translation_cancel',{...request,translationId:created.translation.id}).catch(()=>{});onError(error);}finally{setBusy(false);}};
  const zoomTo=(side,value)=>{scroll.current.move(side,scroll.current.capture(side));setZoom(old=>linked?{original:value,zh:value}:{...old,[side]:value});};
  const navigate=(side,number)=>{const d=panePdf(side),n=Math.max(1,Math.min(d?.numPages??1,number||1));scroll.current.move(side,{page:n,fraction:0});};
  const save=async side=>{const material=selected(side),kind=material?.kind??request.kind,translationId=material?.translationId??(side==='zh'&&!material?readingId:null);

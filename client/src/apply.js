@@ -13,7 +13,8 @@ import { registerWebVpnTab, WEBVPN_TAB_KIND } from "./webvpn-tab.js";
 import { installSidebarBrowser } from "./sidebar-browser.js";
 import { openProjectTab, registerProjectTab, setProjectLoader, setProjectPanelRenderer, setProjectTabOpener } from "./project-tab.js";
 import { installHeroProjectChip, setHeroProjectRuntime } from "./hero-project.js";
-import {registerReaderTab,setReaderRuntime,translationPrompt} from './reader-tab.js';
+import {setReaderRuntime} from './reader-host.js';
+import {translationPrompt} from './translation-prompt.js';
 import { createWorkbenchController, registerWorkbench } from './workbench.js';
 import {projectSessionId,openProjectConversation,taskEntryIdentity,createEntryOperationQueue,resolveEntryConversation,openReadingPreviewConversation,prefillEntryTask} from './project-task-session.js';
 
@@ -278,7 +279,7 @@ export function applyUi(ctx) {
 		registerProjectTab(tabCtx);
 		registerReaderTab(tabCtx);
 		const readerSessions=new Map();
-		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
+		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id,prompt)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:prompt??translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
 			const {sessionId}=await openReadingPreviewConversation(call,launchProject,request);
 			if(workbenchReady)workbench.showChat();
 			readerSessions.set(address,sessionId);close();

@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useRef,useCallback} from 'react';
-import {h} from './h.js';
+import {h} from 'dsh-lab-agent/client-sdk';
 import {loadPdfViewer} from './reader-tab.js';
 import {pdfPosition} from './reader-scroll-sync.js';
 
