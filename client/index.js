@@ -47231,9 +47231,9 @@ function followProjectUpdates({ call, projectId, load: load2, getRevision, windo
 }
 
 // client/src/components-project.js
-var import_react27 = __toESM(require("react"), 1);
+var import_react26 = __toESM(require("react"), 1);
 var import_react_dom8 = __toESM(require("react-dom"), 1);
-var import_react28 = require("react");
+var import_react27 = require("react");
 
 // client/src/reader-pdf-ui.js
 var import_react7 = __toESM(require("react"), 1);
@@ -55049,49 +55049,26 @@ function registerReaderTab(ctx) {
   ctx.effect(() => () => setReaderRuntime(null), "iBM 文献阅读清理");
 }
 
-// client/src/components-workspace.js
-var import_react9 = require("react");
+// client/src/components-nmr.js
+var import_react15 = require("react");
+var import_react_dom5 = require("react-dom");
+
+// client/src/components-core.js
+var import_react8 = __toESM(require("react"), 1);
 
 // client/src/constants.js
-var ROUTE_ORIGIN_LABEL = { "literature-extracted": "文献提取", "human-edited": "人工修改", "agent-optimized": "Agent 优化", retrosynthesis: "逆向候选" };
-var ROUTE_STATUS_LABEL = { draft: "draft·草稿", "under-review": "under-review·待审核", approved: "approved·已批准", rejected: "rejected·已驳回" };
-var EVIDENCE_SOURCE_LABEL = { "paper-si": "Supporting Info", "paper-main": "正文/Scheme", "cited-method": "引用方法", "similar-literature": "相似文献", patent: "专利", "reaction-db": "反应数据库", "compound-db": "化合物库", internal: "内部 SOP", "model-inference": "Agent 推断" };
-var EVIDENCE_REVIEW_LABEL = { pending: "待审", confirmed: "已确认", edited: "已修订", rejected: "已驳回" };
-var STEP_FIELD_DEFS = [
-  { key: "reagents", label: "试剂", hints: ["reagents", "试剂"] },
-  { key: "catalysts", label: "催化剂", hints: ["catalysts", "催化剂"] },
-  { key: "solvents", label: "溶剂", hints: ["solvents", "溶剂"] },
-  { key: "temperature", label: "温度", hints: ["temperature", "温度"] },
-  { key: "time", label: "时间", hints: ["time", "时间"] },
-  { key: "atmosphere", label: "气氛", hints: ["atmosphere", "气氛"] },
-  { key: "concentration", label: "浓度", hints: ["concentration", "浓度"] },
-  { key: "yield", label: "收率", hints: ["yield", "收率"] },
-  { key: "workup", label: "后处理", hints: ["workup", "后处理"] },
-  { key: "purification", label: "纯化", hints: ["purification", "纯化"] },
-  { key: "monitoring", label: "监测", hints: ["monitoring", "监测"] }
-];
 var KETCHER_URL = "/api/lab-ketcher/index.html";
-var PDF_VIEWER_URL = "/api/lab-pdf-viewer/index.html?v=worker-v2";
 var KETCHER_STAGE_LOADING_MS = 25e3;
 var KETCHER_STAGE_EXPORT_MS = 3e4;
 var KETCHER_OVERALL_MS = 75e3;
 var KETCHER_RENDER_PROTOCOL = 1;
 var KETCHER_DEFAULT_THEME = "#ffffff";
 var normName = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
-var STRUCTURE_SOURCE_LABEL = { agent: "登记", pubchem: "PubChem", manual: "Ketcher", entity: "实体库", "literature-inference": "文献推测 · 待核验", "visual-extraction": "图片提取 · 待核验" };
 
 // client/src/ketcher.js
 function ketcherCacheKey(smiles, { width = 560, height = 420, theme = KETCHER_DEFAULT_THEME, format = "png", natural = false } = {}) {
   const sizeKey = natural ? "natural" : `${Number(width) || 560}x${Number(height) || 420}`;
   return `v${KETCHER_RENDER_PROTOCOL}|${normName(smiles)}|${sizeKey}|${String(theme ?? KETCHER_DEFAULT_THEME).replace(/\s+/g, "").toLowerCase() || "w"}|${format === "svg" ? "svg" : "png"}`;
-}
-function structurePreviewTier(smiles) {
-  const text = String(smiles ?? "");
-  const atoms = text.replace(/\[[^\]]+\]/g, "C").match(/Br|Cl|Si|Na|Li|Mg|Al|Ca|Fe|Zn|[BCNOPSFIKbcnops]/g) || [];
-  const branches = (text.match(/\(/g) || []).length;
-  const rings = (text.match(/%\d{2}|\d/g) || []).length / 2;
-  const score = atoms.length + Math.min(4, branches * 0.5) + Math.min(4, rings);
-  return score <= 7 ? "simple" : score <= 11 ? "standard" : "complex";
 }
 var ketcherModule = {
   iframe: null,
@@ -55204,377 +55181,8 @@ function ketcherRenderSmiles(smiles, { width = 560, height = 420, theme = KETCHE
     waitReady();
   });
 }
-function readStepFieldValue(step, def) {
-  const procedure = step.procedure || {};
-  const raw = procedure[def.key];
-  if (raw === void 0) return "";
-  if (Array.isArray(raw)) {
-    const items = raw.map((row2) => {
-      if (typeof row2 === "string") return row2;
-      if (def.key === "reagents") return [row2.name, row2.equivalent ? `(${row2.equivalent})` : "", row2.amount ? row2.amount : ""].filter(Boolean).join(" ");
-      if (def.key === "catalysts") return [row2.name, row2.loading ? `(${row2.loading})` : ""].filter(Boolean).join(" ");
-      if (def.key === "solvents") return [row2.name, row2.ratio ? `(${row2.ratio})` : "", row2.volume ? row2.volume : ""].filter(Boolean).join(" ");
-      if (def.key === "temperature") return [row2.value, row2.unit, row2.stage ? `(${row2.stage})` : ""].filter(Boolean).join(" ");
-      return Object.values(row2).filter((v) => v !== void 0 && v !== "").join(" ");
-    });
-    return items.filter(Boolean).join("；");
-  }
-  if (typeof raw === "object") {
-    return [raw.value, raw.unit, raw.type, raw.text].filter((v) => v !== void 0 && v !== "").join(" ");
-  }
-  return String(raw ?? "");
-}
-function evidenceLocator(row2) {
-  const bits = [];
-  if (row2.page !== void 0 && row2.page !== null && row2.page !== "") bits.push(`p.${row2.page}`);
-  if (row2.figure) bits.push(`Fig. ${row2.figure}`);
-  if (row2.table) bits.push(`Table ${row2.table}`);
-  if (row2.documentId) bits.push(row2.documentId);
-  return bits.join(" · ");
-}
-function evidenceByStep(evidence, step) {
-  return (evidence || []).filter((row2) => row2.stepId === step.id || row2.stepId === void 0 && row2.stepKey !== void 0 && Number(row2.stepKey) === step.step);
-}
-function routeLevelEvidence(evidence) {
-  return (evidence || []).filter((row2) => row2.stepId === void 0 && row2.stepKey === void 0);
-}
-function stepIsStructured(step) {
-  return !!step.procedure && Object.keys(step.procedure).length > 0;
-}
-function resolveCompoundPreview(entry) {
-  if (!entry?.smiles) {
-    return { state: "not_found", message: "该化合物尚无结构式，点击在 Ketcher 中补绘" };
-  }
-  return { state: "resolvable", message: "", smiles: entry.smiles };
-}
-function stepCompoundsByRole(step, roles2) {
-  const wanted = new Set(roles2);
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const row2 of step?.structures ?? []) {
-    const role = row2.role || "unknown";
-    if (!wanted.has(role)) continue;
-    const key2 = normName(row2.name);
-    if (seen.has(key2)) continue;
-    seen.add(key2);
-    out.push(row2);
-  }
-  return out;
-}
 
 // client/src/components-core.js
-var import_react8 = __toESM(require("react"), 1);
-
-// client/src/reaction-scheme.js
-function textWeight(value) {
-  return [...String(value || "")].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/.test(char) ? 1.7 : 1), 0);
-}
-function clipText(value, maxWeight = 48) {
-  const input3 = String(value || "").replace(/\s+/g, " ").trim();
-  if (!input3 || textWeight(input3) <= maxWeight) return input3;
-  let output2 = "";
-  for (const char of input3) {
-    if (textWeight(output2 + char + "…") > maxWeight) break;
-    output2 += char;
-  }
-  return `${output2.trim()}…`;
-}
-function nodeWidth(entry) {
-  const nameWeight = Math.min(30, textWeight(entry?.name || "结构待补绘"));
-  return Math.max(146, Math.round(118 + nameWeight * 2.1));
-}
-function buildGroup(entries, fallbackNames, role) {
-  const source = entries.length ? entries : [{ name: (fallbackNames || []).join("、") || (role === "reactant" ? "反应物待补" : "产物待补"), role, placeholder: true }];
-  return source.map((entry, index2) => ({
-    entry,
-    key: `${role}-${entry?.id || entry?.name || index2}-${index2}`,
-    width: nodeWidth(entry),
-    height: 112
-  }));
-}
-function buildReactionSchemeLayout({ reactants = [], products = [], reactantNames = [], productNames = [], conditions = { above: [], below: "" } } = {}) {
-  const paddingX = 22;
-  const structureY = 70;
-  const labelY = 197;
-  const arrowY = 126;
-  const itemGap = 28;
-  const sideGap = 22;
-  const left = buildGroup(reactants, reactantNames, "reactant");
-  const right = buildGroup(products, productNames, "product");
-  const place = (items, startX) => {
-    let x = startX;
-    const nodes = items.map((item, index2) => {
-      const node2 = { ...item, x, y: structureY, labelY };
-      x += item.width;
-      if (index2 < items.length - 1) x += itemGap;
-      return node2;
-    });
-    return { nodes, endX: x };
-  };
-  const leftPlaced = place(left, paddingX);
-  const longestCondition = Math.max(0, ...(conditions.above || []).map(textWeight), textWeight(conditions.below));
-  const arrowWidth = Math.max(75, Math.min(142, Math.round(52 + longestCondition * 1.55)));
-  const arrowStart = leftPlaced.endX + sideGap;
-  const arrowEnd = arrowStart + arrowWidth;
-  const rightPlaced = place(right, arrowEnd + sideGap);
-  return {
-    width: rightPlaced.endX + paddingX,
-    height: 222,
-    arrow: { x1: arrowStart, x2: arrowEnd, y: arrowY, centerX: (arrowStart + arrowEnd) / 2 },
-    conditions,
-    nodes: [...leftPlaced.nodes, ...rightPlaced.nodes],
-    plusSigns: [...leftPlaced.nodes.slice(0, -1), ...rightPlaced.nodes.slice(0, -1)].map((node2, index2) => ({ key: `plus-${index2}-${node2.key}`, x: node2.x + node2.width + itemGap / 2, y: arrowY }))
-  };
-}
-function reactionSchemeLabel(value, maxWeight = 30) {
-  return clipText(value, maxWeight);
-}
-
-// client/src/components-core.js
-function StructureCard({ entry, onClick, compact }) {
-  const preview = resolveCompoundPreview(entry);
-  const [state2, setState] = (0, import_react8.useState)(preview.state === "resolvable" ? "loading" : "not_found");
-  const [image, setImage] = (0, import_react8.useState)(null);
-  const [attempt, setAttempt] = (0, import_react8.useState)(0);
-  const requested = (0, import_react8.useRef)(false);
-  const previewTier = structurePreviewTier(entry?.smiles);
-  (0, import_react8.useEffect)(() => {
-    if (!entry?.smiles) {
-      setImage(null);
-      setState("not_found");
-      return void 0;
-    }
-    setImage(null);
-    setState("loading");
-    requested.current = true;
-    let alive = true;
-    ketcherRenderSmiles(entry.smiles, { natural: true }).then((dataUrl) => {
-      if (!alive) return;
-      if (dataUrl) {
-        setImage(dataUrl);
-        setState("loaded");
-      } else {
-        setState("error");
-      }
-    }).catch(() => {
-      if (alive) setState("error");
-    });
-    return () => {
-      alive = false;
-    };
-  }, [entry?.smiles, attempt]);
-  const retry = (event) => {
-    event?.stopPropagation?.();
-    setState("loading");
-    setImage(null);
-    requested.current = false;
-    setAttempt((value) => value + 1);
-  };
-  const hasSmiles = !!entry?.smiles;
-  const openCard = (event) => {
-    event?.stopPropagation?.();
-    onClick?.(entry);
-  };
-  const stop = (event) => event?.stopPropagation?.();
-  return h(
-    "div",
-    { className: compact ? "sw-struct-card sw-struct-compact" : "sw-struct-card", "data-state": state2, "data-preview-tier": previewTier, "data-missing": hasSmiles ? void 0 : "true", "data-clickable": onClick ? "true" : void 0, title: hasSmiles ? `SMILES: ${entry.smiles}（点击在 Ketcher 中查看/编辑）` : preview.message, onClick: onClick ? openCard : void 0 },
-    hasSmiles && entry.source ? h("span", { className: "sw-struct-src" }, STRUCTURE_SOURCE_LABEL[entry.source] || entry.source) : null,
-    hasSmiles ? state2 === "loaded" ? h("img", { src: image, alt: entry.name, loading: "lazy", decoding: "async" }) : h(
-      "div",
-      { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "var(--ib-panel)", borderRadius: 6, color: state2 === "error" ? "#b76b3f" : "#6b8798", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } },
-      state2 === "error" ? h("span", null, "预览渲染失败") : "渲染中…"
-    ) : h("div", { className: "sw-struct-fallback", style: { display: "grid", placeItems: "center", background: "var(--ib-panel)", borderRadius: 6, color: "var(--ib-text)", fontSize: 9, padding: 6, textAlign: "center", boxSizing: "border-box" } }, h("span", null, "结构待补绘")),
-    state2 === "error" && !compact ? h(
-      "div",
-      { className: "sw-struct-acts", onClick: stop },
-      h("button", { className: "sw-mini-btn", onClick: retry }, "重试预览"),
-      h("button", { className: "sw-mini-btn", onClick: openCard }, "Ketcher 查看")
-    ) : null,
-    h("span", { className: "sw-struct-name" }, h("b", null, entry.name)),
-    h("span", { className: "sw-struct-name", title: entry.casNumber || "CAS 未确认" }, entry.casNumber ? `CAS ${entry.casNumber}` : "CAS 待确认"),
-    hasSmiles ? h("span", { className: "sw-cond-smiles" }, entry.smiles) : null,
-    compact ? null : h(
-      "div",
-      { className: "sw-struct-acts", onClick: stop },
-      h("button", { className: "sw-mini-btn", onClick: openCard }, hasSmiles ? "查看/编辑" : "Ketcher 补绘")
-    )
-  );
-}
-function ReactionSchemePreview({ step, reactants = [], products = [], onStructureClick, fallback }) {
-  const renderable = [...reactants, ...products].filter((entry) => entry?.smiles);
-  const renderKey = renderable.map((entry) => `${entry.id || entry.name}:${entry.smiles}`).join("|");
-  const [previewState, setPreviewState] = (0, import_react8.useState)({ state: renderable.length ? "loading" : "ready", images: {} });
-  (0, import_react8.useEffect)(() => {
-    let alive = true;
-    if (!renderable.length) {
-      setPreviewState({ state: "ready", images: {} });
-      return () => {
-        alive = false;
-      };
-    }
-    setPreviewState((current) => ({ state: "loading", images: current.images || {} }));
-    Promise.all(renderable.map(async (entry, index2) => ({
-      key: `${entry.id || entry.name || index2}-${index2}`,
-      dataUrl: await ketcherRenderSmiles(entry.smiles, { width: 260, height: 190, format: "svg", theme: "#ffffff" })
-    }))).then((rows) => {
-      if (!alive) return;
-      if (rows.some((row2) => !row2.dataUrl)) {
-        setPreviewState({ state: "error", images: {} });
-        return;
-      }
-      setPreviewState({ state: "ready", images: Object.fromEntries(rows.map((row2) => [row2.key, row2.dataUrl])) });
-    }).catch(() => {
-      if (alive) setPreviewState({ state: "error", images: {} });
-    });
-    return () => {
-      alive = false;
-    };
-  }, [renderKey]);
-  if (previewState.state === "error") return fallback;
-  const conditions = { above: [], below: "" };
-  const layout = buildReactionSchemeLayout({ reactants, products, reactantNames: step?.reactants, productNames: step?.products, conditions });
-  const openStructure = (event, entry) => {
-    event?.stopPropagation?.();
-    onStructureClick?.(entry);
-  };
-  const imageForNode = (node2) => {
-    const index2 = renderable.indexOf(node2.entry);
-    return index2 >= 0 ? previewState.images[`${node2.entry.id || node2.entry.name || index2}-${index2}`] : null;
-  };
-  return h(
-    "div",
-    { className: "sw-route-scheme-shell", "data-state": previewState.state },
-    h(
-      "svg",
-      { className: "sw-route-scheme", viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: "img", "aria-label": `${step?.label || step?.reaction || "反应步骤"}：反应物与产物` },
-      h("rect", { x: 0, y: 0, width: layout.width, height: layout.height, rx: 10, fill: "#ffffff" }),
-      layout.plusSigns.map((plus) => h("text", { key: plus.key, x: plus.x, y: plus.y + 6, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 23, fill: "#18352d" }, "+")),
-      h("line", { x1: layout.arrow.x1, y1: layout.arrow.y, x2: layout.arrow.x2 - 12, y2: layout.arrow.y, stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round" }),
-      h("path", { d: `M ${layout.arrow.x2 - 13} ${layout.arrow.y - 6} L ${layout.arrow.x2} ${layout.arrow.y} L ${layout.arrow.x2 - 13} ${layout.arrow.y + 6}`, fill: "none", stroke: "#18352d", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" }),
-      layout.nodes.map((node2) => {
-        const image = imageForNode(node2);
-        const clickable = !!onStructureClick && !node2.entry?.placeholder;
-        return h(
-          "g",
-          { key: node2.key, className: "sw-route-scheme-node", role: clickable ? "button" : void 0, tabIndex: clickable ? 0 : void 0, "aria-label": clickable ? `${node2.entry.name || "结构"}，打开 Ketcher 编辑` : void 0, onClick: clickable ? (event) => openStructure(event, node2.entry) : void 0, onKeyDown: clickable ? (event) => {
-            if (["Enter", " "].includes(event.key)) {
-              event.preventDefault();
-              openStructure(event, node2.entry);
-            }
-          } : void 0 },
-          h("rect", { x: node2.x, y: node2.y, width: node2.width, height: node2.height, rx: 7, fill: "#ffffff", stroke: image ? "transparent" : "#b8c8c2", strokeDasharray: image ? void 0 : "5 4" }),
-          image ? h("image", { href: image, x: node2.x + 3, y: node2.y + 3, width: node2.width - 6, height: node2.height - 6, preserveAspectRatio: "xMidYMid meet", pointerEvents: "none" }) : h("text", { x: node2.x + node2.width / 2, y: node2.y + node2.height / 2 + 4, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11, fill: "#789087" }, previewState.state === "loading" && node2.entry?.smiles ? "结构渲染中…" : "结构待补绘"),
-          h("text", { x: node2.x + node2.width / 2, y: node2.labelY, textAnchor: "middle", fontFamily: "Arial, 'Microsoft YaHei', sans-serif", fontSize: 11.5, fontWeight: 650, fill: "#18352d" }, reactionSchemeLabel(node2.entry?.name || "未命名结构")),
-          node2.entry?.casNumber ? h("text", { x: node2.x + node2.width / 2, y: node2.labelY + 15, textAnchor: "middle", fontFamily: "Arial, sans-serif", fontSize: 9.5, fill: "#6a8179" }, `CAS ${reactionSchemeLabel(node2.entry.casNumber, 24)}`) : null,
-          clickable ? h("rect", { className: "sw-route-scheme-hit", x: node2.x, y: node2.y, width: node2.width, height: layout.height - node2.y - 6, rx: 7, fill: "transparent" }) : null
-        );
-      })
-    )
-  );
-}
-function StepReactionLayout({ step, onStructureClick }) {
-  const reactants = stepCompoundsByRole(step, ["reactant"]);
-  const products = stepCompoundsByRole(step, ["product"]);
-  const conditionRows = stepIsStructured(step) ? STEP_FIELD_DEFS.map((def) => ({ def, value: readStepFieldValue(step, def) })).filter((row2) => row2.value) : [];
-  const renderSide = (label2, entries, names) => h(
-    "div",
-    { className: "sw04-reaction-side" },
-    h("small", null, label2),
-    entries.length ? h("div", { className: "sw-struct" }, entries.map((entry) => h(StructureCard, { key: `${entry.name}-${entry.smiles || "none"}`, entry, onClick: onStructureClick, compact: true }))) : h("span", { className: "sw-hint" }, (names || []).join("、") || "文献未提供 / 待确认")
-  );
-  const notes = (step?.procedure?.notes || []).filter(Boolean);
-  return h(
-    "div",
-    { className: "sw04-reaction" },
-    renderSide("反应物", reactants, step.reactants),
-    h(
-      "div",
-      { className: "sw04-arrow" },
-      h("strong", null, "→"),
-      conditionRows.length ? h("div", { className: "sw04-cond-grid" }, conditionRows.map((row2) => h("span", { className: "sw04-cond", key: row2.def.key, title: row2.def.label }, h("i", null, row2.def.label), row2.value))) : h("span", null, step.conditions || "反应条件待人工核验"),
-      notes.length ? h("em", null, notes[0]) : h("em", null, "条件与注意事项以原文核验为准")
-    ),
-    renderSide("产物", products, step.products)
-  );
-}
-function PdfViewerFrame({ row: row2, notify: notify2 }) {
-  const iframeRef = (0, import_react8.useRef)(null);
-  const [locateState, setLocateState] = (0, import_react8.useState)("loading");
-  const [errorMessage, setErrorMessage] = (0, import_react8.useState)("");
-  const rawPage = String(row2?.page ?? "").trim();
-  const pageMatch = /^(?:S)?([1-9]\d*)$/i.exec(rawPage);
-  const pageIsValid = !!pageMatch;
-  const pageNumber = pageMatch ? Number(pageMatch[1]) : 1;
-  const bundleId = row2?.bundleId || row2?.documentId;
-  const quote = row2?.excerpt || row2?.originalExtract || "";
-  const locatorQuote = pageIsValid ? quote : "";
-  const open2 = !!bundleId;
-  const documentKind = row2?.sourceKind === "si" || !row2?.sourceKind && row2?.sourceType === "paper-si" ? "si" : "pdf";
-  (0, import_react8.useEffect)(() => {
-    if (!open2) {
-      setLocateState("error");
-      setErrorMessage("未绑定已归档原文，无法定位");
-      return void 0;
-    }
-    setLocateState("loading");
-    setErrorMessage("");
-    let disposed = false;
-    const requestId = `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const postOpen = () => {
-      try {
-        const computed = getComputedStyle(document.body);
-        const theme = {};
-        for (const key2 of ["bg-base", "bg-layer-1", "border-l2", "label-primary", "label-secondary", "state-warn-primary"]) theme[key2] = computed.getPropertyValue(`--dsw-alias-${key2}`).trim();
-        iframeRef.current?.contentWindow?.postMessage({ type: "open", requestId, theme, bundleId, kind: documentKind, page: pageNumber, quote: locatorQuote, pageLabel: rawPage }, "*");
-      } catch {
-      }
-    };
-    const onMessage = (event) => {
-      const data = event.data || {};
-      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
-      if (data?.type === "ready") {
-        postOpen();
-        return;
-      }
-      if (data.requestId !== requestId) return;
-      if (data?.type === "highlight") {
-        if (disposed) return;
-        setLocateState(data.status === "matched" ? "matched" : data.status === "candidate" ? "candidate" : data.status === "notfound" ? "notfound" : "noquote");
-        if (pageIsValid && data.status === "notfound" && notify2) notify2("未能自动定位原文，请在本页人工确认");
-        return;
-      }
-      if (data?.type === "error") {
-        if (disposed) return;
-        setLocateState("error");
-        setErrorMessage(data.message || "PDF 加载失败");
-      }
-    };
-    window.addEventListener("message", onMessage);
-    postOpen();
-    return () => {
-      disposed = true;
-      window.removeEventListener("message", onMessage);
-    };
-  }, [bundleId, documentKind, pageNumber, pageIsValid, locatorQuote, rawPage]);
-  if (!open2) {
-    return h("div", { className: "sw04-review-hint" }, "该项未绑定已归档原文 PDF/SI（bundleId/documentId），无法展示原文定位。请补充原文，或标记「无法确认」交给 Agent 复核。");
-  }
-  const label2 = !pageIsValid ? "未提供有效页码，已停在首页" : locateState === "candidate" ? "候选段落，请人工核对" : locateState === "matched" ? "已定位原文" : locateState === "notfound" ? "未能自动定位原文，请在本页人工确认" : locateState === "noquote" ? "无可用摘录文本，仅展示原文" : locateState === "error" ? errorMessage : "正在定位原文…";
-  const tone = !pageIsValid ? "#b34a45" : locateState === "matched" ? "#2b7a70" : locateState === "notfound" ? "#8a6d2f" : locateState === "error" ? "#b34a45" : "#718b82";
-  return h(
-    "div",
-    { className: "sw04-review-shot", style: { display: "flex", flexDirection: "column", gap: 8 } },
-    h(
-      "div",
-      { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-      h("span", { style: { fontSize: 10, color: tone, fontWeight: 600 } }, label2),
-      h("span", { style: { flex: 1 } }),
-      quote ? h("span", { style: { fontSize: 9, color: "var(--ib-text)", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: quote }, `摘录：${quote}`) : null
-    ),
-    h("iframe", { ref: iframeRef, title: `原文定位：第 ${pageNumber} 页`, src: PDF_VIEWER_URL, style: { width: "100%", height: "min(68vh, 760px)", minHeight: 520, border: "1px solid var(--ib-line)", borderRadius: 8, background: "var(--ib-panel)" } })
-  );
-}
 function KetcherEditorModal({ entry, onSave, onCancel }) {
   const iframeRef = (0, import_react8.useRef)(null);
   const [status, setStatus] = (0, import_react8.useState)("loading");
@@ -55648,884 +55256,6 @@ function KetcherEditorModal({ entry, onSave, onCancel }) {
   );
 }
 
-// client/src/components-workspace.js
-function ResearchDesignWorkspace({ projectId, routes = [], targets = [], plans = [], call, notify: notify2, onRequestPlan, onChanged }) {
-  const targetById = (id) => targets.find((row2) => row2.id === id) || null;
-  const [routeId, setRouteId] = (0, import_react9.useState)(routes.length ? routes[0].id : null);
-  const [tick, setTick] = (0, import_react9.useState)(0);
-  const [detail, setDetail] = (0, import_react9.useState)(null);
-  const [selectedStepId, setSelectedStepId] = (0, import_react9.useState)(null);
-  const [assess, setAssess] = (0, import_react9.useState)(null);
-  const [alt, setAlt] = (0, import_react9.useState)(null);
-  const [busy, setBusy] = (0, import_react9.useState)({});
-  const [error62, setError] = (0, import_react9.useState)("");
-  const [selectedEvidenceId, setSelectedEvidenceId] = (0, import_react9.useState)(null);
-  const [reviewDrawerOpen, setReviewDrawerOpen] = (0, import_react9.useState)(false);
-  const [correctionFor, setCorrectionFor] = (0, import_react9.useState)(null);
-  const [evidenceFeedback, setEvidenceFeedback] = (0, import_react9.useState)(null);
-  const [batchList, setBatchList] = (0, import_react9.useState)([]);
-  const [newRouteForm, setNewRouteForm] = (0, import_react9.useState)(null);
-  const [moreOpen, setMoreOpen] = (0, import_react9.useState)(false);
-  const [lockBlockers, setLockBlockers] = (0, import_react9.useState)([]);
-  (0, import_react9.useEffect)(() => {
-    if (routes.length && !routes.some((row2) => row2.id === routeId)) setRouteId(routes[0].id);
-    if (!routes.length) {
-      setDetail(null);
-      setSelectedStepId(null);
-    }
-  }, [routes]);
-  (0, import_react9.useEffect)(() => {
-    if (!routeId) return;
-    let stale = false;
-    setDetail(null);
-    setAssess(null);
-    setAlt(null);
-    setError("");
-    setSelectedStepId(null);
-    call("synth_route_detail", { request: { id: routeId } }).then((result) => {
-      if (stale) return;
-      setDetail(result);
-      const first = (result.route.steps || [])[0];
-      setSelectedStepId(first ? first.id || `s${first.step}` : null);
-    }).catch((reason) => {
-      if (!stale) setError(reason.message || "加载路线失败");
-    }).finally(() => {
-      if (!stale) setBusy((old) => {
-        const next = { ...old };
-        delete next.detail;
-        return next;
-      });
-    });
-    return () => {
-      stale = true;
-    };
-  }, [routeId, tick]);
-  const route = routeId ? routes.find((row2) => row2.id === routeId) || null : null;
-  const target = route ? targetById(route.targetId) : null;
-  const selectedStep = detail ? (detail.route.steps || []).find((step) => step.id === selectedStepId || `s${step.step}` === selectedStepId) : null;
-  const stepEvidence = detail && selectedStep ? evidenceByStep(detail.evidence, selectedStep) : [];
-  const routeEvidence = detail ? routeLevelEvidence(detail.evidence) : [];
-  (0, import_react9.useEffect)(() => {
-    if (!routeId || !selectedStepId || !detail) return;
-    let stale = false;
-    setAssess(null);
-    setAlt(null);
-    setBusy((old) => ({ ...old, assess: true }));
-    call("synth_step_assess", { request: { routeId, stepId: selectedStepId } }).then((result) => {
-      if (!stale) setAssess(result.result);
-    }).catch((reason) => {
-      if (!stale) setError(reason.message || "可行性分析失败");
-    }).finally(() => {
-      if (!stale) setBusy((old) => {
-        const next = { ...old };
-        delete next.assess;
-        return next;
-      });
-    });
-    return () => {
-      stale = true;
-    };
-  }, [routeId, selectedStepId, !!detail]);
-  const withBusy = (key2, work) => {
-    if (busy[key2]) return;
-    setBusy((old) => ({ ...old, [key2]: true }));
-    return Promise.resolve().then(work).catch((reason) => notify2(reason.message || "操作失败")).finally(() => setBusy((old) => {
-      const next = { ...old };
-      delete next[key2];
-      return next;
-    }));
-  };
-  const runAction = (action2) => {
-    if (action2 === "extract") {
-      const capability = detail?.capability || { available: false };
-      if (!capability.available) {
-        notify2(`「从文献提取路线」暂不可用：${capability.reason || "未配置多模态提取 Provider"}。可先在对话中让 Agent 人工登记路线与步骤，或人工编辑结构化条件。`);
-        return;
-      }
-      notify2("提取管线已配置（当前版本未内置 Provider）。");
-      return;
-    }
-    if (action2 === "retro") {
-      notify2("「整体逆向规划」为 Route-level 接口：需要 RetrosynthesisProvider（计划 RETRO-001）。0.3.0 未配置，候选路线不会生成；接口与空状态已预留。");
-      return;
-    }
-    if (action2 === "revision") {
-      if (!route) return;
-      const changeNotes = window.prompt(`把「${route.name}」复制为新版本（draft）？
-填写本次修改说明：`, "人工复核修订");
-      if (changeNotes === null) return;
-      return withBusy("revision", async () => {
-        const result = await call("synth_route_revision", { request: { id: routeId, changeNotes, origin: "human-edited" } });
-        notify2(`已创建新版本 v${result.route.version}（${result.route.id}），原版本未被覆盖。`);
-        await onChanged();
-        setRouteId(result.route.id);
-      });
-    }
-    if (action2 === "delete-route") {
-      if (!route) return;
-      if (route.locked) {
-        notify2("已锁定路线不能删除；如需清理，请保留锁定版本并删除其未锁定修订版。");
-        return;
-      }
-      const confirmed = window.confirm(`确定删除路线「${route.name}」v${route.version}？
-该路线的事实证据和审核批次也会删除，操作不可撤销。`);
-      if (!confirmed) return;
-      return withBusy("delete-route", async () => {
-        const result = await call("synth_route_delete", { request: { id: route.id } });
-        const nextRouteId = routes.find((row2) => row2.id !== route.id)?.id ?? null;
-        setMoreOpen(false);
-        setDetail(null);
-        setSelectedStepId(null);
-        setRouteId(nextRouteId);
-        await onChanged();
-        notify2(`已删除路线「${route.name}」；同步清理 ${result.result?.evidenceDeleted ?? 0} 条事实和 ${result.result?.reviewBatchesDeleted ?? 0} 个审核批次。`);
-      });
-    }
-    if (action2 === "lock") {
-      if (!route) return;
-      return withBusy("lock", async () => {
-        const response = await fetch("/api/lab-user-action/lock-route", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-lab-user-action": "lock-route" },
-          body: JSON.stringify({ routeId })
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.ok) {
-          if (result && Array.isArray(result.blockers) && result.blockers.length) {
-            setLockBlockers(result.blockers);
-            notify2(`路线暂不能锁定：${result.blockers.map((row2) => row2.message).join("；")}`);
-          } else {
-            setLockBlockers([]);
-            notify2(result?.error ? `路线暂不能锁定：${result.error}` : `锁定失败（HTTP ${response.status}）。`);
-          }
-          return;
-        }
-        setLockBlockers([]);
-        notify2(`路线「${result.route.name}」已锁定；如需修改请复制为新版本。`);
-        await onChanged();
-        setTick((value) => value + 1);
-      });
-    }
-    if (action2 === "add-step") {
-      if (!route || route.locked) {
-        notify2(route?.locked ? "路线已锁定；请先复制为新版本。" : "尚未选择路线。");
-        return;
-      }
-      setAddStepForm({ open: true, reaction: "", reactants: "", products: "" });
-    }
-    if (action2 === "alternatives") {
-      if (!selectedStep) return;
-      return withBusy("alt", async () => {
-        const result = await call("synth_step_alternatives", { request: { routeId, stepId: selectedStep.id } });
-        setAlt(result.result);
-      });
-    }
-    if (action2 === "confirm") {
-      if (!selectedStep) return;
-      if (route?.locked) {
-        notify2("当前路线已锁定；请先复制为新版本。");
-        return;
-      }
-      return withBusy("confirm", async () => {
-        const result = await call("synth_step_review", { request: { id: routeId, stepKey: selectedStep.id, status: "confirmed" } });
-        notify2(`已确认 Step ${selectedStep.id}，写入 review.status=confirmed。`);
-        const reload = await call("synth_route_detail", { request: { id: routeId } });
-        setDetail(reload);
-      });
-    }
-    if (action2 === "evidence-review") {
-      return;
-    }
-    if (action2 === "edit-step") {
-      notify2("Step 条件人工编辑：当前版本可在对话中让 Agent 修改，或等待后续版本加入表单编辑（FR-12）。已确认字段不会被静默覆盖。");
-      return;
-    }
-  };
-  const submitAddStep = async (fields) => {
-    if (!route || route.locked) {
-      notify2("路线已锁定；请先复制为新版本。");
-      return;
-    }
-    const splitNames = (value) => String(value || "").split(/[、,，]/).map((item) => item.trim()).filter(Boolean);
-    const number5 = Math.max(0, ...(route.steps || []).map((item) => Number(item.step) || 0)) + 1;
-    const step = { id: `s${number5}`, step: number5, reaction: String(fields.reaction || "").trim(), reactants: splitNames(fields.reactants), products: splitNames(fields.products), structures: [], conditions: "待补充" };
-    if (!step.reaction) {
-      notify2("请填写反应名称/简述。");
-      return;
-    }
-    await withBusy("add-step", async () => {
-      await call("synth_route_step", { request: { id: routeId, step } });
-      notify2(`已添加 Step ${number5}；路线与步骤默认未锁定。`);
-      await onChanged();
-      setTick((value) => value + 1);
-      setAddStepForm(null);
-    });
-  };
-  const evidenceRequiresShotClient = (row2) => {
-    if (row2?.bundleId || row2?.documentId) return false;
-    const method = String(row2?.extractionMethod ?? "");
-    return ["text", "vlm", "search", "model"].includes(method) && row2?.excerpt !== void 0 && row2?.excerpt !== null && row2?.excerpt !== "";
-  };
-  const evidenceConfirmable = (row2) => {
-    if (!evidenceRequiresShotClient(row2)) return true;
-    return false;
-  };
-  const evidenceShotBlockReason = (row2) => {
-    return "该自动提取项尚未绑定已归档 PDF/SI，不能作为原文核验完成；请补充原文，或标“无法确认”交给 Agent。";
-  };
-  const decideEvidence = (row2, status) => withBusy(`ev:${row2.id}`, async () => {
-    const action2 = status === "confirmed" ? "confirm" : "reject";
-    setEvidenceFeedback({ id: row2.id, action: action2, state: "saving", message: status === "confirmed" ? "正在确认…" : "正在标记为无法确认…" });
-    if (status === "confirmed" && !evidenceConfirmable(row2)) {
-      const message = `Evidence ${row2.id} 暂不能确认：${evidenceShotBlockReason(row2)}`;
-      setEvidenceFeedback({ id: row2.id, action: action2, state: "error", message });
-      notify2(message);
-      return;
-    }
-    try {
-      await call("synth_evidence_review", { request: { id: row2.id, status } });
-      const message = status === "confirmed" ? "已确认通过，结果已保存。" : "已标记为无法确认，结果已保存。";
-      setEvidenceFeedback({ id: row2.id, action: action2, state: "saved", message });
-      notify2(`Evidence ${row2.id} 已标记为“${EVIDENCE_REVIEW_LABEL[status]}”。`);
-      const reload = await call("synth_route_detail", { request: { id: routeId } });
-      setDetail(reload);
-    } catch (reason) {
-      setEvidenceFeedback({ id: row2.id, action: action2, state: "error", message: reason.message || "审核保存失败，请重试。" });
-      throw reason;
-    }
-  });
-  const saveCorrection = (row2, rawValue) => withBusy(`ev:${row2.id}`, async () => {
-    setEvidenceFeedback({ id: row2.id, action: "correct", state: "saving", message: "正在保存修正…" });
-    if (evidenceRequiresShotClient(row2) && !evidenceConfirmable(row2)) {
-      const message = `Evidence ${row2.id} 暂不能修正：${evidenceShotBlockReason(row2)}`;
-      setEvidenceFeedback({ id: row2.id, action: "correct", state: "error", message });
-      notify2(message);
-      return;
-    }
-    const correction = String(rawValue ?? "").trim();
-    if (!correction) {
-      setEvidenceFeedback({ id: row2.id, action: "correct", state: "error", message: "请先填写修正值。" });
-      notify2("修正值不能为空。");
-      return;
-    }
-    try {
-      await call("synth_evidence_review", { request: { id: row2.id, status: "corrected", correction } });
-      setEvidenceFeedback({ id: row2.id, action: "correct", state: "saved", message: "人工修正已保存。" });
-      notify2(row2.originalExtract ? `已保存人工修正（原始提取值“${row2.originalExtract}”保留在 originalExtract）。` : "已保存人工修正。");
-      const reload = await call("synth_route_detail", { request: { id: routeId } });
-      setDetail(reload);
-      setCorrectionFor(null);
-    } catch (reason) {
-      setEvidenceFeedback({ id: row2.id, action: "correct", state: "error", message: reason.message || "修正保存失败，请重试。" });
-      throw reason;
-    }
-  });
-  const loadReviewBatches = (0, import_react9.useCallback)(() => {
-    if (!routeId) return Promise.resolve([]);
-    return call("synth_review_batch_get", { request: { routeId } }).then((result) => {
-      setBatchList(result.batches || []);
-      return result.batches || [];
-    }).catch(() => {
-      setBatchList([]);
-      return [];
-    });
-  }, [routeId, call, tick]);
-  const submitReviewBatch = () => withBusy("batch", async () => {
-    if (!selectedStep) return;
-    const pendingCount = stepEvidence.filter((row2) => row2.reviewStatus === "pending").length;
-    if (pendingCount) {
-      notify2(`仍有 ${pendingCount} 条事实未完成人工选择（确认/修正/无法确认）；全部完成后才能交给 Agent。`);
-      return;
-    }
-    await call("synth_review_batch_create", { request: { fields: { routeId, stepId: selectedStep.id, createdBy: "user" } } });
-    notify2("本轮事实核验批次已提交：Agent 只能更新“无法确认/缺失/冲突”项，回写内容进入下一轮人工核验。");
-    const reload = await call("synth_route_detail", { request: { id: routeId } });
-    setDetail(reload);
-    void loadReviewBatches();
-  });
-  const completeBatch = (batch) => withBusy(`batch-c:${batch.id}`, async () => {
-    await call("synth_review_batch_complete", { request: { id: batch.id, by: "user" } });
-    notify2(`审核批次 ${batch.id} 已关闭。`);
-    void loadReviewBatches();
-  });
-  const submitNewRoute = (form) => withBusy("new-route", async () => {
-    const name = String(form?.name ?? "").trim();
-    const targetId = form?.targetId;
-    if (!name) {
-      notify2("请填写路线名称。");
-      return;
-    }
-    if (!targetId) {
-      notify2("请选择合成目标。");
-      return;
-    }
-    const id = `rt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    const result = await call("synth_route_create", { request: { fields: { id, projectId, targetId, name, origin: "human-edited" } } });
-    notify2(`已新建路线「${result.route.name}」（draft，未锁定）。`);
-    setNewRouteForm(null);
-    await onChanged();
-    setRouteId(result.route.id);
-  });
-  const openReviewDrawer = (evidenceId) => {
-    setSelectedEvidenceId(evidenceId);
-    setEvidenceFeedback(null);
-    const row2 = detail?.evidence?.find((item) => item.id === evidenceId);
-    setCorrectionFor(row2?.userCorrection ? { id: evidenceId, value: row2.userCorrection } : null);
-    setReviewDrawerOpen(true);
-  };
-  const closeReviewDrawer = () => {
-    setReviewDrawerOpen(false);
-    setCorrectionFor(null);
-    setEvidenceFeedback(null);
-  };
-  (0, import_react9.useEffect)(() => {
-    if (!reviewDrawerOpen) return void 0;
-    const onKey = (event) => {
-      if (event.key === "Escape") setReviewDrawerOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [reviewDrawerOpen]);
-  const activeEvidence = detail && selectedEvidenceId ? stepEvidence.find((row2) => row2.id === selectedEvidenceId) || null : null;
-  const [ketcherModal, setKetcherModal] = (0, import_react9.useState)(null);
-  const [addStepForm, setAddStepForm] = (0, import_react9.useState)(null);
-  const [dualPanel, setDualPanel] = (0, import_react9.useState)(null);
-  const [planPreview, setPlanPreview] = (0, import_react9.useState)(null);
-  const routePlan = route ? plans.find((item) => item.routeId === route.id || item.id === `plan-${route.id}` || item.id.startsWith(`plan-${route.id}-`)) : null;
-  const requestExperimentPlan = () => {
-    if (!route || !onRequestPlan) return;
-    const prompt = `请为合成路线「${route.name}」（routeId: ${route.id}）生成实验计划。先读取路线全部步骤、已归档文献证据和当前实验计划模板；补齐可确认信息，缺失项明确标为待确认，完成后调用 lab_synth_experiment_plan_create 登记到项目面板。`;
-    onRequestPlan(prompt);
-  };
-  const planPreviewNode = !planPreview ? null : h(
-    "div",
-    { className: "sw-struct-edit", onClick: () => setPlanPreview(null) },
-    h(
-      "div",
-      { className: "sw04-plan-preview", role: "dialog", "aria-modal": "true", "aria-label": "实验计划", onClick: (event) => event.stopPropagation() },
-      h(
-        "div",
-        { className: "sw04-plan-preview-head" },
-        h("div", null, h("b", null, planPreview.title), h("small", null, `${planPreview.status} · ${planPreview.templateSnapshot?.name || "实验计划模板"}`)),
-        h("button", { className: "sw-mini-btn", onClick: () => setPlanPreview(null) }, "关闭")
-      ),
-      h("section", null, h("h4", null, "实验目的"), h("p", null, planPreview.objective)),
-      h("section", null, h("h4", null, "规模"), h("p", null, planPreview.scale)),
-      h(
-        "section",
-        null,
-        h("h4", null, "试剂与用量"),
-        h("div", { className: "sw04-plan-grid" }, (planPreview.reagents || []).map((item, index2) => h("div", { key: `${item.name}-${index2}` }, h("b", null, item.name), h("span", null, `${item.amount}${item.role ? ` · ${item.role}` : ""}`))))
-      ),
-      h(
-        "section",
-        null,
-        h("h4", null, "操作步骤"),
-        h("ol", null, (planPreview.steps || []).map((item, index2) => h("li", { key: index2 }, h("b", null, item.step), `：${item.description}${item.monitoring ? `（监测：${item.monitoring}）` : ""}`)))
-      ),
-      h(
-        "section",
-        null,
-        h("h4", null, "后处理、纯化与表征"),
-        h("p", null, [planPreview.workup, ...planPreview.purification || [], ...planPreview.characterization || []].filter(Boolean).join("；") || "待确认")
-      ),
-      h(
-        "section",
-        null,
-        h("h4", null, "安全与废弃物"),
-        h("ul", null, (planPreview.safety || []).map((item, index2) => h("li", { key: index2 }, item)))
-      )
-    )
-  );
-  const openStructureEditor = (entry) => {
-    if (route?.locked) {
-      notify2("当前路线已锁定；请先复制为新版本。");
-      return;
-    }
-    if (!selectedStep) return;
-    setKetcherModal({ stepKey: selectedStep.id, name: entry?.name || "", smiles: entry?.smiles || "", role: entry?.role || "unknown" });
-  };
-  const saveKetcherSmiles = (smiles) => withBusy(`struct:${ketcherModal?.name}`, async () => {
-    const modal = ketcherModal;
-    const clean = String(smiles ?? "").trim();
-    if (!modal || !clean) {
-      notify2(clean ? "结构式为空，未保存" : "保存失败：未收到结构式");
-      return;
-    }
-    try {
-      if (modal.evidenceId) {
-        setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saving", message: "正在保存补绘结构…" });
-        await call("synth_evidence_review", { request: { id: modal.evidenceId, status: "corrected", correction: clean } });
-        const reload2 = await call("synth_route_detail", { request: { id: routeId } });
-        setDetail(reload2);
-        setCorrectionFor(null);
-        setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "saved", message: "补绘结构已保存并更新到路线。" });
-        setKetcherModal(null);
-        notify2(`已补绘并保存「${modal.name}」结构。`);
-        return;
-      }
-      await call("synth_step_set_structure", { request: { routeId, stepId: modal.stepKey, name: modal.name, smiles: clean } });
-      notify2(`已用 Ketcher 结果更新「${modal.name}」结构式（source=manual）。`);
-      const reload = await call("synth_route_detail", { request: { id: routeId } });
-      setDetail(reload);
-      setKetcherModal(null);
-    } catch (reason) {
-      if (modal?.evidenceId) setEvidenceFeedback({ id: modal.evidenceId, action: "correct", state: "error", message: reason.message || "补绘结构保存失败，请重试。" });
-      notify2(reason.message || "结构式保存失败");
-    }
-  });
-  (0, import_react9.useEffect)(() => {
-    const candidates = detail?.evidence || [];
-    const rows = selectedStep ? candidates.filter((row2) => row2.stepId === selectedStep.id || row2.stepId === void 0 && row2.stepKey !== void 0 && Number(row2.stepKey) === selectedStep.step) : [];
-    setSelectedEvidenceId((current) => current && rows.some((row2) => row2.id === current) ? current : rows[0]?.id ?? null);
-  }, [detail, selectedStepId]);
-  (0, import_react9.useEffect)(() => {
-    if (!routeId) return void 0;
-    let stale = false;
-    call("synth_review_batch_get", { request: { routeId } }).then((result) => {
-      if (!stale) setBatchList(result.batches || []);
-    }).catch(() => {
-      if (!stale) setBatchList([]);
-    });
-    return () => {
-      stale = true;
-    };
-  }, [routeId, tick]);
-  const runDualResolve = () => withBusy("dual", async () => {
-    if (route?.locked) {
-      notify2("当前路线已锁定；请先复制为新版本。");
-      return;
-    }
-    if (!selectedStep) return;
-    const result = await call("synth_step_resolve_dual", { request: { routeId, stepId: selectedStep.id } });
-    const r = result.result || {};
-    setDualPanel({ results: r.results || [], missingAfter: r.missingAfter || [] });
-    if (!(r.results || []).length) notify2("该步骤化合物均已具备结构式，无需查询。");
-  });
-  const registerDualStructure = (item) => withBusy(`dual-save:${item.name}`, async () => {
-    if (route?.locked) {
-      notify2("当前路线已锁定；请先复制为新版本。");
-      return;
-    }
-    if (!selectedStep || !item?.smiles) return;
-    const verifiedSources = item.status === "dual-confirmed" ? ["pubchem", "cactus"] : item.sources?.pubchem?.smiles ? ["pubchem"] : ["cactus"];
-    try {
-      await call("synth_step_set_structure", { request: { routeId, stepId: selectedStep.id, name: item.name, smiles: item.smiles, casNumber: item.casNumber || void 0, inchiKey: item.inchiKey || void 0, verification: { status: item.status, sources: verifiedSources, checkedAt: (/* @__PURE__ */ new Date()).toISOString() } } });
-      notify2(`已登记「${item.name}」结构（${item.status === "dual-confirmed" ? "PubChem/CACTUS 双源一致" : "单源确认"}）${item.casNumber ? `，CAS ${item.casNumber}` : ""}。`);
-      const reload = await call("synth_route_detail", { request: { id: routeId } });
-      setDetail(reload);
-      if (dualPanel) setDualPanel({ results: dualPanel.results.filter((row2) => row2.name !== item.name), missingAfter: dualPanel.missingAfter });
-    } catch (reason) {
-      notify2(reason.message || "登记失败");
-    }
-  });
-  const newRouteDialog = newRouteForm ? h("div", { className: "sw-struct-edit" }, h(
-    "div",
-    { className: "sw04-form", style: { maxWidth: 460, margin: "auto" } },
-    h("b", null, "新建路线（draft · 未锁定）"),
-    h("label", { style: { fontSize: 10, color: "var(--ib-text)" } }, "合成目标"),
-    h(
-      "select",
-      { value: newRouteForm.targetId, onChange: (event) => setNewRouteForm({ ...newRouteForm, targetId: event.target.value }) },
-      targets.map((row2) => h("option", { key: row2.id, value: row2.id }, `${row2.name}${row2.smiles ? " · " + row2.smiles : ""}`))
-    ),
-    h("label", { style: { fontSize: 10, color: "var(--ib-text)" } }, "路线名称"),
-    h("input", { value: newRouteForm.name, placeholder: "例如：目标分子的 3 步合成路线", onChange: (event) => setNewRouteForm({ ...newRouteForm, name: event.target.value }) }),
-    h(
-      "div",
-      { className: "sw04-form-acts" },
-      h("button", { className: "sw-mini-btn", onClick: () => setNewRouteForm(null) }, "取消"),
-      h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"], onClick: () => void submitNewRoute(newRouteForm) }, busy["new-route"] ? "创建中…" : "创建路线")
-    )
-  )) : null;
-  if (!routes.length) {
-    return h(
-      "div",
-      { className: "sw-plan" },
-      h(
-        "section",
-        { className: "ib-card" },
-        h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "合成路线工作台"), h("span", { className: "ib-chip" }, "空状态")),
-        h(
-          "div",
-          { className: "sw-plan-empty" },
-          h("b", null, targets.length ? "已登记合成目标，但还没有合成路线" : "尚未登记合成目标/路线"),
-          targets.length ? "可新建路线，或让 Agent 根据文献登记路线与步骤。" : "先在课题中登记合成目标，路线出现后会在这里变成可交互工作台。"
-        ),
-        targets.length ? h("div", { className: "sw04-form-acts", style: { marginTop: 12, justifyContent: "center" } }, h("button", { className: "sw-mini-btn", "data-primary": true, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }) }, "新建路线")) : null
-      ),
-      newRouteDialog
-    );
-  }
-  const originChip = route ? ROUTE_ORIGIN_LABEL[route.origin] || route.origin : "";
-  const evidenceCount = detail ? detail.evidence.length : 0;
-  return h(
-    "div",
-    { className: "sw-plan" },
-    h(
-      "section",
-      { className: "sw-sec" },
-      h(
-        "div",
-        { className: "sw-head" },
-        h(
-          "div",
-          null,
-          h("h3", null, "合成路线工作台"),
-          h("p", null, "路线层：目标、版本、步骤拓扑。点击任一 Step 查看条件、文献来源与可行性；修改请先“复制为新版本”，不会覆盖已审核版本。")
-        ),
-        h(
-          "div",
-          { className: "sw-acts" },
-          h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["new-route"] || !targets.length, onClick: () => setNewRouteForm({ name: "", targetId: targets[0]?.id || "" }), title: targets.length ? "从目标新建一条未锁定路线" : "需要先在课题登记合成目标" }, busy["new-route"] ? "创建中…" : "新建路线"),
-          h("button", { className: "sw-mini-btn", disabled: !!busy["add-step"] || route?.locked, onClick: () => runAction("add-step") }, busy["add-step"] ? "添加中…" : "添加步骤"),
-          route?.locked ? h("span", { className: "sw-chip", "data-tone": "good" }, "已锁定") : h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.lock, onClick: () => runAction("lock") }, busy.lock ? "锁定中…" : "锁定版本"),
-          h(
-            "div",
-            { style: { position: "relative" } },
-            h("button", { className: "sw-mini-btn", "data-warn": moreOpen ? "true" : void 0, onClick: () => setMoreOpen((value) => !value), "aria-expanded": moreOpen ? "true" : "false" }, moreOpen ? "收起菜单" : "更多"),
-            moreOpen ? h(
-              "div",
-              { className: "sw04-more" },
-              h("button", { className: "sw-mini-btn", onClick: () => {
-                setMoreOpen(false);
-                runAction("revision");
-              } }, "复制为新版本"),
-              h("button", { className: "sw-mini-btn", disabled: !!busy.extract, onClick: () => {
-                setMoreOpen(false);
-                runAction("extract");
-              }, title: detail?.capability?.reason || "" }, "从文献提取路线"),
-              h("button", { className: "sw-mini-btn", onClick: () => {
-                setMoreOpen(false);
-                runAction("retro");
-              }, title: "需要 RetrosynthesisProvider（0.3.0 未配置）" }, "整体逆向规划"),
-              h("button", { className: "sw-mini-btn", onClick: () => {
-                setMoreOpen(false);
-                setTick((t) => t + 1);
-                void onChanged();
-              } }, "刷新"),
-              h("button", { className: "sw-mini-btn", "data-danger": true, disabled: !!busy["delete-route"] || route?.locked, title: route?.locked ? "锁定版本不能删除" : "删除当前路线及其事实和审核批次", onClick: () => runAction("delete-route") }, busy["delete-route"] ? "删除中…" : "删除当前路线")
-            ) : null
-          )
-        )
-      ),
-      // rc.4 §7：顶部只保留路线/版本选择 + 锁定/新建/添加/更多动作。
-      // 目标/状态/锁定态不放常驻状态墙，压缩为一行弱化路线说明。
-      h(
-        "div",
-        { className: "sw-toolbar" },
-        h(
-          "select",
-          { className: "sw-select", value: routeId || "", onChange: (event) => setRouteId(event.target.value), style: { maxWidth: 340, fontSize: 10.5 }, "aria-label": "选择路线/版本" },
-          routes.map((row2) => h("option", { key: row2.id, value: row2.id }, `${row2.name} · v${row2.version}${row2.origin ? ` · ${ROUTE_ORIGIN_LABEL[row2.origin] || row2.origin}` : ""}`))
-        ),
-        route ? h("span", { className: "sw-meta-note", style: { flex: 1, minWidth: 0 }, title: `${route.name} · ${ROUTE_STATUS_LABEL[route.status] || route.status}${route.locked ? " · 已锁定" : " · 未锁定"}${target ? ` · 目标 ${target.name}` : ""}` }, [target ? `目标 ${target.name}` : null, route.locked ? "已锁定 · 只读" : "未锁定", ROUTE_STATUS_LABEL[route.status] || route.status].filter(Boolean).join(" · ")) : null
-      ),
-      error62 ? h("div", { className: "ib-error", style: { marginTop: 10 } }, error62) : null,
-      lockBlockers.length ? h(
-        "div",
-        { className: "ib-error", style: { marginTop: 8, border: "1px solid var(--ib-line)", padding: "10px 12px", borderRadius: 10 } },
-        h("b", null, "锁定被阻断："),
-        lockBlockers.map((blocker, index2) => h(
-          "div",
-          { key: `${blocker.code}-${index2}`, style: { marginTop: 5, lineHeight: 1.6 } },
-          `${index2 + 1}. ${blocker.message}`,
-          (blocker.stepIds || []).length ? h("span", { style: { marginLeft: 6, color: "var(--ib-text)" } }, `步骤：${blocker.stepIds.join("、")}`) : null,
-          (blocker.evidenceIds || []).length ? h("span", { style: { marginLeft: 6, color: "var(--ib-text)" } }, `事实：${blocker.evidenceIds.join("、")}`) : null
-        ))
-      ) : null,
-      h(
-        "div",
-        { className: "sw-graph" },
-        !detail ? h(
-          "div",
-          { className: "sw-plan-empty", style: { flex: 1 } },
-          h("span", { className: "sw-spin" }),
-          h("b", null, error62 ? "路线加载失败" : "正在加载路线…"),
-          error62 || "正在读取路线、步骤与 Evidence…"
-        ) : !detail.route.steps?.length ? h(
-          "div",
-          { className: "sw-plan-empty", style: { flex: 1 } },
-          h("b", null, "该路线还没有任何步骤"),
-          "使用“从文献提取路线”，或让 Agent / 人工登记步骤与结构化条件。"
-        ) : (() => {
-          const steps = detail.route.steps;
-          const foundIndex = steps.findIndex((item) => (item.id ?? `s${item.step}`) === selectedStepId);
-          const stepIndex = foundIndex >= 0 ? foundIndex : 0;
-          const step = steps[stepIndex];
-          const reactantEntries = stepCompoundsByRole(step, ["reactant"]);
-          const productEntries = stepCompoundsByRole(step, ["product"]);
-          const selectStepAt = (index2) => {
-            const next = steps[index2];
-            if (!next) return;
-            setSelectedStepId(next.id ?? `s${next.step}`);
-            setMoreOpen(false);
-          };
-          const openOverviewStructure = (targetStep, entry) => {
-            if (route?.locked) {
-              notify2("当前路线已锁定；请先复制为新版本。");
-              return;
-            }
-            const targetKey = targetStep?.id ?? `s${targetStep?.step}`;
-            setSelectedStepId(targetKey);
-            setMoreOpen(false);
-            setKetcherModal({ stepKey: targetKey, name: entry?.name || "", smiles: entry?.smiles || "", role: entry?.role || "unknown" });
-          };
-          const structureNode = (entry) => h(
-            "span",
-            { className: "sw-step-chem-node", key: `${entry.name}-${entry.smiles || "none"}`, title: entry.casNumber ? `${entry.name} · CAS ${entry.casNumber}` : entry.name },
-            h(StructureCard, { entry, onClick: () => openOverviewStructure(step, entry), compact: true })
-          );
-          const structureRow = (entries, fallbackNames, dataRole) => entries.length ? h("span", { className: "sw-step-chem-flow", "data-role": dataRole }, entries.map(structureNode)) : h("span", { className: "sw-step-chem-empty", "data-role": dataRole }, (fallbackNames || []).join("、") || "结构待补");
-          const legacyScheme = h(
-            "span",
-            { className: "sw-step-chem" },
-            h("span", { className: "sw-step-chem-reactants", "data-role": "reactants" }, structureRow(reactantEntries, step.reactants, "reactants")),
-            h("span", { className: "sw-step-chem-mid" }, h("span", { className: "sw-step-chem-arrow", "aria-hidden": "true" }, "→"), null),
-            h("span", { className: "sw-step-chem-products", "data-role": "products" }, structureRow(productEntries, step.products, "products"))
-          );
-          return h(
-            "div",
-            { className: "sw-step-carousel", "aria-label": "合成步骤分页预览" },
-            h("button", { className: "sw-step-page-btn", disabled: stepIndex === 0, onClick: () => selectStepAt(stepIndex - 1), "aria-label": "上一个合成步骤", title: "上一个合成步骤" }, "‹"),
-            h(
-              "div",
-              { key: step.id ?? step.step, className: "sw-step sw-step-scheme", "data-active": "true", "aria-label": `${step.id ?? `s${step.step}`}：${step.label || step.reaction || `Step ${step.step}`}` },
-              h(
-                "span",
-                { className: "sw-step-top" },
-                h("span", { className: "sw-step-id" }, step.id ?? `s${step.step}`),
-                h("span", { className: "sw-step-page-count" }, `${stepIndex + 1} / ${steps.length}`)
-              ),
-              h("span", { className: "sw-step-reaction" }, step.label || step.reaction || `Step ${step.step}`),
-              h(ReactionSchemePreview, { step, reactants: reactantEntries, products: productEntries, onStructureClick: (entry) => openOverviewStructure(step, entry), fallback: legacyScheme })
-            ),
-            h("button", { className: "sw-step-page-btn", disabled: stepIndex === steps.length - 1, onClick: () => selectStepAt(stepIndex + 1), "aria-label": "下一个合成步骤", title: "下一个合成步骤" }, "›")
-          );
-        })()
-      )
-    ),
-    selectedStep && detail ? h(
-      "section",
-      { className: "sw-sec sw04-detail" },
-      h(
-        "div",
-        { className: "sw-head" },
-        h(
-          "div",
-          null,
-          h("h3", null, `${selectedStep.id} · 步骤详情`),
-          h("p", null, "横向反应式：左侧反应物 → 中间条件与注意事项 → 右侧产物。字段无来源显示“文献未提供 / 待确认”，系统不自动补默认值；缺结构可解析或 Ketcher 补绘。")
-        ),
-        h(
-          "div",
-          { className: "sw-acts" },
-          h("button", { className: "sw-mini-btn", disabled: !!busy.dual || route?.locked, onClick: () => void runDualResolve(), title: "PubChem/CACTUS 查询缺结构化合物，首个来源命中即可登记" }, busy.dual ? "查询中…" : "补充结构"),
-          h("button", { className: "sw-mini-btn", "data-primary": routePlan ? true : void 0, "data-ready": routePlan ? "true" : "false", disabled: !route?.steps?.length, onClick: () => routePlan ? setPlanPreview(routePlan) : requestExperimentPlan(), title: routePlan ? "查看已登记实验计划" : "在当前课题工作区新建对话并预填实验计划任务" }, routePlan ? "打开实验计划" : "生成实验计划")
-        )
-      ),
-      h(StepReactionLayout, { step: selectedStep, onStructureClick: openStructureEditor }),
-      h("p", { className: "sw04-difficulty" }, h("b", null, "步骤难点"), selectedStep.difficultySummary || "缺少足够的结构或条件信息，需先核验。"),
-      stepIsStructured(selectedStep) ? h("div", { className: "sw-notes", style: { marginTop: 10 } }, h("div", { className: "sw-note" }, h("i", null, "✓"), h("span", null, "结构化条件已在中栏完整展示；字段级原文来源请到下方「事实核验」面板逐条确认。"))) : h("div", { className: "sw-notes", style: { marginTop: 12 } }, h("div", { className: "sw-note" }, h("i", null, "⚠"), h("span", null, selectedStep.conditions ? `该步骤为原文摘要形态（未结构化）。原文条件摘要：${selectedStep.conditions}` : "该步骤为原文摘要形态（未结构化）。关键字段暂视为“待确认”，可在对话中让 Agent 拆分为结构化条件并补充 Evidence。"))),
-      (selectedStep.procedure?.notes || []).length ? h("div", { className: "sw-notes" }, selectedStep.procedure.notes.map((note, index2) => h("div", { className: "sw-note", key: index2 }, h("i", null, "⚠"), h("span", null, note)))) : null
-    ) : h("section", { className: "sw-sec" }, h("div", { className: "sw-plan-empty" }, h("b", null, "尚未选择步骤"), "在上方路线总览中点击一个 Step，查看横向反应式、事实核验与实验计划。")),
-    selectedStep && detail ? h(
-      "section",
-      { className: "sw-sec sw04-fact" },
-      h(
-        "div",
-        { className: "sw-head" },
-        h(
-          "div",
-          null,
-          h("h3", null, "事实核验"),
-          h("p", null, "本步事实以紧凑列表展示；点击「审核」从右侧打开已归档 PDF/SI 原文定位，在抽屉内完成确认 / 修正 / 无法确认。没有归档原文的自动提取项不能计为核验完成。"),
-          h(
-            "span",
-            { className: "sw-chip", "data-tone": stepEvidence.some((row2) => row2.reviewStatus === "pending") ? "warn" : "good" },
-            `待核验 ${stepEvidence.filter((row2) => row2.reviewStatus === "pending").length} / 已确认 ${stepEvidence.filter((row2) => row2.reviewStatus === "confirmed").length}`
-          )
-        )
-      ),
-      stepEvidence.length ? h("div", { className: "sw04-fact-compact" }, stepEvidence.map((row2) => {
-        const locked = !!route?.locked;
-        const reviewLabel = { pending: "待核验", confirmed: "已确认", corrected: "已修正", rejected: "无法确认", edited: "已修订" }[row2.reviewStatus] || row2.reviewStatus;
-        const reviewTone = row2.reviewStatus === "pending" ? "warn" : row2.reviewStatus === "rejected" ? "bad" : "good";
-        const candidateMethod = row2.structureCandidate?.method === "visual-extraction" ? "图片提取" : "文献推测";
-        const claim2 = row2.structureCandidate ? `${candidateMethod}候选 · SMILES ${row2.userCorrection || row2.structureCandidate.smiles}` : row2.userCorrection || row2.excerpt || row2.title || row2.sourceName || "";
-        const fieldLabel = row2.supportsField ? String(row2.supportsField) : row2.title || "核验项";
-        return h(
-          "div",
-          { key: row2.id, className: "sw04-fact-row" },
-          h(
-            "div",
-            { className: "sw04-fact-row-main" },
-            h("div", { className: "sw04-fact-row-title" }, row2.title || row2.sourceName || fieldLabel),
-            h("div", { className: "sw04-fact-row-meta" }, `${EVIDENCE_SOURCE_LABEL[row2.sourceType] || row2.sourceType}${evidenceLocator(row2) ? " · " + evidenceLocator(row2) : ""}${row2.supportsField ? " · " + row2.supportsField : ""}`),
-            claim2 ? h("div", { className: "sw04-fact-row-claim", title: claim2 }, claim2) : null
-          ),
-          h(
-            "span",
-            { className: "sw04-fact-row-status" },
-            h("span", { className: "sw-chip", "data-tone": reviewTone }, `第 ${row2.reviewRound || 1} 轮 · ${reviewLabel}`)
-          ),
-          h("button", { className: "sw04-fact-review-btn", "data-done": row2.reviewStatus !== "pending" ? "true" : void 0, disabled: locked, onClick: () => openReviewDrawer(row2.id), title: locked ? "路线已锁定" : row2.reviewStatus !== "pending" ? "重新审核该事实" : "审核该事实（打开右侧原文核对抽屉）" }, row2.reviewStatus !== "pending" ? "重新审核" : "审核")
-        );
-      })) : h("div", { className: "sw-plan-empty", style: { marginTop: 12, padding: "20px 14px" } }, h("b", null, "该步骤暂无字段级 Evidence"), "关键实验字段缺少文献支撑时视为“待确认”；可让 Agent 从 SI/正文提取并绑定到字段。"),
-      stepEvidence.length ? h(
-        "div",
-        { className: "sw04-batchbar" },
-        h("b", null, "本轮事实核验"),
-        h("small", null, stepEvidence.filter((row2) => row2.reviewStatus === "pending").length ? `${stepEvidence.filter((row2) => row2.reviewStatus === "pending").length} 条仍待选择（确认/修正/无法确认）。` : "本步事实已全部人工选择。"),
-        h("span", { style: { flex: 1 } }),
-        h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy.batch || route?.locked || stepEvidence.some((row2) => row2.reviewStatus === "pending"), onClick: () => void submitReviewBatch(), title: stepEvidence.some((row2) => row2.reviewStatus === "pending") ? "全部事实完成后才能提交" : "提交后 Agent 只更新无法确认/缺失/冲突项" }, busy.batch ? "提交中…" : "交给 Agent 更新未确定项")
-      ) : null,
-      batchList.filter((row2) => row2.stepId === selectedStep.id).length ? h(
-        "div",
-        { className: "sw04-batchbar", style: { borderColor: "rgba(112,157,211,.3)", background: "var(--ib-panel)" } },
-        h("b", null, "审核批次"),
-        h("small", null, batchList.filter((row2) => row2.stepId === selectedStep.id).slice(0, 3).map((row2) => {
-          const tone = row2.status === "pending" ? "等待 Agent 处理" : row2.status === "applied" ? "Agent 已回写 · 进入下一轮" : "已关闭";
-          return h("span", { key: row2.id, className: "sw-chip", style: { marginRight: 6 } }, `第 ${row2.round} 轮 · ${tone} · ${row2.id}`);
-        })),
-        h("span", { style: { flex: 1 } }),
-        batchList.some((row2) => row2.stepId === selectedStep.id && ["pending", "applied"].includes(row2.status)) ? h("button", { className: "sw-mini-btn", disabled: !!route?.locked, onClick: () => void completeBatch(batchList.find((row2) => row2.stepId === selectedStep.id && ["pending", "applied"].includes(row2.status))) }, "关闭本步批次") : null
-      ) : null
-    ) : null,
-    addStepForm ? h("div", { className: "sw-struct-edit" }, h(
-      "div",
-      { className: "sw04-form" },
-      h("b", null, `添加步骤（Step ${Math.max(0, ...(route?.steps || []).map((item) => Number(item.step) || 0)) + 1}）`),
-      h("input", { value: addStepForm.reaction, placeholder: "反应名称/简述（必填），例如：RAFT 聚合", onChange: (event) => setAddStepForm({ ...addStepForm, reaction: event.target.value }) }),
-      h("input", { value: addStepForm.reactants, placeholder: "反应物（顿号或逗号分隔）", onChange: (event) => setAddStepForm({ ...addStepForm, reactants: event.target.value }) }),
-      h("input", { value: addStepForm.products, placeholder: "产物（顿号或逗号分隔）", onChange: (event) => setAddStepForm({ ...addStepForm, products: event.target.value }) }),
-      h(
-        "div",
-        { className: "sw04-form-acts" },
-        h("button", { className: "sw-mini-btn", onClick: () => setAddStepForm(null) }, "取消"),
-        h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["add-step"], onClick: () => void submitAddStep(addStepForm) }, busy["add-step"] ? "添加中…" : "添加")
-      )
-    )) : null,
-    newRouteDialog,
-    // 0.4.0：PubChem/CACTUS 双源核验结果面板（四态候选，登记需人工点击）
-    dualPanel ? h("div", { className: "sw-struct-edit" }, h(
-      "div",
-      { style: { width: "min(820px,96vw)", maxHeight: "84vh", overflowY: "auto", display: "grid", gap: 10, background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 14, padding: 16, color: "var(--ib-text)", fontSize: 11, lineHeight: 1.6 } },
-      h(
-        "div",
-        { style: { display: "flex", alignItems: "center", gap: 10 } },
-        h("b", { style: { fontSize: 13, color: "var(--ib-text)" } }, "结构查询 · 单源命中即可登记"),
-        h("span", { style: { flex: 1 } }, `${dualPanel.results.length} 个化合物缺结构式`),
-        h("button", { className: "sw-mini-btn", onClick: () => setDualPanel(null) }, "关闭")
-      ),
-      h("p", { style: { margin: 0, color: "var(--ib-text)" } }, "采用首个命中的结构与 CAS。可点击登记补充到路线；未命中时可在 Ketcher 中补绘。"),
-      dualPanel.results.length ? dualPanel.results.map((item) => {
-        const tone = item.status === "dual-confirmed" ? "#a5e8c6" : item.status === "single-source" ? "#ffe1a0" : item.status === "conflict" ? "#ffb3bd" : "#9bb3d1";
-        const label2 = item.status === "dual-confirmed" ? "双源一致" : item.status === "single-source" ? item.sources?.pubchem?.smiles ? "单源 · PubChem" : "单源 · CACTUS" : item.status === "conflict" ? "两源冲突" : "未命中";
-        const pub = item.sources?.pubchem || {};
-        const cac = item.sources?.cactus || {};
-        const pubText = pub.smiles ? "✓ " + String(pub.smiles).slice(0, 40) + (pub.cid ? " · CID " + pub.cid : "") : "✗ " + (pub.error || "未查询");
-        const cacText = cac.smiles ? "✓ " + String(cac.smiles).slice(0, 40) : "✗ " + (cac.error || "未查询");
-        const canRegister = item.status === "dual-confirmed" || item.status === "single-source";
-        const rowStyle = { border: "1px solid var(--ib-line)", borderRadius: 11, background: "var(--ib-panel)", padding: "10px 12px", display: "grid", gap: 6 };
-        const headFlex = h(
-          "div",
-          { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-          h("b", { style: { color: "var(--ib-text)" } }, item.name),
-          h("span", { style: { color: tone, border: "1px solid " + tone + "55", background: tone + "14", borderRadius: 999, padding: "1px 8px", fontSize: 9 } }, label2),
-          item.casNumber ? h("span", { className: "sw-chip" }, "CAS " + item.casNumber) : null,
-          h("span", { style: { flex: 1 } }),
-          canRegister ? h("button", { className: "sw-mini-btn", "data-primary": true, disabled: !!busy["dual-save:" + item.name], onClick: () => void registerDualStructure(item) }, busy["dual-save:" + item.name] ? "登记中…" : "登记结构") : null,
-          h("button", { className: "sw-mini-btn", disabled: route?.locked, onClick: () => {
-            setDualPanel(null);
-            openStructureEditor({ name: item.name });
-          } }, "Ketcher 补绘")
-        );
-        const smilesRow = item.smiles ? h("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 9.5, color: "var(--ib-text)", wordBreak: "break-all" } }, "SMILES " + item.smiles) : null;
-        const srcRow = h(
-          "div",
-          { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 9.5, color: "var(--ib-text)" } },
-          h("span", null, "PubChem " + pubText),
-          h("span", null, "CACTUS " + cacText)
-        );
-        return h("div", { key: item.name, style: rowStyle }, headFlex, smilesRow, srcRow);
-      }) : h("div", { className: "sw-plan-empty", style: { padding: "16px 14px" } }, "缺结构化合物已完成查询或登记。")
-    )) : null,
-    planPreviewNode,
-    // ── RC1-04/05：右侧审核抽屉（单例，按 activeEvidenceId 动态渲染）──
-    reviewDrawerOpen && activeEvidence ? h(
-      "div",
-      { className: "sw04-review-backdrop", onClick: closeReviewDrawer },
-      h(
-        "div",
-        { className: "sw04-review-drawer", role: "dialog", "aria-modal": "true", "aria-label": "事实核验审核抽屉", onClick: (event) => event.stopPropagation() },
-        h(
-          "div",
-          { className: "sw04-review-head" },
-          h(
-            "div",
-            { className: "sw04-review-head-main" },
-            h("span", { className: "sw04-review-head-title" }, activeEvidence.title || activeEvidence.sourceName || "事实核验"),
-            h("span", { className: "sw04-review-head-sub" }, `${EVIDENCE_SOURCE_LABEL[activeEvidence.sourceType] || activeEvidence.sourceType}${activeEvidence.doi ? " · DOI " + activeEvidence.doi : ""}${evidenceLocator(activeEvidence) ? " · " + evidenceLocator(activeEvidence) : ""}${activeEvidence.supportsField ? " · 字段 " + activeEvidence.supportsField : ""}`)
-          ),
-          h("button", { className: "sw04-review-close", onClick: closeReviewDrawer, "aria-label": "关闭审核抽屉" }, "关闭")
-        ),
-        h(
-          "div",
-          { className: "sw04-review-body" },
-          h(
-            "div",
-            { className: "sw04-review-copy" },
-            h("div", { className: "sw04-review-field" }, h("b", null, "核验字段："), activeEvidence.supportsField || activeEvidence.title || "（未标注字段）"),
-            activeEvidence.excerpt ? h("div", { className: "sw04-review-quote" }, h("b", null, "系统提取值："), activeEvidence.excerpt) : null,
-            activeEvidence.userCorrection ? h("div", { className: "sw04-review-quote", style: { borderLeftColor: "#d9a441", background: "var(--ib-panel)" } }, h("b", null, "人工修正："), activeEvidence.userCorrection, activeEvidence.originalExtract ? `（原始提取：${activeEvidence.originalExtract}）` : "") : null,
-            activeEvidence.structureCandidate ? h(
-              "div",
-              { className: "sw04-structure-candidate" },
-              h(
-                "div",
-                { className: "sw04-structure-candidate-head" },
-                h(
-                  "div",
-                  null,
-                  h("b", null, activeEvidence.structureCandidate.method === "visual-extraction" ? "图片提取结构候选" : "文献推测结构候选"),
-                  h("small", null, "候选已显示在合成路线中，需在此人工核验后固化。")
-                ),
-                h("button", { className: "sw-mini-btn", disabled: !!route?.locked || !!busy[`ev:${activeEvidence.id}`], onClick: () => setKetcherModal({ stepKey: activeEvidence.stepId || selectedStep?.id, name: activeEvidence.structureCandidate.name, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, role: activeEvidence.structureCandidate.role, evidenceId: activeEvidence.id }) }, "Ketcher 补绘 / 修正")
-              ),
-              h(StructureCard, { entry: { ...activeEvidence.structureCandidate, smiles: activeEvidence.userCorrection || activeEvidence.structureCandidate.smiles, source: activeEvidence.userCorrection ? "manual" : activeEvidence.structureCandidate.method }, compact: false })
-            ) : null,
-            // 已有 PDF 时直接展示原文定位，不再重复显示服务端截图。
-            h(PdfViewerFrame, { row: activeEvidence, notify: notify2 }),
-            evidenceFeedback?.id === activeEvidence.id ? h("div", { className: "sw04-review-feedback", "data-state": evidenceFeedback.state, role: "status", "aria-live": "polite" }, evidenceFeedback.state === "saving" ? "◌" : evidenceFeedback.state === "saved" ? "✓" : "!", " ", evidenceFeedback.message) : null
-          ),
-          h(
-            "div",
-            { className: "sw04-review-foot" },
-            h("input", { className: "sw04-review-note", value: correctionFor?.value ?? "", placeholder: activeEvidence.structureCandidate ? "输入修正后的 SMILES，或使用 Ketcher 补绘" : "修正值（确认/无法确认可留空）", onChange: (event) => setCorrectionFor({ id: activeEvidence.id, value: event.target.value }), disabled: !!busy[`ev:${activeEvidence.id}`] || !!route?.locked }),
-            h("button", { className: "sw-mini-btn", "data-no": true, "data-selected": activeEvidence.reviewStatus === "rejected" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "rejected") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "reject" ? "标记中…" : activeEvidence.reviewStatus === "rejected" ? "✓ 已标无法确认" : "无法确认"),
-            h("button", { className: "sw-mini-btn", "data-selected": activeEvidence.reviewStatus === "corrected" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void saveCorrection(activeEvidence, correctionFor?.value ?? "") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "correct" ? "保存中…" : activeEvidence.reviewStatus === "corrected" ? "✓ 已修正" : "修正"),
-            h("button", { className: "sw-mini-btn", "data-primary": true, "data-selected": activeEvidence.reviewStatus === "confirmed" ? "true" : void 0, disabled: !!busy[`ev:${activeEvidence.id}`] || route?.locked, onClick: () => void decideEvidence(activeEvidence, "confirmed") }, busy[`ev:${activeEvidence.id}`] && evidenceFeedback?.action === "confirm" ? "确认中…" : activeEvidence.reviewStatus === "confirmed" ? "✓ 已确认" : "确认通过"),
-            h("button", { className: "sw04-review-next", disabled: !stepEvidence.some((row2) => row2.reviewStatus === "pending" && row2.id !== activeEvidence.id), onClick: () => {
-              const next = stepEvidence.find((row2) => row2.reviewStatus === "pending" && row2.id !== activeEvidence.id);
-              if (next) {
-                setSelectedEvidenceId(next.id);
-                setCorrectionFor(null);
-                setEvidenceFeedback(null);
-              }
-            }, title: "跳到下一条待审核事实" }, "下一条待审核")
-          )
-        )
-      )
-    ) : null,
-    h(KetcherEditorModal, { entry: ketcherModal, onSave: (smiles) => void saveKetcherSmiles(smiles), onCancel: () => setKetcherModal(null) })
-  );
-}
-
-// client/src/components-nmr.js
-var import_react16 = require("react");
-var import_react_dom5 = require("react-dom");
-
 // client/src/reading-action-icons.js
 var icon2 = (...children) => h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...children);
 var OverviewSvg = () => icon2(h("circle", { cx: 12, cy: 12, r: 9 }), h("path", { d: "M12 11v6M12 7h.01" }));
@@ -56535,10 +55265,10 @@ var PresentationSvg = () => icon2(h("path", { d: "M3 3h18M4 3v12h16V3M12 15v6M8 
 var ConversationSvg = () => icon2(h("path", { d: "M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-3 2 2-6a8.5 8.5 0 1 1 18-4.5ZM7 10h9M7 14h6" }));
 
 // client/src/entry-conversation.js
-var import_react10 = require("react");
+var import_react9 = require("react");
 var readingConversationId = (report, bundle = {}) => bundle.conversationSessionId || report.sessionId || bundle.pdfIntake?.sessionId || [...bundle.translations || []].reverse().find((row2) => row2.sessionId)?.sessionId;
 function EntryConversationButton({ sessionId, onOpen, notify: notify2 }) {
-  const [busy, setBusy] = (0, import_react10.useState)(false), lock = (0, import_react10.useRef)(false);
+  const [busy, setBusy] = (0, import_react9.useState)(false), lock = (0, import_react9.useRef)(false);
   const open2 = async (event) => {
     event.stopPropagation();
     if (lock.current || !sessionId || !onOpen) return;
@@ -56557,17 +55287,17 @@ function EntryConversationButton({ sessionId, onOpen, notify: notify2 }) {
 }
 
 // client/src/reading-context-menu.js
-var import_react11 = require("react");
+var import_react10 = require("react");
 var import_react_dom2 = require("react-dom");
 function ReadingContextMenu({ menu, onClose, onDelete, onDeleteOutputs, label: label2 = "精读条目操作" }) {
-  const root = (0, import_react11.useRef)(null);
-  (0, import_react11.useLayoutEffect)(() => {
+  const root = (0, import_react10.useRef)(null);
+  (0, import_react10.useLayoutEffect)(() => {
     const node2 = root.current, rect = node2.getBoundingClientRect();
     node2.style.left = Math.max(8, Math.min(menu.x, innerWidth - rect.width - 8)) + "px";
     node2.style.top = Math.max(8, Math.min(menu.y, innerHeight - rect.height - 8)) + "px";
     node2.querySelector("button")?.focus({ preventScroll: true });
   }, [menu]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const outside = (event) => {
       if (!root.current?.contains(event.target)) onClose();
     };
@@ -56605,7 +55335,7 @@ function ReadingContextMenu({ menu, onClose, onDelete, onDeleteOutputs, label: l
 }
 
 // client/src/nmr-input-zone.js
-var import_react12 = require("react");
+var import_react11 = require("react");
 
 // client/src/nmr-files.js
 var NMR_DATA_ACCEPT = ".zip,.mnova,.jdx,.dx,.jcamp";
@@ -56642,7 +55372,7 @@ function nmrDropFiles(dataTransfer) {
 
 // client/src/nmr-input-zone.js
 function NmrInputZone({ kind, name, drawn, busy, onFiles, onDraw }) {
-  const picker = (0, import_react12.useRef)(null), depth = (0, import_react12.useRef)(0), [dragging, setDragging] = (0, import_react12.useState)(false);
+  const picker = (0, import_react11.useRef)(null), depth = (0, import_react11.useRef)(0), [dragging, setDragging] = (0, import_react11.useState)(false);
   const structure = kind === "structure", label2 = structure ? "分子结构式" : "核磁原始数据";
   const isFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
   const claim2 = (event) => {
@@ -56698,7 +55428,7 @@ function NmrInputZone({ kind, name, drawn, busy, onFiles, onDraw }) {
 }
 
 // client/src/nmr-simulation-settings.js
-var import_react13 = require("react");
+var import_react12 = require("react");
 var import_react_dom3 = require("react-dom");
 
 // src/nmr/simulation.js
@@ -56706,7 +55436,7 @@ var SIMULATION_SOLVENTS = ["CDCl3", "DMSO-d6", "D2O", "CD3OD", "Acetone-d6", "CD
 
 // client/src/nmr-simulation-settings.js
 function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
-  const [p, setP] = (0, import_react13.useState)({ nucleus: "1H", solvent: "CDCl3", frequencyMHz: 400, massMg: 10, volumeMl: 0.6, linewidthHz: 1.5, temperatureK: 298, scans: 16, includeExchangeable: false }), [error62, setError] = (0, import_react13.useState)("");
+  const [p, setP] = (0, import_react12.useState)({ nucleus: "1H", solvent: "CDCl3", frequencyMHz: 400, massMg: 10, volumeMl: 0.6, linewidthHz: 1.5, temperatureK: 298, scans: 16, includeExchangeable: false }), [error62, setError] = (0, import_react12.useState)("");
   const set2 = (key2, value) => setP((old) => ({ ...old, [key2]: value }));
   const number5 = (key2, label2, min, max) => h("label", { className: "ib-field" }, h("span", null, label2), h("input", { type: "number", step: "any", min, max, value: p[key2], onChange: (e) => set2(key2, e.target.value) }));
   const select3 = (key2, label2, choices) => h("label", { className: "ib-field" }, h("span", null, label2), h("select", { value: p[key2], onChange: (e) => {
@@ -56737,10 +55467,10 @@ function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
 }
 
 // client/src/nmr-delete-dialog.js
-var import_react14 = require("react");
+var import_react13 = require("react");
 var import_react_dom4 = require("react-dom");
 function NmrDeleteDialog({ row: row2, mode, busy, error: error62, onCancel, onDelete }) {
-  const [selected, setSelected] = (0, import_react14.useState)([]);
+  const [selected, setSelected] = (0, import_react13.useState)([]);
   const exists = (slot) => slot === "simulation" ? !!row2.simulationArtifact?.sha256 : !!row2.artifacts?.[slot]?.sha256 || (row2.artifactHistory || []).some((h2) => !!h2.artifacts?.[slot]?.sha256);
   const toggle = (slot) => setSelected((old) => old.includes(slot) ? old.filter((v) => v !== slot) : [...old, slot]);
   return (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
@@ -56759,11 +55489,11 @@ function NmrDeleteDialog({ row: row2, mode, busy, error: error62, onCancel, onDe
 }
 
 // client/src/components-literature.js
-var import_react15 = __toESM(require("react"), 1);
+var import_react14 = __toESM(require("react"), 1);
 function useBoundProject(sessionId, call, useSessions) {
   const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
-  const [bound, setBound] = (0, import_react15.useState)(null);
-  (0, import_react15.useEffect)(() => {
+  const [bound, setBound] = (0, import_react14.useState)(null);
+  (0, import_react14.useEffect)(() => {
     if (!sessionId) {
       setBound(null);
       return void 0;
@@ -56793,7 +55523,7 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
-  (0, import_react15.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
     document.body.dataset.ibResearchProject = bound.project.id;
@@ -56804,7 +55534,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       }
     };
   }, [bound?.project?.id]);
-  (0, import_react15.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId) return void 0;
     setBallTaskCancelHandler(async (taskId) => {
@@ -56830,7 +55560,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       setBallTaskRecreateHandler(null);
     };
   }, [bound?.project?.id, call]);
-  (0, import_react15.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
     let disposed = false;
@@ -57027,8 +55757,8 @@ var miniIcon = (kind) => h(
   kind === "simulation" ? h("path", { d: "M3 19h18M5 17h3l2-9 2 9h2l1-5 1 5h3M17 3v4M15 5h4" }) : kind === "structure" ? h("path", { d: "m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 3 5 3v6l-5 3-5-3V9l5-3Z" }) : kind === "folder" ? h("path", { d: "M3 7V5h6l2 2h10v12H3V7Zm0 3h18" }) : h("path", { d: kind === "raw" ? "M3 4v16h18M6 15h3l2-8 3 10 2-6h4" : "M3 4v16h18M6 15h3l2-8 3 10 2-6h4M15 4l2 2 4-4" })
 );
 function NmrStructure({ row: row2, projectId, call, large = false }) {
-  const [preview, setPreview] = (0, import_react16.useState)({ loading: true });
-  (0, import_react16.useEffect)(() => {
+  const [preview, setPreview] = (0, import_react15.useState)({ loading: true });
+  (0, import_react15.useEffect)(() => {
     let alive = true;
     setPreview({ loading: true });
     const work = async () => {
@@ -57050,19 +55780,19 @@ function NmrStructure({ row: row2, projectId, call, large = false }) {
   return h("div", { className: "ib-nmr-molecule", "data-large": large || void 0, "data-state": preview.loading ? "loading" : preview.image ? "loaded" : "missing" }, preview.image ? h("img", { src: preview.image, alt: row2.compound?.name || row2.title || "输入结构式" }) : preview.loading ? h(SpinSvg, null) : h("span", null, preview.message));
 }
 function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows = [] }) {
-  const [simulation, setSimulation] = (0, import_react16.useState)(false);
-  const [deleteRow, setDeleteRow] = (0, import_react16.useState)(null);
-  const [deleteMode, setDeleteMode] = (0, import_react16.useState)("all");
-  const [tasks, setTasks] = (0, import_react16.useState)([]), [error62, setError] = (0, import_react16.useState)(""), [notice, setNotice] = (0, import_react16.useState)(""), [loading2, setLoading] = (0, import_react16.useState)(true);
-  const [form, setForm] = (0, import_react16.useState)(null), [preview, setPreview] = (0, import_react16.useState)(null), [drawing, setDrawing] = (0, import_react16.useState)(false), [busy, setBusy] = (0, import_react16.useState)(false), [dragging, setDragging] = (0, import_react16.useState)(false), [menu, setMenu] = (0, import_react16.useState)(null);
-  const lock = (0, import_react16.useRef)(false), dragDepth = (0, import_react16.useRef)(0);
-  const closeMenu = (0, import_react16.useCallback)(() => setMenu(null), []);
-  const refresh = (0, import_react16.useCallback)(async () => {
+  const [simulation, setSimulation] = (0, import_react15.useState)(false);
+  const [deleteRow, setDeleteRow] = (0, import_react15.useState)(null);
+  const [deleteMode, setDeleteMode] = (0, import_react15.useState)("all");
+  const [tasks, setTasks] = (0, import_react15.useState)([]), [error62, setError] = (0, import_react15.useState)(""), [notice, setNotice] = (0, import_react15.useState)(""), [loading2, setLoading] = (0, import_react15.useState)(true);
+  const [form, setForm] = (0, import_react15.useState)(null), [preview, setPreview] = (0, import_react15.useState)(null), [drawing, setDrawing] = (0, import_react15.useState)(false), [busy, setBusy] = (0, import_react15.useState)(false), [dragging, setDragging] = (0, import_react15.useState)(false), [menu, setMenu] = (0, import_react15.useState)(null);
+  const lock = (0, import_react15.useRef)(false), dragDepth = (0, import_react15.useRef)(0);
+  const closeMenu = (0, import_react15.useCallback)(() => setMenu(null), []);
+  const refresh = (0, import_react15.useCallback)(async () => {
     const result = await call("characterization_list", { request: { projectId } });
     setTasks((result.tasks || []).filter((row2) => row2.kind === "nmr"));
     setLoading(false);
   }, [call, projectId]);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -57086,7 +55816,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
       clearTimeout(timer);
     };
   }, [projectId, call]);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     setForm(null);
     setPreview(null);
     setMenu(null);
@@ -57362,7 +56092,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
 }
 
 // client/src/components-plotting.js
-var import_react22 = require("react");
+var import_react21 = require("react");
 var import_react_dom7 = require("react-dom");
 
 // node_modules/zod/v4/classic/external.js
@@ -77201,10 +75931,10 @@ function manualChartChoices(profile, recommendations = []) {
 }
 
 // client/src/plot-editor-controls.js
-var import_react17 = require("react");
+var import_react16 = require("react");
 function TextInput({ value, onChange, disabled, ...props }) {
-  const [draft, setDraft] = (0, import_react17.useState)(value ?? ""), composing = (0, import_react17.useRef)(false), committed = (0, import_react17.useRef)(value ?? "");
-  (0, import_react17.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react16.useState)(value ?? ""), composing = (0, import_react16.useRef)(false), committed = (0, import_react16.useRef)(value ?? "");
+  (0, import_react16.useEffect)(() => {
     setDraft(value ?? "");
     committed.current = value ?? "";
   }, [value]);
@@ -77226,8 +75956,8 @@ function TextInput({ value, onChange, disabled, ...props }) {
   } });
 }
 function NumberInput({ value, onChange, disabled, ...props }) {
-  const [draft, setDraft] = (0, import_react17.useState)(value ?? ""), committed = (0, import_react17.useRef)(value ?? "");
-  (0, import_react17.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react16.useState)(value ?? ""), committed = (0, import_react16.useRef)(value ?? "");
+  (0, import_react16.useEffect)(() => {
     setDraft(value ?? "");
     committed.current = value ?? "";
   }, [value]);
@@ -77265,9 +75995,9 @@ var check2 = (label2, value, onChange, disabled) => h("label", { className: "ib-
 var action = (label2, onClick, disabled) => h("button", { type: "button", className: "ib-btn", onClick, disabled }, label2);
 var num = (label2, value, onChange, disabled, min, max, step = 1) => input2(label2, value, onChange, disabled, { type: "number", min, max, step });
 function BufferedEditorProperties({ spec, change, ...props }) {
-  const [draft, setDraft] = (0, import_react17.useState)(spec), draftRef = (0, import_react17.useRef)(spec), pending = (0, import_react17.useRef)({}), root = (0, import_react17.useRef)(null), composing = (0, import_react17.useRef)(false);
-  const [validationError, setValidationError] = (0, import_react17.useState)("");
-  (0, import_react17.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react16.useState)(spec), draftRef = (0, import_react16.useRef)(spec), pending = (0, import_react16.useRef)({}), root = (0, import_react16.useRef)(null), composing = (0, import_react16.useRef)(false);
+  const [validationError, setValidationError] = (0, import_react16.useState)("");
+  (0, import_react16.useEffect)(() => {
     draftRef.current = spec;
     pending.current = {};
     setDraft(spec);
@@ -77291,7 +76021,7 @@ function BufferedEditorProperties({ spec, change, ...props }) {
     pending.current = {};
     change(patch);
   };
-  (0, import_react17.useEffect)(() => {
+  (0, import_react16.useEffect)(() => {
     const leave = (e) => {
       const node2 = root.current;
       if (!node2 || node2.contains(e.target)) return;
@@ -77437,7 +76167,7 @@ function EditorProperties({ selected, spec, change, profile, disabled, scene, on
 }
 
 // client/src/plot-live-preview.js
-var import_react18 = require("react");
+var import_react17 = require("react");
 function parsePlotCsv(source) {
   const rows = [];
   let row2 = [], value = "", quoted = false;
@@ -77493,9 +76223,9 @@ function previewDomain(values2, settings = {}) {
   return [lo, hi];
 }
 function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change, disabled, onError }) {
-  const clipPrefix = "ibm" + (0, import_react18.useId)().replace(/[^a-zA-Z0-9]/g, "");
-  const [rows, setRows] = (0, import_react18.useState)(null), [error62, setError] = (0, import_react18.useState)(""), drag = (0, import_react18.useRef)(null), [moving, setMoving] = (0, import_react18.useState)(null), svg = (0, import_react18.useRef)(null), [selectionBox, setSelectionBox] = (0, import_react18.useState)(null);
-  (0, import_react18.useLayoutEffect)(() => {
+  const clipPrefix = "ibm" + (0, import_react17.useId)().replace(/[^a-zA-Z0-9]/g, "");
+  const [rows, setRows] = (0, import_react17.useState)(null), [error62, setError] = (0, import_react17.useState)(""), drag = (0, import_react17.useRef)(null), [moving, setMoving] = (0, import_react17.useState)(null), svg = (0, import_react17.useRef)(null), [selectionBox, setSelectionBox] = (0, import_react17.useState)(null);
+  (0, import_react17.useLayoutEffect)(() => {
     const root = svg.current;
     if (!root) return;
     const nodes = [...root.querySelectorAll("[data-select-key]")].filter((n) => n.getAttribute("data-select-key") === selected);
@@ -77508,7 +76238,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
     const left = Math.min(...boxes.map((b) => b.left)), right = Math.max(...boxes.map((b) => b.right)), top = Math.min(...boxes.map((b) => b.top)), bottom = Math.max(...boxes.map((b) => b.bottom));
     setSelectionBox({ x: (left - r.left) / r.width * v.width, y: (top - r.top) / r.height * v.height, w: (right - left) / r.width * v.width, h: (bottom - top) / r.height * v.height });
   }, [selected, spec, moving, rows]);
-  (0, import_react18.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     const abort = new AbortController();
     setRows(null);
     setError("");
@@ -77523,7 +76253,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
     });
     return () => abort.abort();
   }, [url2]);
-  const data = (0, import_react18.useMemo)(() => rows?.map((row2) => row2.map(number4)), [rows]);
+  const data = (0, import_react17.useMemo)(() => rows?.map((row2) => row2.map(number4)), [rows]);
   if (error62) return h("p", { role: "alert" }, error62);
   if (!data) return h("p", { role: "status" }, "正在加载本地绘图数据…");
   const width = 1200, height = 1100 * spec.heightCm / spec.widthCm * 9 / 8, panels = spec.layout.mode === "panels" ? spec.yCols.map((c) => [c]) : [spec.yCols], cols = spec.layout.mode === "panels" ? Math.min(spec.layout.columns, panels.length) : 1, rs = Math.ceil(panels.length / cols);
@@ -77723,7 +76453,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
 }
 
 // client/src/plot-native-scene.js
-var import_react19 = require("react");
+var import_react18 = require("react");
 var numeric = (value) => value !== null && /^[\d\s.,eE+\-%]+$/.test(value);
 var safeTransform = (value) => value && /^(?:\s*(?:matrix|translate|scale|rotate|skewX|skewY)\s*\([\d\s.,eE+\-]+\)\s*)+$/.test(value);
 function typography(node2) {
@@ -77813,8 +76543,8 @@ function originHitGeometry(source) {
   return shapes;
 }
 function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change, disabled, panelEditing = true }) {
-  const [shapes, setShapes] = (0, import_react19.useState)([]), drag = (0, import_react19.useRef)(null), [ghost, setGhost] = (0, import_react19.useState)(null), root = (0, import_react19.useRef)(null), [bounds2, setBounds] = (0, import_react19.useState)(null);
-  (0, import_react19.useLayoutEffect)(() => {
+  const [shapes, setShapes] = (0, import_react18.useState)([]), drag = (0, import_react18.useRef)(null), [ghost, setGhost] = (0, import_react18.useState)(null), root = (0, import_react18.useRef)(null), [bounds2, setBounds] = (0, import_react18.useState)(null);
+  (0, import_react18.useLayoutEffect)(() => {
     const node2 = root.current;
     if (!node2) return;
     const all = [...node2.querySelectorAll("[data-native-key]")].filter((n) => n.getAttribute("data-native-key") === selected).map((n) => inkRect(n));
@@ -77825,7 +76555,7 @@ function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change
     const r = node2.getBoundingClientRect();
     setBounds({ x: (Math.min(...all.map((b) => b.left)) - r.left) / r.width, y: (Math.min(...all.map((b) => b.top)) - r.top) / r.height, width: (Math.max(...all.map((b) => b.right)) - Math.min(...all.map((b) => b.left))) / r.width, height: (Math.max(...all.map((b) => b.bottom)) - Math.min(...all.map((b) => b.top))) / r.height });
   }, [selected, shapes, scene]);
-  (0, import_react19.useEffect)(() => {
+  (0, import_react18.useEffect)(() => {
     const abort = new AbortController();
     setShapes([]);
     setBounds(null);
@@ -77960,7 +76690,7 @@ function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change
   );
 }
 function PanelHandles({ spec, scene, change, onSelect, disabled }) {
-  const drag = (0, import_react19.useRef)(null), [moving, setMoving] = (0, import_react19.useState)(null), frames = spec.layout.panels.length ? spec.layout.panels : scene.panelGeometry || [];
+  const drag = (0, import_react18.useRef)(null), [moving, setMoving] = (0, import_react18.useState)(null), frames = spec.layout.panels.length ? spec.layout.panels : scene.panelGeometry || [];
   const native = (index2) => scene.layers.find((row2) => row2.index === index2);
   const begin = (e, panel, resize) => {
     if (disabled) return;
@@ -77995,7 +76725,7 @@ function PanelHandles({ spec, scene, change, onSelect, disabled }) {
 }
 
 // client/src/plot-image-editor.js
-var import_react20 = require("react");
+var import_react19 = require("react");
 
 // src/plot/image.js
 var file3 = external_exports.object({ path: external_exports.string(), fileName: external_exports.string(), byteLength: external_exports.number().nonnegative(), sha256: external_exports.string() });
@@ -78025,10 +76755,10 @@ var equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 var clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 var button = (label2, onClick, disabled = false, props = {}) => h("button", { type: "button", className: "ib-btn", onClick, disabled, ...props }, label2);
 function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
-  const image = row2.image, [spec, setSpec] = (0, import_react20.useState)(image.spec), [history, setHistory] = (0, import_react20.useState)([]), [future, setFuture] = (0, import_react20.useState)([]), [cropping, setCropping] = (0, import_react20.useState)(false), [busy, setBusy] = (0, import_react20.useState)(false), [error62, setError] = (0, import_react20.useState)(""), [source, setSource] = (0, import_react20.useState)(null), [loadKey, setLoadKey] = (0, import_react20.useState)(0);
-  const canvas = (0, import_react20.useRef)(null), stage = (0, import_react20.useRef)(null), cropStage = (0, import_react20.useRef)(null), drag = (0, import_react20.useRef)(null), specRef = (0, import_react20.useRef)(spec), saving = (0, import_react20.useRef)(false), [stageSize, setStageSize] = (0, import_react20.useState)({ width: 600, height: 400 });
+  const image = row2.image, [spec, setSpec] = (0, import_react19.useState)(image.spec), [history, setHistory] = (0, import_react19.useState)([]), [future, setFuture] = (0, import_react19.useState)([]), [cropping, setCropping] = (0, import_react19.useState)(false), [busy, setBusy] = (0, import_react19.useState)(false), [error62, setError] = (0, import_react19.useState)(""), [source, setSource] = (0, import_react19.useState)(null), [loadKey, setLoadKey] = (0, import_react19.useState)(0);
+  const canvas = (0, import_react19.useRef)(null), stage = (0, import_react19.useRef)(null), cropStage = (0, import_react19.useRef)(null), drag = (0, import_react19.useRef)(null), specRef = (0, import_react19.useRef)(spec), saving = (0, import_react19.useRef)(false), [stageSize, setStageSize] = (0, import_react19.useState)({ width: 600, height: 400 });
   specRef.current = spec;
-  (0, import_react20.useEffect)(() => {
+  (0, import_react19.useEffect)(() => {
     const node2 = stage.current;
     const fit = () => setStageSize({ width: node2.clientWidth, height: node2.clientHeight });
     fit();
@@ -78037,7 +76767,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
     return () => observer.disconnect();
   }, []);
   const sourceUrl = imageArtifact(projectId, row2, "image-source");
-  (0, import_react20.useEffect)(() => {
+  (0, import_react19.useEffect)(() => {
     let alive = true;
     const node2 = new Image();
     setSource(null);
@@ -78054,7 +76784,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
       node2.onerror = null;
     };
   }, [sourceUrl, loadKey]);
-  (0, import_react20.useEffect)(() => {
+  (0, import_react19.useEffect)(() => {
     if (!source || cropping || !canvas.current) return;
     const { x, y, w, h: h2 } = spec.crop, fullW = image.width, fullH = image.height;
     const round = (n) => {
@@ -78087,9 +76817,9 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
     if (!equal(specRef.current, image.spec) && !window.confirm("放弃尚未保存的图片修改？")) return;
     onClose();
   };
-  const closeRef = (0, import_react20.useRef)(close);
+  const closeRef = (0, import_react19.useRef)(close);
   closeRef.current = close;
-  (0, import_react20.useEffect)(() => {
+  (0, import_react19.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -78221,7 +76951,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
 }
 
 // client/src/plot-layout-editor.js
-var import_react21 = require("react");
+var import_react20 = require("react");
 var import_react_dom6 = require("react-dom");
 
 // src/plot/layout.js
@@ -78407,7 +77137,7 @@ var bounds = (objects) => {
   return { x, y, w: Math.max(...objects.map((o) => o.x + o.w)) - x, h: Math.max(...objects.map((o) => o.y + o.h)) - y };
 };
 function LayoutPicker({ rows, projectId, onClose, onChoose, adding = false, exclude }) {
-  const [ids, setIds] = (0, import_react21.useState)([]), [name, setName] = (0, import_react21.useState)("组合版面"), [busy, setBusy] = (0, import_react21.useState)(false), [error62, setError] = (0, import_react21.useState)("");
+  const [ids, setIds] = (0, import_react20.useState)([]), [name, setName] = (0, import_react20.useState)("组合版面"), [busy, setBusy] = (0, import_react20.useState)(false), [error62, setError] = (0, import_react20.useState)("");
   const candidates = rows.filter((row2) => row2.id !== exclude && layoutSource(row2));
   const choose = async () => {
     if (busy) return;
@@ -78444,7 +77174,7 @@ function PanelImage({ object: o, asset, source }) {
 }
 function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
   const draftKey = "ibm-layout-draft:" + projectId + ":" + row2.id;
-  const [doc, setDoc] = (0, import_react21.useState)(() => {
+  const [doc, setDoc] = (0, import_react20.useState)(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(draftKey));
       if (saved?.revision === row2.layout.revision) return layoutDocSchema.parse(saved.doc);
@@ -78452,18 +77182,18 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     }
     return clone2(row2.layout.doc);
   });
-  const [name, setName] = (0, import_react21.useState)(row2.topic), [dpi, setDpi] = (0, import_react21.useState)(row2.layout.dpi), [selected, setSelected] = (0, import_react21.useState)([]), [history, setHistory] = (0, import_react21.useState)([]), [future, setFuture] = (0, import_react21.useState)([]), [busy, setBusy] = (0, import_react21.useState)(false), [error62, setError] = (0, import_react21.useState)(""), [notice, setNotice] = (0, import_react21.useState)(""), [adding, setAdding] = (0, import_react21.useState)(false), [columns, setColumns] = (0, import_react21.useState)(2), [gap, setGap] = (0, import_react21.useState)(6), [reference, setReference] = (0, import_react21.useState)("selection"), [zoom, setZoom] = (0, import_react21.useState)(0), [rulers, setRulers] = (0, import_react21.useState)(true), [marquee, setMarquee] = (0, import_react21.useState)(null), [historyIndex, setHistoryIndex] = (0, import_react21.useState)("");
-  const stage = (0, import_react21.useRef)(null), svg = (0, import_react21.useRef)(null), drag = (0, import_react21.useRef)(null), current = (0, import_react21.useRef)(doc), selection = (0, import_react21.useRef)(selected), inFlight = (0, import_react21.useRef)(false), revision = (0, import_react21.useRef)(row2.layout.revision), [size, setSize] = (0, import_react21.useState)({ w: 700, h: 500 });
+  const [name, setName] = (0, import_react20.useState)(row2.topic), [dpi, setDpi] = (0, import_react20.useState)(row2.layout.dpi), [selected, setSelected] = (0, import_react20.useState)([]), [history, setHistory] = (0, import_react20.useState)([]), [future, setFuture] = (0, import_react20.useState)([]), [busy, setBusy] = (0, import_react20.useState)(false), [error62, setError] = (0, import_react20.useState)(""), [notice, setNotice] = (0, import_react20.useState)(""), [adding, setAdding] = (0, import_react20.useState)(false), [columns, setColumns] = (0, import_react20.useState)(2), [gap, setGap] = (0, import_react20.useState)(6), [reference, setReference] = (0, import_react20.useState)("selection"), [zoom, setZoom] = (0, import_react20.useState)(0), [rulers, setRulers] = (0, import_react20.useState)(true), [marquee, setMarquee] = (0, import_react20.useState)(null), [historyIndex, setHistoryIndex] = (0, import_react20.useState)("");
+  const stage = (0, import_react20.useRef)(null), svg = (0, import_react20.useRef)(null), drag = (0, import_react20.useRef)(null), current = (0, import_react20.useRef)(doc), selection = (0, import_react20.useRef)(selected), inFlight = (0, import_react20.useRef)(false), revision = (0, import_react20.useRef)(row2.layout.revision), [size, setSize] = (0, import_react20.useState)({ w: 700, h: 500 });
   current.current = doc;
   selection.current = selected;
-  (0, import_react21.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     const node2 = stage.current, fit2 = () => setSize({ w: node2.clientWidth, h: node2.clientHeight });
     fit2();
     const observer = new ResizeObserver(fit2);
     observer.observe(node2);
     return () => observer.disconnect();
   }, []);
-  (0, import_react21.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     if (revision.current === row2.layout.revision) return;
     revision.current = row2.layout.revision;
     current.current = clone2(row2.layout.doc);
@@ -78474,14 +77204,14 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     setFuture([]);
     setSelected((old) => old.filter((id) => current.current.objects.some((o) => o.id === id)));
   }, [row2.layout.revision, row2.layout.doc, row2.topic, row2.layout.dpi]);
-  (0, import_react21.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     try {
       if (same(doc, row2.layout.doc)) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, JSON.stringify({ revision: row2.layout.revision, doc }));
     } catch {
     }
   }, [doc, row2.layout.doc, row2.layout.revision, draftKey]);
-  (0, import_react21.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 3e3);
     return () => clearTimeout(timer);
@@ -78541,9 +77271,9 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     localStorage.removeItem(draftKey);
     onClose();
   };
-  const actions = (0, import_react21.useRef)({});
+  const actions = (0, import_react20.useRef)({});
   actions.current = { close, undo, redo, removeSelected };
-  (0, import_react21.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -78880,8 +77610,8 @@ function ChartGlyph({ kind }) {
   );
 }
 function OriginConnection({ projectId, call }) {
-  const [status, setStatus] = (0, import_react22.useState)(null), [checking, setChecking] = (0, import_react22.useState)(false), [details, setDetails] = (0, import_react22.useState)(false), probe = (0, import_react22.useRef)(null);
-  (0, import_react22.useEffect)(() => {
+  const [status, setStatus] = (0, import_react21.useState)(null), [checking, setChecking] = (0, import_react21.useState)(false), [details, setDetails] = (0, import_react21.useState)(false), probe = (0, import_react21.useRef)(null);
+  (0, import_react21.useEffect)(() => {
     let alive = true, timer, pending = false;
     const check4 = async (force = false) => {
       if (pending) return;
@@ -78929,24 +77659,24 @@ function OriginConnection({ projectId, call }) {
   );
 }
 function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = null }) {
-  const [rows, setRows] = (0, import_react22.useState)([]), [legacy, setLegacy] = (0, import_react22.useState)([]), [loading2, setLoading] = (0, import_react22.useState)(true), [error62, setError] = (0, import_react22.useState)(""), [notice, setNotice] = (0, import_react22.useState)("");
-  const [layoutPicker, setLayoutPicker] = (0, import_react22.useState)(false), [layoutOnly, setLayoutOnly] = (0, import_react22.useState)(false), [openId, setOpenId] = (0, import_react22.useState)(null), [previewId, setPreviewId] = (0, import_react22.useState)(null), [newPlot, setNewPlot] = (0, import_react22.useState)(false), [uploading, setUploading] = (0, import_react22.useState)(false), [drag, setDrag] = (0, import_react22.useState)(false);
-  const [entryMenu, setEntryMenu] = (0, import_react22.useState)(null), deleteLock = (0, import_react22.useRef)(false);
-  (0, import_react22.useEffect)(() => {
+  const [rows, setRows] = (0, import_react21.useState)([]), [legacy, setLegacy] = (0, import_react21.useState)([]), [loading2, setLoading] = (0, import_react21.useState)(true), [error62, setError] = (0, import_react21.useState)(""), [notice, setNotice] = (0, import_react21.useState)("");
+  const [layoutPicker, setLayoutPicker] = (0, import_react21.useState)(false), [layoutOnly, setLayoutOnly] = (0, import_react21.useState)(false), [openId, setOpenId] = (0, import_react21.useState)(null), [previewId, setPreviewId] = (0, import_react21.useState)(null), [newPlot, setNewPlot] = (0, import_react21.useState)(false), [uploading, setUploading] = (0, import_react21.useState)(false), [drag, setDrag] = (0, import_react21.useState)(false);
+  const [entryMenu, setEntryMenu] = (0, import_react21.useState)(null), deleteLock = (0, import_react21.useRef)(false);
+  (0, import_react21.useEffect)(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 3e3);
     return () => clearTimeout(timer);
   }, [notice]);
-  const fileInput = (0, import_react22.useRef)(null), uploadLock = (0, import_react22.useRef)(false), depth = (0, import_react22.useRef)(0), finalizing = (0, import_react22.useRef)(null), projectRef = (0, import_react22.useRef)(projectId);
+  const fileInput = (0, import_react21.useRef)(null), uploadLock = (0, import_react21.useRef)(false), depth = (0, import_react21.useRef)(0), finalizing = (0, import_react21.useRef)(null), projectRef = (0, import_react21.useRef)(projectId);
   projectRef.current = projectId;
-  const refresh = (0, import_react22.useCallback)(async () => {
+  const refresh = (0, import_react21.useCallback)(async () => {
     const [plots, tasks] = await Promise.all([call("plot_records_list", { request: { projectId } }), call("characterization_list", { request: { projectId } })]);
     if (projectRef.current !== projectId) return;
     setRows(plots.records || []);
     setLegacy((tasks.tasks || []).filter((row2) => row2.kind === "plot" && !(plots.records || []).some((item) => item.id === row2.id)));
     setLoading(false);
   }, [call, projectId]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -78966,7 +77696,7 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
       clearTimeout(timer);
     };
   }, [refresh]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     setRows([]);
     setLegacy([]);
     setLoading(true);
@@ -78980,7 +77710,7 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
     setNotice("");
     finalizing.current = null;
   }, [projectId]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     const pending = finalizing.current;
     if (!pending) return;
     const row2 = rows.find((row3) => row3.id === pending.id);
@@ -79206,8 +77936,8 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
   );
 }
 function PlotImagePreview({ row: row2, projectId, onClose, onEdit }) {
-  const [error62, setError] = (0, import_react22.useState)("");
-  (0, import_react22.useEffect)(() => {
+  const [error62, setError] = (0, import_react21.useState)("");
+  (0, import_react21.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") onClose();
     };
@@ -79224,20 +77954,20 @@ function PlotImagePreview({ row: row2, projectId, onClose, onEdit }) {
 }
 function PlotWizard({ row: row2, layoutOnly = false, projectId, call, onAutoLayout, onClose, onRefresh, onRender, onSave }) {
   const w = row2.workflow, profile = w.profile, busy = busyStatus.has(w.status);
-  const [step, setStep] = (0, import_react22.useState)(w.spec ? 3 : profile && w.status !== "inspected" ? 2 : 1), [selected, setSelected] = (0, import_react22.useState)(null), [sheet, setSheet] = (0, import_react22.useState)(w.sheet || ""), [header, setHeader] = (0, import_react22.useState)(w.headerRow + 1), [intent, setIntent] = (0, import_react22.useState)(""), [error62, setError] = (0, import_react22.useState)(""), [submitting, setSubmitting] = (0, import_react22.useState)(false);
-  const [topic, setTopic] = (0, import_react22.useState)(row2.topic);
-  (0, import_react22.useEffect)(() => {
+  const [step, setStep] = (0, import_react21.useState)(w.spec ? 3 : profile && w.status !== "inspected" ? 2 : 1), [selected, setSelected] = (0, import_react21.useState)(null), [sheet, setSheet] = (0, import_react21.useState)(w.sheet || ""), [header, setHeader] = (0, import_react21.useState)(w.headerRow + 1), [intent, setIntent] = (0, import_react21.useState)(""), [error62, setError] = (0, import_react21.useState)(""), [submitting, setSubmitting] = (0, import_react21.useState)(false);
+  const [topic, setTopic] = (0, import_react21.useState)(row2.topic);
+  (0, import_react21.useEffect)(() => {
     if (w.spec) setStep(3);
     else if (profile) setStep(w.status === "inspected" ? 1 : 2);
   }, [w.spec?.kind, profile?.normalizedPath, w.status === "inspected"]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     if (profile) setSheet(profile.sheet);
   }, [profile?.sheet]);
   const choices = profile ? manualChartChoices(profile, w.recommendations) : [], recommendationsKey = JSON.stringify(choices);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     setSelected(choices[0] ? { ...choices[0] } : null);
   }, [recommendationsKey]);
-  const lock = (0, import_react22.useRef)(false);
+  const lock = (0, import_react21.useRef)(false);
   const run = async (work) => {
     if (lock.current) return;
     lock.current = true;
@@ -79270,9 +78000,9 @@ function PlotWizard({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     } else await onRender(defaultSpec(selected));
     setStep(3);
   });
-  const closeRef = (0, import_react22.useRef)(onClose);
+  const closeRef = (0, import_react21.useRef)(onClose);
   closeRef.current = onClose;
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     const escape2 = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -79353,16 +78083,16 @@ function ColumnMapping({ profile, spec, onChange, disabled }) {
 function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayout, onRender, onSave, onDiscard, onRestore, disabled, renderDisabled }) {
   const w = row2.workflow;
   const draftKey = "ibm-plot-local:" + projectId + ":" + row2.id;
-  const [spec, setSpec] = (0, import_react22.useState)(() => {
+  const [spec, setSpec] = (0, import_react21.useState)(() => {
     try {
       const local = JSON.parse(localStorage.getItem(draftKey) || "null");
       if (local?.revision === w.revision) return plotSpecSchema.parse(local.spec);
     } catch {
     }
     return plotSpecSchema.parse(w.spec || w.savedSpec || { kind: "line", xCol: 0, yCols: [1] });
-  }), [selected, setSelected] = (0, import_react22.useState)(layoutOnly ? "layout" : "canvas"), [zoom, setZoom] = (0, import_react22.useState)(0), [history, setHistory] = (0, import_react22.useState)([]), [future, setFuture] = (0, import_react22.useState)([]), [error62, setError] = (0, import_react22.useState)("");
-  const viewport = (0, import_react22.useRef)(null), [imageRatio] = (0, import_react22.useState)(1), [fitWidth, setFitWidth] = (0, import_react22.useState)(450);
-  const [autoBusy, setAutoBusy] = (0, import_react22.useState)(false), [previewBusy, setPreviewBusy] = (0, import_react22.useState)(false), editLock = (0, import_react22.useRef)(false), expectedPreview = (0, import_react22.useRef)(null);
+  }), [selected, setSelected] = (0, import_react21.useState)(layoutOnly ? "layout" : "canvas"), [zoom, setZoom] = (0, import_react21.useState)(0), [history, setHistory] = (0, import_react21.useState)([]), [future, setFuture] = (0, import_react21.useState)([]), [error62, setError] = (0, import_react21.useState)("");
+  const viewport = (0, import_react21.useRef)(null), [imageRatio] = (0, import_react21.useState)(1), [fitWidth, setFitWidth] = (0, import_react21.useState)(450);
+  const [autoBusy, setAutoBusy] = (0, import_react21.useState)(false), [previewBusy, setPreviewBusy] = (0, import_react21.useState)(false), editLock = (0, import_react21.useRef)(false), expectedPreview = (0, import_react21.useRef)(null);
   disabled = disabled || autoBusy;
   renderDisabled = renderDisabled || autoBusy;
   const lockPreview = () => {
@@ -79379,8 +78109,8 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     expectedPreview.current = null;
     setPreviewBusy(false);
   };
-  const [version4, setVersion] = (0, import_react22.useState)(""), [specHash, setSpecHash] = (0, import_react22.useState)(null), [nativePixels, setNativePixels] = (0, import_react22.useState)(false), [imageWidth, setImageWidth] = (0, import_react22.useState)(1800), [retryPreview, setRetryPreview] = (0, import_react22.useState)(0);
-  const previewRequest = (0, import_react22.useRef)({ clientId: crypto.randomUUID(), seq: 0, edited: false, lastHash: "" }), [quickError, setQuickError] = (0, import_react22.useState)(""), [cachedPreview, setCachedPreview] = (0, import_react22.useState)(null), currentHash = (0, import_react22.useRef)(null);
+  const [version4, setVersion] = (0, import_react21.useState)(""), [specHash, setSpecHash] = (0, import_react21.useState)(null), [nativePixels, setNativePixels] = (0, import_react21.useState)(false), [imageWidth, setImageWidth] = (0, import_react21.useState)(1800), [retryPreview, setRetryPreview] = (0, import_react21.useState)(0);
+  const previewRequest = (0, import_react21.useRef)({ clientId: crypto.randomUUID(), seq: 0, edited: false, lastHash: "" }), [quickError, setQuickError] = (0, import_react21.useState)(""), [cachedPreview, setCachedPreview] = (0, import_react21.useState)(null), currentHash = (0, import_react21.useRef)(null);
   currentHash.current = specHash;
   let specText;
   try {
@@ -79388,7 +78118,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
   } catch {
     specText = JSON.stringify(spec);
   }
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     let active = true;
     setSpecHash(null);
     if (globalThis.crypto?.subtle) void crypto.subtle.digest("SHA-256", new TextEncoder().encode(specText)).then((bytes) => {
@@ -79398,7 +78128,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
       active = false;
     };
   }, [specText]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     const request = previewRequest.current;
     if (!request.edited || !specHash || w.pendingRefinement || w.status === "saving" || request.lastHash === specHash) return;
     const timer = setTimeout(() => {
@@ -79434,7 +78164,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     }, 120);
     return () => clearTimeout(timer);
   }, [call, projectId, row2.id, specText, specHash, w.pendingRefinement, w.status, retryPreview]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     const node2 = viewport.current;
     if (!node2) return;
     const fit = () => setFitWidth(Math.max(100, Math.min(node2.clientWidth - 40, (node2.clientHeight - 56) * imageRatio)));
@@ -79443,9 +78173,9 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     observer.observe(node2);
     return () => observer.disconnect();
   }, [imageRatio]);
-  const baseline = (0, import_react22.useRef)(w.revision), serverSpec = (0, import_react22.useRef)(w.spec), specRef = (0, import_react22.useRef)(spec);
+  const baseline = (0, import_react21.useRef)(w.revision), serverSpec = (0, import_react21.useRef)(w.spec), specRef = (0, import_react21.useRef)(spec);
   specRef.current = spec;
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     if (baseline.current !== w.revision || !same2(serverSpec.current, w.spec)) {
       baseline.current = w.revision;
       serverSpec.current = w.spec;
@@ -79461,7 +78191,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
       }
     }
   }, [w.revision, w.spec]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     try {
       if (same2(spec, w.spec)) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, JSON.stringify({ revision: w.revision, spec }));
@@ -79565,7 +78295,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
 }
 
 // client/src/components-characterization.js
-var import_react23 = __toESM(require("react"), 1);
+var import_react22 = __toESM(require("react"), 1);
 function CharacterizationPanel(props) {
   return props.taskKind === "plot" ? h(PlottingPanel, props) : h(NmrPanel, props);
 }
@@ -79587,10 +78317,10 @@ function projectPanelFor(id) {
 }
 
 // client/src/plugin-switch-hook.js
-var import_react24 = require("react");
+var import_react23 = require("react");
 function usePluginSwitches() {
-  const [, bump] = (0, import_react24.useState)(0);
-  (0, import_react24.useEffect)(() => subscribePluginSwitches(() => bump((value) => value + 1)), []);
+  const [, bump] = (0, import_react23.useState)(0);
+  (0, import_react23.useEffect)(() => subscribePluginSwitches(() => bump((value) => value + 1)), []);
 }
 
 // src/literature/citation.js
@@ -79611,24 +78341,24 @@ function usableShortCitation(value) {
 }
 
 // client/src/reading-interactions.js
-var import_react25 = require("react");
+var import_react24 = require("react");
 var READING_DRAG_TYPE = "application/x-ibm-reading-entries";
 var controls = "button,input,select,textarea,a,[contenteditable=true]";
 var internal = (event) => !Array.from(event.dataTransfer?.types ?? []).includes("Files") && Array.from(event.dataTransfer?.types ?? []).includes(READING_DRAG_TYPE);
 function useReadingInteractions({ projectId, reports, visibleReports, bundles, root, call, notify: notify2, onChanged, setFolder, onLocate, onContextMenu }) {
-  const [selected, setSelected] = (0, import_react25.useState)([]), [dragging, setDragging] = (0, import_react25.useState)([]), [target, setTarget] = (0, import_react25.useState)(null), [folderTarget, setFolderTarget] = (0, import_react25.useState)(null), [moving, setMoving] = (0, import_react25.useState)(false);
-  const anchor2 = (0, import_react25.useRef)(null), pointerY = (0, import_react25.useRef)(null);
+  const [selected, setSelected] = (0, import_react24.useState)([]), [dragging, setDragging] = (0, import_react24.useState)([]), [target, setTarget] = (0, import_react24.useState)(null), [folderTarget, setFolderTarget] = (0, import_react24.useState)(null), [moving, setMoving] = (0, import_react24.useState)(false);
+  const anchor2 = (0, import_react24.useRef)(null), pointerY = (0, import_react24.useRef)(null);
   const movable = (report) => !["queued", "running", "rejected"].includes(bundles[report.bundleId]?.pdfIntake?.status);
   const visibleIds = visibleReports.filter(movable).map((row2) => row2.id);
-  const clear = (0, import_react25.useCallback)(() => {
+  const clear = (0, import_react24.useCallback)(() => {
     setSelected([]);
     anchor2.current = null;
   }, []);
-  (0, import_react25.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     const ids = new Set(reports.map((row2) => row2.id));
     setSelected((old) => old.every((id) => ids.has(id)) ? old : old.filter((id) => ids.has(id)));
   }, [reports]);
-  (0, import_react25.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     if (!dragging.length) return void 0;
     let host = root.current?.parentElement;
     while (host && (!/(auto|scroll)/.test(getComputedStyle(host).overflowY) || host.scrollHeight <= host.clientHeight)) host = host.parentElement;
@@ -79789,7 +78519,7 @@ function useReadingInteractions({ projectId, reports, visibleReports, bundles, r
 }
 
 // client/src/reading-link-upload.js
-var import_react26 = require("react");
+var import_react25 = require("react");
 function linkIntakePrompt(projectId, value) {
   const url2 = new URL(value.trim());
   if (!["http:", "https:"].includes(url2.protocol) || url2.username || url2.password) throw Error("请输入有效的 HTTP 或 HTTPS 文献链接");
@@ -79802,8 +78532,8 @@ ${wechat ? "先调用 lab_tasks_fetch_wechat_article 读取正文，从正文识
 必须实际调用登记工具，复用其 DOI/来源链接去重机制，不要只在对话中输出元数据。没有 PDF 时登记为待上传 PDF，沿用返回的 bundleId/reportId，不能标为已完成精读。不启动全文精读或 PPT 制作。读取或校验失败时明确说明原因，不虚构条目；登记成功后告知题名、校验依据、缺失字段及 bundleId/reportId。`;
 }
 function ReadingLinkUpload({ projectId, onRequestArtifact, onSubmitted, notify: notify2 }) {
-  const [open2, setOpen] = (0, import_react26.useState)(false), [url2, setUrl] = (0, import_react26.useState)(""), [busy, setBusy] = (0, import_react26.useState)(false), [error62, setError] = (0, import_react26.useState)("");
-  const lock = (0, import_react26.useRef)(false), id = (0, import_react26.useId)();
+  const [open2, setOpen] = (0, import_react25.useState)(false), [url2, setUrl] = (0, import_react25.useState)(""), [busy, setBusy] = (0, import_react25.useState)(false), [error62, setError] = (0, import_react25.useState)("");
+  const lock = (0, import_react25.useRef)(false), id = (0, import_react25.useId)();
   const submit = async (event) => {
     event.preventDefault();
     if (lock.current) return;
@@ -79852,7 +78582,7 @@ function ReadingLinkUpload({ projectId, onRequestArtifact, onSubmitted, notify: 
 
 // client/src/components-project.js
 function NonPaperNotice({ notice, onDismiss }) {
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     const timer = setTimeout(() => onDismiss(notice.id), 3e3);
     return () => clearTimeout(timer);
   }, [notice.id, onDismiss]);
@@ -79916,9 +78646,9 @@ var capturePhaseOf = (state2, lastError, downloadedBytes, downloadElapsedMs, aut
   }
 };
 function CreateProject({ call, defaults, onCancel, onCreated }) {
-  const [form, setForm] = (0, import_react28.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
-  const [busy, setBusy] = (0, import_react28.useState)(false);
-  const [error62, setError] = (0, import_react28.useState)("");
+  const [form, setForm] = (0, import_react27.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
+  const [busy, setBusy] = (0, import_react27.useState)(false);
+  const [error62, setError] = (0, import_react27.useState)("");
   const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const create = async () => {
     setBusy(true);
@@ -79938,10 +78668,10 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "research-project-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "我的科研课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error62 ? h("div", { className: "ib-error" }, error62) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 }
 function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
-  const [state2, setState] = (0, import_react28.useState)({ loading: true, projects: [], defaults: {}, error: "" });
-  const [creating, setCreating] = (0, import_react28.useState)(false);
-  const [launching, setLaunching] = (0, import_react28.useState)(null);
-  const load2 = (0, import_react28.useCallback)(async () => {
+  const [state2, setState] = (0, import_react27.useState)({ loading: true, projects: [], defaults: {}, error: "" });
+  const [creating, setCreating] = (0, import_react27.useState)(false);
+  const [launching, setLaunching] = (0, import_react27.useState)(null);
+  const load2 = (0, import_react27.useCallback)(async () => {
     try {
       const capabilities = await call("capabilities");
       const [projects, goals, templates] = await Promise.all([call("projects_list"), capabilities.literature ? call("goals_list") : { goals: [] }, capabilities.documents ? call("templates_list") : { templates: [] }]);
@@ -79950,7 +78680,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
   }, []);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     void load2();
   }, [load2]);
   const launch = async (project2, presetId) => {
@@ -79997,36 +78727,36 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   for (const item of (presentations || []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (!(item.reportId in presentationByReport)) presentationByReport[item.reportId] = item;
   }
-  const [busy, setBusy] = (0, import_react28.useState)({});
-  const [overview, setOverview] = (0, import_react28.useState)({});
+  const [busy, setBusy] = (0, import_react27.useState)({});
+  const [overview, setOverview] = (0, import_react27.useState)({});
   const [expandedSearch, setExpandedSearch] = useProjectViewValue(projectId, "expanded-search", "");
-  const [folders, setFolders] = (0, import_react28.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [organizing, setOrganizing] = (0, import_react28.useState)(false), [importingRis, setImportingRis] = (0, import_react28.useState)(false);
-  const [foldersLoaded, setFoldersLoaded] = (0, import_react28.useState)(false);
-  const literatureRoot = (0, import_react28.useRef)(null);
-  const [entryMenu, setEntryMenu] = (0, import_react28.useState)(null);
-  const closeEntryMenu = (0, import_react28.useCallback)(() => setEntryMenu(null), []);
-  (0, import_react28.useEffect)(() => setEntryMenu(null), [projectId, selectedFolder]);
-  (0, import_react28.useEffect)(() => {
+  const [folders, setFolders] = (0, import_react27.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [organizing, setOrganizing] = (0, import_react27.useState)(false), [importingRis, setImportingRis] = (0, import_react27.useState)(false);
+  const [foldersLoaded, setFoldersLoaded] = (0, import_react27.useState)(false);
+  const literatureRoot = (0, import_react27.useRef)(null);
+  const [entryMenu, setEntryMenu] = (0, import_react27.useState)(null);
+  const closeEntryMenu = (0, import_react27.useCallback)(() => setEntryMenu(null), []);
+  (0, import_react27.useEffect)(() => setEntryMenu(null), [projectId, selectedFolder]);
+  (0, import_react27.useEffect)(() => {
     setEntryMenu((menu) => menu && menu.reportIds.some((id) => !reports.some((report) => report.id === id)) ? null : menu);
   }, [reports]);
   useProjectViewScroll(literatureRoot, projectId, selectedFolder, foldersLoaded);
-  const risPicker = (0, import_react28.useRef)(null), risDragDepth = (0, import_react28.useRef)(0);
-  const [risDragging, setRisDragging] = (0, import_react28.useState)(false);
-  const pdfPicker = (0, import_react28.useRef)(null), dragDepth = (0, import_react28.useRef)(0);
-  const [pdfUploads, setPdfUploads] = (0, import_react28.useState)([]), [pdfDragging, setPdfDragging] = (0, import_react28.useState)(false);
-  const [rejectionNotices, setRejectionNotices] = (0, import_react28.useState)([]);
-  const seenRejections = (0, import_react28.useRef)(new Set(bundles.filter((row2) => row2.pdfIntake?.status === "rejected").map((row2) => row2.id + ":" + row2.pdfIntake.updatedAt)));
-  const dismissRejection = (0, import_react28.useCallback)((id) => setRejectionNotices((previous) => previous.filter((row2) => row2.id !== id)), []);
-  const showRejection = (0, import_react28.useCallback)((bundle) => {
+  const risPicker = (0, import_react27.useRef)(null), risDragDepth = (0, import_react27.useRef)(0);
+  const [risDragging, setRisDragging] = (0, import_react27.useState)(false);
+  const pdfPicker = (0, import_react27.useRef)(null), dragDepth = (0, import_react27.useRef)(0);
+  const [pdfUploads, setPdfUploads] = (0, import_react27.useState)([]), [pdfDragging, setPdfDragging] = (0, import_react27.useState)(false);
+  const [rejectionNotices, setRejectionNotices] = (0, import_react27.useState)([]);
+  const seenRejections = (0, import_react27.useRef)(new Set(bundles.filter((row2) => row2.pdfIntake?.status === "rejected").map((row2) => row2.id + ":" + row2.pdfIntake.updatedAt)));
+  const dismissRejection = (0, import_react27.useCallback)((id) => setRejectionNotices((previous) => previous.filter((row2) => row2.id !== id)), []);
+  const showRejection = (0, import_react27.useCallback)((bundle) => {
     seenRejections.current.add(bundle.id + ":" + bundle.pdfIntake.updatedAt);
     setRejectionNotices((previous) => [...previous, { id: crypto.randomUUID(), name: bundle.pdfIntake.originalFileName, reason: bundle.pdfIntake.error }]);
   }, []);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     for (const bundle of bundles) if (bundle.pdfIntake?.status === "rejected" && !seenRejections.current.has(bundle.id + ":" + bundle.pdfIntake.updatedAt)) showRejection(bundle);
   }, [bundles, showRejection]);
-  const [locateRequest, setLocateRequest] = (0, import_react28.useState)(null);
+  const [locateRequest, setLocateRequest] = (0, import_react27.useState)(null);
   const canLocate = !!locateRequest && reports.some((report) => report.bundleId === locateRequest.bundleId);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     if (!locateRequest || !canLocate) return void 0;
     let timer, node2;
     const frame = requestAnimationFrame(() => {
@@ -80079,15 +78809,15 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     event.stopPropagation();
     return true;
   };
-  const [folderEditor, setFolderEditor] = (0, import_react28.useState)(null);
-  const loadFolders = (0, import_react28.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => {
+  const [folderEditor, setFolderEditor] = (0, import_react27.useState)(null);
+  const loadFolders = (0, import_react27.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => {
     setFolders(result.folders ?? []);
     setFoldersLoaded(true);
   }).catch((error62) => notify2(error62.message)), [call, projectId, notify2]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     void loadFolders();
   }, [projectId, reports, loadFolders]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     if (foldersLoaded && selectedFolder !== "all" && selectedFolder !== "unfiled" && !folders.some((folder) => folder.id === selectedFolder)) setSelectedFolder("unfiled");
   }, [foldersLoaded, folders, selectedFolder, setSelectedFolder]);
   const folderAction = async (action2, request) => {
@@ -80138,15 +78868,15 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const readingInteraction = useReadingInteractions({ projectId, reports: readingReports, visibleReports: filteredReports, bundles: bundleById, root: literatureRoot, call, notify: notify2, onChanged, onContextMenu: setEntryMenu, setFolder: setSelectedFolder, onLocate: (report) => {
     if (report) setLocateRequest({ bundleId: report.bundleId, nonce: crypto.randomUUID() });
   } });
-  const [machineReviews, setMachineReviews] = (0, import_react28.useState)({});
-  const [preview, setPreview] = (0, import_react28.useState)(null);
-  const [reviewVisible, setReviewVisible] = (0, import_react28.useState)(false);
-  const [approval, setApproval] = (0, import_react28.useState)(null);
-  const [captureHint, setCaptureHint] = (0, import_react28.useState)(null);
-  const [captureStopping, setCaptureStopping] = (0, import_react28.useState)(false);
-  const [browserMode, setBrowserMode] = (0, import_react28.useState)("managed-edge");
-  const [opening, setOpening] = (0, import_react28.useState)({});
-  (0, import_react28.useEffect)(() => {
+  const [machineReviews, setMachineReviews] = (0, import_react27.useState)({});
+  const [preview, setPreview] = (0, import_react27.useState)(null);
+  const [reviewVisible, setReviewVisible] = (0, import_react27.useState)(false);
+  const [approval, setApproval] = (0, import_react27.useState)(null);
+  const [captureHint, setCaptureHint] = (0, import_react27.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react27.useState)(false);
+  const [browserMode, setBrowserMode] = (0, import_react27.useState)("managed-edge");
+  const [opening, setOpening] = (0, import_react27.useState)({});
+  (0, import_react27.useEffect)(() => {
     let alive = true;
     call("literature_status", { request: { force: false } }).then((result) => {
       if (alive && result?.browserMode) setBrowserMode(result.browserMode);
@@ -80157,7 +78887,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     };
   }, [call]);
   const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId) return void 0;
     let disposed = false;
@@ -80191,7 +78921,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, call, onChanged]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId || captureHint?.route !== "webvpn") return void 0;
     let disposed = false;
@@ -80572,7 +79302,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const shortOf = (report) => citationOf(report)?.text || usableShortCitation(report.shortCitation) || titleByBundle[report.bundleId] || report.titleZh || `精读报告 ${report.id.slice(0, 12)}`;
   const shortNode = (report) => {
     const citation = citationOf(report);
-    return citation ? h(import_react27.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
+    return citation ? h(import_react26.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
   };
   const zhOf = (report) => report.titleZh || shortOf(report);
   const paperCitation = (paper) => {
@@ -80629,7 +79359,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "section",
       { className: "ib-approval-card", role: approval.stage === "approved" ? "status" : "alertdialog", "aria-label": approval.stage === "approved" ? "审核通过" : "审核通过二次确认" },
       approval.stage === "approved" ? h(
-        import_react27.default.Fragment,
+        import_react26.default.Fragment,
         null,
         h("div", { className: "ib-approval-ok" }, h("strong", null, "审核通过"), h("span", null, `${preview?.kind === "ppt" ? "PPTX" : "DOCX"} 已开放下载；你也可以关闭此页面后继续在预览窗口下载。`)),
         h(
@@ -80639,7 +79369,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("button", { className: "ib-preview-btn", "data-primary": true, disabled: busy[preview?.kind === "ppt" ? `ppt:${preview?.report.id}` : `rep:${preview?.report.id}`], onClick: () => void downloadPreviewArtifact() }, preview?.kind === "ppt" ? "下载PPT" : "下载DOCX")
         )
       ) : h(
-        import_react27.default.Fragment,
+        import_react26.default.Fragment,
         null,
         h("h3", null, "审核通过前请确认自查提醒"),
         h("p", null, "自动自查仅供参考，不构成通过门限。请结合上方实际分页预览人工判断；点击确认后将锁定当前文件版本并开放下载。"),
@@ -80654,7 +79384,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ) : null;
   const previewNode = preview ? h(
-    import_react27.default.Fragment,
+    import_react26.default.Fragment,
     null,
     h("div", { className: "ib-preview-backdrop", onClick: closePreview }),
     h(
@@ -80681,7 +79411,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  return h(import_react27.default.Fragment, null, h(
+  return h(import_react26.default.Fragment, null, h(
     "div",
     { className: "ib-lit", ref: literatureRoot },
     // ── 分组一：检索记录 ────────────────────────────────────────────────
@@ -80829,7 +79559,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       h("div", { className: "ib-reading-folders", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, className: "ib-act", ...readingInteraction.folderProps(folder), "data-selected": selectedFolder === folder.id ? "true" : void 0, style: selectedFolder === folder.id ? { background: "var(--ib-accent-soft)", color: "var(--ib-accent-ink)" } : void 0, onClick: () => {
         readingInteraction.clear();
         setSelectedFolder(folder.id);
-      } }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react27.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
+      } }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react26.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
         setFolderEditor({ id: selectedFolder, name: folders.find((row2) => row2.id === selectedFolder).name });
       } }, "重命名"), h("button", { className: "ib-act", onClick: () => {
         if (window.confirm("删除该分类文件夹？其中的文献将移到“未分类”，保留报告及归档文件。")) {
@@ -81034,31 +79764,31 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
 }
 function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null }) {
   usePluginSwitches();
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     setDesktopProject(project2.id);
     return () => setDesktopProject(null);
   }, [project2.id]);
-  const [state2, setState] = (0, import_react28.useState)({ loading: true, data: null, error: "" });
+  const [state2, setState] = (0, import_react27.useState)({ loading: true, data: null, error: "" });
   const [tab, setTab] = useProjectViewValue(project2.id, "active-tab", "literature");
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     if (controlledTab) setTab(controlledTab);
   }, [controlledTab, setTab]);
-  const [visitedTabs, setVisitedTabs] = (0, import_react28.useState)(() => ({ [controlledTab || tab]: true }));
-  (0, import_react28.useEffect)(() => {
+  const [visitedTabs, setVisitedTabs] = (0, import_react27.useState)(() => ({ [controlledTab || tab]: true }));
+  (0, import_react27.useEffect)(() => {
     const current = controlledTab || tab;
     if (workbench) setVisitedTabs((previous) => previous[current] ? previous : { ...previous, [current]: true });
   }, [controlledTab, tab, workbench]);
-  const [draft, setDraft] = (0, import_react28.useState)("");
-  const [memoryOpen, setMemoryOpen] = (0, import_react28.useState)(false);
-  const memoryDirty = (0, import_react28.useRef)(false);
-  const [note, setNote] = (0, import_react28.useState)("");
-  const [saving, setSaving] = (0, import_react28.useState)(false);
-  const [launching, setLaunching] = (0, import_react28.useState)(false);
-  const [deleting, setDeleting] = (0, import_react28.useState)(false);
-  const [toast, setToast] = (0, import_react28.useState)("");
-  const sync = (0, import_react28.useRef)({ projectId: project2.id, request: 0, revision: void 0 });
+  const [draft, setDraft] = (0, import_react27.useState)("");
+  const [memoryOpen, setMemoryOpen] = (0, import_react27.useState)(false);
+  const memoryDirty = (0, import_react27.useRef)(false);
+  const [note, setNote] = (0, import_react27.useState)("");
+  const [saving, setSaving] = (0, import_react27.useState)(false);
+  const [launching, setLaunching] = (0, import_react27.useState)(false);
+  const [deleting, setDeleting] = (0, import_react27.useState)(false);
+  const [toast, setToast] = (0, import_react27.useState)("");
+  const sync = (0, import_react27.useRef)({ projectId: project2.id, request: 0, revision: void 0 });
   if (sync.current.projectId !== project2.id) sync.current = { projectId: project2.id, request: sync.current.request + 1, revision: void 0 };
-  const load2 = (0, import_react28.useCallback)(async ({ quiet = false } = {}) => {
+  const load2 = (0, import_react27.useCallback)(async ({ quiet = false } = {}) => {
     const request = ++sync.current.request;
     try {
       const data2 = await call("projects_workspace", { request: { projectId: project2.id } });
@@ -81071,7 +79801,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       if (sync.current.projectId === project2.id && request === sync.current.request) setState((previous) => quiet && previous.data ? previous : { loading: false, data: null, error: reason.message });
     }
   }, [project2.id, call]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     memoryDirty.current = false;
     try {
       const cached2 = sessionStorage.getItem(`ib-memory-draft:${project2.id}`);
@@ -81084,11 +79814,11 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
     setMemoryOpen(false);
     void load2();
   }, [load2]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     if ((controlledTab || tab) !== "literature") return void 0;
     return followProjectUpdates({ call, projectId: project2.id, load: load2, getRevision: () => sync.current.revision });
   }, [controlledTab, tab, project2.id, call, load2]);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react27.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 7e3);
     return () => clearTimeout(timer);
@@ -81145,13 +79875,12 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
   const data = state2.data;
   const openEntryConversation = (sessionId, entryIdentity) => onStartChat(data.project, { openSessionId: sessionId, entryIdentity, entryOpenOnly: true, preserveDraft: true });
   const literature = data.literature || {};
-  const planning = data.planning || {};
   const characterization = data.characterization || {};
-  const available = { literature: (data.capabilities?.literature ?? true) && isPluginEnabled("literature"), planning: data.capabilities?.design ?? true, characterization: (data.capabilities?.analysis ?? true) && isPluginEnabled("nmr"), plotting: (data.capabilities?.analysis ?? true) && isPluginEnabled("plotting") };
+  const available = { literature: (data.capabilities?.literature ?? true) && isPluginEnabled("literature"), characterization: (data.capabilities?.analysis ?? true) && isPluginEnabled("nmr"), plotting: (data.capabilities?.analysis ?? true) && isPluginEnabled("plotting") };
   const requestedTab = controlledTab || tab;
   const activeTab = available[requestedTab] ? requestedTab : Object.keys(available).find((id) => available[id]);
   const tabPlugins = { literature: "literature", characterization: "nmr", plotting: "plotting" };
-  const tabs = [["literature", "文献资料"], ["planning", "研究设计"], ["characterization", "核磁解析"], ["plotting", "科研绘图"]].filter(([id]) => !tabPlugins[id] || isPluginEnabled(tabPlugins[id]));
+  const tabs = [["literature", "文献资料"], ["characterization", "核磁解析"], ["plotting", "科研绘图"]].filter(([id]) => !tabPlugins[id] || isPluginEnabled(tabPlugins[id]));
   const contentOnly = workbench && ["literature", "characterization", "plotting"].includes(activeTab);
   return h(
     "div",
@@ -81183,14 +79912,13 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
     ) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load2() }, "刷新资料")) : null,
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
     activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2 })) : null,
-    activeTab === "planning" || workbench && available.planning && visitedTabs.planning ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "planning" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load2 })) : null,
     activeTab === "characterization" || workbench && available.characterization && visitedTabs.characterization ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor("characterization")?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: "nmr", nmrRows: characterization.nmr || [], onOpenConversation: openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, void 0, identity) })) : null,
     activeTab === "plotting" || workbench && available.plotting && visitedTabs.plotting ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor("plotting")?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: "plot", headerTarget: plottingHeaderTarget, onOpenConversation: openEntryConversation, onRefineConversation: (row2, options = {}) => onStartChat(data.project, { entryIdentity: { kind: "plot", recordId: row2.id }, autoSubmit: true, preserveDraft: true, prompt: options.prompt || `请查看当前绑定的绘图条目（条目 ID：${row2.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。` }) })) : null,
     !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
-var OverlayBoundary = class extends (import_react27.default.Component ?? class {
+var OverlayBoundary = class extends (import_react26.default.Component ?? class {
 }) {
   constructor(props) {
     super(props);
@@ -81210,13 +79938,13 @@ var OverlayBoundary = class extends (import_react27.default.Component ?? class {
   }
 };
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
-  const [project2, setProject] = (0, import_react28.useState)(initial ?? null);
-  const [templates, setTemplates] = (0, import_react28.useState)(false);
+  const [project2, setProject] = (0, import_react27.useState)(initial ?? null);
+  const [templates, setTemplates] = (0, import_react27.useState)(false);
   return import_react_dom8.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/webvpn-tab.js
-var import_react29 = require("react");
+var import_react28 = require("react");
 var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 var WEBVPN_TAB_KIND = "lab-webvpn";
 var formatBytes = (bytes) => {
@@ -81224,8 +79952,8 @@ var formatBytes = (bytes) => {
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 };
 function useSaveToProject(enabled) {
-  const [state2, setState] = (0, import_react29.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
-  (0, import_react29.useEffect)(() => {
+  const [state2, setState] = (0, import_react28.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
+  (0, import_react28.useEffect)(() => {
     if (!enabled) return void 0;
     let disposed = false;
     let timer;
@@ -81294,10 +80022,10 @@ function useSaveToProject(enabled) {
 function WebVpnTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const visible = tab?.visible === true;
-  const hostRef = (0, import_react29.useRef)(null);
+  const hostRef = (0, import_react28.useRef)(null);
   const inShell = typeof window !== "undefined" && window.parent !== window;
   const save = useSaveToProject(visible && inShell);
-  (0, import_react29.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     if (!visible) {
       sendWebVpnRect({ visible: false });
       return void 0;
@@ -81341,8 +80069,8 @@ function WebVpnTabBody({ useTabInfo }) {
       sendWebVpnRect({ visible: false });
     };
   }, [visible]);
-  const portalSeeded = (0, import_react29.useRef)(false);
-  (0, import_react29.useEffect)(() => {
+  const portalSeeded = (0, import_react28.useRef)(false);
+  (0, import_react28.useEffect)(() => {
     if (!visible || portalSeeded.current || !inShell) return;
     portalSeeded.current = true;
     void (async () => {
@@ -81519,7 +80247,7 @@ function installSidebarBrowser(ctx) {
 }
 
 // client/src/project-tab.js
-var import_react30 = require("react");
+var import_react29 = require("react");
 
 // client/src/project-address.js
 var PROJECT_TAB_ID = "dsh-lab-agent/project";
@@ -81575,8 +80303,8 @@ function projectNameOf(projectId) {
   return projectId === void 0 ? void 0 : projectNames.get(projectId);
 }
 function useProjectName(projectId) {
-  const [, bump] = (0, import_react30.useState)(0);
-  (0, import_react30.useEffect)(() => {
+  const [, bump] = (0, import_react29.useState)(0);
+  (0, import_react29.useEffect)(() => {
     const listener = () => bump((value) => value + 1);
     nameListeners.add(listener);
     return () => {
@@ -81605,9 +80333,9 @@ function ProjectTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const revision = tab?.navigation?.revision ?? 0;
-  const [state2, setState] = (0, import_react30.useState)({ status: "loading" });
+  const [state2, setState] = (0, import_react29.useState)({ status: "loading" });
   const cachedName = useProjectName(projectId);
-  (0, import_react30.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     if (projectId === void 0) {
       setState({ status: "invalid" });
       return void 0;
@@ -81681,7 +80409,7 @@ function ProjectTabTitle({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const name = useProjectName(projectId);
-  (0, import_react30.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     ensureProjectName(projectId);
   }, [projectId]);
   return h("span", { className: "ib-project-tab-title", title: name || projectId || "" }, name || "课题");
@@ -81713,24 +80441,24 @@ function registerProjectTab(ctx) {
 
 // client/src/hero-project.js
 var import_react_dom9 = __toESM(require("react-dom"), 1);
-var import_react31 = require("react");
+var import_react30 = require("react");
 var runtime2 = null;
 function setHeroProjectRuntime(next) {
   runtime2 = next && typeof next === "object" ? next : null;
 }
 function HeroProjectPicker() {
-  const [session, setSession] = (0, import_react31.useState)(() => runtime2?.currentSession?.() ?? null);
-  (0, import_react31.useEffect)(() => {
+  const [session, setSession] = (0, import_react30.useState)(() => runtime2?.currentSession?.() ?? null);
+  (0, import_react30.useEffect)(() => {
     const timer = setInterval(() => setSession(runtime2?.currentSession?.() ?? null), 3e3);
     return () => clearInterval(timer);
   }, []);
   const blank = session === null || session.blank !== false;
-  const [state2, setState] = (0, import_react31.useState)({ projects: [], current: null, loading: true, error: "" });
-  const [menuOpen, setMenuOpen] = (0, import_react31.useState)(false);
-  const [busy, setBusy] = (0, import_react31.useState)("");
-  const [workspaces, setWorkspaces] = (0, import_react31.useState)([]);
+  const [state2, setState] = (0, import_react30.useState)({ projects: [], current: null, loading: true, error: "" });
+  const [menuOpen, setMenuOpen] = (0, import_react30.useState)(false);
+  const [busy, setBusy] = (0, import_react30.useState)("");
+  const [workspaces, setWorkspaces] = (0, import_react30.useState)([]);
   const cwd = session?.cwd;
-  (0, import_react31.useEffect)(() => {
+  (0, import_react30.useEffect)(() => {
     if (!blank) return void 0;
     let alive = true;
     const call = runtime2?.call;
@@ -81761,7 +80489,7 @@ function HeroProjectPicker() {
       clearInterval(timer);
     };
   }, [blank, cwd]);
-  (0, import_react31.useEffect)(() => {
+  (0, import_react30.useEffect)(() => {
     if (!menuOpen) return void 0;
     const list = runtime2?.listWorkspaces;
     if (typeof list === "function") setWorkspaces(list() ?? []);
@@ -81918,10 +80646,10 @@ function installHeroProjectChip() {
 }
 
 // client/src/workbench.js
-var import_react35 = require("react");
+var import_react34 = require("react");
 
 // client/src/project-file-home.js
-var import_react32 = require("react");
+var import_react31 = require("react");
 async function chooseProjectFile(call, onOpen) {
   const result = await call("projects_choose_file", { request: { action: "open" } });
   if (result.cancelled || !result.path) return;
@@ -81929,12 +80657,12 @@ async function chooseProjectFile(call, onOpen) {
   await onOpen(project2);
 }
 function ProjectFileHome({ call, onOpen, welcome = false }) {
-  const [projects, setProjects] = (0, import_react32.useState)([]);
-  const [loading2, setLoading] = (0, import_react32.useState)(true);
-  const [name, setName] = (0, import_react32.useState)("");
-  const [busy, setBusy] = (0, import_react32.useState)(false);
-  const [error62, setError] = (0, import_react32.useState)("");
-  (0, import_react32.useEffect)(() => {
+  const [projects, setProjects] = (0, import_react31.useState)([]);
+  const [loading2, setLoading] = (0, import_react31.useState)(true);
+  const [name, setName] = (0, import_react31.useState)("");
+  const [busy, setBusy] = (0, import_react31.useState)(false);
+  const [error62, setError] = (0, import_react31.useState)("");
+  (0, import_react31.useEffect)(() => {
     let active = true;
     call("projects_list").then((result) => {
       if (active) setProjects(result.projects || []);
@@ -82026,17 +80754,17 @@ function addConversationDrop(ctx, files) {
 }
 
 // client/src/components-reagents.js
-var import_react33 = require("react");
+var import_react32 = require("react");
 var import_react_dom10 = require("react-dom");
 var kinds = { chemical: "化学试剂", biological: "生物试剂", cells: "细胞" };
 var sourceTime = (value) => value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "";
 function ReagentPanel({ call }) {
   const [query, setQuery] = useProjectViewValue("_lab", "reagents-query", "");
   const [kind, setKind] = useProjectViewValue("_lab", "reagents-kind", "all");
-  const [location2, setLocation] = (0, import_react33.useState)(""), [status, setStatus] = (0, import_react33.useState)("all"), [offset, setOffset] = (0, import_react33.useState)(0);
-  const [data, setData] = (0, import_react33.useState)(null), [loading2, setLoading] = (0, import_react33.useState)(true), [error62, setError] = (0, import_react33.useState)(""), [busy, setBusy] = (0, import_react33.useState)(false), [revision, setRevision] = (0, import_react33.useState)(0), [selected, setSelected] = (0, import_react33.useState)(null);
-  const force = (0, import_react33.useRef)(false);
-  (0, import_react33.useEffect)(() => {
+  const [location2, setLocation] = (0, import_react32.useState)(""), [status, setStatus] = (0, import_react32.useState)("all"), [offset, setOffset] = (0, import_react32.useState)(0);
+  const [data, setData] = (0, import_react32.useState)(null), [loading2, setLoading] = (0, import_react32.useState)(true), [error62, setError] = (0, import_react32.useState)(""), [busy, setBusy] = (0, import_react32.useState)(false), [revision, setRevision] = (0, import_react32.useState)(0), [selected, setSelected] = (0, import_react32.useState)(null);
+  const force = (0, import_react32.useRef)(false);
+  (0, import_react32.useEffect)(() => {
     let active = true, sequence = 0;
     const load2 = async () => {
       const id = ++sequence;
@@ -82062,7 +80790,7 @@ function ReagentPanel({ call }) {
       clearInterval(timer);
     };
   }, [call, query, kind, location2, status, offset, revision]);
-  (0, import_react33.useEffect)(() => {
+  (0, import_react32.useEffect)(() => {
     if (!selected) return;
     const escape2 = (event) => {
       if (event.key === "Escape") setSelected(null);
@@ -82147,7 +80875,7 @@ function ReagentPanel({ call }) {
 }
 
 // client/src/components-knowledge.js
-var import_react34 = require("react");
+var import_react33 = require("react");
 var import_react_dom11 = require("react-dom");
 var roles = { original: "论文正文", reading_note: "精读笔记", metadata_note: "题录资料", supplement: "补充材料", thesis: "学位论文" };
 function knowledgeLocator(loc) {
@@ -82160,13 +80888,13 @@ function knowledgeLocator(loc) {
 }
 function KnowledgePanel({ project: project2, call, openChat, conversation, activeSessionId, headerTarget }) {
   const [keys, setKeys] = useProjectViewValue(project2.id, "knowledge-keys", null), [role, setRole] = useProjectViewValue(project2.id, "knowledge-role", "");
-  const [state2, setState] = (0, import_react34.useState)(null), [sessionId, setSessionId] = (0, import_react34.useState)(null), [chat, setChat] = (0, import_react34.useState)(null);
-  const [settingsOpen, setSettingsOpen] = (0, import_react34.useState)(false), [sourcesOpen, setSourcesOpen] = (0, import_react34.useState)(false), [sourceTurn, setSourceTurn] = (0, import_react34.useState)(null);
-  const [error62, setError] = (0, import_react34.useState)(""), [notice, setNotice] = (0, import_react34.useState)(""), [busy, setBusy] = (0, import_react34.useState)(false), [opening, setOpening] = (0, import_react34.useState)(true), [dragging, setDragging] = (0, import_react34.useState)(false);
-  const [yearFrom, setYearFrom] = (0, import_react34.useState)(""), [yearTo, setYearTo] = (0, import_react34.useState)("");
-  const input3 = (0, import_react34.useRef)(null), alive = (0, import_react34.useRef)(true), selectionRevision = (0, import_react34.useRef)(0), selection = (0, import_react34.useRef)(null);
+  const [state2, setState] = (0, import_react33.useState)(null), [sessionId, setSessionId] = (0, import_react33.useState)(null), [chat, setChat] = (0, import_react33.useState)(null);
+  const [settingsOpen, setSettingsOpen] = (0, import_react33.useState)(false), [sourcesOpen, setSourcesOpen] = (0, import_react33.useState)(false), [sourceTurn, setSourceTurn] = (0, import_react33.useState)(null);
+  const [error62, setError] = (0, import_react33.useState)(""), [notice, setNotice] = (0, import_react33.useState)(""), [busy, setBusy] = (0, import_react33.useState)(false), [opening, setOpening] = (0, import_react33.useState)(true), [dragging, setDragging] = (0, import_react33.useState)(false);
+  const [yearFrom, setYearFrom] = (0, import_react33.useState)(""), [yearTo, setYearTo] = (0, import_react33.useState)("");
+  const input3 = (0, import_react33.useRef)(null), alive = (0, import_react33.useRef)(true), selectionRevision = (0, import_react33.useRef)(0), selection = (0, import_react33.useRef)(null);
   selection.current = { keys: keys ?? state2?.libraries.filter((item) => item.scope === "project").map((item) => item.key) ?? [], role, yearFrom, yearTo };
-  (0, import_react34.useEffect)(() => {
+  (0, import_react33.useEffect)(() => {
     alive.current = true;
     return () => {
       alive.current = false;
@@ -82199,10 +80927,10 @@ function KnowledgePanel({ project: project2, call, openChat, conversation, activ
       if (alive.current) setOpening(false);
     }
   };
-  (0, import_react34.useEffect)(() => {
+  (0, import_react33.useEffect)(() => {
     void start(false);
   }, [project2.id]);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react33.useEffect)(() => {
     let active = true, inFlight = false;
     const refresh = async () => {
       if (inFlight) return;
@@ -82456,7 +81184,6 @@ var WORKBENCH_MODULES = [
   { id: "reagents", label: "试剂管理", icon: "flask", caption: "化学试剂、生物试剂与细胞清单检索" },
   { id: "characterization", label: "核磁解析", icon: "wave", caption: "核磁数据、结构与谱图解析" },
   { id: "plotting", label: "科研绘图", icon: "chart", caption: "科研数据可视化、Origin 绘图与产物归档" },
-  { id: "planning", label: "合成路线", icon: "route", caption: "反应步骤、条件与文献证据" },
   { id: "polishing", label: "论文润色", icon: "pen", caption: "功能规划中" }
 ];
 var paths = {
@@ -82516,11 +81243,11 @@ function PolishingPlaceholder() {
 }
 function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
   const { controller, call, ctx, layout, sidebarRight, launchProject, deleteProject } = runtime3;
-  const [project2, setProject] = (0, import_react35.useState)(controller.get);
+  const [project2, setProject] = (0, import_react34.useState)(controller.get);
   const [moduleId, setModuleId] = useProjectViewValue(project2?.id || "_home", "workbench-module", "literature");
-  const [pluginModules, setPluginModules] = (0, import_react35.useState)(() => listWorkbenchModules());
-  (0, import_react35.useEffect)(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
-  (0, import_react35.useEffect)(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
+  const [pluginModules, setPluginModules] = (0, import_react34.useState)(() => listWorkbenchModules());
+  (0, import_react34.useEffect)(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
+  (0, import_react34.useEffect)(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
   const pluginById = new Map(pluginModules.map((item) => [item.id, item]));
   const MODULE_PLUGINS = { literature: "literature", knowledge: "knowledge", reagents: "reagents", characterization: "nmr", plotting: "plotting", polishing: "polishing" };
   const allModules = [
@@ -82530,28 +81257,28 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
   const module2 = allModules.find((item) => item.id === moduleId) || allModules[0] || WORKBENCH_MODULES[0];
   const pluginPanel = pluginModules.find((item) => item.id === module2.id && typeof item.render === "function" && (item.override === true || !WORKBENCH_MODULES.some((builtin) => builtin.id === item.id)));
   const pageTitle = project2 ? module2.label : "科研项目";
-  const [historyOpen, setHistoryOpen] = (0, import_react35.useState)(false);
+  const [historyOpen, setHistoryOpen] = (0, import_react34.useState)(false);
   const [chatHidden, setChatHidden] = useProjectViewValue("_layout", "chat-hidden", false);
   const [chatWidth, setChatWidth] = useProjectViewValue("_layout", "chat-width", 380);
-  const [templates, setTemplates] = (0, import_react35.useState)(false);
-  const [pluginsSettings, setPluginsSettings] = (0, import_react35.useState)(false);
-  const [openingProject, setOpeningProject] = (0, import_react35.useState)(false);
-  const [chatDragging, setChatDragging] = (0, import_react35.useState)(false);
-  const [resourceWidth, setResourceWidth] = (0, import_react35.useState)(800);
-  const [error62, setError] = (0, import_react35.useState)("");
-  const [selection, setSelection] = (0, import_react35.useState)("");
-  const [knowledgeHeaderTarget, setKnowledgeHeaderTarget] = (0, import_react35.useState)(null);
-  const [plottingHeaderTarget, setPlottingHeaderTarget] = (0, import_react35.useState)(null);
-  const centerRef = (0, import_react35.useRef)(null);
+  const [templates, setTemplates] = (0, import_react34.useState)(false);
+  const [pluginsSettings, setPluginsSettings] = (0, import_react34.useState)(false);
+  const [openingProject, setOpeningProject] = (0, import_react34.useState)(false);
+  const [chatDragging, setChatDragging] = (0, import_react34.useState)(false);
+  const [resourceWidth, setResourceWidth] = (0, import_react34.useState)(800);
+  const [error62, setError] = (0, import_react34.useState)("");
+  const [selection, setSelection] = (0, import_react34.useState)("");
+  const [knowledgeHeaderTarget, setKnowledgeHeaderTarget] = (0, import_react34.useState)(null);
+  const [plottingHeaderTarget, setPlottingHeaderTarget] = (0, import_react34.useState)(null);
+  const centerRef = (0, import_react34.useRef)(null);
   const activePanel = usePanelInfo((info2) => info2.activePanelId);
   const knowledgeActive = Boolean(project2 && module2.id === "knowledge" && !templates && !activePanel);
-  const [activeSessionId, setActiveSessionId] = (0, import_react35.useState)(() => currentDesktopSessionId(ctx.sessions));
-  (0, import_react35.useEffect)(() => ctx.sessions.list.subscribe(() => setActiveSessionId(currentDesktopSessionId(ctx.sessions))), [ctx]);
-  const currentProject = (0, import_react35.useRef)(project2);
+  const [activeSessionId, setActiveSessionId] = (0, import_react34.useState)(() => currentDesktopSessionId(ctx.sessions));
+  (0, import_react34.useEffect)(() => ctx.sessions.list.subscribe(() => setActiveSessionId(currentDesktopSessionId(ctx.sessions))), [ctx]);
+  const currentProject = (0, import_react34.useRef)(project2);
   currentProject.current = project2;
-  (0, import_react35.useEffect)(() => controller.subscribe(setProject), [controller]);
-  (0, import_react35.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
-  (0, import_react35.useEffect)(() => {
+  (0, import_react34.useEffect)(() => controller.subscribe(setProject), [controller]);
+  (0, import_react34.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
+  (0, import_react34.useEffect)(() => {
     document.title = "iBM Lab";
     let revision = 0;
     let lastSession;
@@ -82580,19 +81307,19 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
       unsubscribe();
     };
   }, [controller, ctx, call]);
-  (0, import_react35.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     const element = centerRef.current;
     const observer = new ResizeObserver((entries) => setResourceWidth(Math.round(entries[0].contentRect.width)));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  (0, import_react35.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     setSelection("");
   }, [project2?.id, module2.id]);
-  (0, import_react35.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     setHistoryOpen(false);
   }, [activePanel]);
-  const closeResources = (0, import_react35.useCallback)(() => {
+  const closeResources = (0, import_react34.useCallback)(() => {
     if (sidebarRight.isExpanded()) sidebarRight.toggleExpanded();
   }, [sidebarRight]);
   const navigate = (id) => {
@@ -82661,8 +81388,8 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime3 }) {
 ${selection}` }).catch((reason) => setError(reason.message));
   };
   const [projectTab, setProjectTab] = useProjectViewValue(project2?.id || "_home", "workbench-project-tab", "literature");
-  (0, import_react35.useEffect)(() => {
-    if (["literature", "planning", "characterization", "plotting"].includes(module2.id)) setProjectTab(module2.id);
+  (0, import_react34.useEffect)(() => {
+    if (["literature", "characterization", "plotting"].includes(module2.id)) setProjectTab(module2.id);
   }, [module2.id, setProjectTab]);
   const chatDrag = (event) => {
     if (!isFileDrag(event)) return;
@@ -82778,7 +81505,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         project2 ? h(
           "div",
           { className: "ib-wb-project-holder" },
-          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "planning", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
           pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module2.id === "polishing" ? h(PolishingPlaceholder) : module2.id === "reagents" ? h(ReagentPanel, { call }) : null,
           module2.id === "knowledge" ? h(KnowledgePanel, { key: project2.id, project: project2, call, openChat: openKnowledgeChat, activeSessionId, headerTarget: knowledgeHeaderTarget, conversation: knowledgeActive ? renderSlot("main", {}, { entryKey: "conversation" }) : null }) : null
         ) : null

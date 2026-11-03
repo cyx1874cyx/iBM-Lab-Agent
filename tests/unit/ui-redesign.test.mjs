@@ -59,7 +59,7 @@ test("§2.2/§9 课题入口：图标 + 名称 + 下拉箭头，无英文标签�
 test("§3.1 课题页去嵌套：单行标签页 + 分组标题，无外层大框与副标题", async () => {
 	const [project, redesign] = await Promise.all([read("components-project.js"), read("redesign.js")]);
 	// 分类导航使用单行标签，核磁解析和科研绘图分别展示。
-	assert.match(project, /const tabs = \[\s*\["literature", "文献资料"\], \["planning", "研究设计"\], \["characterization", "核磁解析"\], \["plotting", "科研绘图"\]\]/);
+	assert.match(project, /const tabs = \[\s*\["literature", "文献资料"\], \["characterization", "核磁解析"\], \["plotting", "科研绘图"\]\]/);
 	assert.match(project, /tabs\.map\(\(\[id, label\]\) => h\("button", \{ className: "ib-tab"/);
 	// 不再有 meta 副标题表 / 外层 ib-board 大框。
 	assert.doesNotMatch(project, /const meta = \{ literature: \["文献资料"/);

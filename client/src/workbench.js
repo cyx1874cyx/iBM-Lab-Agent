@@ -20,7 +20,6 @@ export const WORKBENCH_MODULES = [
  { id: 'reagents', label: '试剂管理', icon: 'flask', caption: '化学试剂、生物试剂与细胞清单检索' },
  { id: 'characterization', label: '核磁解析', icon: 'wave', caption: '核磁数据、结构与谱图解析' },
  { id: 'plotting', label: '科研绘图', icon: 'chart', caption: '科研数据可视化、Origin 绘图与产物归档' },
- { id: 'planning', label: '合成路线', icon: 'route', caption: '反应步骤、条件与文献证据' },
  { id: 'polishing', label: '论文润色', icon: 'pen', caption: '功能规划中' },
 ];
 const paths = {
@@ -179,7 +178,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
   if (project && selection) void onTask(project, { prompt: `请结合当前课题解释以下选中的内容：\n\n${selection}` }).catch(reason => setError(reason.message));
  };
  const [projectTab, setProjectTab] = useProjectViewValue(project?.id || '_home', 'workbench-project-tab', 'literature');
- useEffect(() => { if (['literature', 'planning', 'characterization', 'plotting'].includes(module.id)) setProjectTab(module.id); }, [module.id, setProjectTab]);
+ useEffect(() => { if (['literature', 'characterization', 'plotting'].includes(module.id)) setProjectTab(module.id); }, [module.id, setProjectTab]);
  // The host listens on document for drops. Claim chat files during capture and
  // stop unclaimed workbench files during bubble, after module drop handlers ran.
  const chatDrag = event => {
@@ -231,7 +230,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
    !project ? h('div', { className: 'ib-wb-content ib-wb-welcome ib-overlay ib-wb-business' }, h(ProjectFileHome, { call, onOpen: openProject, welcome: true })) : null,
    h('div', { className: 'ib-wb-content ib-overlay ib-wb-business', hidden: !project || Boolean(activePanel) || templates || pluginsSettings },
     project ? h('div', { className: 'ib-wb-project-holder' },
-     h('div', { className: 'ib-wb-project-seat', hidden: !['literature', 'planning', 'characterization', 'plotting'].includes(module.id) }, h(Project, { key: project.id, project, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+     h('div', { className: 'ib-wb-project-seat', hidden: !['literature', 'characterization', 'plotting'].includes(module.id) }, h(Project, { key: project.id, project, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
      pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module.id === 'polishing' ? h(PolishingPlaceholder) : module.id==='reagents'?h(ReagentPanel,{call}):null,
      module.id==='knowledge' ? h(KnowledgePanel,{key:project.id,project,call,openChat:openKnowledgeChat,activeSessionId,headerTarget:knowledgeHeaderTarget,conversation:knowledgeActive?renderSlot('main',{}, {entryKey:'conversation'}):null}) : null) : null),
    project && templates ? h('div', { className: 'ib-wb-content ib-overlay ib-wb-business' }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,

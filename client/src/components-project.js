@@ -8,7 +8,7 @@ import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import {openReader,translationPrompt} from './reader-tab.js';
 
-import { ResearchDesignWorkspace } from "./components-workspace.js";
+
 import { CharacterizationPanel } from "./components-characterization.js";
 import { projectPanelFor } from "./panel-registry.js";
 import { usePluginSwitches } from "./plugin-switch-hook.js";
@@ -1007,14 +1007,13 @@ export function Project({ call, project, onBack, onDelete, onStartChat, activeTa
 			const data = state.data;
 			const openEntryConversation=(sessionId,entryIdentity)=>onStartChat(data.project,{openSessionId:sessionId,entryIdentity,entryOpenOnly:true,preserveDraft:true});
 			const literature = data.literature || {};
-			const planning = data.planning || {};
 			const characterization = data.characterization || {};
 			// 视觉改版：分类导航只保留单行标签，删除解释性副标题。
-			const available = { literature: (data.capabilities?.literature ?? true) && isPluginEnabled("literature"), planning: data.capabilities?.design ?? true, characterization: (data.capabilities?.analysis ?? true) && isPluginEnabled("nmr"), plotting: (data.capabilities?.analysis ?? true) && isPluginEnabled("plotting") };
+			const available = { literature: (data.capabilities?.literature ?? true) && isPluginEnabled("literature"), characterization: (data.capabilities?.analysis ?? true) && isPluginEnabled("nmr"), plotting: (data.capabilities?.analysis ?? true) && isPluginEnabled("plotting") };
             const requestedTab = controlledTab || tab;
             const activeTab = available[requestedTab] ? requestedTab : Object.keys(available).find(id => available[id]);
             const tabPlugins = { literature: "literature", characterization: "nmr", plotting: "plotting" };
-            const tabs = [["literature", "文献资料"], ["planning", "研究设计"], ["characterization", "核磁解析"], ["plotting", "科研绘图"]]
+            const tabs = [["literature", "文献资料"], ["characterization", "核磁解析"], ["plotting", "科研绘图"]]
              .filter(([id]) => !tabPlugins[id] || isPluginEnabled(tabPlugins[id]));
             const contentOnly = workbench && ['literature','characterization','plotting'].includes(activeTab);
 			return h("div", { className: workbench ? "ib-wb-project-page" : undefined, 'data-workspace': activeTab },
@@ -1030,7 +1029,6 @@ export function Project({ call, project, onBack, onDelete, onStartChat, activeTa
 					h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load() }, "刷新")) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load() }, "刷新资料")) : null,
 				// 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
 				activeTab === "literature" || (workbench && available.literature && visitedTabs.literature) ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor('literature')?.render ?? LitPanel, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation:openEntryConversation, onChanged: load })) : null,
-				activeTab === "planning" || (workbench && available.planning && visitedTabs.planning) ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "planning" }, h(ResearchDesignWorkspace, { projectId: data.project.id, routes: planning.routes || [], targets: planning.targets || [], plans: planning.plans || [], call, notify: setToast, onRequestPlan: startTaskChat, onChanged: load })) : null,
 				activeTab === "characterization" || (workbench && available.characterization && visitedTabs.characterization) ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor('characterization')?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: 'nmr', nmrRows: characterization.nmr || [], onOpenConversation:openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, undefined, identity) })) : null,
 				activeTab === "plotting" || (workbench && available.plotting && visitedTabs.plotting) ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor('plotting')?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: 'plot', headerTarget:plottingHeaderTarget, onOpenConversation:openEntryConversation, onRefineConversation: (row,options={}) => onStartChat(data.project,{entryIdentity:{kind:'plot',recordId:row.id},autoSubmit:true,preserveDraft:true,prompt:options.prompt||`请查看当前绑定的绘图条目（条目 ID：${row.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。`}) })) : null,
 				!activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
