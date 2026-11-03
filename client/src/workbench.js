@@ -66,6 +66,22 @@ function PolishingPlaceholder() {
   h('p', null, '此功能正在规划中，暂不可用。'));
 }
 
+/**
+ * 设置类弹窗：模板管理、插件设置共用。
+ * 点击遮罩或 Esc 关闭，避免把工作台整页顶掉。
+ */
+function SettingsModal({ title, onClose, children }) {
+ useEffect(() => {
+  const onKey = event => { if (event.key === 'Escape') onClose(); };
+  document.addEventListener('keydown', onKey);
+  return () => document.removeEventListener('keydown', onKey);
+ }, [onClose]);
+ return h('div', { role: 'presentation', onClick: event => { if (event.target === event.currentTarget) onClose(); }, style: { position: 'fixed', inset: 0, zIndex: 9000, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,0.35)', padding: '24px' } },
+  h('section', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title, 'data-settings-modal': title, style: { width: 'min(1080px,92vw)', maxHeight: 'calc(100vh - 48px)', overflow: 'auto', background: 'var(--ib-bg)', border: '1px solid var(--ib-line)', borderRadius: '14px', padding: '16px 20px', boxSizing: 'border-box', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' } },
+   h('header', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' } }, h('h2', { style: { margin: 0 } }, title), h('button', { className: 'ib-btn', 'data-modal-close': true, onClick: onClose }, '关闭')),
+   h('div', { 'data-plugin-settings-page': title === '插件设置' ? true : undefined }, children)));
+}
+
 export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  const { controller, call, ctx, layout, sidebarRight, launchProject, deleteProject } = runtime;
  const [project, setProject] = useState(controller.get);
@@ -224,17 +240,17 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
    h('nav', null, allModules.map(item => h('button', { key: item.id, className: 'ib-wb-nav-item', 'data-module': item.id, 'aria-current': module.id === item.id && !templates ? 'page' : undefined, title: item.label, onClick: () => navigate(item.id) }, h(Icon, { name: item.icon }), h('span', null, item.label)))),
    h('div', { className: 'ib-wb-nav-bottom' }, h('button', { className: 'ib-wb-nav-item', onClick: () => { layout.selectPanel(null); closeResources(); setPluginsSettings(false); setTemplates(true); } }, h(Icon, { name: 'file' }), h('span', null, '模板管理')), h('button', { className: 'ib-wb-nav-item', 'data-plugins-settings': true, onClick: () => { layout.selectPanel(null); closeResources(); setTemplates(false); setPluginsSettings(true); } }, h(Icon, { name: 'settings' }), h('span', null, '插件设置')), h('small', null, 'iBM Lab · 科研工作台'))),
   h('main', { className: 'ib-wb-center', ref: centerRef, 'aria-label': project ? '业务工作区' : '欢迎页', onMouseUp: () => { const selected = window.getSelection(); if (selected && centerRef.current?.contains(selected.anchorNode)) setSelection(String(selected).trim().slice(0, 6000)); } },
-   h('div', { className: 'ib-wb-page-head', hidden: !project }, h('div', null, h('div', { className: 'ib-wb-breadcrumb' }, '工作台', h('span', null, '/'), pluginsSettings ? '插件设置' : templates ? '模板管理' : pageTitle), h('h1', null, pluginsSettings ? '插件设置' : templates ? '模板管理' : pageTitle), h('p', null, pluginsSettings ? '子插件软/硬启停：软启停立即隐藏入口，硬启停下次启动生效' : templates ? '管理科研文档与报告模板' : project ? module.caption : '创建或打开工程文件，继续你的研究工作')),knowledgeActive?h('div',{className:'ib-wb-page-actions',ref:setKnowledgeHeaderTarget}):null,module.id==='plotting'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions',ref:setPlottingHeaderTarget}):null, project && selection ? h('button', { className: 'ib-btn', onClick: quoteSelection, onMouseDown: event => event.preventDefault() }, '引用选中文本 →') : null),
+   h('div', { className: 'ib-wb-page-head', hidden: !project }, h('div', null, h('div', { className: 'ib-wb-breadcrumb' }, '工作台', h('span', null, '/'), pageTitle), h('h1', null, pageTitle), h('p', null, project ? module.caption : '创建或打开工程文件，继续你的研究工作')),knowledgeActive?h('div',{className:'ib-wb-page-actions',ref:setKnowledgeHeaderTarget}):null,module.id==='plotting'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions',ref:setPlottingHeaderTarget}):null, project && selection ? h('button', { className: 'ib-btn', onClick: quoteSelection, onMouseDown: event => event.preventDefault() }, '引用选中文本 →') : null),
    error ? h('div', { className: 'ib-wb-alert', role: 'alert' }, error) : null,
    openingProject ? h('div', { className: 'ib-wb-alert', role: 'status' }, '正在打开课题工作区与对话…') : null,
    !project ? h('div', { className: 'ib-wb-content ib-wb-welcome ib-overlay ib-wb-business' }, h(ProjectFileHome, { call, onOpen: openProject, welcome: true })) : null,
-   h('div', { className: 'ib-wb-content ib-overlay ib-wb-business', hidden: !project || Boolean(activePanel) || templates || pluginsSettings },
+   h('div', { className: 'ib-wb-content ib-overlay ib-wb-business', hidden: !project || Boolean(activePanel) },
     project ? h('div', { className: 'ib-wb-project-holder' },
      h('div', { className: 'ib-wb-project-seat', hidden: !['literature', 'characterization', 'plotting'].includes(module.id) }, h(Project, { key: project.id, project, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
      pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module.id === 'polishing' ? h(PolishingPlaceholder) : module.id==='reagents'?h(ReagentPanel,{call}):null,
      module.id==='knowledge' ? h(KnowledgePanel,{key:project.id,project,call,openChat:openKnowledgeChat,activeSessionId,headerTarget:knowledgeHeaderTarget,conversation:knowledgeActive?renderSlot('main',{}, {entryKey:'conversation'}):null}) : null) : null),
-   project && templates ? h('div', { className: 'ib-wb-content ib-overlay ib-wb-business' }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,
-   project && pluginsSettings ? h('div', { className: 'ib-wb-content ib-overlay ib-wb-business', 'data-plugin-settings-page': true }, h(PluginSettings, { call, onBack: () => setPluginsSettings(false) })) : null,
+   project && templates ? h(SettingsModal, { title: '模板管理', onClose: () => setTemplates(false) }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,
+   project && pluginsSettings ? h(SettingsModal, { title: '插件设置', onClose: () => setPluginsSettings(false) }, h(PluginSettings, { call, onBack: () => setPluginsSettings(false) })) : null,
    project && activePanel ? h('div', { className: 'ib-wb-global' }, h('button', { className: 'ib-wb-back ib-btn', onClick: () => layout.selectPanel(null) }, '← 返回工作区'), renderSlot('main', {}, { entryKey: activePanel })) : null,
    h('div', { className: 'ib-wb-resources', 'data-rightbar-col': true, hidden: !project }, renderSlot('rightbar', { width: resourceWidth, viewportWidth: Math.max(800, window.innerWidth), canShow: Boolean(project) }))),
   h('div', { className: 'ib-wb-resize', hidden: !project, role: 'separator', 'aria-label': '调整对话宽度', 'aria-orientation': 'vertical', tabIndex: 0, onPointerDown: resize, onPointerUp: event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }, onKeyDown: event => { if (['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); setChatWidth(width => Math.max(320, Math.min(620, width + (event.key === 'ArrowLeft' ? 24 : -24)))); } } }),
