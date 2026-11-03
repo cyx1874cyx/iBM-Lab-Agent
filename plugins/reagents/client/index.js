@@ -145,6 +145,9 @@ var import_react7 = require("react");
 // client/src/reading-link-upload.js
 var import_react8 = require("react");
 
+// client/src/reader-host.js
+var HOST_KEY = Symbol.for("ibm.lab.reader-host");
+
 // plugins/reagents/client/src/panel.js
 var import_react9 = require("react");
 var import_react_dom2 = require("react-dom");

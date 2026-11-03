@@ -6,15 +6,16 @@ let getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions,pd
 export async function loadPdf(){pdfModule??=import('dsh-lab-agent/client-vendor/pdfjs/pdf.mjs');({getDocument,PDFDataRangeTransport,PDFWorker,TextLayer,GlobalWorkerOptions}=await pdfModule);}
 export async function loadPdfViewer(){await loadPdf();return viewerModule??=import('dsh-lab-agent/client-vendor/pdfjs/web/pdf_viewer.mjs');}
 const PREFIX='dsh-resource://lab-reader/',ID='lab-reader',KIND='lab-reader';
-let runtime=null,workerUrl;const preferredModes=new Map();
-export function setReaderRuntime(value){runtime=value;}
-export function readerRuntime(){return runtime;}
+let workerUrl;
+// 运行时与首选模式由宿主 reader-host 持有；插件只读共享实例。
+import { readerRuntime, readerPreferredMode, setReaderPreferredMode } from 'dsh-lab-agent/client-sdk';
+export { readerRuntime, readerPreferredMode };
+export function setReaderRuntime(){/* 宿主负责写入共享运行时 */}
 export function pdfTypes(){return {getDocument,PDFWorker,TextLayer,GlobalWorkerOptions};}
-export function readerPreferredMode(key){return preferredModes.get(key)??'original';}
 export function readerWorker(){return workerUrl??=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));}
 export function readerAddress({projectId,bundleId,kind='pdf'}){return PREFIX+[projectId,bundleId,kind].map(encodeURIComponent).join('/');}
 export function readerIdentity(address){if(!String(address).startsWith(PREFIX))return null;const parts=String(address).slice(PREFIX.length).split('/');if(parts.length!==3)return null;try{const [projectId,bundleId,kind]=parts.map(decodeURIComponent);return projectId&&bundleId&&['pdf','si'].includes(kind)?{projectId,bundleId,kind}:null;}catch{return null;}}
-export async function openReader(request){if(!runtime)throw Error('侧栏阅读器尚未就绪');const address=readerAddress(request);preferredModes.set(address,request.mode??'original');await runtime.open(address,request);window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));}
+export async function openReader(request){const runtime=readerRuntime();if(!runtime)throw Error('侧栏阅读器尚未就绪');const address=readerAddress(request);setReaderPreferredMode(address,request.mode);await runtime.open(address,request);window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));}
 export { translationPrompt } from '../translation-prompt.js';
 const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
 export function pdfResources(call){

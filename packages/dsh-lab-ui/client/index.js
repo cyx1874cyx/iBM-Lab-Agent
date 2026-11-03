@@ -4602,11 +4602,14 @@ var import_react24 = require("react");
 var PREFIX = "dsh-resource://lab-reader/";
 var HOST_KEY = Symbol.for("ibm.lab.reader-host");
 function state() {
-  if (globalThis[HOST_KEY] === void 0) globalThis[HOST_KEY] = { runtime: null };
+  if (globalThis[HOST_KEY] === void 0) globalThis[HOST_KEY] = { runtime: null, modes: /* @__PURE__ */ new Map() };
   return globalThis[HOST_KEY];
 }
 function setReaderRuntime(value) {
   state().runtime = value;
+}
+function setReaderPreferredMode(address, mode) {
+  state().modes.set(address, mode ?? "original");
 }
 function readerAddress({ projectId, bundleId, kind = "pdf" }) {
   return PREFIX + [projectId, bundleId, kind].map(encodeURIComponent).join("/");
@@ -4615,6 +4618,7 @@ async function openReader(request) {
   const runtime2 = state().runtime;
   if (!runtime2) throw Error("侧栏阅读器尚未就绪");
   const address = readerAddress(request);
+  setReaderPreferredMode(address, request.mode);
   await runtime2.open(address, request);
   window.dispatchEvent(new CustomEvent("ibm-reader-open", { detail: { address } }));
 }

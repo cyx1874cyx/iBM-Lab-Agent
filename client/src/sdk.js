@@ -30,7 +30,7 @@ export { nativeArtifact } from "./desktop-client.js";
 export { useReadingInteractions } from "./reading-interactions.js";
 export { ReadingLinkUpload } from "./reading-link-upload.js";
 // 打开右侧栏阅读器（PDF / 精读报告 / PPT）；LibreOffice 渲染由宿主工厂槽完成。
-export { openReader } from "./reader-host.js";
+export { openReader, readerRuntime, readerPreferredMode, setReaderPreferredMode } from "./reader-host.js";
 
 // 宿主能力：桌面/浏览器动作与文件下载。插件不应自己实现这些平台差异。
 export {
