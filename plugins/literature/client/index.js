@@ -45664,13 +45664,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
-  const [openPos, setOpenPos] = (0, import_react12.useState)(null);
-  const openIdRef = (0, import_react12.useRef)(null);
-  const openItemRef = (0, import_react12.useRef)(null);
-  const suppressCloseRef = (0, import_react12.useRef)(0);
-  (0, import_react12.useEffect)(() => {
-    openIdRef.current = openId;
-  }, [openId]);
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [error, setError] = (0, import_react12.useState)("");
   const [tick, setTick] = (0, import_react12.useState)(0);
@@ -45682,6 +45675,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const scrollTimerRef = (0, import_react12.useRef)(0);
   const overlayRef = (0, import_react12.useRef)(null);
   const contentRef = (0, import_react12.useRef)(null);
+  const cardLayerRef = (0, import_react12.useRef)(null);
   const questionRef = (0, import_react12.useRef)(null);
   const aliveRef = (0, import_react12.useRef)(true);
   aliveRef.current = true;
@@ -45730,24 +45724,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const onScroll = () => {
       const target = contentRef.current;
       if (target) target.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
-      if (openIdRef.current && Date.now() > suppressCloseRef.current) {
-        const item = openItemRef.current;
-        const pageEl = item?.pin ? flow2.querySelector(`.page[data-page-number="${item.page}"]`) : null;
-        if (pageEl) {
-          const pageRect = pageEl.getBoundingClientRect();
-          const flowRect2 = flow2.getBoundingClientRect();
-          const x = pageRect.left - flowRect2.left + item.pin.x * pageRect.width;
-          const y = pageRect.top - flowRect2.top + item.pin.y * pageRect.height;
-          const margin = 140;
-          if (y < -margin || y > flowRect2.height + margin || x < -margin || x > flowRect2.width + margin) {
-            openIdRef.current = null;
-            openItemRef.current = null;
-            setOpenId(null);
-            setOpenPos(null);
-            setEditing(null);
-          }
-        }
-      }
+      const cardLayer = cardLayerRef.current;
+      if (cardLayer) cardLayer.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
     };
     onScroll();
     flow2.addEventListener("scroll", onScroll, { passive: true });
@@ -46038,24 +46016,12 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setError(reason.message || String(reason));
     }
   };
-  (0, import_react12.useEffect)(() => {
-    if (!openId) {
-      setOpenPos(null);
-      openItemRef.current = null;
-    }
-  }, [openId]);
   const openAtPin = (0, import_react12.useCallback)((item) => {
-    const flow2 = flowRef.current;
     const pageEl = pageElement(item.page);
-    if (!flow2 || !pageEl || !item.pin) return false;
-    const pageRect = pageEl.getBoundingClientRect();
-    const flowRect2 = flow2.getBoundingClientRect();
-    setOpenPos({ left: pageRect.left - flowRect2.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect2.top + item.pin.y * pageRect.height });
-    openItemRef.current = item;
-    suppressCloseRef.current = Date.now() + 300;
+    if (!pageEl || !item.pin) return false;
     setOpenId(item.id);
     return true;
-  }, [flowRef, pageElement]);
+  }, [pageElement]);
   const locate = (item) => {
     setTocOpen(false);
     setOpenId(null);
@@ -46104,9 +46070,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const open = openId ? items.find((item) => item.id === openId) : null;
   const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
   const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
-  const screenOpen = openPoint ? { left: openPoint.left - scrollX, top: openPoint.top - scrollY } : null;
   const composePos = draft?.screen ?? screenAnchor;
-  const cardPos = openPos ?? screenOpen;
   if (!items.length && !draft && !open && !error) return null;
   return h(
     "div",
@@ -46189,60 +46153,64 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
       )
     ) : null,
-    open && cardPos ? h(
+    open && openPoint ? h(
       "div",
-      { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, cardPos.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, cardPos.top + 12)) }, onClick: (event) => event.stopPropagation() },
-      h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
-      open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
-      h("div", { className: "ib-anno-card-question" }, open.question),
-      editing?.id === open.id ? h(
+      { ref: cardLayerRef, className: "ib-anno-card-layer", style: { position: "absolute", inset: 0, pointerEvents: "none", transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
+      h(
         "div",
-        null,
-        h("textarea", { autoFocus: true, rows: 4, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
-        h(
+        { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
+        h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
+        open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
+        h("div", { className: "ib-anno-card-question" }, open.question),
+        editing?.id === open.id ? h(
           "div",
-          { className: "ib-anno-card-actions" },
-          h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
-          h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(open) }, "保存")
-        )
-      ) : h(
-        "div",
-        null,
-        h("div", { className: "ib-anno-card-answer" }, open.status === "pending" || open.status === "running" ? "正在根据原文生成短答…" : open.shortAnswer || open.modelAnswer || "（暂无短答）"),
-        (open.basis ?? []).length ? h(
-          "div",
-          { className: "ib-anno-card-basis" },
-          h("div", null, "依据"),
-          open.basis.map((row, index) => h("div", { key: index }, `第 ${row.page} 页：${short(row.quote, 120)}`))
-        ) : null,
-        open.error ? h("div", { className: "ib-anno-card-error" }, open.error) : null,
-        open.draftAnswer ? h(
-          "div",
-          { className: "ib-anno-draft" },
-          h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
-          h("div", null, open.draftAnswer),
+          null,
+          h("textarea", { autoFocus: true, rows: 4, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
           h(
             "div",
             { className: "ib-anno-card-actions" },
-            h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(open) }, "放弃"),
-            h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(open) }, "采用")
+            h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
+            h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(open) }, "保存")
           )
-        ) : null,
+        ) : h(
+          "div",
+          null,
+          h("div", { className: "ib-anno-card-answer" }, open.status === "pending" || open.status === "running" ? "正在根据原文生成短答…" : open.shortAnswer || open.modelAnswer || "（暂无短答）"),
+          (open.basis ?? []).length ? h(
+            "div",
+            { className: "ib-anno-card-basis" },
+            h("div", null, "依据"),
+            open.basis.map((row, index) => h("div", { key: index }, `第 ${row.page} 页：${short(row.quote, 120)}`))
+          ) : null,
+          open.error ? h("div", { className: "ib-anno-card-error" }, open.error) : null,
+          open.draftAnswer ? h(
+            "div",
+            { className: "ib-anno-draft" },
+            h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
+            h("div", null, open.draftAnswer),
+            h(
+              "div",
+              { className: "ib-anno-card-actions" },
+              h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(open) }, "放弃"),
+              h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(open) }, "采用")
+            )
+          ) : null,
+          h(
+            "div",
+            { className: "ib-anno-card-actions" },
+            h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || "" }) }, "编辑"),
+            open.status === "failed" ? h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(open) }, "重试") : null,
+            h("button", { type: "button", className: "ib-anno-btn", "data-danger": true, onClick: () => void remove(open) }, "删除")
+          )
+        ),
         h(
           "div",
-          { className: "ib-anno-card-actions" },
-          h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || "" }) }, "编辑"),
-          open.status === "failed" ? h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(open) }, "重试") : null,
-          h("button", { type: "button", className: "ib-anno-btn", "data-danger": true, onClick: () => void remove(open) }, "删除")
+          { className: "ib-anno-follow" },
+          h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(open);
+          } }),
+          h("button", { type: "button", className: "ib-anno-btn", disabled: !followText.trim(), onClick: () => void askFollow(open) }, "追问")
         )
-      ),
-      h(
-        "div",
-        { className: "ib-anno-follow" },
-        h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(open);
-        } }),
-        h("button", { type: "button", className: "ib-anno-btn", disabled: !followText.trim(), onClick: () => void askFollow(open) }, "追问")
       )
     ) : null,
     error ? h("div", { className: "ib-anno-error" }, error) : null
