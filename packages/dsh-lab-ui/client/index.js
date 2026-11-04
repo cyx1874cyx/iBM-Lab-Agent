@@ -3744,8 +3744,9 @@ function ExperimentPlanTemplates({ call, state: state3, reload }) {
     setName("");
     await reload();
   });
-  const archive = (row2) => withBusy(`arc:${row2.id}`, async () => {
-    await call("experiment_plan_templates_archive", { request: { id: row2.id } });
+  const remove = (row2) => withBusy(`del:${row2.id}`, async () => {
+    if (!window.confirm(`删除实验计划模板「${row2.name}」？历史任务快照不受影响。`)) return;
+    await call("experiment_plan_templates_delete", { request: { id: row2.id } });
     await reload();
   });
   return h(
@@ -3760,13 +3761,18 @@ function ExperimentPlanTemplates({ call, state: state3, reload }) {
     ),
     state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
     state3.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
-    state3.list.length ? h("div", { className: "ib-rows" }, state3.list.map((row2) => h(
+    state3.list.length ? h(
       "div",
-      { className: "ib-row", key: row2.id },
-      h("b", { title: row2.id }, row2.name),
-      h("span", null, `v${row2.version}${row2.applicableTo ? " · " + row2.applicableTo : ""} · ${row2.sections?.length || 0} 章节`),
-      row2.status === "archived" ? h("span", { className: "ib-chip" }, "已归档") : h("button", { className: "ib-btn", disabled: !!busy[`arc:${row2.id}`], onClick: () => void archive(row2) }, "归档")
-    ))) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
+      { className: "ib-table" },
+      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+      state3.list.map((row2) => h(
+        "div",
+        { className: "ib-table-row", key: row2.id },
+        h("span", { className: "ib-tm-name" }, h("b", null, row2.name)),
+        h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row2.status === "active" ? "accent" : void 0 }, row2.status === "active" ? "可用" : "已归档")),
+        h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", disabled: !!busy[`del:${row2.id}`], onClick: () => void remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除"))
+      ))
+    ) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
   );
 }
 function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault }) {
@@ -3877,17 +3883,16 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
     setDraft(null);
     void reload();
   } });
-  const cards = state3.list.map((row2) => {
+  const rows = state3.list.map((row2) => {
     const isDefault = defaultId === row2.id;
     return h(
       "div",
-      { className: "ib-tm-card", key: row2.id, "data-default": isDefault ? "true" : void 0 },
-      h("div", { className: "ib-tm-title" }, h("b", null, row2.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row2.version} · ${when(row2.updatedAt)}`)),
-      h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row2.id)),
-      h("div", { className: "ib-tm-meta" }, (row2.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row2.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
+      { className: "ib-table-row", key: row2.id, "data-default": isDefault ? "true" : void 0 },
+      h("span", { className: "ib-tm-name" }, h("b", null, row2.name)),
+      h("span", { className: "ib-tm-status" }, isDefault ? h("span", { className: "ib-default-badge" }, "默认") : h("span", { className: "ib-tm-chip" }, "普通")),
       h(
-        "div",
-        { className: "ib-tm-acts" },
+        "span",
+        { className: "ib-tm-actions" },
         isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（科研助手回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：科研助手生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
         h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"),
         h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"),
@@ -3896,7 +3901,12 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
       )
     );
   });
-  const listBody = state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。");
+  const listBody = state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h(
+    "div",
+    { className: "ib-table" },
+    h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+    rows
+  ) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。");
   const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
   return h(
     "div",
@@ -4036,10 +4046,10 @@ function PptTemplates({ call, state: state3, reload }) {
       });
     }
   };
-  const archive = (row2) => run(`arc:${row2.id}`, async () => {
-    if (!window.confirm(`归档 PPT 模板「${row2.name}」？历史版本仍可读，任务快照不受影响。`)) return;
-    await call("templates_archive", { request: { id: row2.id } });
-    setToast(`已归档「${row2.name}」`);
+  const remove = (row2) => run(`del:${row2.id}`, async () => {
+    if (!window.confirm(`删除 PPT 模板「${row2.name}」？历史版本与任务快照不受影响。`)) return;
+    await call("templates_delete", { request: { id: row2.id } });
+    setToast(`已删除「${row2.name}」`);
     await reload();
     setSelected(null);
     setValidation(null);
@@ -4081,8 +4091,8 @@ function PptTemplates({ call, state: state3, reload }) {
     state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h(
       "div",
       { className: "ib-table" },
-      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
-      state3.list.map((row2) => h("div", { className: "ib-table-row", key: row2.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row2.id), h("span", { className: "ib-tm-name" }, h("b", null, row2.name), h("small", { style: { display: "block", color: "var(--ib-text)", fontSize: 9 } }, `v${row2.version} · ${row2.pageSize?.ratio || "?"} · ${when(row2.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row2.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row2.status === "ready" ? "accent" : void 0 }, statusLabel(row2.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row2) }, busy[`pv:${row2.id}`] ? "…" : selected?.id === row2.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row2) }, busy[`vf:${row2.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row2) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row2) }, busy[`arc:${row2.id}`] ? "…" : "归档"))))
+      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+      state3.list.map((row2) => h("div", { className: "ib-table-row", key: row2.id }, h("span", { className: "ib-tm-name" }, h("b", null, row2.name)), h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row2.status === "ready" ? "accent" : void 0 }, statusLabel(row2.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row2) }, busy[`pv:${row2.id}`] ? "…" : selected?.id === row2.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row2) }, busy[`vf:${row2.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row2) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除"))))
     ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
     validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
     selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
@@ -4380,7 +4390,7 @@ function buildDescriptors() {
     // 「已导入模板却显示该错误」就是这条声明与调用不一致造成的。
     // 因此它必须留在下面的 request 参数组里，不能再放回零参数组。
     ...["versions_list", "goals_list", "templates_list", "nmr_list", "convert_available", "convert_runs", "python_preflight", "cas_policy", "cas_login_entry", "plugins_list"].map((name) => direct(name)),
-    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "plugins_set_enabled", "plugins_set_order", "tasks_searches", "tasks_search_delete", "tasks_search_import_ris", "tasks_reading_folders", "tasks_reading_folder_save", "tasks_reading_folder_delete", "tasks_reading_classify", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
+    ...["versions_resolve", "goals_resolve", "goals_create", "goals_update", "goals_copy", "goals_delete", "goals_requirements", "templates_resolve", "templates_preview", "templates_validate", "templates_import", "templates_confirm", "templates_update_meta", "templates_archive", "templates_delete", "note_templates_list", "note_templates_set_default", "note_templates_resolve", "note_templates_create", "note_templates_parse_markdown", "note_templates_import_markdown", "note_templates_update", "note_templates_copy", "note_templates_delete", "note_templates_requirements", "projects_create", "projects_delete", "projects_get", "projects_ensure_workspace", "projects_bind_workspace", "projects_bind_session", "projects_binding", "projects_by_session", "projects_by_workspace", "projects_by_cwd", "projects_memory", "projects_memory_update", "projects_workspace", "plugins_set_enabled", "plugins_set_order", "tasks_searches", "tasks_search_delete", "tasks_search_import_ris", "tasks_reading_folders", "tasks_reading_folder_save", "tasks_reading_folder_delete", "tasks_reading_classify", "tasks_provenance", "literature_status", "literature_configure", "literature_connect", "literature_verify", "literature_download_create", "literature_downloads", "literature_download_retry", "literature_download_cancel", "tasks_search_create", "tasks_bundle_create", "tasks_report_create", "tasks_report_delete", "tasks_bundle_delete", "tasks_entry_naming", "tasks_report_complete", "tasks_report_validate", "tasks_report_review", "tasks_presentation_create", "tasks_presentation_complete", "tasks_presentation_validate", "tasks_presentation_review", "tasks_review_details", "tasks_search_ris", "tasks_overview", "tasks_report_download", "tasks_ppt_download", "review_templates_list", "tasks_review_inputs", "tasks_review_register", "tasks_review_presentation_register", "tasks_review_download", "chem_entities", "chem_entity_create", "chem_properties", "chem_formula", "chem_metrics", "chem_plans", "chem_plan_create", "chem_plan_validate", "chem_plan_status", "nmr_get", "nmr_create", "nmr_integrals", "nmr_approve", "nmr_written_back", "nmr_verify", "nmr_reopen", "nmr_calculate", "synth_targets", "synth_target_create", "synth_routes", "synth_route_create", "synth_route_delete", "synth_route_step", "synth_route_status", "synth_evidence", "synth_route_detail", "synth_route_revision", "synth_route_update_step", "synth_step_review", "synth_step_set_structure", "synth_step_resolve_dual", "synth_evidence_list", "synth_evidence_add", "synth_evidence_review", "synth_step_assess", "synth_route_assess", "synth_step_alternatives", "synth_extraction_capability", "synth_extraction_jobs", "synth_extraction_job_create", "synth_extraction_job_update", "synth_plan_from_route", "cas_prepare_query", "convert_upload", "project_file_upload", "manual_capture_create", "manual_capture_get", "manual_capture_cancel", "manual_capture_claim_agent", "manual_capture_desktop_status_update", "manual_capture_desktop_action_claim", "manual_capture_list", "manual_capture_recreate", "browser_operation_claim", "browser_operation_complete"].map((name) => direct(name, ["request"])),
     direct("projects_list")
   ];
   descriptors.push(
@@ -4397,6 +4407,7 @@ function buildDescriptors() {
     direct("experiment_plan_templates_update", ["request"]),
     direct("experiment_plan_templates_copy", ["request"]),
     direct("experiment_plan_templates_archive", ["request"]),
+    direct("experiment_plan_templates_delete", ["request"]),
     direct("plot_records_list", ["request"]),
     direct("plot_records_bind_session", ["request"]),
     direct("plot_origin_connection", ["request"]),

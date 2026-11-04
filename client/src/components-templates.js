@@ -64,7 +64,7 @@ export function Templates({ call, onBack, sections }) {
 			);
 		}
 
-		/** 0.4.0：实验计划模板管理（列表 + 新建/归档；版本快照不可变由服务端保证）。 */
+		/** 0.4.0：实验计划模板管理（列表 + 新建删除；版本快照不可变由服务端保证）。 */
 export function ExperimentPlanTemplates({ call, state, reload }) {
 			const [busy, setBusy] = useState({});
 			const [toast, setToast] = useState("");
@@ -79,8 +79,9 @@ export function ExperimentPlanTemplates({ call, state, reload }) {
 				setName("");
 				await reload();
 			});
-			const archive = (row) => withBusy(`arc:${row.id}`, async () => {
-				await call("experiment_plan_templates_archive", { request: { id: row.id } });
+			const remove = (row) => withBusy(`del:${row.id}`, async () => {
+				if (!window.confirm(`删除实验计划模板「${row.name}」？历史任务快照不受影响。`)) return;
+				await call("experiment_plan_templates_delete", { request: { id: row.id } });
 				await reload();
 			});
 			return h("div", null,
@@ -91,12 +92,12 @@ export function ExperimentPlanTemplates({ call, state, reload }) {
 				state.error ? h("div", { className: "ib-error" }, state.error) : null,
 				state.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
 				state.list.length
-					? h("div", { className: "ib-rows" }, state.list.map((row) => h("div", { className: "ib-row", key: row.id },
-						h("b", { title: row.id }, row.name),
-						h("span", null, `v${row.version}${row.applicableTo ? " · " + row.applicableTo : ""} · ${row.sections?.length || 0} 章节`),
-						row.status === "archived"
-							? h("span", { className: "ib-chip" }, "已归档")
-							: h("button", { className: "ib-btn", disabled: !!busy[`arc:${row.id}`], onClick: () => void archive(row) }, "归档"))))
+					? h("div", { className: "ib-table" },
+						h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+						state.list.map((row) => h("div", { className: "ib-table-row", key: row.id },
+							h("span", { className: "ib-tm-name" }, h("b", null, row.name)),
+							h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row.status === "active" ? "accent" : undefined }, row.status === "active" ? "可用" : "已归档")),
+							h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", disabled: !!busy[`del:${row.id}`], onClick: () => void remove(row) }, busy[`del:${row.id}`] ? "…" : "删除")))))
 					: h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。"));
 		}
 
@@ -172,13 +173,12 @@ export function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) 
 				setMode("form");
 			});
 			if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, draft, onCancel: () => { setMode("list"); setEditing(null); setDraft(null); }, onSaved: () => { setMode("list"); setEditing(null); setDraft(null); void reload(); } });
-			const cards = state.list.map((row) => {
+			const rows = state.list.map((row) => {
 				const isDefault = defaultId === row.id;
-				return h("div", { className: "ib-tm-card", key: row.id, "data-default": isDefault ? "true" : undefined },
-				h("div", { className: "ib-tm-title" }, h("b", null, row.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row.version} · ${when(row.updatedAt)}`)),
-				h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row.id)),
-				h("div", { className: "ib-tm-meta" }, (row.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
-				h("div", { className: "ib-tm-acts" },
+				return h("div", { className: "ib-table-row", key: row.id, "data-default": isDefault ? "true" : undefined },
+				h("span", { className: "ib-tm-name" }, h("b", null, row.name)),
+				h("span", { className: "ib-tm-status" }, isDefault ? h("span", { className: "ib-default-badge" }, "默认") : h("span", { className: "ib-tm-chip" }, "普通")),
+				h("span", { className: "ib-tm-actions" },
 					isDefault
 						? h("button", { className: "ib-lit-btn","data-ready": "true", disabled: !!busy[`def:${row.id}`], onClick: () => void clearDefault(row), title: "取消默认模板（科研助手回到内置默认模板）" }, busy[`def:${row.id}`] ? "…" : "默认模板 · 点击取消")
 						: h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row.id}`], onClick: () => void setAsDefault(row), title: "设为默认模板：科研助手生成笔记时优先使用它" }, busy[`def:${row.id}`] ? "…" : "设为默认"),
@@ -187,7 +187,11 @@ export function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) 
 					h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row) }, busy[`req:${row.id}`] ? "…" : (requirements?.id === row.id ? "收起要求" : "生成要求")),
 					h("button", { className: "ib-lit-btn", onClick: () => remove(row) }, busy[`del:${row.id}`] ? "…" : "删除"))
 			); });
-			const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : (state.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。"));
+			const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : (state.list.length
+				? h("div", { className: "ib-table" },
+					h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+					rows)
+				: h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。"));
 			const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
 			return h("div", null,
 				h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板")), h("button", { className: "ib-btn", "data-primary": true, disabled: importing, onClick: () => importRef.current && importRef.current.click() }, importing ? "导入中…" : "模板导入"), h("input", { ref: importRef, type: "file", accept: ".md,.markdown,text/markdown,text/plain", style: { display: "none" }, onChange: (event) => void openImported(event) })),
@@ -304,10 +308,10 @@ export function PptTemplates({ call, state, reload }) {
 				catch (reason) { setToast(reason.message || "操作失败"); }
 				finally { setBusy((old) => { const n = { ...old }; delete n[key]; return n; }); }
 			};
-			const archive = (row) => run(`arc:${row.id}`, async () => {
-				if (!window.confirm(`归档 PPT 模板「${row.name}」？历史版本仍可读，任务快照不受影响。`)) return;
-				await call("templates_archive", { request: { id: row.id } });
-				setToast(`已归档「${row.name}」`); await reload(); setSelected(null); setValidation(null);
+			const remove = (row) => run(`del:${row.id}`, async () => {
+				if (!window.confirm(`删除 PPT 模板「${row.name}」？历史版本与任务快照不受影响。`)) return;
+				await call("templates_delete", { request: { id: row.id } });
+				setToast(`已删除「${row.name}」`); await reload(); setSelected(null); setValidation(null);
 			});
 			const preview = (row) => run(`pv:${row.id}`, async () => {
 				if (selected?.id === row.id) { setSelected(null); return; }
@@ -333,8 +337,8 @@ export function PptTemplates({ call, state, reload }) {
 				h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "模板只提供版式与风格参考；映射检查用于提示兼容性，不作为生成或人工审核门槛。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
 				state.error ? h("div", { className: "ib-error" }, state.error) : null,
 				state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state.list.length ? h("div", { className: "ib-table" },
-					h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
-					state.list.map((row) => h("div", { className: "ib-table-row", key: row.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row.id), h("span", { className: "ib-tm-name" }, h("b", null, row.name), h("small", { style: { display: "block", color: "var(--ib-text)", fontSize: 9 } }, `v${row.version} · ${row.pageSize?.ratio || "?"} · ${when(row.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row.status === "ready" ? "accent" : undefined }, statusLabel(row.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row) }, busy[`pv:${row.id}`] ? "…" : (selected?.id === row.id ? "收起" : "预览")), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row) }, busy[`vf:${row.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row) }, busy[`arc:${row.id}`] ? "…" : "归档")))))
+					h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+					state.list.map((row) => h("div", { className: "ib-table-row", key: row.id }, h("span", { className: "ib-tm-name" }, h("b", null, row.name)), h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row.status === "ready" ? "accent" : undefined }, statusLabel(row.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row) }, busy[`pv:${row.id}`] ? "…" : (selected?.id === row.id ? "收起" : "预览")), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row) }, busy[`vf:${row.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => remove(row) }, busy[`del:${row.id}`] ? "…" : "删除")))))
 					: h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
 				validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
 				selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
