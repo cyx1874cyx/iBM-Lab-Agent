@@ -5,7 +5,7 @@ import {pdfPosition} from './reader-scroll-sync.js';
 
 // PDF.js owns page rendering, text layers, visible-page priority and canvas cache.
 // This adapter only connects its events to our toolbar, loading state and anchors.
-export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef,onScroll,onError,hand,onLayout,onLoading,failed}){
+export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef,onScroll,onError,hand,textLayer=false,onLayout,onLoading,failed}){
  const viewerElement=useRef(),engine=useRef(),drag=useRef(),frame=useRef(0),current=useRef();
  current.current={active,zoom,failed,onLayout,onLoading,onError};
  const report=useCallback(()=>{
@@ -31,7 +31,7 @@ export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef
    const {PDFViewer,PDFLinkService,EventBus,RenderingStates}=await loadPdfViewer();if(!alive)return;
    const first=await doc.getPage(1);if(!alive)return;
    const flow=scrollRef.current,eventBus=new EventBus(),linkService=new PDFLinkService({eventBus});
-   const view=new PDFViewer({container:flow,viewer:viewerElement.current,eventBus,linkService,abortSignal:lifecycle.signal,annotationEditorMode:-1,annotationMode:1,maxCanvasPixels:1500000,enableDetailCanvas:false,enableAutoLinking:false,minDurationToUpdateCanvas:100,removePageBorders:true});
+   const view=new PDFViewer({container:flow,viewer:viewerElement.current,eventBus,linkService,abortSignal:lifecycle.signal,annotationEditorMode:-1,annotationMode:1,textLayerMode:textLayer?1:0,maxCanvasPixels:1500000,enableDetailCanvas:false,enableAutoLinking:false,minDurationToUpdateCanvas:100,removePageBorders:true});
    engine.current={viewer:view,finished:RenderingStates.FINISHED,pageWidth:first.getViewport({scale:1}).width};flow.dataset.pdfEngine='PDF.js 5.4.624';
    const markPage=(number,state)=>{const page=view.getPageView(number-1);if(!page)return;page.div.dataset.pdfState=state;page.div.dataset.pdfReady=String(state==='ready');page.div.dataset.pdfPage=String(number);page.div.classList.add('ib-pdf-page');page.div.querySelector('.textLayer')?.classList.add('ib-reader-text-layer');};
    eventBus.on('pagesinit',()=>{for(let n=1;n<=view.pagesCount;n++)markPage(n,'loading');resize();});
@@ -43,7 +43,7 @@ export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef
    void view.firstPagePromise.catch(error=>{if(alive)current.current.onError(error);});
   })().catch(error=>{if(alive){current.current.onError(error);current.current.onLoading(side,false);}});
   return()=>{alive=false;lifecycle.abort();cancelAnimationFrame(frame.current);frame.current=0;clearTimeout(engine.current?.drawingTimer);engine.current?.viewer.setDocument(null);engine.current=null;};
- },[doc,side,scrollRef,resize,schedule,report]);
+ },[doc,side,scrollRef,resize,schedule,report,textLayer]);
  useEffect(()=>{const observer=new ResizeObserver(resize);observer.observe(scrollRef.current);return()=>observer.disconnect();},[scrollRef,resize]);
  useLayoutEffect(()=>{if(active)resize();report();},[active,zoom,failed,resize,report]);
  return h('div',{className:'ib-pdf-viewport'},h('div',{ref:scrollRef,className:'ib-pdf-flow','data-pdf-side':side,'data-hand':hand||undefined,onScroll:event=>{onScroll(side,event.currentTarget);schedule();},

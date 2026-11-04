@@ -34,6 +34,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const scrollTimerRef = useRef(0);
 	const overlayRef = useRef(null);
 	const contentRef = useRef(null);
+	const questionRef = useRef(null);
 	const aliveRef = useRef(true);
 	aliveRef.current = true;
 	const bump = useCallback(() => {
@@ -259,7 +260,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 
 	const submit = async () => {
 		if (!draft || submitting) return;
-		const question = draft.question.trim();
+		const question = String(questionRef.current?.value ?? '').trim();
 		if (!question) { setError('请填写问题'); return; }
 		setSubmitting(true);
 		setError('');
@@ -376,6 +377,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const anchor = draft ? pagePoint(draft.page, draft.pin) : null;
 	const open = openId ? items.find((item) => item.id === openId) : null;
 	const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
+	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
+	const screenOpen = openPoint ? { left: openPoint.left - scrollX, top: openPoint.top - scrollY } : null;
 	if (!items.length && !draft && !open && !error) return null;
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
@@ -410,14 +413,19 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				}, item.status === 'pending' || item.status === 'running' ? h('span', { className: 'ib-reader-spinner' }) : null)
 			);
 		}),
-		anchor ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
+		draft ? (draft.rects ?? []).map((rect, index) => {
+			const pageRect = pages.get(draft.page);
+			if (!pageRect) return null;
+			return h('span', { key: `draft-${index}`, className: 'ib-anno-highlight ib-anno-draft', style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
+		}) : null),
+		screenAnchor ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, screenAnchor.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, screenAnchor.top + 12)) } },
 			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
-			h('textarea', { autoFocus: true, rows: 3, placeholder: '就这段原文提问…', value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
+			h('textarea', { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: '就框选内容提问…', defaultValue: '', onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
 			h('div', { className: 'ib-anno-compose-actions' },
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
-		open && openPoint ? h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
+		screenOpen ? h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, screenOpen.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, screenOpen.top + 12)) }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
 			open.quote ? h('div', { className: 'ib-anno-card-quote' }, short(open.quote, 160)) : null,
 			h('div', { className: 'ib-anno-card-question' }, open.question),
@@ -446,7 +454,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('div', { className: 'ib-anno-follow' },
 					h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问'))) : null,
-		error ? h('div', { className: 'ib-anno-error' }, error) : null)
+		error ? h('div', { className: 'ib-anno-error' }, error) : null
 	);
 }
 
@@ -457,6 +465,7 @@ export const annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
+.ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}

@@ -45438,7 +45438,7 @@ function createPdfScrollSync({ flowFor, linked, onPosition, requestFrame = (call
 }
 
 // plugins/literature/client/src/reader/reader-pdf-flow.js
-var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, active, scrollRef, onScroll, onError, hand, onLayout, onLoading, failed }) {
+var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, active, scrollRef, onScroll, onError, hand, textLayer = false, onLayout, onLoading, failed }) {
   const viewerElement = (0, import_react10.useRef)(), engine = (0, import_react10.useRef)(), drag = (0, import_react10.useRef)(), frame = (0, import_react10.useRef)(0), current = (0, import_react10.useRef)();
   current.current = { active, zoom, failed, onLayout, onLoading, onError };
   const report = (0, import_react10.useCallback)(() => {
@@ -45502,7 +45502,7 @@ var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, a
       const first = await doc.getPage(1);
       if (!alive) return;
       const flow = scrollRef.current, eventBus = new EventBus2(), linkService = new PDFLinkService2({ eventBus });
-      const view = new PDFViewer2({ container: flow, viewer: viewerElement.current, eventBus, linkService, abortSignal: lifecycle.signal, annotationEditorMode: -1, annotationMode: 1, maxCanvasPixels: 15e5, enableDetailCanvas: false, enableAutoLinking: false, minDurationToUpdateCanvas: 100, removePageBorders: true });
+      const view = new PDFViewer2({ container: flow, viewer: viewerElement.current, eventBus, linkService, abortSignal: lifecycle.signal, annotationEditorMode: -1, annotationMode: 1, textLayerMode: textLayer ? 1 : 0, maxCanvasPixels: 15e5, enableDetailCanvas: false, enableAutoLinking: false, minDurationToUpdateCanvas: 100, removePageBorders: true });
       engine.current = { viewer: view, finished: RenderingStates2.FINISHED, pageWidth: first.getViewport({ scale: 1 }).width };
       flow.dataset.pdfEngine = "PDF.js 5.4.624";
       const markPage = (number, state3) => {
@@ -45554,7 +45554,7 @@ var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, a
       engine.current?.viewer.setDocument(null);
       engine.current = null;
     };
-  }, [doc, side, scrollRef, resize, schedule, report]);
+  }, [doc, side, scrollRef, resize, schedule, report, textLayer]);
   (0, import_react10.useEffect)(() => {
     const observer = new ResizeObserver(resize);
     observer.observe(scrollRef.current);
@@ -45675,6 +45675,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const scrollTimerRef = (0, import_react12.useRef)(0);
   const overlayRef = (0, import_react12.useRef)(null);
   const contentRef = (0, import_react12.useRef)(null);
+  const questionRef = (0, import_react12.useRef)(null);
   const aliveRef = (0, import_react12.useRef)(true);
   aliveRef.current = true;
   const bump = (0, import_react12.useCallback)(() => {
@@ -45922,7 +45923,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   }, [doc]);
   const submit = async () => {
     if (!draft || submitting) return;
-    const question = draft.question.trim();
+    const question = String(questionRef.current?.value ?? "").trim();
     if (!question) {
       setError("请填写问题");
       return;
@@ -46049,6 +46050,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const anchor = draft ? pagePoint(draft.page, draft.pin) : null;
   const open = openId ? items.find((item) => item.id === openId) : null;
   const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
+  const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
+  const screenOpen = openPoint ? { left: openPoint.left - scrollX, top: openPoint.top - scrollY } : null;
   if (!items.length && !draft && !open && !error) return null;
   return h(
     "div",
@@ -46105,81 +46108,86 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           }, item.status === "pending" || item.status === "running" ? h("span", { className: "ib-reader-spinner" }) : null)
         );
       }),
-      anchor ? h(
+      draft ? (draft.rects ?? []).map((rect, index) => {
+        const pageRect = pages.get(draft.page);
+        if (!pageRect) return null;
+        return h("span", { key: `draft-${index}`, className: "ib-anno-highlight ib-anno-draft", style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
+      }) : null
+    ),
+    screenAnchor ? h(
+      "div",
+      { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, screenAnchor.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, screenAnchor.top + 12)) } },
+      h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
+      h("textarea", { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: "就框选内容提问…", defaultValue: "", onKeyDown: (event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
+      } }),
+      h(
         "div",
-        { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
-        h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
-        h("textarea", { autoFocus: true, rows: 3, placeholder: "就这段原文提问…", value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
+        { className: "ib-anno-compose-actions" },
+        h("button", { type: "button", className: "ib-anno-btn", onClick: () => {
+          setDraft(null);
+          window.getSelection()?.removeAllRanges();
+        } }, "取消"),
+        h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
+      )
+    ) : null,
+    screenOpen ? h(
+      "div",
+      { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, screenOpen.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, screenOpen.top + 12)) }, onClick: (event) => event.stopPropagation() },
+      h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
+      open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
+      h("div", { className: "ib-anno-card-question" }, open.question),
+      editing?.id === open.id ? h(
+        "div",
+        null,
+        h("textarea", { autoFocus: true, rows: 4, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
+        h(
+          "div",
+          { className: "ib-anno-card-actions" },
+          h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
+          h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(open) }, "保存")
+        )
+      ) : h(
+        "div",
+        null,
+        h("div", { className: "ib-anno-card-answer" }, open.status === "pending" || open.status === "running" ? "正在根据原文生成短答…" : open.shortAnswer || open.modelAnswer || "（暂无短答）"),
+        (open.basis ?? []).length ? h(
+          "div",
+          { className: "ib-anno-card-basis" },
+          h("div", null, "依据"),
+          open.basis.map((row, index) => h("div", { key: index }, `第 ${row.page} 页：${short(row.quote, 120)}`))
+        ) : null,
+        open.error ? h("div", { className: "ib-anno-card-error" }, open.error) : null,
+        open.draftAnswer ? h(
+          "div",
+          { className: "ib-anno-draft" },
+          h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
+          h("div", null, open.draftAnswer),
+          h(
+            "div",
+            { className: "ib-anno-card-actions" },
+            h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(open) }, "放弃"),
+            h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(open) }, "采用")
+          )
+        ) : null,
+        h(
+          "div",
+          { className: "ib-anno-card-actions" },
+          h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || "" }) }, "编辑"),
+          open.status === "failed" ? h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(open) }, "重试") : null,
+          h("button", { type: "button", className: "ib-anno-btn", "data-danger": true, onClick: () => void remove(open) }, "删除")
+        )
+      ),
+      h(
+        "div",
+        { className: "ib-anno-follow" },
+        h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(open);
         } }),
-        h(
-          "div",
-          { className: "ib-anno-compose-actions" },
-          h("button", { type: "button", className: "ib-anno-btn", onClick: () => {
-            setDraft(null);
-            window.getSelection()?.removeAllRanges();
-          } }, "取消"),
-          h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
-        )
-      ) : null,
-      open && openPoint ? h(
-        "div",
-        { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
-        h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
-        open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
-        h("div", { className: "ib-anno-card-question" }, open.question),
-        editing?.id === open.id ? h(
-          "div",
-          null,
-          h("textarea", { autoFocus: true, rows: 4, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
-          h(
-            "div",
-            { className: "ib-anno-card-actions" },
-            h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
-            h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(open) }, "保存")
-          )
-        ) : h(
-          "div",
-          null,
-          h("div", { className: "ib-anno-card-answer" }, open.status === "pending" || open.status === "running" ? "正在根据原文生成短答…" : open.shortAnswer || open.modelAnswer || "（暂无短答）"),
-          (open.basis ?? []).length ? h(
-            "div",
-            { className: "ib-anno-card-basis" },
-            h("div", null, "依据"),
-            open.basis.map((row, index) => h("div", { key: index }, `第 ${row.page} 页：${short(row.quote, 120)}`))
-          ) : null,
-          open.error ? h("div", { className: "ib-anno-card-error" }, open.error) : null,
-          open.draftAnswer ? h(
-            "div",
-            { className: "ib-anno-draft" },
-            h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
-            h("div", null, open.draftAnswer),
-            h(
-              "div",
-              { className: "ib-anno-card-actions" },
-              h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(open) }, "放弃"),
-              h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(open) }, "采用")
-            )
-          ) : null,
-          h(
-            "div",
-            { className: "ib-anno-card-actions" },
-            h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || "" }) }, "编辑"),
-            open.status === "failed" ? h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(open) }, "重试") : null,
-            h("button", { type: "button", className: "ib-anno-btn", "data-danger": true, onClick: () => void remove(open) }, "删除")
-          )
-        ),
-        h(
-          "div",
-          { className: "ib-anno-follow" },
-          h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(open);
-          } }),
-          h("button", { type: "button", className: "ib-anno-btn", disabled: !followText.trim(), onClick: () => void askFollow(open) }, "追问")
-        )
-      ) : null,
-      error ? h("div", { className: "ib-anno-error" }, error) : null
-    )
+        h("button", { type: "button", className: "ib-anno-btn", disabled: !followText.trim(), onClick: () => void askFollow(open) }, "追问")
+      )
+    ) : null,
+    error ? h("div", { className: "ib-anno-error" }, error) : null
   );
 }
 var annotationStyles = `
@@ -46189,6 +46197,7 @@ var annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
+.ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
@@ -53228,7 +53237,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
   const [state3, setState] = (0, import_react13.useState)({ loading: true }), [doc, setDoc] = (0, import_react13.useState)(null), [zhDoc, setZhDoc] = (0, import_react13.useState)(null), [mode, setMode] = (0, import_react13.useState)("original");
   const [error, setError] = (0, import_react13.useState)(""), [busy, setBusy] = (0, import_react13.useState)(false), [query, setQuery] = (0, import_react13.useState)(""), [refresh, setRefresh] = (0, import_react13.useState)(0);
-  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(true), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
+  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(true), [textLayer, setTextLayer] = (0, import_react13.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
   const [zoom, setZoom] = (0, import_react13.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react13.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react13.useState)({ original: true, zh: false });
   const [wantTranslation, setWantTranslation] = (0, import_react13.useState)(false), [translationAttempt, setTranslationAttempt] = (0, import_react13.useState)(0), [zhError, setZhError] = (0, import_react13.useState)("");
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
@@ -53538,13 +53547,19 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       { className: "ib-pdf-toolbar", role: "toolbar", "aria-label": (material?.label ?? side) + " 阅读工具" },
       selector,
       h("div", { className: "ib-toolbar-group" }, button(icon2("minus"), () => zoomTo(side, Math.max(0.5, zoom[side] - 0.25)), zoom[side] <= 0.5, false, "缩小"), h("select", { "aria-label": side + " 缩放", value: zoom[side], onChange: (event) => zoomTo(side, Number(event.target.value)) }, Array.from({ length: 11 }, (_, i) => 0.5 + i * 0.25).map((n) => h("option", { key: n, value: n }, n === 1 ? "适合宽度" : Math.round(n * 100) + "%"))), button(icon2("plus"), () => zoomTo(side, Math.min(3, zoom[side] + 0.25)), zoom[side] >= 3, false, "放大")),
-      h("div", { className: "ib-toolbar-group ib-toolbar-modes" }, button(icon2("hand"), () => setHand(true), false, hand, "抓手拖动"), button(icon2("text"), () => setHand(false), false, !hand, "选择文字")),
+      h("div", { className: "ib-toolbar-group ib-toolbar-modes" }, button(icon2("hand"), () => {
+        setHand(true);
+        setTextLayer(false);
+      }, false, hand && !textLayer, "抓手拖动（流畅浏览）"), button(icon2("text"), () => {
+        setHand(false);
+        setTextLayer(true);
+      }, false, !hand && textLayer, "选择文字（临时加载文字层）")),
       h("div", { className: "ib-toolbar-group ib-toolbar-pages" }, button(icon2("previous"), () => navigate(side, pages[side] - 1), !pdf || pages[side] <= 1, false, "上一页"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")), button(icon2("next"), () => navigate(side, pages[side] + 1), !pdf || pages[side] >= pdf.numPages, false, "下一页")),
       button(icon2("download"), () => void save(side).catch(onError), !pdf && !material?.officeKind, false, "下载 " + (material?.officeKind === "docx" ? "精读报告（.docx）" : material?.officeKind === "pptx" ? "PPT（.pptx）" : material?.label ?? (side === "zh" ? "中文 PDF" : "原文 PDF")))
     );
   };
   const pane = (side) => {
-    const active = mode === "dual" || mode === side || side === "original" && ["report", "ppt"].includes(mode), material = selected(side), props = { side, zoom: zoom[side], active, scrollRef: side === "zh" ? right : left, onScroll, onError, hand, onLayout, onLoading };
+    const active = mode === "dual" || mode === side || side === "original" && ["report", "ppt"].includes(mode), material = selected(side), props = { side, zoom: zoom[side], active, scrollRef: side === "zh" ? right : left, onScroll, onError, hand, textLayer, onLayout, onLoading };
     return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
   };
   const content = h(
