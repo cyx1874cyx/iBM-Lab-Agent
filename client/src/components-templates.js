@@ -56,9 +56,7 @@ export function Templates({ call, onBack, sections }) {
 			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } }, [capabilities, loadNotes, loadReviews, loadPpt]);
 			return h("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "var(--ib-bg)" } },
 				embedded ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px", fontSize: 12, color: "rgba(18,60,51,.72)" } },
-					h("span", null, "iBM Lab"), h("span", null, "/"), h("span", null, "文献阅读"), h("span", null, "/"), h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理"),
-					onBack ? h("button", { onClick: onBack, "aria-label": "关闭", title: "关闭", style: { marginLeft: "auto", width: 34, height: 34, display: "grid", placeItems: "center", padding: 0, borderRadius: "50%", border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", cursor: "pointer" } },
-						h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", "aria-hidden": "true" }, h("path", { d: "M6 6l12 12M18 6L6 18" }))) : null) : null,
+					h("span", null, "iBM Lab"), h("span", null, "/"), h("span", null, "文献阅读"), h("span", null, "/"), h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理")) : null,
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
 				h("div", { style: { display: "flex", flex: 1, minHeight: 0, border: "1px solid var(--ib-hair)", borderRadius: 10, overflow: "hidden", background: "var(--ib-bg)" } },
 					h("aside", { style: { width: 196, flex: "0 0 196px", borderRight: "1px solid var(--ib-hair)", background: "var(--ib-panel)", padding: "18px 10px" } },

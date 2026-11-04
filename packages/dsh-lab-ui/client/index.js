@@ -3703,12 +3703,7 @@ function Templates({ call, onBack, sections }) {
       h("span", null, "/"),
       h("span", null, "文献阅读"),
       h("span", null, "/"),
-      h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理"),
-      onBack ? h(
-        "button",
-        { onClick: onBack, "aria-label": "关闭", title: "关闭", style: { marginLeft: "auto", width: 34, height: 34, display: "grid", placeItems: "center", padding: 0, borderRadius: "50%", border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", cursor: "pointer" } },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", "aria-hidden": "true" }, h("path", { d: "M6 6l12 12M18 6L6 18" }))
-      ) : null
+      h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理")
     ) : null,
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(

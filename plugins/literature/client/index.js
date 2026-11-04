@@ -43091,12 +43091,7 @@ function Templates({ call, onBack, sections }) {
       h("span", null, "/"),
       h("span", null, "文献阅读"),
       h("span", null, "/"),
-      h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理"),
-      onBack ? h(
-        "button",
-        { onClick: onBack, "aria-label": "关闭", title: "关闭", style: { marginLeft: "auto", width: 34, height: 34, display: "grid", placeItems: "center", padding: 0, borderRadius: "50%", border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", cursor: "pointer" } },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", "aria-hidden": "true" }, h("path", { d: "M6 6l12 12M18 6L6 18" }))
-      ) : null
+      h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理")
     ) : null,
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
@@ -45329,7 +45324,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ), entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null, templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
     if (event.target === event.currentTarget) setTemplatesOpen(false);
-  }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", "aria-label": "文献模板管理", "data-literature-templates": true, style: { width: "min(1440px,96vw)", height: "92vh", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: "16px 20px", boxSizing: "border-box" } }, h("div", { style: { flex: 1, minHeight: 0, overflow: "auto" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"], onBack: () => setTemplatesOpen(false) })))) : null, previewNode);
+  }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", "aria-label": "文献模板管理", "data-literature-templates": true, style: { position: "relative", width: "min(1440px,96vw)", height: "92vh", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: "16px 20px", boxSizing: "border-box" } }, h("button", { type: "button", "aria-label": "关闭", "title": "关闭", onClick: () => setTemplatesOpen(false), style: { position: "absolute", top: 12, right: 12, zIndex: 2, width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: "50%", border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", cursor: "pointer", padding: 0, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } }, h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", "aria-hidden": "true" }, h("path", { d: "M6 6l12 12M18 6L6 18" }))), h("div", { style: { flex: 1, minHeight: 0, overflow: "auto" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null, previewNode);
 }
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js
