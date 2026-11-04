@@ -212,6 +212,11 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  useEffect(() => controller.subscribe(setProject), [controller]);
  useEffect(() => controller.onShowChat(()=>setChatHidden(false)), [controller,setChatHidden]);
  useEffect(() => {
+  const hide = () => setChatHidden(true);
+  window.addEventListener('ibm-lab:hide-chat', hide);
+  return () => window.removeEventListener('ibm-lab:hide-chat', hide);
+ }, [setChatHidden]);
+ useEffect(() => {
   document.title = 'iBM Lab';
   let revision = 0;
   let lastSession;

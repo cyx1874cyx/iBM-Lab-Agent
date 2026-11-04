@@ -45341,7 +45341,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js
 var import_react13 = __toESM(require("react"), 1);
-var import_react_dom2 = __toESM(require("react-dom"), 1);
+var import_react_dom3 = __toESM(require("react-dom"), 1);
 
 // plugins/literature/client/src/reader/reader-pdf-flow.js
 var import_react10 = __toESM(require("react"), 1);
@@ -45650,6 +45650,7 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
 
 // plugins/literature/client/src/reader/reader-annotations.js
 var import_react12 = __toESM(require("react"), 1);
+var import_react_dom2 = __toESM(require("react-dom"), 1);
 var annotationStatusText = (item) => {
   if (item.status === "pending") return "待生成";
   if (item.status === "running") return "生成中…";
@@ -45660,7 +45661,7 @@ var short = (value, max = 180) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? text.slice(0, max) + "…" : text;
 };
-function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, onRegionDone }) {
+function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, page = 1, onRegionDone }) {
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
@@ -45690,6 +45691,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   (0, import_react12.useEffect)(() => {
     if (openTocSignal) setTocOpen(true);
   }, [openTocSignal]);
+  (0, import_react12.useEffect)(() => {
+    if (openId || !items.length) return;
+    const current = items.find((item) => item.page === page);
+    setOpenId((current ?? items[0]).id);
+  }, [items, openId, page]);
   const refresh = (0, import_react12.useCallback)(async () => {
     try {
       const result = await call("tasks_annotations_list", request);
@@ -45762,7 +45768,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     clearTimeout(scrollTimerRef.current);
   }, []);
-  const pageElement = (0, import_react12.useCallback)((page) => flowRef.current?.querySelector(`.page[data-page-number="${page}"]`), [flowRef]);
+  const pageElement = (0, import_react12.useCallback)((page2) => flowRef.current?.querySelector(`.page[data-page-number="${page2}"]`), [flowRef]);
   (0, import_react12.useEffect)(() => {
     if (!openId) return void 0;
     const onDown = (event) => {
@@ -45934,9 +45940,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       rubber.remove();
     };
   }, [flowRef, enabled, active, regionMode, hand]);
-  const pageTextFor = (0, import_react12.useCallback)(async (page) => {
+  const pageTextFor = (0, import_react12.useCallback)(async (page2) => {
     try {
-      const pdfPage = await doc?.getPage?.(page);
+      const pdfPage = await doc?.getPage?.(page2);
       const content = await pdfPage?.getTextContent?.();
       return (content?.items ?? []).map((item) => item.str ?? "").join(" ").slice(0, 15e3);
     } catch {
@@ -45966,6 +45972,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         cropBase64: draft.cropBase64
       });
       setItems((old) => [...old, item]);
+      openItemRef.current = item;
+      setOpenId(item.id);
       window.getSelection()?.removeAllRanges();
       setDraft(null);
       void refresh();
@@ -46070,18 +46078,18 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       const current = items.find((item) => item.id === openId);
       if (current) wanted.add(current.page);
     }
-    for (const page of wanted) {
-      const pageEl = pageElement(page);
+    for (const page2 of wanted) {
+      const pageEl = pageElement(page2);
       if (!pageEl) continue;
       const rect = pageEl.getBoundingClientRect();
-      pages2.set(page, { left: rect.left - flowRect2.left + flow2.scrollLeft, top: rect.top - flowRect2.top + flow2.scrollTop, width: rect.width, height: rect.height });
+      pages2.set(page2, { left: rect.left - flowRect2.left + flow2.scrollLeft, top: rect.top - flowRect2.top + flow2.scrollTop, width: rect.width, height: rect.height });
     }
     return { flowRect: flowRect2, pages: pages2, scrollLeft: flow2.scrollLeft, scrollTop: flow2.scrollTop };
   }, [tick, zoom, flowRef, items, draft?.page, openId, doc, flowReady, pageElement]);
   if (!enabled || !active || !doc || !flowReady || !geometry) return null;
   const { flowRect, pages } = geometry;
-  const pagePoint = (page, point) => {
-    const rect = pages.get(page);
+  const pagePoint = (page2, point) => {
+    const rect = pages.get(page2);
     if (!rect) return null;
     return { left: rect.left + point.x * rect.width, top: rect.top + point.y * rect.height };
   };
@@ -46094,26 +46102,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
   const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
   const composePos = draft?.screen ?? screenAnchor;
-  if (!items.length && !draft && !open && !error) return null;
+  const sortedItems = items.slice().sort((a, b) => a.page - b.page);
   return h(
     "div",
     { ref: overlayRef, className: "ib-anno-overlay", style: overlayStyle, "data-annotations": true },
-    h(
-      "div",
-      { className: "ib-anno-toc" },
-      h("button", { type: "button", className: "ib-anno-toc-toggle", onClick: () => setTocOpen((value) => !value) }, `批注 ${items.length}`),
-      tocOpen ? h(
-        "div",
-        { className: "ib-anno-toc-panel" },
-        h("div", { className: "ib-anno-toc-head" }, "批注目录"),
-        items.slice().sort((a, b) => a.page - b.page).map((item) => h(
-          "button",
-          { type: "button", key: item.id, className: "ib-anno-toc-item", "data-status": item.status, onClick: () => locate(item) },
-          h("b", null, `第 ${item.page} 页`),
-          h("span", null, short(item.question || item.quote, 42))
-        ))
-      ) : null
-    ),
     h(
       "div",
       { ref: contentRef, className: "ib-anno-content", style: { position: "absolute", inset: 0, pointerEvents: "none", transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
@@ -46176,7 +46168,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
       )
     ) : null,
-    open && openPoint ? h(
+    open && openPoint && false ? h(
       "div",
       { ref: cardLayerRef, className: "ib-anno-card-layer", style: { position: "absolute", inset: 0, pointerEvents: "none", transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
       h(
@@ -46236,17 +46228,106 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         )
       )
     ) : null,
+    marginHost ? import_react_dom2.default.createPortal(
+      h(
+        "div",
+        { className: "ib-anno-panel" },
+        h("div", { className: "ib-anno-panel-head" }, h("strong", null, "批注"), h("span", null, `${items.length} 条`)),
+        sortedItems.length ? h("div", { className: "ib-anno-panel-tabs" }, sortedItems.map((item, index) => h("button", { key: item.id, type: "button", className: "ib-anno-panel-tab", "data-active": openId === item.id ? "true" : void 0, "data-status": item.status, onClick: () => openAtPin(item) }, `批注 ${String(index + 1).padStart(2, "0")}`))) : null,
+        open ? h(
+          "article",
+          { className: "ib-anno-panel-card", "data-status": open.status },
+          h(
+            "div",
+            { className: "ib-anno-panel-card-head" },
+            h("b", null, `批注 ${String(sortedItems.findIndex((row) => row.id === open.id) + 1).padStart(2, "0")}`),
+            h("span", { className: "ib-anno-status", "data-status": open.status }, annotationStatusText(open)),
+            h("button", { type: "button", className: "ib-anno-panel-icon", title: "编辑短答", onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || "" }) }, "✎"),
+            h("button", { type: "button", className: "ib-anno-panel-icon", title: "删除批注", onClick: () => void remove(open) }, "⋯")
+          ),
+          h("div", { className: "ib-anno-panel-meta" }, `第 ${open.page} 页 · ${open.kind === "region" ? "框选区域" : "原文"}`),
+          h("div", { className: "ib-anno-panel-question" }, open.question),
+          editing?.id === open.id ? h(
+            "div",
+            null,
+            h("textarea", { autoFocus: true, rows: 5, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
+            h(
+              "div",
+              { className: "ib-anno-card-actions" },
+              h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
+              h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(open) }, "保存")
+            )
+          ) : h(
+            "div",
+            null,
+            h("div", { className: "ib-anno-panel-answer" }, open.status === "pending" || open.status === "running" ? "正在根据原文生成短答…" : open.shortAnswer || open.modelAnswer || "（暂无短答）"),
+            open.error ? h("div", { className: "ib-anno-card-error" }, open.error) : null,
+            open.draftAnswer ? h(
+              "div",
+              { className: "ib-anno-panel-draft" },
+              h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
+              h("div", null, open.draftAnswer),
+              h(
+                "div",
+                { className: "ib-anno-card-actions" },
+                h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(open) }, "放弃"),
+                h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(open) }, "采用")
+              )
+            ) : null,
+            (open.basis ?? []).length ? h(
+              "details",
+              { className: "ib-anno-panel-basis" },
+              h("summary", null, "查看原文依据"),
+              open.basis.map((row, index) => h("div", { key: index }, `第 ${row.page} 页：${short(row.quote, 160)}`))
+            ) : null,
+            open.status === "failed" ? h("div", { className: "ib-anno-card-actions" }, h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(open) }, "重试")) : null
+          ),
+          h(
+            "div",
+            { className: "ib-anno-panel-follow" },
+            h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(open);
+            } }),
+            h("button", { type: "button", className: "ib-anno-panel-send", disabled: !followText.trim(), title: "发送追问", onClick: () => void askFollow(open) }, "↑")
+          )
+        ) : h("div", { className: "ib-anno-panel-empty" }, "在正文或图表上点「框选提问」，批注会出现在这里。"),
+        error ? h("div", { className: "ib-anno-error" }, error) : null
+      ),
+      marginHost
+    ) : null,
     error ? h("div", { className: "ib-anno-error" }, error) : null
   );
 }
 var annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
+.ib-anno-toc{display:none}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
+.ib-anno-panel{padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744}
+.ib-anno-panel-head{display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
+.ib-anno-panel-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
+.ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
+.ib-anno-panel-card{background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a}
+.ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
+.ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
+.ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
+.ib-anno-panel-icon{border:0;background:transparent;color:#8a96a3;cursor:pointer;font-size:14px;padding:2px 4px}
+.ib-anno-panel-meta{color:#8a96a3;font-size:11px;margin:6px 0 10px}
+.ib-anno-panel-question{font-size:15px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:10px}
+.ib-anno-panel-answer{background:#f6f8fa;border-left:3px solid #9fc7bd;border-radius:6px;padding:10px 12px;line-height:1.7;white-space:pre-wrap;color:#26313d;margin-bottom:10px}
+.ib-anno-panel-draft{border:1px dashed #d7b26a;background:#fffaf0;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.ib-anno-panel-basis{border-top:1px solid #edf0f3;padding-top:8px;margin-top:8px;color:#5c6a76;font-size:11px}
+.ib-anno-panel-basis summary{cursor:pointer;color:#607080}.ib-anno-panel-basis>div{margin-top:6px;line-height:1.5}
+.ib-anno-panel-follow{display:flex;gap:6px;align-items:flex-end;margin-top:12px;border-top:1px solid #edf0f3;padding-top:10px}
+.ib-anno-panel-follow textarea{flex:1;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
+.ib-anno-panel-send{width:30px;height:30px;flex:none;border-radius:7px;background:#137c72;color:#fff;border:0;cursor:pointer;font-size:15px}
+.ib-anno-panel-send:disabled{opacity:.4;cursor:default}
+.ib-anno-panel-empty{color:#8a96a3;line-height:1.7;padding:14px;border:1px dashed #d7dfe8;border-radius:10px;background:#fff}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
@@ -53290,6 +53371,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const [zoom, setZoom] = (0, import_react13.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react13.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react13.useState)({ original: true, zh: false });
   const [wantTranslation, setWantTranslation] = (0, import_react13.useState)(false), [translationAttempt, setTranslationAttempt] = (0, import_react13.useState)(0), [zhError, setZhError] = (0, import_react13.useState)("");
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
+  const [marginHost, setMarginHost] = (0, import_react13.useState)(null);
   const onDocument = (0, import_react13.useCallback)((side, pdf) => setMaterialDocs((old) => ({ ...old, [side]: pdf })), []);
   const [host] = (0, import_react13.useState)(() => {
     const el = document.createElement("div");
@@ -53312,6 +53394,9 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
     scroll.current.dispose();
     host.remove();
   }, [host]);
+  (0, import_react13.useEffect)(() => {
+    if (state3.format === "pdf") window.dispatchEvent(new Event("ibm-lab:hide-chat"));
+  }, [state3.format]);
   (0, import_react13.useLayoutEffect)(() => {
     host.dataset.fullscreen = String(mode === "dual");
     const destination = mode === "dual" ? document.body : slot.current;
@@ -53609,7 +53694,19 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   };
   const pane = (side) => {
     const active = mode === "dual" || mode === side || side === "original" && ["report", "ppt"].includes(mode), material = selected(side), props = { side, zoom: zoom[side], active, scrollRef: side === "zh" ? right : left, onScroll, onError, hand, textLayer, onLayout, onLoading };
-    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
+    const body = h(
+      "div",
+      { className: "ib-pdf-body" },
+      h(
+        "div",
+        { className: "ib-pdf-viewport" },
+        builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }),
+        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, marginHost, page: pages.original, onRegionDone: () => setRegionMode(false) }) : null,
+        h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…"))
+      ),
+      side === "original" && state3.format === "pdf" ? h("aside", { className: "ib-anno-margin", ref: setMarginHost }) : null
+    );
+    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), body);
   };
   const content = h(
     "div",
@@ -53641,10 +53738,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
           setHand(false);
           setRegionMode(true);
         }
-      }, !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字"), button("批注目录", () => {
-        setAnnotationsOn(true);
-        setTocSignal((value) => value + 1);
-      }, !doc || state3.format !== "pdf", false, "查看当前文献的全部批注")),
+      }, !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字")),
       error ? h("div", { className: "ib-reader-error", role: "alert" }, error) : null,
       translation && translation.status !== "completed" ? h("small", { className: "ib-reader-status" }, translation.stage + (translation.totalBlocks ? ` · ${translation.completedBlocks ?? 0}/${translation.totalBlocks} 段` : "") + (translation.error ? " · " + translation.error : "")) : null,
       state3.format === "pdf" || mode === "dual" || ["report", "ppt"].includes(mode) ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, pane("original"), pane("zh"), modeLoading ? h("div", { className: "ib-reader-view-status", role: "status", "aria-live": "polite" }, spinner(), "正在加载" + (mode === "dual" ? "对照视图" : mode === "zh" ? "译文" : mode === "report" ? "精读" : mode === "ppt" ? "PPT" : "原文") + "…") : null) : null,
@@ -53668,7 +53762,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       state3.format === "unsupported" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("p", null, "此格式请保存后使用对应软件打开。", button("保存材料", () => void save("original").catch(onError))) : null
     )
   );
-  return h(import_react13.default.Fragment, null, h("div", { className: "ib-reader-mount" }, h("div", { ref: slot, className: "ib-reader-slot", hidden: mode === "dual" }), mode === "dual" ? h("div", { className: "ib-reader" }, "材料对照已全屏打开", button("返回侧栏", exitDual)) : null), import_react_dom2.default.createPortal(content, host));
+  return h(import_react13.default.Fragment, null, h("div", { className: "ib-reader-mount" }, h("div", { ref: slot, className: "ib-reader-slot", hidden: mode === "dual" }), mode === "dual" ? h("div", { className: "ib-reader" }, "材料对照已全屏打开", button("返回侧栏", exitDual)) : null), import_react_dom3.default.createPortal(content, host));
 }
 var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-reader-mount,.ib-reader-slot,.ib-reader-host{height:100%;min-height:0;min-width:0}.ib-reader-slot[hidden]{display:none}.ib-reader-host[data-fullscreen=true]{position:fixed;inset:0;z-index:2147483000}
@@ -53683,6 +53777,7 @@ var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-reader-spinner{display:inline-block;width:12px;height:12px;flex:none;box-sizing:border-box;border:2px solid #b6c6d3;border-top-color:#34718e;border-radius:50%;animation:ib-reader-spin .8s linear infinite}.ib-act .ib-reader-spinner{margin-right:5px;vertical-align:-2px}.ib-reader-view-status{position:absolute;top:45px;right:20px;display:flex;align-items:center;gap:7px;padding:7px 10px;background:#fffffff0;border:1px solid #dce1e8;border-radius:5px;color:#597081;box-shadow:0 2px 8px #0000000c;pointer-events:none;z-index:2}@keyframes ib-reader-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ib-reader-spinner{animation:none}}
 .ib-pdf-toolbar{gap:8px;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;min-height:48px}.ib-pdf-toolbar .ib-act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;color:#526277;flex:none}.ib-pdf-toolbar .ib-act:hover{background:#e7edf3;color:#1f5164}.ib-pdf-toolbar .ib-act[data-active=true]{background:#e0f1ef;color:#137c72;box-shadow:inset 0 0 0 1px #c2e2df}.ib-toolbar-group{display:flex;align-items:center;gap:3px;padding-right:8px;border-right:1px solid #dfe6ed;flex:none}.ib-toolbar-pages{border-right:0;padding-right:0;margin-left:auto;gap:5px}.ib-pdf-toolbar select{height:30px;border-radius:7px;background:#fff;padding:3px 7px;border-color:#dce4ec;cursor:pointer}.ib-pdf-toolbar .ib-material-select{width:128px}.ib-pdf-toolbar input[type=number]{height:28px;box-sizing:border-box;text-align:center;border-radius:7px;width:42px;appearance:textfield;-moz-appearance:textfield}.ib-pdf-toolbar input[type=number]::-webkit-inner-spin-button{appearance:none}.ib-pdf-toolbar small{color:#7a8796;min-width:24px}.ib-pdf-language{color:#33465b;font-weight:600;padding-right:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis}.ib-pdf-toolbar .ib-act:focus-visible,.ib-pdf-toolbar select:focus-visible,.ib-pdf-toolbar input:focus-visible{outline:2px solid #278c85;outline-offset:2px}@media(max-width:650px){.ib-pdf-toolbar{gap:5px;padding:6px}.ib-toolbar-group{padding-right:4px}.ib-pdf-toolbar .ib-act{width:27px}.ib-pdf-toolbar .ib-material-select{width:112px}.ib-toolbar-pages{margin-left:0}}
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
+.ib-pdf-body{display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:auto;min-height:0}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;
 

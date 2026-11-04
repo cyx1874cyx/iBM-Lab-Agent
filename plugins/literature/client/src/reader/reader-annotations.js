@@ -5,6 +5,7 @@
  * 阅读器滚动、缩放、双栏切换时用 rAF/scroll 事件重算屏幕位置。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { h } from 'dsh-lab-agent/client-sdk';
 
 const annotationStatusText = (item) => {
@@ -19,7 +20,7 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, page = 1, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -45,6 +46,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	}, []);
 
 	useEffect(() => { if (openTocSignal) setTocOpen(true); }, [openTocSignal]);
+
+	useEffect(() => {
+		if (openId || !items.length) return;
+		const current = items.find((item) => item.page === page);
+		setOpenId((current ?? items[0]).id);
+	}, [items, openId, page]);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -301,6 +308,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				cropBase64: draft.cropBase64
 			});
 			setItems((old) => [...old, item]);
+			openItemRef.current = item;
+			setOpenId(item.id);
 			window.getSelection()?.removeAllRanges();
 			setDraft(null);
 			void refresh();
@@ -421,16 +430,9 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
 	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
 	const composePos = draft?.screen ?? screenAnchor;
-	if (!items.length && !draft && !open && !error) return null;
+	const sortedItems = items.slice().sort((a, b) => a.page - b.page);
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
-		h('div', { className: 'ib-anno-toc' },
-			h('button', { type: 'button', className: 'ib-anno-toc-toggle', onClick: () => setTocOpen((value) => !value) }, `批注 ${items.length}`),
-			tocOpen ? h('div', { className: 'ib-anno-toc-panel' },
-				h('div', { className: 'ib-anno-toc-head' }, '批注目录'),
-				items.slice().sort((a, b) => a.page - b.page).map((item) => h('button', { type: 'button', key: item.id, className: 'ib-anno-toc-item', 'data-status': item.status, onClick: () => locate(item) },
-					h('b', null, `第 ${item.page} 页`),
-					h('span', null, short(item.question || item.quote, 42))))) : null),
 		h('div', { ref: contentRef, className: 'ib-anno-content', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		items.map((item) => {
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
@@ -470,7 +472,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
-		open && openPoint ? h('div', { ref: cardLayerRef, className: 'ib-anno-card-layer', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
+		open && openPoint && false ? h('div', { ref: cardLayerRef, className: 'ib-anno-card-layer', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
 			open.quote ? h('div', { className: 'ib-anno-card-quote' }, short(open.quote, 160)) : null,
@@ -500,18 +502,77 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('div', { className: 'ib-anno-follow' },
 					h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
+		marginHost ? ReactDOM.createPortal(
+			h('div', { className: 'ib-anno-panel' },
+				h('div', { className: 'ib-anno-panel-head' }, h('strong', null, '批注'), h('span', null, `${items.length} 条`)),
+				sortedItems.length ? h('div', { className: 'ib-anno-panel-tabs' }, sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, onClick: () => openAtPin(item) }, `批注 ${String(index + 1).padStart(2, '0')}`))) : null,
+				open ? h('article', { className: 'ib-anno-panel-card', 'data-status': open.status },
+					h('div', { className: 'ib-anno-panel-card-head' },
+						h('b', null, `批注 ${String(sortedItems.findIndex((row) => row.id === open.id) + 1).padStart(2, '0')}`),
+						h('span', { className: 'ib-anno-status', 'data-status': open.status }, annotationStatusText(open)),
+						h('button', { type: 'button', className: 'ib-anno-panel-icon', title: '编辑短答', onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || '' }) }, '✎'),
+						h('button', { type: 'button', className: 'ib-anno-panel-icon', title: '删除批注', onClick: () => void remove(open) }, '⋯')),
+					h('div', { className: 'ib-anno-panel-meta' }, `第 ${open.page} 页 · ${open.kind === 'region' ? '框选区域' : '原文'}`),
+					h('div', { className: 'ib-anno-panel-question' }, open.question),
+					editing?.id === open.id
+						? h('div', null,
+							h('textarea', { autoFocus: true, rows: 5, value: editing.value, onChange: (event) => setEditing({ id: open.id, value: event.target.value }) }),
+							h('div', { className: 'ib-anno-card-actions' },
+								h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => setEditing(null) }, '取消'),
+								h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, onClick: () => void saveEdit(open) }, '保存')))
+						: h('div', null,
+							h('div', { className: 'ib-anno-panel-answer' }, open.status === 'pending' || open.status === 'running' ? '正在根据原文生成短答…' : (open.shortAnswer || open.modelAnswer || '（暂无短答）')),
+							open.error ? h('div', { className: 'ib-anno-card-error' }, open.error) : null,
+							open.draftAnswer ? h('div', { className: 'ib-anno-panel-draft' },
+								h('div', { className: 'ib-anno-draft-label' }, '追问草稿'),
+								h('div', null, open.draftAnswer),
+								h('div', { className: 'ib-anno-card-actions' },
+									h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void dismissDraft(open) }, '放弃'),
+									h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, onClick: () => void adoptDraft(open) }, '采用'))) : null,
+							(open.basis ?? []).length ? h('details', { className: 'ib-anno-panel-basis' },
+								h('summary', null, '查看原文依据'),
+								open.basis.map((row, index) => h('div', { key: index }, `第 ${row.page} 页：${short(row.quote, 160)}`))) : null,
+							open.status === 'failed' ? h('div', { className: 'ib-anno-card-actions' }, h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void retry(open) }, '重试')) : null),
+					h('div', { className: 'ib-anno-panel-follow' },
+						h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
+						h('button', { type: 'button', className: 'ib-anno-panel-send', disabled: !followText.trim(), title: '发送追问', onClick: () => void askFollow(open) }, '↑')))
+				: h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'),
+				error ? h('div', { className: 'ib-anno-error' }, error) : null
+			), marginHost) : null,
 		error ? h('div', { className: 'ib-anno-error' }, error) : null
 	);
 }
 
 export const annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
+.ib-anno-toc{display:none}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
+.ib-anno-panel{padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744}
+.ib-anno-panel-head{display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
+.ib-anno-panel-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
+.ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
+.ib-anno-panel-card{background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a}
+.ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
+.ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
+.ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
+.ib-anno-panel-icon{border:0;background:transparent;color:#8a96a3;cursor:pointer;font-size:14px;padding:2px 4px}
+.ib-anno-panel-meta{color:#8a96a3;font-size:11px;margin:6px 0 10px}
+.ib-anno-panel-question{font-size:15px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:10px}
+.ib-anno-panel-answer{background:#f6f8fa;border-left:3px solid #9fc7bd;border-radius:6px;padding:10px 12px;line-height:1.7;white-space:pre-wrap;color:#26313d;margin-bottom:10px}
+.ib-anno-panel-draft{border:1px dashed #d7b26a;background:#fffaf0;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.ib-anno-panel-basis{border-top:1px solid #edf0f3;padding-top:8px;margin-top:8px;color:#5c6a76;font-size:11px}
+.ib-anno-panel-basis summary{cursor:pointer;color:#607080}.ib-anno-panel-basis>div{margin-top:6px;line-height:1.5}
+.ib-anno-panel-follow{display:flex;gap:6px;align-items:flex-end;margin-top:12px;border-top:1px solid #edf0f3;padding-top:10px}
+.ib-anno-panel-follow textarea{flex:1;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
+.ib-anno-panel-send{width:30px;height:30px;flex:none;border-radius:7px;background:#137c72;color:#fff;border:0;cursor:pointer;font-size:15px}
+.ib-anno-panel-send:disabled{opacity:.4;cursor:default}
+.ib-anno-panel-empty{color:#8a96a3;line-height:1.7;padding:14px;border:1px dashed #d7dfe8;border-radius:10px;background:#fff}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}

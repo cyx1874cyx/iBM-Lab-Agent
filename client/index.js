@@ -31290,6 +31290,11 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   (0, import_react31.useEffect)(() => controller.subscribe(setProject), [controller]);
   (0, import_react31.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
   (0, import_react31.useEffect)(() => {
+    const hide2 = () => setChatHidden(true);
+    window.addEventListener("ibm-lab:hide-chat", hide2);
+    return () => window.removeEventListener("ibm-lab:hide-chat", hide2);
+  }, [setChatHidden]);
+  (0, import_react31.useEffect)(() => {
     document.title = "iBM Lab";
     let revision = 0;
     let lastSession;
