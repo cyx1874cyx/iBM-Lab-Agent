@@ -45743,43 +45743,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     clearTimeout(scrollTimerRef.current);
   }, []);
   const pageElement = (0, import_react12.useCallback)((page) => flowRef.current?.querySelector(`.page[data-page-number="${page}"]`), [flowRef]);
-  const capture = (0, import_react12.useCallback)(() => {
-    if (!enabled || !active || regionMode) return;
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    const node = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
-    const pageEl = node?.closest?.(".page");
-    if (!pageEl || !flowRef.current?.contains(pageEl)) return;
-    const quote = selection.toString().replace(/\s+/g, " ").trim();
-    if (!quote) return;
-    const pageRect = pageEl.getBoundingClientRect();
-    if (!pageRect.width || !pageRect.height) return;
-    const rects = [...range.getClientRects()].map((rect) => ({
-      x: Math.max(0, (rect.left - pageRect.left) / pageRect.width),
-      y: Math.max(0, (rect.top - pageRect.top) / pageRect.height),
-      w: Math.min(1, rect.width / pageRect.width),
-      h: Math.min(1, rect.height / pageRect.height)
-    })).filter((rect) => rect.w > 0 && rect.h > 0);
-    if (!rects.length) return;
-    const last = rects[rects.length - 1];
-    setDraft({
-      page: Number(pageEl.dataset.pageNumber) || 1,
-      rects,
-      quote: quote.slice(0, 8e3),
-      pin: { x: Math.min(1, last.x + last.w), y: Math.min(1, last.y + last.h) },
-      question: ""
-    });
-    setOpenId(null);
-    setError("");
-  }, [enabled, active, regionMode, flowRef]);
-  (0, import_react12.useEffect)(() => {
-    const flow2 = flowRef.current;
-    if (!flow2) return void 0;
-    const onMouseUp = () => setTimeout(capture, 0);
-    flow2.addEventListener("mouseup", onMouseUp);
-    return () => flow2.removeEventListener("mouseup", onMouseUp);
-  }, [flowRef, capture, flowReady]);
   (0, import_react12.useEffect)(() => {
     if (!openId) return void 0;
     const onDown = (event) => {
