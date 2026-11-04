@@ -45666,6 +45666,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [openId, setOpenId] = (0, import_react12.useState)(null);
   const [openPos, setOpenPos] = (0, import_react12.useState)(null);
   const openIdRef = (0, import_react12.useRef)(null);
+  const openItemRef = (0, import_react12.useRef)(null);
   const suppressCloseRef = (0, import_react12.useRef)(0);
   (0, import_react12.useEffect)(() => {
     openIdRef.current = openId;
@@ -45730,10 +45731,22 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       const target = contentRef.current;
       if (target) target.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
       if (openIdRef.current && Date.now() > suppressCloseRef.current) {
-        openIdRef.current = null;
-        setOpenId(null);
-        setOpenPos(null);
-        setEditing(null);
+        const item = openItemRef.current;
+        const pageEl = item?.pin ? flow2.querySelector(`.page[data-page-number="${item.page}"]`) : null;
+        if (pageEl) {
+          const pageRect = pageEl.getBoundingClientRect();
+          const flowRect2 = flow2.getBoundingClientRect();
+          const x = pageRect.left - flowRect2.left + item.pin.x * pageRect.width;
+          const y = pageRect.top - flowRect2.top + item.pin.y * pageRect.height;
+          const margin = 140;
+          if (y < -margin || y > flowRect2.height + margin || x < -margin || x > flowRect2.width + margin) {
+            openIdRef.current = null;
+            openItemRef.current = null;
+            setOpenId(null);
+            setOpenPos(null);
+            setEditing(null);
+          }
+        }
       }
     };
     onScroll();
@@ -46026,7 +46039,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     }
   };
   (0, import_react12.useEffect)(() => {
-    if (!openId) setOpenPos(null);
+    if (!openId) {
+      setOpenPos(null);
+      openItemRef.current = null;
+    }
   }, [openId]);
   const openAtPin = (0, import_react12.useCallback)((item) => {
     const flow2 = flowRef.current;
@@ -46035,6 +46051,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const pageRect = pageEl.getBoundingClientRect();
     const flowRect2 = flow2.getBoundingClientRect();
     setOpenPos({ left: pageRect.left - flowRect2.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect2.top + item.pin.y * pageRect.height });
+    openItemRef.current = item;
     suppressCloseRef.current = Date.now() + 300;
     setOpenId(item.id);
     return true;
@@ -46147,9 +46164,12 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         );
       }),
       draft ? (draft.rects ?? []).map((rect, index) => {
-        const pageRect = pages.get(draft.page);
-        if (!pageRect) return null;
-        return h("span", { key: `draft-${index}`, className: "ib-anno-highlight ib-anno-draft", style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
+        const pageEl = pageElement(draft.page);
+        if (!pageEl) return null;
+        const pageRect = pageEl.getBoundingClientRect();
+        const flowRectNow = flowRef.current?.getBoundingClientRect();
+        if (!flowRectNow) return null;
+        return h("span", { key: `draft-${index}`, className: "ib-anno-highlight ib-anno-draft", style: { left: pageRect.left - flowRectNow.left + (flowRef.current?.scrollLeft ?? 0) + rect.x * pageRect.width, top: pageRect.top - flowRectNow.top + (flowRef.current?.scrollTop ?? 0) + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
       }) : null
     ),
     composePos ? h(

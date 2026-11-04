@@ -25,6 +25,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [openId, setOpenId] = useState(null);
 	const [openPos, setOpenPos] = useState(null);
 	const openIdRef = useRef(null);
+	const openItemRef = useRef(null);
 	const suppressCloseRef = useRef(0);
 	useEffect(() => { openIdRef.current = openId; }, [openId]);
 	const [editing, setEditing] = useState(null);
@@ -79,12 +80,24 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const onScroll = () => {
 			const target = contentRef.current;
 			if (target) target.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
-			// 滚动时收起卡片，避免卡片悬在与批注分离的位置。
+			// 只有批注本身离开可视区域一段距离才收起卡片；在视野内滚动不关闭。
 			if (openIdRef.current && Date.now() > suppressCloseRef.current) {
-				openIdRef.current = null;
-				setOpenId(null);
-				setOpenPos(null);
-				setEditing(null);
+				const item = openItemRef.current;
+				const pageEl = item?.pin ? flow.querySelector(`.page[data-page-number="${item.page}"]`) : null;
+				if (pageEl) {
+					const pageRect = pageEl.getBoundingClientRect();
+					const flowRect = flow.getBoundingClientRect();
+					const x = pageRect.left - flowRect.left + item.pin.x * pageRect.width;
+					const y = pageRect.top - flowRect.top + item.pin.y * pageRect.height;
+					const margin = 140;
+					if (y < -margin || y > flowRect.height + margin || x < -margin || x > flowRect.width + margin) {
+						openIdRef.current = null;
+						openItemRef.current = null;
+						setOpenId(null);
+						setOpenPos(null);
+						setEditing(null);
+					}
+				}
 			}
 		};
 		onScroll();
@@ -353,7 +366,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		} catch (reason) { setError(reason.message || String(reason)); }
 	};
 
-	useEffect(() => { if (!openId) setOpenPos(null); }, [openId]);
+	useEffect(() => { if (!openId) { setOpenPos(null); openItemRef.current = null; } }, [openId]);
 
 	const openAtPin = useCallback((item) => {
 		const flow = flowRef.current;
@@ -362,6 +375,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const pageRect = pageEl.getBoundingClientRect();
 		const flowRect = flow.getBoundingClientRect();
 		setOpenPos({ left: pageRect.left - flowRect.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect.top + item.pin.y * pageRect.height });
+		openItemRef.current = item;
 		suppressCloseRef.current = Date.now() + 300;
 		setOpenId(item.id);
 		return true;
@@ -450,9 +464,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			);
 		}),
 		draft ? (draft.rects ?? []).map((rect, index) => {
-			const pageRect = pages.get(draft.page);
-			if (!pageRect) return null;
-			return h('span', { key: `draft-${index}`, className: 'ib-anno-highlight ib-anno-draft', style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
+			const pageEl = pageElement(draft.page);
+			if (!pageEl) return null;
+			const pageRect = pageEl.getBoundingClientRect();
+			const flowRectNow = flowRef.current?.getBoundingClientRect();
+			if (!flowRectNow) return null;
+			return h('span', { key: `draft-${index}`, className: 'ib-anno-highlight ib-anno-draft', style: { left: pageRect.left - flowRectNow.left + (flowRef.current?.scrollLeft ?? 0) + rect.x * pageRect.width, top: pageRect.top - flowRectNow.top + (flowRef.current?.scrollTop ?? 0) + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
 		}) : null),
 		composePos ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
 			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
