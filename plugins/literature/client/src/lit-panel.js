@@ -165,7 +165,6 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				const queued=valid.map(file=>({id:crypto.randomUUID(),file}));
 				setPdfUploads(previous=>[...previous,...queued.map(({id,file})=>({id,name:file.name}))]);
 				for(const {id,file} of queued){try{
-					if(file.size>25*1024*1024)throw Error('文献文件不能超过 25 MB');
 					const result=await call('tasks_reading_pdf_upload',{request:{projectId,name:file.name,base64:await fileToBase64(file),folderId:!['all','unfiled'].includes(selectedFolder)?selectedFolder:undefined}});
 					if(result.rejected){showRejection(result.bundle);await onChanged?.();continue;}
 					setPdfUploads(previous=>previous.map(row=>row.id===id?{...row,bundleId:result.bundle.id}:row));

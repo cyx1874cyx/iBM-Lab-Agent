@@ -43575,7 +43575,6 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     setPdfUploads((previous) => [...previous, ...queued.map(({ id, file }) => ({ id, name: file.name }))]);
     for (const { id, file } of queued) {
       try {
-        if (file.size > 25 * 1024 * 1024) throw Error("文献文件不能超过 25 MB");
         const result = await call("tasks_reading_pdf_upload", { request: { projectId, name: file.name, base64: await fileToBase64(file), folderId: !["all", "unfiled"].includes(selectedFolder) ? selectedFolder : void 0 } });
         if (result.rejected) {
           showRejection(result.bundle);

@@ -3,7 +3,7 @@ import { copyFile, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { z } from 'zod';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
-import { decodeUploadBase64, MAX_UPLOAD_BYTES } from 'dsh-lab-agent/convert';
+import { decodeUploadBase64, UNLIMITED_UPLOAD_BYTES } from 'dsh-lab-agent/convert';
 import { validatePdfBuffer } from 'dsh-lab-agent/artifact-integrity';
 import { entryFileName, literatureEntryLayout } from '../entry-layout.js';
 import { inspectOfficePackage } from 'dsh-lab-agent/office-package';
@@ -18,9 +18,10 @@ const stamp = () => new Date().toISOString();
 async function readingUpload(name, base64) {
  const extension = extname(String(name ?? '')).slice(1).toLowerCase();
  if (!['pdf', 'docx'].includes(extension)) throw Error('请选择 PDF 或 DOCX 文献文件');
- const buffer = decodeUploadBase64(base64);
+ // 精读 PDF/SI 不设大小上限；只校验文件有效性。
+ const buffer = decodeUploadBase64(base64, { maxBytes: UNLIMITED_UPLOAD_BYTES });
  let integrity;
- if (extension === 'pdf') integrity = validatePdfBuffer(buffer, { minBytes: 5, maxBytes: MAX_UPLOAD_BYTES });
+ if (extension === 'pdf') integrity = validatePdfBuffer(buffer, { minBytes: 5, maxBytes: UNLIMITED_UPLOAD_BYTES });
  else {
   try { integrity = await inspectOfficePackage(buffer, 'docx'); }
   catch { throw Error('DOCX 文件损坏或格式不正确，请选择有效的 Word 文档'); }

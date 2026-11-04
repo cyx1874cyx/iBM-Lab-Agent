@@ -302,7 +302,6 @@ export function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab, u
 		}
 
 export const NATIVE_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
-export const MAX_RESEARCH_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_RESEARCH_UPLOAD_FILES = 5;
 
 export function isNativeImageFile(file) {
@@ -348,11 +347,6 @@ export function ResearchFileUpload({ sessionId, input, inputActions, call, useSe
 				if (!files.length) return;
 				if (files.length > MAX_RESEARCH_UPLOAD_FILES) {
 					toast(`一次最多上传 ${MAX_RESEARCH_UPLOAD_FILES} 个科研文件。`);
-					return;
-				}
-				const oversized = files.find((file) => file.size > MAX_RESEARCH_UPLOAD_BYTES);
-				if (oversized) {
-					toast(`“${oversized.name}”超过 25 MB，请压缩或分批处理。`);
 					return;
 				}
 				setBusy(true);
@@ -436,7 +430,7 @@ export function ResearchFileUpload({ sessionId, input, inputActions, call, useSe
 			if (!bound?.project) return null;
 			return h("span", { className: "ib-file-upload" },
 				h("input", { ref: picker, type: "file", multiple: true, onChange: onPickerChange }),
-				h("button", { type: "button", className: "ib-file-upload-btn", disabled: busy, title: "上传 PDF、Office、文本、数据或其他科研文件（单个不超过 25 MB）", "aria-label": "上传科研文件", onClick: () => picker.current?.click() }, busy ? "上传中…" : "上传文件"),
+				h("button", { type: "button", className: "ib-file-upload-btn", disabled: busy, title: "上传 PDF、Office、文本、数据或其他科研文件", "aria-label": "上传科研文件", onClick: () => picker.current?.click() }, busy ? "上传中…" : "上传文件"),
 				dragging ? h("div", { className: "ib-file-drop" }, h("span", null, "松开后上传到当前课题")) : null
 			);
 		}
