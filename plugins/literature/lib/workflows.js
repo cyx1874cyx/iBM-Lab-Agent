@@ -33,6 +33,7 @@ import { organizationMethods } from './tasks/organization.js';
 import {readerMethods} from './tasks/reader.js';
 import {pdfIntakeMethods} from './tasks/pdf-intake.js';
 import {readingDedupMethods} from './tasks/reading-dedup.js';
+import {annotationMethods} from './tasks/annotations.js';
 
 
 export { labTasksDomainSpec } from "dsh-lab-agent/core-domain";
@@ -228,6 +229,6 @@ export class LabLiteratureTasksService extends Service {
 
 }
 
-Object.assign(LabLiteratureTasksService.prototype, projectsMethods, literatureMethods, wechatMethods, readingReportsMethods, presentationsMethods, provenanceMethods, stagingMethods, entryAdminMethods, reviewMethods, organizationMethods, readerMethods, pdfIntakeMethods,readingDedupMethods);
+Object.assign(LabLiteratureTasksService.prototype, projectsMethods, literatureMethods, wechatMethods, readingReportsMethods, presentationsMethods, provenanceMethods, stagingMethods, entryAdminMethods, reviewMethods, organizationMethods, readerMethods, pdfIntakeMethods,readingDedupMethods,annotationMethods);
 
 export default LabLiteratureTasksService;
