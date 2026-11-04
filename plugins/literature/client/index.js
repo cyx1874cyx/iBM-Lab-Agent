@@ -45502,7 +45502,7 @@ var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, a
       const first = await doc.getPage(1);
       if (!alive) return;
       const flow = scrollRef.current, eventBus = new EventBus2(), linkService = new PDFLinkService2({ eventBus });
-      const view = new PDFViewer2({ container: flow, viewer: viewerElement.current, eventBus, linkService, abortSignal: lifecycle.signal, annotationEditorMode: -1, annotationMode: 1, maxCanvasPixels: 4e6, enableDetailCanvas: false, enableAutoLinking: false, minDurationToUpdateCanvas: 100, removePageBorders: true });
+      const view = new PDFViewer2({ container: flow, viewer: viewerElement.current, eventBus, linkService, abortSignal: lifecycle.signal, annotationEditorMode: -1, annotationMode: 1, maxCanvasPixels: 15e5, enableDetailCanvas: false, enableAutoLinking: false, minDurationToUpdateCanvas: 100, removePageBorders: true });
       engine.current = { viewer: view, finished: RenderingStates2.FINISHED, pageWidth: first.getViewport({ scale: 1 }).width };
       flow.dataset.pdfEngine = "PDF.js 5.4.624";
       const markPage = (number, state3) => {
@@ -45660,7 +45660,7 @@ var short = (value, max = 180) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? text.slice(0, max) + "…" : text;
 };
-function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, onRegionDone }) {
+function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, openTocSignal = 0, onRegionDone }) {
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
@@ -45684,6 +45684,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setTick((value) => value + 1);
     });
   }, []);
+  (0, import_react12.useEffect)(() => {
+    if (openTocSignal) setTocOpen(true);
+  }, [openTocSignal]);
   const refresh = (0, import_react12.useCallback)(async () => {
     try {
       const result = await call("tasks_annotations_list", request);
@@ -45794,8 +45797,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     rubber.className = "ib-anno-rubber";
     rubber.style.display = "none";
     flow2.append(rubber);
+    flow2.dataset.region = "true";
     const previousSelect = flow2.style.userSelect;
+    const previousCursor = flow2.style.cursor;
     flow2.style.userSelect = "none";
+    flow2.style.cursor = "crosshair";
     let start = null;
     const point = (event, pageRect) => ({
       x: Math.min(1, Math.max(0, (event.clientX - pageRect.left) / pageRect.width)),
@@ -45866,9 +45872,82 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       flow2.style.userSelect = previousSelect;
+      flow2.style.cursor = previousCursor;
+      delete flow2.dataset.region;
       rubber.remove();
     };
   }, [flowRef, regionMode, active, enabled, onRegionDone]);
+  (0, import_react12.useEffect)(() => {
+    const flow2 = flowRef.current;
+    if (!flow2 || !enabled || !active || regionMode) return void 0;
+    let start = null;
+    const rubber = document.createElement("div");
+    rubber.className = "ib-anno-rubber";
+    rubber.style.display = "none";
+    flow2.append(rubber);
+    const drawRubber = (event) => {
+      if (!start) return;
+      const { pageRect } = start;
+      const flowRect2 = flow2.getBoundingClientRect();
+      const x = Math.min(start.x, event.clientX), y = Math.min(start.y, event.clientY);
+      rubber.style.display = "block";
+      rubber.style.left = `${x - flowRect2.left + flow2.scrollLeft}px`;
+      rubber.style.top = `${y - flowRect2.top + flow2.scrollTop}px`;
+      rubber.style.width = `${Math.abs(event.clientX - start.x)}px`;
+      rubber.style.height = `${Math.abs(event.clientY - start.y)}px`;
+    };
+    const down = (event) => {
+      if (event.button !== 0) return;
+      const pageEl = event.target?.closest?.(".page");
+      if (!pageEl || !flow2.contains(pageEl)) return;
+      start = { pageEl, pageRect: pageEl.getBoundingClientRect(), x: event.clientX, y: event.clientY };
+    };
+    const move = (event) => {
+      if (start) drawRubber(event);
+    };
+    const up = async (event) => {
+      if (!start) return;
+      const current = start;
+      start = null;
+      rubber.remove();
+      const moved = Math.hypot(event.clientX - current.x, event.clientY - current.y);
+      if (moved < 10) return;
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && String(selection).trim()) return;
+      const { pageEl, pageRect } = current;
+      const point = (x, y) => ({ x: Math.min(1, Math.max(0, (x - pageRect.left) / pageRect.width)), y: Math.min(1, Math.max(0, (y - pageRect.top) / pageRect.height)) });
+      const a = point(current.x, current.y), b = point(event.clientX, event.clientY);
+      const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+      if (rect.w < 5e-3 || rect.h < 5e-3) return;
+      let cropBase64 = "";
+      try {
+        const canvas = pageEl.querySelector("canvas");
+        if (canvas) {
+          const sx = rect.x * canvas.width, sy = rect.y * canvas.height, sw = rect.w * canvas.width, sh = rect.h * canvas.height;
+          if (sw >= 1 && sh >= 1) {
+            const out = document.createElement("canvas");
+            out.width = Math.max(1, Math.round(sw));
+            out.height = Math.max(1, Math.round(sh));
+            out.getContext("2d").drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+            cropBase64 = out.toDataURL("image/png").split(",")[1] || "";
+          }
+        }
+      } catch {
+        cropBase64 = "";
+      }
+      setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64 });
+      setOpenId(null);
+    };
+    flow2.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      flow2.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      rubber.remove();
+    };
+  }, [flowRef, enabled, active, regionMode]);
   const pageTextFor = (0, import_react12.useCallback)(async (page) => {
     try {
       const pdfPage = await doc?.getPage?.(page);
@@ -46065,7 +46144,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       anchor ? h(
         "div",
         { className: "ib-anno-compose", style: { left: Math.max(8, Math.min(flowRect.width - 300, anchor.left)), top: Math.max(8, Math.min(flowRect.height - 170, anchor.top + 12)) } },
-        h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域` : ""), 120)),
+        h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
         h("textarea", { autoFocus: true, rows: 3, placeholder: "就这段原文提问…", value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
         } }),
@@ -46143,6 +46222,8 @@ var annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
+.ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
+.ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
@@ -53183,7 +53264,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
   const [state3, setState] = (0, import_react13.useState)({ loading: true }), [doc, setDoc] = (0, import_react13.useState)(null), [zhDoc, setZhDoc] = (0, import_react13.useState)(null), [mode, setMode] = (0, import_react13.useState)("original");
   const [error, setError] = (0, import_react13.useState)(""), [busy, setBusy] = (0, import_react13.useState)(false), [query, setQuery] = (0, import_react13.useState)(""), [refresh, setRefresh] = (0, import_react13.useState)(0);
-  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false);
+  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
   const [zoom, setZoom] = (0, import_react13.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react13.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react13.useState)({ original: true, zh: false });
   const [wantTranslation, setWantTranslation] = (0, import_react13.useState)(false), [translationAttempt, setTranslationAttempt] = (0, import_react13.useState)(0), [zhError, setZhError] = (0, import_react13.useState)("");
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
@@ -53500,7 +53581,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   };
   const pane = (side) => {
     const active = mode === "dual" || mode === side || side === "original" && ["report", "ppt"].includes(mode), material = selected(side), props = { side, zoom: zoom[side], active, scrollRef: side === "zh" ? right : left, onScroll, onError, hand, onLayout, onLoading };
-    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, regionMode, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
+    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, regionMode, openTocSignal: tocSignal, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
   };
   const content = h(
     "div",
@@ -53526,7 +53607,10 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         setStacked(e.target.checked);
       } }), "上下视图")) : null, h("input", { "aria-label": "查找 PDF 文本", placeholder: "查找文本", value: query, onChange: (e) => setQuery(e.target.value), onKeyDown: (e) => {
         if (e.key === "Enter") void search().catch(onError);
-      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉"), button(regionMode ? "取消框选" : "框选", () => setRegionMode((value) => !value), !doc || state3.format !== "pdf", regionMode, "在原文上框选区域提问")),
+      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉"), button(regionMode ? "退出框选" : "框选提问", () => setRegionMode((value) => !value), !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字"), button("批注目录", () => {
+        setAnnotationsOn(true);
+        setTocSignal((value) => value + 1);
+      }, !doc || state3.format !== "pdf", false, "查看当前文献的全部批注")),
       error ? h("div", { className: "ib-reader-error", role: "alert" }, error) : null,
       translation && translation.status !== "completed" ? h("small", { className: "ib-reader-status" }, translation.stage + (translation.totalBlocks ? ` · ${translation.completedBlocks ?? 0}/${translation.totalBlocks} 段` : "") + (translation.error ? " · " + translation.error : "")) : null,
       state3.format === "pdf" || mode === "dual" || ["report", "ppt"].includes(mode) ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, pane("original"), pane("zh"), modeLoading ? h("div", { className: "ib-reader-view-status", role: "status", "aria-live": "polite" }, spinner(), "正在加载" + (mode === "dual" ? "对照视图" : mode === "zh" ? "译文" : mode === "report" ? "精读" : mode === "ppt" ? "PPT" : "原文") + "…") : null) : null,

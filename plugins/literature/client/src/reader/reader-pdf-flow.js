@@ -31,7 +31,7 @@ export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef
    const {PDFViewer,PDFLinkService,EventBus,RenderingStates}=await loadPdfViewer();if(!alive)return;
    const first=await doc.getPage(1);if(!alive)return;
    const flow=scrollRef.current,eventBus=new EventBus(),linkService=new PDFLinkService({eventBus});
-   const view=new PDFViewer({container:flow,viewer:viewerElement.current,eventBus,linkService,abortSignal:lifecycle.signal,annotationEditorMode:-1,annotationMode:1,maxCanvasPixels:4000000,enableDetailCanvas:false,enableAutoLinking:false,minDurationToUpdateCanvas:100,removePageBorders:true});
+   const view=new PDFViewer({container:flow,viewer:viewerElement.current,eventBus,linkService,abortSignal:lifecycle.signal,annotationEditorMode:-1,annotationMode:1,maxCanvasPixels:1500000,enableDetailCanvas:false,enableAutoLinking:false,minDurationToUpdateCanvas:100,removePageBorders:true});
    engine.current={viewer:view,finished:RenderingStates.FINISHED,pageWidth:first.getViewport({scale:1}).width};flow.dataset.pdfEngine='PDF.js 5.4.624';
    const markPage=(number,state)=>{const page=view.getPageView(number-1);if(!page)return;page.div.dataset.pdfState=state;page.div.dataset.pdfReady=String(state==='ready');page.div.dataset.pdfPage=String(number);page.div.classList.add('ib-pdf-page');page.div.querySelector('.textLayer')?.classList.add('ib-reader-text-layer');};
    eventBus.on('pagesinit',()=>{for(let n=1;n<=view.pagesCount;n++)markPage(n,'loading');resize();});

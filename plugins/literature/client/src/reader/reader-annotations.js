@@ -19,7 +19,7 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, openTocSignal = 0, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -40,6 +40,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		if (frameRef.current) return;
 		frameRef.current = requestAnimationFrame(() => { frameRef.current = 0; setTick((value) => value + 1); });
 	}, []);
+
+	useEffect(() => { if (openTocSignal) setTocOpen(true); }, [openTocSignal]);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -147,8 +149,11 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		rubber.className = 'ib-anno-rubber';
 		rubber.style.display = 'none';
 		flow.append(rubber);
+		flow.dataset.region = 'true';
 		const previousSelect = flow.style.userSelect;
+		const previousCursor = flow.style.cursor;
 		flow.style.userSelect = 'none';
+		flow.style.cursor = 'crosshair';
 		let start = null;
 		const point = (event, pageRect) => ({
 			x: Math.min(1, Math.max(0, (event.clientX - pageRect.left) / pageRect.width)),
@@ -215,9 +220,75 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			window.removeEventListener('pointermove', move);
 			window.removeEventListener('pointerup', up);
 			flow.style.userSelect = previousSelect;
+			flow.style.cursor = previousCursor;
+			delete flow.dataset.region;
 			rubber.remove();
 		};
 	}, [flowRef, regionMode, active, enabled, onRegionDone]);
+
+	// 直接在图片/图表上拖矩形：不需要先进入框选模式，也不需要选中文字。
+	useEffect(() => {
+		const flow = flowRef.current;
+		if (!flow || !enabled || !active || regionMode) return undefined;
+		let start = null;
+		const rubber = document.createElement('div');
+		rubber.className = 'ib-anno-rubber';
+		rubber.style.display = 'none';
+		flow.append(rubber);
+		const drawRubber = (event) => {
+			if (!start) return;
+			const { pageRect } = start;
+			const flowRect = flow.getBoundingClientRect();
+			const x = Math.min(start.x, event.clientX), y = Math.min(start.y, event.clientY);
+			rubber.style.display = 'block';
+			rubber.style.left = `${x - flowRect.left + flow.scrollLeft}px`;
+			rubber.style.top = `${y - flowRect.top + flow.scrollTop}px`;
+			rubber.style.width = `${Math.abs(event.clientX - start.x)}px`;
+			rubber.style.height = `${Math.abs(event.clientY - start.y)}px`;
+		};
+		const down = (event) => {
+			if (event.button !== 0) return;
+			const pageEl = event.target?.closest?.('.page');
+			if (!pageEl || !flow.contains(pageEl)) return;
+			start = { pageEl, pageRect: pageEl.getBoundingClientRect(), x: event.clientX, y: event.clientY };
+		};
+		const move = (event) => { if (start) drawRubber(event); };
+		const up = async (event) => {
+			if (!start) return;
+			const current = start;
+			start = null;
+			rubber.remove();
+			const moved = Math.hypot(event.clientX - current.x, event.clientY - current.y);
+			if (moved < 10) return;
+			const selection = window.getSelection();
+			if (selection && !selection.isCollapsed && String(selection).trim()) return;
+			const { pageEl, pageRect } = current;
+			const point = (x, y) => ({ x: Math.min(1, Math.max(0, (x - pageRect.left) / pageRect.width)), y: Math.min(1, Math.max(0, (y - pageRect.top) / pageRect.height)) });
+			const a = point(current.x, current.y), b = point(event.clientX, event.clientY);
+			const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+			if (rect.w < 0.005 || rect.h < 0.005) return;
+			let cropBase64 = '';
+			try {
+				const canvas = pageEl.querySelector('canvas');
+				if (canvas) {
+					const sx = rect.x * canvas.width, sy = rect.y * canvas.height, sw = rect.w * canvas.width, sh = rect.h * canvas.height;
+					if (sw >= 1 && sh >= 1) {
+						const out = document.createElement('canvas');
+						out.width = Math.max(1, Math.round(sw));
+						out.height = Math.max(1, Math.round(sh));
+						out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+						cropBase64 = out.toDataURL('image/png').split(',')[1] || '';
+					}
+				}
+			} catch { cropBase64 = ''; }
+			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64 });
+			setOpenId(null);
+		};
+		flow.addEventListener('pointerdown', down);
+		window.addEventListener('pointermove', move);
+		window.addEventListener('pointerup', up);
+		return () => { flow.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); rubber.remove(); };
+	}, [flowRef, enabled, active, regionMode]);
 
 	const pageTextFor = useCallback(async (page) => {
 		try {
@@ -380,7 +451,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			);
 		}),
 		anchor ? h('div', { className: 'ib-anno-compose', style: { left: Math.max(8, Math.min(flowRect.width - 300, anchor.left)), top: Math.max(8, Math.min(flowRect.height - 170, anchor.top + 12)) } },
-			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域` : ''), 120)),
+			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
 			h('textarea', { autoFocus: true, rows: 3, placeholder: '就这段原文提问…', value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
 			h('div', { className: 'ib-anno-compose-actions' },
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
@@ -423,6 +494,8 @@ export const annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
+.ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
+.ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
