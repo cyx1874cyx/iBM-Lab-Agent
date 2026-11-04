@@ -45732,6 +45732,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       if (openIdRef.current && Date.now() > suppressCloseRef.current) {
         openIdRef.current = null;
         setOpenId(null);
+        setOpenPos(null);
         setEditing(null);
       }
     };
@@ -46168,7 +46169,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
       )
     ) : null,
-    cardPos ? h(
+    open && cardPos ? h(
       "div",
       { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, cardPos.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, cardPos.top + 12)) }, onClick: (event) => event.stopPropagation() },
       h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
