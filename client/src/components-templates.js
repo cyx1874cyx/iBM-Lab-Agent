@@ -55,8 +55,6 @@ export function Templates({ call, onBack, sections }) {
 			}, [call]);
 			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } }, [capabilities, loadNotes, loadReviews, loadPpt]);
 			return h("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "var(--ib-bg)" } },
-				embedded ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px", fontSize: 12, color: "rgba(18,60,51,.72)" } },
-					h("span", null, "iBM Lab"), h("span", null, "/"), h("span", null, "文献阅读"), h("span", null, "/"), h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理")) : null,
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
 				h("div", { style: { display: "flex", flex: 1, minHeight: 0, border: "1px solid var(--ib-hair)", borderRadius: 10, overflow: "hidden", background: "var(--ib-bg)" } },
 					h("aside", { style: { width: 196, flex: "0 0 196px", borderRight: "1px solid var(--ib-hair)", background: "var(--ib-panel)", padding: "18px 10px" } },

@@ -43084,15 +43084,6 @@ function Templates({ call, onBack, sections }) {
   return h(
     "div",
     { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "var(--ib-bg)" } },
-    embedded ? h(
-      "div",
-      { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px", fontSize: 12, color: "rgba(18,60,51,.72)" } },
-      h("span", null, "iBM Lab"),
-      h("span", null, "/"),
-      h("span", null, "文献阅读"),
-      h("span", null, "/"),
-      h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理")
-    ) : null,
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
       "div",
@@ -45324,7 +45315,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ), entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null, templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
     if (event.target === event.currentTarget) setTemplatesOpen(false);
-  }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", "aria-label": "文献模板管理", "data-literature-templates": true, style: { position: "relative", width: "min(1440px,96vw)", height: "92vh", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: "16px 20px", boxSizing: "border-box" } }, h("button", { type: "button", "aria-label": "关闭", "title": "关闭", onClick: () => setTemplatesOpen(false), style: { position: "absolute", top: 12, right: 12, zIndex: 2, height: 32, padding: "0 16px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", fontSize: 12.5, lineHeight: 1, cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,.06)" } }, "关闭"), h("div", { style: { flex: 1, minHeight: 0, overflow: "auto" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null, previewNode);
+  }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", "aria-label": "文献模板管理", "data-literature-templates": true, style: { width: "min(1440px,96vw)", height: "92vh", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: 0, boxSizing: "border-box" } }, h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 20px", borderBottom: "1px solid var(--ib-hair)", flex: "0 0 auto" } }, h("div", { style: { fontSize: 12, color: "rgba(18,60,51,.72)" } }, "iBM Lab / 文献阅读 / 模板管理"), h("button", { type: "button", className: "ib-btn", "data-primary": true, "aria-label": "关闭", "title": "关闭", onClick: () => setTemplatesOpen(false), style: { marginLeft: "auto", height: 32, padding: "0 16px", borderRadius: 8, fontSize: 12.5, lineHeight: 1 } }, "关闭")), h("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "16px 20px" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null, previewNode);
 }
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js
