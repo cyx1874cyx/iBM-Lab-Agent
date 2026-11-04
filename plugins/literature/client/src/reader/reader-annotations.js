@@ -135,12 +135,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			start.current = current;
 		};
 		const down = (event) => {
-			if (event.button !== 0) return;
+			if (event.button !== 0 || event.detail > 1) return;
 			const pageEl = event.target?.closest?.('.page');
 			if (!pageEl || !flow.contains(pageEl)) return;
 			event.preventDefault();
 			const pageRect = pageEl.getBoundingClientRect();
-			start = { pageEl, pageRect, x: point(event, pageRect).x, y: point(event, pageRect).y };
+			start = { pageEl, pageRect, x: point(event, pageRect).x, y: point(event, pageRect).y, px: event.clientX, py: event.clientY };
 			start.x = point(event, pageRect).x;
 			start.y = point(event, pageRect).y;
 			draw(event);
@@ -151,9 +151,10 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const { pageEl, pageRect } = start;
 			const current = point(event, pageRect);
 			const rect = { x: Math.min(start.x, current.x), y: Math.min(start.y, current.y), w: Math.abs(current.x - start.x), h: Math.abs(current.y - start.y) };
+			const moved = Math.hypot(event.clientX - start.px, event.clientY - start.py);
 			start = null;
 			rubber.remove();
-			if (rect.w < 0.005 || rect.h < 0.005) return;
+			if (moved < 10 || rect.w * pageRect.width < 12 || rect.h * pageRect.height < 12) return;
 			let cropBase64 = '';
 			try {
 				const canvas = pageEl.querySelector('canvas');
@@ -207,7 +208,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			rubber.style.height = `${Math.abs(event.clientY - start.y)}px`;
 		};
 		const down = (event) => {
-			if (event.button !== 0) return;
+			if (event.button !== 0 || event.detail > 1) return;
 			const pageEl = event.target?.closest?.('.page');
 			if (!pageEl || !flow.contains(pageEl)) return;
 			start = { pageEl, pageRect: pageEl.getBoundingClientRect(), x: event.clientX, y: event.clientY };
@@ -226,7 +227,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const point = (x, y) => ({ x: Math.min(1, Math.max(0, (x - pageRect.left) / pageRect.width)), y: Math.min(1, Math.max(0, (y - pageRect.top) / pageRect.height)) });
 			const a = point(current.x, current.y), b = point(event.clientX, event.clientY);
 			const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
-			if (rect.w < 0.005 || rect.h < 0.005) return;
+			if (rect.w * pageRect.width < 12 || rect.h * pageRect.height < 12) return;
 			let cropBase64 = '';
 			try {
 				const canvas = pageEl.querySelector('canvas');
@@ -340,9 +341,15 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	};
 
 	const locate = (item) => {
-		pageElement(item.page)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-		setOpenId(item.id);
 		setTocOpen(false);
+		setOpenId(null);
+		const flow = flowRef.current;
+		const pageEl = pageElement(item.page);
+		if (!flow || !pageEl) return;
+		// 先瞬时滚到目标页并重算几何，再打开卡片，避免卡片先出现在旧位置再“飞过去”。
+		flow.scrollTop = Math.max(0, pageEl.offsetTop - 8);
+		bump();
+		setTimeout(() => { setOpenId(item.id); }, 140);
 	};
 
 	const geometry = useMemo(() => {
