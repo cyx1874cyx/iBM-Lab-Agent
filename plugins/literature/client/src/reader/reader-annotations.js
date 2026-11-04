@@ -23,6 +23,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
+	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
 	const [error, setError] = useState('');
 	const [tick, setTick] = useState(0);
@@ -78,6 +79,22 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			if (target) target.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
 			const cardLayer = cardLayerRef.current;
 			if (cardLayer) cardLayer.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
+			// 卡片仍钉在页面原位，但批注离开可视区域一个屏高后自动收起。
+			const item = openItemRef.current;
+			if (item?.pin) {
+				const pageEl = flow.querySelector(`.page[data-page-number="${item.page}"]`);
+				if (pageEl) {
+					const pageRect = pageEl.getBoundingClientRect();
+					const flowRect = flow.getBoundingClientRect();
+					const y = pageRect.top - flowRect.top + item.pin.y * pageRect.height;
+					const margin = flow.clientHeight;
+					if (y < -margin || y > flowRect.height + margin) {
+						openItemRef.current = null;
+						setOpenId(null);
+						setEditing(null);
+					}
+				}
+			}
 		};
 		onScroll();
 		flow.addEventListener('scroll', onScroll, { passive: true });
@@ -345,9 +362,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		} catch (reason) { setError(reason.message || String(reason)); }
 	};
 
+	useEffect(() => { if (!openId) openItemRef.current = null; }, [openId]);
+
 	const openAtPin = useCallback((item) => {
 		const pageEl = pageElement(item.page);
 		if (!pageEl || !item.pin) return false;
+		openItemRef.current = item;
 		setOpenId(item.id);
 		return true;
 	}, [pageElement]);
@@ -355,13 +375,16 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const locate = (item) => {
 		setTocOpen(false);
 		setOpenId(null);
+		openItemRef.current = null;
 		const flow = flowRef.current;
 		const pageEl = pageElement(item.page);
 		if (!flow || !pageEl) return;
-		// 先瞬时滚到目标页并重算几何，再打开卡片，避免卡片先出现在旧位置再“飞过去”。
-		flow.scrollTop = Math.max(0, pageEl.offsetTop - 8);
+		// 把框选位置（而不是页首）滚到可视区域中间，再打开卡片。
+		const anchorY = pageEl.offsetTop + (item.pin?.y ?? 0.5) * pageEl.offsetHeight;
+		const target = anchorY - flow.clientHeight / 2;
+		flow.scrollTop = Math.max(0, Math.min(flow.scrollHeight - flow.clientHeight, target));
 		bump();
-		setTimeout(() => { openAtPin(item); }, 140);
+		setTimeout(() => { openAtPin(item); }, 160);
 	};
 
 	const geometry = useMemo(() => {

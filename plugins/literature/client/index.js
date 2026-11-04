@@ -45664,6 +45664,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
+  const openItemRef = (0, import_react12.useRef)(null);
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [error, setError] = (0, import_react12.useState)("");
   const [tick, setTick] = (0, import_react12.useState)(0);
@@ -45726,6 +45727,21 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       if (target) target.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
       const cardLayer = cardLayerRef.current;
       if (cardLayer) cardLayer.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
+      const item = openItemRef.current;
+      if (item?.pin) {
+        const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
+        if (pageEl) {
+          const pageRect = pageEl.getBoundingClientRect();
+          const flowRect2 = flow2.getBoundingClientRect();
+          const y = pageRect.top - flowRect2.top + item.pin.y * pageRect.height;
+          const margin = flow2.clientHeight;
+          if (y < -margin || y > flowRect2.height + margin) {
+            openItemRef.current = null;
+            setOpenId(null);
+            setEditing(null);
+          }
+        }
+      }
     };
     onScroll();
     flow2.addEventListener("scroll", onScroll, { passive: true });
@@ -46016,23 +46032,30 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setError(reason.message || String(reason));
     }
   };
+  (0, import_react12.useEffect)(() => {
+    if (!openId) openItemRef.current = null;
+  }, [openId]);
   const openAtPin = (0, import_react12.useCallback)((item) => {
     const pageEl = pageElement(item.page);
     if (!pageEl || !item.pin) return false;
+    openItemRef.current = item;
     setOpenId(item.id);
     return true;
   }, [pageElement]);
   const locate = (item) => {
     setTocOpen(false);
     setOpenId(null);
+    openItemRef.current = null;
     const flow2 = flowRef.current;
     const pageEl = pageElement(item.page);
     if (!flow2 || !pageEl) return;
-    flow2.scrollTop = Math.max(0, pageEl.offsetTop - 8);
+    const anchorY = pageEl.offsetTop + (item.pin?.y ?? 0.5) * pageEl.offsetHeight;
+    const target = anchorY - flow2.clientHeight / 2;
+    flow2.scrollTop = Math.max(0, Math.min(flow2.scrollHeight - flow2.clientHeight, target));
     bump();
     setTimeout(() => {
       openAtPin(item);
-    }, 140);
+    }, 160);
   };
   const geometry = (0, import_react12.useMemo)(() => {
     tick;
