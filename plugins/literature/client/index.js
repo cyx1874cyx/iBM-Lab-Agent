@@ -45664,6 +45664,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
+  const [openPos, setOpenPos] = (0, import_react12.useState)(null);
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [error, setError] = (0, import_react12.useState)("");
   const [tick, setTick] = (0, import_react12.useState)(0);
@@ -45825,7 +45826,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       } catch {
         cropBase64 = "";
       }
-      setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64 });
+      const flowRect2 = flow2.getBoundingClientRect();
+      setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64, screen: { left: pageRect.left - flowRect2.left + rect.x * pageRect.width, top: pageRect.top - flowRect2.top + rect.y * pageRect.height } });
       setOpenId(null);
       onRegionDone?.();
     };
@@ -45900,7 +45902,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       } catch {
         cropBase64 = "";
       }
-      setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64 });
+      const flowRect2 = flow2.getBoundingClientRect();
+      setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64, screen: { left: pageRect.left - flowRect2.left + rect.x * pageRect.width, top: pageRect.top - flowRect2.top + rect.y * pageRect.height } });
       setOpenId(null);
     };
     flow2.addEventListener("pointerdown", down);
@@ -46011,6 +46014,19 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setError(reason.message || String(reason));
     }
   };
+  (0, import_react12.useEffect)(() => {
+    if (!openId) setOpenPos(null);
+  }, [openId]);
+  const openAtPin = (0, import_react12.useCallback)((item) => {
+    const flow2 = flowRef.current;
+    const pageEl = pageElement(item.page);
+    if (!flow2 || !pageEl || !item.pin) return false;
+    const pageRect = pageEl.getBoundingClientRect();
+    const flowRect2 = flow2.getBoundingClientRect();
+    setOpenPos({ left: pageRect.left - flowRect2.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect2.top + item.pin.y * pageRect.height });
+    setOpenId(item.id);
+    return true;
+  }, [flowRef, pageElement]);
   const locate = (item) => {
     setTocOpen(false);
     setOpenId(null);
@@ -46020,7 +46036,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     flow2.scrollTop = Math.max(0, pageEl.offsetTop - 8);
     bump();
     setTimeout(() => {
-      setOpenId(item.id);
+      openAtPin(item);
     }, 140);
   };
   const geometry = (0, import_react12.useMemo)(() => {
@@ -46060,6 +46076,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
   const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
   const screenOpen = openPoint ? { left: openPoint.left - scrollX, top: openPoint.top - scrollY } : null;
+  const composePos = draft?.screen ?? screenAnchor;
+  const cardPos = openPos ?? screenOpen;
   if (!items.length && !draft && !open && !error) return null;
   return h(
     "div",
@@ -46105,12 +46123,12 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
             onPointerDown: (event) => event.stopPropagation(),
             onClick: (event) => {
               event.stopPropagation();
-              setOpenId(item.id);
+              openAtPin(item);
               setEditing(null);
             },
             onDoubleClick: (event) => {
               event.stopPropagation();
-              setOpenId(item.id);
+              openAtPin(item);
               setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || "" });
             }
           }, item.status === "pending" || item.status === "running" ? h("span", { className: "ib-reader-spinner" }) : null)
@@ -46122,9 +46140,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         return h("span", { key: `draft-${index}`, className: "ib-anno-highlight ib-anno-draft", style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
       }) : null
     ),
-    screenAnchor ? h(
+    composePos ? h(
       "div",
-      { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, screenAnchor.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, screenAnchor.top + 12)) } },
+      { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
       h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
       h("textarea", { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: "就框选内容提问…", defaultValue: "", onKeyDown: (event) => {
         if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
@@ -46139,9 +46157,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, disabled: submitting, onClick: () => void submit() }, submitting ? "提交中…" : "提交")
       )
     ) : null,
-    screenOpen ? h(
+    cardPos ? h(
       "div",
-      { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, screenOpen.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, screenOpen.top + 12)) }, onClick: (event) => event.stopPropagation() },
+      { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, cardPos.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, cardPos.top + 12)) }, onClick: (event) => event.stopPropagation() },
       h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
       open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
       h("div", { className: "ib-anno-card-question" }, open.question),

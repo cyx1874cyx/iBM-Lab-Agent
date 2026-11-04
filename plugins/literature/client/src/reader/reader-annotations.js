@@ -23,6 +23,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
+	const [openPos, setOpenPos] = useState(null);
 	const [editing, setEditing] = useState(null);
 	const [error, setError] = useState('');
 	const [tick, setTick] = useState(0);
@@ -169,7 +170,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					}
 				}
 			} catch { cropBase64 = ''; }
-			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64 });
+			const flowRect = flow.getBoundingClientRect();
+			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64, screen: { left: pageRect.left - flowRect.left + rect.x * pageRect.width, top: pageRect.top - flowRect.top + rect.y * pageRect.height } });
 			setOpenId(null);
 			onRegionDone?.();
 		};
@@ -242,7 +244,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					}
 				}
 			} catch { cropBase64 = ''; }
-			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64 });
+			const flowRect = flow.getBoundingClientRect();
+			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64, screen: { left: pageRect.left - flowRect.left + rect.x * pageRect.width, top: pageRect.top - flowRect.top + rect.y * pageRect.height } });
 			setOpenId(null);
 		};
 		flow.addEventListener('pointerdown', down);
@@ -340,6 +343,19 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		} catch (reason) { setError(reason.message || String(reason)); }
 	};
 
+	useEffect(() => { if (!openId) setOpenPos(null); }, [openId]);
+
+	const openAtPin = useCallback((item) => {
+		const flow = flowRef.current;
+		const pageEl = pageElement(item.page);
+		if (!flow || !pageEl || !item.pin) return false;
+		const pageRect = pageEl.getBoundingClientRect();
+		const flowRect = flow.getBoundingClientRect();
+		setOpenPos({ left: pageRect.left - flowRect.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect.top + item.pin.y * pageRect.height });
+		setOpenId(item.id);
+		return true;
+	}, [flowRef, pageElement]);
+
 	const locate = (item) => {
 		setTocOpen(false);
 		setOpenId(null);
@@ -349,7 +365,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		// 先瞬时滚到目标页并重算几何，再打开卡片，避免卡片先出现在旧位置再“飞过去”。
 		flow.scrollTop = Math.max(0, pageEl.offsetTop - 8);
 		bump();
-		setTimeout(() => { setOpenId(item.id); }, 140);
+		setTimeout(() => { openAtPin(item); }, 140);
 	};
 
 	const geometry = useMemo(() => {
@@ -386,6 +402,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
 	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
 	const screenOpen = openPoint ? { left: openPoint.left - scrollX, top: openPoint.top - scrollY } : null;
+	const composePos = draft?.screen ?? screenAnchor;
+	const cardPos = openPos ?? screenOpen;
 	if (!items.length && !draft && !open && !error) return null;
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
@@ -415,8 +433,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					style: { left: pin.left, top: pin.top },
 					title: item.question || item.quote,
 					onPointerDown: (event) => event.stopPropagation(),
-					onClick: (event) => { event.stopPropagation(); setOpenId(item.id); setEditing(null); },
-					onDoubleClick: (event) => { event.stopPropagation(); setOpenId(item.id); setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || '' }); }
+					onClick: (event) => { event.stopPropagation(); openAtPin(item); setEditing(null); },
+					onDoubleClick: (event) => { event.stopPropagation(); openAtPin(item); setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || '' }); }
 				}, item.status === 'pending' || item.status === 'running' ? h('span', { className: 'ib-reader-spinner' }) : null)
 			);
 		}),
@@ -425,14 +443,14 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			if (!pageRect) return null;
 			return h('span', { key: `draft-${index}`, className: 'ib-anno-highlight ib-anno-draft', style: { left: pageRect.left + rect.x * pageRect.width, top: pageRect.top + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
 		}) : null),
-		screenAnchor ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, screenAnchor.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, screenAnchor.top + 12)) } },
+		composePos ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
 			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
 			h('textarea', { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: '就框选内容提问…', defaultValue: '', onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
 			h('div', { className: 'ib-anno-compose-actions' },
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
-		screenOpen ? h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, screenOpen.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, screenOpen.top + 12)) }, onClick: (event) => event.stopPropagation() },
+		cardPos ? h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 340, cardPos.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, cardPos.top + 12)) }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
 			open.quote ? h('div', { className: 'ib-anno-card-quote' }, short(open.quote, 160)) : null,
 			h('div', { className: 'ib-anno-card-question' }, open.question),
