@@ -197,6 +197,9 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [templatesOpen, setTemplatesOpen] = useState(false);
+			const [noteTemplates,setNoteTemplates]=useState([]);
+			const [noteTemplateId,setNoteTemplateId]=useProjectViewValue(projectId,'reading-template','');
+			useEffect(()=>{let alive=true;void call('note_templates_list',{request:{kind:'note'}}).then(result=>{if(alive)setNoteTemplates(result.templates??[]);}).catch(()=>{});return()=>{alive=false;};},[call]);
 			useEffect(()=>{if(!templatesOpen)return undefined;const onKey=event=>{if(event.key==='Escape')setTemplatesOpen(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[templatesOpen]);
 			const [reviewVisible, setReviewVisible] = useState(false);
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
@@ -760,6 +763,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h(ReadingLinkUpload,{projectId,onRequestArtifact,notify,onSubmitted:()=>setSelectedFolder('all')}),
 						h('input',{ref:pdfPicker,type:'file',accept:'.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document',multiple:true,hidden:true,'aria-label':'上传精读文献',onChange:event=>void uploadPdfs(event.target.files)}),
 						h('button',{className:'ib-act',onClick:createFolder},'+ 文件夹'),
+						noteTemplates.length?h('select',{className:'ib-act','aria-label':'精读模板',title:'快速读懂使用的精读模板',value:noteTemplateId,onChange:event=>setNoteTemplateId(event.target.value),style:{maxWidth:190}},h('option',{value:''},'默认精读模板'),noteTemplates.map(row=>h('option',{key:row.id,value:row.id},row.name))):null,
 						h('button',{className:'ib-act',onClick:()=>setTemplatesOpen(true),title:'管理文献精读、PPT 制作与综述写作模板'},'模板管理'),
 						h("span", { className: "ib-group-count" }, `${readingReports.length} 篇`)),
 					rejectionNotices.length?h('div',{className:'ib-non-paper-notices'},rejectionNotices.map(notice=>h(NonPaperNotice,{key:notice.id,notice,onDismiss:dismissRejection}))):null,
@@ -820,7 +824,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const pptDone = Boolean(presentation?.pptxPath);
 						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
 						const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
+						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`+(noteTemplateId?`\n使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。`:'');
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
 						return h("div", { className: "ib-lit-item", key: report.id, 'data-intake-state':intake?.status, 'data-bundle-id':bundle.id,...readingInteraction.rowProps(report) },
 							// 同尺寸图标保持可见，窄容器将操作区移到标题下方。

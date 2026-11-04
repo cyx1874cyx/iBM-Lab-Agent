@@ -8,8 +8,8 @@
  * - 同一 PDF 哈希内的批注跟随文件；PDF 被替换时标记 stale，保留问答与摘录。
  */
 import { randomUUID } from 'node:crypto';
-import { readFile, rename, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, rename, writeFile, mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 
 const MAX_PAGE_TEXT = 15000;
@@ -94,7 +94,7 @@ export const annotationMethods = {
 	},
 
 	/** 新建批注；question 非空时立即排队生成短答，客户端的图钉从 pending 开始。 */
-	async annotationsCreate({ projectId, bundleId, page, kind = 'text', rects, quote = '', pin, question = '', pageText = '', context = '' } = {}) {
+	async annotationsCreate({ projectId, bundleId, page, kind = 'text', rects, quote = '', pin, question = '', pageText = '', context = '', cropBase64 = '' } = {}) {
 		const bundle = this.readerBundle({ projectId, bundleId });
 		const pageNumber = Math.max(1, Number(page) || 1);
 		const text = cleanupText(quote, 8000);
@@ -104,7 +104,7 @@ export const annotationMethods = {
 		const item = {
 			id: 'annotation-' + randomUUID(),
 			page: pageNumber,
-			kind: kind === 'note' ? 'note' : 'text',
+			kind: kind === 'note' ? 'note' : kind === 'region' ? 'region' : 'text',
 			rects: normalizeRects(rects),
 			pin: pin && Number.isFinite(Number(pin.x)) && Number.isFinite(Number(pin.y))
 				? { x: Math.min(1, Math.max(0, Number(pin.x))), y: Math.min(1, Math.max(0, Number(pin.y))) }
@@ -113,6 +113,7 @@ export const annotationMethods = {
 			question: asked,
 			shortAnswer: kind === 'note' ? asked : '',
 			modelAnswer: '',
+			draftAnswer: '',
 			basis: [],
 			messages: kind === 'note' ? [] : [{ role: 'user', text: asked, at: now }],
 			status: kind === 'note' ? 'answered' : 'pending',
@@ -125,6 +126,22 @@ export const annotationMethods = {
 			store.items.push(item);
 			return item;
 		});
+		if (cropBase64) {
+			try {
+				const bytes = Buffer.from(String(cropBase64).replace(/^data:[^,]*,/, ''), 'base64');
+				if (bytes.length) {
+					const dir = join(bundle.entryDir, 'annotations');
+					await mkdir(dir, { recursive: true });
+					const cropPath = join(dir, `${item.id}.png`);
+					await writeFile(cropPath, bytes);
+					await this.mutateAnnotationStore(bundle, (store) => {
+						const target = this.annotationItem(store, item.id);
+						if (target) { target.cropPath = cropPath; target.updatedAt = stamp(); }
+						return target;
+					});
+				}
+			} catch { /* 区域截图失败不阻塞文字问答 */ }
+		}
 		if (kind !== 'note') void this.annotationRun(bundle, saved.id, { pageText, context });
 		return saved;
 	},
@@ -140,6 +157,7 @@ export const annotationMethods = {
 			target.messages.push({ role: 'user', text: asked, at: stamp() });
 			target.status = 'pending';
 			target.error = '';
+			target.draftAnswer = '';
 			target.updatedAt = stamp();
 			return target;
 		});
@@ -169,11 +187,41 @@ export const annotationMethods = {
 			if (!target) throw Error('批注不存在或已删除');
 			target.status = 'pending';
 			target.error = '';
+			target.draftAnswer = '';
 			target.updatedAt = stamp();
 			return target;
 		});
 		void this.annotationRun(bundle, item.id, { pageText, context });
 		return item;
+	},
+
+	/** 采用追问草稿：替换卡片正文并保留完整问答。 */
+	async annotationsAdopt({ projectId, bundleId, annotationId } = {}) {
+		const bundle = this.readerBundle({ projectId, bundleId });
+		return this.mutateAnnotationStore(bundle, (store) => {
+			const target = this.annotationItem(store, annotationId);
+			if (!target) throw Error('批注不存在或已删除');
+			if (!target.draftAnswer) throw Error('没有可采用的追问草稿');
+			target.shortAnswer = target.draftAnswer;
+			target.modelAnswer = target.draftAnswer;
+			target.draftAnswer = '';
+			target.edited = false;
+			target.status = 'answered';
+			target.updatedAt = stamp();
+			return target;
+		});
+	},
+
+	/** 放弃追问草稿：保留当前正文与历史。 */
+	async annotationsDismiss({ projectId, bundleId, annotationId } = {}) {
+		const bundle = this.readerBundle({ projectId, bundleId });
+		return this.mutateAnnotationStore(bundle, (store) => {
+			const target = this.annotationItem(store, annotationId);
+			if (!target) throw Error('批注不存在或已删除');
+			target.draftAnswer = '';
+			target.updatedAt = stamp();
+			return target;
+		});
 	},
 
 	async annotationsDelete({ projectId, bundleId, annotationId } = {}) {
@@ -204,8 +252,14 @@ export const annotationMethods = {
 				if (!item) return;
 				item.status = 'answered';
 				item.error = '';
-				item.modelAnswer = answer.shortAnswer;
-				if (!item.edited) item.shortAnswer = answer.shortAnswer;
+				// 首答自动写入正文；追问只生成草稿，等读者点「采用」再替换。
+				const userTurns = item.messages.filter((message) => message.role === 'user').length;
+				if (userTurns > 1) {
+					item.draftAnswer = answer.shortAnswer;
+				} else {
+					item.modelAnswer = answer.shortAnswer;
+					if (!item.edited) item.shortAnswer = answer.shortAnswer;
+				}
 				item.basis = answer.basis;
 				item.messages.push({ role: 'assistant', text: answer.shortAnswer, at: stamp() });
 				item.updatedAt = stamp();
@@ -231,7 +285,7 @@ export const annotationMethods = {
 		const excerpt = cleanupText(pageText, MAX_PAGE_TEXT);
 		return [
 			`文献页码：第 ${item.page} 页`,
-			item.quote ? `选区原文：\n${item.quote}` : '（本条是读者自己的笔记，不需要回答）',
+			item.quote ? `选区原文：\n${item.quote}` : item.kind === 'region' ? '（读者框选了本页的一块区域，见附图）' : '（本条是读者自己的笔记，不需要回答）',
 			context ? `选区附近上下文：\n${cleanupText(context, 2000)}` : '',
 			history ? `已有对话：\n${history}` : '',
 			'请只依据以上本文内容和选区，回答读者当前的问题。要求：',
@@ -265,11 +319,27 @@ export const annotationMethods = {
 				});
 			}
 		});
+		const prompt = this.annotationPrompt(item, { pageText, context });
+		const content = [{ type: 'text', text: prompt }];
+		if (item.cropPath) {
+			try {
+				const llm = this.ctx.get('llm');
+				const attachments = this.ctx.get('attachments');
+				if (llm && attachments) {
+					const model = await llm.resolveModelInfo(selection.provider, selection.model, signal);
+					if (model?.inputModalities?.includes('image')) {
+						const refs = await attachments.saveImages([{ data: await readFile(item.cropPath), mediaType: 'image/png', name: '批注选区.png' }]);
+						content[0] = { type: 'text', text: prompt + '\n\n图片是读者框选的原文区域（扫描页或图表）；请结合图片回答，看不清时明确说明。' };
+						content.push(...refs.map((attachment) => ({ type: 'image', attachment })));
+					}
+				}
+			} catch { /* 模型不支持图片时退化为文本问答 */ }
+		}
 		let timer;
 		let abort;
 		try {
 			if (signal?.aborted) throw Error('已取消');
-			handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: this.annotationPrompt(item, { pageText, context }) }], source: { kind: 'user' } }));
+			handle.agent.followup(createUserMessage({ content, source: { kind: 'user' } }));
 			await Promise.race([
 				handle.agent.whenIdle(),
 				new Promise((_, reject) => {

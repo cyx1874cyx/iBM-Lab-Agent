@@ -19,7 +19,7 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -28,10 +28,18 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [tick, setTick] = useState(0);
 	const [submitting, setSubmitting] = useState(false);
 	const [flowReady, setFlowReady] = useState(false);
+	const [followText, setFollowText] = useState('');
+	const [tocOpen, setTocOpen] = useState(false);
+	const frameRef = useRef(0);
+	const scrollTimerRef = useRef(0);
 	const overlayRef = useRef(null);
+	const contentRef = useRef(null);
 	const aliveRef = useRef(true);
 	aliveRef.current = true;
-	const bump = useCallback(() => setTick((value) => value + 1), []);
+	const bump = useCallback(() => {
+		if (frameRef.current) return;
+		frameRef.current = requestAnimationFrame(() => { frameRef.current = 0; setTick((value) => value + 1); });
+	}, []);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -47,7 +55,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const busy = items.some((item) => item.status === 'pending' || item.status === 'running');
 	useEffect(() => {
 		if (!busy) return undefined;
-		const timer = setInterval(() => { void refresh(); }, 1300);
+		const timer = setInterval(() => { if (document.visibilityState !== 'hidden') void refresh(); }, 2000);
 		return () => clearInterval(timer);
 	}, [busy, refresh]);
 
@@ -60,18 +68,28 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	useEffect(() => {
 		const flow = flowRef.current;
 		if (!flow) return undefined;
-		const onScroll = () => bump();
+		// 滚动只平移内层内容，不触发 React 重渲染，避免与 PDF.js 渲染争抢主线程。
+		const onScroll = () => {
+			const target = contentRef.current;
+			if (target) target.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
+		};
+		onScroll();
 		flow.addEventListener('scroll', onScroll, { passive: true });
 		const observer = new ResizeObserver(bump);
 		observer.observe(flow);
+		const viewer = flow.querySelector('.pdfViewer');
+		const mutation = viewer ? new MutationObserver(bump) : null;
+		if (viewer && mutation) mutation.observe(viewer, { childList: true, subtree: false });
 		window.addEventListener('resize', bump);
-		return () => { flow.removeEventListener('scroll', onScroll); observer.disconnect(); window.removeEventListener('resize', bump); };
+		return () => { flow.removeEventListener('scroll', onScroll); observer.disconnect(); mutation?.disconnect(); window.removeEventListener('resize', bump); };
 	}, [flowRef, bump, flowReady]);
+
+	useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); clearTimeout(scrollTimerRef.current); }, []);
 
 	const pageElement = useCallback((page) => flowRef.current?.querySelector(`.page[data-page-number="${page}"]`), [flowRef]);
 
 	const capture = useCallback(() => {
-		if (!enabled || !active) return;
+		if (!enabled || !active || regionMode) return;
 		const selection = window.getSelection();
 		if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
 		const range = selection.getRangeAt(0);
@@ -101,7 +119,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		});
 		setOpenId(null);
 		setError('');
-	}, [enabled, active, flowRef]);
+	}, [enabled, active, regionMode, flowRef]);
 
 	useEffect(() => {
 		const flow = flowRef.current;
@@ -122,6 +140,85 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		return () => document.removeEventListener('mousedown', onDown);
 	}, [openId]);
 
+	useEffect(() => {
+		const flow = flowRef.current;
+		if (!flow || !regionMode || !active || !enabled) return undefined;
+		const rubber = document.createElement('div');
+		rubber.className = 'ib-anno-rubber';
+		rubber.style.display = 'none';
+		flow.append(rubber);
+		const previousSelect = flow.style.userSelect;
+		flow.style.userSelect = 'none';
+		let start = null;
+		const point = (event, pageRect) => ({
+			x: Math.min(1, Math.max(0, (event.clientX - pageRect.left) / pageRect.width)),
+			y: Math.min(1, Math.max(0, (event.clientY - pageRect.top) / pageRect.height))
+		});
+		const draw = (event) => {
+			if (!start) return;
+			const { pageEl, pageRect } = start;
+			const current = point(event, pageRect);
+			const x = Math.min(start.x, current.x), y = Math.min(start.y, current.y);
+			const flowRect = flow.getBoundingClientRect();
+			const left = pageRect.left - flowRect.left + flow.scrollLeft + x * pageRect.width;
+			const top = pageRect.top - flowRect.top + flow.scrollTop + y * pageRect.height;
+			rubber.style.display = 'block';
+			rubber.style.left = `${left}px`;
+			rubber.style.top = `${top}px`;
+			rubber.style.width = `${Math.abs(current.x - start.x) * pageRect.width}px`;
+			rubber.style.height = `${Math.abs(current.y - start.y) * pageRect.height}px`;
+			start.current = current;
+		};
+		const down = (event) => {
+			if (event.button !== 0) return;
+			const pageEl = event.target?.closest?.('.page');
+			if (!pageEl || !flow.contains(pageEl)) return;
+			event.preventDefault();
+			const pageRect = pageEl.getBoundingClientRect();
+			start = { pageEl, pageRect, x: point(event, pageRect).x, y: point(event, pageRect).y };
+			start.x = point(event, pageRect).x;
+			start.y = point(event, pageRect).y;
+			draw(event);
+		};
+		const move = (event) => { if (start) draw(event); };
+		const up = async (event) => {
+			if (!start) return;
+			const { pageEl, pageRect } = start;
+			const current = point(event, pageRect);
+			const rect = { x: Math.min(start.x, current.x), y: Math.min(start.y, current.y), w: Math.abs(current.x - start.x), h: Math.abs(current.y - start.y) };
+			start = null;
+			rubber.remove();
+			if (rect.w < 0.005 || rect.h < 0.005) return;
+			let cropBase64 = '';
+			try {
+				const canvas = pageEl.querySelector('canvas');
+				if (canvas) {
+					const sx = rect.x * canvas.width, sy = rect.y * canvas.height, sw = rect.w * canvas.width, sh = rect.h * canvas.height;
+					if (sw >= 1 && sh >= 1) {
+						const out = document.createElement('canvas');
+						out.width = Math.max(1, Math.round(sw));
+						out.height = Math.max(1, Math.round(sh));
+						out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+						cropBase64 = out.toDataURL('image/png').split(',')[1] || '';
+					}
+				}
+			} catch { cropBase64 = ''; }
+			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64 });
+			setOpenId(null);
+			onRegionDone?.();
+		};
+		flow.addEventListener('pointerdown', down);
+		window.addEventListener('pointermove', move);
+		window.addEventListener('pointerup', up);
+		return () => {
+			flow.removeEventListener('pointerdown', down);
+			window.removeEventListener('pointermove', move);
+			window.removeEventListener('pointerup', up);
+			flow.style.userSelect = previousSelect;
+			rubber.remove();
+		};
+	}, [flowRef, regionMode, active, enabled, onRegionDone]);
+
 	const pageTextFor = useCallback(async (page) => {
 		try {
 			const pdfPage = await doc?.getPage?.(page);
@@ -141,12 +238,13 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const item = await call('tasks_annotations_create', {
 				...request,
 				page: draft.page,
-				kind: 'text',
+				kind: draft.kind ?? 'text',
 				rects: draft.rects,
 				quote: draft.quote,
 				pin: draft.pin,
 				question,
-				pageText
+				pageText,
+				cropBase64: draft.cropBase64
 			});
 			setItems((old) => [...old, item]);
 			window.getSelection()?.removeAllRanges();
@@ -185,38 +283,88 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		} catch (reason) { setError(reason.message || String(reason)); }
 	};
 
+	const askFollow = async (item) => {
+		const question = followText.trim();
+		if (!question) return;
+		setFollowText('');
+		try {
+			const pageText = await pageTextFor(item.page);
+			const updated = await call('tasks_annotations_ask', { ...request, annotationId: item.id, question, pageText });
+			setItems((old) => old.map((row) => row.id === item.id ? { ...row, ...updated, status: 'pending' } : row));
+		} catch (reason) { setError(reason.message || String(reason)); }
+	};
+
+	const adoptDraft = async (item) => {
+		try {
+			const updated = await call('tasks_annotations_adopt', { ...request, annotationId: item.id });
+			setItems((old) => old.map((row) => row.id === item.id ? updated : row));
+		} catch (reason) { setError(reason.message || String(reason)); }
+	};
+
+	const dismissDraft = async (item) => {
+		try {
+			const updated = await call('tasks_annotations_dismiss', { ...request, annotationId: item.id });
+			setItems((old) => old.map((row) => row.id === item.id ? updated : row));
+		} catch (reason) { setError(reason.message || String(reason)); }
+	};
+
+	const locate = (item) => {
+		pageElement(item.page)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		setOpenId(item.id);
+		setTocOpen(false);
+	};
+
 	const geometry = useMemo(() => {
 		tick; zoom;
 		const flow = flowRef.current;
 		if (!flow) return null;
 		const flowRect = flow.getBoundingClientRect();
 		const pages = new Map();
-		for (const pageEl of flow.querySelectorAll('.page[data-page-number]')) {
-			pages.set(Number(pageEl.dataset.pageNumber), pageEl.getBoundingClientRect());
+		const wanted = new Set(items.map((item) => item.page));
+		if (draft) wanted.add(draft.page);
+		if (openId) { const current = items.find((item) => item.id === openId); if (current) wanted.add(current.page); }
+		for (const page of wanted) {
+			const pageEl = pageElement(page);
+			if (!pageEl) continue;
+			const rect = pageEl.getBoundingClientRect();
+			pages.set(page, { left: rect.left - flowRect.left + flow.scrollLeft, top: rect.top - flowRect.top + flow.scrollTop, width: rect.width, height: rect.height });
 		}
-		return { flowRect, pages };
-	}, [tick, zoom, flowRef, items.length, doc, flowReady]);
+		return { flowRect, pages, scrollLeft: flow.scrollLeft, scrollTop: flow.scrollTop };
+	}, [tick, zoom, flowRef, items, draft?.page, openId, doc, flowReady, pageElement]);
 
 	if (!enabled || !active || !doc || !flowReady || !geometry) return null;
 	const { flowRect, pages } = geometry;
 	const pagePoint = (page, point) => {
 		const rect = pages.get(page);
 		if (!rect) return null;
-		return { left: rect.left - flowRect.left + point.x * rect.width, top: rect.top - flowRect.top + point.y * rect.height };
+		return { left: rect.left + point.x * rect.width, top: rect.top + point.y * rect.height };
 	};
-	const overlayStyle = { position: 'fixed', left: flowRect.left, top: flowRect.top, width: flowRect.width, height: flowRect.height, pointerEvents: 'none', zIndex: 8 };
+	const overlayStyle = { position: 'fixed', left: flowRect.left, top: flowRect.top, width: flowRect.width, height: flowRect.height, pointerEvents: 'none', zIndex: 8, overflow: 'hidden' };
+	const flow = flowRef.current;
+	const scrollX = flow?.scrollLeft ?? 0;
+	const scrollY = flow?.scrollTop ?? 0;
 	const anchor = draft ? pagePoint(draft.page, draft.pin) : null;
 	const open = openId ? items.find((item) => item.id === openId) : null;
 	const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
+	if (!items.length && !draft && !open && !error) return null;
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
+		h('div', { className: 'ib-anno-toc' },
+			h('button', { type: 'button', className: 'ib-anno-toc-toggle', onClick: () => setTocOpen((value) => !value) }, `批注 ${items.length}`),
+			tocOpen ? h('div', { className: 'ib-anno-toc-panel' },
+				h('div', { className: 'ib-anno-toc-head' }, '批注目录'),
+				items.slice().sort((a, b) => a.page - b.page).map((item) => h('button', { type: 'button', key: item.id, className: 'ib-anno-toc-item', 'data-status': item.status, onClick: () => locate(item) },
+					h('b', null, `第 ${item.page} 页`),
+					h('span', null, short(item.question || item.quote, 42))))) : null),
+		h('div', { ref: contentRef, className: 'ib-anno-content', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		items.map((item) => {
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
 			if (!pin) return null;
 			return h(React.Fragment, { key: item.id },
 				(item.rects ?? []).map((rect, index) => {
-					const left = flowRect && pages.get(item.page) ? pages.get(item.page).left - flowRect.left + rect.x * pages.get(item.page).width : 0;
-					const top = pages.get(item.page) ? pages.get(item.page).top - flowRect.top + rect.y * pages.get(item.page).height : 0;
+					const pageRect = pages.get(item.page);
+					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
+					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
 					return h('span', { key: index, className: 'ib-anno-highlight', 'data-status': item.status, style: { left, top, width: rect.w * pages.get(item.page).width, height: rect.h * pages.get(item.page).height } });
 				}),
 				h('button', {
@@ -232,7 +380,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			);
 		}),
 		anchor ? h('div', { className: 'ib-anno-compose', style: { left: Math.max(8, Math.min(flowRect.width - 300, anchor.left)), top: Math.max(8, Math.min(flowRect.height - 170, anchor.top + 12)) } },
-			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote, 120)),
+			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域` : ''), 120)),
 			h('textarea', { autoFocus: true, rows: 3, placeholder: '就这段原文提问…', value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
 			h('div', { className: 'ib-anno-compose-actions' },
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
@@ -254,16 +402,27 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 						h('div', null, '依据'),
 						open.basis.map((row, index) => h('div', { key: index }, `第 ${row.page} 页：${short(row.quote, 120)}`))) : null,
 					open.error ? h('div', { className: 'ib-anno-card-error' }, open.error) : null,
+					open.draftAnswer ? h('div', { className: 'ib-anno-draft' },
+						h('div', { className: 'ib-anno-draft-label' }, '追问草稿'),
+						h('div', null, open.draftAnswer),
+						h('div', { className: 'ib-anno-card-actions' },
+							h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void dismissDraft(open) }, '放弃'),
+							h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, onClick: () => void adoptDraft(open) }, '采用'))) : null,
 					h('div', { className: 'ib-anno-card-actions' },
 						h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || '' }) }, '编辑'),
 						open.status === 'failed' ? h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void retry(open) }, '重试') : null,
-						h('button', { type: 'button', className: 'ib-anno-btn', 'data-danger': true, onClick: () => void remove(open) }, '删除')))) : null,
-		error ? h('div', { className: 'ib-anno-error' }, error) : null
+						h('button', { type: 'button', className: 'ib-anno-btn', 'data-danger': true, onClick: () => void remove(open) }, '删除'))),
+				h('div', { className: 'ib-anno-follow' },
+					h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
+					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问'))) : null,
+		error ? h('div', { className: 'ib-anno-error' }, error) : null)
 	);
 }
 
 export const annotationStyles = `
-.ib-anno-overlay{pointer-events:none}
+.ib-anno-overlay{pointer-events:none;overflow:hidden}
+.ib-anno-content{position:absolute;inset:0;pointer-events:none}
+.ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
@@ -286,4 +445,16 @@ export const annotationStyles = `
 .ib-anno-card-basis{font-size:11px;color:#607080;margin-bottom:4px}.ib-anno-card-basis>div:first-child{font-weight:600;color:#44586a;margin-bottom:2px}
 .ib-anno-card-error{color:#af3333;font-size:11px;margin-top:4px}
 .ib-anno-error{position:absolute;left:12px;bottom:12px;max-width:80%;pointer-events:auto;background:#fff0ee;color:#af3333;border:1px solid #f0c9c3;border-radius:6px;padding:4px 8px;font-size:11px}
+.ib-anno-toc{position:absolute;right:10px;top:8px;pointer-events:auto;z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.ib-anno-toc-toggle{border:1px solid #d6dee6;background:#fffffff2;color:#40505f;border-radius:999px;padding:4px 12px;font:11px/1.4 system-ui,Segoe UI,Microsoft YaHei,sans-serif;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.ib-anno-toc-toggle:hover{background:#fff;color:#137c72}
+.ib-anno-toc-panel{width:256px;max-height:58vh;overflow:auto;background:#fff;border:1px solid #d7dfe8;border-radius:8px;box-shadow:0 6px 24px rgba(21,45,66,.18);padding:6px;font:12px/1.4 system-ui,Segoe UI,Microsoft YaHei,sans-serif;color:#303744}
+.ib-anno-toc-head{font-weight:600;color:#44586a;padding:4px 6px 6px;font-size:11px}
+.ib-anno-toc-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;border:0;background:transparent;border-radius:6px;padding:6px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.ib-anno-toc-item:hover{background:#f2f6f9}.ib-anno-toc-item b{font-size:11px;color:#137c72}.ib-anno-toc-item span{font-size:11px;color:#5c6a76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ib-anno-toc-item[data-status=failed] b{color:#af3333}
+.ib-anno-draft{margin-top:6px;border:1px dashed #b9d7d1;border-radius:6px;padding:6px;background:#f6fbf9}
+.ib-anno-draft-label{font-weight:600;color:#137c72;font-size:11px;margin-bottom:3px}
+.ib-anno-follow{display:flex;gap:6px;margin-top:8px;border-top:1px solid #eef2f5;padding-top:8px}
+.ib-anno-follow textarea{flex:1;min-width:0;font-size:11px}
 `;
