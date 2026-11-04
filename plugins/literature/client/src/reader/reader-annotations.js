@@ -24,6 +24,9 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
 	const [openPos, setOpenPos] = useState(null);
+	const openIdRef = useRef(null);
+	const suppressCloseRef = useRef(0);
+	useEffect(() => { openIdRef.current = openId; }, [openId]);
 	const [editing, setEditing] = useState(null);
 	const [error, setError] = useState('');
 	const [tick, setTick] = useState(0);
@@ -76,6 +79,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const onScroll = () => {
 			const target = contentRef.current;
 			if (target) target.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
+			// 滚动时收起卡片，避免卡片悬在与批注分离的位置。
+			if (openIdRef.current && Date.now() > suppressCloseRef.current) {
+				openIdRef.current = null;
+				setOpenId(null);
+				setEditing(null);
+			}
 		};
 		onScroll();
 		flow.addEventListener('scroll', onScroll, { passive: true });
@@ -352,6 +361,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const pageRect = pageEl.getBoundingClientRect();
 		const flowRect = flow.getBoundingClientRect();
 		setOpenPos({ left: pageRect.left - flowRect.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect.top + item.pin.y * pageRect.height });
+		suppressCloseRef.current = Date.now() + 300;
 		setOpenId(item.id);
 		return true;
 	}, [flowRef, pageElement]);

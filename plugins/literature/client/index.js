@@ -45665,6 +45665,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
   const [openPos, setOpenPos] = (0, import_react12.useState)(null);
+  const openIdRef = (0, import_react12.useRef)(null);
+  const suppressCloseRef = (0, import_react12.useRef)(0);
+  (0, import_react12.useEffect)(() => {
+    openIdRef.current = openId;
+  }, [openId]);
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [error, setError] = (0, import_react12.useState)("");
   const [tick, setTick] = (0, import_react12.useState)(0);
@@ -45724,6 +45729,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const onScroll = () => {
       const target = contentRef.current;
       if (target) target.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
+      if (openIdRef.current && Date.now() > suppressCloseRef.current) {
+        openIdRef.current = null;
+        setOpenId(null);
+        setEditing(null);
+      }
     };
     onScroll();
     flow2.addEventListener("scroll", onScroll, { passive: true });
@@ -46024,6 +46034,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const pageRect = pageEl.getBoundingClientRect();
     const flowRect2 = flow2.getBoundingClientRect();
     setOpenPos({ left: pageRect.left - flowRect2.left + item.pin.x * pageRect.width, top: pageRect.top - flowRect2.top + item.pin.y * pageRect.height });
+    suppressCloseRef.current = Date.now() + 300;
     setOpenId(item.id);
     return true;
   }, [flowRef, pageElement]);
