@@ -46143,7 +46143,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       }),
       anchor ? h(
         "div",
-        { className: "ib-anno-compose", style: { left: Math.max(8, Math.min(flowRect.width - 300, anchor.left)), top: Math.max(8, Math.min(flowRect.height - 170, anchor.top + 12)) } },
+        { className: "ib-anno-compose", style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
         h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
         h("textarea", { autoFocus: true, rows: 3, placeholder: "就这段原文提问…", value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
@@ -46160,7 +46160,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       ) : null,
       open && openPoint ? h(
         "div",
-        { className: "ib-anno-card", style: { left: Math.max(8, Math.min(flowRect.width - 340, openPoint.left + 12)), top: Math.max(8, Math.min(flowRect.height - 220, openPoint.top + 12)) }, onClick: (event) => event.stopPropagation() },
+        { className: "ib-anno-card", style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
         h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
         open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
         h("div", { className: "ib-anno-card-question" }, open.question),
