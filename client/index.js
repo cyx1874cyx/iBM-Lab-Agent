@@ -3633,7 +3633,7 @@ var TEMPLATE_TABS = [
   { key: "reviews", label: "综述模板", capability: "documents" },
   { key: "ppt", label: "PPT 模板", capability: "documents" }
 ];
-var MENU_ITEM_STYLE = { display: "block", width: "100%", textAlign: "left", border: 0, background: "transparent", padding: "8px 10px", fontSize: 12.5, color: "var(--ib-text)", cursor: "pointer", borderRadius: 6 };
+var SCENARIO_CHIP = { fontSize: 11, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--ib-hair)", background: "var(--ib-panel)", color: "#2f5d50", whiteSpace: "nowrap", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" };
 function TemplateIcon({ name }) {
   const props = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, "aria-hidden": "true" };
   if (name === "notes") return h("svg", props, h("path", { d: "M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2z" }), h("path", { d: "M20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z" }));
@@ -3704,7 +3704,11 @@ function Templates({ call, onBack, sections }) {
       h("span", null, "文献阅读"),
       h("span", null, "/"),
       h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理"),
-      onBack ? h("button", { className: "ib-btn", onClick: onBack, "aria-label": "关闭", style: { marginLeft: "auto", width: 30, height: 30, padding: 0, borderRadius: 999, lineHeight: 1, fontSize: 16 } }, "×") : null
+      onBack ? h(
+        "button",
+        { onClick: onBack, "aria-label": "关闭", title: "关闭", style: { marginLeft: "auto", width: 34, height: 34, display: "grid", placeItems: "center", padding: 0, borderRadius: "50%", border: "1px solid var(--ib-line)", background: "var(--ib-bg)", color: "var(--ib-text)", cursor: "pointer" } },
+        h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", "aria-hidden": "true" }, h("path", { d: "M6 6l12 12M18 6L6 18" }))
+      ) : null
     ) : null,
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
@@ -3739,7 +3743,8 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
   const [selectedId, setSelectedId] = (0, import_react2.useState)(null);
   const [details, setDetails] = (0, import_react2.useState)({});
   const [tab, setTab] = (0, import_react2.useState)("preview");
-  const [menuOpen, setMenuOpen] = (0, import_react2.useState)(false);
+  const [renaming, setRenaming] = (0, import_react2.useState)(null);
+  const [tagEditor, setTagEditor] = (0, import_react2.useState)(null);
   const importRef = (0, import_react2.useRef)(null);
   const [importing, setImporting] = (0, import_react2.useState)(false);
   (0, import_react2.useEffect)(() => {
@@ -3770,8 +3775,31 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
   (0, import_react2.useEffect)(() => {
     setRequirements(null);
     setTab("preview");
-    setMenuOpen(false);
+    setRenaming(null);
+    setTagEditor(null);
   }, [selected?.id]);
+  const saveName = async (row2) => {
+    const value = String(renaming?.value ?? "").trim();
+    setRenaming(null);
+    if (!value || value === row2.name) return;
+    try {
+      await call("note_templates_update", { request: { id: row2.id, fields: { name: value } } });
+      setDetails((old) => ({ ...old, [row2.id]: { ...old[row2.id] || {}, name: value } }));
+      await reload();
+    } catch (reason) {
+      setToast(reason.message || "重命名失败");
+    }
+  };
+  const saveTags = async (row2) => {
+    const tags = String(tagEditor?.value ?? "").split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
+    setTagEditor(null);
+    try {
+      await call("note_templates_update", { request: { id: row2.id, fields: { tags } } });
+      await reload();
+    } catch (reason) {
+      setToast(reason.message || "更新适用场景失败");
+    }
+  };
   const run = async (key2, work) => {
     if (busy[key2]) return;
     setBusy((old) => ({ ...old, [key2]: true }));
@@ -3883,9 +3911,38 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
       ),
       h(
         "div",
-        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 12px" } },
-        h("b", { style: { fontSize: 13, color: "var(--ib-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row2.name),
-        h("span", { style: { flex: "0 0 auto", fontSize: 11, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--ib-hair)", background: isDefaultRow(row2) ? "#dcebe3" : "var(--ib-panel)", color: "#2f5d50" } }, isDefaultRow(row2) ? "默认" : "普通")
+        { style: { padding: "10px 12px", display: "grid", gap: 6 } },
+        renaming?.id === row2.id ? h("input", { autoFocus: true, value: renaming.value, onClick: (event) => event.stopPropagation(), onChange: (event) => setRenaming({ id: row2.id, value: event.target.value }), onBlur: () => void saveName(row2), onKeyDown: (event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") void saveName(row2);
+          if (event.key === "Escape") setRenaming(null);
+        }, style: { width: "100%", fontSize: 13, padding: "3px 6px", border: "1px solid var(--ib-line)", borderRadius: 6, background: "var(--ib-bg)", color: "var(--ib-text)" } }) : h("b", { title: "双击重命名", onDoubleClick: (event) => {
+          event.stopPropagation();
+          setRenaming({ id: row2.id, value: row2.name });
+        }, style: { fontSize: 13, color: "var(--ib-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row2.name),
+        h(
+          "div",
+          { style: { display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" } },
+          isDefaultRow(row2) ? h("span", { style: SCENARIO_CHIP }, "默认") : null,
+          (row2.tags || []).map((tag) => h("button", { key: tag, title: "点击修改适用场景", onClick: (event) => {
+            event.stopPropagation();
+            setTagEditor({ id: row2.id, value: (row2.tags || []).join(", ") });
+          }, style: { ...SCENARIO_CHIP, cursor: "pointer" } }, tag)),
+          h("button", { title: "添加适用场景", onClick: (event) => {
+            event.stopPropagation();
+            setTagEditor({ id: row2.id, value: (row2.tags || []).join(", ") });
+          }, style: { ...SCENARIO_CHIP, cursor: "pointer", borderStyle: "dashed" } }, (row2.tags || []).length ? "+ 场景" : "设置场景")
+        ),
+        tagEditor?.id === row2.id ? h(
+          "div",
+          { style: { display: "flex", gap: 6 }, onClick: (event) => event.stopPropagation() },
+          h("input", { autoFocus: true, value: tagEditor.value, placeholder: "生物, 材料, 工程", onChange: (event) => setTagEditor({ id: row2.id, value: event.target.value }), onKeyDown: (event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") void saveTags(row2);
+            if (event.key === "Escape") setTagEditor(null);
+          }, style: { flex: 1, minWidth: 0, fontSize: 11.5, padding: "3px 6px", border: "1px solid var(--ib-line)", borderRadius: 6, background: "var(--ib-bg)", color: "var(--ib-text)" } }),
+          h("button", { className: "ib-btn", onClick: () => void saveTags(row2), style: { padding: "3px 8px", fontSize: 11.5 } }, "保存")
+        ) : null
       )
     );
   };
@@ -3908,39 +3965,11 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
     { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 18 } },
     requirements ? h("pre", { style: { margin: 0, whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.7, color: "var(--ib-text)" } }, JSON.stringify(requirements.data, null, 2)) : h("div", { className: "ib-empty" }, "选择模板后查看生成要求。")
   );
-  const menu = menuOpen && selected ? h(
-    "div",
-    { role: "menu", style: { position: "absolute", right: 0, top: 36, zIndex: 20, minWidth: 160, background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 6, boxShadow: "0 10px 30px rgba(0,0,0,.12)" } },
-    h("button", { role: "menuitem", style: MENU_ITEM_STYLE, onClick: () => {
-      setMenuOpen(false);
-      void toggleDefault(selected);
-    } }, isDefaultRow(selected) ? "取消默认模板" : "设为默认模板"),
-    h("button", { role: "menuitem", style: MENU_ITEM_STYLE, onClick: () => {
-      setMenuOpen(false);
-      void openForm(selected, true);
-    } }, "复制模板"),
-    h("button", { role: "menuitem", style: { ...MENU_ITEM_STYLE, color: "#a13b2f" }, onClick: () => {
-      setMenuOpen(false);
-      void remove(selected);
-    } }, "删除模板")
-  ) : null;
-  const detailActions = h(
-    "div",
-    { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 } },
-    h("button", { className: "ib-btn", disabled: !selected, onClick: () => selected && void openForm(selected), style: { borderRadius: 8 } }, "编辑"),
-    h(
-      "div",
-      { style: { position: "relative" } },
-      h("button", { className: "ib-btn", "aria-label": "更多操作", disabled: !selected, onClick: () => setMenuOpen((value) => !value), style: { borderRadius: 8 } }, "…"),
-      menu
-    )
-  );
   const tabsBar = h(
     "div",
     { style: { display: "flex", alignItems: "center", gap: 18, borderBottom: "1px solid var(--ib-hair)", paddingBottom: 8, marginBottom: 14 } },
     h("button", { onClick: () => setTab("preview"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "preview" ? 600 : 400, color: "#123c33", borderBottom: tab === "preview" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "模板预览"),
-    h("button", { onClick: () => selected && void showRequirements(selected), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "requirements" ? 600 : 400, color: "#123c33", borderBottom: tab === "requirements" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "生成要求"),
-    detailActions
+    h("button", { onClick: () => selected && void showRequirements(selected), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "requirements" ? 600 : 400, color: "#123c33", borderBottom: tab === "requirements" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "生成要求")
   );
   const detailPane = h("div", { style: { flex: 1, minWidth: 0 } }, tabsBar, tab === "requirements" ? requirementsPanel : previewPanel);
   return h(
@@ -4071,82 +4100,169 @@ function NoteTemplateForm({ call, initial, draft, onCancel, onSaved }) {
 }
 function PptTemplates({ call, state: state3, reload }) {
   const [mode, setMode] = (0, import_react2.useState)("list");
-  const [selected, setSelected] = (0, import_react2.useState)(null);
-  const [meta3, setMeta] = (0, import_react2.useState)(null);
-  const [busy, setBusy] = (0, import_react2.useState)({});
+  const [selectedId, setSelectedId] = (0, import_react2.useState)(null);
+  const [previews, setPreviews] = (0, import_react2.useState)({});
+  const [tab, setTab] = (0, import_react2.useState)("preview");
+  const [renaming, setRenaming] = (0, import_react2.useState)(null);
+  const [tagEditor, setTagEditor] = (0, import_react2.useState)(null);
   const [toast, setToast] = (0, import_react2.useState)("");
-  const [validation, setValidation] = (0, import_react2.useState)(null);
   (0, import_react2.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-  const run = async (key2, work) => {
-    if (busy[key2]) return;
-    setBusy((old) => ({ ...old, [key2]: true }));
-    try {
-      await work();
-    } catch (reason) {
-      setToast(reason.message || "操作失败");
-    } finally {
-      setBusy((old) => {
-        const n = { ...old };
-        delete n[key2];
-        return n;
-      });
-    }
-  };
-  const remove = (row2) => run(`del:${row2.id}`, async () => {
-    if (!window.confirm(`删除 PPT 模板「${row2.name}」？历史版本与任务快照不受影响。`)) return;
-    await call("templates_delete", { request: { id: row2.id } });
-    setToast(`已删除「${row2.name}」`);
-    await reload();
-    setSelected(null);
-    setValidation(null);
-  });
-  const preview = (row2) => run(`pv:${row2.id}`, async () => {
-    if (selected?.id === row2.id) {
-      setSelected(null);
+  (0, import_react2.useEffect)(() => {
+    if (!state3.list.length) {
+      setSelectedId(null);
       return;
     }
-    const result = await call("templates_preview", { request: { id: row2.id, version: row2.version } });
-    setSelected({ id: row2.id, version: row2.version, data: result.preview });
-  });
-  const doValidate = (row2) => run(`vf:${row2.id}`, async () => {
-    const result = await call("templates_validate", { request: { id: row2.id, version: row2.version } });
-    setValidation({ id: row2.id, v: result.validation });
-    setToast(result.validation.ok ? `模板「${row2.name}」参考检查正常` : `模板「${row2.name}」有格式提醒，但不阻止生成`);
-  });
-  const openMeta = (row2) => run("meta", async () => {
-    const result = await call("templates_resolve", { request: { id: row2.id, version: row2.version } });
-    setMeta({ ...result.template });
-  });
-  const saveMeta = (fields) => run("save-meta", async () => {
-    const result = await call("templates_update_meta", { request: { id: fields.id, fields: { name: fields.name, purpose: fields.purpose, audience: fields.audience, notesRequirement: fields.notesRequirement, maxPages: fields.maxPages ? Number(fields.maxPages) : void 0 } } });
-    setToast(`已更新「${result.template.name}」v${result.template.version}`);
-    setMeta(null);
-    await reload();
-  });
+    setSelectedId((previous) => previous && state3.list.some((row2) => row2.id === previous) ? previous : state3.list[0].id);
+  }, [state3.list]);
+  const selected = state3.list.find((row2) => row2.id === selectedId) ?? state3.list[0];
+  const preview = selected ? previews[selected.id] : void 0;
+  (0, import_react2.useEffect)(() => {
+    if (!selected || previews[selected.id]) return void 0;
+    let alive = true;
+    void call("templates_preview", { request: { id: selected.id, version: selected.version } }).then((result) => {
+      if (alive) setPreviews((old) => ({ ...old, [selected.id]: result.preview }));
+    }).catch(() => {
+    });
+    return () => {
+      alive = false;
+    };
+  }, [call, selected?.id, selected?.version, previews]);
+  (0, import_react2.useEffect)(() => {
+    setTab("preview");
+    setRenaming(null);
+    setTagEditor(null);
+  }, [selected?.id]);
+  const scenarios = (row2) => String(row2.purpose || "").split(/[,，]/).map((scene) => scene.trim()).filter(Boolean);
+  const saveName = async (row2) => {
+    const value = String(renaming?.value ?? "").trim();
+    setRenaming(null);
+    if (!value || value === row2.name) return;
+    try {
+      await call("templates_update_meta", { request: { id: row2.id, fields: { name: value } } });
+      await reload();
+    } catch (reason) {
+      setToast(reason.message || "重命名失败");
+    }
+  };
+  const saveTags = async (row2) => {
+    const purpose = String(tagEditor?.value ?? "").split(/[,，]/).map((scene) => scene.trim()).filter(Boolean).join(", ");
+    setTagEditor(null);
+    try {
+      await call("templates_update_meta", { request: { id: row2.id, fields: { purpose } } });
+      await reload();
+    } catch (reason) {
+      setToast(reason.message || "更新适用场景失败");
+    }
+  };
   if (mode === "import") return h(PptTemplateImport, { call, onCancel: () => setMode("list"), onDone: (id) => {
     setToast(`已导入模板 ${id}，请确认映射后发布`);
     setMode("list");
     void reload();
   } });
-  const statusLabel = (st) => ({ draft: "草稿", ready: "可用", archived: "已归档" })[st] || st;
+  const templateCard = (row2) => {
+    const active = row2.id === selected?.id;
+    return h(
+      "div",
+      { key: row2.id, role: "button", tabIndex: 0, onClick: () => setSelectedId(row2.id), onKeyDown: (event) => {
+        if (event.key === "Enter") setSelectedId(row2.id);
+      }, style: { cursor: "pointer", border: `1px solid ${active ? "#2f5d50" : "var(--ib-hair)"}`, borderRadius: 12, overflow: "hidden", background: "var(--ib-bg)", boxShadow: active ? "0 0 0 1px #2f5d50" : "none" } },
+      h(
+        "div",
+        { style: { position: "relative", height: 150, padding: 14, overflow: "hidden", background: "linear-gradient(135deg,#e2ece5 0%,#f6f3ea 72%)" } },
+        h("div", { style: { fontSize: 9, letterSpacing: 1.6, color: "#3f5f55", textTransform: "uppercase", lineHeight: 1.5 } }, "Research", h("br"), "Presentation", h("br"), "Template"),
+        h("div", { style: { position: "absolute", right: 14, top: 12, fontFamily: "Georgia, 'Songti SC', serif", fontSize: 18, color: "#2f5d50" } }, String(state3.list.indexOf(row2) + 1).padStart(2, "0")),
+        h("div", { style: { position: "absolute", left: 16, right: 16, bottom: 18, height: 54, border: "1px solid rgba(47,93,80,.25)", borderRadius: 6, background: "rgba(255,255,255,.45)" } })
+      ),
+      h(
+        "div",
+        { style: { padding: "10px 12px", display: "grid", gap: 6 } },
+        renaming?.id === row2.id ? h("input", { autoFocus: true, value: renaming.value, onClick: (event) => event.stopPropagation(), onChange: (event) => setRenaming({ id: row2.id, value: event.target.value }), onBlur: () => void saveName(row2), onKeyDown: (event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") void saveName(row2);
+          if (event.key === "Escape") setRenaming(null);
+        }, style: { width: "100%", fontSize: 13, padding: "3px 6px", border: "1px solid var(--ib-line)", borderRadius: 6, background: "var(--ib-bg)", color: "var(--ib-text)" } }) : h("b", { title: "双击重命名", onDoubleClick: (event) => {
+          event.stopPropagation();
+          setRenaming({ id: row2.id, value: row2.name });
+        }, style: { fontSize: 13, color: "var(--ib-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row2.name),
+        h(
+          "div",
+          { style: { display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" } },
+          row2.status && row2.status !== "ready" ? h("span", { style: SCENARIO_CHIP }, "草稿") : null,
+          row2.builtIn ? h("span", { style: SCENARIO_CHIP }, "内置默认") : scenarios(row2).map((scene) => h("button", { key: scene, title: "点击修改适用场景", onClick: (event) => {
+            event.stopPropagation();
+            setTagEditor({ id: row2.id, value: scenarios(row2).join(", ") });
+          }, style: { ...SCENARIO_CHIP, cursor: "pointer" } }, scene)),
+          row2.builtIn ? null : h("button", { title: "添加适用场景", onClick: (event) => {
+            event.stopPropagation();
+            setTagEditor({ id: row2.id, value: scenarios(row2).join(", ") });
+          }, style: { ...SCENARIO_CHIP, cursor: "pointer", borderStyle: "dashed" } }, scenarios(row2).length ? "+ 场景" : "设置场景")
+        ),
+        tagEditor?.id === row2.id ? h(
+          "div",
+          { style: { display: "flex", gap: 6 }, onClick: (event) => event.stopPropagation() },
+          h("input", { autoFocus: true, value: tagEditor.value, placeholder: "单文献, 多文献综述", onChange: (event) => setTagEditor({ id: row2.id, value: event.target.value }), onKeyDown: (event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") void saveTags(row2);
+            if (event.key === "Escape") setTagEditor(null);
+          }, style: { flex: 1, minWidth: 0, fontSize: 11.5, padding: "3px 6px", border: "1px solid var(--ib-line)", borderRadius: 6, background: "var(--ib-bg)", color: "var(--ib-text)" } }),
+          h("button", { className: "ib-btn", onClick: () => void saveTags(row2), style: { padding: "3px 8px", fontSize: 11.5 } }, "保存")
+        ) : null
+      )
+    );
+  };
+  const roles2 = preview?.roles ?? [];
+  const previewPanel = h(
+    "div",
+    { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "#faf7ef", padding: "26px 30px 18px", minHeight: 420, display: "flex", flexDirection: "column" } },
+    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Template Preview", h("span", null, "01")),
+    h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 24px" } }),
+    h("h2", { style: { margin: "0 0 8px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
+    h("div", { style: { fontSize: 12, color: "#7a766a", marginBottom: 22 } }, preview?.pageSize?.ratio ? `版式比例 ${preview.pageSize.ratio}` : "版式与风格参考"),
+    roles2.length ? roles2.map((role, index2) => h(
+      "div",
+      { key: role.role || index2, style: { display: "flex", gap: 16, marginBottom: 16 } },
+      h("div", { style: { flex: "0 0 34px", fontFamily: "Georgia, serif", fontSize: 20, color: "#2f5d50" } }, String(index2 + 1).padStart(2, "0")),
+      h("div", null, h("div", { style: { fontSize: 15, fontWeight: 600, color: "#123c33" } }, role.role), h("div", { style: { fontSize: 12, color: "#6f6b60", marginTop: 3 } }, role.layoutName || role.layoutId || "默认版式"))
+    )) : h("div", { className: "ib-empty" }, "正在载入模板预览…"),
+    h("div", { style: { marginTop: "auto", borderTop: "1px solid rgba(47,93,80,.35)", paddingTop: 8, textAlign: "right", fontFamily: "Georgia, serif", color: "#2f5d50", fontSize: 12 } }, "01")
+  );
+  const mappingPanel = h(
+    "div",
+    { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 16 } },
+    roles2.length ? h(
+      "div",
+      { className: "ib-table" },
+      h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")),
+      roles2.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { style: { flex: 1, fontSize: 11 } }, role.role), h("span", { style: { flex: 1, fontSize: 11 } }, role.layoutName || role.layoutId || "默认"), h("span", { style: { flex: 2, fontSize: 10, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ") || "—")))
+    ) : h("div", { className: "ib-empty" }, "正在载入角色映射…")
+  );
+  const tabsBar = h(
+    "div",
+    { style: { display: "flex", alignItems: "center", gap: 18, borderBottom: "1px solid var(--ib-hair)", paddingBottom: 8, marginBottom: 14 } },
+    h("button", { onClick: () => setTab("preview"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "preview" ? 600 : 400, color: "#123c33", borderBottom: tab === "preview" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "模板预览"),
+    h("button", { onClick: () => setTab("mapping"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "mapping" ? 600 : 400, color: "#123c33", borderBottom: tab === "mapping" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "角色映射")
+  );
   return h(
     "div",
     null,
-    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "模板只提供版式与风格参考；映射检查用于提示兼容性，不作为生成或人工审核门槛。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
+    h(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16 } },
+      h("h2", { style: { margin: 0, fontSize: 20, fontWeight: 700, color: "var(--ib-text)", fontFamily: "Georgia, 'Songti SC', serif" } }, "PPT 模板"),
+      h("span", { style: { fontSize: 12, color: "var(--ib-muted, #8a8a84)" } }, `| ${state3.list.length} 个模板`),
+      h("div", { style: { marginLeft: "auto" } }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import"), style: { borderRadius: 8, padding: "8px 14px" } }, h("span", { style: { marginRight: 6 } }, "⤓"), "导入 PPT 模板"))
+    ),
     state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
     state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h(
       "div",
-      { className: "ib-table" },
-      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name", style: { flex: 1 } }, "名称"), h("span", { className: "ib-tm-status", style: { flex: "0 0 88px" } }, "状态"), h("span", { className: "ib-tm-actions", style: { flex: "0 0 auto" } }, "操作")),
-      state3.list.map((row2) => h("div", { className: "ib-table-row", key: row2.id }, h("span", { className: "ib-tm-name", style: { flex: 1, minWidth: 0 } }, h("b", null, row2.name)), h("span", { className: "ib-tm-status", style: { flex: "0 0 88px" } }, h("span", { className: "ib-tm-chip", "data-tone": row2.status === "ready" ? "accent" : void 0 }, statusLabel(row2.status))), h("span", { className: "ib-tm-actions", style: { flex: "0 0 auto", display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" } }, h("button", { className: "ib-lit-btn", onClick: () => preview(row2) }, busy[`pv:${row2.id}`] ? "…" : selected?.id === row2.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row2) }, busy[`vf:${row2.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row2) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除"))))
+      { style: { display: "flex", gap: 18, alignItems: "flex-start" } },
+      h("div", { style: { width: 260, flex: "0 0 260px", display: "grid", gap: 12 } }, state3.list.map(templateCard)),
+      h("div", { style: { flex: 1, minWidth: 0 } }, tabsBar, tab === "mapping" ? mappingPanel : previewPanel)
     ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
-    validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
-    selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
-    meta3 ? h(MetaEditor, { call, initial: meta3, onCancel: () => setMeta(null), onSaved: saveMeta }) : null,
     toast ? h("div", { className: "ib-toast" }, toast) : null
   );
 }
@@ -4238,32 +4354,6 @@ function PptTemplateImport({ call, onCancel, onDone }) {
     h("div", { className: "ib-table" }, [h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 1 } }, "说明")), ...roleRows]),
     error62 ? h("div", { className: "ib-error" }, error62) : null,
     h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void confirm() }, busy ? "发布中…" : "确认映射并发布到可用"))
-  );
-}
-function MetaEditor({ call, initial, onCancel, onSaved }) {
-  const [form, setFormTemp] = (0, import_react2.useState)({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
-  const [busy, setBusyTemp] = (0, import_react2.useState)(false);
-  const [error62, setErrorTemp] = (0, import_react2.useState)("");
-  const field = (key2) => (event) => setFormTemp((old) => ({ ...old, [key2]: event.target.value }));
-  const save = async () => {
-    setBusyTemp(true);
-    setErrorTemp("");
-    try {
-      if (!form.name.trim()) throw new Error("请填写模板名称");
-      await onSaved({ id: initial.id, ...form });
-    } catch (reason) {
-      setErrorTemp(reason.message);
-    } finally {
-      setBusyTemp(false);
-    }
-  };
-  return h(
-    "section",
-    { className: "ib-card ib-form", style: { marginTop: 14 } },
-    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `编辑「${initial.id}」元数据`), h("span", { className: "ib-chip" }, `当前 v${initial.version}`)),
-    h("div", { className: "ib-req", style: { display: "grid", gap: 8 } }, h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, "备注/讲稿要求"), h("input", { value: form.notesRequirement, onChange: field("notesRequirement") })), h("div", { className: "ib-req" }, h("label", null, "最大页数"), h("input", { type: "number", value: form.maxPages, onChange: field("maxPages") }))),
-    error62 ? h("div", { className: "ib-error" }, error62) : null,
-    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
   );
 }
 function BookSvg({ width = 15, height = 15 }) {

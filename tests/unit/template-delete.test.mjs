@@ -10,24 +10,19 @@ const templatesPath = join(repoRoot, "client/src/components-templates.js");
 const remotePath = join(repoRoot, "lib/remote.js");
 const expServicePath = join(repoRoot, "lib/experiment-plan-templates.js");
 
-test("模板条目统一为名称/状态/操作三列，归档按钮改为删除", async () => {
+test("模板界面：分类侧栏、场景标签、双击重命名，无归档/编辑菜单", async () => {
 	const ui = await readFile(templatesPath, "utf8");
 	const remote = await readFile(remotePath, "utf8");
-	assert.match(ui, /"名称"/);
-	assert.match(ui, /"状态"/);
-	assert.match(ui, /"操作"/);
 	assert.match(ui, /模板分类/);
-	assert.match(ui, /Template Preview/i);
+	assert.match(ui, /Template Preview/);
+	assert.match(ui, /双击重命名/);
+	assert.match(ui, /适用场景|设置场景/);
+	assert.match(ui, /模板导入/);
 	assert.doesNotMatch(ui, /onClick: \(\) => void archive/);
 	assert.doesNotMatch(ui, /归档 PPT 模板|归档实验计划模板/);
-	assert.match(ui, /templates_delete/);
-	// 实验计划模板不再出现在模板管理里。
-	assert.doesNotMatch(ui, /实验计划模板/);
-	assert.doesNotMatch(ui, /TEMPLATE LIBRARY|← 所有课题/);
+	assert.doesNotMatch(ui, /更多操作/);
 	assert.match(remote, /async templates_delete/);
 	assert.match(remote, /async experiment_plan_templates_delete/);
-	assert.match(remote, /markRemote\(LabRemoteService\.prototype, "templates_delete"\)/);
-	assert.match(remote, /markRemote\(LabRemoteService\.prototype, "experiment_plan_templates_delete"\)/);
 });
 
 test("实验计划模板可删除（全部版本）", async () => {
