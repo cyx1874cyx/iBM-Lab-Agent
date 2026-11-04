@@ -164,13 +164,23 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 				if(valid.length!==incoming.length)notify('仅支持 PDF、DOCX 文献，其他文件已跳过');
 				const queued=valid.map(file=>({id:crypto.randomUUID(),file}));
 				setPdfUploads(previous=>[...previous,...queued.map(({id,file})=>({id,name:file.name}))]);
-				for(const {id,file} of queued){try{
-					const result=await call('tasks_reading_pdf_upload',{request:{projectId,name:file.name,base64:await fileToBase64(file),folderId:!['all','unfiled'].includes(selectedFolder)?selectedFolder:undefined}});
+				for(const {id,file} of queued){let uploadId;try{
+					const folderId=!['all','unfiled'].includes(selectedFolder)?selectedFolder:undefined;
+					// 分块上传：整份文件不再进单个 base64 请求，也不设大小上限。
+					const begin=await call('tasks_reading_pdf_upload_begin',{request:{projectId,name:file.name}});
+					uploadId=begin.uploadId;
+					const chunkBytes=Math.max(1024*1024,Number(begin.chunkBytes)||4*1024*1024);
+					for(let offset=0,index=0;offset<file.size;offset+=chunkBytes,index+=1){
+						const slice=file.slice(offset,Math.min(file.size,offset+chunkBytes));
+						await call('tasks_reading_pdf_upload_chunk',{request:{projectId,uploadId,index,base64:await fileToBase64(slice)}});
+					}
+					const result=await call('tasks_reading_pdf_upload_finish',{request:{projectId,uploadId,folderId}});
+					uploadId=null;
 					if(result.rejected){showRejection(result.bundle);await onChanged?.();continue;}
 					setPdfUploads(previous=>previous.map(row=>row.id===id?{...row,bundleId:result.bundle.id}:row));
 					await onChanged?.();
 					if(result.reused){setSelectedFolder('all');setLocateRequest({bundleId:result.bundle.id,nonce:crypto.randomUUID()});notify('该文件已登记，已定位到原条目');}
-				}catch(error){notify(file.name+'：'+error.message);}finally{setPdfUploads(previous=>previous.filter(row=>row.id!==id));}}
+				}catch(error){if(uploadId)await call('tasks_reading_pdf_upload_abort',{request:{projectId,uploadId}}).catch(()=>{});notify(file.name+'：'+error.message);}finally{setPdfUploads(previous=>previous.filter(row=>row.id!==id));}}
 				if(pdfPicker.current)pdfPicker.current.value='';
 			};
 			const pdfDragEvent=event=>{if(!Array.from(event.dataTransfer.types??[]).includes('Files'))return false;event.preventDefault();event.stopPropagation();return true;};

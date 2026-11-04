@@ -70,7 +70,9 @@
   （`translationPrepare/translationWrite` 是服务方法，由 `lab_reader_translation_*` 工具直接调用，不走远程）；
 - `literature_*`（数据源与下载，9 个）：`literature_sources/status/configure/connect/verify/download_*`；
 - `manual_capture_*`（捕获，8 个）与 `browser_operation_*`（2 个）：Edge/浏览器抓取链路；
-- `review_templates_list` 等模板读取。
+- `review_templates_list` 等模板读取；
+- 分块上传：`tasks_reading_pdf_upload_begin/chunk/finish/abort`（4 MB 块，暂存到
+  `$DSH_HOME/lab-agent/reading-uploads/`；只由插件实现，母包兜底没有分块版本）。
 
 ## 5. 模型工具
 
@@ -117,7 +119,9 @@ apply(ctx):
 
 1. **检索 → 登记**：`tasks_search_create` 建检索记录 → agent 调 `lab_tasks_register_search` 写 papers →
    `lab_tasks_register_bundle` 落条目（entry-layout 命名与 `literature/<stem>/` 布局）。
-2. **PDF/SI 上传**：面板上传 → `tasks_reading_pdf_upload` → `pdf-intake` 识别/匹配/重试 → 更新 bundle。
+2. **PDF/SI 上传**：面板把文件切成 4 MB 块 → `tasks_reading_pdf_upload_begin/chunk/finish`
+   → 服务端组装并复用 `uploadReadingPdfBuffer` → `pdf-intake` 识别/匹配/重试 → 更新 bundle
+   （不设文件大小上限；单块仍校验 base64 与大小）。
 3. **精读报告**：agent 生成 md → `lab_tasks_register_report` 写契约 + DOCX 暂存 →
    `tasks_report_validate` 机器审计 → 人工 `tasks_report_review`（哈希绑定）→ 下载开放。
 4. **汇报 PPT**：报告就绪后 `lab_tasks_register_presentation` → 模板构建 → QA → 人工复核。
@@ -145,6 +149,8 @@ apply(ctx):
 4. 插件 bundle 含 pdf.js，约 4.25 MB；阅读器入口依赖 `inject` 服务声明，缺失会让插件激活失败（DSH 进恢复模式）。
 5. 文献仍与课题共用 `lab_tasks` 8 表域（scope 隔离），拆表属于后续阶段。
 6. 测试：文献/阅读器相关 41 条（36 pass、其余 skip/条件跳过），浏览器测试需 Electron/Chromium 环境。
+7. 分块上传只存在于插件：插件停用时客户端会收到 `feature-unavailable`；旧的单请求
+   `tasks_reading_pdf_upload` 仍保留，供旧客户端/兜底路径使用（有 25 MB 默认上限）。
 
 ## 10. 验证命令
 

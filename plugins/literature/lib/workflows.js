@@ -76,6 +76,7 @@ export class LabLiteratureTasksService extends Service {
 		await this.resumePendingMachineReviews();
 		await this.readerResume();
 		await this.pdfIntakeResume();
+		await this.readingUploadCleanup();
 	}
 
 

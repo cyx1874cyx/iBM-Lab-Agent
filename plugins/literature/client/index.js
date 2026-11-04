@@ -43574,8 +43574,18 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     const queued = valid.map((file) => ({ id: crypto.randomUUID(), file }));
     setPdfUploads((previous) => [...previous, ...queued.map(({ id, file }) => ({ id, name: file.name }))]);
     for (const { id, file } of queued) {
+      let uploadId;
       try {
-        const result = await call("tasks_reading_pdf_upload", { request: { projectId, name: file.name, base64: await fileToBase64(file), folderId: !["all", "unfiled"].includes(selectedFolder) ? selectedFolder : void 0 } });
+        const folderId = !["all", "unfiled"].includes(selectedFolder) ? selectedFolder : void 0;
+        const begin = await call("tasks_reading_pdf_upload_begin", { request: { projectId, name: file.name } });
+        uploadId = begin.uploadId;
+        const chunkBytes = Math.max(1024 * 1024, Number(begin.chunkBytes) || 4 * 1024 * 1024);
+        for (let offset = 0, index = 0; offset < file.size; offset += chunkBytes, index += 1) {
+          const slice = file.slice(offset, Math.min(file.size, offset + chunkBytes));
+          await call("tasks_reading_pdf_upload_chunk", { request: { projectId, uploadId, index, base64: await fileToBase64(slice) } });
+        }
+        const result = await call("tasks_reading_pdf_upload_finish", { request: { projectId, uploadId, folderId } });
+        uploadId = null;
         if (result.rejected) {
           showRejection(result.bundle);
           await onChanged?.();
@@ -43589,6 +43599,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           notify("该文件已登记，已定位到原条目");
         }
       } catch (error) {
+        if (uploadId) await call("tasks_reading_pdf_upload_abort", { request: { projectId, uploadId } }).catch(() => {
+        });
         notify(file.name + "：" + error.message);
       } finally {
         setPdfUploads((previous) => previous.filter((row) => row.id !== id));

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { copyFile, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import { z } from 'zod';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import { decodeUploadBase64, UNLIMITED_UPLOAD_BYTES } from 'dsh-lab-agent/convert';
@@ -13,13 +13,16 @@ import { isSiFileName, normalizedPaperTitle } from 'dsh-lab-agent/literature/mat
 import { groundedSiMetadata, matchingCandidates, matchingExcerpt, verifiedContentParent } from 'dsh-lab-agent/literature/material-match';
 import { publicationCitation } from 'dsh-lab-agent/literature/citation';
 import { isPathInside } from './shared.js';
+import { ReadingUploadStaging } from './upload-staging.js';
 
 const stamp = () => new Date().toISOString();
 async function readingUpload(name, base64) {
+ const buffer = decodeUploadBase64(base64, { maxBytes: UNLIMITED_UPLOAD_BYTES });
+ return readingUploadBuffer(name, buffer);
+}
+async function readingUploadBuffer(name, buffer) {
  const extension = extname(String(name ?? '')).slice(1).toLowerCase();
  if (!['pdf', 'docx'].includes(extension)) throw Error('请选择 PDF 或 DOCX 文献文件');
- // 精读 PDF/SI 不设大小上限；只校验文件有效性。
- const buffer = decodeUploadBase64(base64, { maxBytes: UNLIMITED_UPLOAD_BYTES });
  let integrity;
  if (extension === 'pdf') integrity = validatePdfBuffer(buffer, { minBytes: 5, maxBytes: UNLIMITED_UPLOAD_BYTES });
  else {
@@ -198,9 +201,12 @@ export const pdfIntakeMethods = {
   return this.table('bundles').get(bundleId);
  },
  async uploadReadingPdf({ projectId, name, base64, folderId }) {
+  const { buffer, extension, sha256 } = await readingUpload(name, base64);
+  return this.uploadReadingPdfBuffer({ projectId, name, buffer, extension, sha256, folderId });
+ },
+ async uploadReadingPdfBuffer({ projectId, name, buffer: bytes, extension, sha256, folderId }) {
   this.requireProject(projectId);
   if (folderId && !this.listReadingFolders(projectId).some(row => row.id === folderId)) throw Error('文件夹不存在或不属于当前课题');
-  const { buffer: bytes, extension, sha256 } = await readingUpload(name, base64);
   // Serialize duplicate uploads; a double drop must never create two entries.
   return this.withFolderLock(projectId, async () => {
    const existing = this.listBundles(projectId).find(row => row.pdfSha256 === sha256 || row.siSha256 === sha256 || row.sourceVersions?.some(v=>v.sha256===sha256));
@@ -238,6 +244,30 @@ export const pdfIntakeMethods = {
    this.pdfIntakeSchedule(id);
    return { bundle, report, reused: false };
   });
+ },
+ readingUploadStaging() {
+  this.uploadStaging ??= new ReadingUploadStaging(join(dirname(this.projectsRoot), 'reading-uploads'));
+  return this.uploadStaging;
+ },
+ async readingUploadCleanup() { return this.readingUploadStaging().cleanup(); },
+ async uploadReadingBegin({ name } = {}) {
+  const extension = extname(String(name ?? '')).slice(1).toLowerCase();
+  if (!['pdf', 'docx'].includes(extension)) throw Error('请选择 PDF 或 DOCX 文献文件');
+  return this.readingUploadStaging().begin({ name });
+ },
+ async uploadReadingChunk(request) { return this.readingUploadStaging().append(request); },
+ async uploadReadingFinish({ uploadId, projectId, folderId }) {
+  const { name, buffer } = await this.readingUploadStaging().assemble({ uploadId });
+  try {
+   const { extension, sha256 } = await readingUploadBuffer(name, buffer);
+   return await this.uploadReadingPdfBuffer({ projectId, name, buffer, extension, sha256, folderId });
+  } finally {
+   await this.readingUploadStaging().abort({ uploadId }).catch(() => {});
+  }
+ },
+ async uploadReadingAbort({ uploadId } = {}) {
+  await this.readingUploadStaging().abort({ uploadId });
+  return { aborted: true };
  },
  async retryReadingPdf({ projectId, bundleId }) {
   const bundle = this.readerBundle({ projectId, bundleId });
