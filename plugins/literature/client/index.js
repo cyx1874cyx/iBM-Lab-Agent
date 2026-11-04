@@ -43224,8 +43224,8 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
   const showRequirements = (row) => run(`req:${row.id}`, async () => {
     setTab("requirements");
     if (requirements?.id === row.id) return;
-    const result = await call("note_templates_requirements", { request: { id: row.id, version: row.version } });
-    setRequirements({ id: row.id, name: row.name, data: result.requirements });
+    const result = await call("note_templates_prompt", { request: { id: row.id, version: row.version } });
+    setRequirements({ id: row.id, name: result.name, prompt: result.prompt, data: result.requirements });
   });
   const openImported = async (event) => {
     const file = event.target.files?.[0];
@@ -43337,9 +43337,10 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
   const previewPanel = h(
     "div",
     { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "#faf7ef", padding: "26px 30px 18px", minHeight: 420, display: "flex", flexDirection: "column" } },
-    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Template Preview", h("span", null, "01")),
-    h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 24px" } }),
-    h("h2", { style: { margin: "0 0 26px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
+    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Output Structure", h("span", null, "01")),
+    h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 16px" } }),
+    h("h2", { style: { margin: "0 0 6px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
+    h("div", { style: { fontSize: 12, color: "#7a766a", marginBottom: 22 } }, "最终产物：Markdown（.md）→ DOCX；章节顺序如下"),
     sections.length ? sections.map((section, index) => h(
       "div",
       { key: section.key || index, style: { display: "flex", gap: 16, marginBottom: 20 } },
@@ -43351,7 +43352,28 @@ function NoteTemplates({ call, state: state3, reload, kind, defaultId, onSetDefa
   const requirementsPanel = h(
     "div",
     { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 18 } },
-    requirements ? h("pre", { style: { margin: 0, whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.7, color: "var(--ib-text)" } }, JSON.stringify(requirements.data, null, 2)) : h("div", { className: "ib-empty" }, "选择模板后查看生成要求。")
+    requirements ? h(
+      "div",
+      null,
+      h(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+        h("b", { style: { fontSize: 12.5, color: "var(--ib-text)" } }, "模型 Prompt"),
+        h("button", { className: "ib-btn", style: { marginLeft: "auto", fontSize: 11, padding: "4px 10px" }, onClick: () => {
+          try {
+            void navigator.clipboard?.writeText(requirements.prompt);
+          } catch {
+          }
+        } }, "复制")
+      ),
+      h("pre", { style: { margin: 0, whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.7, color: "var(--ib-text)" } }, requirements.prompt),
+      h(
+        "details",
+        { style: { marginTop: 12 } },
+        h("summary", { style: { cursor: "pointer", fontSize: 11, color: "var(--ib-muted, #8a8a84)" } }, "结构化要求"),
+        h("pre", { style: { margin: "8px 0 0", whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.6, color: "var(--ib-text)" } }, JSON.stringify(requirements.data, null, 2))
+      )
+    ) : h("div", { className: "ib-empty" }, "选择模板后查看生成要求。")
   );
   const tabsBar = h(
     "div",
@@ -43490,6 +43512,7 @@ function PptTemplates({ call, state: state3, reload }) {
   const [mode, setMode] = (0, import_react4.useState)("list");
   const [selectedId, setSelectedId] = (0, import_react4.useState)(null);
   const [previews, setPreviews] = (0, import_react4.useState)({});
+  const [guides, setGuides] = (0, import_react4.useState)({});
   const [tab, setTab] = (0, import_react4.useState)("preview");
   const [renaming, setRenaming] = (0, import_react4.useState)(null);
   const [tagEditor, setTagEditor] = (0, import_react4.useState)(null);
@@ -43508,6 +43531,7 @@ function PptTemplates({ call, state: state3, reload }) {
   }, [state3.list]);
   const selected = state3.list.find((row) => row.id === selectedId) ?? state3.list[0];
   const preview = selected ? previews[selected.id] : void 0;
+  const guide = selected ? guides[selected.id] : void 0;
   (0, import_react4.useEffect)(() => {
     if (!selected || previews[selected.id]) return void 0;
     let alive = true;
@@ -43519,6 +43543,17 @@ function PptTemplates({ call, state: state3, reload }) {
       alive = false;
     };
   }, [call, selected?.id, selected?.version, previews]);
+  (0, import_react4.useEffect)(() => {
+    if (tab !== "requirements" || !selected || guides[selected.id]) return void 0;
+    let alive = true;
+    void call("templates_guide", { request: { id: selected.id, version: selected.version } }).then((result) => {
+      if (alive) setGuides((old) => ({ ...old, [selected.id]: result.guide }));
+    }).catch(() => {
+    });
+    return () => {
+      alive = false;
+    };
+  }, [call, tab, selected?.id, selected?.version, guides]);
   (0, import_react4.useEffect)(() => {
     setTab("preview");
     setRenaming(null);
@@ -43606,10 +43641,10 @@ function PptTemplates({ call, state: state3, reload }) {
   const previewPanel = h(
     "div",
     { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "#faf7ef", padding: "26px 30px 18px", minHeight: 420, display: "flex", flexDirection: "column" } },
-    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Template Preview", h("span", null, "01")),
-    h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 24px" } }),
-    h("h2", { style: { margin: "0 0 8px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
-    h("div", { style: { fontSize: 12, color: "#7a766a", marginBottom: 22 } }, preview?.pageSize?.ratio ? `版式比例 ${preview.pageSize.ratio}` : "版式与风格参考"),
+    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Output Structure", h("span", null, "01")),
+    h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 16px" } }),
+    h("h2", { style: { margin: "0 0 6px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
+    h("div", { style: { fontSize: 12, color: "#7a766a", marginBottom: 22 } }, `最终产物：PPTX；页序如下${preview?.pageSize?.ratio ? `（版式比例 ${preview.pageSize.ratio}）` : ""}`),
     roles.length ? roles.map((role, index) => h(
       "div",
       { key: role.role || index, style: { display: "flex", gap: 16, marginBottom: 16 } },
@@ -43618,21 +43653,16 @@ function PptTemplates({ call, state: state3, reload }) {
     )) : h("div", { className: "ib-empty" }, "正在载入模板预览…"),
     h("div", { style: { marginTop: "auto", borderTop: "1px solid rgba(47,93,80,.35)", paddingTop: 8, textAlign: "right", fontFamily: "Georgia, serif", color: "#2f5d50", fontSize: 12 } }, "01")
   );
-  const mappingPanel = h(
+  const guidePanel = h(
     "div",
-    { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 16 } },
-    roles.length ? h(
-      "div",
-      { className: "ib-table" },
-      h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")),
-      roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { style: { flex: 1, fontSize: 11 } }, role.role), h("span", { style: { flex: 1, fontSize: 11 } }, role.layoutName || role.layoutId || "默认"), h("span", { style: { flex: 2, fontSize: 10, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ") || "—")))
-    ) : h("div", { className: "ib-empty" }, "正在载入角色映射…")
+    { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 18, maxHeight: 520, overflow: "auto" } },
+    guide ? h("pre", { style: { margin: 0, whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.7, color: "var(--ib-text)" } }, guide) : h("div", { className: "ib-empty" }, "正在载入生成要求…")
   );
   const tabsBar = h(
     "div",
     { style: { display: "flex", alignItems: "center", gap: 18, borderBottom: "1px solid var(--ib-hair)", paddingBottom: 8, marginBottom: 14 } },
     h("button", { onClick: () => setTab("preview"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "preview" ? 600 : 400, color: "#123c33", borderBottom: tab === "preview" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "模板预览"),
-    h("button", { onClick: () => setTab("mapping"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "mapping" ? 600 : 400, color: "#123c33", borderBottom: tab === "mapping" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "角色映射")
+    h("button", { onClick: () => setTab("requirements"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "requirements" ? 600 : 400, color: "#123c33", borderBottom: tab === "requirements" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "生成要求")
   );
   return h(
     "div",
@@ -43649,7 +43679,7 @@ function PptTemplates({ call, state: state3, reload }) {
       "div",
       { style: { display: "flex", gap: 18, alignItems: "flex-start" } },
       h("div", { style: { width: 260, flex: "0 0 260px", display: "grid", gap: 12 } }, state3.list.map(templateCard)),
-      h("div", { style: { flex: 1, minWidth: 0 } }, tabsBar, tab === "mapping" ? mappingPanel : previewPanel)
+      h("div", { style: { flex: 1, minWidth: 0 } }, tabsBar, tab === "requirements" ? guidePanel : previewPanel)
     ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
     toast ? h("div", { className: "ib-toast" }, toast) : null
   );

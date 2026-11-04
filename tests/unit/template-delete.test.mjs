@@ -14,7 +14,9 @@ test("模板界面：分类侧栏、场景标签、双击重命名，无归档/�
 	const ui = await readFile(templatesPath, "utf8");
 	const remote = await readFile(remotePath, "utf8");
 	assert.match(ui, /模板分类/);
-	assert.match(ui, /Template Preview/);
+	assert.match(ui, /Output Structure/);
+	assert.match(ui, /note_templates_prompt/);
+	assert.match(ui, /templates_guide/);
 	assert.match(ui, /双击重命名/);
 	assert.match(ui, /适用场景|设置场景/);
 	assert.match(ui, /模板导入/);
