@@ -31,8 +31,10 @@ test("文献面板通过宿主模板库管理三类模板", async () => {
 	assert.match(panel, /sections:\['notes','reviews','ppt'\]/);
 	assert.match(sdk, /Templates as TemplateLibrary/);
 	assert.match(templates, /visibleTabs/);
-	// 左侧纵向页签 + 模板导入入口；列表页不再有“新建”按钮。
-	assert.match(templates, /flexDirection: "column"/);
+	// 左侧纵向分类 + 卡片/详情布局；列表页不再有“新建”按钮。
+	assert.match(templates, /模板分类/);
+	assert.match(templates, /Template Preview/);
+	assert.match(templates, /templateCard/);
 	assert.match(templates, /模板导入/);
 	assert.doesNotMatch(templates, /\+ 新建阅读笔记模板/);
 });

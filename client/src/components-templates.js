@@ -8,6 +8,13 @@ const TEMPLATE_TABS = [
 	{ key: "reviews", label: "综述模板", capability: "documents" },
 	{ key: "ppt", label: "PPT 模板", capability: "documents" }
 ];
+const MENU_ITEM_STYLE = { display: "block", width: "100%", textAlign: "left", border: 0, background: "transparent", padding: "8px 10px", fontSize: 12.5, color: "var(--ib-text)", cursor: "pointer", borderRadius: 6 };
+function TemplateIcon({ name }) {
+	const props = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, "aria-hidden": "true" };
+	if (name === "notes") return h("svg", props, h("path", { d: "M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2z" }), h("path", { d: "M20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z" }));
+	if (name === "reviews") return h("svg", props, h("path", { d: "M4 7h16M4 12h16M4 17h10" }));
+	return h("svg", props, h("rect", { x: 3, y: 4, width: 18, height: 13, rx: 1.5 }), h("path", { d: "M8 21h8M12 17v4" }));
+}
 export function Templates({ call, onBack, sections }) {
 			const [tab, setTab] = useState("notes");
             const [capabilities, setCapabilities] = useState(null);
@@ -46,27 +53,51 @@ export function Templates({ call, onBack, sections }) {
 				catch (reason) { setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
 			}, [call]);
 			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } }, [capabilities, loadNotes, loadReviews, loadPpt]);
-			return h("div", null,
+			return h("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "var(--ib-bg)" } },
+				embedded ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px", fontSize: 12, color: "rgba(18,60,51,.72)" } },
+					h("span", null, "iBM Lab"), h("span", null, "/"), h("span", null, "文献阅读"), h("span", null, "/"), h("span", { style: { fontWeight: 600, color: "var(--ib-text)" } }, "模板管理"),
+					onBack ? h("button", { className: "ib-btn", onClick: onBack, "aria-label": "关闭", style: { marginLeft: "auto", width: 30, height: 30, padding: 0, borderRadius: 999, lineHeight: 1, fontSize: 16 } }, "×") : null) : null,
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
-				h("div", { "data-tm-layout": true, style: { display: "flex", gap: 20, alignItems: "flex-start" } },
-					h("nav", { className: "ib-tm-tabs", "aria-label": "模板类型", style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 128, flex: "0 0 auto" } },
-						visibleTabs.map(row => h("button", { key: row.key, className: "ib-tm-tab", disabled: !tabEnabled(row.key), "data-active": activeTab === row.key ? "true" : undefined, onClick: () => setTab(row.key), style: { textAlign: "left", width: "100%" } }, labelFor(row)))),
-					h("div", { style: { flex: 1, minWidth: 0 } },
+				h("div", { style: { display: "flex", flex: 1, minHeight: 0, border: "1px solid var(--ib-hair)", borderRadius: 10, overflow: "hidden", background: "var(--ib-bg)" } },
+					h("aside", { style: { width: 196, flex: "0 0 196px", borderRight: "1px solid var(--ib-hair)", background: "var(--ib-panel)", padding: "18px 10px" } },
+						h("div", { style: { fontSize: 15, fontWeight: 600, color: "var(--ib-text)", margin: "0 10px 12px" } }, "模板分类"),
+						visibleTabs.map(row => h("button", { key: row.key, disabled: !tabEnabled(row.key), onClick: () => setTab(row.key), style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", marginBottom: 4, border: 0, borderRadius: 8, background: activeTab === row.key ? "var(--ib-accent-soft)" : "transparent", color: "var(--ib-text)", fontSize: 13, cursor: "pointer", textAlign: "left" } },
+							h(TemplateIcon, { name: row.key }), h("span", null, labelFor(row))))),
+					h("main", { style: { flex: 1, minWidth: 0, minHeight: 0, overflow: "auto", padding: "20px 22px" } },
 						activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")))))
 			);
 		}
 
 		/** 阅读笔记模板管理：列表 + 新建/编辑/复制/删除 + 查看要求 + 设为默认模板。 */
-export function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) {
+export function NoteTemplates({ call, state, reload, kind, defaultId, onSetDefault }) {
 			const [mode, setMode] = useState("list"); // list | form
 			const [editing, setEditing] = useState(null); // template row (null = 新建)
 			const [draft, setDraft] = useState(null); // 导入的模板草稿（新建模式）
 			const [busy, setBusy] = useState({});
 			const [toast, setToast] = useState("");
 			const [requirements, setRequirements] = useState(null);
+			const [selectedId, setSelectedId] = useState(null);
+			const [details, setDetails] = useState({});
+			const [tab, setTab] = useState("preview"); // preview | requirements
+			const [menuOpen, setMenuOpen] = useState(false);
 			const importRef = useRef(null);
 			const [importing, setImporting] = useState(false);
 			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3500); return () => clearTimeout(timer); }, [toast]);
+			useEffect(() => {
+				if (!state.list.length) { setSelectedId(null); return; }
+				setSelectedId((previous) => previous && state.list.some((row) => row.id === previous) ? previous : state.list[0].id);
+			}, [state.list]);
+			const selected = state.list.find((row) => row.id === selectedId) ?? state.list[0];
+			const detail = selected ? details[selected.id] : undefined;
+			useEffect(() => {
+				if (!selected || details[selected.id]) return undefined;
+				let alive = true;
+				void call("note_templates_resolve", { request: { id: selected.id, version: selected.version } })
+					.then((result) => { if (alive && result?.template) setDetails((old) => ({ ...old, [selected.id]: result.template })); })
+					.catch(() => {});
+				return () => { alive = false; };
+			}, [call, selected?.id, selected?.version, details]);
+			useEffect(() => { setRequirements(null); setTab("preview"); setMenuOpen(false); }, [selected?.id]);
 			const run = async (key, work) => {
 				if (busy[key]) return;
 				setBusy((old) => ({ ...old, [key]: true }));
@@ -94,7 +125,8 @@ export function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) 
 				setToast(`已删除模板「${row.name}」`); await reload(); setMode("list");
 			});
 			const showRequirements = (row) => run(`req:${row.id}`, async () => {
-				if (requirements?.id === row.id) { setRequirements(null); return; }
+				setTab("requirements");
+				if (requirements?.id === row.id) return;
 				const result = await call("note_templates_requirements", { request: { id: row.id, version: row.version } });
 				setRequirements({ id: row.id, name: row.name, data: result.requirements });
 			});
@@ -128,31 +160,57 @@ export function NoteTemplates({ call, state, reload, defaultId, onSetDefault }) 
 				setMode("form");
 			});
 			if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, draft, onCancel: () => { setMode("list"); setEditing(null); setDraft(null); }, onSaved: () => { setMode("list"); setEditing(null); setDraft(null); void reload(); } });
-			const rows = state.list.map((row) => {
-				const isDefault = defaultId === row.id;
-				return h("div", { className: "ib-table-row", key: row.id, "data-default": isDefault ? "true" : undefined },
-				h("span", { className: "ib-tm-name", style: { flex: 1, minWidth: 0 } }, h("b", null, row.name)),
-				h("span", { className: "ib-tm-status", style: { flex: "0 0 88px" } }, isDefault ? h("span", { className: "ib-default-badge" }, "默认") : h("span", { className: "ib-tm-chip" }, "普通")),
-				h("span", { className: "ib-tm-actions", style: { flex: "0 0 auto", display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" } },
-					isDefault
-						? h("button", { className: "ib-lit-btn","data-ready": "true", disabled: !!busy[`def:${row.id}`], onClick: () => void clearDefault(row), title: "取消默认模板（科研助手回到内置默认模板）" }, busy[`def:${row.id}`] ? "…" : "默认模板 · 点击取消")
-						: h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row.id}`], onClick: () => void setAsDefault(row), title: "设为默认模板：科研助手生成笔记时优先使用它" }, busy[`def:${row.id}`] ? "…" : "设为默认"),
-					h("button", { className: "ib-lit-btn", onClick: () => openForm(row) }, "编辑"),
-					h("button", { className: "ib-lit-btn", onClick: () => openForm(row, true) }, "复制"),
-					h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row) }, busy[`req:${row.id}`] ? "…" : (requirements?.id === row.id ? "收起要求" : "生成要求")),
-					h("button", { className: "ib-lit-btn", onClick: () => remove(row) }, busy[`del:${row.id}`] ? "…" : "删除"))
-			); });
-			const listBody = state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : (state.list.length
-				? h("div", { className: "ib-table" },
-					h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name", style: { flex: 1 } }, "名称"), h("span", { className: "ib-tm-status", style: { flex: "0 0 88px" } }, "状态"), h("span", { className: "ib-tm-actions", style: { flex: "0 0 auto" } }, "操作")),
-					rows)
-				: h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。"));
-			const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
+			const isDefaultRow = (row) => defaultId === row.id;
+			const toggleDefault = (row) => isDefaultRow(row) ? clearDefault(row) : setAsDefault(row);
+			const sections = detail?.sections ?? [];
+			const templateCard = (row) => {
+				const active = row.id === selected?.id;
+				return h("div", { key: row.id, role: "button", tabIndex: 0, onClick: () => setSelectedId(row.id), onKeyDown: (event) => { if (event.key === "Enter") setSelectedId(row.id); }, style: { cursor: "pointer", border: `1px solid ${active ? "#2f5d50" : "var(--ib-hair)"}`, borderRadius: 12, overflow: "hidden", background: "var(--ib-bg)", boxShadow: active ? "0 0 0 1px #2f5d50" : "none" } },
+					h("div", { style: { position: "relative", height: 150, padding: 14, overflow: "hidden", background: "linear-gradient(135deg,#dcebe3 0%,#f6f3ea 72%)" } },
+						h("div", { style: { fontSize: 9, letterSpacing: 1.6, color: "#3f5f55", textTransform: "uppercase", lineHeight: 1.5 } }, "Research", h("br"), "Reading", h("br"), "Note"),
+						h("div", { style: { position: "absolute", right: 14, top: 12, fontFamily: "Georgia, 'Songti SC', serif", fontSize: 18, color: "#2f5d50" } }, String(state.list.indexOf(row) + 1).padStart(2, "0")),
+						h("div", { style: { position: "absolute", left: -40, right: -40, bottom: -80, height: 220, borderRadius: "50%", background: "repeating-radial-gradient(circle at 50% 100%, rgba(47,93,80,.18) 0 1px, transparent 1px 10px)" } })),
+					h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 12px" } },
+						h("b", { style: { fontSize: 13, color: "var(--ib-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.name),
+						h("span", { style: { flex: "0 0 auto", fontSize: 11, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--ib-hair)", background: isDefaultRow(row) ? "#dcebe3" : "var(--ib-panel)", color: "#2f5d50" } }, isDefaultRow(row) ? "默认" : "普通")));
+			};
+			const previewPanel = h("div", { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "#faf7ef", padding: "26px 30px 18px", minHeight: 420, display: "flex", flexDirection: "column" } },
+				h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, letterSpacing: 2, color: "#2f5d50", textTransform: "uppercase" } }, "Template Preview", h("span", null, "01")),
+				h("div", { style: { height: 1, background: "rgba(47,93,80,.35)", margin: "10px 0 24px" } }),
+				h("h2", { style: { margin: "0 0 26px", fontFamily: "Georgia, 'Songti SC', serif", fontSize: 30, color: "#123c33" } }, selected?.name ?? "（未选择模板）"),
+				sections.length ? sections.map((section, index) => h("div", { key: section.key || index, style: { display: "flex", gap: 16, marginBottom: 20 } },
+					h("div", { style: { flex: "0 0 34px", fontFamily: "Georgia, serif", fontSize: 22, color: "#2f5d50" } }, String(index + 1).padStart(2, "0")),
+					h("div", null, h("div", { style: { fontSize: 16, fontWeight: 600, color: "#123c33" } }, section.title), h("div", { style: { fontSize: 12.5, color: "#6f6b60", marginTop: 4 } }, section.hint || "")))) : h("div", { className: "ib-empty" }, "正在载入模板预览…"),
+				h("div", { style: { marginTop: "auto", borderTop: "1px solid rgba(47,93,80,.35)", paddingTop: 8, textAlign: "right", fontFamily: "Georgia, serif", color: "#2f5d50", fontSize: 12 } }, "01"));
+			const requirementsPanel = h("div", { style: { border: "1px solid var(--ib-hair)", borderRadius: 12, background: "var(--ib-panel)", padding: 18 } },
+				requirements ? h("pre", { style: { margin: 0, whiteSpace: "pre-wrap", fontSize: 11.5, lineHeight: 1.7, color: "var(--ib-text)" } }, JSON.stringify(requirements.data, null, 2)) : h("div", { className: "ib-empty" }, "选择模板后查看生成要求。"));
+			const menu = menuOpen && selected ? h("div", { role: "menu", style: { position: "absolute", right: 0, top: 36, zIndex: 20, minWidth: 160, background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 6, boxShadow: "0 10px 30px rgba(0,0,0,.12)" } },
+				h("button", { role: "menuitem", style: MENU_ITEM_STYLE, onClick: () => { setMenuOpen(false); void toggleDefault(selected); } }, isDefaultRow(selected) ? "取消默认模板" : "设为默认模板"),
+				h("button", { role: "menuitem", style: MENU_ITEM_STYLE, onClick: () => { setMenuOpen(false); void openForm(selected, true); } }, "复制模板"),
+				h("button", { role: "menuitem", style: { ...MENU_ITEM_STYLE, color: "#a13b2f" }, onClick: () => { setMenuOpen(false); void remove(selected); } }, "删除模板")) : null;
+			const detailActions = h("div", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 } },
+				h("button", { className: "ib-btn", disabled: !selected, onClick: () => selected && void openForm(selected), style: { borderRadius: 8 } }, "编辑"),
+				h("div", { style: { position: "relative" } },
+					h("button", { className: "ib-btn", "aria-label": "更多操作", disabled: !selected, onClick: () => setMenuOpen((value) => !value), style: { borderRadius: 8 } }, "…"),
+					menu));
+			const tabsBar = h("div", { style: { display: "flex", alignItems: "center", gap: 18, borderBottom: "1px solid var(--ib-hair)", paddingBottom: 8, marginBottom: 14 } },
+				h("button", { onClick: () => setTab("preview"), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "preview" ? 600 : 400, color: "#123c33", borderBottom: tab === "preview" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "模板预览"),
+				h("button", { onClick: () => selected && void showRequirements(selected), style: { border: 0, background: "transparent", padding: "0 0 6px", fontSize: 13, fontWeight: tab === "requirements" ? 600 : 400, color: "#123c33", borderBottom: tab === "requirements" ? "2px solid #2f5d50" : "2px solid transparent", cursor: "pointer" } }, "生成要求"),
+				detailActions);
+			const detailPane = h("div", { style: { flex: 1, minWidth: 0 } }, tabsBar, tab === "requirements" ? requirementsPanel : previewPanel);
 			return h("div", null,
-				h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板")), h("button", { className: "ib-btn", "data-primary": true, disabled: importing, onClick: () => importRef.current && importRef.current.click() }, importing ? "导入中…" : "模板导入"), h("input", { ref: importRef, type: "file", accept: ".md,.markdown,text/markdown,text/plain", style: { display: "none" }, onChange: (event) => void openImported(event) })),
+				h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16 } },
+					h("h2", { style: { margin: 0, fontSize: 20, fontWeight: 700, color: "var(--ib-text)", fontFamily: "Georgia, 'Songti SC', serif" } }, kind === "review" ? "文献综述模板" : "阅读笔记模板"),
+					h("span", { style: { fontSize: 12, color: "var(--ib-muted, #8a8a84)" } }, `| ${state.list.length} 个模板`),
+					h("div", { style: { marginLeft: "auto" } },
+						h("button", { className: "ib-btn", "data-primary": true, disabled: importing, onClick: () => importRef.current && importRef.current.click(), style: { borderRadius: 8, padding: "8px 14px" } }, h("span", { style: { marginRight: 6 } }, "⤓"), importing ? "导入中…" : "导入模板"),
+						h("input", { ref: importRef, type: "file", accept: ".md,.markdown,text/markdown,text/plain", style: { display: "none" }, onChange: (event) => void openImported(event) }))),
 				state.error ? h("div", { className: "ib-error" }, state.error) : null,
-				listBody,
-				reqPanel,
+				state.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : (state.list.length
+					? h("div", { style: { display: "flex", gap: 18, alignItems: "flex-start" } },
+						h("div", { style: { width: 260, flex: "0 0 260px", display: "grid", gap: 12 } }, state.list.map(templateCard)),
+						detailPane)
+					: h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“导入模板”导入 Markdown 模板，或直接使用内置默认模板 note-default。")),
 				toast ? h("div", { className: "ib-toast" }, toast) : null
 			);
 		}

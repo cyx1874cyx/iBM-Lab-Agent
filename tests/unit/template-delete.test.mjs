@@ -13,7 +13,11 @@ const expServicePath = join(repoRoot, "lib/experiment-plan-templates.js");
 test("模板条目统一为名称/状态/操作三列，归档按钮改为删除", async () => {
 	const ui = await readFile(templatesPath, "utf8");
 	const remote = await readFile(remotePath, "utf8");
-	assert.match(ui, /"名称"\), h\("span", \{ className: "ib-tm-status" \}, "状态"\), h\("span", \{ className: "ib-tm-actions" \}, "操作"\)/);
+	assert.match(ui, /"名称"/);
+	assert.match(ui, /"状态"/);
+	assert.match(ui, /"操作"/);
+	assert.match(ui, /模板分类/);
+	assert.match(ui, /Template Preview/i);
 	assert.doesNotMatch(ui, /onClick: \(\) => void archive/);
 	assert.doesNotMatch(ui, /归档 PPT 模板|归档实验计划模板/);
 	assert.match(ui, /templates_delete/);
