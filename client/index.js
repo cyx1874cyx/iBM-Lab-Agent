@@ -3631,7 +3631,6 @@ function setWebVpnVisibleViaShell(visible) {
 var TEMPLATE_TABS = [
   { key: "notes", label: "阅读笔记模板", capability: "documents" },
   { key: "reviews", label: "综述模板", capability: "documents" },
-  { key: "exp", label: "实验计划模板", capability: "experimentTemplates" },
   { key: "ppt", label: "PPT 模板", capability: "documents" }
 ];
 function Templates({ call, onBack, sections }) {
@@ -3643,12 +3642,11 @@ function Templates({ call, onBack, sections }) {
   }, [call]);
   const visibleTabs = TEMPLATE_TABS.filter((row2) => !Array.isArray(sections) || sections.length === 0 || sections.includes(row2.key));
   const embedded = Array.isArray(sections) && sections.length > 0;
-  const labelFor = (row2) => embedded ? { notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板", exp: "实验计划模板" }[row2.key] ?? row2.label : row2.label;
-  const tabEnabled = (key2) => key2 === "exp" ? Boolean(capabilities?.experimentTemplates) : Boolean(capabilities?.documents);
+  const labelFor = (row2) => embedded ? { notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板" }[row2.key] ?? row2.label : row2.label;
+  const tabEnabled = () => Boolean(capabilities?.documents);
   const activeTab = visibleTabs.find((row2) => row2.key === tab && tabEnabled(row2.key))?.key ?? visibleTabs.find((row2) => tabEnabled(row2.key))?.key ?? null;
   const [notes, setNotes] = (0, import_react2.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const [ppt, setPpt] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
-  const [exp, setExp] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
   const [reviews, setReviews] = (0, import_react2.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const loadNotes = (0, import_react2.useCallback)(async () => {
     setNotes((s) => ({ ...s, loading: true, error: "" }));
@@ -3681,27 +3679,16 @@ function Templates({ call, onBack, sections }) {
       setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
     }
   }, [call]);
-  const loadExp = (0, import_react2.useCallback)(async () => {
-    setExp((s) => ({ ...s, loading: true, error: "" }));
-    try {
-      const result = await call("experiment_plan_templates_list");
-      setExp({ loading: false, list: result.templates || [], error: "" });
-    } catch (reason) {
-      setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
-    }
-  }, [call]);
   (0, import_react2.useEffect)(() => {
     if (capabilities?.documents) {
       void loadNotes();
       void loadReviews();
       void loadPpt();
     }
-    if (capabilities?.experimentTemplates) void loadExp();
-  }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
+  }, [capabilities, loadNotes, loadReviews, loadPpt]);
   return h(
     "div",
     null,
-    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, embedded ? "关闭" : "← 所有课题") : null),
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
       "div",
@@ -3714,65 +3701,9 @@ function Templates({ call, onBack, sections }) {
       h(
         "div",
         { style: { flex: 1, minWidth: 0 } },
-        activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
+        activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
       )
     )
-  );
-}
-function ExperimentPlanTemplates({ call, state: state3, reload }) {
-  const [busy, setBusy] = (0, import_react2.useState)({});
-  const [toast, setToast] = (0, import_react2.useState)("");
-  const [name, setName] = (0, import_react2.useState)("");
-  (0, import_react2.useEffect)(() => {
-    if (!toast) return void 0;
-    const timer = setTimeout(() => setToast(""), 3200);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  const withBusy = (key2, fn) => {
-    if (busy[key2]) return;
-    setBusy((s) => ({ ...s, [key2]: true }));
-    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key2]: false })));
-  };
-  const create = () => withBusy("create", async () => {
-    const clean = String(name || "").trim();
-    if (!clean) {
-      setToast("请填写模板名称。");
-      return;
-    }
-    const id = `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    await call("experiment_plan_templates_create", { request: { id, fields: { name: clean } } });
-    setName("");
-    await reload();
-  });
-  const remove = (row2) => withBusy(`del:${row2.id}`, async () => {
-    if (!window.confirm(`删除实验计划模板「${row2.name}」？历史任务快照不受影响。`)) return;
-    await call("experiment_plan_templates_delete", { request: { id: row2.id } });
-    await reload();
-  });
-  return h(
-    "div",
-    null,
-    toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
-    h(
-      "div",
-      { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10 } },
-      h("input", { style: { flex: 1, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 10px", border: "1px solid var(--ib-line)" }, value: name, placeholder: "新实验计划模板名称（默认章节骨架会保留）", onChange: (event) => setName(event.target.value) }),
-      h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.create, onClick: () => void create() }, busy.create ? "创建中…" : "新建模板")
-    ),
-    state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
-    state3.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
-    state3.list.length ? h(
-      "div",
-      { className: "ib-table" },
-      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
-      state3.list.map((row2) => h(
-        "div",
-        { className: "ib-table-row", key: row2.id },
-        h("span", { className: "ib-tm-name" }, h("b", null, row2.name)),
-        h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row2.status === "active" ? "accent" : void 0 }, row2.status === "active" ? "可用" : "已归档")),
-        h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", disabled: !!busy[`del:${row2.id}`], onClick: () => void remove(row2) }, busy[`del:${row2.id}`] ? "…" : "删除"))
-      ))
-    ) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
   );
 }
 function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault }) {

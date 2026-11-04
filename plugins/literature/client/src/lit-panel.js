@@ -197,6 +197,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [templatesOpen, setTemplatesOpen] = useState(false);
+			useEffect(()=>{if(!templatesOpen)return undefined;const onKey=event=>{if(event.key==='Escape')setTemplatesOpen(false);};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[templatesOpen]);
 			const [reviewVisible, setReviewVisible] = useState(false);
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
 			// 文献捕获：{ bundleId, kind, taskId } —— Nature 自动点击，其他出版社等待人工点击。

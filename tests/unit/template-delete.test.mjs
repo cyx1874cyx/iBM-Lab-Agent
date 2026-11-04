@@ -17,7 +17,9 @@ test("模板条目统一为名称/状态/操作三列，归档按钮改为删除
 	assert.doesNotMatch(ui, /onClick: \(\) => void archive/);
 	assert.doesNotMatch(ui, /归档 PPT 模板|归档实验计划模板/);
 	assert.match(ui, /templates_delete/);
-	assert.match(ui, /experiment_plan_templates_delete/);
+	// 实验计划模板不再出现在模板管理里。
+	assert.doesNotMatch(ui, /实验计划模板/);
+	assert.doesNotMatch(ui, /TEMPLATE LIBRARY|← 所有课题/);
 	assert.match(remote, /async templates_delete/);
 	assert.match(remote, /async experiment_plan_templates_delete/);
 	assert.match(remote, /markRemote\(LabRemoteService\.prototype, "templates_delete"\)/);

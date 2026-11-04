@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { h } from "./h.js";
 import { when, cloneForm } from "./lib.js";
 
-// 模板管理组件：Templates/ExperimentPlanTemplates/NoteTemplates/NoteTemplateForm/PptTemplates/PptTemplateImport/MetaEditor + SVG 图标
+// 模板管理组件：Templates/NoteTemplates/NoteTemplateForm/PptTemplates/PptTemplateImport/MetaEditor + SVG 图标
 const TEMPLATE_TABS = [
 	{ key: "notes", label: "阅读笔记模板", capability: "documents" },
 	{ key: "reviews", label: "综述模板", capability: "documents" },
-	{ key: "exp", label: "实验计划模板", capability: "experimentTemplates" },
 	{ key: "ppt", label: "PPT 模板", capability: "documents" }
 ];
 export function Templates({ call, onBack, sections }) {
@@ -18,12 +17,11 @@ export function Templates({ call, onBack, sections }) {
             const visibleTabs = TEMPLATE_TABS.filter(row => !Array.isArray(sections) || sections.length === 0 || sections.includes(row.key));
             // 嵌入文献精读等模块时，按场景改文案（精读/综述/PPT），不暴露无关页签。
             const embedded = Array.isArray(sections) && sections.length > 0;
-            const labelFor = row => embedded ? ({ notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板", exp: "实验计划模板" }[row.key] ?? row.label) : row.label;
-            const tabEnabled = key => key === "exp" ? Boolean(capabilities?.experimentTemplates) : Boolean(capabilities?.documents);
+            const labelFor = row => embedded ? ({ notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板" }[row.key] ?? row.label) : row.label;
+            const tabEnabled = () => Boolean(capabilities?.documents);
             const activeTab = visibleTabs.find(row => row.key === tab && tabEnabled(row.key))?.key ?? visibleTabs.find(row => tabEnabled(row.key))?.key ?? null;
 			const [notes, setNotes] = useState({ loading: true, list: [], defaultId: null, error: "" });
 			const [ppt, setPpt] = useState({ loading: true, list: [], error: "" });
-			const [exp, setExp] = useState({ loading: true, list: [], error: "" });
 			const [reviews, setReviews] = useState({ loading: true, list: [], defaultId: null, error: "" });
 			const loadNotes = useCallback(async () => {
 				setNotes((s) => ({ ...s, loading: true, error: "" }));
@@ -47,58 +45,15 @@ export function Templates({ call, onBack, sections }) {
 				try { const result = await call("templates_list"); setPpt({ loading: false, list: result.templates || [], error: "" }); }
 				catch (reason) { setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
 			}, [call]);
-			const loadExp = useCallback(async () => {
-				setExp((s) => ({ ...s, loading: true, error: "" }));
-				try { const result = await call("experiment_plan_templates_list"); setExp({ loading: false, list: result.templates || [], error: "" }); }
-				catch (reason) { setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message })); }
-			}, [call]);
-			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } if (capabilities?.experimentTemplates) void loadExp(); }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
+			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } }, [capabilities, loadNotes, loadReviews, loadPpt]);
 			return h("div", null,
-				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, embedded ? "关闭" : "← 所有课题") : null),
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
 				h("div", { "data-tm-layout": true, style: { display: "flex", gap: 20, alignItems: "flex-start" } },
 					h("nav", { className: "ib-tm-tabs", "aria-label": "模板类型", style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 128, flex: "0 0 auto" } },
 						visibleTabs.map(row => h("button", { key: row.key, className: "ib-tm-tab", disabled: !tabEnabled(row.key), "data-active": activeTab === row.key ? "true" : undefined, onClick: () => setTab(row.key), style: { textAlign: "left", width: "100%" } }, labelFor(row)))),
 					h("div", { style: { flex: 1, minWidth: 0 } },
-						activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")))))
+						activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")))))
 			);
-		}
-
-		/** 0.4.0：实验计划模板管理（列表 + 新建删除；版本快照不可变由服务端保证）。 */
-export function ExperimentPlanTemplates({ call, state, reload }) {
-			const [busy, setBusy] = useState({});
-			const [toast, setToast] = useState("");
-			const [name, setName] = useState("");
-			useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3200); return () => clearTimeout(timer); }, [toast]);
-			const withBusy = (key, fn) => { if (busy[key]) return; setBusy((s) => ({ ...s, [key]: true })); return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key]: false }))); };
-			const create = () => withBusy("create", async () => {
-				const clean = String(name || "").trim();
-				if (!clean) { setToast("请填写模板名称。"); return; }
-				const id = `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-				await call("experiment_plan_templates_create", { request: { id, fields: { name: clean } } });
-				setName("");
-				await reload();
-			});
-			const remove = (row) => withBusy(`del:${row.id}`, async () => {
-				if (!window.confirm(`删除实验计划模板「${row.name}」？历史任务快照不受影响。`)) return;
-				await call("experiment_plan_templates_delete", { request: { id: row.id } });
-				await reload();
-			});
-			return h("div", null,
-				toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
-				h("div", { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10 } },
-					h("input", { style: { flex: 1, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 10px", border: "1px solid var(--ib-line)" }, value: name, placeholder: "新实验计划模板名称（默认章节骨架会保留）", onChange: (event) => setName(event.target.value) }),
-					h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.create, onClick: () => void create() }, busy.create ? "创建中…" : "新建模板")),
-				state.error ? h("div", { className: "ib-error" }, state.error) : null,
-				state.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
-				state.list.length
-					? h("div", { className: "ib-table" },
-						h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
-						state.list.map((row) => h("div", { className: "ib-table-row", key: row.id },
-							h("span", { className: "ib-tm-name" }, h("b", null, row.name)),
-							h("span", { className: "ib-tm-status" }, h("span", { className: "ib-tm-chip", "data-tone": row.status === "active" ? "accent" : undefined }, row.status === "active" ? "可用" : "已归档")),
-							h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", disabled: !!busy[`del:${row.id}`], onClick: () => void remove(row) }, busy[`del:${row.id}`] ? "…" : "删除")))))
-					: h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。"));
 		}
 
 		/** 阅读笔记模板管理：列表 + 新建/编辑/复制/删除 + 查看要求 + 设为默认模板。 */
