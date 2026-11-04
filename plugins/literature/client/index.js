@@ -45322,14 +45322,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   }, onClick: (event) => {
     event.stopPropagation();
     setTemplatesOpen(false);
-  }, style: { marginLeft: "auto", height: 34, padding: "0 18px", borderRadius: 8, fontSize: 12.5, lineHeight: 1, WebkitAppRegion: "no-drag" } }, "关闭")), h("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "16px 20px", WebkitAppRegion: "no-drag" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })), h("div", { style: { display: "flex", justifyContent: "flex-end", padding: "10px 20px", borderTop: "1px solid var(--ib-hair)", flex: "0 0 auto", WebkitAppRegion: "no-drag" } }, h("button", { type: "button", className: "ib-btn", "data-primary": true, "aria-label": "关闭", "title": "关闭", onPointerDown: (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setTemplatesOpen(false);
-  }, onClick: (event) => {
-    event.stopPropagation();
-    setTemplatesOpen(false);
-  }, style: { height: 34, padding: "0 18px", borderRadius: 8, fontSize: 12.5, lineHeight: 1, WebkitAppRegion: "no-drag" } }, "关闭")))) : null, previewNode);
+  }, style: { marginLeft: "auto", height: 34, padding: "0 18px", borderRadius: 8, fontSize: 12.5, lineHeight: 1, WebkitAppRegion: "no-drag" } }, "关闭")), h("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "16px 20px", WebkitAppRegion: "no-drag" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null, previewNode);
 }
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js
