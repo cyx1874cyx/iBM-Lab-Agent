@@ -19,7 +19,7 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, openTocSignal = 0, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -188,7 +188,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	// 直接在图片/图表上拖矩形：不需要先进入框选模式，也不需要选中文字。
 	useEffect(() => {
 		const flow = flowRef.current;
-		if (!flow || !enabled || !active || regionMode) return undefined;
+		if (!flow || !enabled || !active || regionMode || hand) return undefined;
 		let start = null;
 		const rubber = document.createElement('div');
 		rubber.className = 'ib-anno-rubber';
@@ -247,7 +247,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
 		return () => { flow.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); rubber.remove(); };
-	}, [flowRef, enabled, active, regionMode]);
+	}, [flowRef, enabled, active, regionMode, hand]);
 
 	const pageTextFor = useCallback(async (page) => {
 		try {
@@ -404,19 +404,20 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					'data-open': openId === item.id ? 'true' : undefined,
 					style: { left: pin.left, top: pin.top },
 					title: item.question || item.quote,
+					onPointerDown: (event) => event.stopPropagation(),
 					onClick: (event) => { event.stopPropagation(); setOpenId(item.id); setEditing(null); },
 					onDoubleClick: (event) => { event.stopPropagation(); setOpenId(item.id); setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || '' }); }
 				}, item.status === 'pending' || item.status === 'running' ? h('span', { className: 'ib-reader-spinner' }) : null)
 			);
 		}),
-		anchor ? h('div', { className: 'ib-anno-compose', style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
+		anchor ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
 			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
 			h('textarea', { autoFocus: true, rows: 3, placeholder: '就这段原文提问…', value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
 			h('div', { className: 'ib-anno-compose-actions' },
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
-		open && openPoint ? h('div', { className: 'ib-anno-card', style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
+		open && openPoint ? h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
 			open.quote ? h('div', { className: 'ib-anno-card-quote' }, short(open.quote, 160)) : null,
 			h('div', { className: 'ib-anno-card-question' }, open.question),

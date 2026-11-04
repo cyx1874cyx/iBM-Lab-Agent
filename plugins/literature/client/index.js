@@ -45660,7 +45660,7 @@ var short = (value, max = 180) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? text.slice(0, max) + "…" : text;
 };
-function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, regionMode = false, openTocSignal = 0, onRegionDone }) {
+function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, onRegionDone }) {
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
@@ -45842,7 +45842,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   }, [flowRef, regionMode, active, enabled, onRegionDone]);
   (0, import_react12.useEffect)(() => {
     const flow2 = flowRef.current;
-    if (!flow2 || !enabled || !active || regionMode) return void 0;
+    if (!flow2 || !enabled || !active || regionMode || hand) return void 0;
     let start = null;
     const rubber = document.createElement("div");
     rubber.className = "ib-anno-rubber";
@@ -45910,7 +45910,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       window.removeEventListener("pointerup", up);
       rubber.remove();
     };
-  }, [flowRef, enabled, active, regionMode]);
+  }, [flowRef, enabled, active, regionMode, hand]);
   const pageTextFor = (0, import_react12.useCallback)(async (page) => {
     try {
       const pdfPage = await doc?.getPage?.(page);
@@ -46091,6 +46091,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
             "data-open": openId === item.id ? "true" : void 0,
             style: { left: pin.left, top: pin.top },
             title: item.question || item.quote,
+            onPointerDown: (event) => event.stopPropagation(),
             onClick: (event) => {
               event.stopPropagation();
               setOpenId(item.id);
@@ -46106,7 +46107,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       }),
       anchor ? h(
         "div",
-        { className: "ib-anno-compose", style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
+        { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 300, anchor.left + 8)), top: anchor.top + 12 } },
         h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
         h("textarea", { autoFocus: true, rows: 3, placeholder: "就这段原文提问…", value: draft.question, onChange: (event) => setDraft({ ...draft, question: event.target.value }), onKeyDown: (event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
@@ -46123,7 +46124,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       ) : null,
       open && openPoint ? h(
         "div",
-        { className: "ib-anno-card", style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
+        { className: "ib-anno-card", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
         h("div", { className: "ib-anno-card-head" }, h("b", null, `第 ${open.page} 页`), h("span", { "data-status": open.status }, annotationStatusText(open))),
         open.quote ? h("div", { className: "ib-anno-card-quote" }, short(open.quote, 160)) : null,
         h("div", { className: "ib-anno-card-question" }, open.question),
@@ -53227,7 +53228,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
   const [state3, setState] = (0, import_react13.useState)({ loading: true }), [doc, setDoc] = (0, import_react13.useState)(null), [zhDoc, setZhDoc] = (0, import_react13.useState)(null), [mode, setMode] = (0, import_react13.useState)("original");
   const [error, setError] = (0, import_react13.useState)(""), [busy, setBusy] = (0, import_react13.useState)(false), [query, setQuery] = (0, import_react13.useState)(""), [refresh, setRefresh] = (0, import_react13.useState)(0);
-  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
+  const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(true), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
   const [zoom, setZoom] = (0, import_react13.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react13.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react13.useState)({ original: true, zh: false });
   const [wantTranslation, setWantTranslation] = (0, import_react13.useState)(false), [translationAttempt, setTranslationAttempt] = (0, import_react13.useState)(0), [zhError, setZhError] = (0, import_react13.useState)("");
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
@@ -53544,7 +53545,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   };
   const pane = (side) => {
     const active = mode === "dual" || mode === side || side === "original" && ["report", "ppt"].includes(mode), material = selected(side), props = { side, zoom: zoom[side], active, scrollRef: side === "zh" ? right : left, onScroll, onError, hand, onLayout, onLoading };
-    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, regionMode, openTocSignal: tocSignal, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
+    return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }), side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, onRegionDone: () => setRegionMode(false) }) : null, h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…")));
   };
   const content = h(
     "div",
@@ -53570,7 +53571,13 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         setStacked(e.target.checked);
       } }), "上下视图")) : null, h("input", { "aria-label": "查找 PDF 文本", placeholder: "查找文本", value: query, onChange: (e) => setQuery(e.target.value), onKeyDown: (e) => {
         if (e.key === "Enter") void search().catch(onError);
-      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉"), button(regionMode ? "退出框选" : "框选提问", () => setRegionMode((value) => !value), !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字"), button("批注目录", () => {
+      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉"), button(regionMode ? "退出框选" : "框选提问", () => {
+        if (regionMode) setRegionMode(false);
+        else {
+          setHand(false);
+          setRegionMode(true);
+        }
+      }, !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字"), button("批注目录", () => {
         setAnnotationsOn(true);
         setTocSignal((value) => value + 1);
       }, !doc || state3.format !== "pdf", false, "查看当前文献的全部批注")),
