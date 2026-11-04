@@ -96,7 +96,10 @@ apply(ctx):
   registerReaderTab(ctx)   // 右侧栏 PDF/Office tab + pane
 ```
 
-- 课题页「文献资料」由 `lit-panel.js`（约 890 行）渲染：检索记录 + 精读档案两栏、文件夹、拖拽、右键菜单、报告/PPT 预览与审核、翻译入口；
+- 课题页「文献资料」由 `lit-panel.js`（约 900 行）渲染：检索记录 + 精读档案两栏、文件夹、拖拽、右键菜单、报告/PPT 预览与审核、翻译入口、
+  「模板管理」弹窗（精读/综述/PPT 三类模板，复用宿主 `TemplateLibrary`，只展示指定页签）；
+- 精读/PPT/翻译按钮点击后直接发送任务到科研助手（`onRequestArtifact(..., true)`），不再二次点击发送；
+- 自动分类已移除：精读登记不再要求 `folderName/classificationReason`，文件夹由用户拖拽或手动管理；
 - 右侧栏阅读器由 `reader/reader-tab.js` 注册，`reader/reader-pdf-ui.js` 渲染 PDF 双栏/精读/PPT，`reader-material.js` 把 Office 材料交给宿主工厂槽 `ibm.office.preview`（内置 LibreOffice 转 PDF），`reader-scroll-sync.js` 管双栏滚动同步；
 - PDF 引擎与 worker 随插件打包（`client-vendor/pdfjs`，插件 bundle 约 4.25 MB）。
 
@@ -124,6 +127,7 @@ apply(ctx):
    （不设文件大小上限；单块仍校验 base64 与大小）。
 3. **精读报告**：agent 生成 md → `lab_tasks_register_report` 写契约 + DOCX 暂存 →
    `tasks_report_validate` 机器审计 → 人工 `tasks_report_review`（哈希绑定）→ 下载开放。
+   精读按钮点击即自动发送任务，不再需要二次确认；登记后不再自动分类。
 4. **汇报 PPT**：报告就绪后 `lab_tasks_register_presentation` → 模板构建 → QA → 人工复核。
 5. **全文翻译**：阅读器「翻译」→ `tasks_translation_create`（读 `reader_source.py` 提取）→ agent 用 6 个
    `lab_reader_translation_*` 工具分批 prepare/read/write/finish → 生成 `translated.pdf` 双栏对照。

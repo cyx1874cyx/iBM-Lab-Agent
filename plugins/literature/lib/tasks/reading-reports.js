@@ -298,7 +298,6 @@ export const readingReportsMethods = {
 			templateName: noteTemplateSnapshot?.name,
 			generationRequirements: noteRequirements ?? fallbackRequirements,
 			instructions: [
-				`完成精读后依据报告内容判断主题文件夹，优先复用 ${JSON.stringify(this.listReadingFolders(projectId).map(row=>row.name))}；调用 lab_tasks_register_report 时传 folderName 和 classificationReason 自动归类，不得只凭元数据猜测。`,
 				"生成精读报告前，逐个读取 mustReadPaths 中现有的正文、SI 和 source-map；不得只看元数据或公众号导读。",
 				"PDF/Office 资源先用 lab_convert_document 转为 Markdown，再读取转换结果；正文和 SI 的证据要区分标注。",
 				noteRequirements

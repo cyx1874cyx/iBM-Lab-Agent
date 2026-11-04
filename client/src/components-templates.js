@@ -3,12 +3,24 @@ import { h } from "./h.js";
 import { when, cloneForm } from "./lib.js";
 
 // 模板管理组件：Templates/ExperimentPlanTemplates/NoteTemplates/NoteTemplateForm/PptTemplates/PptTemplateImport/MetaEditor + SVG 图标
-export function Templates({ call, onBack }) {
+const TEMPLATE_TABS = [
+	{ key: "notes", label: "阅读笔记模板", capability: "documents" },
+	{ key: "reviews", label: "综述模板", capability: "documents" },
+	{ key: "exp", label: "实验计划模板", capability: "experimentTemplates" },
+	{ key: "ppt", label: "PPT 模板", capability: "documents" }
+];
+export function Templates({ call, onBack, sections }) {
 			const [tab, setTab] = useState("notes");
             const [capabilities, setCapabilities] = useState(null);
             const [capabilityError, setCapabilityError] = useState("");
             useEffect(() => { void call("capabilities").then(setCapabilities).catch(reason => setCapabilityError(reason.message)); }, [call]);
-            const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
+            // sections 用于把模板管理嵌进别的模块（如文献精读），只展示指定页签。
+            const visibleTabs = TEMPLATE_TABS.filter(row => !Array.isArray(sections) || sections.length === 0 || sections.includes(row.key));
+            // 嵌入文献精读等模块时，按场景改文案（精读/综述/PPT），不暴露无关页签。
+            const embedded = Array.isArray(sections) && sections.length > 0;
+            const labelFor = row => embedded ? ({ notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板", exp: "实验计划模板" }[row.key] ?? row.label) : row.label;
+            const tabEnabled = key => key === "exp" ? Boolean(capabilities?.experimentTemplates) : Boolean(capabilities?.documents);
+            const activeTab = visibleTabs.find(row => row.key === tab && tabEnabled(row.key))?.key ?? visibleTabs.find(row => tabEnabled(row.key))?.key ?? null;
 			const [notes, setNotes] = useState({ loading: true, list: [], defaultId: null, error: "" });
 			const [ppt, setPpt] = useState({ loading: true, list: [], error: "" });
 			const [exp, setExp] = useState({ loading: true, list: [], error: "" });
@@ -42,12 +54,9 @@ export function Templates({ call, onBack }) {
 			}, [call]);
 			useEffect(() => { if (capabilities?.documents) { void loadNotes(); void loadReviews(); void loadPpt(); } if (capabilities?.experimentTemplates) void loadExp(); }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
 			return h("div", null,
-				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+				h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, embedded ? "管理文献精读、综述写作与 PPT 汇报模板。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。" : "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
 				capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null, h("div", { className: "ib-tm-tabs" },
-					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : undefined, onClick: () => setTab("notes") }, "阅读笔记模板"),
-					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : undefined, onClick: () => setTab("reviews") }, "综述模板"),
-					h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : undefined, onClick: () => setTab("exp") }, "实验计划模板"),
-					h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : undefined, onClick: () => setTab("ppt") }, "PPT 模板")),
+					visibleTabs.map(row => h("button", { key: row.key, className: "ib-tm-tab", disabled: !tabEnabled(row.key), "data-active": activeTab === row.key ? "true" : undefined, onClick: () => setTab(row.key) }, labelFor(row)))),
 				activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : (activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : (activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")))
 			);
 		}

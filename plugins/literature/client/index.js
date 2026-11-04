@@ -42739,6 +42739,11 @@ async function openWebVpnTab() {
 // client/src/lib.js
 var when = (value) => value ? new Date(value).toLocaleString() : "—";
 var statusOf = (row) => ({ succeeded: "已审核", pending: "待处理", running: "生成中", failed: "已退回", draft: "草稿", "under-review": "已暂存·待审核", approved: "已批准", prepared: "待分析", "approved-written": "已审核", "visually-verified": "已确认" })[row.status] || row.status || "已登记";
+function cloneForm(source) {
+  if (!source) return {};
+  const { id = "", name = "", audience = "课题组组会", language = "zh", length = "", topics = [], tags = [], sections = [], styleRules = [], evidenceRequirements = [], outputRequirements = [], templateMarkdown = "", remark = "", version: version3 } = source;
+  return { id, name, audience, language, length, topics: [...topics], tags: [...tags], sections: sections.map((s) => ({ ...s })), styleRules: [...styleRules], evidenceRequirements: [...evidenceRequirements], outputRequirements: [...outputRequirements], templateMarkdown, remark, version: version3 };
+}
 function downloadBlob(fileName, mime, blob) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -43011,6 +43016,538 @@ var openExternalUrl = async (url) => {
 
 // client/src/components-templates.js
 var import_react4 = require("react");
+var TEMPLATE_TABS = [
+  { key: "notes", label: "阅读笔记模板", capability: "documents" },
+  { key: "reviews", label: "综述模板", capability: "documents" },
+  { key: "exp", label: "实验计划模板", capability: "experimentTemplates" },
+  { key: "ppt", label: "PPT 模板", capability: "documents" }
+];
+function Templates({ call, onBack, sections }) {
+  const [tab, setTab] = (0, import_react4.useState)("notes");
+  const [capabilities, setCapabilities] = (0, import_react4.useState)(null);
+  const [capabilityError, setCapabilityError] = (0, import_react4.useState)("");
+  (0, import_react4.useEffect)(() => {
+    void call("capabilities").then(setCapabilities).catch((reason) => setCapabilityError(reason.message));
+  }, [call]);
+  const visibleTabs = TEMPLATE_TABS.filter((row) => !Array.isArray(sections) || sections.length === 0 || sections.includes(row.key));
+  const embedded = Array.isArray(sections) && sections.length > 0;
+  const labelFor = (row) => embedded ? { notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板", exp: "实验计划模板" }[row.key] ?? row.label : row.label;
+  const tabEnabled = (key) => key === "exp" ? Boolean(capabilities?.experimentTemplates) : Boolean(capabilities?.documents);
+  const activeTab = visibleTabs.find((row) => row.key === tab && tabEnabled(row.key))?.key ?? visibleTabs.find((row) => tabEnabled(row.key))?.key ?? null;
+  const [notes, setNotes] = (0, import_react4.useState)({ loading: true, list: [], defaultId: null, error: "" });
+  const [ppt, setPpt] = (0, import_react4.useState)({ loading: true, list: [], error: "" });
+  const [exp, setExp] = (0, import_react4.useState)({ loading: true, list: [], error: "" });
+  const [reviews, setReviews] = (0, import_react4.useState)({ loading: true, list: [], defaultId: null, error: "" });
+  const loadNotes = (0, import_react4.useCallback)(async () => {
+    setNotes((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("note_templates_list", { request: { kind: "note" } });
+      setNotes({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
+    } catch (reason) {
+      setNotes((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const loadReviews = (0, import_react4.useCallback)(async () => {
+    setReviews((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("note_templates_list", { request: { kind: "review" } });
+      setReviews({ loading: false, list: result.templates || [], defaultId: result.defaultId ?? null, error: "" });
+    } catch (reason) {
+      setReviews((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const setDefault = (0, import_react4.useCallback)(async (id) => {
+    await call("note_templates_set_default", { request: { id } });
+    await Promise.all([loadNotes(), loadReviews()]);
+  }, [call, loadNotes, loadReviews]);
+  const loadPpt = (0, import_react4.useCallback)(async () => {
+    setPpt((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("templates_list");
+      setPpt({ loading: false, list: result.templates || [], error: "" });
+    } catch (reason) {
+      setPpt((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  const loadExp = (0, import_react4.useCallback)(async () => {
+    setExp((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const result = await call("experiment_plan_templates_list");
+      setExp({ loading: false, list: result.templates || [], error: "" });
+    } catch (reason) {
+      setExp((s) => ({ ...s, loading: false, list: s.list || [], error: reason.message }));
+    }
+  }, [call]);
+  (0, import_react4.useEffect)(() => {
+    if (capabilities?.documents) {
+      void loadNotes();
+      void loadReviews();
+      void loadPpt();
+    }
+    if (capabilities?.experimentTemplates) void loadExp();
+  }, [capabilities, loadNotes, loadReviews, loadPpt, loadExp]);
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, embedded ? "管理文献精读、综述写作与 PPT 汇报模板。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。" : "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+    capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
+    h(
+      "div",
+      { className: "ib-tm-tabs" },
+      visibleTabs.map((row) => h("button", { key: row.key, className: "ib-tm-tab", disabled: !tabEnabled(row.key), "data-active": activeTab === row.key ? "true" : void 0, onClick: () => setTab(row.key) }, labelFor(row)))
+    ),
+    activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
+  );
+}
+function ExperimentPlanTemplates({ call, state: state3, reload }) {
+  const [busy, setBusy] = (0, import_react4.useState)({});
+  const [toast, setToast] = (0, import_react4.useState)("");
+  const [name, setName] = (0, import_react4.useState)("");
+  (0, import_react4.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3200);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const withBusy = (key, fn) => {
+    if (busy[key]) return;
+    setBusy((s) => ({ ...s, [key]: true }));
+    return Promise.resolve(fn()).finally(() => setBusy((s) => ({ ...s, [key]: false })));
+  };
+  const create = () => withBusy("create", async () => {
+    const clean = String(name || "").trim();
+    if (!clean) {
+      setToast("请填写模板名称。");
+      return;
+    }
+    const id = `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    await call("experiment_plan_templates_create", { request: { id, fields: { name: clean } } });
+    setName("");
+    await reload();
+  });
+  const archive = (row) => withBusy(`arc:${row.id}`, async () => {
+    await call("experiment_plan_templates_archive", { request: { id: row.id } });
+    await reload();
+  });
+  return h(
+    "div",
+    null,
+    toast ? h("div", { className: "ib-toast", role: "status" }, toast) : null,
+    h(
+      "div",
+      { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 10 } },
+      h("input", { style: { flex: 1, background: "var(--ib-panel)", color: "var(--ib-text)", borderRadius: 8, padding: "7px 10px", border: "1px solid var(--ib-line)" }, value: name, placeholder: "新实验计划模板名称（默认章节骨架会保留）", onChange: (event) => setName(event.target.value) }),
+      h("button", { className: "ib-btn", "data-primary": true, disabled: !!busy.create, onClick: () => void create() }, busy.create ? "创建中…" : "新建模板")
+    ),
+    state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
+    state3.loading ? h("div", { className: "ib-empty" }, "加载中…") : null,
+    state3.list.length ? h("div", { className: "ib-rows" }, state3.list.map((row) => h(
+      "div",
+      { className: "ib-row", key: row.id },
+      h("b", { title: row.id }, row.name),
+      h("span", null, `v${row.version}${row.applicableTo ? " · " + row.applicableTo : ""} · ${row.sections?.length || 0} 章节`),
+      row.status === "archived" ? h("span", { className: "ib-chip" }, "已归档") : h("button", { className: "ib-btn", disabled: !!busy[`arc:${row.id}`], onClick: () => void archive(row) }, "归档")
+    ))) : h("div", { className: "ib-empty" }, "尚无实验计划模板；可新建，或使用内置默认模板（生成实验计划草案时自动快照）。")
+  );
+}
+function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault }) {
+  const [mode, setMode] = (0, import_react4.useState)("list");
+  const [editing, setEditing] = (0, import_react4.useState)(null);
+  const [busy, setBusy] = (0, import_react4.useState)({});
+  const [toast, setToast] = (0, import_react4.useState)("");
+  const [requirements, setRequirements] = (0, import_react4.useState)(null);
+  (0, import_react4.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const run = async (key, work) => {
+    if (busy[key]) return;
+    setBusy((old) => ({ ...old, [key]: true }));
+    try {
+      await work();
+    } catch (reason) {
+      setToast(reason.message || "操作失败");
+    } finally {
+      setBusy((old) => {
+        const n = { ...old };
+        delete n[key];
+        return n;
+      });
+    }
+  };
+  const setAsDefault = (row) => run(`def:${row.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(row.id);
+    setToast(`已把「${row.name}」设为默认模板，Agent 生成笔记时优先使用它`);
+  });
+  const clearDefault = (row) => run(`def:${row.id}`, async () => {
+    if (typeof onSetDefault !== "function") return;
+    await onSetDefault(null);
+    setToast(`已取消默认模板「${row.name}」`);
+  });
+  const remove = (row) => run(`del:${row.id}`, async () => {
+    if (!window.confirm(`删除阅读笔记模板「${row.name}」？任务快照不受影响，历史版本仍可读。`)) return;
+    await call("note_templates_delete", { request: { id: row.id } });
+    if (defaultId === row.id && typeof onSetDefault === "function") await onSetDefault(null);
+    setToast(`已删除模板「${row.name}」`);
+    await reload();
+    setMode("list");
+  });
+  const showRequirements = (row) => run(`req:${row.id}`, async () => {
+    if (requirements?.id === row.id) {
+      setRequirements(null);
+      return;
+    }
+    const result = await call("note_templates_requirements", { request: { id: row.id, version: row.version } });
+    setRequirements({ id: row.id, name: row.name, data: result.requirements });
+  });
+  const openForm = (row, copy = false) => run("open", async () => {
+    if (!row) {
+      setEditing(null);
+      setMode("form");
+      return;
+    }
+    const result = await call("note_templates_resolve", { request: { id: row.id, version: row.version } });
+    setEditing(copy ? { ...result.template, _copy: true } : result.template);
+    setMode("form");
+  });
+  if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, onCancel: () => {
+    setMode("list");
+    setEditing(null);
+  }, onSaved: () => {
+    setMode("list");
+    setEditing(null);
+    void reload();
+  } });
+  const cards = state3.list.map((row) => {
+    const isDefault = defaultId === row.id;
+    return h(
+      "div",
+      { className: "ib-tm-card", key: row.id, "data-default": isDefault ? "true" : void 0 },
+      h("div", { className: "ib-tm-title" }, h("b", null, row.name), isDefault ? h("span", { className: "ib-default-badge" }, "默认模板") : null, h("span", null, `v${row.version} · ${when(row.updatedAt)}`)),
+      h("div", { className: "ib-tm-sub" }, h("span", { className: "ib-key" }, row.id)),
+      h("div", { className: "ib-tm-meta" }, (row.topics || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", key: t }, t)), (row.tags || []).slice(0, 3).map((t) => h("span", { className: "ib-tm-chip", "data-tone": "accent", key: t }, t))),
+      h(
+        "div",
+        { className: "ib-tm-acts" },
+        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row.id}`], onClick: () => void clearDefault(row), title: "取消默认模板（Agent 回到内置默认模板）" }, busy[`def:${row.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row.id}`], onClick: () => void setAsDefault(row), title: "设为默认模板：Agent 生成笔记时优先使用它" }, busy[`def:${row.id}`] ? "…" : "设为默认"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row) }, "编辑"),
+        h("button", { className: "ib-lit-btn", onClick: () => openForm(row, true) }, "复制"),
+        h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row) }, busy[`req:${row.id}`] ? "…" : requirements?.id === row.id ? "收起要求" : "生成要求"),
+        h("button", { className: "ib-lit-btn", onClick: () => remove(row) }, busy[`del:${row.id}`] ? "…" : "删除")
+      )
+    );
+  });
+  const listBody = state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。");
+  const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板，并把其中一个设为「默认模板」——设置后 Agent 生成笔记时优先使用它。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
+    state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
+    listBody,
+    reqPanel,
+    toast ? h("div", { className: "ib-toast" }, toast) : null
+  );
+}
+function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
+  const blank = { id: "", name: "", audience: "课题组组会", language: "zh", length: "单篇 600-1000 字，突出与课题相关的关键内容", topics: [], tags: [], sections: [{ key: "citation", title: "文献信息", required: true, hint: "标题、作者、期刊、年份、DOI 的规范短引用" }, { key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" }], styleRules: [], evidenceRequirements: [], outputRequirements: [], remark: "" };
+  const [form, setForm] = (0, import_react4.useState)(() => initial ? cloneForm(initial) : cloneForm(blank));
+  const [busy, setBusyTemp] = (0, import_react4.useState)(false);
+  const [error, setErrorTemp] = (0, import_react4.useState)("");
+  const isCreate = !initial;
+  const isCopy = !!initial && initial._copy;
+  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const arrayField = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
+  const listField = (key) => (event) => {
+    const value = event.target.value;
+    setForm((old) => ({ ...old, [key]: value === "" ? [] : value.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }));
+  };
+  const setSection = (index, patch) => setForm((old) => ({ ...old, sections: (old.sections || []).map((s, i) => i === index ? { ...s, ...patch } : s) }));
+  const addSection = () => setForm((old) => ({ ...old, sections: [...old.sections || [], { key: "", title: "", required: true, hint: "" }] }));
+  const removeSection = (index) => setForm((old) => ({ ...old, sections: (old.sections || []).filter((_, i) => i !== index) }));
+  const fileRef = (0, import_react4.useRef)(null);
+  const importFromMd = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      void (async () => {
+        const text = String(reader.result || "");
+        try {
+          const result = await call("note_templates_parse_markdown", { request: { markdown: text, fileName: file.name || "" } });
+          const parsed = result?.parsed;
+          if (!parsed || !Array.isArray(parsed.sections) || parsed.sections.length === 0) {
+            throw new Error("未能从 Markdown 解析出章节标题（需使用 # / ## 标题）");
+          }
+          setForm((old) => ({
+            ...old,
+            name: old.name?.trim() ? old.name : parsed.name,
+            ...parsed.length ? { length: parsed.length } : {},
+            sections: parsed.sections.map((s) => ({ key: s.key, title: s.title, required: s.required !== false, hint: s.hint || "" })),
+            templateMarkdown: parsed.templateMarkdown || text,
+            remark: old.remark || `从 Markdown 导入：${file.name || ""}`
+          }));
+          setErrorTemp("");
+        } catch (reason) {
+          setErrorTemp(reason.message || "解析 Markdown 失败");
+        }
+      })();
+    };
+    reader.onerror = () => setErrorTemp("读取 Markdown 文件失败");
+    reader.readAsText(file);
+  };
+  const save = async () => {
+    setBusyTemp(true);
+    setErrorTemp("");
+    try {
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      if (isCreate && !/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-note-v2");
+      const fields = { ...form, id: void 0 };
+      let payload;
+      if (isCreate) payload = { id: form.id.trim(), fields };
+      else if (isCopy) payload = { id: initial.id, newId: form.id.trim() || form.name + "-copy", name: form.name };
+      else payload = { id: form.id, fields };
+      const method = isCopy ? "note_templates_copy" : isCreate ? "note_templates_create" : "note_templates_update";
+      const result = await call(method, { request: isCopy ? payload : { id: payload.id, fields } });
+      onSaved(result.template.name || form.name);
+    } catch (reason) {
+      setErrorTemp(reason.message);
+    } finally {
+      setBusyTemp(false);
+    }
+  };
+  return h(
+    "section",
+    { className: "ib-card ib-form" },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : isCreate ? "新模板" : `当前 v${form.version}`)),
+    h(
+      "div",
+      { className: "ib-req" },
+      h("div", { className: "vertical-stack", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } }, h("button", { className: "ib-btn", onClick: () => fileRef.current && fileRef.current.click() }, "从 .md 文件导入"), h("input", { ref: fileRef, type: "file", accept: ".md,text/markdown,text/plain", style: { display: "none" }, onChange: importFromMd }), h("span", { style: { color: "var(--ib-text)", fontSize: 9.5 } }, "解析 Markdown 的 #/## 标题为章节骨架（含子节与表格要求），原文一并保留；导入后仍可逐项调整。")),
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+        !isCopy && h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, disabled: !isCreate && !isCopy ? true : false, placeholder: "lab-note-v2", onChange: field("id") })),
+        h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "科研精读笔记模板", onChange: field("name") })),
+        h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })),
+        h("div", { className: "ib-req" }, h("label", null, "语言"), h("select", { value: form.language, onChange: field("language") }, ["zh", "en", "zh-en"].map((l) => h("option", { value: l, key: l }, l)))),
+        h("div", { className: "ib-req", style: { gridColumn: "1/-1" } }, h("label", null, "篇幅说明"), h("input", { value: form.length, onChange: field("length") })),
+        h("div", { className: "ib-req" }, h("label", null, "适用课题（逗号分隔）"), h("input", { value: (form.topics || []).join(", "), onChange: listField("topics") })),
+        h("div", { className: "ib-req" }, h("label", null, "标签（逗号分隔）"), h("input", { value: (form.tags || []).join(", "), onChange: listField("tags") }))
+      ),
+      h("label", null, "章节结构（Agent 生成时按此章节组织笔记）"),
+      h("div", { className: "ib-sections" }, (form.sections || []).map((s, index) => h("div", { className: "ib-section-row", key: index }, h("input", { type: "text", value: s.key, placeholder: "key", className: "ib-mini", onChange: (e) => setSection(index, { key: e.target.value }) }), h("input", { type: "text", value: s.title, placeholder: "章节标题", className: "ib-mini", onChange: (e) => setSection(index, { title: e.target.value }) }), h("input", { type: "text", value: s.hint, placeholder: "写作要点", className: "ib-mini", onChange: (e) => setSection(index, { hint: e.target.value }) }), h("input", { type: "checkbox", checked: !!s.required, title: "必填", onChange: (e) => setSection(index, { required: e.target.checked }) }), h("button", { className: "ib-mini ib-lit-btn", onClick: () => removeSection(index) }, "×"))), h("button", { className: "ib-mini ib-lit-btn", onClick: addSection }, "+ 加一节")),
+      h(
+        "div",
+        { className: "vertical-stack", style: { marginTop: 8, display: "grid", gap: 8, gridTemplateColumns: "repeat(2,1fr)" } },
+        h("div", { className: "ib-req" }, h("label", null, "风格规则（每行一条）"), h("textarea", { value: (form.styleRules || []).join("\n"), onChange: arrayField("styleRules") })),
+        h("div", { className: "ib-req" }, h("label", null, "证据与来源要求（每行一条）"), h("textarea", { value: (form.evidenceRequirements || []).join("\n"), onChange: arrayField("evidenceRequirements") })),
+        h("div", { className: "ib-req" }, h("label", null, "附加输出要求（每行一条）"), h("textarea", { value: (form.outputRequirements || []).join("\n"), onChange: arrayField("outputRequirements") }))
+      ),
+      error ? h("div", { className: "ib-error" }, error) : null,
+      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : isCopy ? "保存副本" : "保存"))
+    )
+  );
+}
+function PptTemplates({ call, state: state3, reload }) {
+  const [mode, setMode] = (0, import_react4.useState)("list");
+  const [selected, setSelected] = (0, import_react4.useState)(null);
+  const [meta, setMeta] = (0, import_react4.useState)(null);
+  const [busy, setBusy] = (0, import_react4.useState)({});
+  const [toast, setToast] = (0, import_react4.useState)("");
+  const [validation, setValidation] = (0, import_react4.useState)(null);
+  (0, import_react4.useEffect)(() => {
+    if (!toast) return void 0;
+    const timer = setTimeout(() => setToast(""), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const run = async (key, work) => {
+    if (busy[key]) return;
+    setBusy((old) => ({ ...old, [key]: true }));
+    try {
+      await work();
+    } catch (reason) {
+      setToast(reason.message || "操作失败");
+    } finally {
+      setBusy((old) => {
+        const n = { ...old };
+        delete n[key];
+        return n;
+      });
+    }
+  };
+  const archive = (row) => run(`arc:${row.id}`, async () => {
+    if (!window.confirm(`归档 PPT 模板「${row.name}」？历史版本仍可读，任务快照不受影响。`)) return;
+    await call("templates_archive", { request: { id: row.id } });
+    setToast(`已归档「${row.name}」`);
+    await reload();
+    setSelected(null);
+    setValidation(null);
+  });
+  const preview = (row) => run(`pv:${row.id}`, async () => {
+    if (selected?.id === row.id) {
+      setSelected(null);
+      return;
+    }
+    const result = await call("templates_preview", { request: { id: row.id, version: row.version } });
+    setSelected({ id: row.id, version: row.version, data: result.preview });
+  });
+  const doValidate = (row) => run(`vf:${row.id}`, async () => {
+    const result = await call("templates_validate", { request: { id: row.id, version: row.version } });
+    setValidation({ id: row.id, v: result.validation });
+    setToast(result.validation.ok ? `模板「${row.name}」参考检查正常` : `模板「${row.name}」有格式提醒，但不阻止生成`);
+  });
+  const openMeta = (row) => run("meta", async () => {
+    const result = await call("templates_resolve", { request: { id: row.id, version: row.version } });
+    setMeta({ ...result.template });
+  });
+  const saveMeta = (fields) => run("save-meta", async () => {
+    const result = await call("templates_update_meta", { request: { id: fields.id, fields: { name: fields.name, purpose: fields.purpose, audience: fields.audience, notesRequirement: fields.notesRequirement, maxPages: fields.maxPages ? Number(fields.maxPages) : void 0 } } });
+    setToast(`已更新「${result.template.name}」v${result.template.version}`);
+    setMeta(null);
+    await reload();
+  });
+  if (mode === "import") return h(PptTemplateImport, { call, onCancel: () => setMode("list"), onDone: (id) => {
+    setToast(`已导入模板 ${id}，请确认映射后发布`);
+    setMode("list");
+    void reload();
+  } });
+  const statusLabel = (st) => ({ draft: "草稿", ready: "可用", archived: "已归档" })[st] || st;
+  return h(
+    "div",
+    null,
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "PPT 模板"), h("p", null, "模板只提供版式与风格参考；映射检查用于提示兼容性，不作为生成或人工审核门槛。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", "data-primary": true, onClick: () => setMode("import") }, "+ 导入 PPT 模板"))),
+    state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
+    state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h(
+      "div",
+      { className: "ib-table" },
+      h("div", { className: "ib-table-head" }, h("span", { className: "ib-tm-id" }, "ID"), h("span", { className: "ib-tm-name" }, "名称"), h("span", { className: "ib-tm-status" }, "状态"), h("span", { className: "ib-tm-actions" }, "操作")),
+      state3.list.map((row) => h("div", { className: "ib-table-row", key: row.id }, h("span", { className: "ib-tm-id ib-tm-key" }, row.id), h("span", { className: "ib-tm-name" }, h("b", null, row.name), h("small", { style: { display: "block", color: "var(--ib-text)", fontSize: 9 } }, `v${row.version} · ${row.pageSize?.ratio || "?"} · ${when(row.updatedAt)}`)), h("span", { className: "ib-tm-status" }, h("span", { className: row.status === "ready" ? "ib-tm-chip" : "ib-tm-chip", "data-tone": row.status === "ready" ? "accent" : void 0 }, statusLabel(row.status))), h("span", { className: "ib-tm-actions" }, h("button", { className: "ib-lit-btn", onClick: () => preview(row) }, busy[`pv:${row.id}`] ? "…" : selected?.id === row.id ? "收起" : "预览"), h("button", { className: "ib-lit-btn", onClick: () => doValidate(row) }, busy[`vf:${row.id}`] ? "…" : "验证"), h("button", { className: "ib-lit-btn", onClick: () => openMeta(row) }, "编辑元数据"), h("button", { className: "ib-lit-btn", onClick: () => archive(row) }, busy[`arc:${row.id}`] ? "…" : "归档"))))
+    ) : h("div", { className: "ib-empty" }, "还没有 PPT 模板。点击“导入 PPT 模板”上传 .pptx，或使用内置默认模板 nature-default。"),
+    validation && validation.id ? h("div", { className: "ib-card ib-form", style: { marginTop: 14, borderColor: validation.v.ok ? "rgba(81,212,163,.4)" : "rgba(224,169,88,.45)" } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `格式参考检查`), h("span", { className: "ib-chip" }, validation.v.ok ? "正常" : "有提醒")), (validation.v.problems || []).length ? h("ul", { style: { color: validation.v.ok ? "#b4d9cc" : "#e9bd7d", fontSize: 10.5, lineHeight: 1.7, margin: 0, paddingLeft: 16 } }, validation.v.problems.map((p) => h("li", { key: p }, p))) : h("div", { className: "ib-sub" }, validation.v.natureDefault ? "内置默认模板（由 nature-paper2ppt 处理版式）" : "模板映射可作为生成时的版式参考。")) : null,
+    selected ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `角色映射预览`), h("span", { className: "ib-chip" }, `v${selected.version}`)), selected.data.natureDefault ? h("div", { className: "ib-sub" }, "内置默认模板：全部角色交由 nature-paper2ppt 默认流程处理。") : h("div", { className: "ib-table" }, h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 2 } }, "占位符")), selected.data.roles.map((role) => h("div", { className: "ib-table-row", key: role.role, style: { alignItems: "flex-start" } }, h("span", { className: "ib-tm-key", style: { flex: 1 } }, role.role), h("span", { style: { flex: 1, fontSize: 10 } }, `${role.layoutName || role.layoutId}`), h("span", { style: { flex: 2, fontSize: 9, color: "var(--ib-text)" } }, (role.placeholders || []).map((p) => p.type).join(", ")))))) : null,
+    meta ? h(MetaEditor, { call, initial: meta, onCancel: () => setMeta(null), onSaved: saveMeta }) : null,
+    toast ? h("div", { className: "ib-toast" }, toast) : null
+  );
+}
+function PptTemplateImport({ call, onCancel, onDone }) {
+  const [form, setForm] = (0, import_react4.useState)({ id: "", name: "", audience: "课题组组会", purpose: "", file: null });
+  const [busy, setBusy] = (0, import_react4.useState)(false);
+  const [error, setError] = (0, import_react4.useState)("");
+  const [staged, setStaged] = (0, import_react4.useState)(null);
+  const [mapping, setMapping] = (0, import_react4.useState)(null);
+  const field = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
+  const readFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setForm((old) => ({ ...old, file }));
+  };
+  const toBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      resolve(text.includes(",") ? text.split(",")[1] : text);
+    };
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+  const doImport = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(form.id)) throw new Error("模板编号请使用小写字母、数字和连字符，例如 lab-ppt-v3");
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      if (!form.file) throw new Error("请选择 .pptx 文件");
+      const base64 = await toBase64(form.file);
+      const result = await call("templates_import", { request: { id: form.id.trim(), name: form.name.trim(), base64, meta: { audience: form.audience, purpose: form.purpose } } });
+      const profile = result?.profile;
+      const parsed = result?.parsed;
+      const suggestions = result?.suggestions;
+      if (!profile || !parsed || !suggestions || typeof suggestions !== "object") {
+        throw new Error("模板解析结果不完整，请确认文件是有效的 .pptx 后重试");
+      }
+      const initialMapping = Object.fromEntries(Object.entries(suggestions).map(([role, suggestion]) => {
+        if (!suggestion?.layoutId) throw new Error(`模板解析结果缺少「${role}」版式映射`);
+        return [role, suggestion.layoutId];
+      }));
+      setMapping(initialMapping);
+      setStaged({ profile, parsed, suggestions });
+      setBusy(false);
+    } catch (reason) {
+      setError(reason.message);
+      setBusy(false);
+    }
+  };
+  const confirm = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!mapping) throw new Error("版式映射尚未准备完成，请稍后重试");
+      const result = await call("templates_confirm", { request: { id: staged.profile.id, version: staged.profile.version, mapping: Object.fromEntries(Object.entries(mapping).map(([role, layoutId]) => [role, { layoutId }])) } });
+      if (!result.ok) throw new Error(`模板映射无效：${(result.problems || []).join("；")}`);
+      onDone(result.profile?.id || staged.profile.id);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!staged) {
+    return h(
+      "section",
+      { className: "ib-card ib-form" },
+      h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "导入 PPT 模板"), h("span", { className: "ib-chip" }, "先解析，再映射")),
+      h("div", { className: "ib-req" }, h("div", { className: "ib-req" }, h("label", null, "模板编号（英文小写）"), h("input", { value: form.id, placeholder: "lab-ppt-v3", onChange: field("id") })), h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, placeholder: "课题组组会模板", onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, placeholder: "组会汇报 / 论文答辩", onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, ".pptx 文件"), h("input", { type: "file", accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation", onChange: readFile }))),
+      error ? h("div", { className: "ib-error" }, error) : null,
+      h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy || (!form.file || !form.id || !form.name), onClick: () => void doImport() }, busy ? "解析中…" : "解析并生成映射"))
+    );
+  }
+  const roles = staged.profile.layoutRoleMapping ? Object.keys(staged.profile.layoutRoleMapping) : [];
+  const roleRows = roles.map((role) => h(
+    "div",
+    { className: "ib-table-row", key: role },
+    h("span", { className: "ib-tm-key", style: { flex: 1 } }, role),
+    h("select", { style: { flex: 1, marginRight: 8 }, value: mapping?.[role] || "", onChange: (e) => setMapping((old) => ({ ...old || {}, [role]: e.target.value })) }, (staged.parsed?.layouts || []).map((l) => h("option", { value: l.id, key: l.id }, `${l.name || l.id}（${(l.placeholders || []).map((p) => p.type).join("+") || "空"}）`))),
+    h("span", { className: "ib-sub", style: { flex: 1 } }, staged.suggestions && staged.suggestions[role] && staged.suggestions[role].reason || "")
+  ));
+  return h(
+    "section",
+    { className: "ib-card ib-form" },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `确认「${staged.profile.name}」角色映射`), h("span", { className: "ib-chip" }, `${staged.parsed?.layoutCount || "?"} 个布局`)),
+    h("div", { className: "ib-lit-note" }, "自动映射已按布局占位符特征生成，可逐角色调整；映射无效会明确拒绝并保持草稿状态，不会静默替换为默认模板。"),
+    h("div", { className: "ib-table" }, [h("div", { className: "ib-table-head" }, h("span", { style: { flex: 1 } }, "角色"), h("span", { style: { flex: 1 } }, "布局"), h("span", { style: { flex: 1 } }, "说明")), ...roleRows]),
+    error ? h("div", { className: "ib-error" }, error) : null,
+    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void confirm() }, busy ? "发布中…" : "确认映射并发布到可用"))
+  );
+}
+function MetaEditor({ call, initial, onCancel, onSaved }) {
+  const [form, setFormTemp] = (0, import_react4.useState)({ name: initial.name || "", purpose: initial.purpose || "", audience: initial.audience || "", notesRequirement: initial.notesRequirement || "", maxPages: initial.maxPages ?? "" });
+  const [busy, setBusyTemp] = (0, import_react4.useState)(false);
+  const [error, setErrorTemp] = (0, import_react4.useState)("");
+  const field = (key) => (event) => setFormTemp((old) => ({ ...old, [key]: event.target.value }));
+  const save = async () => {
+    setBusyTemp(true);
+    setErrorTemp("");
+    try {
+      if (!form.name.trim()) throw new Error("请填写模板名称");
+      await onSaved({ id: initial.id, ...form });
+    } catch (reason) {
+      setErrorTemp(reason.message);
+    } finally {
+      setBusyTemp(false);
+    }
+  };
+  return h(
+    "section",
+    { className: "ib-card ib-form", style: { marginTop: 14 } },
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `编辑「${initial.id}」元数据`), h("span", { className: "ib-chip" }, `当前 v${initial.version}`)),
+    h("div", { className: "ib-req", style: { display: "grid", gap: 8 } }, h("div", { className: "ib-req" }, h("label", null, "模板名称"), h("input", { value: form.name, onChange: field("name") })), h("div", { className: "ib-req" }, h("label", null, "受众"), h("input", { value: form.audience, onChange: field("audience") })), h("div", { className: "ib-req" }, h("label", null, "用途"), h("input", { value: form.purpose, onChange: field("purpose") })), h("div", { className: "ib-req" }, h("label", null, "备注/讲稿要求"), h("input", { value: form.notesRequirement, onChange: field("notesRequirement") })), h("div", { className: "ib-req" }, h("label", null, "最大页数"), h("input", { type: "number", value: form.maxPages, onChange: field("maxPages") }))),
+    error ? h("div", { className: "ib-error" }, error) : null,
+    h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void save() }, busy ? "保存中…" : "保存"))
+  );
+}
 function BookSvg({ width = 15, height = 15 }) {
   return h(
     "svg",
@@ -43524,7 +44061,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [busy, setBusy] = (0, import_react9.useState)({});
   const [overview, setOverview] = (0, import_react9.useState)({});
   const [expandedSearch, setExpandedSearch] = useProjectViewValue(projectId, "expanded-search", "");
-  const [folders, setFolders] = (0, import_react9.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [organizing, setOrganizing] = (0, import_react9.useState)(false), [importingRis, setImportingRis] = (0, import_react9.useState)(false);
+  const [folders, setFolders] = (0, import_react9.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [importingRis, setImportingRis] = (0, import_react9.useState)(false);
   const [foldersLoaded, setFoldersLoaded] = (0, import_react9.useState)(false);
   const literatureRoot = (0, import_react9.useRef)(null);
   const [entryMenu, setEntryMenu] = (0, import_react9.useState)(null);
@@ -43658,16 +44195,6 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       if (risPicker.current) risPicker.current.value = "";
     }
   };
-  const autoOrganize = async () => {
-    setOrganizing(true);
-    try {
-      await onRequestArtifact?.("请整理当前课题全部已完成精读的文献：先调用 lab_tasks_list_reading_folders，逐份读取其中报告 Markdown；根据报告的研究主题、材料体系和机制选择简洁的中文文件夹名，优先复用已有同主题文件夹；逐条调用 lab_tasks_classify_reading_report 登记，reason 必须包含报告内容依据。未完成精读的条目保留未分类。", true);
-    } catch (error) {
-      notify(error.message);
-    } finally {
-      setOrganizing(false);
-    }
-  };
   const readingReports = reports.filter((report) => bundleById[report.bundleId]?.pdfIntake?.status !== "rejected");
   const filteredReports = readingReports.filter((report) => selectedFolder === "all" || (selectedFolder === "unfiled" ? !report.folderId : report.folderId === selectedFolder));
   const readingInteraction = useReadingInteractions({ projectId, reports: readingReports, visibleReports: filteredReports, bundles: bundleById, root: literatureRoot, call, notify, onChanged, onContextMenu: setEntryMenu, setFolder: setSelectedFolder, onLocate: (report) => {
@@ -43675,6 +44202,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   } });
   const [machineReviews, setMachineReviews] = (0, import_react9.useState)({});
   const [preview, setPreview] = (0, import_react9.useState)(null);
+  const [templatesOpen, setTemplatesOpen] = (0, import_react9.useState)(false);
   const [reviewVisible, setReviewVisible] = (0, import_react9.useState)(false);
   const [approval, setApproval] = (0, import_react9.useState)(null);
   const [captureHint, setCaptureHint] = (0, import_react9.useState)(null);
@@ -44349,7 +44877,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         h(ReadingLinkUpload, { projectId, onRequestArtifact, notify, onSubmitted: () => setSelectedFolder("all") }),
         h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, "aria-label": "上传精读文献", onChange: (event) => void uploadPdfs(event.target.files) }),
         h("button", { className: "ib-act", onClick: createFolder }, "+ 文件夹"),
-        h("button", { className: "ib-act", disabled: organizing || !reports.some((row) => row.paperCardPath), onClick: () => void autoOrganize() }, "自动分类"),
+        h("button", { className: "ib-act", onClick: () => setTemplatesOpen(true), title: "管理文献精读、PPT 制作与综述写作模板" }, "模板管理"),
         h("span", { className: "ib-group-count" }, `${readingReports.length} 篇`)
       ),
       rejectionNotices.length ? h("div", { className: "ib-non-paper-notices" }, rejectionNotices.map((notice) => h(NonPaperNotice, { key: notice.id, notice, onDismiss: dismissRejection }))) : null,
@@ -44449,7 +44977,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         const pptDone = Boolean(presentation?.pptxPath);
         const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
         const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-        const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。完成精读后根据报告内容判断主题文件夹，先查看已有精读文件夹，优先复用；登记报告时提供 folderName 与 classificationReason 自动归类。`;
+        const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
         const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
         return h(
           "div",
@@ -44519,9 +45047,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                   "data-busy": readingBusy ? "true" : void 0,
                   "aria-busy": readingBusy,
                   disabled: !hasMainText || readingBusy,
-                  onClick: () => readingDone ? openPreview({ kind: "report", report }) : void onRequestArtifact(readingPrompt, false, void 0, void 0, { reportId: report.id }).catch(() => {
+                  onClick: () => readingDone ? openPreview({ kind: "report", report }) : void onRequestArtifact(readingPrompt, true, void 0, void 0, { reportId: report.id }).catch(() => {
                   }),
-                  title: !hasMainText ? "请先上传或获取论文正文，再进行精读" : readingDone ? "打开已生成的精读报告" : "在此条目的科研助手对话中预填精读任务"
+                  title: !hasMainText ? "请先上传或获取论文正文，再进行精读" : readingDone ? "打开已生成的精读报告" : "立即发送精读任务到科研助手"
                 }, readingBusy ? h(SpinSvg, null) : h(ReadingNoteSvg, null)),
                 h("button", {
                   className: "ib-icon-btn",
@@ -44531,9 +45059,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                   "data-busy": pptBusy ? "true" : void 0,
                   "aria-busy": pptBusy,
                   disabled: !hasMainText || pptBusy,
-                  onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : void onRequestArtifact(pptPrompt, false, void 0, void 0, { reportId: report.id }).catch(() => {
+                  onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : void onRequestArtifact(pptPrompt, true, void 0, void 0, { reportId: report.id }).catch(() => {
                   }),
-                  title: !hasMainText ? "请先上传或获取论文正文，再制作 PPT" : pptDone ? "打开已生成的汇报 PPT" : "在此条目的科研助手对话中预填 PPT 任务"
+                  title: !hasMainText ? "请先上传或获取论文正文，再制作 PPT" : pptDone ? "打开已生成的汇报 PPT" : "立即发送 PPT 任务到科研助手"
                 }, pptBusy ? h(SpinSvg, null) : h(PresentationSvg, null)),
                 h(EntryConversationButton, { sessionId: readingConversationId(report, bundle), onOpen: (sessionId) => onOpenConversation(sessionId, { kind: "reading", reportId: report.id, bundleId: bundle.id }), notify })
               )
@@ -44565,7 +45093,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         );
       })) : !pdfUploads.length ? h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。") : null
     )
-  ), entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null, previewNode);
+  ), entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null, templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
+    if (event.target === event.currentTarget) setTemplatesOpen(false);
+  }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", "aria-label": "文献模板管理", "data-literature-templates": true, style: { width: "min(1080px,94vw)", maxHeight: "calc(100vh - 48px)", overflow: "auto", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", padding: "16px 20px", boxSizing: "border-box" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"], onBack: () => setTemplatesOpen(false) }))) : null, previewNode);
 }
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js

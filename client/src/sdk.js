@@ -22,6 +22,7 @@ export {
 // 这些都不含业务逻辑（元素助手、图标、右键菜单、Ketcher 桥、桌面文件动作）。
 export { KetcherEditorModal, StructureCard } from "./components-core.js";
 export { ketcherRenderSmiles } from "./ketcher.js";
+export { Templates as TemplateLibrary } from "./components-templates.js";
 export { SpinSvg, BookSvg, SiSvg } from "./components-templates.js";
 export { ReadingNoteSvg, OverviewSvg, TranslateSvg, PresentationSvg } from "./reading-action-icons.js";
 export { EntryConversationButton, readingConversationId } from "./entry-conversation.js";

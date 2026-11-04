@@ -8,7 +8,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
 	h, useProjectViewValue, useProjectViewScroll, fileToBase64, useReadingInteractions,
 	ReadingContextMenu, ReadingLinkUpload, EntryConversationButton, readingConversationId,
-	ReadingNoteSvg, OverviewSvg, TranslateSvg, PresentationSvg, SpinSvg, BookSvg, SiSvg,
+	ReadingNoteSvg, OverviewSvg, TranslateSvg, PresentationSvg, SpinSvg, BookSvg, SiSvg, TemplateLibrary,
 	saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview,
 	openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell,
 	openReader,
@@ -123,7 +123,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [busy, setBusy] = useState({});
 			const [overview, setOverview] = useState({});
 			const [expandedSearch, setExpandedSearch] = useProjectViewValue(projectId, 'expanded-search', '');
-			const [folders,setFolders]=useState([]),[selectedFolder,setSelectedFolder]=useProjectViewValue(projectId,'reading-folder','all'),[organizing,setOrganizing]=useState(false),[importingRis,setImportingRis]=useState(false);
+			const [folders,setFolders]=useState([]),[selectedFolder,setSelectedFolder]=useProjectViewValue(projectId,'reading-folder','all'),[importingRis,setImportingRis]=useState(false);
 			const [foldersLoaded,setFoldersLoaded]=useState(false);
 			const literatureRoot=useRef(null);
             const [entryMenu,setEntryMenu]=useState(null);
@@ -191,12 +191,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const folderAction=async(action,request)=>{try{await call(action,{request:{projectId,...request}});await loadFolders();onChanged?.();return true;}catch(error){notify(error.message);return false;}};
 			const createFolder=()=>setFolderEditor({name:''});
 			const importRisFiles=async files=>{const incoming=Array.from(files??[]),valid=incoming.filter(file=>/\.ris$/i.test(file.name));if(valid.length!==incoming.length)notify('检索记录区域仅支持 RIS 文件，其他文件已跳过');if(!valid.length)return;setImportingRis(true);try{for(const file of valid){try{if(file.size>2*1024*1024)throw Error('RIS 文件不能超过 2 MB');const result=await call('tasks_search_import_ris',{request:{projectId,fileName:file.name,base64:await fileToBase64(file)}});notify(`${result.reused?'已登记过此 RIS，复用原记录':'RIS 导入成功'}：${result.run.results.length} 篇，去重 ${result.duplicateCount} 条`);}catch(error){notify(file.name+'：'+error.message);}}await onChanged?.();}finally{setImportingRis(false);if(risPicker.current)risPicker.current.value='';}};
-			const autoOrganize=async()=>{setOrganizing(true);try{await onRequestArtifact?.('请整理当前课题全部已完成精读的文献：先调用 lab_tasks_list_reading_folders，逐份读取其中报告 Markdown；根据报告的研究主题、材料体系和机制选择简洁的中文文件夹名，优先复用已有同主题文件夹；逐条调用 lab_tasks_classify_reading_report 登记，reason 必须包含报告内容依据。未完成精读的条目保留未分类。',true);}catch(error){notify(error.message);}finally{setOrganizing(false);}};
 			const readingReports=reports.filter(report=>bundleById[report.bundleId]?.pdfIntake?.status!=='rejected');
 			const filteredReports=readingReports.filter(report=>selectedFolder==='all'||(selectedFolder==='unfiled'?!report.folderId:report.folderId===selectedFolder));
 			const readingInteraction=useReadingInteractions({projectId,reports:readingReports,visibleReports:filteredReports,bundles:bundleById,root:literatureRoot,call,notify,onChanged,onContextMenu:setEntryMenu,setFolder:setSelectedFolder,onLocate:report=>{if(report)setLocateRequest({bundleId:report.bundleId,nonce:crypto.randomUUID()});}});
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
+			const [templatesOpen, setTemplatesOpen] = useState(false);
 			const [reviewVisible, setReviewVisible] = useState(false);
 			const [approval, setApproval] = useState(null); // { stage: "confirm" | "approved", detail }
 			// 文献捕获：{ bundleId, kind, taskId } —— Nature 自动点击，其他出版社等待人工点击。
@@ -759,7 +759,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h(ReadingLinkUpload,{projectId,onRequestArtifact,notify,onSubmitted:()=>setSelectedFolder('all')}),
 						h('input',{ref:pdfPicker,type:'file',accept:'.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document',multiple:true,hidden:true,'aria-label':'上传精读文献',onChange:event=>void uploadPdfs(event.target.files)}),
 						h('button',{className:'ib-act',onClick:createFolder},'+ 文件夹'),
-						h('button',{className:'ib-act',disabled:organizing||!reports.some(row=>row.paperCardPath),onClick:()=>void autoOrganize()},'自动分类'),
+						h('button',{className:'ib-act',onClick:()=>setTemplatesOpen(true),title:'管理文献精读、PPT 制作与综述写作模板'},'模板管理'),
 						h("span", { className: "ib-group-count" }, `${readingReports.length} 篇`)),
 					rejectionNotices.length?h('div',{className:'ib-non-paper-notices'},rejectionNotices.map(notice=>h(NonPaperNotice,{key:notice.id,notice,onDismiss:dismissRejection}))):null,
 					pdfDragging?h('div',{className:'ib-literature-drop-label',role:'status'},'松开以导入文献（PDF、DOCX）'):null,
@@ -819,7 +819,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						const pptDone = Boolean(presentation?.pptxPath);
 						const pptBusy = Boolean(busy[`open-ppt:${report.id}`]);
 						const paperName = report.titleZh || bundle.title || zhOf(report) || report.id;
-						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。完成精读后根据报告内容判断主题文件夹，先查看已有精读文件夹，优先复用；登记报告时提供 folderName 与 classificationReason 自动归类。`;
+						const readingPrompt = `请精读文献「${paperName}」（bundleId: ${report.bundleId || bundle.id || "未登记"}，reportId: ${report.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。`;
 						const pptPrompt = `请为文献「${paperName}」（reportId: ${report.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。`;
 						return h("div", { className: "ib-lit-item", key: report.id, 'data-intake-state':intake?.status, 'data-bundle-id':bundle.id,...readingInteraction.rowProps(report) },
 							// 同尺寸图标保持可见，窄容器将操作区移到标题下方。
@@ -861,14 +861,14 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 									h("button", {
 										className: "ib-icon-btn", "aria-label":"精读", "data-kind": "reading", "data-done": readingDone ? "true" : "false", "data-busy": readingBusy ? "true" : undefined, "aria-busy": readingBusy,
 										disabled: !hasMainText || readingBusy,
-										onClick: () => readingDone ? openPreview({ kind: "report", report }) : void onRequestArtifact(readingPrompt,false,undefined,undefined,{reportId:report.id}).catch(()=>{}),
-										title: !hasMainText ? "请先上传或获取论文正文，再进行精读" : readingDone ? "打开已生成的精读报告" : "在此条目的科研助手对话中预填精读任务"
+										onClick: () => readingDone ? openPreview({ kind: "report", report }) : void onRequestArtifact(readingPrompt,true,undefined,undefined,{reportId:report.id}).catch(()=>{}),
+										title: !hasMainText ? "请先上传或获取论文正文，再进行精读" : readingDone ? "打开已生成的精读报告" : "立即发送精读任务到科研助手"
 									}, readingBusy ? h(SpinSvg, null) : h(ReadingNoteSvg,null)),
 									h("button", {
 										className: "ib-icon-btn", "aria-label":"PPT", "data-kind": "ppt", "data-done": pptDone ? "true" : "false", "data-busy": pptBusy ? "true" : undefined, "aria-busy": pptBusy,
 										disabled: !hasMainText || pptBusy,
-										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : void onRequestArtifact(pptPrompt,false,undefined,undefined,{reportId:report.id}).catch(()=>{}),
-										title: !hasMainText ? "请先上传或获取论文正文，再制作 PPT" : pptDone ? "打开已生成的汇报 PPT" : "在此条目的科研助手对话中预填 PPT 任务"
+										onClick: () => pptDone ? openPreview({ kind: "ppt", report, presentation }) : void onRequestArtifact(pptPrompt,true,undefined,undefined,{reportId:report.id}).catch(()=>{}),
+										title: !hasMainText ? "请先上传或获取论文正文，再制作 PPT" : pptDone ? "打开已生成的汇报 PPT" : "立即发送 PPT 任务到科研助手"
 									}, pptBusy ? h(SpinSvg, null) : h(PresentationSvg,null)),
 									h(EntryConversationButton,{sessionId:readingConversationId(report,bundle),onOpen:sessionId=>onOpenConversation(sessionId,{kind:'reading',reportId:report.id,bundleId:bundle.id}),notify})
 									)
@@ -893,5 +893,5 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						);
 					})) : !pdfUploads.length?h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。") : null
 				)
-			), entryMenu?h(ReadingContextMenu,{menu:entryMenu,onClose:closeEntryMenu,onDelete:deleteReports}):null, previewNode);
+			), entryMenu?h(ReadingContextMenu,{menu:entryMenu,onClose:closeEntryMenu,onDelete:deleteReports}):null, templatesOpen?h('div',{role:'presentation',onClick:event=>{if(event.target===event.currentTarget)setTemplatesOpen(false);},style:{position:'fixed',inset:0,zIndex:9000,display:'grid',placeItems:'center',background:'rgba(15,23,42,0.35)',padding:'24px'}},h('section',{role:'dialog','aria-modal':'true','aria-label':'文献模板管理','data-literature-templates':true,style:{width:'min(1080px,94vw)',maxHeight:'calc(100vh - 48px)',overflow:'auto',background:'var(--ib-bg)',border:'1px solid var(--ib-line)',borderRadius:'14px',padding:'16px 20px',boxSizing:'border-box'}},h(TemplateLibrary,{call,sections:['notes','reviews','ppt'],onBack:()=>setTemplatesOpen(false)}))):null, previewNode);
 		}

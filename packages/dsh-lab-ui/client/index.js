@@ -3628,14 +3628,24 @@ function setWebVpnVisibleViaShell(visible) {
 }
 
 // client/src/components-templates.js
-function Templates({ call, onBack }) {
+var TEMPLATE_TABS = [
+  { key: "notes", label: "阅读笔记模板", capability: "documents" },
+  { key: "reviews", label: "综述模板", capability: "documents" },
+  { key: "exp", label: "实验计划模板", capability: "experimentTemplates" },
+  { key: "ppt", label: "PPT 模板", capability: "documents" }
+];
+function Templates({ call, onBack, sections }) {
   const [tab, setTab] = (0, import_react2.useState)("notes");
   const [capabilities, setCapabilities] = (0, import_react2.useState)(null);
   const [capabilityError, setCapabilityError] = (0, import_react2.useState)("");
   (0, import_react2.useEffect)(() => {
     void call("capabilities").then(setCapabilities).catch((reason) => setCapabilityError(reason.message));
   }, [call]);
-  const activeTab = (tab === "exp" ? capabilities?.experimentTemplates : capabilities?.documents) ? tab : capabilities?.documents ? "notes" : capabilities?.experimentTemplates ? "exp" : null;
+  const visibleTabs = TEMPLATE_TABS.filter((row2) => !Array.isArray(sections) || sections.length === 0 || sections.includes(row2.key));
+  const embedded = Array.isArray(sections) && sections.length > 0;
+  const labelFor = (row2) => embedded ? { notes: "精读模板", reviews: "综述模板", ppt: "PPT 模板", exp: "实验计划模板" }[row2.key] ?? row2.label : row2.label;
+  const tabEnabled = (key2) => key2 === "exp" ? Boolean(capabilities?.experimentTemplates) : Boolean(capabilities?.documents);
+  const activeTab = visibleTabs.find((row2) => row2.key === tab && tabEnabled(row2.key))?.key ?? visibleTabs.find((row2) => tabEnabled(row2.key))?.key ?? null;
   const [notes, setNotes] = (0, import_react2.useState)({ loading: true, list: [], defaultId: null, error: "" });
   const [ppt, setPpt] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
   const [exp, setExp] = (0, import_react2.useState)({ loading: true, list: [], error: "" });
@@ -3691,15 +3701,12 @@ function Templates({ call, onBack }) {
   return h(
     "div",
     null,
-    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, embedded ? "管理文献精读、综述写作与 PPT 汇报模板。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。" : "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
       "div",
       { className: "ib-tm-tabs" },
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "notes" ? "true" : void 0, onClick: () => setTab("notes") }, "阅读笔记模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "reviews" ? "true" : void 0, onClick: () => setTab("reviews") }, "综述模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.experimentTemplates, "data-active": activeTab === "exp" ? "true" : void 0, onClick: () => setTab("exp") }, "实验计划模板"),
-      h("button", { className: "ib-tm-tab", disabled: !capabilities?.documents, "data-active": activeTab === "ppt" ? "true" : void 0, onClick: () => setTab("ppt") }, "PPT 模板")
+      visibleTabs.map((row2) => h("button", { key: row2.key, className: "ib-tm-tab", disabled: !tabEnabled(row2.key), "data-active": activeTab === row2.key ? "true" : void 0, onClick: () => setTab(row2.key) }, labelFor(row2)))
     ),
     activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
   );
