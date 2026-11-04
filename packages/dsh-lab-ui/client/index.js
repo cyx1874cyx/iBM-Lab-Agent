@@ -3701,14 +3701,22 @@ function Templates({ call, onBack, sections }) {
   return h(
     "div",
     null,
-    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理"), h("p", null, embedded ? "管理文献精读、综述写作与 PPT 汇报模板。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。" : "管理「阅读笔记模板」「文献综述模板」「实验计划模板」与「PPT 模板」。科研助手生成对应产物时会按所选模板生成；任务保存版本快照，模板后续修改不影响旧产物。")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, "← 所有课题") : null),
+    h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Template Library"), h("h1", null, "模板管理")), onBack ? h("button", { className: "ib-btn", onClick: onBack }, embedded ? "关闭" : "← 所有课题") : null),
     capabilityError ? h("div", { className: "ib-error", role: "alert" }, capabilityError) : null,
     h(
       "div",
-      { className: "ib-tm-tabs" },
-      visibleTabs.map((row2) => h("button", { key: row2.key, className: "ib-tm-tab", disabled: !tabEnabled(row2.key), "data-active": activeTab === row2.key ? "true" : void 0, onClick: () => setTab(row2.key) }, labelFor(row2)))
-    ),
-    activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
+      { "data-tm-layout": true, style: { display: "flex", gap: 20, alignItems: "flex-start" } },
+      h(
+        "nav",
+        { className: "ib-tm-tabs", "aria-label": "模板类型", style: { display: "flex", flexDirection: "column", gap: 6, minWidth: 128, flex: "0 0 auto" } },
+        visibleTabs.map((row2) => h("button", { key: row2.key, className: "ib-tm-tab", disabled: !tabEnabled(row2.key), "data-active": activeTab === row2.key ? "true" : void 0, onClick: () => setTab(row2.key), style: { textAlign: "left", width: "100%" } }, labelFor(row2)))
+      ),
+      h(
+        "div",
+        { style: { flex: 1, minWidth: 0 } },
+        activeTab === "notes" ? h(NoteTemplates, { call, state: notes, reload: loadNotes, kind: "note", defaultId: notes.defaultId, onSetDefault: setDefault }) : activeTab === "reviews" ? h(NoteTemplates, { call, state: reviews, reload: loadReviews, kind: "review", defaultId: reviews.defaultId, onSetDefault: setDefault }) : activeTab === "exp" ? h(ExperimentPlanTemplates, { call, state: exp, reload: loadExp }) : activeTab === "ppt" ? h(PptTemplates, { call, state: ppt, reload: loadPpt }) : h("div", { className: "ib-empty" }, "模板功能尚未启用。")
+      )
+    )
   );
 }
 function ExperimentPlanTemplates({ call, state: state3, reload }) {
@@ -3764,9 +3772,12 @@ function ExperimentPlanTemplates({ call, state: state3, reload }) {
 function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault }) {
   const [mode, setMode] = (0, import_react2.useState)("list");
   const [editing, setEditing] = (0, import_react2.useState)(null);
+  const [draft, setDraft] = (0, import_react2.useState)(null);
   const [busy, setBusy] = (0, import_react2.useState)({});
   const [toast, setToast] = (0, import_react2.useState)("");
   const [requirements, setRequirements] = (0, import_react2.useState)(null);
+  const importRef = (0, import_react2.useRef)(null);
+  const [importing, setImporting] = (0, import_react2.useState)(false);
   (0, import_react2.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 3500);
@@ -3790,7 +3801,7 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
   const setAsDefault = (row2) => run(`def:${row2.id}`, async () => {
     if (typeof onSetDefault !== "function") return;
     await onSetDefault(row2.id);
-    setToast(`已把「${row2.name}」设为默认模板，Agent 生成笔记时优先使用它`);
+    setToast(`已把「${row2.name}」设为默认模板，科研助手生成笔记时优先使用它`);
   });
   const clearDefault = (row2) => run(`def:${row2.id}`, async () => {
     if (typeof onSetDefault !== "function") return;
@@ -3813,6 +3824,39 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
     const result = await call("note_templates_requirements", { request: { id: row2.id, version: row2.version } });
     setRequirements({ id: row2.id, name: row2.name, data: result.requirements });
   });
+  const openImported = async (event) => {
+    const file5 = event.target.files?.[0];
+    event.target.value = "";
+    if (!file5) return;
+    setImporting(true);
+    try {
+      const text = await file5.text();
+      const result = await call("note_templates_parse_markdown", { request: { markdown: text, fileName: file5.name || "" } });
+      const parsed = result?.parsed;
+      if (!parsed || !Array.isArray(parsed.sections) || parsed.sections.length === 0) throw new Error("未能从文件解析出章节标题（需使用 # / ## 标题）");
+      setDraft({
+        id: "",
+        name: parsed.name || file5.name.replace(/\.[^.]+$/, ""),
+        audience: "课题组组会",
+        language: "zh",
+        length: parsed.length || "",
+        topics: [],
+        tags: [],
+        sections: parsed.sections.map((s) => ({ key: s.key, title: s.title, required: s.required !== false, hint: s.hint || "" })),
+        styleRules: [],
+        evidenceRequirements: [],
+        outputRequirements: [],
+        templateMarkdown: parsed.templateMarkdown || text,
+        remark: `从文件导入：${file5.name || ""}`
+      });
+      setEditing(null);
+      setMode("form");
+    } catch (reason) {
+      setToast(reason.message || "导入模板失败");
+    } finally {
+      setImporting(false);
+    }
+  };
   const openForm = (row2, copy = false) => run("open", async () => {
     if (!row2) {
       setEditing(null);
@@ -3823,12 +3867,14 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
     setEditing(copy ? { ...result.template, _copy: true } : result.template);
     setMode("form");
   });
-  if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, onCancel: () => {
+  if (mode === "form") return h(NoteTemplateForm, { call, initial: editing, draft, onCancel: () => {
     setMode("list");
     setEditing(null);
+    setDraft(null);
   }, onSaved: () => {
     setMode("list");
     setEditing(null);
+    setDraft(null);
     void reload();
   } });
   const cards = state3.list.map((row2) => {
@@ -3842,7 +3888,7 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
       h(
         "div",
         { className: "ib-tm-acts" },
-        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（Agent 回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：Agent 生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
+        isDefault ? h("button", { className: "ib-lit-btn", "data-ready": "true", disabled: !!busy[`def:${row2.id}`], onClick: () => void clearDefault(row2), title: "取消默认模板（科研助手回到内置默认模板）" }, busy[`def:${row2.id}`] ? "…" : "默认模板 · 点击取消") : h("button", { className: "ib-lit-btn", disabled: !!busy[`def:${row2.id}`], onClick: () => void setAsDefault(row2), title: "设为默认模板：科研助手生成笔记时优先使用它" }, busy[`def:${row2.id}`] ? "…" : "设为默认"),
         h("button", { className: "ib-lit-btn", onClick: () => openForm(row2) }, "编辑"),
         h("button", { className: "ib-lit-btn", onClick: () => openForm(row2, true) }, "复制"),
         h("button", { className: "ib-lit-btn", onClick: () => showRequirements(row2) }, busy[`req:${row2.id}`] ? "…" : requirements?.id === row2.id ? "收起要求" : "生成要求"),
@@ -3850,25 +3896,25 @@ function NoteTemplates({ call, state: state3, reload, defaultId, onSetDefault })
       )
     );
   });
-  const listBody = state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“新建阅读笔记模板”创建，或直接使用内置默认模板 note-default。");
+  const listBody = state3.loading ? h("div", { className: "ib-empty" }, "正在读取模板…") : state3.list.length ? h("div", { className: "ib-tm-list" }, cards) : h("div", { className: "ib-empty" }, "还没有阅读笔记模板。点击“模板导入”导入 Markdown 模板，或直接使用内置默认模板 note-default。");
   const reqPanel = requirements ? h("div", { className: "ib-card ib-form", style: { marginTop: 14 } }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, `「${requirements.name}」参考要求`), h("span", { className: "ib-chip" }, "作为组织与格式参考")), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10.5, lineHeight: 1.7, color: "var(--ib-text)", background: "var(--ib-panel)", border: "1px solid var(--ib-line)", borderRadius: 10, padding: 12 } }, JSON.stringify(requirements.data, null, 2))) : null;
   return h(
     "div",
     null,
-    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板"), h("p", null, "Agent 生成阅读笔记时按模板章节与要求生成。这里可新建/复制/修改模板，并把其中一个设为「默认模板」——设置后 Agent 生成笔记时优先使用它。")), h("button", { className: "ib-btn", "data-primary": true, onClick: () => openForm(null) }, "+ 新建阅读笔记模板")),
+    h("div", { className: "ib-board-head" }, h("div", null, h("h2", null, "阅读笔记模板")), h("button", { className: "ib-btn", "data-primary": true, disabled: importing, onClick: () => importRef.current && importRef.current.click() }, importing ? "导入中…" : "模板导入"), h("input", { ref: importRef, type: "file", accept: ".md,.markdown,text/markdown,text/plain", style: { display: "none" }, onChange: (event) => void openImported(event) })),
     state3.error ? h("div", { className: "ib-error" }, state3.error) : null,
     listBody,
     reqPanel,
     toast ? h("div", { className: "ib-toast" }, toast) : null
   );
 }
-function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
+function NoteTemplateForm({ call, initial, draft, onCancel, onSaved }) {
   const blank = { id: "", name: "", audience: "课题组组会", language: "zh", length: "单篇 600-1000 字，突出与课题相关的关键内容", topics: [], tags: [], sections: [{ key: "citation", title: "文献信息", required: true, hint: "标题、作者、期刊、年份、DOI 的规范短引用" }, { key: "one-sentence-summary", title: "一句话概述", required: true, hint: "问题、做法、机制、成果各一短句" }], styleRules: [], evidenceRequirements: [], outputRequirements: [], remark: "" };
-  const [form, setForm] = (0, import_react2.useState)(() => initial ? cloneForm(initial) : cloneForm(blank));
+  const [form, setForm] = (0, import_react2.useState)(() => draft ? cloneForm(draft) : initial ? cloneForm(initial) : cloneForm(blank));
   const [busy, setBusyTemp] = (0, import_react2.useState)(false);
   const [error62, setErrorTemp] = (0, import_react2.useState)("");
-  const isCreate = !initial;
-  const isCopy = !!initial && initial._copy;
+  const isCreate = draft ? true : !initial;
+  const isCopy = !draft && !!initial && initial._copy;
   const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const arrayField = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }));
   const listField = (key2) => (event) => {
@@ -3933,7 +3979,7 @@ function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
   return h(
     "section",
     { className: "ib-card ib-form" },
-    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : isCreate ? "新建阅读笔记模板" : `编辑模板 v${form.version}`), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : isCreate ? "新模板" : `当前 v${form.version}`)),
+    h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, isCopy ? "复制阅读笔记模板" : isCreate ? draft ? "导入阅读笔记模板" : "新建阅读笔记模板" : `编辑模板 v${form.version}`), h("span", { className: "ib-chip" }, isCopy ? "origin " + initial.id : isCreate ? draft ? "从文件导入" : "新模板" : `当前 v${form.version}`)),
     h(
       "div",
       { className: "ib-req" },
@@ -3949,7 +3995,7 @@ function NoteTemplateForm({ call, initial, onCancel, onSaved }) {
         h("div", { className: "ib-req" }, h("label", null, "适用课题（逗号分隔）"), h("input", { value: (form.topics || []).join(", "), onChange: listField("topics") })),
         h("div", { className: "ib-req" }, h("label", null, "标签（逗号分隔）"), h("input", { value: (form.tags || []).join(", "), onChange: listField("tags") }))
       ),
-      h("label", null, "章节结构（Agent 生成时按此章节组织笔记）"),
+      h("label", null, "章节结构（科研助手生成时按此章节组织笔记）"),
       h("div", { className: "ib-sections" }, (form.sections || []).map((s, index2) => h("div", { className: "ib-section-row", key: index2 }, h("input", { type: "text", value: s.key, placeholder: "key", className: "ib-mini", onChange: (e) => setSection(index2, { key: e.target.value }) }), h("input", { type: "text", value: s.title, placeholder: "章节标题", className: "ib-mini", onChange: (e) => setSection(index2, { title: e.target.value }) }), h("input", { type: "text", value: s.hint, placeholder: "写作要点", className: "ib-mini", onChange: (e) => setSection(index2, { hint: e.target.value }) }), h("input", { type: "checkbox", checked: !!s.required, title: "必填", onChange: (e) => setSection(index2, { required: e.target.checked }) }), h("button", { className: "ib-mini ib-lit-btn", onClick: () => removeSection(index2) }, "×"))), h("button", { className: "ib-mini ib-lit-btn", onClick: addSection }, "+ 加一节")),
       h(
         "div",
