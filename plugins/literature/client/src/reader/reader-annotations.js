@@ -764,7 +764,7 @@ export const annotationStyles = `
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
-.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:340px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
+.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 .ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;max-height:100vh}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
@@ -823,6 +823,22 @@ export const annotationStyles = `
 .ib-anno-panel-send{width:30px;height:30px;flex:none;border-radius:7px;background:#137c72;color:#fff;border:0;cursor:pointer;font-size:15px}
 .ib-anno-panel-send:disabled{opacity:.4;cursor:default}
 .ib-anno-panel-empty{color:#8a96a3;line-height:1.7;padding:14px;border:1px dashed #d7dfe8;border-radius:10px;background:#fff}
+.ib-anno-panel{font-size:14pt}
+.ib-anno-panel .ib-anno-panel-label,
+.ib-anno-panel .ib-anno-panel-tab,
+.ib-anno-panel .ib-anno-mini-head,
+.ib-anno-panel .ib-anno-mini-head b,
+.ib-anno-panel .ib-anno-status,
+.ib-anno-panel .ib-anno-mini-meta,
+.ib-anno-panel .ib-anno-mini-q,
+.ib-anno-panel .ib-anno-mini-a,
+.ib-anno-panel .ib-anno-mini-hint,
+.ib-anno-panel .ib-anno-follow-toggle,
+.ib-anno-panel .ib-anno-followup-q,
+.ib-anno-panel .ib-anno-followup-a,
+.ib-anno-panel .ib-anno-panel-empty,
+.ib-anno-panel-menu button{font-size:14pt}
+.ib-anno-panel .ib-anno-mini-head b{font-size:15pt}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}

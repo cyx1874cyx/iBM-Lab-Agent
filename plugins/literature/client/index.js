@@ -46575,7 +46575,7 @@ var annotationStyles = `
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
-.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:340px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
+.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 .ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;max-height:100vh}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
@@ -46634,6 +46634,22 @@ var annotationStyles = `
 .ib-anno-panel-send{width:30px;height:30px;flex:none;border-radius:7px;background:#137c72;color:#fff;border:0;cursor:pointer;font-size:15px}
 .ib-anno-panel-send:disabled{opacity:.4;cursor:default}
 .ib-anno-panel-empty{color:#8a96a3;line-height:1.7;padding:14px;border:1px dashed #d7dfe8;border-radius:10px;background:#fff}
+.ib-anno-panel{font-size:14pt}
+.ib-anno-panel .ib-anno-panel-label,
+.ib-anno-panel .ib-anno-panel-tab,
+.ib-anno-panel .ib-anno-mini-head,
+.ib-anno-panel .ib-anno-mini-head b,
+.ib-anno-panel .ib-anno-status,
+.ib-anno-panel .ib-anno-mini-meta,
+.ib-anno-panel .ib-anno-mini-q,
+.ib-anno-panel .ib-anno-mini-a,
+.ib-anno-panel .ib-anno-mini-hint,
+.ib-anno-panel .ib-anno-follow-toggle,
+.ib-anno-panel .ib-anno-followup-q,
+.ib-anno-panel .ib-anno-followup-a,
+.ib-anno-panel .ib-anno-panel-empty,
+.ib-anno-panel-menu button{font-size:14pt}
+.ib-anno-panel .ib-anno-mini-head b{font-size:15pt}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
 .ib-anno-pin{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#137c72;color:#fff;cursor:pointer;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
 .ib-anno-pin::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
@@ -54087,7 +54103,7 @@ var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-pdf-toolbar{gap:8px;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;min-height:48px}.ib-pdf-toolbar .ib-act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;color:#526277;flex:none}.ib-pdf-toolbar .ib-act:hover{background:#e7edf3;color:#1f5164}.ib-pdf-toolbar .ib-act[data-active=true]{background:#e0f1ef;color:#137c72;box-shadow:inset 0 0 0 1px #c2e2df}.ib-toolbar-group{display:flex;align-items:center;gap:3px;padding-right:8px;border-right:1px solid #dfe6ed;flex:none}.ib-toolbar-pages{border-right:0;padding-right:0;margin-left:auto;gap:5px}.ib-pdf-toolbar select{height:30px;border-radius:7px;background:#fff;padding:3px 7px;border-color:#dce4ec;cursor:pointer}.ib-pdf-toolbar .ib-material-select{width:128px}.ib-pdf-toolbar input[type=number]{height:28px;box-sizing:border-box;text-align:center;border-radius:7px;width:42px;appearance:textfield;-moz-appearance:textfield}.ib-pdf-toolbar input[type=number]::-webkit-inner-spin-button{appearance:none}.ib-pdf-toolbar small{color:#7a8796;min-width:24px}.ib-pdf-language{color:#33465b;font-weight:600;padding-right:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis}.ib-pdf-toolbar .ib-act:focus-visible,.ib-pdf-toolbar select:focus-visible,.ib-pdf-toolbar input:focus-visible{outline:2px solid #278c85;outline-offset:2px}@media(max-width:650px){.ib-pdf-toolbar{gap:5px;padding:6px}.ib-toolbar-group{padding-right:4px}.ib-pdf-toolbar .ib-act{width:27px}.ib-pdf-toolbar .ib-material-select{width:112px}.ib-toolbar-pages{margin-left:0}}
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
 .ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
-.ib-reader[data-anno=true] .pdfViewer{width:calc(100% - 340px)!important;margin-right:340px}
+.ib-reader[data-anno=true] .pdfViewer{width:calc(100% - 510px)!important;margin-right:510px}
 .ib-anno-inflow{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:6}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;
