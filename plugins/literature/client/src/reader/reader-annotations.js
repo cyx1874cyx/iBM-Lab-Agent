@@ -603,9 +603,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
 		marginHost ? ReactDOM.createPortal(
 			h('div', { className: 'ib-anno-panel' },
-				h('div', { className: 'ib-anno-panel-rail' }, sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
+				h('div', { className: 'ib-anno-panel-rail' }, h('div', { className: 'ib-anno-panel-label' }, '批注'), sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
 				h('div', { className: 'ib-anno-panel-main' },
-				h('div', { className: 'ib-anno-panel-head' }, h('strong', null, '批注'), h('span', null, `${items.length} 条`)),
 				open ? h('article', { ref: panelCardRef, className: 'ib-anno-panel-card', 'data-status': open.status },
 					h('div', { className: 'ib-anno-panel-card-head' },
 						h('b', null, `批注 ${String(sortedItems.findIndex((row) => row.id === open.id) + 1).padStart(2, '0')}`),
@@ -658,6 +657,7 @@ export const annotationStyles = `
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row;font-size:12px;color:#303744;overflow:hidden}
 .ib-anno-panel-rail{width:58px;flex:none;border-right:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px}
 .ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
