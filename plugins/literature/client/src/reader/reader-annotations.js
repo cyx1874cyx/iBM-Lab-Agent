@@ -20,7 +20,7 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, page = 1, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, page = 1, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -37,6 +37,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const overlayRef = useRef(null);
 	const contentRef = useRef(null);
 	const cardLayerRef = useRef(null);
+	const panelCardRef = useRef(null);
 	const questionRef = useRef(null);
 	const aliveRef = useRef(true);
 	aliveRef.current = true;
@@ -48,9 +49,85 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	useEffect(() => { if (openTocSignal) setTocOpen(true); }, [openTocSignal]);
 
 	useEffect(() => {
+		const host = leaderHost;
+		if (!host) return undefined;
+		const ns = 'http://www.w3.org/2000/svg';
+		const svg = document.createElementNS(ns, 'svg');
+		svg.setAttribute('class', 'ib-anno-leader');
+		svg.setAttribute('preserveAspectRatio', 'none');
+		const path = document.createElementNS(ns, 'path');
+		path.setAttribute('fill', 'none');
+		path.setAttribute('stroke', '#2f7f74');
+		path.setAttribute('stroke-width', '1.4');
+		path.setAttribute('stroke-linejoin', 'round');
+		svg.append(path);
+		host.append(svg);
+		return () => { svg.remove(); };
+	}, [leaderHost]);
+
+	const alignLeader = useCallback(() => {
+		const host = leaderHost;
+		const svg = host?.querySelector('.ib-anno-leader');
+		const path = svg?.querySelector('path');
+		const card = panelCardRef.current;
+		const item = openItemRef.current ?? items.find((row) => row.id === openId);
+		const flow = flowRef.current;
+		const body = host?.parentElement;
+		if (!svg || !path || !card || !item?.pin || !flow || !body || !marginHost) { if (svg) svg.style.display = 'none'; return; }
+		const pageEl = flowRef.current?.querySelector(`.page[data-page-number="${item.page}"]`);
+		if (!pageEl) { svg.style.display = 'none'; return; }
+		const pageRect = pageEl.getBoundingClientRect();
+		const bodyRect = body.getBoundingClientRect();
+		const marginRect = marginHost.getBoundingClientRect();
+		svg.setAttribute('width', String(Math.round(bodyRect.width)));
+		svg.setAttribute('height', String(Math.round(bodyRect.height)));
+		svg.setAttribute('viewBox', `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
+		const head = marginHost.querySelector('.ib-anno-panel-head');
+		const tabs = marginHost.querySelector('.ib-anno-panel-tabs');
+		const minTop = (head?.offsetHeight ?? 0) + (tabs?.offsetHeight ?? 0) + 26;
+		const cardHeight = card.offsetHeight;
+		const panelTop = marginRect.top - bodyRect.top;
+		const pinY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
+		const top = Math.max(minTop, Math.min(marginRect.height - cardHeight - 12, pinY - panelTop - cardHeight / 2));
+		card.style.top = `${top}px`;
+		const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
+		const startY = pinY;
+		const endX = marginRect.left - bodyRect.left + 14;
+		const endY = panelTop + top + Math.min(cardHeight / 2, 70);
+		const bend = Math.max(24, (endX - startX) * 0.45);
+		path.setAttribute('d', `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`);
+		svg.style.display = 'block';
+	}, [flowRef, leaderHost, marginHost, items, openId]);
+
+	useEffect(() => {
+		const frame = requestAnimationFrame(alignLeader);
+		return () => cancelAnimationFrame(frame);
+	}, [alignLeader, openId, items, tick]);
+
+	useEffect(() => {
+		const card = panelCardRef.current;
+		if (!card) return undefined;
+		const observer = new ResizeObserver(() => alignLeader());
+		observer.observe(card);
+		return () => observer.disconnect();
+	}, [alignLeader, openId]);
+
+	useEffect(() => {
+		const flow = flowRef.current;
+		if (!flow) return undefined;
+		let frame = 0;
+		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; alignLeader(); }); };
+		flow.addEventListener('scroll', update, { passive: true });
+		window.addEventListener('resize', update);
+		return () => { if (frame) cancelAnimationFrame(frame); flow.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+	}, [flowRef, alignLeader]);
+
+	useEffect(() => {
 		if (openId || !items.length) return;
 		const current = items.find((item) => item.page === page);
-		setOpenId((current ?? items[0]).id);
+		const chosen = current ?? items[0];
+		openItemRef.current = chosen;
+		setOpenId(chosen.id);
 	}, [items, openId, page]);
 
 	const refresh = useCallback(async () => {
@@ -506,7 +583,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			h('div', { className: 'ib-anno-panel' },
 				h('div', { className: 'ib-anno-panel-head' }, h('strong', null, '批注'), h('span', null, `${items.length} 条`)),
 				sortedItems.length ? h('div', { className: 'ib-anno-panel-tabs' }, sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, onClick: () => openAtPin(item) }, `批注 ${String(index + 1).padStart(2, '0')}`))) : null,
-				open ? h('article', { className: 'ib-anno-panel-card', 'data-status': open.status },
+				open ? h('article', { ref: panelCardRef, className: 'ib-anno-panel-card', 'data-status': open.status },
 					h('div', { className: 'ib-anno-panel-card-head' },
 						h('b', null, `批注 ${String(sortedItems.findIndex((row) => row.id === open.id) + 1).padStart(2, '0')}`),
 						h('span', { className: 'ib-anno-status', 'data-status': open.status }, annotationStatusText(open)),
@@ -552,12 +629,12 @@ export const annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
-.ib-anno-panel{padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744}
+.ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744;overflow:hidden}
 .ib-anno-panel-head{display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{display:flex;gap:6px;flex-wrap:wrap}
 .ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
 .ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
-.ib-anno-panel-card{background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a}
+.ib-anno-panel-card{position:absolute;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
 .ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
 .ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
 .ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
