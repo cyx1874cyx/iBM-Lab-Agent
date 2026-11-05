@@ -44386,6 +44386,17 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
   };
   const createFolder = () => setFolderEditor({ name: "" });
+  const saveFolderEditor = async () => {
+    const clean = String(folderEditor?.name ?? "").trim();
+    if (!clean) {
+      notify("请输入分组名称");
+      return;
+    }
+    if (await folderAction("tasks_reading_folder_save", { name: clean })) {
+      setFolderEditor(null);
+      notify("已创建分组：" + clean);
+    }
+  };
   const createFolderPrompt = async () => {
     const name = window.prompt("新分组名称");
     const clean = String(name ?? "").trim();
@@ -45143,13 +45154,15 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", ...readingInteraction.folderProps(folder), "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
             readingInteraction.clear();
             setSelectedFolder(folder.id);
-          } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length))), h("button", { type: "button", className: "ib-lit-folder ib-lit-folder-add", title: "新建分组", onClick: createFolder }, "+")),
-          folderEditor ? h("form", { className: "ib-lit-folder-editor", onSubmit: (event) => {
-            event.preventDefault();
-            void folderAction("tasks_reading_folder_save", folderEditor).then((ok) => {
-              if (ok) setFolderEditor(null);
-            });
-          } }, h("input", { value: folderEditor.name, maxLength: 80, autoFocus: true, placeholder: "分组名称，例如：卒中血栓", onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }) }), h("button", { className: "ib-lit-mini-btn", type: "submit" }, "保存"), h("button", { className: "ib-lit-mini-btn", type: "button", onClick: () => setFolderEditor(null) }, "取消")) : null,
+          } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length))), folderEditor ? h("input", { className: "ib-lit-folder-input", autoFocus: true, value: folderEditor.name, maxLength: 80, placeholder: "分组名称", onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }), onKeyDown: (event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setFolderEditor(null);
+            } else if (event.key === "Enter") {
+              event.preventDefault();
+              void saveFolderEditor();
+            }
+          } }) : h("button", { type: "button", className: "ib-lit-folder ib-lit-folder-add", title: "新建分组", onClick: createFolder }, "+")),
           h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, filteredReports.length ? filteredReports.map((report) => {
             const bundle = bundleById[report.bundleId] || {};
             const selected = selectedReport?.id === report.id;

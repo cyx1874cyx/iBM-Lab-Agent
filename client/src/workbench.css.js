@@ -126,6 +126,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-folder[data-active=true]{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
 .ib-lit-folder[data-drop-folder=true]{outline:2px dashed var(--ib-accent);outline-offset:2px}
 .ib-lit-folder-add{font-size:18px;line-height:1;padding:4px 11px}
+.ib-lit-folder-input{width:160px;height:34px;border:1px solid var(--ib-accent);border-radius:999px;padding:0 12px;background:var(--ib-panel);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui);outline:none}
 .ib-lit-folder-editor{display:flex;align-items:center;gap:8px;margin:-6px 0 14px}
 .ib-lit-folder-editor input{height:34px;min-width:220px;border:1px solid var(--ib-accent);border-radius:7px;padding:0 10px;background:var(--ib-panel);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui)}
 .ib-lit-card[data-dragging-entry=true]{opacity:.45}
