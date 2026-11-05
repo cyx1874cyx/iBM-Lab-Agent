@@ -46577,7 +46577,7 @@ var annotationStyles = `
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
 .ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;max-height:100vh}
+.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;height:100vh;min-height:100vh;max-height:100vh;box-sizing:border-box;overflow-y:auto}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
