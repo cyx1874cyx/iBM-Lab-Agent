@@ -15,7 +15,7 @@ export function buildDescriptors() {
  ...['knowledge_state','knowledge_search','knowledge_prepare','knowledge_sync','knowledge_upload','knowledge_attach','knowledge_open_source'].map(name=>direct(name,['request'])),
  ...['reagents_search','reagents_choose_source','reagents_open_source'].map(name=>direct(name,['request'])),
  direct('projects_watch', ['request']),
- ...['tasks_reading_pdf_upload','tasks_reading_pdf_retry','tasks_reading_move','tasks_reading_bind_session','tasks_reading_conversation','tasks_reading_pdf_upload_begin','tasks_reading_pdf_upload_chunk','tasks_reading_pdf_upload_finish','tasks_reading_pdf_upload_abort','tasks_annotations_list','tasks_annotations_create','tasks_annotations_ask','tasks_annotations_update','tasks_annotations_retry','tasks_annotations_delete','tasks_annotations_adopt','tasks_annotations_dismiss'].map(name=>direct(name,['request'])),
+ ...['tasks_reading_pdf_upload','tasks_reading_pdf_retry','tasks_reading_move','tasks_reading_bind_session','tasks_reading_conversation','tasks_reading_pdf_upload_begin','tasks_reading_pdf_upload_chunk','tasks_reading_pdf_upload_finish','tasks_reading_pdf_upload_abort','tasks_annotations_list','tasks_annotations_create','tasks_annotations_ask','tasks_annotations_update','tasks_annotations_retry','tasks_annotations_delete','tasks_annotations_delete_followup','tasks_annotations_adopt','tasks_annotations_dismiss'].map(name=>direct(name,['request'])),
  ...['projects_choose_file', 'projects_open_file', 'projects_draft_read', 'projects_draft_write'].map(name => direct(name, ['request'])),
  direct("capabilities"),
  direct('tasks_translation_bind',['request']),

@@ -168,6 +168,26 @@ export const annotationMethods = {
 		return item;
 	},
 
+	/** 删除单条追问（用户问题 + 其后的回答），保留批注主问题与其它追问。 */
+	async annotationsDeleteFollowup({ projectId, bundleId, annotationId, messageIndex } = {}) {
+		const bundle = this.readerBundle({ projectId, bundleId });
+		return this.mutateAnnotationStore(bundle, (store) => {
+			const target = this.annotationItem(store, annotationId);
+			if (!target) throw Error('批注不存在或已删除');
+			const messages = Array.isArray(target.messages) ? target.messages : [];
+			const index = Number(messageIndex);
+			const firstUser = messages.findIndex((message) => message.role === 'user');
+			if (!Number.isInteger(index) || index <= firstUser || messages[index]?.role !== 'user') throw Error('追问不存在或已删除');
+			let end = index + 1;
+			while (end < messages.length && messages[end].role !== 'user') end += 1;
+			messages.splice(index, end - index);
+			target.messages = messages;
+			target.error = '';
+			target.updatedAt = stamp();
+			return target;
+		});
+	},
+
 	/** 手动编辑短答；保留模型原答，标记 edited。 */
 	async annotationsUpdate({ projectId, bundleId, annotationId, shortAnswer = '' } = {}) {
 		const bundle = this.readerBundle({ projectId, bundleId });

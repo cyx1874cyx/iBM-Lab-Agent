@@ -45664,13 +45664,14 @@ var followUpsOf = (item) => {
   const result = [];
   let seenQuestion = false;
   let current = null;
-  for (const message of messages) {
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
     if (message.role === "user") {
       if (!seenQuestion) {
         seenQuestion = true;
         continue;
       }
-      current = { question: message.text, answer: "" };
+      current = { question: message.text, answer: "", messageIndex: index };
       result.push(current);
     } else if (current) {
       current.answer = message.text;
@@ -45683,6 +45684,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
+  const [selectedFollow, setSelectedFollow] = (0, import_react12.useState)(null);
   const [inflowHost, setInflowHost] = (0, import_react12.useState)(null);
   const userDeselectedRef = (0, import_react12.useRef)(false);
   const openItemRef = (0, import_react12.useRef)(null);
@@ -45865,12 +45867,13 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       }
       if (event.key === "Delete") {
         event.preventDefault();
-        void remove(item);
+        if (selectedFollow?.itemId === item.id) void removeFollow(item, selectedFollow.messageIndex);
+        else void remove(item);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [items, openId]);
+  }, [items, openId, selectedFollow]);
   const refresh = (0, import_react12.useCallback)(async () => {
     try {
       const result = await call("tasks_annotations_list", request);
@@ -45934,11 +45937,14 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const onDown = (event) => {
       const keep = event.target?.closest?.(".ib-anno-mini-card, .ib-anno-follow-block, .ib-anno-panel-menu, .ib-anno-compose, .ib-reader button, .ib-reader input, .ib-reader textarea");
       if (keep) return;
-      setOpenId(null);
-      setEditing(null);
-      setComposingId(null);
-      setFollowDraft("");
-      userDeselectedRef.current = true;
+      if (!keep) {
+        setOpenId(null);
+        setSelectedFollow(null);
+        setEditing(null);
+        setComposingId(null);
+        setFollowDraft("");
+        userDeselectedRef.current = true;
+      }
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -46172,6 +46178,17 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       await call("tasks_annotations_delete", { ...request, annotationId: item.id });
       setItems((old) => old.filter((row) => row.id !== item.id));
       setOpenId(null);
+      setSelectedFollow(null);
+    } catch (reason) {
+      setError(reason.message || String(reason));
+    }
+  };
+  const removeFollow = async (item, messageIndex) => {
+    if (!window.confirm("删除这条追问？")) return;
+    try {
+      const updated = await call("tasks_annotations_delete_followup", { ...request, annotationId: item.id, messageIndex });
+      setItems((old) => old.map((row) => row.id === item.id ? updated : row));
+      setSelectedFollow(null);
     } catch (reason) {
       setError(reason.message || String(reason));
     }
@@ -46300,6 +46317,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       userDeselectedRef.current = false;
       openItemRef.current = item;
       setOpenId(item.id);
+      setSelectedFollow(null);
       setEditing(null);
       setMenuId(null);
       setCollapsedFollows((old) => ({ ...old, [item.id]: false }));
@@ -46363,7 +46381,18 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           { className: "ib-anno-follow-list" },
           follows.map((row, followIndex) => h(
             "div",
-            { className: "ib-anno-mini-card ib-anno-follow-child", key: followIndex },
+            {
+              key: followIndex,
+              className: `ib-anno-mini-card ib-anno-follow-child${selectedFollow?.itemId === item.id && selectedFollow?.messageIndex === row.messageIndex ? " ib-anno-child-selected" : ""}`,
+              role: "button",
+              tabIndex: 0,
+              onClick: (event) => {
+                event.stopPropagation();
+                event.currentTarget.focus();
+                setOpenId(item.id);
+                setSelectedFollow({ itemId: item.id, messageIndex: row.messageIndex });
+              }
+            },
             h("div", { className: "ib-anno-mini-head" }, h("b", null, `追问 ${String(followIndex + 1).padStart(2, "0")}`)),
             h("div", { className: "ib-anno-mini-q" }, row.question),
             h("div", { className: "ib-anno-mini-a" }, row.answer || (item.status === "pending" || item.status === "running" ? "正在回答…" : "（暂无回答）"))
@@ -46624,6 +46653,8 @@ var annotationStyles = `
 .ib-anno-sources a{color:#137c72;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ib-anno-sources a:hover{text-decoration:underline}
 .ib-anno-follow-child textarea{width:100%;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
+.ib-anno-follow-child{cursor:pointer}
+.ib-anno-child-selected{outline:2px solid #137c72;outline-offset:1px}
 .ib-anno-mini-head{display:flex;align-items:center;gap:8px;color:#1f3a3a;margin-bottom:6px}
 .ib-anno-mini-q{font-size:13px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:4px}
 .ib-anno-mini-a{font-size:11px;line-height:1.65;color:#5c6a76;white-space:pre-wrap}
