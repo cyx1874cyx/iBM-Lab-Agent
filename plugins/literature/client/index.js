@@ -53508,6 +53508,21 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const [state3, setState] = (0, import_react13.useState)({ loading: true }), [doc, setDoc] = (0, import_react13.useState)(null), [zhDoc, setZhDoc] = (0, import_react13.useState)(null), [mode, setMode] = (0, import_react13.useState)("original");
   const [error, setError] = (0, import_react13.useState)(""), [busy, setBusy] = (0, import_react13.useState)(false), [query, setQuery] = (0, import_react13.useState)(""), [refresh, setRefresh] = (0, import_react13.useState)(0);
   const [linked, setLinked] = (0, import_react13.useState)(true), [stacked, setStacked] = (0, import_react13.useState)(false), [hand, setHand] = (0, import_react13.useState)(true), [textLayer, setTextLayer] = (0, import_react13.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react13.useState)(true), [regionMode, setRegionMode] = (0, import_react13.useState)(false), [tocSignal, setTocSignal] = (0, import_react13.useState)(0);
+  const selectTool = (next) => {
+    if (next === "region") {
+      setHand(false);
+      setTextLayer(false);
+      setRegionMode(true);
+    } else if (next === "text") {
+      setHand(false);
+      setTextLayer(true);
+      setRegionMode(false);
+    } else {
+      setHand(true);
+      setTextLayer(false);
+      setRegionMode(false);
+    }
+  };
   const [zoom, setZoom] = (0, import_react13.useState)({ original: 1, zh: 1 }), [pages, setPages] = (0, import_react13.useState)({ original: 1, zh: 1 }), [viewLoading, setViewLoading] = (0, import_react13.useState)({ original: true, zh: false });
   const [wantTranslation, setWantTranslation] = (0, import_react13.useState)(false), [translationAttempt, setTranslationAttempt] = (0, import_react13.useState)(0), [zhError, setZhError] = (0, import_react13.useState)("");
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
@@ -53822,19 +53837,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       { className: "ib-pdf-toolbar", role: "toolbar", "aria-label": (material?.label ?? side) + " 阅读工具" },
       selector,
       h("div", { className: "ib-toolbar-group" }, button(icon2("minus"), () => zoomTo(side, Math.max(0.5, zoom[side] - 0.25)), zoom[side] <= 0.5, false, "缩小"), h("select", { "aria-label": side + " 缩放", value: zoom[side], onChange: (event) => zoomTo(side, Number(event.target.value)) }, Array.from({ length: 11 }, (_, i) => 0.5 + i * 0.25).map((n) => h("option", { key: n, value: n }, n === 1 ? "适合宽度" : Math.round(n * 100) + "%"))), button(icon2("plus"), () => zoomTo(side, Math.min(3, zoom[side] + 0.25)), zoom[side] >= 3, false, "放大")),
-      h("div", { className: "ib-toolbar-group ib-toolbar-modes" }, button(icon2("hand"), () => {
-        setHand(true);
-        setTextLayer(false);
-      }, false, hand && !textLayer, "抓手拖动（流畅浏览）"), button(icon2("text"), () => {
-        setHand(false);
-        setTextLayer(true);
-      }, false, !hand && textLayer, "选择文字（临时加载文字层）"), button(icon2("region"), () => {
-        if (regionMode) setRegionMode(false);
-        else {
-          setHand(false);
-          setRegionMode(true);
-        }
-      }, !doc || state3.format !== "pdf", regionMode, "框选提问：拖动矩形截图给 AI")),
+      h("div", { className: "ib-toolbar-group ib-toolbar-modes" }, button(icon2("hand"), () => selectTool("hand"), false, hand && !textLayer && !regionMode, "抓手拖动（流畅浏览）"), button(icon2("text"), () => selectTool("text"), false, !hand && textLayer && !regionMode, "选择文字（临时加载文字层）"), button(icon2("region"), () => selectTool(regionMode ? "hand" : "region"), !doc || state3.format !== "pdf", regionMode, "框选提问：拖动矩形截图给 AI")),
       h("div", { className: "ib-toolbar-group ib-toolbar-pages" }, button(icon2("previous"), () => navigate(side, pages[side] - 1), !pdf || pages[side] <= 1, false, "上一页"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")), button(icon2("next"), () => navigate(side, pages[side] + 1), !pdf || pages[side] >= pdf.numPages, false, "下一页")),
       button(icon2("download"), () => void save(side).catch(onError), !pdf && !material?.officeKind, false, "下载 " + (material?.officeKind === "docx" ? "精读报告（.docx）" : material?.officeKind === "pptx" ? "PPT（.pptx）" : material?.label ?? (side === "zh" ? "中文 PDF" : "原文 PDF")))
     );
@@ -53848,7 +53851,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         "div",
         { className: "ib-pdf-viewport" },
         builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }),
-        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, marginHost, leaderHost, page: pages.original, onRegionDone: () => setRegionMode(false) }) : null,
+        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, marginHost, leaderHost, page: pages.original, onRegionDone: () => selectTool("hand") }) : null,
         h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…"))
       ),
       side === "original" && state3.format === "pdf" ? h("div", { className: "ib-anno-leader-host", ref: setLeaderHost }) : null,
