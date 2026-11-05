@@ -45739,37 +45739,42 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     };
   }, [leaderHost]);
   const alignLeader = (0, import_react12.useCallback)(() => {
-    const host = leaderHost;
-    const svg = host?.querySelector(".ib-anno-leader");
-    const path = svg?.querySelector("path");
-    const card = panelCardRef.current;
-    const item = openItemRef.current ?? items.find((row) => row.id === openId);
+    const svg = leaderHost?.querySelector(".ib-anno-leader");
     const flow2 = flowRef.current;
-    const body = host?.parentElement;
-    if (!svg || !path || !card || !item?.pin || !flow2 || !body || !marginHost) {
+    const body = leaderHost?.parentElement;
+    if (!svg || !flow2 || !body) {
       if (svg) svg.style.display = "none";
       return;
     }
-    const pageEl = flowRef.current?.querySelector(`.page[data-page-number="${item.page}"]`);
-    if (!pageEl) {
-      svg.style.display = "none";
-      return;
-    }
-    const pageRect = pageEl.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
     svg.setAttribute("width", String(Math.round(bodyRect.width)));
     svg.setAttribute("height", String(Math.round(bodyRect.height)));
     svg.setAttribute("viewBox", `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
-    const pinY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
-    const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
-    const startY = pinY;
-    const cardRect = card.getBoundingClientRect();
-    const endX = cardRect.left - bodyRect.left;
-    const endY = cardRect.top - bodyRect.top + Math.min(cardRect.height / 2, 70);
-    const bend = Math.max(24, (endX - startX) * 0.45);
-    path.setAttribute("d", `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`);
-    svg.style.display = "block";
-  }, [flowRef, leaderHost, marginHost, items, openId]);
+    const lines = [];
+    for (const item of items) {
+      const entry = entryRefs.current.get(item.id);
+      const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
+      if (!entry || !pageEl || !item.pin) continue;
+      const pageRect = pageEl.getBoundingClientRect();
+      const entryRect = entry.getBoundingClientRect();
+      const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
+      const startY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
+      const endX = entryRect.left - bodyRect.left;
+      const endY = entryRect.top - bodyRect.top + Math.min(24, entryRect.height / 2);
+      const bend = Math.max(24, (endX - startX) * 0.45);
+      lines.push({ d: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`, active: item.id === openId });
+    }
+    svg.replaceChildren();
+    for (const line of lines) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", line.d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", line.active ? "#137c72" : "#7fb8ac");
+      path.setAttribute("stroke-width", line.active ? "1.6" : "1.1");
+      svg.append(path);
+    }
+    svg.style.display = lines.length ? "block" : "none";
+  }, [flowRef, leaderHost, items, openId]);
   const alignCards = (0, import_react12.useCallback)(() => {
     const list = listRef.current;
     const flow2 = flowRef.current;
@@ -45840,8 +45845,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     if (!host || !flow2) return void 0;
     const onWheel = (event) => {
       if (event.target?.closest?.(".ib-anno-panel-menu")) return;
-      const list = host.querySelector(".ib-anno-panel-list");
-      if (list && event.target?.closest?.(".ib-anno-panel-list") && list.scrollHeight > list.clientHeight + 2) return;
       if (!event.deltaY && !event.deltaX) return;
       event.preventDefault();
       flow2.scrollTop += event.deltaY;
@@ -46217,6 +46220,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       bump();
     }
     openAtPin(item);
+    setCollapsedFollows((old) => ({ ...old, [item.id]: false }));
     setEditing(null);
     setMenuId(null);
   };
@@ -46293,13 +46297,14 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setOpenId(item.id);
       setEditing(null);
       setMenuId(null);
+      setCollapsedFollows((old) => ({ ...old, [item.id]: false }));
     };
     const startFollow = () => {
       select();
       setComposingId(item.id);
       setFollowDraft("");
     };
-    const collapsed = collapsedFollows[item.id] && composingId !== item.id;
+    const collapsed = !active2 || collapsedFollows[item.id] && composingId !== item.id;
     return h(
       "div",
       { key: item.id, ref: setEntry, className: "ib-anno-entry" },
@@ -46330,7 +46335,14 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       follows.length || composingId === item.id ? h(
         "div",
         { className: "ib-anno-follow-block", "data-collapsed": collapsed ? "true" : void 0 },
-        h("button", { type: "button", className: "ib-anno-follow-toggle", title: collapsed ? "展开追问" : "收起追问", onClick: () => setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })) }, h("span", { className: "ib-anno-hline" }), `${follows.length} 条追问`),
+        h("button", { type: "button", className: "ib-anno-follow-toggle", title: collapsed ? "展开追问" : "收起追问", onClick: (event) => {
+          event.stopPropagation();
+          if (!active2) {
+            select();
+            return;
+          }
+          setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] }));
+        } }, h("span", { className: "ib-anno-hline" }), `${follows.length} 条追问`),
         h(
           "div",
           { className: "ib-anno-follow-list" },
