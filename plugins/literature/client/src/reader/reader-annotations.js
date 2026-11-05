@@ -26,6 +26,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [openId, setOpenId] = useState(null);
 	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
+	const [menuId, setMenuId] = useState(null);
 	const [error, setError] = useState('');
 	const [tick, setTick] = useState(0);
 	const [submitting, setSubmitting] = useState(false);
@@ -91,8 +92,9 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		card.style.top = `${top}px`;
 		const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
 		const startY = pinY;
-		const endX = marginRect.left - bodyRect.left + 14;
-		const endY = panelTop + top + Math.min(cardHeight / 2, 70);
+		const cardRect = card.getBoundingClientRect();
+		const endX = cardRect.left - bodyRect.left;
+		const endY = cardRect.top - bodyRect.top + Math.min(cardRect.height / 2, 70);
 		const bend = Math.max(24, (endX - startX) * 0.45);
 		path.setAttribute('d', `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`);
 		svg.style.display = 'block';
@@ -441,6 +443,26 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		return true;
 	}, [pageElement]);
 
+	const focusItem = (item) => {
+		const flow = flowRef.current;
+		const pageEl = pageElement(item.page);
+		if (flow && pageEl && item.pin) {
+			const anchorY = pageEl.offsetTop + item.pin.y * pageEl.offsetHeight;
+			flow.scrollTop = Math.max(0, Math.min(flow.scrollHeight - flow.clientHeight, anchorY - flow.clientHeight / 2));
+			bump();
+		}
+		openAtPin(item);
+		setEditing(null);
+		setMenuId(null);
+	};
+
+	useEffect(() => {
+		if (!menuId) return undefined;
+		const close = (event) => { if (!event.target?.closest?.('.ib-anno-panel-more')) setMenuId(null); };
+		document.addEventListener('mousedown', close);
+		return () => document.removeEventListener('mousedown', close);
+	}, [menuId]);
+
 	const locate = (item) => {
 		setTocOpen(false);
 		setOpenId(null);
@@ -564,14 +586,19 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
 		marginHost ? ReactDOM.createPortal(
 			h('div', { className: 'ib-anno-panel' },
+				h('div', { className: 'ib-anno-panel-rail' }, sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
+				h('div', { className: 'ib-anno-panel-main' },
 				h('div', { className: 'ib-anno-panel-head' }, h('strong', null, '批注'), h('span', null, `${items.length} 条`)),
-				sortedItems.length ? h('div', { className: 'ib-anno-panel-tabs' }, sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, onClick: () => openAtPin(item) }, `批注 ${String(index + 1).padStart(2, '0')}`))) : null,
 				open ? h('article', { ref: panelCardRef, className: 'ib-anno-panel-card', 'data-status': open.status },
 					h('div', { className: 'ib-anno-panel-card-head' },
 						h('b', null, `批注 ${String(sortedItems.findIndex((row) => row.id === open.id) + 1).padStart(2, '0')}`),
 						h('span', { className: 'ib-anno-status', 'data-status': open.status }, annotationStatusText(open)),
 						h('button', { type: 'button', className: 'ib-anno-panel-icon', title: '编辑短答', onClick: () => setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || '' }) }, '✎'),
-						h('button', { type: 'button', className: 'ib-anno-panel-icon', title: '删除批注', onClick: () => void remove(open) }, '⋯')),
+						h('span', { className: 'ib-anno-panel-more' },
+							h('button', { type: 'button', className: 'ib-anno-panel-icon', title: '更多操作', onClick: (event) => { event.stopPropagation(); setMenuId(menuId === open.id ? null : open.id); } }, '⋯'),
+							menuId === open.id ? h('div', { className: 'ib-anno-panel-menu' },
+								h('button', { type: 'button', onClick: () => { setMenuId(null); setEditing({ id: open.id, value: open.shortAnswer || open.modelAnswer || '' }); } }, '编辑'),
+								h('button', { type: 'button', className: 'ib-anno-menu-danger', onClick: () => { setMenuId(null); void remove(open); } }, '删除')) : null)),
 					h('div', { className: 'ib-anno-panel-meta' }, `第 ${open.page} 页 · ${open.kind === 'region' ? '框选区域' : '原文'}`),
 					h('div', { className: 'ib-anno-panel-question' }, open.question),
 					editing?.id === open.id
@@ -597,7 +624,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 						h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 						h('button', { type: 'button', className: 'ib-anno-panel-send', disabled: !followText.trim(), title: '发送追问', onClick: () => void askFollow(open) }, '↑')))
 				: h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'),
-				error ? h('div', { className: 'ib-anno-error' }, error) : null
+				error ? h('div', { className: 'ib-anno-error' }, error) : null)
 			), marginHost) : null,
 		error ? h('div', { className: 'ib-anno-error' }, error) : null
 	);
@@ -612,11 +639,18 @@ export const annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
-.ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744;overflow:hidden}
+.ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row;font-size:12px;color:#303744;overflow:hidden}
+.ib-anno-panel-rail{width:58px;flex:none;border-right:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px}
 .ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
-.ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
-.ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
+.ib-anno-panel-tab{border:1px solid #d7dfe8;background:#f7f9fa;border-radius:8px;padding:7px 0;font-size:11px;color:#5c6a76;cursor:pointer;text-align:center;width:100%}
+.ib-anno-panel-tab[data-active=true]{background:#137c72;border-color:#137c72;color:#fff}
+.ib-anno-panel-tab[data-status=pending],.ib-anno-panel-tab[data-status=running]{border-color:#d7b26a}
+.ib-anno-panel-more{position:relative;display:inline-flex}
+.ib-anno-panel-menu{position:absolute;right:0;top:26px;z-index:20;min-width:96px;display:flex;flex-direction:column;background:#fff;border:1px solid #dce1e8;border-radius:8px;box-shadow:0 8px 24px #1f3a3a1f;padding:4px}
+.ib-anno-panel-menu button{border:0;background:transparent;text-align:left;padding:7px 10px;border-radius:6px;font:inherit;color:#303744;cursor:pointer}
+.ib-anno-panel-menu button:hover{background:#f0f4f7}.ib-anno-panel-menu .ib-anno-menu-danger{color:#af3333}
 .ib-anno-panel-card{position:absolute;z-index:1;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
 .ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
 .ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
