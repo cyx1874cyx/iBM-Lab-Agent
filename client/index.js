@@ -2849,7 +2849,10 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-page-head{position:relative}
 .ib-wb-page-head>.ib-lit-toolbar{position:absolute;left:250px;top:44px;margin:0}
 .ib-lit-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px}
-.ib-wb-page-head>.ib-lit-toolbar .ib-act{flex:none;height:36px;padding:0 14px;white-space:nowrap}
+.ib-wb-page-head>.ib-lit-toolbar .ib-act{flex:none;height:40px;padding:0 16px;white-space:nowrap;border:1px solid var(--ib-accent);border-radius:8px;background:transparent;color:var(--ib-accent-ink);font:600 15px/1 var(--ib-font,system-ui);display:inline-flex;align-items:center;gap:7px;box-shadow:none}
+.ib-wb-page-head>.ib-lit-toolbar .ib-act:hover{background:var(--ib-accent-soft)}
+.ib-wb-page-head>.ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
+.ib-wb-page-head>.ib-lit-toolbar .ib-act-primary:hover{background:var(--ib-accent-ink)}
 .ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
 .ib-lit-tabs{display:flex;justify-content:flex-start;align-items:flex-end;gap:56px;border-bottom:1px solid var(--ib-line);margin-bottom:18px}
 .ib-lit-tab{position:relative;border:0;background:none;padding:6px 2px 14px;color:var(--ib-muted);font:600 20px/1.2 var(--ib-serif,Georgia,serif);cursor:pointer;display:flex;align-items:baseline;gap:10px}
@@ -2862,6 +2865,8 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-folder[data-active=true]{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
 .ib-lit-folder[data-drop-folder=true]{outline:2px dashed var(--ib-accent);outline-offset:2px}
 .ib-lit-folder-add{font-size:18px;line-height:1;padding:4px 11px}
+.ib-lit-folder-editor{display:flex;align-items:center;gap:8px;margin:-6px 0 14px}
+.ib-lit-folder-editor input{height:34px;min-width:220px;border:1px solid var(--ib-accent);border-radius:7px;padding:0 10px;background:var(--ib-panel);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui)}
 .ib-lit-card[data-dragging-entry=true]{opacity:.45}
 .ib-lit-card[data-drop-position=before]{box-shadow:inset 0 3px 0 var(--ib-accent)}
 .ib-lit-card[data-drop-position=after]{box-shadow:inset 0 -3px 0 var(--ib-accent)}

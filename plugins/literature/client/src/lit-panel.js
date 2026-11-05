@@ -800,8 +800,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 			return h(React.Fragment, null, h('div', { className: 'ib-lit ib-lit-workbench', ref: literatureRoot },
 				h('section', { className: 'ib-lit-catalog' },
 					h('div', { className: 'ib-lit-toolbar', ref: toolbarRef },
-						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '模板管理'),
-						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '上传 RIS'),
+						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '▤ 模板管理'),
+						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '↑ 上传 RIS'),
 						h('button', { className: 'ib-act ib-act-primary', onClick: () => pdfPicker.current?.click() }, '+ 上传文献'),
 						h('input', { type: 'file', accept: '.ris', multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
 						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })),
@@ -809,7 +809,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'reading' ? 'true' : undefined, onClick: () => setActiveLitTab('reading') }, '精读文献 ', h('span', null, readingReports.length)),
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'search' ? 'true' : undefined, onClick: () => setActiveLitTab('search') }, '检索记录 ', h('span', null, searches.length))),
 					activeLitTab === 'reading' ? h(React.Fragment, null,
-						h('div', { className: 'ib-lit-folders' }, [{ id: 'all', name: '全部' }, { id: 'unfiled', name: '未分类' }, ...folders].map((folder) => h('button', { key: folder.id, type: 'button', className: 'ib-lit-folder', ...readingInteraction.folderProps(folder), 'data-active': selectedFolder === folder.id ? 'true' : undefined, onClick: () => { readingInteraction.clear(); setSelectedFolder(folder.id); } }, folder.name, h('span', null, reports.filter((row) => folder.id === 'all' || (folder.id === 'unfiled' ? !row.folderId : row.folderId === folder.id)).length))), h('button', { type: 'button', className: 'ib-lit-folder ib-lit-folder-add', title: '新建分组', onClick: createFolderPrompt }, '+')),
+						h('div', { className: 'ib-lit-folders' }, [{ id: 'all', name: '全部' }, { id: 'unfiled', name: '未分类' }, ...folders].map((folder) => h('button', { key: folder.id, type: 'button', className: 'ib-lit-folder', ...readingInteraction.folderProps(folder), 'data-active': selectedFolder === folder.id ? 'true' : undefined, onClick: () => { readingInteraction.clear(); setSelectedFolder(folder.id); } }, folder.name, h('span', null, reports.filter((row) => folder.id === 'all' || (folder.id === 'unfiled' ? !row.folderId : row.folderId === folder.id)).length))), h('button', { type: 'button', className: 'ib-lit-folder ib-lit-folder-add', title: '新建分组', onClick: createFolder }, '+')),
+					folderEditor ? h('form', { className: 'ib-lit-folder-editor', onSubmit: (event) => { event.preventDefault(); void folderAction('tasks_reading_folder_save', folderEditor).then((ok) => { if (ok) setFolderEditor(null); }); } }, h('input', { value: folderEditor.name, maxLength: 80, autoFocus: true, placeholder: '分组名称，例如：卒中血栓', onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }) }), h('button', { className: 'ib-lit-mini-btn', type: 'submit' }, '保存'), h('button', { className: 'ib-lit-mini-btn', type: 'button', onClick: () => setFolderEditor(null) }, '取消')) : null,
 						h('div', { className: 'ib-lit-list ib-lit-cards', role: 'listbox', 'aria-label': '精读文献条目' }, filteredReports.length ? filteredReports.map((report) => {
 							const bundle = bundleById[report.bundleId] || {};
 							const selected = selectedReport?.id === report.id;
