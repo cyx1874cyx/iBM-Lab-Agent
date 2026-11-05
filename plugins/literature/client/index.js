@@ -46338,6 +46338,12 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h("div", { className: "ib-anno-mini-meta" }, `第 ${item.page} 页 · ${item.kind === "region" ? "框选区域" : "原文"}`),
         h("div", { className: "ib-anno-mini-q" }, item.question),
         h("div", { className: "ib-anno-mini-a" }, item.status === "pending" || item.status === "running" ? "正在根据原文生成短答…" : item.shortAnswer || item.modelAnswer || "（暂无短答）"),
+        (item.sources ?? []).length ? h(
+          "div",
+          { className: "ib-anno-sources", onClick: (event) => event.stopPropagation() },
+          h("div", { className: "ib-anno-sources-title" }, "网络来源"),
+          item.sources.map((row, sourceIndex) => h("a", { key: sourceIndex, href: row.url, target: "_blank", rel: "noopener noreferrer" }, row.title || row.url))
+        ) : null,
         item.error ? h("div", { className: "ib-anno-card-error" }, item.error) : null,
         h("div", { className: "ib-anno-mini-hint" }, "Enter 追问 · Del 删除")
       ),
@@ -46599,6 +46605,10 @@ var annotationStyles = `
 .ib-anno-mini-active{box-shadow:0 0 0 2px #9fc7bd}
 .ib-anno-mini-meta{font-size:10px;color:#9aa6b2;margin:-2px 0 6px}
 .ib-anno-mini-hint{margin-top:7px;font-size:10px;color:#9aa6b2}
+.ib-anno-sources{margin-top:8px;padding-top:6px;border-top:1px dashed #e2e8ee;display:flex;flex-direction:column;gap:3px}
+.ib-anno-sources-title{color:#607080;font-weight:600}
+.ib-anno-sources a{color:#137c72;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-anno-sources a:hover{text-decoration:underline}
 .ib-anno-follow-child textarea{width:100%;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
 .ib-anno-mini-head{display:flex;align-items:center;gap:8px;color:#1f3a3a;margin-bottom:6px}
 .ib-anno-mini-q{font-size:13px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:4px}
@@ -46648,6 +46658,8 @@ var annotationStyles = `
 .ib-anno-panel .ib-anno-followup-q,
 .ib-anno-panel .ib-anno-followup-a,
 .ib-anno-panel .ib-anno-panel-empty,
+.ib-anno-panel .ib-anno-sources,
+.ib-anno-panel .ib-anno-sources a,
 .ib-anno-panel-menu button{font-size:14pt}
 .ib-anno-panel .ib-anno-mini-head b{font-size:15pt}
 .ib-anno-highlight[data-status=failed]{background:rgba(175,51,51,.14);outline-color:rgba(175,51,51,.4)}
