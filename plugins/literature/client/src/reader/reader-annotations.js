@@ -42,6 +42,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
+	const userDeselectedRef = useRef(false);
 	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
 	const [menuId, setMenuId] = useState(null);
@@ -172,7 +173,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	}, [flowRef, alignCards, alignLeader]);
 
 	useEffect(() => {
-		if (openId || !items.length) return;
+		if (openId || userDeselectedRef.current || !items.length) return;
 		const current = items.find((item) => item.page === page);
 		const chosen = current ?? items[0];
 		openItemRef.current = chosen;
@@ -264,10 +265,14 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	useEffect(() => {
 		if (!openId) return undefined;
 		const onDown = (event) => {
-			// 批注栏是 portal 到 aside 的，必须同样视为“内部”，否则单击批注栏会先关闭再默认重开。
-			if (overlayRef.current?.contains(event.target) || marginHost?.contains(event.target)) return;
+			// 点到卡片、追问、输入框、菜单、工具栏或图钉时保留选中；其余空白区域取消选中。
+			const keep = event.target?.closest?.('.ib-anno-mini-card, .ib-anno-follow-block, .ib-anno-panel-menu, .ib-anno-compose, .ib-reader button, .ib-reader input, .ib-reader textarea');
+			if (keep) return;
 			setOpenId(null);
 			setEditing(null);
+			setComposingId(null);
+			setFollowDraft('');
+			userDeselectedRef.current = true;
 		};
 		document.addEventListener('mousedown', onDown);
 		return () => document.removeEventListener('mousedown', onDown);
@@ -520,6 +525,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const openAtPin = useCallback((item) => {
 		const pageEl = pageElement(item.page);
 		if (!pageEl || !item.pin) return false;
+		userDeselectedRef.current = false;
 		openItemRef.current = item;
 		setOpenId(item.id);
 		return true;
@@ -600,7 +606,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const compactCard = (item, index, follows) => {
 		const setEntry = (node) => { if (node) entryRefs.current.set(item.id, node); else entryRefs.current.delete(item.id); };
 		const active = openId === item.id;
-		const select = () => { openItemRef.current = item; setOpenId(item.id); setEditing(null); setMenuId(null); setCollapsedFollows((old) => ({ ...old, [item.id]: false })); };
+		const select = () => { userDeselectedRef.current = false; openItemRef.current = item; setOpenId(item.id); setEditing(null); setMenuId(null); setCollapsedFollows((old) => ({ ...old, [item.id]: false })); };
 		const startFollow = () => { select(); setComposingId(item.id); setFollowDraft(''); };
 		const collapsed = !active || (collapsedFollows[item.id] && composingId !== item.id);
 		return h('div', { key: item.id, ref: setEntry, className: 'ib-anno-entry' },

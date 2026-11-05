@@ -45686,6 +45686,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
+  const userDeselectedRef = (0, import_react12.useRef)(false);
   const openItemRef = (0, import_react12.useRef)(null);
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [menuId, setMenuId] = (0, import_react12.useState)(null);
@@ -45833,7 +45834,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     };
   }, [flowRef, alignCards, alignLeader]);
   (0, import_react12.useEffect)(() => {
-    if (openId || !items.length) return;
+    if (openId || userDeselectedRef.current || !items.length) return;
     const current = items.find((item) => item.page === page);
     const chosen = current ?? items[0];
     openItemRef.current = chosen;
@@ -45933,9 +45934,13 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   (0, import_react12.useEffect)(() => {
     if (!openId) return void 0;
     const onDown = (event) => {
-      if (overlayRef.current?.contains(event.target) || marginHost?.contains(event.target)) return;
+      const keep = event.target?.closest?.(".ib-anno-mini-card, .ib-anno-follow-block, .ib-anno-panel-menu, .ib-anno-compose, .ib-reader button, .ib-reader input, .ib-reader textarea");
+      if (keep) return;
       setOpenId(null);
       setEditing(null);
+      setComposingId(null);
+      setFollowDraft("");
+      userDeselectedRef.current = true;
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -46207,6 +46212,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const openAtPin = (0, import_react12.useCallback)((item) => {
     const pageEl = pageElement(item.page);
     if (!pageEl || !item.pin) return false;
+    userDeselectedRef.current = false;
     openItemRef.current = item;
     setOpenId(item.id);
     return true;
@@ -46293,6 +46299,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     };
     const active2 = openId === item.id;
     const select = () => {
+      userDeselectedRef.current = false;
       openItemRef.current = item;
       setOpenId(item.id);
       setEditing(null);
