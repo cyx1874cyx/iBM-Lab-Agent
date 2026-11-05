@@ -45861,13 +45861,13 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   (0, import_react12.useEffect)(() => {
     if (!openId) return void 0;
     const onDown = (event) => {
-      if (overlayRef.current?.contains(event.target)) return;
+      if (overlayRef.current?.contains(event.target) || marginHost?.contains(event.target)) return;
       setOpenId(null);
       setEditing(null);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [openId]);
+  }, [openId, marginHost]);
   (0, import_react12.useEffect)(() => {
     const flow2 = flowRef.current;
     if (!flow2 || !regionMode || !active || !enabled) return void 0;

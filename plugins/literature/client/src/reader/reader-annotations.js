@@ -199,13 +199,14 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	useEffect(() => {
 		if (!openId) return undefined;
 		const onDown = (event) => {
-			if (overlayRef.current?.contains(event.target)) return;
+			// 批注栏是 portal 到 aside 的，必须同样视为“内部”，否则单击批注栏会先关闭再默认重开。
+			if (overlayRef.current?.contains(event.target) || marginHost?.contains(event.target)) return;
 			setOpenId(null);
 			setEditing(null);
 		};
 		document.addEventListener('mousedown', onDown);
 		return () => document.removeEventListener('mousedown', onDown);
-	}, [openId]);
+	}, [openId, marginHost]);
 
 	useEffect(() => {
 		const flow = flowRef.current;
