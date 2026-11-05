@@ -44416,6 +44416,16 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react9.useState)(null);
   const [activeLitTab, setActiveLitTab] = (0, import_react9.useState)("reading");
   const [selectedReportId, setSelectedReportId] = (0, import_react9.useState)("");
+  const toolbarRef = (0, import_react9.useRef)(null);
+  (0, import_react9.useEffect)(() => {
+    const head = document.querySelector(".ib-wb-page-head");
+    const toolbar = toolbarRef.current;
+    if (!head || !toolbar) return void 0;
+    head.append(toolbar);
+    return () => {
+      toolbar.remove();
+    };
+  }, []);
   const [templatesOpen, setTemplatesOpen] = (0, import_react9.useState)(false);
   const [noteTemplates, setNoteTemplates] = (0, import_react9.useState)([]);
   const [noteTemplateId, setNoteTemplateId] = useProjectViewValue(projectId, "reading-template", "");
@@ -45000,7 +45010,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     const journal = String(bundle.journal || bundle.shortCitation || "PREPRINT");
     const label = String(journalShortOf(bundle).split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").slice(0, 6).toUpperCase();
     const tone = /nature/i.test(journal) ? "#0b4d3b" : /uist/i.test(journal) ? "#2c4a7a" : /jnis|neuro/i.test(journal) ? "#6e1f2f" : /inr|radio/i.test(journal) ? "#46566b" : "#3f4e5d";
-    return h("span", { className: "ib-paper-cover", style: { background: tone, fontSize: label.length > 5 ? "17px" : void 0 } }, label);
+    return h("span", { className: "ib-paper-cover", style: { background: tone, fontSize: label.length >= 6 ? "14px" : label.length === 5 ? "16px" : void 0 } }, label);
   };
   const openSelectedPdf = (event) => {
     event.stopPropagation();
@@ -45042,7 +45052,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h(
       "div",
       { className: "ib-lit-detail-lead" },
-      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { background: coverOf(selectedBundle).props.style.background } }, coverOf(selectedBundle).props.children),
+      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { ...coverOf(selectedBundle).props.style } }, coverOf(selectedBundle).props.children),
       h(
         "div",
         { className: "ib-lit-detail-title" },
@@ -45108,7 +45118,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         { className: "ib-lit-catalog" },
         h(
           "div",
-          { className: "ib-lit-toolbar" },
+          { className: "ib-lit-toolbar", ref: toolbarRef },
           h("button", { className: "ib-act", onClick: () => setTemplatesOpen(true) }, "模板管理"),
           h("button", { className: "ib-act", disabled: importingRis, onClick: () => risPicker.current?.click() }, "上传 RIS"),
           h("button", { className: "ib-act ib-act-primary", onClick: () => pdfPicker.current?.click() }, "+ 上传文献"),

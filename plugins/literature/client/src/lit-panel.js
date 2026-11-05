@@ -198,6 +198,14 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [activeLitTab, setActiveLitTab] = useState('reading');
 			const [selectedReportId, setSelectedReportId] = useState('');
+			const toolbarRef = useRef(null);
+			useEffect(() => {
+				const head = document.querySelector('.ib-wb-page-head');
+				const toolbar = toolbarRef.current;
+				if (!head || !toolbar) return undefined;
+				head.append(toolbar);
+				return () => { toolbar.remove(); };
+			}, []);
 			const [templatesOpen, setTemplatesOpen] = useState(false);
 			const [noteTemplates,setNoteTemplates]=useState([]);
 			const [noteTemplateId,setNoteTemplateId]=useProjectViewValue(projectId,'reading-template','');
@@ -736,7 +744,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				const journal = String(bundle.journal || bundle.shortCitation || 'PREPRINT');
 				const label = String(journalShortOf(bundle).split(/[^\p{L}\p{N}]+/u)[0] || 'PREPRINT').slice(0, 6).toUpperCase();
 				const tone = /nature/i.test(journal) ? '#0b4d3b' : /uist/i.test(journal) ? '#2c4a7a' : /jnis|neuro/i.test(journal) ? '#6e1f2f' : /inr|radio/i.test(journal) ? '#46566b' : '#3f4e5d';
-				return h('span', { className: 'ib-paper-cover', style: { background: tone, fontSize: label.length > 5 ? '17px' : undefined } }, label);
+				return h('span', { className: 'ib-paper-cover', style: { background: tone, fontSize: label.length >= 6 ? '14px' : label.length === 5 ? '16px' : undefined } }, label);
 			};
 			const openSelectedPdf = (event) => {
 				event.stopPropagation();
@@ -767,7 +775,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 			const detailNode = selectedReport ? h('aside', { className: 'ib-lit-detail', 'aria-label': '文献详情' },
 				h('div', { className: 'ib-lit-detail-head' }, h('h2', null, '文献详情')),
 				h('div', { className: 'ib-lit-detail-lead' },
-					h('span', { className: 'ib-paper-cover ib-paper-cover-lg', style: { background: coverOf(selectedBundle).props.style.background } }, coverOf(selectedBundle).props.children),
+					h('span', { className: 'ib-paper-cover ib-paper-cover-lg', style: { ...coverOf(selectedBundle).props.style } }, coverOf(selectedBundle).props.children),
 					h('div', { className: 'ib-lit-detail-title' },
 						h('h3', null, selectedReport.titleZh || selectedBundle.title || selectedReport.id),
 						h('div', { className: 'ib-lit-detail-cite' },
@@ -790,7 +798,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h('button', { type: 'button', className: 'ib-lit-secondary', disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: 'ppt', report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {}) }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : h('aside', { className: 'ib-lit-detail ib-lit-detail-empty' }, '选择左侧文献查看详情');
 			return h(React.Fragment, null, h('div', { className: 'ib-lit ib-lit-workbench', ref: literatureRoot },
 				h('section', { className: 'ib-lit-catalog' },
-					h('div', { className: 'ib-lit-toolbar' },
+					h('div', { className: 'ib-lit-toolbar', ref: toolbarRef },
 						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '模板管理'),
 						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '上传 RIS'),
 						h('button', { className: 'ib-act ib-act-primary', onClick: () => pdfPicker.current?.click() }, '+ 上传文献'),
