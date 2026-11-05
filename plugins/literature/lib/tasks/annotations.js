@@ -246,7 +246,20 @@ export const annotationMethods = {
 			if (item) { item.status = item.status === 'pending' ? 'running' : item.status; item.updatedAt = stamp(); }
 		}).catch(() => {});
 		try {
-			const answer = await this.annotationAnswer(bundle, annotationId, { pageText, context, signal: controller.signal });
+			let answer;
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				try {
+					answer = await this.annotationAnswer(bundle, annotationId, { pageText, context, signal: controller.signal });
+					break;
+				} catch (error) {
+					if (controller.signal.aborted) return;
+					if (attempt === 0 && /transport|fetch failed|ECONN|network|socket/i.test(error?.message ?? '')) {
+						await new Promise((resolve) => setTimeout(resolve, 1500));
+						continue;
+					}
+					throw error;
+				}
+			}
 			if (!answer) return;
 			await this.mutateAnnotationStore(bundle, (store) => {
 				const item = this.annotationItem(store, annotationId);
@@ -269,7 +282,8 @@ export const annotationMethods = {
 			});
 		} catch (error) {
 			if (controller.signal.aborted) return;
-			const message = cleanupText(error?.message ?? String(error), 800);
+			const raw = cleanupText(error?.message ?? String(error), 800);
+			const message = /transport|fetch failed|network|socket|ECONN/i.test(raw) ? '模型服务连接失败，请稍后点「重试」' : (raw || '生成失败');
 			await this.mutateAnnotationStore(bundle, (store) => {
 				const item = this.annotationItem(store, annotationId);
 				if (!item) return;

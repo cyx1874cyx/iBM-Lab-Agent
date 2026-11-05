@@ -636,6 +636,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					h('div', { className: 'ib-anno-sources-title' }, '网络来源'),
 					item.sources.map((row, sourceIndex) => h('a', { key: sourceIndex, href: row.url, target: '_blank', rel: 'noopener noreferrer' }, row.title || row.url))) : null,
 				item.error ? h('div', { className: 'ib-anno-card-error' }, item.error) : null,
+				item.status === 'failed' ? h('button', { type: 'button', className: 'ib-anno-retry', onClick: (event) => { event.stopPropagation(); void retry(item); } }, '重试') : null,
 				h('div', { className: 'ib-anno-mini-hint' }, 'Enter 追问 · Del 删除')),
 			follows.length || composingId === item.id ? h('div', { className: 'ib-anno-follow-block', 'data-collapsed': collapsed ? 'true' : undefined },
 				h('button', { type: 'button', className: 'ib-anno-follow-toggle', title: collapsed ? '展开追问' : '收起追问', onClick: (event) => { event.stopPropagation(); if (!active) { select(); return; } setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })); } }, h('span', { className: 'ib-anno-hline' }), `${follows.length} 条追问`),
@@ -791,6 +792,7 @@ export const annotationStyles = `
 .ib-anno-mini-active{box-shadow:0 0 0 2px #9fc7bd}
 .ib-anno-mini-meta{font-size:10px;color:#9aa6b2;margin:-2px 0 6px}
 .ib-anno-mini-hint{margin-top:7px;font-size:10px;color:#9aa6b2}
+.ib-anno-retry{margin-top:6px;border:1px solid #d7dfe8;background:#fff;border-radius:6px;padding:3px 10px;color:#137c72;cursor:pointer;font:inherit}
 .ib-anno-sources{margin-top:8px;padding-top:6px;border-top:1px dashed #e2e8ee;display:flex;flex-direction:column;gap:3px}
 .ib-anno-sources-title{color:#607080;font-weight:600}
 .ib-anno-sources a{color:#137c72;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

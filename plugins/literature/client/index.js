@@ -46345,6 +46345,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           item.sources.map((row, sourceIndex) => h("a", { key: sourceIndex, href: row.url, target: "_blank", rel: "noopener noreferrer" }, row.title || row.url))
         ) : null,
         item.error ? h("div", { className: "ib-anno-card-error" }, item.error) : null,
+        item.status === "failed" ? h("button", { type: "button", className: "ib-anno-retry", onClick: (event) => {
+          event.stopPropagation();
+          void retry(item);
+        } }, "重试") : null,
         h("div", { className: "ib-anno-mini-hint" }, "Enter 追问 · Del 删除")
       ),
       follows.length || composingId === item.id ? h(
@@ -46605,6 +46609,7 @@ var annotationStyles = `
 .ib-anno-mini-active{box-shadow:0 0 0 2px #9fc7bd}
 .ib-anno-mini-meta{font-size:10px;color:#9aa6b2;margin:-2px 0 6px}
 .ib-anno-mini-hint{margin-top:7px;font-size:10px;color:#9aa6b2}
+.ib-anno-retry{margin-top:6px;border:1px solid #d7dfe8;background:#fff;border-radius:6px;padding:3px 10px;color:#137c72;cursor:pointer;font:inherit}
 .ib-anno-sources{margin-top:8px;padding-top:6px;border-top:1px dashed #e2e8ee;display:flex;flex-direction:column;gap:3px}
 .ib-anno-sources-title{color:#607080;font-weight:600}
 .ib-anno-sources a{color:#137c72;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
