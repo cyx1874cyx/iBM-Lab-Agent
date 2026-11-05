@@ -45777,6 +45777,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const bodyRect = body.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
     let prevBottom = -Infinity;
+    let first = true;
     for (const item of items.slice().sort((a, b) => a.page - b.page)) {
       const entry = entryRefs.current.get(item.id);
       const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
@@ -45784,9 +45785,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       const pageRect = pageEl.getBoundingClientRect();
       const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
       const desired = pinY - (listRect.top - bodyRect.top) - entry.offsetHeight / 2;
-      const top = Math.max(desired, prevBottom + 14);
+      const top = Math.max(desired, first ? 0 : prevBottom + 14);
       entry.style.top = `${top}px`;
       prevBottom = top + entry.offsetHeight;
+      first = false;
     }
   }, [flowRef, items]);
   (0, import_react12.useEffect)(() => {
@@ -46559,13 +46561,13 @@ var annotationStyles = `
 .ib-anno-mini-q{font-size:13px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:4px}
 .ib-anno-mini-a{font-size:11px;line-height:1.65;color:#5c6a76;white-space:pre-wrap}
 .ib-anno-mini-follow{margin-top:6px;font-size:11px;color:#137c72}
-.ib-anno-follow-block{margin-left:18px;display:flex;flex-direction:column;gap:8px}
-.ib-anno-follow-toggle{align-self:flex-start;border:0;background:transparent;color:#5c6a76;font:inherit;font-size:11px;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px}
-.ib-anno-hline{display:inline-block;width:18px;height:1.5px;background:#9fc7bd;border-radius:1px}
-.ib-anno-follow-list{display:flex;flex-direction:column;gap:8px}
+.ib-anno-follow-block{position:relative;margin-left:18px;display:flex;flex-direction:column;gap:8px}
+.ib-anno-follow-block::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1.5px;background:#cfe0dc}
+.ib-anno-follow-toggle{position:relative;align-self:flex-start;border:0;background:transparent;color:#5c6a76;font:inherit;font-size:11px;cursor:pointer;padding:0 0 0 18px;display:flex;align-items:center;gap:6px}
+.ib-anno-hline{position:absolute;left:6px;top:2px;width:2px;height:14px;background:#137c72;border-radius:1px}
+.ib-anno-follow-list{display:flex;flex-direction:column;gap:8px;padding-left:18px}
 .ib-anno-follow-block[data-collapsed=true] .ib-anno-follow-list{display:none}
 .ib-anno-follow-card{position:relative;background:#f7faf9;border:1px solid #e2eee9;border-radius:8px;padding:8px 10px}
-.ib-anno-follow-card::before{content:'';position:absolute;left:-18px;top:16px;width:18px;height:1.5px;background:#9fc7bd}
 .ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
 .ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
 .ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
