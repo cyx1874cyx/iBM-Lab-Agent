@@ -274,6 +274,16 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
   catch (reason) { setError(reason.message); }
   finally { setOpeningProject(false); }
  };
+ useEffect(() => {
+  const reopen = (event) => {
+   const target = currentProject.current;
+   if (!target) return;
+   const task = launchProject(target, { freshSession: true, preserveDraft: true });
+   if (event?.detail) event.detail.promise = task;
+  };
+  window.addEventListener('ibm-lab:reopen-workspace', reopen);
+  return () => window.removeEventListener('ibm-lab:reopen-workspace', reopen);
+ }, []);
  const resize = event => {
   if (event.button !== 0) return;
   event.preventDefault();

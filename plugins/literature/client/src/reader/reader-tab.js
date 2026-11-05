@@ -15,7 +15,27 @@ export function pdfTypes(){return {getDocument,PDFWorker,TextLayer,GlobalWorkerO
 export function readerWorker(){return workerUrl??=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));}
 export function readerAddress({projectId,bundleId,kind='pdf'}){return PREFIX+[projectId,bundleId,kind].map(encodeURIComponent).join('/');}
 export function readerIdentity(address){if(!String(address).startsWith(PREFIX))return null;const parts=String(address).slice(PREFIX.length).split('/');if(parts.length!==3)return null;try{const [projectId,bundleId,kind]=parts.map(decodeURIComponent);return projectId&&bundleId&&['pdf','si'].includes(kind)?{projectId,bundleId,kind}:null;}catch{return null;}}
-export async function openReader(request){const runtime=readerRuntime();if(!runtime)throw Error('侧栏阅读器尚未就绪');const address=readerAddress(request);setReaderPreferredMode(address,request.mode);await runtime.open(address,request);window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));}
+async function reopenWorkspace(){
+ const detail={promise:null};
+ window.dispatchEvent(new CustomEvent('ibm-lab:reopen-workspace',{detail}));
+ if(detail.promise)await Promise.race([detail.promise.catch(()=>{}),new Promise(resolve=>setTimeout(resolve,8000))]);
+ else await new Promise(resolve=>setTimeout(resolve,1200));
+}
+export async function openReader(request){
+ let runtime=readerRuntime();
+ if(!runtime){await reopenWorkspace();runtime=readerRuntime();}
+ if(!runtime)throw Error('侧栏阅读器尚未就绪，请稍后重试');
+ const address=readerAddress(request);setReaderPreferredMode(address,request.mode);
+ try{await runtime.open(address,request);}
+ catch(reason){
+  // 对话被归档后侧栏会话会失效；重建一个新对话后再试一次。
+  await reopenWorkspace();
+  const retry=readerRuntime();
+  if(!retry)throw reason;
+  await retry.open(address,request);
+ }
+ window.dispatchEvent(new CustomEvent('ibm-reader-open',{detail:{address}}));
+}
 export { translationPrompt } from '../translation-prompt.js';
 const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
 export function pdfResources(call){
@@ -30,6 +50,18 @@ export function makeRange(request,opened,call){return new (class extends PDFData
 })(request,opened,call);}
 export function registerReaderTab(ctx){
  ctx.effect(()=>{const style=document.createElement('style');style.textContent=readerStyles;document.head.append(style);return()=>style.remove();},'iBM PDF 文字选择与双语布局');
+ // 阅读时屏蔽常见的“归档会话/关闭会话”快捷键，避免误触后把阅读会话归档掉。
+ ctx.effect(()=>{
+  const guard=event=>{
+   if(!document.querySelector('.ib-reader'))return;
+   const key=String(event.key||'').toLowerCase();
+   const combo=(event.ctrlKey||event.metaKey)&&event.shiftKey&&['a','backspace','delete','e'].includes(key);
+   const alt=(event.altKey&&['backspace','delete'].includes(key));
+   if(combo||alt){event.preventDefault();event.stopImmediatePropagation();}
+  };
+  document.addEventListener('keydown',guard,true);
+  return()=>document.removeEventListener('keydown',guard,true);
+ },'iBM 阅读器快捷键保护');
  ctx.effect(()=>ctx.sidebarRightTabs.register({id:ID,kind:KIND,patterns:[PREFIX+'**'],priority:'extension',title:()=> '文献阅读'}),'iBM 文献阅读 tab');
  ctx.effect(()=>ctx.slots.inject('sidebar.right.pane.tab',()=>ctx.slots.register({name:'sidebar.right.pane.tab',key:ID},ReaderBody)),'iBM 文献阅读内容');
  ctx.effect(()=>()=>setReaderRuntime(null),'iBM 文献阅读清理');

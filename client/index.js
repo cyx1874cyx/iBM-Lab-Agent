@@ -31384,6 +31384,16 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
       setOpeningProject(false);
     }
   };
+  (0, import_react31.useEffect)(() => {
+    const reopen = (event) => {
+      const target = currentProject.current;
+      if (!target) return;
+      const task = launchProject(target, { freshSession: true, preserveDraft: true });
+      if (event?.detail) event.detail.promise = task;
+    };
+    window.addEventListener("ibm-lab:reopen-workspace", reopen);
+    return () => window.removeEventListener("ibm-lab:reopen-workspace", reopen);
+  }, []);
   const resize = (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -31782,17 +31792,41 @@ function applyUi(ctx) {
       const { project: project2 } = await call("projects_get", { request: { id: request.projectId } });
       await launchProject(project2, { presetId: RESEARCH_PRESET_ID, prompt: prompt ?? translationPrompt(request, id), autoSubmit: true, translationIdentity: { ...request, translationId: id } });
     }, open: async (address, request) => {
-      const { sessionId } = await openReadingPreviewConversation(call, launchProject, request);
+      const { project: project2 } = await call("projects_get", { request: { id: request.projectId } });
+      let sessionId;
+      try {
+        ({ sessionId } = await openReadingPreviewConversation(call, launchProject, request));
+      } catch (reason) {
+        if (!/归档|archiv|release|释放|不存在|not.?found|deleted/i.test(reason?.message || "")) throw reason;
+        const created2 = await launchProject(project2, { freshSession: true, preserveDraft: true });
+        sessionId = created2?.sessionId;
+        if (!sessionId) throw reason;
+      }
       if (workbenchReady) workbench.showChat();
       readerSessions.set(address, sessionId);
       close();
-      for (let attempt = 0; attempt < 100; attempt++) {
-        if (tabCtx.sidebarRight.mounted.getSnapshot() === sessionId) {
+      const waitMounted = async (id) => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (tabCtx.sidebarRight.mounted.getSnapshot() === id) return true;
+          await new Promise((done) => setTimeout(done, 50));
+        }
+        return false;
+      };
+      if (await waitMounted(sessionId)) {
+        tabCtx.sidebarRight.openResource(address);
+        if (!tabCtx.sidebarRight.isExpanded()) tabCtx.sidebarRight.toggleExpanded();
+        return;
+      }
+      const created = await launchProject(project2, { freshSession: true, preserveDraft: true });
+      if (created?.sessionId) {
+        sessionId = created.sessionId;
+        readerSessions.set(address, sessionId);
+        if (workbenchReady) workbench.showChat();
+        if (await waitMounted(sessionId)) {
           tabCtx.sidebarRight.openResource(address);
           if (!tabCtx.sidebarRight.isExpanded()) tabCtx.sidebarRight.toggleExpanded();
           return;
         }
-        await new Promise((done) => setTimeout(done, 50));
       }
       throw Error("侧栏尚未就绪，请进入课题对话后重试");
     } });

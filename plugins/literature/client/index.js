@@ -45786,6 +45786,20 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     openItemRef.current = chosen;
     setOpenId(chosen.id);
   }, [items, openId, page]);
+  (0, import_react12.useEffect)(() => {
+    const host = marginHost;
+    const flow2 = flowRef.current;
+    if (!host || !flow2) return void 0;
+    const onWheel = (event) => {
+      if (event.target?.closest?.(".ib-anno-panel-menu")) return;
+      if (!event.deltaY && !event.deltaX) return;
+      event.preventDefault();
+      flow2.scrollTop += event.deltaY;
+      flow2.scrollLeft += event.deltaX;
+    };
+    host.addEventListener("wheel", onWheel, { passive: false });
+    return () => host.removeEventListener("wheel", onWheel);
+  }, [marginHost, flowRef]);
   const refresh = (0, import_react12.useCallback)(async () => {
     try {
       const result = await call("tasks_annotations_list", request);
@@ -53998,6 +54012,20 @@ function registerReaderTab(ctx) {
     document.head.append(style);
     return () => style.remove();
   }, "iBM PDF 文字选择与双语布局");
+  ctx.effect(() => {
+    const guard = (event) => {
+      if (!document.querySelector(".ib-reader")) return;
+      const key = String(event.key || "").toLowerCase();
+      const combo = (event.ctrlKey || event.metaKey) && event.shiftKey && ["a", "backspace", "delete", "e"].includes(key);
+      const alt = event.altKey && ["backspace", "delete"].includes(key);
+      if (combo || alt) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener("keydown", guard, true);
+    return () => document.removeEventListener("keydown", guard, true);
+  }, "iBM 阅读器快捷键保护");
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: ID, kind: KIND, patterns: [PREFIX2 + "**"], priority: "extension", title: () => "文献阅读" }), "iBM 文献阅读 tab");
   ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({ name: "sidebar.right.pane.tab", key: ID }, ReaderBody)), "iBM 文献阅读内容");
   ctx.effect(() => () => setReaderRuntime(null), "iBM 文献阅读清理");

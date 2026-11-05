@@ -279,10 +279,31 @@ export function applyUi(ctx) {
 		registerProjectTab(tabCtx);
 		const readerSessions=new Map();
 		setReaderRuntime({call,sessionId:address=>readerSessions.get(address),translate:async(request,id,prompt)=>{const {project}=await call('projects_get',{request:{id:request.projectId}});await launchProject(project,{presetId:RESEARCH_PRESET_ID,prompt:prompt??translationPrompt(request,id),autoSubmit:true,translationIdentity:{...request,translationId:id}});},open:async(address,request)=>{
-			const {sessionId}=await openReadingPreviewConversation(call,launchProject,request);
+			const {project}=await call('projects_get',{request:{id:request.projectId}});
+			let sessionId;
+			try{({sessionId}=await openReadingPreviewConversation(call,launchProject,request));}
+			catch(reason){
+				// 会话被归档/释放后，原绑定会话已不可用：新开一个阅读会话再挂侧栏。
+				if(!/归档|archiv|release|释放|不存在|not.?found|deleted/i.test(reason?.message||''))throw reason;
+				const created=await launchProject(project,{freshSession:true,preserveDraft:true});
+				sessionId=created?.sessionId;
+				if(!sessionId)throw reason;
+			}
 			if(workbenchReady)workbench.showChat();
 			readerSessions.set(address,sessionId);close();
-			for(let attempt=0;attempt<100;attempt++){if(tabCtx.sidebarRight.mounted.getSnapshot()===sessionId){tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;}await new Promise(done=>setTimeout(done,50));}
+			const waitMounted=async id=>{for(let attempt=0;attempt<100;attempt++){if(tabCtx.sidebarRight.mounted.getSnapshot()===id)return true;await new Promise(done=>setTimeout(done,50));}return false;};
+			if(await waitMounted(sessionId)){
+				tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;
+			}
+			// 原阅读会话已归档/释放：新开一个会话再挂阅读 tab。
+			const created=await launchProject(project,{freshSession:true,preserveDraft:true});
+			if(created?.sessionId){
+				sessionId=created.sessionId;readerSessions.set(address,sessionId);
+				if(workbenchReady)workbench.showChat();
+				if(await waitMounted(sessionId)){
+					tabCtx.sidebarRight.openResource(address);if(!tabCtx.sidebarRight.isExpanded())tabCtx.sidebarRight.toggleExpanded();return;
+				}
+			}
 			throw Error('侧栏尚未就绪，请进入课题对话后重试');
 		}});
 		setProjectTabOpener((address) => tabCtx.sidebarRight.openResource(address));

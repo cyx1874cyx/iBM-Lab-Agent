@@ -131,6 +131,22 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		setOpenId(chosen.id);
 	}, [items, openId, page]);
 
+	useEffect(() => {
+		const host = marginHost;
+		const flow = flowRef.current;
+		if (!host || !flow) return undefined;
+		// 鼠标在页边批注上滚动时，滚动的是 PDF 正文。
+		const onWheel = (event) => {
+			if (event.target?.closest?.('.ib-anno-panel-menu')) return;
+			if (!event.deltaY && !event.deltaX) return;
+			event.preventDefault();
+			flow.scrollTop += event.deltaY;
+			flow.scrollLeft += event.deltaX;
+		};
+		host.addEventListener('wheel', onWheel, { passive: false });
+		return () => host.removeEventListener('wheel', onWheel);
+	}, [marginHost, flowRef]);
+
 	const refresh = useCallback(async () => {
 		try {
 			const result = await call('tasks_annotations_list', request);
