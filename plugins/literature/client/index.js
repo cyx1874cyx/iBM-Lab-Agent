@@ -46379,10 +46379,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         h(
           "div",
           { className: "ib-anno-follow-list" },
-          follows.map((row, followIndex) => h(
+          follows.map((row, followIndex2) => h(
             "div",
             {
-              key: followIndex,
+              key: followIndex2,
               className: `ib-anno-mini-card ib-anno-follow-child${selectedFollow?.itemId === item.id && selectedFollow?.messageIndex === row.messageIndex ? " ib-anno-child-selected" : ""}`,
               role: "button",
               tabIndex: 0,
@@ -46393,9 +46393,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
                 setSelectedFollow({ itemId: item.id, messageIndex: row.messageIndex });
               }
             },
-            h("div", { className: "ib-anno-mini-head" }, h("b", null, `追问 ${String(followIndex + 1).padStart(2, "0")}`)),
+            h("div", { className: "ib-anno-mini-head" }, h("b", null, `追问 ${String(followIndex2 + 1).padStart(2, "0")}`)),
             h("div", { className: "ib-anno-mini-q" }, row.question),
-            h("div", { className: "ib-anno-mini-a" }, row.answer || (item.status === "pending" || item.status === "running" ? "正在回答…" : "（暂无回答）"))
+            h("div", { className: "ib-anno-mini-a" }, row.answer || (item.pendingFollow && followIndex2 === follows.length - 1 ? "正在回答…" : "（暂无回答）"))
           )),
           composingId === item.id ? h(
             "div",
@@ -46433,7 +46433,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       "div",
       { className: "ib-anno-follow-card", key: index },
       h("div", { className: "ib-anno-followup-q" }, row.question),
-      h("div", { className: "ib-anno-followup-a" }, row.answer || (item.status === "pending" || item.status === "running" ? "正在回答…" : "（暂无回答）"))
+      h("div", { className: "ib-anno-followup-a" }, row.answer || (item.pendingFollow && followIndex === follows.length - 1 ? "正在回答…" : "（暂无回答）"))
     ));
     return h(
       "div",

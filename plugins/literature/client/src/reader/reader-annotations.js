@@ -669,7 +669,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					},
 						h('div', { className: 'ib-anno-mini-head' }, h('b', null, `追问 ${String(followIndex + 1).padStart(2, '0')}`)),
 						h('div', { className: 'ib-anno-mini-q' }, row.question),
-						h('div', { className: 'ib-anno-mini-a' }, row.answer || (item.status === 'pending' || item.status === 'running' ? '正在回答…' : '（暂无回答）')))),
+						h('div', { className: 'ib-anno-mini-a' }, row.answer || (item.pendingFollow && followIndex === follows.length - 1 ? '正在回答…' : '（暂无回答）')))),
 					composingId === item.id ? h('div', { className: 'ib-anno-mini-card ib-anno-follow-child' },
 						h('textarea', {
 							autoFocus: true, rows: 2, value: followDraft, placeholder: '输入追问，Enter 发送，Esc 取消',
@@ -688,7 +688,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		if (!follows.length) return null;
 		const rows = follows.map((row, index) => h('div', { className: 'ib-anno-follow-card', key: index },
 			h('div', { className: 'ib-anno-followup-q' }, row.question),
-			h('div', { className: 'ib-anno-followup-a' }, row.answer || (item.status === 'pending' || item.status === 'running' ? '正在回答…' : '（暂无回答）'))));
+			h('div', { className: 'ib-anno-followup-a' }, row.answer || (item.pendingFollow && followIndex === follows.length - 1 ? '正在回答…' : '（暂无回答）'))));
 		return h('div', { className: 'ib-anno-follow-block', 'data-collapsed': collapsedFollows[item.id] ? 'true' : undefined },
 			h('button', { type: 'button', className: 'ib-anno-follow-toggle', title: collapsedFollows[item.id] ? '展开追问' : '收起追问', onClick: () => setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })) }, h('span', { className: 'ib-anno-hline' }), `${follows.length} 条追问`),
 			h('div', { className: 'ib-anno-follow-list' }, rows));

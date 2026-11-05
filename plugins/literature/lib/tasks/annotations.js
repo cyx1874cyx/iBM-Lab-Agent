@@ -158,8 +158,8 @@ export const annotationMethods = {
 			const target = this.annotationItem(store, annotationId);
 			if (!target) throw Error('批注不存在或已删除');
 			target.messages.push({ role: 'user', text: asked, at: stamp() });
-			target.status = 'pending';
-			target.error = '';
+			target.pendingFollow = true;
+			target.followupError = '';
 			target.draftAnswer = '';
 			target.updatedAt = stamp();
 			return target;
@@ -288,6 +288,8 @@ export const annotationMethods = {
 				if (!item) return;
 				item.status = 'answered';
 				item.error = '';
+				item.pendingFollow = false;
+				item.followupError = '';
 				// 首答写入正文；追问的答案作为独立从属消息追加，不覆盖原回答。
 				const userTurns = item.messages.filter((message) => message.role === 'user').length;
 				if (userTurns > 1) {
@@ -295,9 +297,9 @@ export const annotationMethods = {
 				} else {
 					item.modelAnswer = answer.shortAnswer;
 					if (!item.edited) item.shortAnswer = answer.shortAnswer;
+					item.basis = answer.basis;
+					item.sources = answer.sources ?? [];
 				}
-				item.basis = answer.basis;
-				item.sources = answer.sources ?? [];
 				item.messages.push({ role: 'assistant', text: answer.shortAnswer, at: stamp() });
 				item.updatedAt = stamp();
 				return item;
@@ -309,8 +311,15 @@ export const annotationMethods = {
 			await this.mutateAnnotationStore(bundle, (store) => {
 				const item = this.annotationItem(store, annotationId);
 				if (!item) return;
-				item.status = 'failed';
-				item.error = message || '生成失败';
+				const userTurns = item.messages.filter((message) => message.role === 'user').length;
+				if (userTurns > 1) {
+					// 追问失败只影响这条追问，不把主问题改成失败，也不改主回答。
+					item.pendingFollow = false;
+					item.followupError = message || '追问生成失败';
+				} else {
+					item.status = 'failed';
+					item.error = message || '生成失败';
+				}
 				item.updatedAt = stamp();
 			}).catch(() => {});
 		} finally {
