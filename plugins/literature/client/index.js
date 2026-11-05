@@ -45690,6 +45690,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [editing, setEditing] = (0, import_react12.useState)(null);
   const [menuId, setMenuId] = (0, import_react12.useState)(null);
   const [collapsedFollows, setCollapsedFollows] = (0, import_react12.useState)({});
+  const [composingId, setComposingId] = (0, import_react12.useState)(null);
+  const [followDraft, setFollowDraft] = (0, import_react12.useState)("");
   const [error, setError] = (0, import_react12.useState)("");
   const [tick, setTick] = (0, import_react12.useState)(0);
   const [submitting, setSubmitting] = (0, import_react12.useState)(false);
@@ -45777,18 +45779,16 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const bodyRect = body.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
     let prevBottom = -Infinity;
-    let first = true;
     for (const item of items.slice().sort((a, b) => a.page - b.page)) {
       const entry = entryRefs.current.get(item.id);
       const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
       if (!entry || !pageEl) continue;
       const pageRect = pageEl.getBoundingClientRect();
       const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
-      const desired = pinY - (listRect.top - bodyRect.top) - entry.offsetHeight / 2;
-      const top = Math.max(desired, first ? 0 : prevBottom + 14);
+      const desired = pinY - (listRect.top - bodyRect.top) - 8;
+      const top = Math.max(desired, prevBottom + 14);
       entry.style.top = `${top}px`;
       prevBottom = top + entry.offsetHeight;
-      first = false;
     }
   }, [flowRef, items]);
   (0, import_react12.useEffect)(() => {
@@ -45850,6 +45850,25 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     host.addEventListener("wheel", onWheel, { passive: false });
     return () => host.removeEventListener("wheel", onWheel);
   }, [marginHost, flowRef]);
+  (0, import_react12.useEffect)(() => {
+    const onKey = (event) => {
+      const tag = event.target?.tagName;
+      if (["TEXTAREA", "INPUT", "BUTTON"].includes(tag)) return;
+      const item = items.find((row) => row.id === openId);
+      if (!item) return;
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        setComposingId(openId);
+        setFollowDraft("");
+      }
+      if (event.key === "Delete") {
+        event.preventDefault();
+        void remove(item);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [items, openId]);
   const refresh = (0, import_react12.useCallback)(async () => {
     try {
       const result = await call("tasks_annotations_list", request);
@@ -46151,8 +46170,8 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setError(reason.message || String(reason));
     }
   };
-  const askFollow = async (item) => {
-    const question = followText.trim();
+  const askFollow = async (item, text = followText) => {
+    const question = String(text ?? "").trim();
     if (!question) return;
     setFollowText("");
     try {
@@ -46263,6 +46282,95 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const composePos = draft?.screen ?? screenAnchor;
   const sortedItems = items.slice().sort((a, b) => a.page - b.page);
   const placedPins = [];
+  const compactCard = (item, index, follows) => {
+    const setEntry = (node) => {
+      if (node) entryRefs.current.set(item.id, node);
+      else entryRefs.current.delete(item.id);
+    };
+    const active2 = openId === item.id;
+    const select = () => {
+      openItemRef.current = item;
+      setOpenId(item.id);
+      setEditing(null);
+      setMenuId(null);
+    };
+    const startFollow = () => {
+      select();
+      setComposingId(item.id);
+      setFollowDraft("");
+    };
+    const collapsed = collapsedFollows[item.id] && composingId !== item.id;
+    return h(
+      "div",
+      { key: item.id, ref: setEntry, className: "ib-anno-entry" },
+      h(
+        "div",
+        {
+          ref: active2 ? panelCardRef : null,
+          className: `ib-anno-mini-card${active2 ? " ib-anno-mini-active" : ""}`,
+          role: "button",
+          tabIndex: 0,
+          onClick: (event) => {
+            event.currentTarget.focus();
+            select();
+          }
+        },
+        h(
+          "div",
+          { className: "ib-anno-mini-head" },
+          h("b", null, `批注 ${String(index + 1).padStart(2, "0")}`),
+          h("span", { className: "ib-anno-status", "data-status": item.status }, annotationStatusText(item))
+        ),
+        h("div", { className: "ib-anno-mini-meta" }, `第 ${item.page} 页 · ${item.kind === "region" ? "框选区域" : "原文"}`),
+        h("div", { className: "ib-anno-mini-q" }, item.question),
+        h("div", { className: "ib-anno-mini-a" }, item.status === "pending" || item.status === "running" ? "正在根据原文生成短答…" : item.shortAnswer || item.modelAnswer || "（暂无短答）"),
+        item.error ? h("div", { className: "ib-anno-card-error" }, item.error) : null,
+        h("div", { className: "ib-anno-mini-hint" }, "Enter 追问 · Del 删除")
+      ),
+      follows.length || composingId === item.id ? h(
+        "div",
+        { className: "ib-anno-follow-block", "data-collapsed": collapsed ? "true" : void 0 },
+        h("button", { type: "button", className: "ib-anno-follow-toggle", title: collapsed ? "展开追问" : "收起追问", onClick: () => setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })) }, h("span", { className: "ib-anno-hline" }), `${follows.length} 条追问`),
+        h(
+          "div",
+          { className: "ib-anno-follow-list" },
+          follows.map((row, followIndex) => h(
+            "div",
+            { className: "ib-anno-mini-card ib-anno-follow-child", key: followIndex },
+            h("div", { className: "ib-anno-mini-head" }, h("b", null, `追问 ${String(followIndex + 1).padStart(2, "0")}`)),
+            h("div", { className: "ib-anno-mini-q" }, row.question),
+            h("div", { className: "ib-anno-mini-a" }, row.answer || (item.status === "pending" || item.status === "running" ? "正在回答…" : "（暂无回答）"))
+          )),
+          composingId === item.id ? h(
+            "div",
+            { className: "ib-anno-mini-card ib-anno-follow-child" },
+            h("textarea", {
+              autoFocus: true,
+              rows: 2,
+              value: followDraft,
+              placeholder: "输入追问，Enter 发送，Esc 取消",
+              onChange: (event) => setFollowDraft(event.target.value),
+              onKeyDown: (event) => {
+                if (event.key === "Escape") {
+                  setComposingId(null);
+                  setFollowDraft("");
+                }
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  const text = followDraft.trim();
+                  if (text) {
+                    void askFollow(item, text);
+                    setComposingId(null);
+                    setFollowDraft("");
+                  }
+                }
+              }
+            })
+          ) : null
+        )
+      ) : null
+    );
+  };
   const followBlock = (item, follows) => {
     if (!follows.length) return null;
     const rows = follows.map((row, index) => h(
@@ -46420,106 +46528,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           h(
             "div",
             { ref: listRef, className: "ib-anno-panel-list" },
-            sortedItems.length ? sortedItems.map((item, index) => {
-              const follows = followUpsOf(item);
-              const setEntry = (node) => {
-                if (node) entryRefs.current.set(item.id, node);
-                else entryRefs.current.delete(item.id);
-              };
-              if (openId !== item.id) return h(
-                "div",
-                { key: item.id, ref: setEntry, className: "ib-anno-entry" },
-                h(
-                  "button",
-                  { type: "button", className: "ib-anno-mini-card", onClick: () => focusItem(item) },
-                  h("div", { className: "ib-anno-mini-head" }, h("b", null, `批注 ${String(index + 1).padStart(2, "0")}`), h("span", { className: "ib-anno-status", "data-status": item.status }, annotationStatusText(item))),
-                  h("div", { className: "ib-anno-mini-q" }, item.question),
-                  h("div", { className: "ib-anno-mini-a" }, item.shortAnswer || item.modelAnswer || "（暂无短答）"),
-                  follows.length ? h("div", { className: "ib-anno-mini-follow" }, `${follows.length} 条追问`) : null
-                )
-              );
-              return h(
-                "div",
-                { key: item.id, ref: setEntry, className: "ib-anno-entry" },
-                h(
-                  "article",
-                  { ref: panelCardRef, className: "ib-anno-panel-card ib-anno-panel-card-active", "data-status": item.status },
-                  h(
-                    "div",
-                    { className: "ib-anno-panel-card-head" },
-                    h("b", null, `批注 ${String(index + 1).padStart(2, "0")}`),
-                    h("span", { className: "ib-anno-status", "data-status": item.status }, annotationStatusText(item)),
-                    h("button", { type: "button", className: "ib-anno-panel-icon", title: "编辑短答", onClick: () => setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || "" }) }, "✎"),
-                    h(
-                      "span",
-                      { className: "ib-anno-panel-more" },
-                      h("button", { type: "button", className: "ib-anno-panel-icon", title: "更多操作", onClick: (event) => {
-                        event.stopPropagation();
-                        setMenuId(menuId === item.id ? null : item.id);
-                      } }, "⋯"),
-                      menuId === item.id ? h(
-                        "div",
-                        { className: "ib-anno-panel-menu" },
-                        h("button", { type: "button", onClick: () => {
-                          setMenuId(null);
-                          setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || "" });
-                        } }, "编辑"),
-                        h("button", { type: "button", className: "ib-anno-menu-danger", onClick: () => {
-                          setMenuId(null);
-                          void remove(item);
-                        } }, "删除")
-                      ) : null
-                    )
-                  ),
-                  h("div", { className: "ib-anno-panel-meta" }, `第 ${item.page} 页 · ${item.kind === "region" ? "框选区域" : "原文"}`),
-                  h("div", { className: "ib-anno-panel-question" }, item.question),
-                  editing?.id === item.id ? h(
-                    "div",
-                    null,
-                    h("textarea", { autoFocus: true, rows: 5, value: editing.value, onChange: (event) => setEditing({ id: item.id, value: event.target.value }) }),
-                    h(
-                      "div",
-                      { className: "ib-anno-card-actions" },
-                      h("button", { type: "button", className: "ib-anno-btn", onClick: () => setEditing(null) }, "取消"),
-                      h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void saveEdit(item) }, "保存")
-                    )
-                  ) : h(
-                    "div",
-                    null,
-                    h("div", { className: "ib-anno-panel-answer" }, item.status === "pending" || item.status === "running" ? "正在根据原文生成短答…" : item.shortAnswer || item.modelAnswer || "（暂无短答）"),
-                    item.error ? h("div", { className: "ib-anno-card-error" }, item.error) : null,
-                    item.draftAnswer ? h(
-                      "div",
-                      { className: "ib-anno-panel-draft" },
-                      h("div", { className: "ib-anno-draft-label" }, "追问草稿"),
-                      h("div", null, item.draftAnswer),
-                      h(
-                        "div",
-                        { className: "ib-anno-card-actions" },
-                        h("button", { type: "button", className: "ib-anno-btn", onClick: () => void dismissDraft(item) }, "放弃"),
-                        h("button", { type: "button", className: "ib-anno-btn", "data-primary": true, onClick: () => void adoptDraft(item) }, "采用")
-                      )
-                    ) : null,
-                    (item.basis ?? []).length ? h(
-                      "details",
-                      { className: "ib-anno-panel-basis" },
-                      h("summary", null, "查看原文依据"),
-                      item.basis.map((row, basisIndex) => h("div", { key: basisIndex }, `第 ${row.page} 页：${short(row.quote, 160)}`))
-                    ) : null,
-                    item.status === "failed" ? h("div", { className: "ib-anno-card-actions" }, h("button", { type: "button", className: "ib-anno-btn", onClick: () => void retry(item) }, "重试")) : null
-                  ),
-                  h(
-                    "div",
-                    { className: "ib-anno-panel-follow" },
-                    h("textarea", { rows: 2, placeholder: "继续追问…", value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => {
-                      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void askFollow(item);
-                    } }),
-                    h("button", { type: "button", className: "ib-anno-panel-send", disabled: !followText.trim(), title: "发送追问", onClick: () => void askFollow(item) }, "↑")
-                  )
-                ),
-                followBlock(item, follows)
-              );
-            }) : h("div", { className: "ib-anno-panel-empty" }, "在正文或图表上点「框选提问」，批注会出现在这里。")
+            sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h("div", { className: "ib-anno-panel-empty" }, "在正文或图表上点「框选提问」，批注会出现在这里。")
           ),
           error ? h("div", { className: "ib-anno-error" }, error) : null
         )
@@ -46555,8 +46564,12 @@ var annotationStyles = `
 .ib-anno-panel-menu button:hover{background:#f0f4f7}.ib-anno-panel-menu .ib-anno-menu-danger{color:#af3333}
 .ib-anno-panel-card{position:relative;left:auto;right:auto;top:auto;max-height:none;overflow:visible;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
 .ib-anno-panel-card-active{box-shadow:0 0 0 2px #b7d8d0,0 6px 18px #0000000f}
-.ib-anno-mini-card{display:block;width:100%;box-sizing:border-box;text-align:left;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+.ib-anno-mini-card{position:relative;display:block;width:100%;box-sizing:border-box;text-align:left;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit;outline:none}
 .ib-anno-mini-card:hover{border-color:#b7d8d0}
+.ib-anno-mini-active{box-shadow:0 0 0 2px #9fc7bd}
+.ib-anno-mini-meta{font-size:10px;color:#9aa6b2;margin:-2px 0 6px}
+.ib-anno-mini-hint{margin-top:7px;font-size:10px;color:#9aa6b2}
+.ib-anno-follow-child textarea{width:100%;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
 .ib-anno-mini-head{display:flex;align-items:center;gap:8px;color:#1f3a3a;margin-bottom:6px}
 .ib-anno-mini-q{font-size:13px;font-weight:600;line-height:1.5;color:#1f3a3a;margin-bottom:4px}
 .ib-anno-mini-a{font-size:11px;line-height:1.65;color:#5c6a76;white-space:pre-wrap}
