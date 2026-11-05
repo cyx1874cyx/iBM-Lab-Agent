@@ -53501,7 +53501,7 @@ button.hasPopupMenu[aria-expanded="false"] + menu{
 var decode = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 var spinner = () => h("span", { className: "ib-reader-spinner", "aria-hidden": true });
 var loading = (label) => h("div", { className: "ib-reader-loading", role: "status" }, spinner(), label);
-var icons = { minus: "M5 12h14", plus: "M5 12h14M12 5v14", hand: "M8 13V7a2 2 0 0 1 4 0v5V5a2 2 0 0 1 4 0v7V8a2 2 0 0 1 4 0v7c0 4-3 6-6 6h-2c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-2l1 2", text: "M5 5h14M12 5v14M8 19h8", download: "M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4", previous: "m14 6-6 6 6 6", next: "m10 6 6 6-6 6" };
+var icons = { minus: "M5 12h14", plus: "M5 12h14M12 5v14", hand: "M8 13V7a2 2 0 0 1 4 0v5V5a2 2 0 0 1 4 0v7V8a2 2 0 0 1 4 0v7c0 4-3 6-6 6h-2c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-2l1 2", text: "M5 5h14M12 5v14M8 19h8", region: "M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3", download: "M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4", previous: "m14 6-6 6 6 6", next: "m10 6 6 6-6 6" };
 var icon2 = (name) => h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: icons[name] }));
 function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
@@ -53828,7 +53828,13 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       }, false, hand && !textLayer, "抓手拖动（流畅浏览）"), button(icon2("text"), () => {
         setHand(false);
         setTextLayer(true);
-      }, false, !hand && textLayer, "选择文字（临时加载文字层）")),
+      }, false, !hand && textLayer, "选择文字（临时加载文字层）"), button(icon2("region"), () => {
+        if (regionMode) setRegionMode(false);
+        else {
+          setHand(false);
+          setRegionMode(true);
+        }
+      }, !doc || state3.format !== "pdf", regionMode, "框选提问：拖动矩形截图给 AI")),
       h("div", { className: "ib-toolbar-group ib-toolbar-pages" }, button(icon2("previous"), () => navigate(side, pages[side] - 1), !pdf || pages[side] <= 1, false, "上一页"), h("input", { "aria-label": side + " PDF 页码", type: "number", min: 1, max: pdf?.numPages ?? 1, value: pages[side], onChange: (event) => navigate(side, Number(event.target.value)) }), h("small", null, "/ " + (pdf?.numPages ?? "…")), button(icon2("next"), () => navigate(side, pages[side] + 1), !pdf || pages[side] >= pdf.numPages, false, "下一页")),
       button(icon2("download"), () => void save(side).catch(onError), !pdf && !material?.officeKind, false, "下载 " + (material?.officeKind === "docx" ? "精读报告（.docx）" : material?.officeKind === "pptx" ? "PPT（.pptx）" : material?.label ?? (side === "zh" ? "中文 PDF" : "原文 PDF")))
     );
@@ -53874,13 +53880,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         setStacked(e.target.checked);
       } }), "上下视图")) : null, h("input", { "aria-label": "查找 PDF 文本", placeholder: "查找文本", value: query, onChange: (e) => setQuery(e.target.value), onKeyDown: (e) => {
         if (e.key === "Enter") void search().catch(onError);
-      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉"), button(regionMode ? "退出框选" : "框选提问", () => {
-        if (regionMode) setRegionMode(false);
-        else {
-          setHand(false);
-          setRegionMode(true);
-        }
-      }, !doc || state3.format !== "pdf", regionMode, "拖动矩形框选图表区域，截图发给 AI；不需要选中文字")),
+      } }), button("查找", () => void search().catch(onError), !panePdf(mode === "dual" ? scroll.current.lastSide : mode === "zh" ? "zh" : "original")), button(annotationsOn ? "隐藏批注" : "显示批注", () => setAnnotationsOn((value) => !value), !doc || state3.format !== "pdf", false, "显示/隐藏原文批注图钉")),
       error ? h("div", { className: "ib-reader-error", role: "alert" }, error) : null,
       translation && translation.status !== "completed" ? h("small", { className: "ib-reader-status" }, translation.stage + (translation.totalBlocks ? ` · ${translation.completedBlocks ?? 0}/${translation.totalBlocks} 段` : "") + (translation.error ? " · " + translation.error : "")) : null,
       state3.format === "pdf" || mode === "dual" || ["report", "ppt"].includes(mode) ? h("div", { className: "ib-pdf-panes", "data-stacked": stacked && mode === "dual" || void 0 }, pane("original"), pane("zh"), modeLoading ? h("div", { className: "ib-reader-view-status", role: "status", "aria-live": "polite" }, spinner(), "正在加载" + (mode === "dual" ? "对照视图" : mode === "zh" ? "译文" : mode === "report" ? "精读" : mode === "ppt" ? "PPT" : "原文") + "…") : null) : null,
