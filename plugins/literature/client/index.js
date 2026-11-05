@@ -45659,10 +45659,6 @@ var annotationStatusText = (item) => {
   if (item.status === "failed") return "生成失败，可重试";
   return item.edited ? "已手动编辑" : "已回答";
 };
-var short = (value, max = 180) => {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text.length > max ? text.slice(0, max) + "…" : text;
-};
 var followUpsOf = (item) => {
   const messages = item?.messages ?? [];
   const result = [];
@@ -46283,7 +46279,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     if (!rect) return null;
     return { left: rect.left + point.x * rect.width, top: rect.top + point.y * rect.height };
   };
-  const overlayStyle = { position: "fixed", left: flowRect.left, top: flowRect.top, width: flowRect.width, height: flowRect.height, pointerEvents: "none", zIndex: 8, overflow: "hidden" };
+  const overlayStyle = { position: "fixed", left: flowRect.left, top: flowRect.top, width: flowRect.width, height: flowRect.height, pointerEvents: "none", zIndex: 60, overflow: "hidden" };
   const flow = flowRef.current;
   const scrollX = flow?.scrollLeft ?? 0;
   const scrollY = flow?.scrollTop ?? 0;
@@ -46474,9 +46470,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     composePos ? h(
       "div",
       { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
-      h("div", { className: "ib-anno-compose-quote" }, short(draft.quote || (draft.kind === "region" ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ""), 120)),
-      h("textarea", { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: "就框选内容提问…", defaultValue: "", onKeyDown: (event) => {
-        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
+      h("textarea", { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: "就框选内容提问…", defaultValue: "", onPointerDown: (event) => event.stopPropagation(), onKeyDown: (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          void submit();
+        }
       } }),
       h(
         "div",
@@ -46675,7 +46673,7 @@ var annotationStyles = `
 .ib-anno-pin[data-open=true]{box-shadow:0 0 0 3px rgba(19,124,114,.28)}
 .ib-anno-pin .ib-reader-spinner{width:10px;height:10px;border-width:1.5px;border-color:#fff5;border-top-color:#fff;margin:0}
 .ib-anno-compose,.ib-anno-card{position:absolute;pointer-events:auto;background:#fff;border:1px solid #d7dfe8;border-radius:8px;box-shadow:0 6px 24px rgba(21,45,66,.18);padding:8px;z-index:9;color:#303744;font:12px/1.5 system-ui,Segoe UI,Microsoft YaHei,sans-serif}
-.ib-anno-compose{width:292px}.ib-anno-compose-quote{color:#607080;font-size:11px;margin-bottom:6px;max-height:34px;overflow:hidden}
+.ib-anno-compose{width:292px;pointer-events:auto!important;z-index:61}.ib-anno-compose-quote{color:#607080;font-size:11px;margin-bottom:6px;max-height:34px;overflow:hidden}
 .ib-anno-compose textarea,.ib-anno-card textarea{width:100%;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:6px;font:inherit;resize:vertical;color:#26313d}
 .ib-anno-compose-actions,.ib-anno-card-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
 .ib-anno-btn{border:1px solid #d6dee6;background:#fff;color:#40505f;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit}
