@@ -44414,6 +44414,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   } });
   const [machineReviews, setMachineReviews] = (0, import_react9.useState)({});
   const [preview, setPreview] = (0, import_react9.useState)(null);
+  const [activeLitTab, setActiveLitTab] = (0, import_react9.useState)("reading");
+  const [selectedReportId, setSelectedReportId] = (0, import_react9.useState)("");
   const [templatesOpen, setTemplatesOpen] = (0, import_react9.useState)(false);
   const [noteTemplates, setNoteTemplates] = (0, import_react9.useState)([]);
   const [noteTemplateId, setNoteTemplateId] = useProjectViewValue(projectId, "reading-template", "");
@@ -44976,6 +44978,188 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
+  const selectedReport = filteredReports.find((row) => row.id === selectedReportId) || filteredReports[0] || null;
+  const selectedBundle = selectedReport ? bundleById[selectedReport.bundleId] || {} : null;
+  const selectedPdfUrl = selectedBundle?.pdfPath && /\.pdf$/i.test(selectedBundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
+  const selectedSiUrl = selectedBundle?.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
+  const selectedTranslation = selectedReport ? (selectedBundle.translations ?? []).filter((row) => row.kind === "pdf" && (!selectedBundle.pdfSha256 || row.sourceSha256 === selectedBundle.pdfSha256)).at(-1) : null;
+  const selectedTranslationDone = selectedTranslation?.status === "completed";
+  const selectedTranslationBusy = ["queued", "running"].includes(selectedTranslation?.status);
+  const selectedPresentation = selectedReport ? presentationByReport[selectedReport.id] : null;
+  const selectedReadingDone = Boolean(selectedReport?.docxPath);
+  const selectedPptDone = Boolean(selectedPresentation?.pptxPath);
+  const selectedPublisherUrl = selectedBundle?.doi ? `https://doi.org/${encodeURIComponent(selectedBundle.doi)}` : selectedBundle?.sourceUrl && /^https:/i.test(selectedBundle.sourceUrl) ? selectedBundle.sourceUrl : void 0;
+  const journalShortOf = (bundle = {}) => {
+    const journal = String(bundle.journal || bundle.shortCitation || "");
+    if (/user interface software/i.test(journal)) return "UIST";
+    if (/nature/i.test(journal)) return "Nature";
+    if (/neurointerv/i.test(journal)) return "JNIS";
+    return bundle.journalAbbrev || bundle.shortCitation || journal || "PREPRINT";
+  };
+  const coverOf = (bundle = {}) => {
+    const journal = String(bundle.journal || bundle.shortCitation || "PREPRINT");
+    const label = String(journalShortOf(bundle).split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").slice(0, 6).toUpperCase();
+    const tone = /nature/i.test(journal) ? "#0b4d3b" : /uist/i.test(journal) ? "#2c4a7a" : /jnis|neuro/i.test(journal) ? "#6e1f2f" : /inr|radio/i.test(journal) ? "#46566b" : "#3f4e5d";
+    return h("span", { className: "ib-paper-cover", style: { background: tone, fontSize: label.length > 5 ? "17px" : void 0 } }, label);
+  };
+  const openSelectedPdf = (event) => {
+    event.stopPropagation();
+    if (!selectedBundle) return;
+    if (!selectedPdfUrl) {
+      armCaptureFor(event, selectedBundle, "pdf");
+      return;
+    }
+    void openReader({ projectId, bundleId: selectedBundle.id, kind: "pdf" }).catch((reason) => notify("无法打开正文 PDF：" + (reason?.message ?? reason)));
+  };
+  const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `
+使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : "") : "";
+  const selectedPptPrompt = selectedReport ? `请为文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（reportId: ${selectedReport.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。` : "";
+  const translateSelected = async (event) => {
+    event.stopPropagation();
+    if (!selectedBundle) return;
+    let created;
+    const req = { projectId, bundleId: selectedBundle.id, kind: "pdf" };
+    try {
+      const result = await call("tasks_translation_create", { request: req });
+      created = result;
+      if (result.translation.status === "completed") await openReader({ ...req, mode: "zh" });
+      else if (result.readyToCompose) {
+        await call("tasks_translation_finish", { request: { ...req, translationId: result.translation.id } });
+        await openReader({ ...req, mode: "zh" });
+      } else if (!result.reused) await onRequestArtifact(translationPrompt(req, result.translation.id), true, { ...req, translationId: result.translation.id });
+      else notify("此翻译任务已在进行；打开正文侧栏可查看进度。");
+      onChanged?.();
+    } catch (error) {
+      if (created && !created.reused && !created.readyToCompose) await call("tasks_translation_cancel", { request: { ...req, translationId: created.translation.id } }).catch(() => {
+      });
+      notify("翻译启动失败：" + error.message);
+    }
+  };
+  const detailNode = selectedReport ? h(
+    "aside",
+    { className: "ib-lit-detail", "aria-label": "文献详情" },
+    h("div", { className: "ib-lit-detail-head" }, h("h2", null, "文献详情")),
+    h(
+      "div",
+      { className: "ib-lit-detail-lead" },
+      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { background: coverOf(selectedBundle).props.style.background } }, coverOf(selectedBundle).props.children),
+      h(
+        "div",
+        { className: "ib-lit-detail-title" },
+        h("h3", null, selectedReport.titleZh || selectedBundle.title || selectedReport.id),
+        h(
+          "div",
+          { className: "ib-lit-detail-cite" },
+          h("span", null, [journalShortOf(selectedBundle), selectedBundle.year].filter(Boolean).join(" · ") || "未登记期刊"),
+          selectedPublisherUrl ? h("a", { href: selectedPublisherUrl, target: "_blank", rel: "noopener noreferrer", title: "打开原文网站", onClick: (event) => event.stopPropagation() }, "↗") : null
+        )
+      )
+    ),
+    h(
+      "section",
+      { className: "ib-lit-detail-intro" },
+      h("h4", null, "简介"),
+      h("p", null, selectedReport.shortDescriptionZh || selectedReport.summaryZh || selectedBundle.summaryZh || selectedBundle.abstract || "暂无简介；可开始阅读后在阅读器中查看 AI 概览。")
+    ),
+    h(
+      "section",
+      { className: "ib-lit-detail-section" },
+      h(
+        "div",
+        { className: "ib-lit-detail-section-head" },
+        h("h4", null, "文件"),
+        h("button", { type: "button", className: "ib-lit-mini-btn", disabled: !selectedBundle || selectedPdfUrl && selectedSiUrl, title: "自动获取缺失文件", onClick: (event) => {
+          event.stopPropagation();
+          if (!selectedBundle) return;
+          armCaptureFor(event, selectedBundle, selectedPdfUrl ? "si" : "pdf");
+        } }, "↓ 自动获取")
+      ),
+      h("div", { className: "ib-lit-file-row" }, h("span", { className: "ib-lit-file-icon" }, "▤"), h("div", null, h("b", null, "原文 PDF"), h("small", null, selectedPdfUrl ? "已上传" : "未上传")), h("i", { className: "ib-lit-dot", "data-ready": selectedPdfUrl ? "true" : "false" }), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: openSelectedPdf }, selectedPdfUrl ? "打开" : "上传")),
+      h("div", { className: "ib-lit-file-row" }, h("span", { className: "ib-lit-file-icon" }, "▤"), h("div", null, h("b", null, "补充材料 (SI)"), h("small", null, selectedSiUrl ? "已上传" : "未上传")), h("i", { className: "ib-lit-dot", "data-ready": selectedSiUrl ? "true" : "false" }), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {
+        event.stopPropagation();
+        if (selectedSiUrl) void openReader({ projectId, bundleId: selectedBundle.id, kind: "si" }).catch((reason) => notify(reason.message));
+        else armCaptureFor(event, selectedBundle, "si");
+      } }, selectedSiUrl ? "打开" : "上传"))
+    ),
+    h(
+      "section",
+      { className: "ib-lit-detail-section" },
+      h("div", { className: "ib-lit-detail-section-head" }, h("h4", null, "翻译")),
+      h("div", { className: "ib-lit-file-row" }, h("span", { className: "ib-lit-file-icon" }, "文"), h("div", null, h("b", null, "全文翻译"), h("small", null, selectedTranslationDone ? "已完成" : selectedTranslationBusy ? "进行中…" : "待翻译")), h("button", { type: "button", className: "ib-lit-mini-btn", disabled: !selectedPdfUrl || selectedTranslationBusy, onClick: (event) => selectedTranslationDone ? void openReader({ projectId, bundleId: selectedBundle.id, kind: "pdf", mode: "zh" }).catch((reason) => notify(reason.message)) : translateSelected(event) }, selectedTranslationDone ? "查看译文" : selectedTranslationBusy ? "翻译中…" : "开始翻译"))
+    ),
+    h(
+      "div",
+      { className: "ib-lit-detail-actions" },
+      h("button", { type: "button", className: "ib-lit-primary", onClick: openSelectedPdf }, h(BookSvg, null), "开始阅读"),
+      h("button", { type: "button", className: "ib-lit-secondary", disabled: !selectedPdfUrl, onClick: () => selectedReadingDone ? openPreview({ kind: "report", report: selectedReport }) : void onRequestArtifact(selectedReadingPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
+      }) }, h(ReadingNoteSvg, null), selectedReadingDone ? "查看阅读笔记" : "阅读笔记"),
+      h("button", { type: "button", className: "ib-lit-secondary", disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: "ppt", report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
+      }) }, h(PresentationSvg, null), selectedPptDone ? "查看 PPT" : "生成 PPT")
+    )
+  ) : h("aside", { className: "ib-lit-detail ib-lit-detail-empty" }, "选择左侧文献查看详情");
+  return h(
+    import_react9.default.Fragment,
+    null,
+    h(
+      "div",
+      { className: "ib-lit ib-lit-workbench", ref: literatureRoot },
+      h(
+        "section",
+        { className: "ib-lit-catalog" },
+        h(
+          "div",
+          { className: "ib-lit-toolbar" },
+          h("button", { className: "ib-act", onClick: () => setTemplatesOpen(true) }, "模板管理"),
+          h("button", { className: "ib-act", disabled: importingRis, onClick: () => risPicker.current?.click() }, "上传 RIS"),
+          h("button", { className: "ib-act ib-act-primary", onClick: () => pdfPicker.current?.click() }, "+ 上传文献"),
+          h("input", { type: "file", accept: ".ris", multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
+          h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })
+        ),
+        h(
+          "div",
+          { className: "ib-lit-tabs" },
+          h("button", { type: "button", className: "ib-lit-tab", "data-active": activeLitTab === "reading" ? "true" : void 0, onClick: () => setActiveLitTab("reading") }, "精读文献 ", h("span", null, readingReports.length)),
+          h("button", { type: "button", className: "ib-lit-tab", "data-active": activeLitTab === "search" ? "true" : void 0, onClick: () => setActiveLitTab("search") }, "检索记录 ", h("span", null, searches.length))
+        ),
+        activeLitTab === "reading" ? h(
+          import_react9.default.Fragment,
+          null,
+          h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
+            readingInteraction.clear();
+            setSelectedFolder(folder.id);
+          } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length)))),
+          h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, filteredReports.length ? filteredReports.map((report) => {
+            const bundle = bundleById[report.bundleId] || {};
+            const selected = selectedReport?.id === report.id;
+            return h(
+              "div",
+              { key: report.id, role: "option", "aria-selected": selected ? "true" : void 0, className: "ib-lit-card", "data-selected": selected ? "true" : void 0, onClick: () => {
+                setSelectedReportId(report.id);
+                readingInteraction.clear();
+              } },
+              coverOf(bundle),
+              h(
+                "div",
+                { className: "ib-lit-card-copy" },
+                h("b", { className: "ib-lit-title" }, report.titleZh || bundle.title || report.id),
+                h("div", { className: "ib-lit-meta" }, [journalShortOf(bundle), bundle.year].filter(Boolean).join(" · ") || "未登记期刊")
+              ),
+              h("span", { className: "ib-lit-card-more", "aria-hidden": "true" }, "⋯")
+            );
+          }) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
+        ) : h("div", { className: "ib-lit-search-list" }, searches.length ? searches.slice().reverse().map((search) => h("div", { key: search.id, className: "ib-lit-card ib-lit-search-card" }, h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, search.title || search.query || search.id), h("div", { className: "ib-lit-meta" }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {
+          event.stopPropagation();
+          setExpandedSearch((value) => value === search.id ? "" : search.id);
+        } }, expandedSearch === search.id ? "收起" : "查看"))) : h("div", { className: "ib-lit-empty" }, "暂无检索记录。"))
+      ),
+      detailNode
+    ),
+    entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null,
+    templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
+      if (event.target === event.currentTarget) setTemplatesOpen(false);
+    }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", style: { width: "min(1020px,68vw)", height: "65vh", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", overflow: "hidden" } }, h("div", { style: { display: "flex", padding: "12px 20px", borderBottom: "1px solid var(--ib-hair)" } }, h("b", null, "模板管理"), h("button", { className: "ib-btn", style: { marginLeft: "auto" }, onClick: () => setTemplatesOpen(false) }, "关闭")), h("div", { style: { padding: "16px 20px", overflow: "auto", height: "calc(100% - 56px)" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null,
+    previewNode
+  );
   return h(import_react9.default.Fragment, null, h(
     "div",
     { className: "ib-lit", ref: literatureRoot },
