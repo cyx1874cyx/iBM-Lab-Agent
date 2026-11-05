@@ -44386,6 +44386,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
   };
   const createFolder = () => setFolderEditor({ name: "" });
+  const deleteFolder = async () => {
+    if (!folderMenu) return;
+    const target = folderMenu;
+    setFolderMenu(null);
+    if (!window.confirm("删除分组「" + target.name + "」？其中的文献会移到「未分类」。")) return;
+    if (await folderAction("tasks_reading_folder_delete", { id: target.id }) && selectedFolder === target.id) setSelectedFolder("unfiled");
+  };
   const saveFolderEditor = async () => {
     const clean = String(folderEditor?.name ?? "").trim();
     if (!clean) {
@@ -44433,6 +44440,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react9.useState)(null);
   const [activeLitTab, setActiveLitTab] = (0, import_react9.useState)("reading");
   const [selectedReportId, setSelectedReportId] = (0, import_react9.useState)("");
+  const [folderMenu, setFolderMenu] = (0, import_react9.useState)(null);
+  (0, import_react9.useEffect)(() => {
+    if (!folderMenu) return void 0;
+    const close = () => setFolderMenu(null);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [folderMenu]);
   const toolbarRef = (0, import_react9.useRef)(null);
   (0, import_react9.useEffect)(() => {
     const head = document.querySelector(".ib-wb-page-head");
@@ -45154,6 +45168,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", ...readingInteraction.folderProps(folder), "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
             readingInteraction.clear();
             setSelectedFolder(folder.id);
+          }, onContextMenu: (event) => {
+            if (folder.id === "all" || folder.id === "unfiled") return;
+            event.preventDefault();
+            event.stopPropagation();
+            setFolderMenu({ x: event.clientX, y: event.clientY, id: folder.id, name: folder.name });
           } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length))), folderEditor ? h("input", { className: "ib-lit-folder-input", autoFocus: true, value: folderEditor.name, maxLength: 80, placeholder: "分组名称", onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }), onKeyDown: (event) => {
             if (event.key === "Escape") {
               event.preventDefault();
@@ -45190,6 +45209,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       ),
       detailNode
     ),
+    folderMenu ? h("div", { className: "ib-lit-folder-menu", style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h("button", { type: "button", onClick: () => void deleteFolder() }, "删除分组")) : null,
     entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null,
     templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
       if (event.target === event.currentTarget) setTemplatesOpen(false);

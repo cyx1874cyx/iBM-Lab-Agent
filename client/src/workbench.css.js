@@ -127,6 +127,9 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-folder[data-drop-folder=true]{outline:2px dashed var(--ib-accent);outline-offset:2px}
 .ib-lit-folder-add{font-size:18px;line-height:1;padding:4px 11px}
 .ib-lit-folder-input{width:160px;height:34px;border:1px solid var(--ib-accent);border-radius:999px;padding:0 12px;background:var(--ib-panel);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui);outline:none}
+.ib-lit-folder-menu{position:fixed;z-index:9000;min-width:132px;padding:6px;border:1px solid var(--ib-line);border-radius:8px;background:var(--ib-panel);box-shadow:0 10px 24px rgba(15,23,42,.16)}
+.ib-lit-folder-menu button{width:100%;border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:6px;color:#b42318;font:500 14px/1 var(--ib-font,system-ui);cursor:pointer}
+.ib-lit-folder-menu button:hover{background:rgba(180,35,24,.08)}
 .ib-lit-folder-editor{display:flex;align-items:center;gap:8px;margin:-6px 0 14px}
 .ib-lit-folder-editor input{height:34px;min-width:220px;border:1px solid var(--ib-accent);border-radius:7px;padding:0 10px;background:var(--ib-panel);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui)}
 .ib-lit-card[data-dragging-entry=true]{opacity:.45}
