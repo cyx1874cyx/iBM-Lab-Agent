@@ -63,6 +63,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const cardRefs = useRef(new Map());
 	const entryRefs = useRef(new Map());
 	const listRef = useRef(null);
+	const layerRef = useRef(null);
 	const panelCardRef = useRef(null);
 	const questionRef = useRef(null);
 	const aliveRef = useRef(true);
@@ -128,12 +129,14 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 
 	const alignCards = useCallback(() => {
 		const list = listRef.current;
+		const layer = layerRef.current;
 		const flow = flowRef.current;
-		if (!list || !flow) return;
+		if (!list || !layer || !flow) return;
 		const body = list.closest('.ib-pdf-body');
 		if (!body) return;
 		const bodyRect = body.getBoundingClientRect();
 		const listRect = list.getBoundingClientRect();
+		const scrollTop = flow.scrollTop;
 		let prevBottom = -Infinity;
 		for (const item of items.slice().sort((a, b) => a.page - b.page)) {
 			const entry = entryRefs.current.get(item.id);
@@ -141,14 +144,20 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			if (!entry || !pageEl) continue;
 			const pageRect = pageEl.getBoundingClientRect();
 			const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
-			// 卡片顶边贴着批注位置向下展开，避免第一条卡片中心对位时被栏顶裁掉。
-			const desired = pinY - (listRect.top - bodyRect.top) - 8;
-			// 对位优先；发生碰撞时向下让位并保留空隙，不做顶端吸附。
+			// 先换成滚动内容坐标；之后滚动只平移容器，不再逐张重排。
+			const desired = pinY - (listRect.top - bodyRect.top) - 8 + scrollTop;
 			const top = Math.max(desired, prevBottom + 14);
 			entry.style.top = `${top}px`;
 			prevBottom = top + entry.offsetHeight;
 		}
+		layer.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
 	}, [flowRef, items]);
+
+	const moveCards = useCallback(() => {
+		const layer = layerRef.current;
+		const flow = flowRef.current;
+		if (layer && flow) layer.style.transform = `translate3d(0, ${-flow.scrollTop}px, 0)`;
+	}, [flowRef]);
 
 	useEffect(() => {
 		const frame = requestAnimationFrame(() => { alignCards(); alignLeader(); });
@@ -166,11 +175,11 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const flow = flowRef.current;
 		if (!flow) return undefined;
 		let frame = 0;
-		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; alignCards(); alignLeader(); }); };
+		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; moveCards(); alignLeader(); }); };
 		flow.addEventListener('scroll', update, { passive: true });
 		window.addEventListener('resize', update);
 		return () => { if (frame) cancelAnimationFrame(frame); flow.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
-	}, [flowRef, alignCards, alignLeader]);
+	}, [flowRef, moveCards, alignLeader]);
 
 	useEffect(() => {
 		if (openId || userDeselectedRef.current || !items.length) return;
@@ -735,7 +744,8 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('div', { className: 'ib-anno-panel-rail' }, h('div', { className: 'ib-anno-panel-label' }, '批注'), sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
 				h('div', { className: 'ib-anno-panel-main' },
 				h('div', { ref: listRef, className: 'ib-anno-panel-list' },
-				sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。')),
+				h('div', { ref: layerRef, className: 'ib-anno-card-layer' },
+				sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'))),
 				error ? h('div', { className: 'ib-anno-error' }, error) : null)
 			), marginHost) : null,
 		error ? h('div', { className: 'ib-anno-error' }, error) : null
@@ -756,6 +766,7 @@ export const annotationStyles = `
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
+.ib-anno-card-layer{position:absolute;inset:0;will-change:transform}
 .ib-anno-entry{position:absolute;left:0;right:0}
 .ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}

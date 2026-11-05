@@ -45707,6 +45707,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const cardRefs = (0, import_react12.useRef)(/* @__PURE__ */ new Map());
   const entryRefs = (0, import_react12.useRef)(/* @__PURE__ */ new Map());
   const listRef = (0, import_react12.useRef)(null);
+  const layerRef = (0, import_react12.useRef)(null);
   const panelCardRef = (0, import_react12.useRef)(null);
   const questionRef = (0, import_react12.useRef)(null);
   const aliveRef = (0, import_react12.useRef)(true);
@@ -45778,12 +45779,14 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   }, [flowRef, leaderHost, items, openId]);
   const alignCards = (0, import_react12.useCallback)(() => {
     const list = listRef.current;
+    const layer = layerRef.current;
     const flow2 = flowRef.current;
-    if (!list || !flow2) return;
+    if (!list || !layer || !flow2) return;
     const body = list.closest(".ib-pdf-body");
     if (!body) return;
     const bodyRect = body.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
+    const scrollTop = flow2.scrollTop;
     let prevBottom = -Infinity;
     for (const item of items.slice().sort((a, b) => a.page - b.page)) {
       const entry = entryRefs.current.get(item.id);
@@ -45791,12 +45794,18 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       if (!entry || !pageEl) continue;
       const pageRect = pageEl.getBoundingClientRect();
       const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
-      const desired = pinY - (listRect.top - bodyRect.top) - 8;
+      const desired = pinY - (listRect.top - bodyRect.top) - 8 + scrollTop;
       const top = Math.max(desired, prevBottom + 14);
       entry.style.top = `${top}px`;
       prevBottom = top + entry.offsetHeight;
     }
+    layer.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
   }, [flowRef, items]);
+  const moveCards = (0, import_react12.useCallback)(() => {
+    const layer = layerRef.current;
+    const flow2 = flowRef.current;
+    if (layer && flow2) layer.style.transform = `translate3d(0, ${-flow2.scrollTop}px, 0)`;
+  }, [flowRef]);
   (0, import_react12.useEffect)(() => {
     const frame = requestAnimationFrame(() => {
       alignCards();
@@ -45821,7 +45830,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const update = () => {
       if (!frame) frame = requestAnimationFrame(() => {
         frame = 0;
-        alignCards();
+        moveCards();
         alignLeader();
       });
     };
@@ -45832,7 +45841,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       flow2.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [flowRef, alignCards, alignLeader]);
+  }, [flowRef, moveCards, alignLeader]);
   (0, import_react12.useEffect)(() => {
     if (openId || userDeselectedRef.current || !items.length) return;
     const current = items.find((item) => item.page === page);
@@ -46547,7 +46556,11 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           h(
             "div",
             { ref: listRef, className: "ib-anno-panel-list" },
-            sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h("div", { className: "ib-anno-panel-empty" }, "在正文或图表上点「框选提问」，批注会出现在这里。")
+            h(
+              "div",
+              { ref: layerRef, className: "ib-anno-card-layer" },
+              sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h("div", { className: "ib-anno-panel-empty" }, "在正文或图表上点「框选提问」，批注会出现在这里。")
+            )
           ),
           error ? h("div", { className: "ib-anno-error" }, error) : null
         )
@@ -46571,6 +46584,7 @@ var annotationStyles = `
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
+.ib-anno-card-layer{position:absolute;inset:0;will-change:transform}
 .ib-anno-entry{position:absolute;left:0;right:0}
 .ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
