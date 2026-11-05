@@ -13,7 +13,9 @@ import { dirname, join } from 'node:path';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 
 const MAX_PAGE_TEXT = 15000;
-const ANSWER_TIMEOUT_MS = 180000;
+const ANSWER_TIMEOUT_MS = 120000;
+const WEB_INTENT = /最新|进展|后续|影响因子|期刊|发表|引用|作者|团队|官网|新闻|联网|搜索|查一下|查查|网上|外部|背景|对比|区别|指南|政策|市场|价格|20(2[3-9]|3\d)|今年|去年/i;
+const webCache = new Map();
 
 const stamp = () => new Date().toISOString();
 
@@ -331,13 +333,19 @@ export const annotationMethods = {
 		let webResults = [];
 		try {
 			const web = this.ctx.get('web');
-			if (web?.search) {
+			if (web?.search && WEB_INTENT.test(item.question)) {
 				const query = [item.question, bundle.title].filter(Boolean).join(' ').slice(0, 300);
-				const searched = await Promise.race([
-					web.search({ query, maxResults: 5 }, signal),
-					new Promise((resolve) => setTimeout(() => resolve(undefined), 15000))
-				]);
-				webResults = Array.isArray(searched?.sources) ? searched.sources.slice(0, 5) : [];
+				const cached = webCache.get(query);
+				if (cached && Date.now() - cached.at < 10 * 60 * 1000) webResults = cached.results;
+				else {
+					const searched = await Promise.race([
+						web.search({ query, maxResults: 4 }, signal),
+						new Promise((resolve) => setTimeout(() => resolve(undefined), 3500))
+					]);
+					webResults = Array.isArray(searched?.sources) ? searched.sources.slice(0, 4) : [];
+					webCache.set(query, { at: Date.now(), results: webResults });
+					while (webCache.size > 40) webCache.delete(webCache.keys().next().value);
+				}
 			}
 		} catch { webResults = []; }
 		const handle = await agents.create({
