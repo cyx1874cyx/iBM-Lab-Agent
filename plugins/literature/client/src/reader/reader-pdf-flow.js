@@ -19,7 +19,9 @@ export const PdfFlow=React.memo(function PdfFlow({doc,side,zoom,active,scrollRef
  const schedule=useCallback(()=>{if(!frame.current)frame.current=requestAnimationFrame(()=>{frame.current=0;report();});},[report]);
  const resize=useCallback(()=>{
   const flow=scrollRef.current,props=current.current,handle=engine.current;if(!props.active||!flow?.clientWidth||!handle?.viewer.pagesCount)return;
-  const scale=Math.max(.1,Math.round((flow.clientWidth-24)/handle.pageWidth/(96/72)*props.zoom*100)/100);
+  const unit=handle.pageWidth*(96/72);
+  // 宽屏下不再把 A4 页放大到 1900+px：过大的页面会让每页 canvas 与滚动层成倍变重。
+  const scale=Math.max(.1,Math.round(Math.min((flow.clientWidth-24)/unit,980/unit)*props.zoom*100)/100);
   if(!handle.scaled){handle.viewer.currentScale=scale;handle.scaled=true;}
   else if(Math.abs(handle.viewer.currentScale-scale)>.0001){handle.scaleReadyAt=performance.now()+100;handle.viewer.updateScale({scaleFactor:scale/handle.viewer.currentScale,drawingDelay:100});clearTimeout(handle.drawingTimer);handle.drawingTimer=setTimeout(schedule,110);}
   props.onLayout(side);handle.viewer.update();schedule();

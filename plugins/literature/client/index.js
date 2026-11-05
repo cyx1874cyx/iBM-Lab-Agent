@@ -45472,7 +45472,8 @@ var PdfFlow = import_react10.default.memo(function PdfFlow2({ doc, side, zoom, a
   const resize = (0, import_react10.useCallback)(() => {
     const flow = scrollRef.current, props = current.current, handle = engine.current;
     if (!props.active || !flow?.clientWidth || !handle?.viewer.pagesCount) return;
-    const scale = Math.max(0.1, Math.round((flow.clientWidth - 24) / handle.pageWidth / (96 / 72) * props.zoom * 100) / 100);
+    const unit = handle.pageWidth * (96 / 72);
+    const scale = Math.max(0.1, Math.round(Math.min((flow.clientWidth - 24) / unit, 980 / unit) * props.zoom * 100) / 100);
     if (!handle.scaled) {
       handle.viewer.currentScale = scale;
       handle.scaled = true;
