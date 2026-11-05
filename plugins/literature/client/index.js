@@ -45686,6 +45686,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
+  const [inflowHost, setInflowHost] = (0, import_react12.useState)(null);
   const userDeselectedRef = (0, import_react12.useRef)(false);
   const openItemRef = (0, import_react12.useRef)(null);
   const [editing, setEditing] = (0, import_react12.useState)(null);
@@ -45741,28 +45742,25 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     };
   }, [leaderHost]);
   const alignLeader = (0, import_react12.useCallback)(() => {
-    const svg = leaderHost?.querySelector(".ib-anno-leader");
     const flow2 = flowRef.current;
-    const body = leaderHost?.parentElement;
-    if (!svg || !flow2 || !body) {
-      if (svg) svg.style.display = "none";
-      return;
-    }
-    const bodyRect = body.getBoundingClientRect();
-    svg.setAttribute("width", String(Math.round(bodyRect.width)));
-    svg.setAttribute("height", String(Math.round(bodyRect.height)));
-    svg.setAttribute("viewBox", `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
+    const svg = inflowHost?.querySelector(".ib-anno-leader-inflow");
+    if (!flow2 || !svg) return;
+    const flowRect2 = flow2.getBoundingClientRect();
+    const width = Math.max(1, flow2.clientWidth);
+    const height = Math.max(1, flow2.scrollHeight);
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     const lines = [];
     for (const item of items) {
       const entry = entryRefs.current.get(item.id);
       const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
       if (!entry || !pageEl || !item.pin) continue;
-      const pageRect = pageEl.getBoundingClientRect();
       const entryRect = entry.getBoundingClientRect();
-      const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
-      const startY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
-      const endX = entryRect.left - bodyRect.left;
-      const endY = entryRect.top - bodyRect.top + Math.min(24, entryRect.height / 2);
+      const startX = pageEl.offsetLeft + item.pin.x * pageEl.offsetWidth;
+      const startY = pageEl.offsetTop + item.pin.y * pageEl.offsetHeight;
+      const endX = entryRect.left - flowRect2.left + flow2.scrollLeft;
+      const endY = entryRect.top - flowRect2.top + flow2.scrollTop + Math.min(24, entryRect.height / 2);
       const bend = Math.max(24, (endX - startX) * 0.45);
       lines.push({ d: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`, active: item.id === openId });
     }
@@ -45775,37 +45773,23 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       path.setAttribute("stroke-width", line.active ? "1.6" : "1.1");
       svg.append(path);
     }
-    svg.style.display = lines.length ? "block" : "none";
-  }, [flowRef, leaderHost, items, openId]);
+  }, [flowRef, inflowHost, items, openId]);
   const alignCards = (0, import_react12.useCallback)(() => {
-    const list = listRef.current;
-    const layer = layerRef.current;
     const flow2 = flowRef.current;
-    if (!list || !layer || !flow2) return;
-    const body = list.closest(".ib-pdf-body");
-    if (!body) return;
-    const bodyRect = body.getBoundingClientRect();
-    const listRect = list.getBoundingClientRect();
-    const scrollTop = flow2.scrollTop;
+    if (!flow2) return;
     let prevBottom = -Infinity;
     for (const item of items.slice().sort((a, b) => a.page - b.page)) {
       const entry = entryRefs.current.get(item.id);
       const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
       if (!entry || !pageEl) continue;
-      const pageRect = pageEl.getBoundingClientRect();
-      const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
-      const desired = pinY - (listRect.top - bodyRect.top) - 8 + scrollTop;
+      const desired = pageEl.offsetTop + item.pin.y * pageEl.offsetHeight - 22;
       const top = Math.max(desired, prevBottom + 14);
       entry.style.top = `${top}px`;
       prevBottom = top + entry.offsetHeight;
     }
-    layer.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
   }, [flowRef, items]);
   const moveCards = (0, import_react12.useCallback)(() => {
-    const layer = layerRef.current;
-    const flow2 = flowRef.current;
-    if (layer && flow2) layer.style.transform = `translate3d(0, ${-flow2.scrollTop}px, 0)`;
-  }, [flowRef]);
+  }, []);
   (0, import_react12.useEffect)(() => {
     const frame = requestAnimationFrame(() => {
       alignCards();
@@ -45813,6 +45797,33 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     });
     return () => cancelAnimationFrame(frame);
   }, [alignLeader, alignCards, openId, items, tick]);
+  (0, import_react12.useEffect)(() => {
+    const flow2 = flowRef.current;
+    if (!flow2 || !flowReady) return void 0;
+    const host = document.createElement("div");
+    host.className = "ib-anno-inflow";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "ib-anno-leader-inflow");
+    svg.setAttribute("aria-hidden", "true");
+    host.append(svg);
+    flow2.append(host);
+    setInflowHost(host);
+    const sync = () => {
+      host.style.height = `${flow2.scrollHeight}px`;
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(flow2);
+    return () => {
+      observer.disconnect();
+      host.remove();
+    };
+  }, [flowRef, flowReady]);
+  useLayoutEffect(() => {
+    const flow2 = flowRef.current;
+    const host = inflowHost;
+    if (flow2 && host) host.style.height = `${flow2.scrollHeight}px`;
+  }, [inflowHost, flowRef, flowReady, items, tick]);
   (0, import_react12.useEffect)(() => {
     const card = panelCardRef.current;
     if (!card) return void 0;
@@ -45823,25 +45834,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     observer.observe(card);
     return () => observer.disconnect();
   }, [alignLeader, alignCards, openId]);
-  (0, import_react12.useEffect)(() => {
-    const flow2 = flowRef.current;
-    if (!flow2) return void 0;
-    let frame = 0;
-    const update = () => {
-      if (!frame) frame = requestAnimationFrame(() => {
-        frame = 0;
-        moveCards();
-        alignLeader();
-      });
-    };
-    flow2.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      flow2.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [flowRef, moveCards, alignLeader]);
   (0, import_react12.useEffect)(() => {
     if (openId || userDeselectedRef.current || !items.length) return;
     const current = items.find((item) => item.page === page);
@@ -46417,9 +46409,9 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   return h(
     "div",
     { ref: overlayRef, className: "ib-anno-overlay", style: overlayStyle, "data-annotations": true },
-    h(
+    inflowHost ? import_react_dom2.default.createPortal(h(
       "div",
-      { ref: contentRef, className: "ib-anno-content", style: { position: "absolute", inset: 0, pointerEvents: "none", transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
+      { className: "ib-anno-page-layer" },
       items.map((item) => {
         const pin = item.pin ? pagePoint(item.page, item.pin) : null;
         if (!pin) return null;
@@ -46467,7 +46459,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         if (!flowRectNow) return null;
         return h("span", { key: `draft-${index}`, className: "ib-anno-highlight ib-anno-draft", style: { left: pageRect.left - flowRectNow.left + (flowRef.current?.scrollLeft ?? 0) + rect.x * pageRect.width, top: pageRect.top - flowRectNow.top + (flowRef.current?.scrollTop ?? 0) + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
       }) : null
-    ),
+    ), inflowHost) : null,
     composePos ? h(
       "div",
       { className: "ib-anno-compose", onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
@@ -46545,10 +46537,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         )
       )
     ) : null,
-    marginHost ? import_react_dom2.default.createPortal(
+    inflowHost ? import_react_dom2.default.createPortal(
       h(
         "div",
-        { className: "ib-anno-panel" },
+        { className: "ib-anno-panel ib-anno-panel-inflow" },
         h("div", { className: "ib-anno-panel-rail" }, h("div", { className: "ib-anno-panel-label" }, "批注"), sortedItems.map((item, index) => h("button", { key: item.id, type: "button", className: "ib-anno-panel-tab", "data-active": openId === item.id ? "true" : void 0, "data-status": item.status, title: `批注 ${String(index + 1).padStart(2, "0")} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, "0")))),
         h(
           "div",
@@ -46565,7 +46557,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
           error ? h("div", { className: "ib-anno-error" }, error) : null
         )
       ),
-      marginHost
+      inflowHost
     ) : null,
     error ? h("div", { className: "ib-anno-error" }, error) : null
   );
@@ -46574,13 +46566,17 @@ var annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
 .ib-anno-toc{display:none}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
+.ib-anno-page-layer{position:absolute;inset:0;pointer-events:none}
+.ib-anno-leader-inflow{position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
+.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:340px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;max-height:100vh}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
@@ -54020,17 +54016,15 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         "div",
         { className: "ib-pdf-viewport" },
         builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }),
-        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, marginHost, leaderHost, page: pages.original, onRegionDone: () => selectTool("hand") }) : null,
+        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, page: pages.original, onRegionDone: () => selectTool("hand") }) : null,
         h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…"))
-      ),
-      side === "original" && state3.format === "pdf" ? h("div", { className: "ib-anno-leader-host", ref: setLeaderHost }) : null,
-      side === "original" && state3.format === "pdf" ? h("aside", { className: "ib-anno-margin", ref: setMarginHost }) : null
+      )
     );
     return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), body);
   };
   const content = h(
     "div",
-    { ref: fullscreen, className: "ib-reader" + (mode === "dual" ? " ib-reader-fullscreen" : ""), "data-reader-mode": mode },
+    { ref: fullscreen, className: "ib-reader" + (mode === "dual" ? " ib-reader-fullscreen" : ""), "data-reader-mode": mode, "data-anno": annotationsOn ? "true" : "false" },
     state3.loading ? loading("正在读取已归档文献…") : state3.error && !["report", "ppt"].includes(mode) ? h("div", { className: "ib-reader-error", role: "alert" }, "无法打开文献：" + state3.error) : h(
       import_react13.default.Fragment,
       null,
@@ -54092,6 +54086,8 @@ var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-pdf-toolbar{gap:8px;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;min-height:48px}.ib-pdf-toolbar .ib-act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;color:#526277;flex:none}.ib-pdf-toolbar .ib-act:hover{background:#e7edf3;color:#1f5164}.ib-pdf-toolbar .ib-act[data-active=true]{background:#e0f1ef;color:#137c72;box-shadow:inset 0 0 0 1px #c2e2df}.ib-toolbar-group{display:flex;align-items:center;gap:3px;padding-right:8px;border-right:1px solid #dfe6ed;flex:none}.ib-toolbar-pages{border-right:0;padding-right:0;margin-left:auto;gap:5px}.ib-pdf-toolbar select{height:30px;border-radius:7px;background:#fff;padding:3px 7px;border-color:#dce4ec;cursor:pointer}.ib-pdf-toolbar .ib-material-select{width:128px}.ib-pdf-toolbar input[type=number]{height:28px;box-sizing:border-box;text-align:center;border-radius:7px;width:42px;appearance:textfield;-moz-appearance:textfield}.ib-pdf-toolbar input[type=number]::-webkit-inner-spin-button{appearance:none}.ib-pdf-toolbar small{color:#7a8796;min-width:24px}.ib-pdf-language{color:#33465b;font-weight:600;padding-right:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis}.ib-pdf-toolbar .ib-act:focus-visible,.ib-pdf-toolbar select:focus-visible,.ib-pdf-toolbar input:focus-visible{outline:2px solid #278c85;outline-offset:2px}@media(max-width:650px){.ib-pdf-toolbar{gap:5px;padding:6px}.ib-toolbar-group{padding-right:4px}.ib-pdf-toolbar .ib-act{width:27px}.ib-pdf-toolbar .ib-material-select{width:112px}.ib-toolbar-pages{margin-left:0}}
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
 .ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
+.ib-reader[data-anno=true] .pdfViewer{width:calc(100% - 340px)}
+.ib-anno-inflow{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:6}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;
 

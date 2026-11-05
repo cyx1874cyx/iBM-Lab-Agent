@@ -42,6 +42,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
+	const [inflowHost, setInflowHost] = useState(null);
 	const userDeselectedRef = useRef(false);
 	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
@@ -93,25 +94,25 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	}, [leaderHost]);
 
 	const alignLeader = useCallback(() => {
-		const svg = leaderHost?.querySelector('.ib-anno-leader');
 		const flow = flowRef.current;
-		const body = leaderHost?.parentElement;
-		if (!svg || !flow || !body) { if (svg) svg.style.display = 'none'; return; }
-		const bodyRect = body.getBoundingClientRect();
-		svg.setAttribute('width', String(Math.round(bodyRect.width)));
-		svg.setAttribute('height', String(Math.round(bodyRect.height)));
-		svg.setAttribute('viewBox', `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
+		const svg = inflowHost?.querySelector('.ib-anno-leader-inflow');
+		if (!flow || !svg) return;
+		const flowRect = flow.getBoundingClientRect();
+		const width = Math.max(1, flow.clientWidth);
+		const height = Math.max(1, flow.scrollHeight);
+		svg.setAttribute('width', String(width));
+		svg.setAttribute('height', String(height));
+		svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 		const lines = [];
 		for (const item of items) {
 			const entry = entryRefs.current.get(item.id);
 			const pageEl = flow.querySelector(`.page[data-page-number="${item.page}"]`);
 			if (!entry || !pageEl || !item.pin) continue;
-			const pageRect = pageEl.getBoundingClientRect();
 			const entryRect = entry.getBoundingClientRect();
-			const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
-			const startY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
-			const endX = entryRect.left - bodyRect.left;
-			const endY = entryRect.top - bodyRect.top + Math.min(24, entryRect.height / 2);
+			const startX = pageEl.offsetLeft + item.pin.x * pageEl.offsetWidth;
+			const startY = pageEl.offsetTop + item.pin.y * pageEl.offsetHeight;
+			const endX = entryRect.left - flowRect.left + flow.scrollLeft;
+			const endY = entryRect.top - flowRect.top + flow.scrollTop + Math.min(24, entryRect.height / 2);
 			const bend = Math.max(24, (endX - startX) * 0.45);
 			lines.push({ d: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - 36} ${endY}, ${endX} ${endY}`, active: item.id === openId });
 		}
@@ -124,45 +125,53 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			path.setAttribute('stroke-width', line.active ? '1.6' : '1.1');
 			svg.append(path);
 		}
-		svg.style.display = lines.length ? 'block' : 'none';
-	}, [flowRef, leaderHost, items, openId]);
+	}, [flowRef, inflowHost, items, openId]);
 
 	const alignCards = useCallback(() => {
-		const list = listRef.current;
-		const layer = layerRef.current;
 		const flow = flowRef.current;
-		if (!list || !layer || !flow) return;
-		const body = list.closest('.ib-pdf-body');
-		if (!body) return;
-		const bodyRect = body.getBoundingClientRect();
-		const listRect = list.getBoundingClientRect();
-		const scrollTop = flow.scrollTop;
+		if (!flow) return;
 		let prevBottom = -Infinity;
 		for (const item of items.slice().sort((a, b) => a.page - b.page)) {
 			const entry = entryRefs.current.get(item.id);
 			const pageEl = flow.querySelector(`.page[data-page-number="${item.page}"]`);
 			if (!entry || !pageEl) continue;
-			const pageRect = pageEl.getBoundingClientRect();
-			const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
-			// 先换成滚动内容坐标；之后滚动只平移容器，不再逐张重排。
-			const desired = pinY - (listRect.top - bodyRect.top) - 8 + scrollTop;
+			const desired = pageEl.offsetTop + item.pin.y * pageEl.offsetHeight - 22;
 			const top = Math.max(desired, prevBottom + 14);
 			entry.style.top = `${top}px`;
 			prevBottom = top + entry.offsetHeight;
 		}
-		layer.style.transform = `translate3d(0, ${-scrollTop}px, 0)`;
 	}, [flowRef, items]);
 
-	const moveCards = useCallback(() => {
-		const layer = layerRef.current;
-		const flow = flowRef.current;
-		if (layer && flow) layer.style.transform = `translate3d(0, ${-flow.scrollTop}px, 0)`;
-	}, [flowRef]);
+	const moveCards = useCallback(() => {}, []);
 
 	useEffect(() => {
 		const frame = requestAnimationFrame(() => { alignCards(); alignLeader(); });
 		return () => cancelAnimationFrame(frame);
 	}, [alignLeader, alignCards, openId, items, tick]);
+
+	useEffect(() => {
+		const flow = flowRef.current;
+		if (!flow || !flowReady) return undefined;
+		const host = document.createElement('div');
+		host.className = 'ib-anno-inflow';
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('class', 'ib-anno-leader-inflow');
+		svg.setAttribute('aria-hidden', 'true');
+		host.append(svg);
+		flow.append(host);
+		setInflowHost(host);
+		const sync = () => { host.style.height = `${flow.scrollHeight}px`; };
+		sync();
+		const observer = new ResizeObserver(sync);
+		observer.observe(flow);
+		return () => { observer.disconnect(); host.remove(); };
+	}, [flowRef, flowReady]);
+
+	useLayoutEffect(() => {
+		const flow = flowRef.current;
+		const host = inflowHost;
+		if (flow && host) host.style.height = `${flow.scrollHeight}px`;
+	}, [inflowHost, flowRef, flowReady, items, tick]);
 
 	useEffect(() => {
 		const card = panelCardRef.current;
@@ -171,15 +180,6 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		observer.observe(card);
 		return () => observer.disconnect();
 	}, [alignLeader, alignCards, openId]);
-	useEffect(() => {
-		const flow = flowRef.current;
-		if (!flow) return undefined;
-		let frame = 0;
-		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; moveCards(); alignLeader(); }); };
-		flow.addEventListener('scroll', update, { passive: true });
-		window.addEventListener('resize', update);
-		return () => { if (frame) cancelAnimationFrame(frame); flow.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
-	}, [flowRef, moveCards, alignLeader]);
 
 	useEffect(() => {
 		if (openId || userDeselectedRef.current || !items.length) return;
@@ -666,7 +666,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	};
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
-		h('div', { ref: contentRef, className: 'ib-anno-content', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
+		inflowHost ? ReactDOM.createPortal(h('div', { className: 'ib-anno-page-layer' },
 		items.map((item) => {
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
 			if (!pin) return null;
@@ -701,7 +701,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const flowRectNow = flowRef.current?.getBoundingClientRect();
 			if (!flowRectNow) return null;
 			return h('span', { key: `draft-${index}`, className: 'ib-anno-highlight ib-anno-draft', style: { left: pageRect.left - flowRectNow.left + (flowRef.current?.scrollLeft ?? 0) + rect.x * pageRect.width, top: pageRect.top - flowRectNow.top + (flowRef.current?.scrollTop ?? 0) + rect.y * pageRect.height, width: rect.w * pageRect.width, height: rect.h * pageRect.height } });
-		}) : null),
+		}) : null), inflowHost) : null,
 		composePos ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
 			h('div', { className: 'ib-anno-compose-quote' }, short(draft.quote || (draft.kind === 'region' ? `已框选第 ${draft.page} 页区域（截图将发给 AI）` : ''), 120)),
 			h('textarea', { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: '就框选内容提问…', defaultValue: '', onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void submit(); } }),
@@ -739,15 +739,15 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('div', { className: 'ib-anno-follow' },
 					h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
-		marginHost ? ReactDOM.createPortal(
-			h('div', { className: 'ib-anno-panel' },
+		inflowHost ? ReactDOM.createPortal(
+			h('div', { className: 'ib-anno-panel ib-anno-panel-inflow' },
 				h('div', { className: 'ib-anno-panel-rail' }, h('div', { className: 'ib-anno-panel-label' }, '批注'), sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
 				h('div', { className: 'ib-anno-panel-main' },
 				h('div', { ref: listRef, className: 'ib-anno-panel-list' },
 				h('div', { ref: layerRef, className: 'ib-anno-card-layer' },
 				sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'))),
 				error ? h('div', { className: 'ib-anno-error' }, error) : null)
-			), marginHost) : null,
+			), inflowHost) : null,
 		error ? h('div', { className: 'ib-anno-error' }, error) : null
 	);
 }
@@ -756,13 +756,17 @@ export const annotationStyles = `
 .ib-anno-overlay{pointer-events:none;overflow:hidden}
 .ib-anno-toc{display:none}
 .ib-anno-content{position:absolute;inset:0;pointer-events:none}
+.ib-anno-page-layer{position:absolute;inset:0;pointer-events:none}
+.ib-anno-leader-inflow{position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible}
 .ib-anno-rubber{position:absolute;border:1.5px dashed #137c72;background:rgba(19,124,114,.12);pointer-events:none;z-index:7;box-sizing:border-box}
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
+.ib-anno-panel-inflow{position:absolute;right:0;top:0;width:340px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;max-height:100vh}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
