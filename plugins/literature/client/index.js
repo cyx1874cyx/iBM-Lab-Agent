@@ -45735,11 +45735,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     svg.setAttribute("viewBox", `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
     const head = marginHost.querySelector(".ib-anno-panel-head");
     const tabs = marginHost.querySelector(".ib-anno-panel-tabs");
-    const minTop = (head?.offsetHeight ?? 0) + (tabs?.offsetHeight ?? 0) + 26;
     const cardHeight = card.offsetHeight;
     const panelTop = marginRect.top - bodyRect.top;
     const pinY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
-    const top = Math.max(minTop, Math.min(marginRect.height - cardHeight - 12, pinY - panelTop - cardHeight / 2));
+    const top = pinY - panelTop - cardHeight / 2;
     card.style.top = `${top}px`;
     const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
     const startY = pinY;
@@ -45822,21 +45821,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       if (target) target.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
       const cardLayer = cardLayerRef.current;
       if (cardLayer) cardLayer.style.transform = `translate(${-flow2.scrollLeft}px, ${-flow2.scrollTop}px)`;
-      const item = openItemRef.current;
-      if (item?.pin) {
-        const pageEl = flow2.querySelector(`.page[data-page-number="${item.page}"]`);
-        if (pageEl) {
-          const pageRect = pageEl.getBoundingClientRect();
-          const flowRect2 = flow2.getBoundingClientRect();
-          const y = pageRect.top - flowRect2.top + item.pin.y * pageRect.height;
-          const margin = flow2.clientHeight;
-          if (y < -margin || y > flowRect2.height + margin) {
-            openItemRef.current = null;
-            setOpenId(null);
-            setEditing(null);
-          }
-        }
-      }
     };
     onScroll();
     flow2.addEventListener("scroll", onScroll, { passive: true });
@@ -46397,11 +46381,11 @@ var annotationStyles = `
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744;overflow:hidden}
-.ib-anno-panel-head{display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
-.ib-anno-panel-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
+.ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
 .ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
 .ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
-.ib-anno-panel-card{position:absolute;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
+.ib-anno-panel-card{position:absolute;z-index:1;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
 .ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
 .ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
 .ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
@@ -53868,7 +53852,7 @@ var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-reader-spinner{display:inline-block;width:12px;height:12px;flex:none;box-sizing:border-box;border:2px solid #b6c6d3;border-top-color:#34718e;border-radius:50%;animation:ib-reader-spin .8s linear infinite}.ib-act .ib-reader-spinner{margin-right:5px;vertical-align:-2px}.ib-reader-view-status{position:absolute;top:45px;right:20px;display:flex;align-items:center;gap:7px;padding:7px 10px;background:#fffffff0;border:1px solid #dce1e8;border-radius:5px;color:#597081;box-shadow:0 2px 8px #0000000c;pointer-events:none;z-index:2}@keyframes ib-reader-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.ib-reader-spinner{animation:none}}
 .ib-pdf-toolbar{gap:8px;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;min-height:48px}.ib-pdf-toolbar .ib-act{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;color:#526277;flex:none}.ib-pdf-toolbar .ib-act:hover{background:#e7edf3;color:#1f5164}.ib-pdf-toolbar .ib-act[data-active=true]{background:#e0f1ef;color:#137c72;box-shadow:inset 0 0 0 1px #c2e2df}.ib-toolbar-group{display:flex;align-items:center;gap:3px;padding-right:8px;border-right:1px solid #dfe6ed;flex:none}.ib-toolbar-pages{border-right:0;padding-right:0;margin-left:auto;gap:5px}.ib-pdf-toolbar select{height:30px;border-radius:7px;background:#fff;padding:3px 7px;border-color:#dce4ec;cursor:pointer}.ib-pdf-toolbar .ib-material-select{width:128px}.ib-pdf-toolbar input[type=number]{height:28px;box-sizing:border-box;text-align:center;border-radius:7px;width:42px;appearance:textfield;-moz-appearance:textfield}.ib-pdf-toolbar input[type=number]::-webkit-inner-spin-button{appearance:none}.ib-pdf-toolbar small{color:#7a8796;min-width:24px}.ib-pdf-language{color:#33465b;font-weight:600;padding-right:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis}.ib-pdf-toolbar .ib-act:focus-visible,.ib-pdf-toolbar select:focus-visible,.ib-pdf-toolbar input:focus-visible{outline:2px solid #278c85;outline-offset:2px}@media(max-width:650px){.ib-pdf-toolbar{gap:5px;padding:6px}.ib-toolbar-group{padding-right:4px}.ib-pdf-toolbar .ib-act{width:27px}.ib-pdf-toolbar .ib-material-select{width:112px}.ib-toolbar-pages{margin-left:0}}
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
-.ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
+.ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;
 

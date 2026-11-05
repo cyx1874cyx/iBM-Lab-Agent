@@ -84,11 +84,10 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		svg.setAttribute('viewBox', `0 0 ${Math.round(bodyRect.width)} ${Math.round(bodyRect.height)}`);
 		const head = marginHost.querySelector('.ib-anno-panel-head');
 		const tabs = marginHost.querySelector('.ib-anno-panel-tabs');
-		const minTop = (head?.offsetHeight ?? 0) + (tabs?.offsetHeight ?? 0) + 26;
 		const cardHeight = card.offsetHeight;
 		const panelTop = marginRect.top - bodyRect.top;
 		const pinY = pageRect.top + item.pin.y * pageRect.height - bodyRect.top;
-		const top = Math.max(minTop, Math.min(marginRect.height - cardHeight - 12, pinY - panelTop - cardHeight / 2));
+		const top = pinY - panelTop - cardHeight / 2;
 		card.style.top = `${top}px`;
 		const startX = pageRect.left + item.pin.x * pageRect.width - bodyRect.left;
 		const startY = pinY;
@@ -163,22 +162,6 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			if (target) target.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
 			const cardLayer = cardLayerRef.current;
 			if (cardLayer) cardLayer.style.transform = `translate(${-flow.scrollLeft}px, ${-flow.scrollTop}px)`;
-			// 卡片仍钉在页面原位，但批注离开可视区域一个屏高后自动收起。
-			const item = openItemRef.current;
-			if (item?.pin) {
-				const pageEl = flow.querySelector(`.page[data-page-number="${item.page}"]`);
-				if (pageEl) {
-					const pageRect = pageEl.getBoundingClientRect();
-					const flowRect = flow.getBoundingClientRect();
-					const y = pageRect.top - flowRect.top + item.pin.y * pageRect.height;
-					const margin = flow.clientHeight;
-					if (y < -margin || y > flowRect.height + margin) {
-						openItemRef.current = null;
-						setOpenId(null);
-						setEditing(null);
-					}
-				}
-			}
 		};
 		onScroll();
 		flow.addEventListener('scroll', onScroll, { passive: true });
@@ -630,11 +613,11 @@ export const annotationStyles = `
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:#303744;overflow:hidden}
-.ib-anno-panel-head{display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
-.ib-anno-panel-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
+.ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
 .ib-anno-panel-tab{border:1px solid #d7dfe8;background:#fff;border-radius:999px;padding:3px 9px;font-size:11px;color:#5c6a76;cursor:pointer}
 .ib-anno-panel-tab[data-active=true]{background:#e8f3f0;border-color:#137c72;color:#0f5f57}
-.ib-anno-panel-card{position:absolute;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
+.ib-anno-panel-card{position:absolute;z-index:1;left:14px;right:14px;top:100px;max-height:calc(100% - 110px);overflow:auto;background:#fff;border:1px solid #e2e8ee;border-radius:10px;padding:14px;box-shadow:0 4px 16px #0000000a;box-sizing:border-box}
 .ib-anno-panel-card-head{display:flex;align-items:center;gap:8px;color:#1f3a3a}.ib-anno-panel-card-head b{font-size:13px}
 .ib-anno-status{margin-left:auto;font-size:11px;color:#2f7a4f;background:#e9f5ee;border-radius:999px;padding:2px 8px}
 .ib-anno-status[data-status=pending],.ib-anno-status[data-status=running]{color:#8a641f;background:#fbf1dd}.ib-anno-status[data-status=failed]{color:#a33;background:#fdeeee}
