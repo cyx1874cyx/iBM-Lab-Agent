@@ -57,6 +57,9 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const overlayRef = useRef(null);
 	const contentRef = useRef(null);
 	const cardLayerRef = useRef(null);
+	const cardRefs = useRef(new Map());
+	const entryRefs = useRef(new Map());
+	const listRef = useRef(null);
 	const panelCardRef = useRef(null);
 	const questionRef = useRef(null);
 	const aliveRef = useRef(true);
@@ -112,29 +115,50 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		svg.style.display = 'block';
 	}, [flowRef, leaderHost, marginHost, items, openId]);
 
+	const alignCards = useCallback(() => {
+		const list = listRef.current;
+		const flow = flowRef.current;
+		if (!list || !flow) return;
+		const body = list.closest('.ib-pdf-body');
+		if (!body) return;
+		const bodyRect = body.getBoundingClientRect();
+		const listRect = list.getBoundingClientRect();
+		let prevBottom = -Infinity;
+		for (const item of items.slice().sort((a, b) => a.page - b.page)) {
+			const entry = entryRefs.current.get(item.id);
+			const pageEl = flow.querySelector(`.page[data-page-number="${item.page}"]`);
+			if (!entry || !pageEl) continue;
+			const pageRect = pageEl.getBoundingClientRect();
+			const pinY = pageRect.top - bodyRect.top + item.pin.y * pageRect.height;
+			const desired = pinY - (listRect.top - bodyRect.top) - entry.offsetHeight / 2;
+			// 对位优先：先贴着对应批注；发生碰撞时向下让位并保留空隙。
+			const top = Math.max(desired, prevBottom + 14);
+			entry.style.top = `${top}px`;
+			prevBottom = top + entry.offsetHeight;
+		}
+	}, [flowRef, items]);
+
 	useEffect(() => {
-		const frame = requestAnimationFrame(alignLeader);
+		const frame = requestAnimationFrame(() => { alignCards(); alignLeader(); });
 		return () => cancelAnimationFrame(frame);
-	}, [alignLeader, openId, items, tick]);
+	}, [alignLeader, alignCards, openId, items, tick]);
 
 	useEffect(() => {
 		const card = panelCardRef.current;
 		if (!card) return undefined;
-		const observer = new ResizeObserver(() => alignLeader());
+		const observer = new ResizeObserver(() => { alignCards(); alignLeader(); });
 		observer.observe(card);
-		card.scrollIntoView({ block: 'nearest' });
 		return () => observer.disconnect();
-	}, [alignLeader, openId]);
-
+	}, [alignLeader, alignCards, openId]);
 	useEffect(() => {
 		const flow = flowRef.current;
 		if (!flow) return undefined;
 		let frame = 0;
-		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; alignLeader(); }); };
+		const update = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; alignCards(); alignLeader(); }); };
 		flow.addEventListener('scroll', update, { passive: true });
 		window.addEventListener('resize', update);
 		return () => { if (frame) cancelAnimationFrame(frame); flow.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
-	}, [flowRef, alignLeader]);
+	}, [flowRef, alignCards, alignLeader]);
 
 	useEffect(() => {
 		if (openId || !items.length) return;
@@ -546,6 +570,15 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const composePos = draft?.screen ?? screenAnchor;
 	const sortedItems = items.slice().sort((a, b) => a.page - b.page);
 	const placedPins = [];
+	const followBlock = (item, follows) => {
+		if (!follows.length) return null;
+		const rows = follows.map((row, index) => h('div', { className: 'ib-anno-follow-card', key: index },
+			h('div', { className: 'ib-anno-followup-q' }, row.question),
+			h('div', { className: 'ib-anno-followup-a' }, row.answer || (item.status === 'pending' || item.status === 'running' ? '正在回答…' : '（暂无回答）'))));
+		return h('div', { className: 'ib-anno-follow-block', 'data-collapsed': collapsedFollows[item.id] ? 'true' : undefined },
+			h('button', { type: 'button', className: 'ib-anno-follow-toggle', title: collapsedFollows[item.id] ? '展开追问' : '收起追问', onClick: () => setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })) }, h('span', { className: 'ib-anno-hline' }), `${follows.length} 条追问`),
+			h('div', { className: 'ib-anno-follow-list' }, rows));
+	};
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
 		h('div', { ref: contentRef, className: 'ib-anno-content', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
@@ -625,15 +658,17 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			h('div', { className: 'ib-anno-panel' },
 				h('div', { className: 'ib-anno-panel-rail' }, h('div', { className: 'ib-anno-panel-label' }, '批注'), sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
 				h('div', { className: 'ib-anno-panel-main' },
-				h('div', { className: 'ib-anno-panel-list' },
+				h('div', { ref: listRef, className: 'ib-anno-panel-list' },
 				sortedItems.length ? sortedItems.map((item, index) => {
 					const follows = followUpsOf(item);
-					if (openId !== item.id) return h('button', { key: item.id, type: 'button', className: 'ib-anno-mini-card', onClick: () => focusItem(item) },
+					const setEntry = (node) => { if (node) entryRefs.current.set(item.id, node); else entryRefs.current.delete(item.id); };
+					if (openId !== item.id) return h('div', { key: item.id, ref: setEntry, className: 'ib-anno-entry' },
+						h('button', { type: 'button', className: 'ib-anno-mini-card', onClick: () => focusItem(item) },
 						h('div', { className: 'ib-anno-mini-head' }, h('b', null, `批注 ${String(index + 1).padStart(2, '0')}`), h('span', { className: 'ib-anno-status', 'data-status': item.status }, annotationStatusText(item))),
 						h('div', { className: 'ib-anno-mini-q' }, item.question),
 						h('div', { className: 'ib-anno-mini-a' }, item.shortAnswer || item.modelAnswer || '（暂无短答）'),
-						follows.length ? h('div', { className: 'ib-anno-mini-follow' }, `${follows.length} 条追问`) : null);
-					return h(React.Fragment, { key: item.id },
+						follows.length ? h('div', { className: 'ib-anno-mini-follow' }, `${follows.length} 条追问`) : null));
+					return h('div', { key: item.id, ref: setEntry, className: 'ib-anno-entry' },
 						h('article', { ref: panelCardRef, className: 'ib-anno-panel-card ib-anno-panel-card-active', 'data-status': item.status },
 							h('div', { className: 'ib-anno-panel-card-head' },
 								h('b', null, `批注 ${String(index + 1).padStart(2, '0')}`),
@@ -668,11 +703,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 							h('div', { className: 'ib-anno-panel-follow' },
 								h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(item); } }),
 								h('button', { type: 'button', className: 'ib-anno-panel-send', disabled: !followText.trim(), title: '发送追问', onClick: () => void askFollow(item) }, '↑'))),
-						follows.length ? h('div', { className: 'ib-anno-follow-block', 'data-collapsed': collapsedFollows[item.id] ? 'true' : undefined },
-							h('button', { type: 'button', className: 'ib-anno-follow-toggle', title: collapsedFollows[item.id] ? '展开追问' : '收起追问', onClick: () => setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })) }, h('span', { className: 'ib-anno-hline' }), `${follows.length} 条追问`),
-							h('div', { className: 'ib-anno-follow-list' }, follows.map((row, followIndex) => h('div', { className: 'ib-anno-follow-card', key: followIndex },
-								h('div', { className: 'ib-anno-followup-q' }, row.question),
-								h('div', { className: 'ib-anno-followup-a' }, row.answer || (item.status === 'pending' || item.status === 'running' ? '正在回答…' : '（暂无回答）')))))) : null);
+						followBlock(item, follows));
 				}) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。')),
 				error ? h('div', { className: 'ib-anno-error' }, error) : null)
 			), marginHost) : null,
@@ -693,7 +724,8 @@ export const annotationStyles = `
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
-.ib-anno-panel-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
+.ib-anno-entry{position:absolute;left:0;right:0}
 .ib-anno-panel-head{position:relative;z-index:2;background:#f7f9fa;display:flex;align-items:center;justify-content:space-between;color:#5c6a76}.ib-anno-panel-head strong{font-size:14px;color:#1f3a3a}
 .ib-anno-panel-tabs{position:relative;z-index:2;background:#f7f9fa;display:flex;gap:6px;flex-wrap:wrap}
 .ib-anno-panel-tab{border:1px solid #d7dfe8;background:#f7f9fa;border-radius:8px;padding:7px 0;font-size:11px;color:#5c6a76;cursor:pointer;text-align:center;width:100%}
