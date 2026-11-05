@@ -20,6 +20,24 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
+const followUpsOf = (item) => {
+	const messages = item?.messages ?? [];
+	const result = [];
+	let seenQuestion = false;
+	let current = null;
+	for (const message of messages) {
+		if (message.role === 'user') {
+			if (!seenQuestion) { seenQuestion = true; continue; }
+			current = { question: message.text, answer: '' };
+			result.push(current);
+		} else if (current) {
+			current.answer = message.text;
+			current = null;
+		}
+	}
+	return result;
+};
+
 export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, page = 1, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
@@ -27,6 +45,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
 	const [menuId, setMenuId] = useState(null);
+	const [collapsedFollows, setCollapsedFollows] = useState({});
 	const [error, setError] = useState('');
 	const [tick, setTick] = useState(0);
 	const [submitting, setSubmitting] = useState(false);
@@ -530,12 +549,17 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
 	const composePos = draft?.screen ?? screenAnchor;
 	const sortedItems = items.slice().sort((a, b) => a.page - b.page);
+	const placedPins = [];
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
 		h('div', { ref: contentRef, className: 'ib-anno-content', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		items.map((item) => {
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
 			if (!pin) return null;
+			let pinLeft = pin.left, pinTop = pin.top;
+			// 同一位置的高密度批注自动错开，避免一个图钉压住另一个。
+			while (placedPins.some((placed) => Math.hypot(placed.left - pinLeft, placed.top - pinTop) < 22)) { pinLeft += 16; pinTop += 16; }
+			placedPins.push({ left: pinLeft, top: pinTop });
 			return h(React.Fragment, { key: item.id },
 				(item.rects ?? []).map((rect, index) => {
 					const pageRect = pages.get(item.page);
@@ -548,7 +572,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					className: 'ib-anno-pin',
 					'data-status': item.status,
 					'data-open': openId === item.id ? 'true' : undefined,
-					style: { left: pin.left, top: pin.top },
+					style: { left: pinLeft, top: pinTop },
 					title: item.question || item.quote,
 					onPointerDown: (event) => event.stopPropagation(),
 					onClick: (event) => { event.stopPropagation(); openAtPin(item); setEditing(null); },
@@ -635,7 +659,12 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 							(open.basis ?? []).length ? h('details', { className: 'ib-anno-panel-basis' },
 								h('summary', null, '查看原文依据'),
 								open.basis.map((row, index) => h('div', { key: index }, `第 ${row.page} 页：${short(row.quote, 160)}`))) : null,
-							open.status === 'failed' ? h('div', { className: 'ib-anno-card-actions' }, h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void retry(open) }, '重试')) : null),
+							open.status === 'failed' ? h('div', { className: 'ib-anno-card-actions' }, h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => void retry(open) }, '重试')) : null,
+							(open ? followUpsOf(open) : []).length ? h('div', { className: 'ib-anno-followups', 'data-collapsed': collapsedFollows[open.id] ? 'true' : undefined },
+								h('button', { type: 'button', className: 'ib-anno-followups-toggle', title: collapsedFollows[open.id] ? '展开追问' : '收起追问', onClick: () => setCollapsedFollows((old) => ({ ...old, [open.id]: !old[open.id] })) }, h('span', { className: 'ib-anno-vline' })),
+								h('div', { className: 'ib-anno-followup-list' }, (open ? followUpsOf(open) : []).map((row, index) => h('div', { className: 'ib-anno-followup-card', key: index },
+									h('div', { className: 'ib-anno-followup-q' }, row.question),
+									h('div', { className: 'ib-anno-followup-a' }, row.answer || (open.status === 'pending' || open.status === 'running' ? '正在回答…' : '（暂无回答）')))))) : null),
 					h('div', { className: 'ib-anno-panel-follow' },
 						h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 						h('button', { type: 'button', className: 'ib-anno-panel-send', disabled: !followText.trim(), title: '发送追问', onClick: () => void askFollow(open) }, '↑')))
@@ -679,8 +708,16 @@ export const annotationStyles = `
 .ib-anno-panel-draft{border:1px dashed #d7b26a;background:#fffaf0;border-radius:6px;padding:8px 10px;margin-bottom:8px}
 .ib-anno-panel-basis{border-top:1px solid #edf0f3;padding-top:8px;margin-top:8px;color:#5c6a76;font-size:11px}
 .ib-anno-panel-basis summary{cursor:pointer;color:#607080}.ib-anno-panel-basis>div{margin-top:6px;line-height:1.5}
-.ib-anno-panel-follow{display:flex;gap:6px;align-items:flex-end;margin-top:12px;border-top:1px solid #edf0f3;padding-top:10px}
-.ib-anno-panel-follow textarea{flex:1;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
+.ib-anno-followups{display:flex;gap:8px;margin-top:10px;align-items:stretch}
+.ib-anno-followups-toggle{width:14px;flex:none;border:0;background:transparent;padding:0;cursor:pointer;position:relative}
+.ib-anno-vline{position:absolute;left:6px;top:2px;bottom:2px;width:2px;border-radius:2px;background:#cfe0dc;transition:background .15s}
+.ib-anno-followups-toggle:hover .ib-anno-vline,.ib-anno-followups[data-collapsed=true] .ib-anno-vline{background:#137c72}
+.ib-anno-followup-list{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.ib-anno-followups[data-collapsed=true] .ib-anno-followup-list{display:none}
+.ib-anno-followup-card{background:#f7faf9;border-left:2px solid #9fc7bd;border-radius:0 8px 8px 0;padding:8px 10px}
+.ib-anno-followup-q{font-size:12px;font-weight:600;color:#1f3a3a;margin-bottom:4px}
+.ib-anno-followup-a{font-size:12px;line-height:1.65;color:#4a5a66;white-space:pre-wrap}
+.ib-anno-panel-follow{display:flex;gap:6px;align-items:flex-end;margin-top:12px;border-top:1px solid #edf0f3;padding-top:10px}.ib-anno-panel-follow textarea{flex:1;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:7px;font:inherit;resize:vertical;color:#26313d}
 .ib-anno-panel-send{width:30px;height:30px;flex:none;border-radius:7px;background:#137c72;color:#fff;border:0;cursor:pointer;font-size:15px}
 .ib-anno-panel-send:disabled{opacity:.4;cursor:default}
 .ib-anno-panel-empty{color:#8a96a3;line-height:1.7;padding:14px;border:1px dashed #d7dfe8;border-radius:10px;background:#fff}

@@ -252,10 +252,10 @@ export const annotationMethods = {
 				if (!item) return;
 				item.status = 'answered';
 				item.error = '';
-				// 首答自动写入正文；追问只生成草稿，等读者点「采用」再替换。
+				// 首答写入正文；追问的答案作为独立从属消息追加，不覆盖原回答。
 				const userTurns = item.messages.filter((message) => message.role === 'user').length;
 				if (userTurns > 1) {
-					item.draftAnswer = answer.shortAnswer;
+					item.draftAnswer = '';
 				} else {
 					item.modelAnswer = answer.shortAnswer;
 					if (!item.edited) item.shortAnswer = answer.shortAnswer;
