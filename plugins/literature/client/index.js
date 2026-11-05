@@ -45679,7 +45679,7 @@ var followUpsOf = (item) => {
   }
   return result;
 };
-function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, page = 1, onRegionDone }) {
+function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone }) {
   const [items, setItems] = (0, import_react12.useState)([]);
   const [draft, setDraft] = (0, import_react12.useState)(null);
   const [openId, setOpenId] = (0, import_react12.useState)(null);
@@ -46550,7 +46550,6 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       h(
         "div",
         { className: "ib-anno-panel ib-anno-panel-inflow" },
-        h("div", { className: "ib-anno-panel-rail" }, h("div", { className: "ib-anno-panel-label" }, "批注"), sortedItems.map((item, index) => h("button", { key: item.id, type: "button", className: "ib-anno-panel-tab", "data-active": openId === item.id ? "true" : void 0, "data-status": item.status, title: `批注 ${String(index + 1).padStart(2, "0")} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, "0")))),
         h(
           "div",
           { className: "ib-anno-panel-main" },
@@ -46568,6 +46567,15 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       ),
       inflowHost
     ) : null,
+    railHost ? import_react_dom2.default.createPortal(
+      h(
+        "div",
+        { className: "ib-anno-panel-rail ib-anno-rail-fixed" },
+        h("div", { className: "ib-anno-panel-label" }, "批注"),
+        sortedItems.map((item, index) => h("button", { key: item.id, type: "button", className: "ib-anno-panel-tab", "data-active": openId === item.id ? "true" : void 0, "data-status": item.status, title: `批注 ${String(index + 1).padStart(2, "0")} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, "0")))
+      ),
+      railHost
+    ) : null,
     error ? h("div", { className: "ib-anno-error" }, error) : null
   );
 }
@@ -46584,8 +46592,10 @@ var annotationStyles = `
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
 .ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
+.ib-anno-panel-inflow .ib-anno-panel-main{padding:14px 72px 14px 14px}
+.ib-anno-rail-fixed{position:relative;height:100%;box-sizing:border-box;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-rail-host .ib-anno-panel-label{font-size:14pt}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;height:100vh;min-height:100vh;max-height:100vh;box-sizing:border-box;overflow-y:auto}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
@@ -53725,6 +53735,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const [materials, setMaterials] = (0, import_react13.useState)([]), [choices, setChoices] = (0, import_react13.useState)({ original: "pdf", zh: "" }), [materialDocs, setMaterialDocs] = (0, import_react13.useState)({});
   const [marginHost, setMarginHost] = (0, import_react13.useState)(null);
   const [leaderHost, setLeaderHost] = (0, import_react13.useState)(null);
+  const [railHost, setRailHost] = (0, import_react13.useState)(null);
   const onDocument = (0, import_react13.useCallback)((side, pdf) => setMaterialDocs((old) => ({ ...old, [side]: pdf })), []);
   const [host] = (0, import_react13.useState)(() => {
     const el = document.createElement("div");
@@ -54048,9 +54059,10 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         "div",
         { className: "ib-pdf-viewport" },
         builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }),
-        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, page: pages.original, onRegionDone: () => selectTool("hand") }) : null,
+        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, page: pages.original, railHost, onRegionDone: () => selectTool("hand") }) : null,
         h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…"))
-      )
+      ),
+      side === "original" && state3.format === "pdf" ? h("div", { className: "ib-anno-rail-host", ref: setRailHost }) : null
     );
     return h("section", { className: "ib-pdf-pane", key: side, hidden: !active, "aria-busy": active && viewLoading[side] }, toolbar(side), body);
   };
@@ -54119,6 +54131,7 @@ var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
 .ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
 .ib-reader[data-anno=true] .pdfViewer{width:calc(100% - 510px)!important;margin-right:510px}
+.ib-anno-rail-host{position:absolute;right:0;top:0;bottom:0;width:58px;z-index:9;pointer-events:auto}
 .ib-anno-inflow{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:6}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;

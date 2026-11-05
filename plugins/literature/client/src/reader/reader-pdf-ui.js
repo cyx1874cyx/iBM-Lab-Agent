@@ -26,6 +26,7 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
  const [materials,setMaterials]=useState([]),[choices,setChoices]=useState({original:'pdf',zh:''}),[materialDocs,setMaterialDocs]=useState({});
  const [marginHost,setMarginHost]=useState(null);
  const [leaderHost,setLeaderHost]=useState(null);
+ const [railHost,setRailHost]=useState(null);
  const onDocument=useCallback((side,pdf)=>setMaterialDocs(old=>({...old,[side]:pdf})),[]);
  const [host]=useState(()=>{const el=document.createElement('div');el.className='ib-reader-host';return el;});
  const slot=useRef(),left=useRef(),right=useRef(),fullscreen=useRef(),extraDocs=useRef(new Set()),leases=useRef(new Set()),ownsFullscreen=useRef(false);
@@ -121,8 +122,9 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
   const body=h('div',{className:'ib-pdf-body'},
    h('div',{className:'ib-pdf-viewport'},
     builtin(side)?h(PdfFlow,{...props,doc:side==='zh'?zhDoc:doc,failed:side==='zh'&&!!zhError}):h(PdfMaterial,{key:material.id,material,request,onDocument,...props}),
-    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn,hand,regionMode,openTocSignal:tocSignal,page:pages.original,onRegionDone:()=>selectTool('hand')}):null,
-    h('span',{className:'ib-pdf-page-indicator'},pages[side]+' / '+(panePdf(side)?.numPages??'…'))));
+    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
+    h('span',{className:'ib-pdf-page-indicator'},pages[side]+' / '+(panePdf(side)?.numPages??'…'))),
+   side==='original'&&state.format==='pdf'?h('div',{className:'ib-anno-rail-host',ref:setRailHost}):null);
   return h('section',{className:'ib-pdf-pane',key:side,hidden:!active,'aria-busy':active&&viewLoading[side]},toolbar(side),body);
  };
  const content=h('div',{ref:fullscreen,className:'ib-reader'+(mode==='dual'?' ib-reader-fullscreen':''),'data-reader-mode':mode,'data-anno':annotationsOn?'true':'false'},
@@ -153,6 +155,7 @@ export const readerStyles=pdfViewerStyles+annotationStyles+`
 .ib-pdf-viewport{position:relative;flex:1;min-height:0;min-width:0}.ib-reader .ib-pdf-flow{position:absolute;inset:0;padding:0}.ib-reader .pdfViewer{padding:12px;box-sizing:border-box}.ib-reader .pdfViewer .page{margin:0 auto 14px;border:0;background:#fff;box-shadow:0 0 0 1px #e0e3e7,0 2px 5px #0000000b}.ib-reader{--loading-icon-delay:0s;color-scheme:light}
 .ib-pdf-body{position:relative;display:flex;flex:1;min-height:0;min-width:0}.ib-pdf-viewport{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}.ib-anno-margin{position:relative;width:340px;flex:none;border-left:1px solid #dce1e8;background:#f7f9fa;overflow:hidden;min-height:0;z-index:4}.ib-anno-leader-host{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.ib-anno-leader{width:100%;height:100%;overflow:visible;pointer-events:none}
 .ib-reader[data-anno=true] .pdfViewer{width:calc(100% - 510px)!important;margin-right:510px}
+.ib-anno-rail-host{position:absolute;right:0;top:0;bottom:0;width:58px;z-index:9;pointer-events:auto}
 .ib-anno-inflow{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:6}
 .ib-reader .ib-pdf-flow{will-change:transform}
 `;

@@ -38,7 +38,7 @@ const followUpsOf = (item) => {
 	return result;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, page = 1, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
@@ -744,13 +744,17 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
 		inflowHost ? ReactDOM.createPortal(
 			h('div', { className: 'ib-anno-panel ib-anno-panel-inflow' },
-				h('div', { className: 'ib-anno-panel-rail' }, h('div', { className: 'ib-anno-panel-label' }, '批注'), sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
 				h('div', { className: 'ib-anno-panel-main' },
 				h('div', { ref: listRef, className: 'ib-anno-panel-list' },
 				h('div', { ref: layerRef, className: 'ib-anno-card-layer' },
 				sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'))),
 				error ? h('div', { className: 'ib-anno-error' }, error) : null)
 			), inflowHost) : null,
+		railHost ? ReactDOM.createPortal(
+			h('div', { className: 'ib-anno-panel-rail ib-anno-rail-fixed' },
+				h('div', { className: 'ib-anno-panel-label' }, '批注'),
+				sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
+			railHost) : null,
 		error ? h('div', { className: 'ib-anno-error' }, error) : null
 	);
 }
@@ -768,8 +772,10 @@ export const annotationStyles = `
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
 .ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
+.ib-anno-panel-inflow .ib-anno-panel-main{padding:14px 72px 14px 14px}
+.ib-anno-rail-fixed{position:relative;height:100%;box-sizing:border-box;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.ib-anno-rail-host .ib-anno-panel-label{font-size:14pt}
 .ib-anno-panel-rail{width:58px;flex:none;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-.ib-anno-panel-inflow .ib-anno-panel-rail{position:sticky;top:0;align-self:flex-start;height:100vh;min-height:100vh;max-height:100vh;box-sizing:border-box;overflow-y:auto}
 .ib-anno-panel-label{font-size:12px;font-weight:600;color:#1f3a3a;text-align:center;padding:2px 0 7px;border-bottom:1px solid #e7ecf1;margin-bottom:2px}
 .ib-anno-panel-main{position:relative;flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;overflow:hidden}
 .ib-anno-panel-list{position:absolute;left:14px;right:14px;top:14px;bottom:14px;overflow:hidden}
