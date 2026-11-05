@@ -44386,6 +44386,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
   };
   const createFolder = () => setFolderEditor({ name: "" });
+  const createFolderPrompt = async () => {
+    const name = window.prompt("新分组名称");
+    const clean = String(name ?? "").trim();
+    if (!clean) return;
+    if (await folderAction("tasks_reading_folder_save", { name: clean })) notify("已创建分组：" + clean);
+  };
   const importRisFiles = async (files) => {
     const incoming = Array.from(files ?? []), valid = incoming.filter((file) => /\.ris$/i.test(file.name));
     if (valid.length !== incoming.length) notify("检索记录区域仅支持 RIS 文件，其他文件已跳过");
@@ -45134,18 +45140,19 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         activeLitTab === "reading" ? h(
           import_react9.default.Fragment,
           null,
-          h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
+          h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", ...readingInteraction.folderProps(folder), "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
             readingInteraction.clear();
             setSelectedFolder(folder.id);
-          } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length)))),
+          } }, folder.name, h("span", null, reports.filter((row) => folder.id === "all" || (folder.id === "unfiled" ? !row.folderId : row.folderId === folder.id)).length))), h("button", { type: "button", className: "ib-lit-folder ib-lit-folder-add", title: "新建分组", onClick: createFolderPrompt }, "+")),
           h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, filteredReports.length ? filteredReports.map((report) => {
             const bundle = bundleById[report.bundleId] || {};
             const selected = selectedReport?.id === report.id;
             return h(
               "div",
-              { key: report.id, role: "option", "aria-selected": selected ? "true" : void 0, className: "ib-lit-card", "data-selected": selected ? "true" : void 0, onClick: () => {
+              { key: report.id, ...readingInteraction.rowProps(report), className: "ib-lit-card" + (selected ? " ib-lit-card-detail" : ""), onClick: (event) => {
+                if (event.target.closest("button")) return;
+                readingInteraction.rowProps(report).onClick(event);
                 setSelectedReportId(report.id);
-                readingInteraction.clear();
               } },
               coverOf(bundle),
               h(

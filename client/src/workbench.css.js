@@ -107,9 +107,10 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-catalog{min-width:0}
 .ib-lit-workbench{position:relative}
 .ib-lit-head-actions{margin-left:auto;align-self:center;display:flex;align-items:center;gap:10px}
+.ib-wb-page-head{position:relative}
+.ib-wb-page-head>.ib-lit-toolbar{position:absolute;left:250px;top:44px;margin:0}
 .ib-lit-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px}
-.ib-wb-page-head>.ib-lit-toolbar{margin-left:auto;align-self:center;flex:none;width:max-content}
-.ib-lit-toolbar .ib-act{flex:none;height:36px;padding:0 14px;white-space:nowrap}
+.ib-wb-page-head>.ib-lit-toolbar .ib-act{flex:none;height:36px;padding:0 14px;white-space:nowrap}
 .ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
 .ib-lit-tabs{display:flex;justify-content:flex-start;align-items:flex-end;gap:56px;border-bottom:1px solid var(--ib-line);margin-bottom:18px}
 .ib-lit-tab{position:relative;border:0;background:none;padding:6px 2px 14px;color:var(--ib-muted);font:600 20px/1.2 var(--ib-serif,Georgia,serif);cursor:pointer;display:flex;align-items:baseline;gap:10px}
@@ -120,6 +121,12 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-folder{border:1px solid transparent;background:transparent;border-radius:999px;padding:7px 14px;font:500 14px/1 var(--ib-font,system-ui);color:var(--ib-text);cursor:pointer}
 .ib-lit-folder span{margin-left:8px;color:var(--ib-muted)}
 .ib-lit-folder[data-active=true]{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
+.ib-lit-folder[data-drop-folder=true]{outline:2px dashed var(--ib-accent);outline-offset:2px}
+.ib-lit-folder-add{font-size:18px;line-height:1;padding:4px 11px}
+.ib-lit-card[data-dragging-entry=true]{opacity:.45}
+.ib-lit-card[data-drop-position=before]{box-shadow:inset 0 3px 0 var(--ib-accent)}
+.ib-lit-card[data-drop-position=after]{box-shadow:inset 0 -3px 0 var(--ib-accent)}
+.ib-lit-card-detail{background:var(--ib-accent-soft);border-color:var(--ib-accent);box-shadow:none}
 .ib-lit-cards{display:flex;flex-direction:column;gap:14px}
 .ib-lit-card{display:flex;align-items:center;gap:22px;min-height:118px;padding:12px 18px;border:1px solid var(--ib-line);border-radius:10px;background:var(--ib-panel);cursor:pointer;transition:background .15s,border-color .15s}
 .ib-lit-card:hover{border-color:var(--ib-accent)}
