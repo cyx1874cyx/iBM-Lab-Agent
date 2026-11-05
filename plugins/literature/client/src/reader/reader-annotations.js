@@ -4,7 +4,7 @@
  * 坐标全部相对页面归一化（0-1），图钉与高亮按当前页面尺寸换算；
  * 阅读器滚动、缩放、双栏切换时用 rAF/scroll 事件重算屏幕位置。
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { h } from 'dsh-lab-agent/client-sdk';
 
