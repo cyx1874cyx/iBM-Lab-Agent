@@ -2853,6 +2853,17 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-page-head>.ib-lit-toolbar .ib-act:hover{background:var(--ib-accent-soft)}
 .ib-wb-page-head>.ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
 .ib-wb-page-head>.ib-lit-toolbar .ib-act-primary:hover{background:var(--ib-accent-ink)}
+.ib-lit-upload-wrap{position:relative;display:inline-flex}
+.ib-lit-upload-menu{position:absolute;right:0;top:48px;z-index:40;min-width:168px;padding:6px;border:1px solid var(--ib-line);border-radius:9px;background:var(--ib-panel);box-shadow:0 12px 28px rgba(15,23,42,.18)}
+.ib-lit-upload-menu button{display:block;width:100%;border:0;border-radius:6px;background:transparent;text-align:left;padding:10px 12px;color:var(--ib-text);font:500 14px/1.2 var(--ib-font,system-ui);cursor:pointer}
+.ib-lit-upload-menu button:hover{background:var(--ib-accent-soft);color:var(--ib-accent-ink)}
+.ib-lit-link-modal{position:fixed;inset:0;z-index:9500;display:grid;place-items:center;background:rgba(15,23,42,.35);padding:24px}
+.ib-lit-link-dialog{width:min(560px,92vw);background:var(--ib-panel);border:1px solid var(--ib-line);border-radius:14px;padding:18px 20px;box-shadow:0 24px 60px rgba(15,23,42,.3)}
+.ib-lit-link-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ib-lit-link-head b{font:600 20px/1.2 var(--ib-serif,Georgia,serif)}
+.ib-lit-link-head button{border:1px solid var(--ib-line);background:transparent;border-radius:7px;padding:6px 12px;cursor:pointer;color:var(--ib-text)}
+.ib-lit-link-dialog .ib-reading-link-form{display:flex;flex-direction:column;gap:10px}
+.ib-lit-link-dialog .ib-reading-link-form input{height:38px;border:1px solid var(--ib-line);border-radius:8px;padding:0 10px;background:var(--ib-bg);color:var(--ib-text);font:400 14px/1 var(--ib-font,system-ui)}
 .ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
 .ib-lit-tabs{display:flex;justify-content:flex-start;align-items:flex-end;gap:56px;border-bottom:1px solid var(--ib-line);margin-bottom:18px}
 .ib-lit-tab{position:relative;border:0;background:none;padding:6px 2px 14px;color:var(--ib-muted);font:600 20px/1.2 var(--ib-serif,Georgia,serif);cursor:pointer;display:flex;align-items:baseline;gap:10px}

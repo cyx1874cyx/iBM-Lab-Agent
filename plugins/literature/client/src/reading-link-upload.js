@@ -1,7 +1,7 @@
-import {useId,useRef,useState} from 'react';
+import {useEffect,useId,useRef,useState} from 'react';
 import {h} from 'dsh-lab-agent/client-sdk';
 
-function linkIntakePrompt(projectId,value){
+export function linkIntakePrompt(projectId,value){
  const url=new URL(value.trim());
  if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error('请输入有效的 HTTP 或 HTTPS 文献链接');
  const wechat=url.hostname==='mp.weixin.qq.com';
@@ -14,9 +14,10 @@ ${wechat?'先调用 lab_tasks_fetch_wechat_article 读取正文，从正文识�
 }
 
 // Reuse the metadata intake tools introduced in e6e642f and the current project task chat.
-export function ReadingLinkUpload({projectId,onRequestArtifact,onSubmitted,notify}){
- const [open,setOpen]=useState(false),[url,setUrl]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+export function ReadingLinkUpload({projectId,onRequestArtifact,onSubmitted,notify,autoOpen=false,hideTrigger=false}){
+ const [open,setOpen]=useState(autoOpen),[url,setUrl]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const lock=useRef(false),id=useId();
+ useEffect(()=>{if(autoOpen)setOpen(true);},[autoOpen]);
  const submit=async event=>{
   event.preventDefault();if(lock.current)return;
   lock.current=true;setBusy(true);setError('');
@@ -30,7 +31,7 @@ export function ReadingLinkUpload({projectId,onRequestArtifact,onSubmitted,notif
   finally{lock.current=false;setBusy(false);}
  };
  return h('div',{className:'ib-reading-link-upload'},
-  h('button',{type:'button',className:'ib-act','aria-expanded':open,'aria-controls':id,disabled:busy,onClick:()=>{setOpen(!open);setError('');}},'上传链接'),
+  hideTrigger?null:h('button',{type:'button',className:'ib-act','aria-expanded':open,'aria-controls':id,disabled:busy,onClick:()=>{setOpen(!open);setError('');}},'上传链接'),
   open?h('form',{id,className:'ib-reading-link-form',onSubmit:submit,'aria-label':'上传文献链接','aria-busy':busy},
    h('label',{htmlFor:id+'-url'},'文献链接'),
    h('input',{id:id+'-url',type:'url',required:true,autoFocus:true,value:url,disabled:busy,placeholder:'粘贴 DOI、出版社或微信公众号文献链接','aria-invalid':!!error,'aria-describedby':error?id+'-error':undefined,onChange:event=>{setUrl(event.target.value);setError('');}}),
