@@ -493,6 +493,37 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		}
 	};
 
+	const submitTranslation = async () => {
+		if (!draft || submitting) return;
+		setSubmitting(true);
+		setError('');
+		try {
+			const pageText = await pageTextFor(draft.page);
+			const item = await call('tasks_annotations_create', {
+				...request,
+				page: draft.page,
+				kind: 'translation',
+				rects: draft.rects,
+				quote: draft.quote,
+				pin: draft.pin,
+				question: '翻译选区',
+				pageText,
+				cropBase64: draft.cropBase64
+			});
+			setItems((old) => [...old, item]);
+			openItemRef.current = item;
+			setOpenId(item.id);
+			window.getSelection()?.removeAllRanges();
+			setDraft(null);
+			onCreated?.();
+			void refresh();
+		} catch (reason) {
+			setError(reason.message || String(reason));
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
 	const saveEdit = async (item) => {
 		const value = editing?.value ?? '';
 		try {
@@ -655,14 +686,14 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					h('b', null, `批注 ${String(index + 1).padStart(2, '0')}`),
 					h('span', { className: 'ib-anno-status', 'data-status': item.status }, annotationStatusText(item))),
 				h('div', { className: 'ib-anno-mini-meta' }, `第 ${item.page} 页 · ${item.kind === 'region' ? '框选区域' : '原文'}`),
-				h('div', { className: 'ib-anno-mini-q' }, item.question),
+				item.kind === 'translation' ? null : h('div', { className: 'ib-anno-mini-q' }, item.question),
 				h('div', { className: 'ib-anno-mini-a' }, item.status === 'pending' || item.status === 'running' ? '正在根据原文生成短答…' : (item.shortAnswer || item.modelAnswer || '（暂无短答）')),
 				(item.sources ?? []).length ? h('div', { className: 'ib-anno-sources', onClick: (event) => event.stopPropagation() },
 					h('div', { className: 'ib-anno-sources-title' }, '网络来源'),
 					item.sources.map((row, sourceIndex) => h('a', { key: sourceIndex, href: row.url, target: '_blank', rel: 'noopener noreferrer' }, row.title || row.url))) : null,
 				item.error ? h('div', { className: 'ib-anno-card-error' }, item.error) : null,
 				item.status === 'failed' ? h('button', { type: 'button', className: 'ib-anno-retry', onClick: (event) => { event.stopPropagation(); void retry(item); } }, '重试') : null,
-				h('div', { className: 'ib-anno-mini-hint' }, 'Enter 追问 · Del 删除')),
+				h('div', { className: 'ib-anno-mini-hint' }, item.kind === 'translation' ? 'Del 删除' : 'Enter 追问 · Del 删除')),
 			follows.length || composingId === item.id ? h('div', { className: 'ib-anno-follow-block', 'data-collapsed': collapsed ? 'true' : undefined },
 				h('button', { type: 'button', className: 'ib-anno-follow-toggle', title: collapsed ? '展开追问' : '收起追问', onClick: (event) => { event.stopPropagation(); if (!active) { select(); return; } setCollapsedFollows((old) => ({ ...old, [item.id]: !old[item.id] })); } }, h('span', { className: 'ib-anno-hline' }), `${follows.length} 条追问`),
 				h('div', { className: 'ib-anno-follow-list' },
@@ -740,6 +771,10 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		composePos ? h('div', { className: 'ib-anno-compose', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min(flowRect.width - 300, composePos.left + 8)), top: Math.max(8, Math.min(flowRect.height - 170, composePos.top + 12)) } },
 			h('textarea', { key: `${draft.page}-${draft.pin?.x}-${draft.pin?.y}`, ref: questionRef, autoFocus: true, rows: 3, placeholder: '就框选内容提问…', defaultValue: '', onPointerDown: (event) => event.stopPropagation(), onKeyDown: (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void submit(); } } }),
 			h('div', { className: 'ib-anno-compose-actions' },
+				h('button', { type: 'button', className: 'ib-anno-translate', title: '翻译框选区域', 'aria-label': '翻译框选区域', disabled: submitting, onClick: () => void submitTranslation() },
+					h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+						h('path', { d: 'M4 5h9M8.5 3v2c0 4-2 6-5 7M5 8c1 2 3 4 6 5' }),
+						h('path', { d: 'M13 21l4-10 4 10M14.5 17h5' }))),
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
@@ -900,6 +935,7 @@ export const annotationStyles = `
 .ib-anno-compose{width:292px;pointer-events:auto!important;z-index:61}.ib-anno-compose-quote{color:#607080;font-size:11px;margin-bottom:6px;max-height:34px;overflow:hidden}
 .ib-anno-compose textarea,.ib-anno-card textarea{width:100%;box-sizing:border-box;border:1px solid #dce1e8;border-radius:6px;padding:6px;font:inherit;resize:vertical;color:#26313d}
 .ib-anno-compose-actions,.ib-anno-card-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
+.ib-anno-translate{margin-right:auto;width:34px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #dce1e8;border-radius:6px;background:#fff;color:#137c72;cursor:pointer}
 .ib-anno-btn{border:1px solid #d6dee6;background:#fff;color:#40505f;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit}
 .ib-anno-btn:hover{background:#f2f6f9}.ib-anno-btn[data-primary=true]{background:#137c72;border-color:#137c72;color:#fff}.ib-anno-btn[data-danger=true]{color:#af3333}
 .ib-anno-card{width:332px;max-height:420px;overflow:auto}.ib-anno-card-head{display:flex;justify-content:space-between;gap:8px;color:#607080;font-size:11px;margin-bottom:6px}
