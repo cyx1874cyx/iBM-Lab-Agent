@@ -45189,7 +45189,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h(
       "div",
       { className: "ib-lit-detail-actions" },
-      h("button", { type: "button", className: "ib-lit-primary", onClick: openSelectedPdf }, h(BookSvg, null), "开始阅读"),
+      h("button", { type: "button", className: "ib-lit-primary", disabled: !selectedPdfUrl, title: selectedPdfUrl ? "开始阅读" : "未获取正文，暂时无法阅读", onClick: openSelectedPdf }, h(BookSvg, null), selectedPdfUrl ? "开始阅读" : "在线浏览"),
       h("button", { type: "button", className: "ib-lit-secondary", disabled: !selectedPdfUrl, onClick: () => selectedReadingDone ? openPreview({ kind: "report", report: selectedReport }) : void onRequestArtifact(selectedReadingPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
       }) }, h(ReadingNoteSvg, null), selectedReadingDone ? "查看阅读笔记" : "阅读笔记"),
       h("button", { type: "button", className: "ib-lit-secondary", disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: "ppt", report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {

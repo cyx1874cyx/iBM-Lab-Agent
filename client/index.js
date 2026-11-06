@@ -2942,6 +2942,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-secondary{border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-text)}
 .ib-lit-primary svg,.ib-lit-secondary svg{width:20px;height:20px}
 .ib-lit-secondary:disabled{opacity:.5;cursor:default}
+.ib-lit-primary:disabled{background:#e5e9e7;border-color:#d7dedb;color:#8a9690;cursor:not-allowed;opacity:1}
 @container ib-literature (max-width:900px){.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{grid-template-columns:minmax(0,1fr);gap:24px}.ib-lit-detail{position:static;border-left:0;border-top:1px solid var(--ib-hair);padding:24px 0 0;max-height:none}}
 `;
 
