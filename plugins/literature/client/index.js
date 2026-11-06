@@ -47074,8 +47074,8 @@ var annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
-.ib-anno-highlight[data-color=yellow]{background:rgba(255,214,64,.58);outline-color:rgba(202,138,4,.55)}
-.ib-anno-highlight[data-color=red]{background:rgba(248,113,113,.5);outline-color:rgba(220,38,38,.55)}
+.ib-anno-highlight[data-color=yellow]{background:#ffe600;mix-blend-mode:multiply;outline:none;border-radius:1px}
+.ib-anno-highlight[data-color=red]{background:#ff6b6b;mix-blend-mode:multiply;outline:none;border-radius:1px}
 .ib-anno-highlight-bar{position:absolute;z-index:22;display:flex;gap:6px;padding:5px;border:1px solid #dce1e8;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.18);pointer-events:auto}
 .ib-anno-highlight-bar button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:#26313d;font:500 12px/1 system-ui;cursor:pointer}
 .ib-anno-highlight-bar button:hover{background:#f1f5f3}
