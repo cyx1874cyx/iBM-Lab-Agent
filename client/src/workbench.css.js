@@ -130,7 +130,8 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-link-form{display:flex;flex-direction:column}
 .ib-lit-link-label{font:600 18px/1.2 var(--ib-font,system-ui);margin:4px 0 10px}
 .ib-lit-link-field{display:flex;align-items:center;height:56px;border:1.5px solid #0f766e;border-radius:10px;background:#fff;padding:0 8px 0 18px;box-sizing:border-box}
-.ib-lit-link-field input{flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#1d2a25;font:400 17px/1 var(--ib-font,system-ui)}
+.ib-lit-link-field input{flex:1;min-width:0;height:100%;border:0!important;outline:none!important;box-shadow:none!important;background:transparent;color:#1d2a25;font:400 17px/1 var(--ib-font,system-ui);padding:0;box-sizing:border-box;appearance:none}
+.ib-lit-link-field input:focus,.ib-lit-link-field input:focus-visible{outline:none!important;box-shadow:none!important;border:0!important}
 .ib-lit-link-field input::placeholder{color:#8b9690}
 .ib-lit-link-divider{width:1px;height:28px;background:#d9e1dc;margin:0 12px}
 .ib-lit-link-paste{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:#33443d;font:500 16px/1 var(--ib-font,system-ui);cursor:pointer;padding:6px 10px;border-radius:7px}
