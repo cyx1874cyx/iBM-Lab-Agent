@@ -46995,6 +46995,7 @@ var annotationStyles = `
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden}
+.ib-anno-panel,.ib-anno-panel .ib-anno-mini-q,.ib-anno-panel .ib-anno-mini-a,.ib-anno-panel .ib-anno-mini-meta,.ib-anno-panel .ib-anno-mini-head,.ib-anno-panel .ib-anno-followup-q,.ib-anno-panel .ib-anno-followup-a{user-select:text;-webkit-user-select:text;cursor:text}
 .ib-anno-panel-inflow{position:absolute;right:0;top:0;width:510px;height:100%;background:#f7f9fa;border-left:1px solid #dce1e8;pointer-events:auto;z-index:7}
 .ib-anno-panel-inflow .ib-anno-panel-main{padding:14px 72px 14px 14px}
 .ib-anno-rail-fixed{position:relative;height:100%;box-sizing:border-box;border-left:1px solid #e7ecf1;background:#fff;padding:12px 6px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
