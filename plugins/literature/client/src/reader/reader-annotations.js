@@ -80,20 +80,31 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		return () => document.removeEventListener('mouseup', onUp);
 	}, [active, enabled, flowRef, regionMode, textLayer]);
 
+	const rectOverlap = (a, b) => {
+		const width = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+		const height = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+		if (width <= 0 || height <= 0) return 0;
+		return (width * height) / Math.min(a.w * a.h, b.w * b.h);
+	};
+	const overlappingHighlights = (bar) => bar ? items.filter((item) => item.kind === 'highlight' && item.page === bar.page && (item.rects ?? []).some((a) => bar.rects.some((b) => rectOverlap(a, b) > 0.35))) : [];
 	const addHighlight = async (color) => {
 		if (!highlightBar || submitting) return;
+		const bar = highlightBar;
+		const existing = overlappingHighlights(bar);
 		setSubmitting(true);
 		setError('');
 		try {
-			const item = await call('tasks_annotations_create', {
-				...request,
-				page: highlightBar.page,
-				kind: 'highlight',
-				rects: highlightBar.rects,
-				quote: highlightBar.text,
-				pin: highlightBar.pin,
-				color
-			});
+			if (existing.length) {
+				await Promise.all(existing.map((row) => call('tasks_annotations_delete', { ...request, annotationId: row.id })));
+				const ids = new Set(existing.map((row) => row.id));
+				setItems((old) => old.filter((row) => !ids.has(row.id)));
+				if (existing.some((row) => row.color === color)) {
+					setHighlightBar(null);
+					window.getSelection()?.removeAllRanges();
+					return;
+				}
+			}
+			const item = await call('tasks_annotations_create', { ...request, page: bar.page, kind: 'highlight', rects: bar.rects, quote: bar.text, pin: bar.pin, color });
 			setItems((old) => [...old, item]);
 			setHighlightBar(null);
 			window.getSelection()?.removeAllRanges();
@@ -103,7 +114,22 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			setSubmitting(false);
 		}
 	};
-	const [inflowHost, setInflowHost] = useState(null);
+	const removeHighlights = async (list) => {
+		if (!list?.length || submitting) return;
+		setSubmitting(true);
+		setError('');
+		try {
+			await Promise.all(list.map((row) => call('tasks_annotations_delete', { ...request, annotationId: row.id })));
+			const ids = new Set(list.map((row) => row.id));
+			setItems((old) => old.filter((row) => !ids.has(row.id)));
+			setHighlightBar(null);
+			window.getSelection()?.removeAllRanges();
+		} catch (reason) {
+			setError(reason.message || String(reason));
+		} finally {
+			setSubmitting(false);
+		}
+	};	const [inflowHost, setInflowHost] = useState(null);
 	const userDeselectedRef = useRef(false);
 	const openItemRef = useRef(null);
 	const [editing, setEditing] = useState(null);
@@ -724,6 +750,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
 	const composePos = draft?.screen ?? screenAnchor;
 	const sortedItems = items.filter((item) => item.kind !== 'highlight').slice().sort((a, b) => a.page - b.page);
+	const overlappingHighlightsHere = highlightBar ? overlappingHighlights(highlightBar) : [];
 	const placedPins = [];
 	const compactCard = (item, index, follows) => {
 		const setEntry = (node) => { if (node) entryRefs.current.set(item.id, node); else entryRefs.current.delete(item.id); };
@@ -844,7 +871,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
-		highlightBar ? h('div', { className: 'ib-anno-highlight-bar', style: { left: Math.max(8, highlightBar.left - flowRect.left), top: Math.max(8, highlightBar.top - flowRect.top) }, onMouseDown: (event) => event.stopPropagation() }, h('button', { type: 'button', onClick: () => void addHighlight('yellow') }, h('i', { 'data-color': 'yellow' }), '黄底'), h('button', { type: 'button', onClick: () => void addHighlight('red') }, h('i', { 'data-color': 'red' }), '红底')) : null,
+		highlightBar ? h('div', { className: 'ib-anno-highlight-bar', style: { left: Math.max(8, highlightBar.left - flowRect.left), top: Math.max(8, highlightBar.top - flowRect.top) }, onMouseDown: (event) => event.stopPropagation() }, overlappingHighlightsHere.length ? h('button', { type: 'button', 'data-danger': true, onClick: () => void removeHighlights(overlappingHighlightsHere) }, '取消高亮') : h(React.Fragment, null, h('button', { type: 'button', onClick: () => void addHighlight('yellow') }, h('i', { 'data-color': 'yellow' }), '黄底'), h('button', { type: 'button', onClick: () => void addHighlight('red') }, h('i', { 'data-color': 'red' }), '红底'))) : null,
 		open && openPoint && false ? h('div', { ref: cardLayerRef, className: 'ib-anno-card-layer', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
@@ -902,11 +929,12 @@ export const annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
-.ib-anno-highlight[data-color=yellow]{background:#ffe600;mix-blend-mode:multiply;outline:none;border-radius:1px}
-.ib-anno-highlight[data-color=red]{background:#ff6b6b;mix-blend-mode:multiply;outline:none;border-radius:1px}
+.ib-anno-highlight[data-color=yellow]{background:rgba(255,235,59,.38);outline:none;border-radius:2px}
+.ib-anno-highlight[data-color=red]{background:rgba(255,99,99,.38);outline:none;border-radius:2px}
 .ib-anno-highlight-bar{position:absolute;z-index:22;display:flex;gap:6px;padding:5px;border:1px solid #dce1e8;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.18);pointer-events:auto}
 .ib-anno-highlight-bar button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:#26313d;font:500 12px/1 system-ui;cursor:pointer}
 .ib-anno-highlight-bar button:hover{background:#f1f5f3}
+.ib-anno-highlight-bar button[data-danger=true]{color:#b42318}
 .ib-anno-highlight-bar i{width:14px;height:14px;border-radius:3px;border:1px solid rgba(15,23,42,.15)}
 .ib-anno-highlight-bar i[data-color=yellow]{background:#ffd640}
 .ib-anno-highlight-bar i[data-color=red]{background:#f87171}
