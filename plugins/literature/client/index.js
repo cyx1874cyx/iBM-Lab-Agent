@@ -46004,11 +46004,15 @@ var followUpsOf = (item) => {
   }
   return result;
 };
-function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone }) {
+function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, panelVisible = true, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone, onCreated, onDraftChange }) {
   const [items, setItems] = (0, import_react13.useState)([]);
   const [draft, setDraft] = (0, import_react13.useState)(null);
   const [openId, setOpenId] = (0, import_react13.useState)(null);
   const [selectedFollow, setSelectedFollow] = (0, import_react13.useState)(null);
+  (0, import_react13.useEffect)(() => {
+    onDraftChange?.(Boolean(draft));
+  }, [draft, onDraftChange]);
+  (0, import_react13.useEffect)(() => () => onDraftChange?.(false), [onDraftChange]);
   const [inflowHost, setInflowHost] = (0, import_react13.useState)(null);
   const userDeselectedRef = (0, import_react13.useRef)(false);
   const openItemRef = (0, import_react13.useRef)(null);
@@ -46068,6 +46072,10 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     const flow2 = flowRef.current;
     const svg = inflowHost?.querySelector(".ib-anno-leader-inflow");
     if (!flow2 || !svg) return;
+    if (!panelVisible) {
+      svg.replaceChildren();
+      return;
+    }
     const flowRect2 = flow2.getBoundingClientRect();
     const width = Math.max(1, flow2.clientWidth);
     const height = Math.max(1, flow2.scrollHeight);
@@ -46096,7 +46104,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       path.setAttribute("stroke-width", line.active ? "1.6" : "1.1");
       svg.append(path);
     }
-  }, [flowRef, inflowHost, items, openId]);
+  }, [flowRef, inflowHost, items, openId, panelVisible]);
   const alignCards = (0, import_react13.useCallback)(() => {
     const flow2 = flowRef.current;
     if (!flow2) return;
@@ -46347,6 +46355,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       const flowRect2 = flow2.getBoundingClientRect();
       setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64, screen: { left: pageRect.left - flowRect2.left + rect.x * pageRect.width, top: pageRect.top - flowRect2.top + rect.y * pageRect.height } });
       setOpenId(null);
+      onDraftChange?.(true);
       onRegionDone?.();
     };
     flow2.addEventListener("pointerdown", down);
@@ -46423,6 +46432,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       const flowRect2 = flow2.getBoundingClientRect();
       setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: "", pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: "", kind: "region", cropBase64, screen: { left: pageRect.left - flowRect2.left + rect.x * pageRect.width, top: pageRect.top - flowRect2.top + rect.y * pageRect.height } });
       setOpenId(null);
+      onDraftChange?.(true);
     };
     flow2.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
@@ -46470,6 +46480,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       setOpenId(item.id);
       window.getSelection()?.removeAllRanges();
       setDraft(null);
+      onCreated?.();
       void refresh();
     } catch (reason) {
       setError(reason.message || String(reason));
@@ -46772,7 +46783,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
     inflowHost ? import_react_dom2.default.createPortal(h(
       "div",
       { className: "ib-anno-page-layer" },
-      items.map((item) => {
+      panelVisible ? items.map((item) => {
         const pin = item.pin ? pagePoint(item.page, item.pin) : null;
         if (!pin) return null;
         let pinLeft = pin.left, pinTop = pin.top;
@@ -46810,7 +46821,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
             }
           }, item.status === "pending" || item.status === "running" ? h("span", { className: "ib-reader-spinner" }) : null)
         );
-      }),
+      }) : null,
       draft ? (draft.rects ?? []).map((rect, index) => {
         const pageEl = pageElement(draft.page);
         if (!pageEl) return null;
@@ -46899,7 +46910,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         )
       )
     ) : null,
-    inflowHost ? import_react_dom2.default.createPortal(
+    inflowHost && panelVisible ? import_react_dom2.default.createPortal(
       h(
         "div",
         { className: "ib-anno-panel ib-anno-panel-inflow" },
@@ -46920,7 +46931,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       ),
       inflowHost
     ) : null,
-    railHost ? import_react_dom2.default.createPortal(
+    railHost && panelVisible ? import_react_dom2.default.createPortal(
       h(
         "div",
         { className: "ib-anno-panel-rail ib-anno-rail-fixed" },
@@ -54070,7 +54081,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
   const { tab } = useTabInfo(), request = readerIdentity(tab?.contentId), key = tab?.contentId;
   const [state3, setState] = (0, import_react14.useState)({ loading: true }), [doc, setDoc] = (0, import_react14.useState)(null), [zhDoc, setZhDoc] = (0, import_react14.useState)(null), [mode, setMode] = (0, import_react14.useState)("original");
   const [error, setError] = (0, import_react14.useState)(""), [busy, setBusy] = (0, import_react14.useState)(false), [query, setQuery] = (0, import_react14.useState)(""), [refresh, setRefresh] = (0, import_react14.useState)(0);
-  const [linked, setLinked] = (0, import_react14.useState)(true), [stacked, setStacked] = (0, import_react14.useState)(false), [hand, setHand] = (0, import_react14.useState)(true), [textLayer, setTextLayer] = (0, import_react14.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react14.useState)(true), [regionMode, setRegionMode] = (0, import_react14.useState)(false), [tocSignal, setTocSignal] = (0, import_react14.useState)(0);
+  const [linked, setLinked] = (0, import_react14.useState)(true), [stacked, setStacked] = (0, import_react14.useState)(false), [hand, setHand] = (0, import_react14.useState)(true), [textLayer, setTextLayer] = (0, import_react14.useState)(false), [annotationsOn, setAnnotationsOn] = (0, import_react14.useState)(true), [annotationDraftOpen, setAnnotationDraftOpen] = (0, import_react14.useState)(false), [regionMode, setRegionMode] = (0, import_react14.useState)(false), [tocSignal, setTocSignal] = (0, import_react14.useState)(0);
   const selectTool = (next) => {
     if (next === "region") {
       setHand(false);
@@ -54417,7 +54428,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
         "div",
         { className: "ib-pdf-viewport" },
         builtin(side) ? h(PdfFlow, { ...props, doc: side === "zh" ? zhDoc : doc, failed: side === "zh" && !!zhError }) : h(PdfMaterial, { key: material.id, material, request, onDocument, ...props }),
-        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn, hand, regionMode, openTocSignal: tocSignal, page: pages.original, railHost, onRegionDone: () => selectTool("hand") }) : null,
+        side === "original" && state3.format === "pdf" ? h(ReaderAnnotations, { call, request, doc, flowRef: left, zoom: zoom.original, active: mode === "original" || mode === "dual", enabled: annotationsOn || regionMode || annotationDraftOpen, panelVisible: annotationsOn, onCreated: () => setAnnotationsOn(true), onDraftChange: setAnnotationDraftOpen, hand, regionMode, openTocSignal: tocSignal, page: pages.original, railHost, onRegionDone: () => selectTool("hand") }) : null,
         h("span", { className: "ib-pdf-page-indicator" }, pages[side] + " / " + (panePdf(side)?.numPages ?? "…"))
       ),
       side === "original" && state3.format === "pdf" ? h("div", { className: "ib-anno-rail-host", ref: setRailHost }) : null

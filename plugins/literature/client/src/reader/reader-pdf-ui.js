@@ -19,7 +19,7 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
  const {tab}=useTabInfo(),request=readerIdentity(tab?.contentId),key=tab?.contentId;
  const [state,setState]=useState({loading:true}),[doc,setDoc]=useState(null),[zhDoc,setZhDoc]=useState(null),[mode,setMode]=useState('original');
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[query,setQuery]=useState(''),[refresh,setRefresh]=useState(0);
- const [linked,setLinked]=useState(true),[stacked,setStacked]=useState(false),[hand,setHand]=useState(true),[textLayer,setTextLayer]=useState(false),[annotationsOn,setAnnotationsOn]=useState(true),[regionMode,setRegionMode]=useState(false),[tocSignal,setTocSignal]=useState(0);
+ const [linked,setLinked]=useState(true),[stacked,setStacked]=useState(false),[hand,setHand]=useState(true),[textLayer,setTextLayer]=useState(false),[annotationsOn,setAnnotationsOn]=useState(true),[annotationDraftOpen,setAnnotationDraftOpen]=useState(false),[regionMode,setRegionMode]=useState(false),[tocSignal,setTocSignal]=useState(0);
  const selectTool=next=>{if(next==='region'){setHand(false);setTextLayer(false);setRegionMode(true);}else if(next==='text'){setHand(false);setTextLayer(true);setRegionMode(false);}else{setHand(true);setTextLayer(false);setRegionMode(false);}};
  const [zoom,setZoom]=useState({original:1,zh:1}),[pages,setPages]=useState({original:1,zh:1}),[viewLoading,setViewLoading]=useState({original:true,zh:false});
  const [wantTranslation,setWantTranslation]=useState(false),[translationAttempt,setTranslationAttempt]=useState(0),[zhError,setZhError]=useState('');
@@ -124,7 +124,7 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
   const body=h('div',{className:'ib-pdf-body'},
    h('div',{className:'ib-pdf-viewport'},
     builtin(side)?h(PdfFlow,{...props,doc:side==='zh'?zhDoc:doc,failed:side==='zh'&&!!zhError}):h(PdfMaterial,{key:material.id,material,request,onDocument,...props}),
-    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
+    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn||regionMode||annotationDraftOpen,panelVisible:annotationsOn,onCreated:()=>setAnnotationsOn(true),onDraftChange:setAnnotationDraftOpen,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
     h('span',{className:'ib-pdf-page-indicator'},pages[side]+' / '+(panePdf(side)?.numPages??'…'))),
    side==='original'&&state.format==='pdf'?h('div',{className:'ib-anno-rail-host',ref:setRailHost}):null);
   return h('section',{className:'ib-pdf-pane',key:side,hidden:!active,'aria-busy':active&&viewLoading[side]},body);

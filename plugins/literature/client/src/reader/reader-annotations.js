@@ -39,11 +39,13 @@ const followUpsOf = (item) => {
 	return result;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, panelVisible = true, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone, onCreated, onDraftChange }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
 	const [selectedFollow, setSelectedFollow] = useState(null);
+	useEffect(() => { onDraftChange?.(Boolean(draft)); }, [draft, onDraftChange]);
+	useEffect(() => () => onDraftChange?.(false), [onDraftChange]);
 	const [inflowHost, setInflowHost] = useState(null);
 	const userDeselectedRef = useRef(false);
 	const openItemRef = useRef(null);
@@ -99,6 +101,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		const flow = flowRef.current;
 		const svg = inflowHost?.querySelector('.ib-anno-leader-inflow');
 		if (!flow || !svg) return;
+		if (!panelVisible) { svg.replaceChildren(); return; }
 		const flowRect = flow.getBoundingClientRect();
 		const width = Math.max(1, flow.clientWidth);
 		const height = Math.max(1, flow.scrollHeight);
@@ -127,7 +130,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			path.setAttribute('stroke-width', line.active ? '1.6' : '1.1');
 			svg.append(path);
 		}
-	}, [flowRef, inflowHost, items, openId]);
+	}, [flowRef, inflowHost, items, openId, panelVisible]);
 
 	const alignCards = useCallback(() => {
 		const flow = flowRef.current;
@@ -366,6 +369,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const flowRect = flow.getBoundingClientRect();
 			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64, screen: { left: pageRect.left - flowRect.left + rect.x * pageRect.width, top: pageRect.top - flowRect.top + rect.y * pageRect.height } });
 			setOpenId(null);
+			onDraftChange?.(true);
 			onRegionDone?.();
 		};
 		flow.addEventListener('pointerdown', down);
@@ -440,6 +444,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			const flowRect = flow.getBoundingClientRect();
 			setDraft({ page: Number(pageEl.dataset.pageNumber) || 1, rects: [rect], quote: '', pin: { x: rect.x + rect.w, y: rect.y + rect.h }, question: '', kind: 'region', cropBase64, screen: { left: pageRect.left - flowRect.left + rect.x * pageRect.width, top: pageRect.top - flowRect.top + rect.y * pageRect.height } });
 			setOpenId(null);
+			onDraftChange?.(true);
 		};
 		flow.addEventListener('pointerdown', down);
 		window.addEventListener('pointermove', move);
@@ -479,6 +484,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			setOpenId(item.id);
 			window.getSelection()?.removeAllRanges();
 			setDraft(null);
+			onCreated?.();
 			void refresh();
 		} catch (reason) {
 			setError(reason.message || String(reason));
@@ -696,7 +702,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
 		inflowHost ? ReactDOM.createPortal(h('div', { className: 'ib-anno-page-layer' },
-		items.map((item) => {
+		(panelVisible ? items.map((item) => {
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
 			if (!pin) return null;
 			let pinLeft = pin.left, pinTop = pin.top;
@@ -722,7 +728,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					onDoubleClick: (event) => { event.stopPropagation(); openAtPin(item); setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || '' }); }
 				}, item.status === 'pending' || item.status === 'running' ? h('span', { className: 'ib-reader-spinner' }) : null)
 			);
-		}),
+		}) : null),
 		draft ? (draft.rects ?? []).map((rect, index) => {
 			const pageEl = pageElement(draft.page);
 			if (!pageEl) return null;
@@ -767,7 +773,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('div', { className: 'ib-anno-follow' },
 					h('textarea', { rows: 2, placeholder: '继续追问…', value: followText, onChange: (event) => setFollowText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void askFollow(open); } }),
 					h('button', { type: 'button', className: 'ib-anno-btn', disabled: !followText.trim(), onClick: () => void askFollow(open) }, '追问')))) : null,
-		inflowHost ? ReactDOM.createPortal(
+		inflowHost && panelVisible ? ReactDOM.createPortal(
 			h('div', { className: 'ib-anno-panel ib-anno-panel-inflow' },
 				h('div', { className: 'ib-anno-panel-main' },
 				h('div', { ref: listRef, className: 'ib-anno-panel-list' },
@@ -775,7 +781,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				sortedItems.length ? sortedItems.map((item, index) => compactCard(item, index, followUpsOf(item))) : h('div', { className: 'ib-anno-panel-empty' }, '在正文或图表上点「框选提问」，批注会出现在这里。'))),
 				error ? h('div', { className: 'ib-anno-error' }, error) : null)
 			), inflowHost) : null,
-		railHost ? ReactDOM.createPortal(
+		railHost && panelVisible ? ReactDOM.createPortal(
 			h('div', { className: 'ib-anno-panel-rail ib-anno-rail-fixed' },
 				h('div', { className: 'ib-anno-panel-label' }, '批注'),
 				sortedItems.map((item, index) => h('button', { key: item.id, type: 'button', className: 'ib-anno-panel-tab', 'data-active': openId === item.id ? 'true' : undefined, 'data-status': item.status, title: `批注 ${String(index + 1).padStart(2, '0')} · 第 ${item.page} 页`, onClick: () => focusItem(item) }, String(index + 1).padStart(2, '0')))),
