@@ -426,6 +426,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 					return Boolean(status?.available);
 				} catch { return false; }
 			};
+			const nativeBrowser = async (action, input = {}) => {
+				if (!await nativeDesktopAvailable()) return null;
+				const targetProject = input.projectId ?? projectId;
+				if (!targetProject) throw Error('请先选择一个课题，再打开科研浏览器');
+				return call('desktop_browser', { request: { action, projectId: targetProject, ...input } });
+			};
 			const armCaptureFor = (event, bundle, kind) => {
  event.stopPropagation();
  void (async () => {

@@ -42696,7 +42696,7 @@ async function nativeArtifact(action, input) {
   if (!await nativeDesktopAvailable()) return null;
   return await invoke("desktop_artifact", { request: { action, ...input } });
 }
-async function nativeBrowser2(action, input = {}) {
+async function nativeBrowser(action, input = {}) {
   if (!await nativeDesktopAvailable()) return null;
   const projectId = input.projectId ?? project;
   if (!projectId) throw new Error("请先选择一个课题，再打开科研浏览器");
@@ -43004,10 +43004,10 @@ var withWebVpnTab = async (request, { armingCapture = false } = {}) => {
   await openWebVpnTab();
   return request();
 };
-var openWebVpnLoginViaShell = async () => await nativeBrowser2("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
+var openWebVpnLoginViaShell = async () => await nativeBrowser("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_LOGIN"));
 var openWebVpnCaptureViaShell = (payload) => withWebVpnTab(() => webVpnShellRequest("WEBVPN_OPEN_CAPTURE", payload, 15e3), { armingCapture: true });
-var showWebVpnViaShell = async () => await nativeBrowser2("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
-var cancelWebVpnCaptureViaShell = async (taskId) => await nativeBrowser2("cancel", { taskId }) ?? await webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
+var showWebVpnViaShell = async () => await nativeBrowser("open") ?? await withWebVpnTab(() => webVpnShellRequest("WEBVPN_SHOW"));
+var cancelWebVpnCaptureViaShell = async (taskId) => await nativeBrowser("cancel", { taskId }) ?? await webVpnShellRequest("WEBVPN_CANCEL_CAPTURE", { taskId });
 var openExternalUrl = async (url) => {
   if (!url) return;
   if (window.parent !== window) return openInEdgeViaShell(url);
@@ -44640,7 +44640,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     setCaptureStopping(true);
     try {
       if (captureHint.route === "scientific") {
-        const rebuilt2 = await nativeBrowser("capture", { projectId, bundleId: captureHint.bundleId, kind: captureHint.kind });
+        const rebuilt2 = await nativeBrowser2("capture", { projectId, bundleId: captureHint.bundleId, kind: captureHint.kind });
         setCaptureHint((current) => current?.taskId === taskId ? { ...current, taskId: rebuilt2.task.id, canRecreate: false, phase: null } : current);
         notify("捕获任务已重建，请在科研浏览器中重新点击下载。");
         return;
@@ -44687,6 +44687,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       return false;
     }
   };
+  const nativeBrowser2 = async (action, input = {}) => {
+    if (!await nativeDesktopAvailable2()) return null;
+    const targetProject = input.projectId ?? projectId;
+    if (!targetProject) throw Error("请先选择一个课题，再打开科研浏览器");
+    return call("desktop_browser", { request: { action, projectId: targetProject, ...input } });
+  };
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
     void (async () => {
@@ -44695,7 +44701,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           legacyArmCaptureFor(event, bundle, kind);
           return;
         }
-        const created = await nativeBrowser("capture", { projectId, bundleId: bundle.id, kind });
+        const created = await nativeBrowser2("capture", { projectId, bundleId: bundle.id, kind });
         setCaptureHint({ bundleId: bundle.id, kind, taskId: created.task.id, route: "scientific" });
         notify("捕获已准备好，请在科研浏览器中点击正文或补充材料下载。");
       } catch (error) {
