@@ -39,13 +39,70 @@ const followUpsOf = (item) => {
 	return result;
 };
 
-export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, panelVisible = true, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone, onCreated, onDraftChange }) {
+export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled, panelVisible = true, textLayer = false, hand = false, regionMode = false, openTocSignal = 0, marginHost = null, leaderHost = null, railHost = null, page = 1, onRegionDone, onCreated, onDraftChange }) {
 	const [items, setItems] = useState([]);
 	const [draft, setDraft] = useState(null);
 	const [openId, setOpenId] = useState(null);
 	const [selectedFollow, setSelectedFollow] = useState(null);
+	const [highlightBar, setHighlightBar] = useState(null);
 	useEffect(() => { onDraftChange?.(Boolean(draft)); }, [draft, onDraftChange]);
 	useEffect(() => () => onDraftChange?.(false), [onDraftChange]);
+	useEffect(() => {
+		if (!textLayer || !enabled || !active || regionMode) { setHighlightBar(null); return undefined; }
+		const onUp = () => setTimeout(() => {
+			const selection = window.getSelection();
+			if (!selection || selection.isCollapsed || !selection.rangeCount) { setHighlightBar(null); return; }
+			const text = selection.toString().replace(/\s+/g, ' ').trim();
+			if (!text) { setHighlightBar(null); return; }
+			const range = selection.getRangeAt(0);
+			const node = range.commonAncestorContainer;
+			const element = node.nodeType === 1 ? node : node.parentElement;
+			if (element?.closest?.('.ib-anno-panel, .ib-anno-compose, .ib-reader-controls')) return;
+			const pageEl = element?.closest?.('.page');
+			const flow = flowRef.current;
+			if (!pageEl || !flow?.contains(pageEl)) { setHighlightBar(null); return; }
+			const pageRect = pageEl.getBoundingClientRect();
+			const rects = [];
+			let lastScreen = null;
+			for (const rect of range.getClientRects()) {
+				if (rect.width <= 0 || rect.height <= 0 || rect.bottom < pageRect.top || rect.top > pageRect.bottom) continue;
+				const left = Math.max(rect.left, pageRect.left), top = Math.max(rect.top, pageRect.top);
+				const right = Math.min(rect.right, pageRect.right), bottom = Math.min(rect.bottom, pageRect.bottom);
+				if (right <= left || bottom <= top) continue;
+				rects.push({ x: (left - pageRect.left) / pageRect.width, y: (top - pageRect.top) / pageRect.height, w: (right - left) / pageRect.width, h: (bottom - top) / pageRect.height });
+				lastScreen = { right, bottom };
+			}
+			if (!rects.length || !lastScreen) { setHighlightBar(null); return; }
+			const last = rects[rects.length - 1];
+			setHighlightBar({ page: Number(pageEl.dataset.pageNumber) || 1, text, rects, pin: { x: last.x + last.w, y: last.y + last.h }, left: Math.max(8, Math.min(window.innerWidth - 156, lastScreen.right - 72)), top: Math.max(8, Math.min(window.innerHeight - 52, lastScreen.bottom + 6)) });
+		}, 0);
+		document.addEventListener('mouseup', onUp);
+		return () => document.removeEventListener('mouseup', onUp);
+	}, [active, enabled, flowRef, regionMode, textLayer]);
+
+	const addHighlight = async (color) => {
+		if (!highlightBar || submitting) return;
+		setSubmitting(true);
+		setError('');
+		try {
+			const item = await call('tasks_annotations_create', {
+				...request,
+				page: highlightBar.page,
+				kind: 'highlight',
+				rects: highlightBar.rects,
+				quote: highlightBar.text,
+				pin: highlightBar.pin,
+				color
+			});
+			setItems((old) => [...old, item]);
+			setHighlightBar(null);
+			window.getSelection()?.removeAllRanges();
+		} catch (reason) {
+			setError(reason.message || String(reason));
+		} finally {
+			setSubmitting(false);
+		}
+	};
 	const [inflowHost, setInflowHost] = useState(null);
 	const userDeselectedRef = useRef(false);
 	const openItemRef = useRef(null);
@@ -389,7 +446,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	// 直接在图片/图表上拖矩形：不需要先进入框选模式，也不需要选中文字。
 	useEffect(() => {
 		const flow = flowRef.current;
-		if (!flow || !enabled || !active || regionMode || hand) return undefined;
+		if (!flow || !enabled || !active || regionMode || hand || textLayer) return undefined;
 		let start = null;
 		const rubber = document.createElement('div');
 		rubber.className = 'ib-anno-rubber';
@@ -666,7 +723,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 	const openPoint = open?.pin ? pagePoint(open.page, open.pin) : null;
 	const screenAnchor = anchor ? { left: anchor.left - scrollX, top: anchor.top - scrollY } : null;
 	const composePos = draft?.screen ?? screenAnchor;
-	const sortedItems = items.slice().sort((a, b) => a.page - b.page);
+	const sortedItems = items.filter((item) => item.kind !== 'highlight').slice().sort((a, b) => a.page - b.page);
 	const placedPins = [];
 	const compactCard = (item, index, follows) => {
 		const setEntry = (node) => { if (node) entryRefs.current.set(item.id, node); else entryRefs.current.delete(item.id); };
@@ -733,7 +790,16 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 
 	return h('div', { ref: overlayRef, className: 'ib-anno-overlay', style: overlayStyle, 'data-annotations': true },
 		inflowHost ? ReactDOM.createPortal(h('div', { className: 'ib-anno-page-layer' },
-		(panelVisible ? items.map((item) => {
+		items.map((item) => {
+			if (item.kind === 'highlight') {
+				return h(React.Fragment, { key: item.id }, (item.rects ?? []).map((rect, index) => {
+					const pageRect = pages.get(item.page);
+					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
+					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
+					return h('span', { key: index, className: 'ib-anno-highlight', 'data-color': item.color || 'yellow', style: { left, top, width: rect.w * pages.get(item.page).width, height: rect.h * pages.get(item.page).height } });
+				}));
+			}
+			if (!panelVisible) return null;
 			const pin = item.pin ? pagePoint(item.page, item.pin) : null;
 			if (!pin) return null;
 			let pinLeft = pin.left, pinTop = pin.top;
@@ -759,7 +825,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					onDoubleClick: (event) => { event.stopPropagation(); openAtPin(item); setEditing({ id: item.id, value: item.shortAnswer || item.modelAnswer || '' }); }
 				}, item.status === 'pending' || item.status === 'running' ? h('span', { className: 'ib-reader-spinner' }) : null)
 			);
-		}) : null),
+		}),
 		draft ? (draft.rects ?? []).map((rect, index) => {
 			const pageEl = pageElement(draft.page);
 			if (!pageEl) return null;
@@ -778,6 +844,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 				h('button', { type: 'button', className: 'ib-anno-btn', onClick: () => { setDraft(null); window.getSelection()?.removeAllRanges(); } }, '取消'),
 				h('button', { type: 'button', className: 'ib-anno-btn', 'data-primary': true, disabled: submitting, onClick: () => void submit() }, submitting ? '提交中…' : '提交'))
 		) : null,
+		highlightBar ? h('div', { className: 'ib-anno-highlight-bar', style: { left: Math.max(8, highlightBar.left - flowRect.left), top: Math.max(8, highlightBar.top - flowRect.top) }, onMouseDown: (event) => event.stopPropagation() }, h('button', { type: 'button', onClick: () => void addHighlight('yellow') }, h('i', { 'data-color': 'yellow' }), '黄底'), h('button', { type: 'button', onClick: () => void addHighlight('red') }, h('i', { 'data-color': 'red' }), '红底')) : null,
 		open && openPoint && false ? h('div', { ref: cardLayerRef, className: 'ib-anno-card-layer', style: { position: 'absolute', inset: 0, pointerEvents: 'none', transform: `translate(${-scrollX}px, ${-scrollY}px)` } },
 		h('div', { className: 'ib-anno-card', onPointerDown: (event) => event.stopPropagation(), style: { left: Math.max(8, Math.min((flow?.scrollWidth ?? flowRect.width) - 340, openPoint.left + 12)), top: openPoint.top + 12 }, onClick: (event) => event.stopPropagation() },
 			h('div', { className: 'ib-anno-card-head' }, h('b', null, `第 ${open.page} 页`), h('span', { 'data-status': open.status }, annotationStatusText(open))),
@@ -835,6 +902,14 @@ export const annotationStyles = `
 .ib-reader .ib-pdf-flow[data-region=true]{cursor:crosshair}
 .ib-reader .ib-pdf-flow[data-region=true] .textLayer{pointer-events:none;user-select:none}
 .ib-anno-highlight{position:absolute;background:rgba(19,124,114,.16);outline:1px solid rgba(19,124,114,.35);border-radius:2px;pointer-events:none}
+.ib-anno-highlight[data-color=yellow]{background:rgba(255,214,64,.58);outline-color:rgba(202,138,4,.55)}
+.ib-anno-highlight[data-color=red]{background:rgba(248,113,113,.5);outline-color:rgba(220,38,38,.55)}
+.ib-anno-highlight-bar{position:absolute;z-index:22;display:flex;gap:6px;padding:5px;border:1px solid #dce1e8;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.18);pointer-events:auto}
+.ib-anno-highlight-bar button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:#26313d;font:500 12px/1 system-ui;cursor:pointer}
+.ib-anno-highlight-bar button:hover{background:#f1f5f3}
+.ib-anno-highlight-bar i{width:14px;height:14px;border-radius:3px;border:1px solid rgba(15,23,42,.15)}
+.ib-anno-highlight-bar i[data-color=yellow]{background:#ffd640}
+.ib-anno-highlight-bar i[data-color=red]{background:#f87171}
 .ib-anno-highlight.ib-anno-draft{background:rgba(19,124,114,.22);outline:1.5px dashed #137c72}
 .ib-anno-panel{position:relative;height:100%;box-sizing:border-box;padding:0;display:flex;flex-direction:row-reverse;font-size:12px;color:#303744;overflow:hidden;user-select:none;-webkit-user-select:none}
 .ib-anno-panel .ib-anno-mini-q,.ib-anno-panel .ib-anno-mini-a,.ib-anno-panel .ib-anno-mini-meta,.ib-anno-panel .ib-anno-mini-head,.ib-anno-panel .ib-anno-followup-q,.ib-anno-panel .ib-anno-followup-a,.ib-anno-panel .ib-anno-sources{user-select:text;-webkit-user-select:text;cursor:text}

@@ -124,7 +124,7 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
   const body=h('div',{className:'ib-pdf-body'},
    h('div',{className:'ib-pdf-viewport'},
     builtin(side)?h(PdfFlow,{...props,doc:side==='zh'?zhDoc:doc,failed:side==='zh'&&!!zhError}):h(PdfMaterial,{key:material.id,material,request,onDocument,...props}),
-    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn||regionMode||annotationDraftOpen,panelVisible:annotationsOn,onCreated:()=>setAnnotationsOn(true),onDraftChange:setAnnotationDraftOpen,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
+    side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn||regionMode||annotationDraftOpen||textLayer,panelVisible:annotationsOn,textLayer,onCreated:()=>setAnnotationsOn(true),onDraftChange:setAnnotationDraftOpen,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
     h('span',{className:'ib-pdf-page-indicator'},pages[side]+' / '+(panePdf(side)?.numPages??'…'))),
    side==='original'&&state.format==='pdf'?h('div',{className:'ib-anno-rail-host',ref:setRailHost}):null);
   return h('section',{className:'ib-pdf-pane',key:side,hidden:!active,'aria-busy':active&&viewLoading[side]},body);

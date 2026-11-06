@@ -96,7 +96,7 @@ export const annotationMethods = {
 	},
 
 	/** 新建批注；question 非空时立即排队生成短答，客户端的图钉从 pending 开始。 */
-	async annotationsCreate({ projectId, bundleId, page, kind = 'text', rects, quote = '', pin, question = '', pageText = '', context = '', cropBase64 = '' } = {}) {
+	async annotationsCreate({ projectId, bundleId, page, kind = 'text', rects, quote = '', pin, question = '', color = '', pageText = '', context = '', cropBase64 = '' } = {}) {
 		const bundle = this.readerBundle({ projectId, bundleId });
 		const pageNumber = Math.max(1, Number(page) || 1);
 		const text = cleanupText(quote, 8000);
@@ -106,20 +106,21 @@ export const annotationMethods = {
 		const item = {
 			id: 'annotation-' + randomUUID(),
 			page: pageNumber,
-			kind: kind === 'note' ? 'note' : kind === 'translation' ? 'translation' : kind === 'region' ? 'region' : 'text',
+			kind: kind === 'note' ? 'note' : kind === 'highlight' ? 'highlight' : kind === 'translation' ? 'translation' : kind === 'region' ? 'region' : 'text',
 			rects: normalizeRects(rects),
 			pin: pin && Number.isFinite(Number(pin.x)) && Number.isFinite(Number(pin.y))
 				? { x: Math.min(1, Math.max(0, Number(pin.x))), y: Math.min(1, Math.max(0, Number(pin.y))) }
 				: undefined,
 			quote: text,
 			question: asked,
+			color: kind === 'highlight' ? (color === 'red' ? 'red' : 'yellow') : undefined,
 			shortAnswer: kind === 'note' ? asked : '',
 			modelAnswer: '',
 			draftAnswer: '',
 			basis: [],
 			sources: [],
-			messages: kind === 'note' ? [] : [{ role: 'user', text: asked, at: now }],
-			status: kind === 'note' ? 'answered' : 'pending',
+			messages: kind === 'note' || kind === 'highlight' ? [] : [{ role: 'user', text: asked, at: now }],
+			status: kind === 'note' || kind === 'highlight' ? 'answered' : 'pending',
 			edited: false,
 			error: '',
 			createdAt: now,
@@ -145,7 +146,7 @@ export const annotationMethods = {
 				}
 			} catch { /* 区域截图失败不阻塞文字问答 */ }
 		}
-		if (kind !== 'note') void this.annotationRun(bundle, saved.id, { pageText, context });
+		if (kind !== 'note' && kind !== 'highlight') void this.annotationRun(bundle, saved.id, { pageText, context });
 		return saved;
 	},
 
