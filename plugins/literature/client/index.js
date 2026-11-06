@@ -42807,7 +42807,8 @@ async function browserDownloadVerifiedBinary(url) {
   const response = await fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" });
   if (!response.ok) throw new Error(await response.text() || `下载失败（HTTP ${response.status}）`);
   const blob = await response.blob();
-  const expectedBytes = Number(response.headers.get("content-length"));
+  const lengthHeader = response.headers.get("content-length");
+  const expectedBytes = lengthHeader === null ? NaN : Number(lengthHeader);
   if (Number.isFinite(expectedBytes) && expectedBytes >= 0 && blob.size !== expectedBytes) {
     throw new Error(`下载不完整：应为 ${expectedBytes} 字节，实际 ${blob.size} 字节；文件未保存，请重试。`);
   }
