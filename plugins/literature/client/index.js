@@ -44153,7 +44153,9 @@ var import_react10 = __toESM(require("react"), 1);
 // plugins/literature/client/src/reading-link-upload.js
 var import_react9 = require("react");
 function linkIntakePrompt2(projectId, value) {
-  const url = new URL(value.trim());
+  const input = String(value ?? "").trim();
+  const normalized = /^10\.\d{4,9}\/\S+$/i.test(input) ? `https://doi.org/${input}` : input;
+  const url = new URL(normalized);
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw Error("请输入有效的 HTTP 或 HTTPS 文献链接");
   const wechat = url.hostname === "mp.weixin.qq.com";
   return `请解析用户提供的文献链接，自动提取、校验元数据并登记到当前课题的「文献阅读 → 精读文献」。
@@ -45270,7 +45272,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     folderMenu ? h("div", { className: "ib-lit-folder-menu", style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h("button", { type: "button", onClick: () => void deleteFolder() }, "删除分组")) : null,
     linkOpen ? h("div", { className: "ib-lit-link-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setLinkOpen(false);
-    } }, h("section", { className: "ib-lit-link-dialog", role: "dialog", "aria-modal": "true", onClick: (event) => event.stopPropagation() }, h("div", { className: "ib-lit-link-head" }, h("b", null, "从链接导入"), h("button", { type: "button", onClick: () => setLinkOpen(false) }, "关闭")), h("form", { className: "ib-lit-link-form", onSubmit: submitLink }, h("label", null, "文献链接"), h("input", { type: "url", required: true, autoFocus: true, value: linkUrl, placeholder: "粘贴 DOI、出版社或微信公众号链接", onChange: (event) => setLinkUrl(event.target.value) }), linkError ? h("div", { className: "ib-lit-link-error", role: "alert" }, linkError) : null, h("div", { className: "ib-lit-link-actions" }, h("button", { type: "submit", className: "ib-lit-primary", disabled: linkBusy || !linkUrl.trim() }, linkBusy ? "正在启动…" : "开始解析"), h("button", { type: "button", className: "ib-lit-secondary", onClick: () => setLinkOpen(false) }, "取消"))))) : null,
+    } }, h("section", { className: "ib-lit-link-dialog", role: "dialog", "aria-modal": "true", "aria-label": "从链接导入文献", onClick: (event) => event.stopPropagation() }, h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.1 1.1" }), h("path", { d: "M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.1-1.1" }))), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "从链接导入"), h("p", null, "支持 DOI、出版商链接或微信公众号文章链接")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setLinkOpen(false) }, "×")), h("form", { className: "ib-lit-link-form", onSubmit: submitLink }, h("label", { className: "ib-lit-link-label", htmlFor: "ib-lit-link-url" }, "文献链接"), h("div", { className: "ib-lit-link-field" }, h("input", { id: "ib-lit-link-url", type: "text", required: true, autoFocus: true, value: linkUrl, placeholder: "粘贴 DOI 或文章链接", onChange: (event) => setLinkUrl(event.target.value) }), h("span", { className: "ib-lit-link-divider", "aria-hidden": "true" }), h("button", { type: "button", className: "ib-lit-link-paste", onClick: async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) setLinkUrl(text.trim());
+      } catch {
+        notify("无法读取剪贴板，请手动粘贴链接");
+      }
+    } }, "▤ 粘贴")), h("div", { className: "ib-lit-link-hint" }, "例如：10.xxxx/xxxxx 或 https://…"), linkError ? h("div", { className: "ib-lit-link-error", role: "alert" }, linkError) : null, h("footer", { className: "ib-lit-link-actions" }, h("button", { type: "button", className: "ib-lit-link-cancel", onClick: () => setLinkOpen(false) }, "取消"), h("button", { type: "submit", className: "ib-lit-link-submit", disabled: linkBusy || !linkUrl.trim() }, linkBusy ? "正在解析…" : "开始解析 →"))))) : null,
     entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null,
     templatesOpen ? h("div", { role: "presentation", onClick: (event) => {
       if (event.target === event.currentTarget) setTemplatesOpen(false);

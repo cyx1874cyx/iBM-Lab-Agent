@@ -2,7 +2,9 @@ import {useEffect,useId,useRef,useState} from 'react';
 import {h} from 'dsh-lab-agent/client-sdk';
 
 export function linkIntakePrompt(projectId,value){
- const url=new URL(value.trim());
+ const input=String(value??'').trim();
+ const normalized=/^10\.\d{4,9}\/\S+$/i.test(input)?`https://doi.org/${input}`:input;
+ const url=new URL(normalized);
  if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error('请输入有效的 HTTP 或 HTTPS 文献链接');
  const wechat=url.hostname==='mp.weixin.qq.com';
  return `请解析用户提供的文献链接，自动提取、校验元数据并登记到当前课题的「文献阅读 → 精读文献」。
