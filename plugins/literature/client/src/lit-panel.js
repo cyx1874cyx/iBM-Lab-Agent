@@ -420,6 +420,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 					setCaptureStopping(false);
 				}
 			};
+			const nativeDesktopAvailable = async () => {
+				try {
+					const status = await call('desktop_status');
+					return Boolean(status?.available);
+				} catch { return false; }
+			};
 			const armCaptureFor = (event, bundle, kind) => {
  event.stopPropagation();
  void (async () => {

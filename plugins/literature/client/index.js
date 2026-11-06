@@ -42689,15 +42689,15 @@ var import_react3 = __toESM(require("react"), 1);
 var invoke = null;
 var project = null;
 var currentSessionId = null;
-async function nativeDesktopAvailable2() {
+async function nativeDesktopAvailable() {
   return invoke ? Boolean((await invoke("desktop_status")).available) : false;
 }
 async function nativeArtifact(action, input) {
-  if (!await nativeDesktopAvailable2()) return null;
+  if (!await nativeDesktopAvailable()) return null;
   return await invoke("desktop_artifact", { request: { action, ...input } });
 }
 async function nativeBrowser2(action, input = {}) {
-  if (!await nativeDesktopAvailable2()) return null;
+  if (!await nativeDesktopAvailable()) return null;
   const projectId = input.projectId ?? project;
   if (!projectId) throw new Error("请先选择一个课题，再打开科研浏览器");
   const sessionId = input.sessionId ?? currentSessionId?.();
@@ -44679,11 +44679,19 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       setCaptureStopping(false);
     }
   };
+  const nativeDesktopAvailable2 = async () => {
+    try {
+      const status = await call("desktop_status");
+      return Boolean(status?.available);
+    } catch {
+      return false;
+    }
+  };
   const armCaptureFor = (event, bundle, kind) => {
     event.stopPropagation();
     void (async () => {
       try {
-        if (!await nativeDesktopAvailable()) {
+        if (!await nativeDesktopAvailable2()) {
           legacyArmCaptureFor(event, bundle, kind);
           return;
         }
