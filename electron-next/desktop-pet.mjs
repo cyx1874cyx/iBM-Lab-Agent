@@ -15,7 +15,7 @@ export function createDesktopPet({root,mainWindow}) {
   const saved=Number.isFinite(preference.x)?screen.getDisplayNearestPoint({x:preference.x,y:preference.y}).workArea:area;
   const x=Math.max(saved.x,Math.min(preference.x??area.x+area.width-318,saved.x+saved.width-300));
   const y=Math.max(saved.y,Math.min(preference.y??area.y+area.height-250,saved.y+saved.height-220));
-  window=new BrowserWindow({x,y,width:300,height:220,show:false,frame:false,transparent:true,resizable:false,skipTaskbar:true,alwaysOnTop:true,title:'iBM 科研桌面宠物',webPreferences:{partition:'ibm-desktop-pet',preload:fileURLToPath(new URL('./pet-preload.cjs',import.meta.url)),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+  window=new BrowserWindow({x,y,width:300,height:220,show:false,frame:false,transparent:true,resizable:false,skipTaskbar:true,alwaysOnTop:true,focusable:false,title:'iBM 科研桌面宠物',webPreferences:{partition:'ibm-desktop-pet',preload:fileURLToPath(new URL('./pet-preload.cjs',import.meta.url)),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',event=>event.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
   window.on('moved',()=>{const [px,py]=window.getPosition();preference.x=px;preference.y=py;if(!dragOrigin)persist();});

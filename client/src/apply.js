@@ -56,6 +56,17 @@ export async function ensureResearchPresetDefault(remote) {
 }
 
 export function applyUi(ctx) {
+	if (!window.__ibmInputFocusGuard) {
+		window.__ibmInputFocusGuard = true;
+		document.addEventListener('pointerdown', (event) => {
+			const field = event.target?.closest?.('input, textarea, [contenteditable="true"]');
+			if (!field || field.disabled || field.readOnly) return;
+			setTimeout(() => {
+				if (document.activeElement !== field) field.focus({ preventScroll: true });
+				window.focus();
+			}, 0);
+		}, true);
+	}
  console.info('[iBM Lab] workbench UI services ready');
  // DSH 0.4.x 会按“列数 >= 4”给 Markdown 表格添加 md-table-wide。
  // 该分类不看实际内容宽度，会让同为四列的短表和长表走同一套横向布局，

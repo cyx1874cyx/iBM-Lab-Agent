@@ -31673,6 +31673,17 @@ async function ensureResearchPresetDefault(remote) {
   }
 }
 function applyUi(ctx) {
+  if (!window.__ibmInputFocusGuard) {
+    window.__ibmInputFocusGuard = true;
+    document.addEventListener("pointerdown", (event) => {
+      const field = event.target?.closest?.('input, textarea, [contenteditable="true"]');
+      if (!field || field.disabled || field.readOnly) return;
+      setTimeout(() => {
+        if (document.activeElement !== field) field.focus({ preventScroll: true });
+        window.focus();
+      }, 0);
+    }, true);
+  }
   console.info("[iBM Lab] workbench UI services ready");
   const normalizeMarkdownTables = () => {
     if (typeof document?.querySelectorAll !== "function") return;
