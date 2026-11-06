@@ -45204,7 +45204,33 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       { className: "ib-lit ib-lit-workbench", ref: literatureRoot },
       h(
         "section",
-        { className: "ib-lit-catalog" },
+        {
+          className: "ib-lit-catalog",
+          "data-dragging": pdfDragging ? "true" : void 0,
+          "aria-label": "精读文献，支持拖入 PDF、DOCX",
+          onDragEnter: (event) => {
+            if (pdfDragEvent(event)) {
+              dragDepth.current++;
+              setPdfDragging(true);
+            }
+          },
+          onDragOver: (event) => {
+            if (pdfDragEvent(event)) event.dataTransfer.dropEffect = "copy";
+          },
+          onDragLeave: (event) => {
+            if (pdfDragEvent(event) && --dragDepth.current <= 0) {
+              dragDepth.current = 0;
+              setPdfDragging(false);
+            }
+          },
+          onDrop: (event) => {
+            if (!pdfDragEvent(event)) return;
+            dragDepth.current = 0;
+            setPdfDragging(false);
+            void uploadPdfs(event.dataTransfer.files);
+          }
+        },
+        pdfDragging ? h("div", { className: "ib-lit-drop-overlay", role: "status" }, "松开以导入文献（PDF、DOCX）") : null,
         h(
           "div",
           { className: "ib-lit-toolbar", ref: toolbarRef },

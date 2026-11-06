@@ -848,7 +848,9 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h('button', { type: 'button', className: 'ib-lit-secondary', disabled: !selectedPdfUrl, onClick: () => selectedReadingDone ? openPreview({ kind: 'report', report: selectedReport }) : void onRequestArtifact(selectedReadingPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {}) }, h(ReadingNoteSvg, null), selectedReadingDone ? '查看阅读笔记' : '阅读笔记'),
 					h('button', { type: 'button', className: 'ib-lit-secondary', disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: 'ppt', report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {}) }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : h('aside', { className: 'ib-lit-detail ib-lit-detail-empty' }, '选择左侧文献查看详情');
 			return h(React.Fragment, null, h('div', { className: 'ib-lit ib-lit-workbench', ref: literatureRoot },
-				h('section', { className: 'ib-lit-catalog' },
+				h('section', { className: 'ib-lit-catalog', 'data-dragging': pdfDragging ? 'true' : undefined,
+				'aria-label': '精读文献，支持拖入 PDF、DOCX', onDragEnter: (event) => { if (pdfDragEvent(event)) { dragDepth.current++; setPdfDragging(true); } }, onDragOver: (event) => { if (pdfDragEvent(event)) event.dataTransfer.dropEffect = 'copy'; }, onDragLeave: (event) => { if (pdfDragEvent(event) && --dragDepth.current <= 0) { dragDepth.current = 0; setPdfDragging(false); } }, onDrop: (event) => { if (!pdfDragEvent(event)) return; dragDepth.current = 0; setPdfDragging(false); void uploadPdfs(event.dataTransfer.files); } },
+				pdfDragging ? h('div', { className: 'ib-lit-drop-overlay', role: 'status' }, '松开以导入文献（PDF、DOCX）') : null,
 					h('div', { className: 'ib-lit-toolbar', ref: toolbarRef },
 						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '▤ 模板管理'),
 						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '↑ 上传 RIS'),

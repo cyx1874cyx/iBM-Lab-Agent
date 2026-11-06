@@ -104,11 +104,12 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-chat{position:relative}.ib-wb-chat[data-dragging=true]::after{content:'松开以添加到对话框';position:absolute;inset:8px;z-index:20;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:8px;background:var(--ib-accent-soft);color:var(--ib-accent-ink);font-size:18px;pointer-events:none}
 /* Literature workbench redesign: catalog + detail. */
 .ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:36px;align-items:start;min-height:100%}
-.ib-lit-catalog{min-width:0}
+.ib-lit-catalog{min-width:0;position:relative}
 .ib-lit-workbench{position:relative}
 .ib-lit-head-actions{margin-left:auto;align-self:center;display:flex;align-items:center;gap:10px}
 .ib-wb-page-head{position:relative}
 .ib-wb-page-head>.ib-lit-toolbar{position:absolute;left:250px;top:44px;margin:0}
+.ib-lit-drop-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:12px;background:rgba(227,242,236,.92);color:var(--ib-accent-ink);font:600 18px/1.4 var(--ib-font,system-ui);pointer-events:none}
 .ib-lit-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px}
 .ib-wb-page-head>.ib-lit-toolbar .ib-act{flex:none;height:40px;padding:0 16px;white-space:nowrap;border:1px solid var(--ib-accent);border-radius:8px;background:transparent;color:var(--ib-accent-ink);font:600 15px/1 var(--ib-font,system-ui);display:inline-flex;align-items:center;gap:7px;box-shadow:none}
 .ib-wb-page-head>.ib-lit-toolbar .ib-act:hover{background:var(--ib-accent-soft)}
