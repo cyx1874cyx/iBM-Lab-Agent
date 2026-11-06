@@ -796,7 +796,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					const pageRect = pages.get(item.page);
 					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
 					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
-					return h('span', { key: index, className: 'ib-anno-highlight', 'data-color': item.color || 'yellow', style: { left, top, width: rect.w * pages.get(item.page).width, height: rect.h * pages.get(item.page).height } });
+					return h('span', { key: index, className: 'ib-anno-highlight', 'data-color': item.color || 'yellow', style: { left, top, width: pageRect ? rect.w * pageRect.width : 0, height: pageRect ? rect.h * pageRect.height : 0 } });
 				}));
 			}
 			if (!panelVisible) return null;
@@ -811,7 +811,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 					const pageRect = pages.get(item.page);
 					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
 					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
-					return h('span', { key: index, className: 'ib-anno-highlight', 'data-status': item.status, style: { left, top, width: rect.w * pages.get(item.page).width, height: rect.h * pages.get(item.page).height } });
+					return h('span', { key: index, className: 'ib-anno-highlight', 'data-status': item.status, style: { left, top, width: pageRect ? rect.w * pageRect.width : 0, height: pageRect ? rect.h * pageRect.height : 0 } });
 				}),
 				h('button', {
 					type: 'button',
