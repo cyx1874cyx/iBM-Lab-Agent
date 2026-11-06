@@ -44466,6 +44466,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   };
   const readingReports = reports.filter((report) => bundleById[report.bundleId]?.pdfIntake?.status !== "rejected");
   const filteredReports = readingReports.filter((report) => selectedFolder === "all" || (selectedFolder === "unfiled" ? !report.folderId : report.folderId === selectedFolder));
+  const pendingIntakeReports = filteredReports.filter((report) => ["queued", "running"].includes(bundleById[report.bundleId]?.pdfIntake?.status));
+  const readyFilteredReports = filteredReports.filter((report) => !pendingIntakeReports.some((row) => row.id === report.id));
+  const uploadingRows = pdfUploads.filter((row) => !row.bundleId || !reports.some((report) => report.bundleId === row.bundleId));
   const readingInteraction = useReadingInteractions({ projectId, reports: readingReports, visibleReports: filteredReports, bundles: bundleById, root: literatureRoot, call, notify, onChanged, onContextMenu: setEntryMenu, setFolder: setSelectedFolder, onLocate: (report) => {
     if (report) setLocateRequest({ bundleId: report.bundleId, nonce: crypto.randomUUID() });
   } });
@@ -45273,7 +45276,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               void saveFolderEditor();
             }
           } }) : h("button", { type: "button", className: "ib-lit-folder ib-lit-folder-add", title: "新建分组", onClick: createFolder }, "+")),
-          h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, filteredReports.length ? filteredReports.map((report) => {
+          uploadingRows.length || pendingIntakeReports.length ? h("div", { className: "ib-lit-list ib-lit-cards" }, [...uploadingRows.map((row) => h("div", { key: "upload-" + row.id, className: "ib-lit-card ib-lit-card-loading", role: "status", "aria-busy": "true" }, h("span", { className: "ib-lit-loading-spinner" }, h(SpinSvg, null)), h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, row.name), h("div", { className: "ib-lit-meta" }, "正在上传…")))), ...pendingIntakeReports.map((report) => {
+            const bundle = bundleById[report.bundleId] || {};
+            return h("div", { key: "intake-" + report.id, className: "ib-lit-card ib-lit-card-loading", role: "status", "aria-busy": "true" }, h("span", { className: "ib-lit-loading-spinner" }, h(SpinSvg, null)), h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, bundle.pdfIntake?.originalFileName || report.titleZh || bundle.title || report.id), h("div", { className: "ib-lit-meta" }, (bundle.pdfIntake?.stage || "正在识别文献") + "…")));
+          })]) : null,
+          h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, readyFilteredReports.length || uploadingRows.length || pendingIntakeReports.length ? readyFilteredReports.map((report) => {
             const bundle = bundleById[report.bundleId] || {};
             const selected = selectedReport?.id === report.id;
             return h(
@@ -45292,7 +45299,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               ),
               h("span", { className: "ib-lit-card-more", "aria-hidden": "true" }, "⋯")
             );
-          }) : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
+          }) : uploadingRows.length || pendingIntakeReports.length ? null : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
         ) : h("div", { className: "ib-lit-search-list" }, searches.length ? searches.slice().reverse().map((search) => h("div", { key: search.id, className: "ib-lit-card ib-lit-search-card" }, h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, search.title || search.query || search.id), h("div", { className: "ib-lit-meta" }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {
           event.stopPropagation();
           setExpandedSearch((value) => value === search.id ? "" : search.id);

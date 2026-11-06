@@ -175,6 +175,9 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-card .ib-lit-title{font:600 20px/1.35 var(--ib-serif,Georgia,serif);color:var(--ib-text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ib-lit-meta{font:400 14px/1.3 var(--ib-font,system-ui);color:var(--ib-muted);font-style:italic}
 .ib-lit-card-more{color:var(--ib-muted);font-size:22px;line-height:1;flex:none}
+.ib-lit-card-loading{cursor:default;background:var(--ib-row-alt);border-style:dashed;opacity:.9}
+.ib-lit-loading-spinner{flex:none;width:82px;height:100px;border-radius:7px;display:grid;place-items:center;background:var(--ib-panel2);color:var(--ib-muted)}
+.ib-lit-loading-spinner svg{width:22px;height:22px}
 .ib-lit-search-list{display:flex;flex-direction:column;gap:12px}
 .ib-lit-search-card{min-height:86px}
 .ib-lit-detail{position:sticky;top:4px;min-width:0;border-left:1px solid var(--ib-hair);padding-left:30px;max-height:calc(100vh - 190px);overflow:auto}
