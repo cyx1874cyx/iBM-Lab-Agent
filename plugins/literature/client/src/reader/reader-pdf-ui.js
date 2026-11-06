@@ -12,7 +12,7 @@ import pdfViewerStyles from 'dsh-lab-agent/client-vendor/pdfjs/web/pdf_viewer.cs
 const decode=value=>Uint8Array.from(atob(value),char=>char.charCodeAt(0));
 const spinner=()=>h('span',{className:'ib-reader-spinner','aria-hidden':true});
 const loading=label=>h('div',{className:'ib-reader-loading',role:'status'},spinner(),label);
-const icons={minus:'M5 12h14',plus:'M5 12h14M12 5v14',hand:'M8 13V7a2 2 0 0 1 4 0v5V5a2 2 0 0 1 4 0v7V8a2 2 0 0 1 4 0v7c0 4-3 6-6 6h-2c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-2l1 2',text:'M5 5h14M12 5v14M8 19h8',region:'M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3',download:'M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4',previous:'m14 6-6 6 6 6',next:'m10 6 6 6-6 6'};
+const icons={minus:'M5 12h14',plus:'M5 12h14M12 5v14',hand:'M8 13V7a2 2 0 0 1 4 0v5V5a2 2 0 0 1 4 0v7V8a2 2 0 0 1 4 0v7c0 4-3 6-6 6h-2c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-2l1 2',text:'M5 5h14M12 5v14M8 19h8',region:'M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3',download:'M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4',previous:'m14 6-6 6 6 6',next:'m10 6 6 6-6 6',search:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4'};
 const icon=name=>h('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:icons[name]}));
 
 export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
@@ -107,6 +107,8 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
  const office=side=>selected(side)&&selected(side).format!=='pdf';
  const modeLoading=mode==='dual'?viewLoading.original||viewLoading.zh:viewLoading[mode==='zh'?'zh':'original'];
  const modeButton=(label,next,disabled=false)=>h('button',{type:'button',className:'ib-act','data-active':mode===next||undefined,'aria-busy':mode===next&&modeLoading||undefined,onClick:()=>changeMode(next),disabled},mode===next&&modeLoading?spinner():null,label);
+ const controlSide=mode==='dual'?(scroll.current?.lastSide??'original'):mode==='zh'?'zh':'original';
+ const controlPdf=panePdf(controlSide),controlMaterial=selected(controlSide),controlZoom=zoom[controlSide];
  const toolbar=side=>{
   const pdf=panePdf(side),material=selected(side);
   const selector=mode==='dual'?h('select',{className:'ib-material-select','aria-label':side+' 阅读材料',value:choices[side],onChange:event=>{const id=event.target.value;setChoices(old=>({...old,[side]:id}));setPages(old=>({...old,[side]:1}));scroll.current.move(side,{page:1,fraction:0});setViewLoading(old=>({...old,[side]:true}));}},materials.map(row=>h('option',{key:row.id,value:row.id},row.label))):h('span',{className:'ib-pdf-language'},material?.label??(side==='zh'?'中文 PDF':'原文 PDF'));
@@ -125,12 +127,27 @@ export function ReaderBody({useTabInfo,renderFactorySlot,sessionId}){
     side==='original'&&state.format==='pdf'?h(ReaderAnnotations,{call,request,doc,flowRef:left,zoom:zoom.original,active:mode==='original'||mode==='dual',enabled:annotationsOn,hand,regionMode,openTocSignal:tocSignal,page:pages.original,railHost,onRegionDone:()=>selectTool('hand')}):null,
     h('span',{className:'ib-pdf-page-indicator'},pages[side]+' / '+(panePdf(side)?.numPages??'…'))),
    side==='original'&&state.format==='pdf'?h('div',{className:'ib-anno-rail-host',ref:setRailHost}):null);
-  return h('section',{className:'ib-pdf-pane',key:side,hidden:!active,'aria-busy':active&&viewLoading[side]},toolbar(side),body);
+  return h('section',{className:'ib-pdf-pane',key:side,hidden:!active,'aria-busy':active&&viewLoading[side]},body);
  };
  const content=h('div',{ref:fullscreen,className:'ib-reader'+(mode==='dual'?' ib-reader-fullscreen':''),'data-reader-mode':mode,'data-anno':annotationsOn?'true':'false'},
   state.loading?loading('正在读取已归档文献…'):state.error&&!['report','ppt'].includes(mode)?h('div',{className:'ib-reader-error',role:'alert'},'无法打开文献：'+state.error):h(React.Fragment,null,
    h('header',{className:'ib-reader-header'},h('span',{title:state.title},state.title),mode==='dual'?button('退出全屏',exitDual):null),
-   h('nav',{className:'ib-reader-controls'},modeButton('原文','original'),modeButton('中文','zh',!readingId),modeButton('精读','report',!materials.some(row=>row.officeKind==='docx')),modeButton('PPT','ppt',!materials.some(row=>row.officeKind==='pptx')),modeButton('全屏对照','dual',!materials.length),translation?.status!=='completed'?button(['queued','running'].includes(translation?.status)?'翻译中…':'翻译',()=>void translate(),busy||state.sourceFormat!=='pdf'||['queued','running'].includes(translation?.status)):null,['queued','running'].includes(translation?.status)?button('取消翻译',async()=>{try{const result=await call('tasks_translation_cancel',{...request,translationId:tid});setState(old=>({...old,translation:result.translation}));}catch(error){onError(error);}}):null,mode==='dual'?h(React.Fragment,null,h('label',null,h('input',{type:'checkbox',checked:linked,disabled:office('original')||office('zh'),onChange:e=>{const value=e.target.checked;preferences.current.linked=value;setLinked(value);if(value)scroll.current.move(scroll.current.lastSide,scroll.current.capture());}}),'双屏关联'),h('label',null,h('input',{type:'checkbox',checked:stacked,onChange:e=>{scroll.current.capture();setStacked(e.target.checked);}}),'上下视图')):null,h('input',{'aria-label':'查找 PDF 文本',placeholder:'查找文本',value:query,onChange:e=>setQuery(e.target.value),onKeyDown:e=>{if(e.key==='Enter')void search().catch(onError);}}),button('查找',()=>void search().catch(onError),!panePdf(mode==='dual'?scroll.current.lastSide:mode==='zh'?'zh':'original')),button(annotationsOn?'隐藏批注':'显示批注',()=>setAnnotationsOn(value=>!value),!doc||state.format!=='pdf',false,'显示/隐藏原文批注图钉')),
+   h('nav',{className:'ib-reader-controls','aria-label':'阅读工具栏'},
+    h('div',{className:'ib-reader-tabs'},modeButton('原文','original'),modeButton('中文','zh',!readingId),modeButton('精读','report',!materials.some(row=>row.officeKind==='docx')),modeButton('PPT','ppt',!materials.some(row=>row.officeKind==='pptx'))),
+    modeButton('双语对照','dual',!materials.length),
+    translation?.status!=='completed'?button(['queued','running'].includes(translation?.status)?'翻译中…':'翻译',()=>void translate(),busy||state.sourceFormat!=='pdf'||['queued','running'].includes(translation?.status)):null,
+    ['queued','running'].includes(translation?.status)?button('取消翻译',async()=>{try{const result=await call('tasks_translation_cancel',{...request,translationId:tid});setState(old=>({...old,translation:result.translation}));}catch(error){onError(error);}}):null,
+    mode==='dual'?h('label',{className:'ib-reader-check'},h('input',{type:'checkbox',checked:linked,onChange:e=>{const value=e.target.checked;preferences.current.linked=value;setLinked(value);if(value)scroll.current.move(scroll.current.lastSide,scroll.current.capture());}}),'关联'):null,
+    mode==='dual'?h('label',{className:'ib-reader-check'},h('input',{type:'checkbox',checked:stacked,onChange:e=>{scroll.current.capture();setStacked(e.target.checked);}}),'上下'):null,
+    h('span',{className:'ib-toolbar-divider'}),
+    h('div',{className:'ib-toolbar-group ib-toolbar-modes'},button(icon('hand'),()=>selectTool('hand'),false,hand&&!textLayer&&!regionMode,'抓手拖动（流畅浏览）'),button(icon('text'),()=>selectTool('text'),false,!hand&&textLayer&&!regionMode,'选择文字（临时加载文字层）'),button(icon('region'),()=>selectTool(regionMode?'hand':'region'),!doc||state.format!=='pdf',regionMode,'框选提问：拖动矩形截图给 AI')),
+    h('span',{className:'ib-toolbar-divider'}),
+    h('div',{className:'ib-toolbar-group'},button(icon('minus'),()=>zoomTo(controlSide,Math.max(.5,controlZoom-.25)),controlZoom<=.5,false,'缩小'),h('select',{'aria-label':'缩放',value:controlZoom,onChange:event=>zoomTo(controlSide,Number(event.target.value))},Array.from({length:11},(_,i)=>.5+i*.25).map(n=>h('option',{key:n,value:n},n===1?'适合宽度':Math.round(n*100)+'%'))),button(icon('plus'),()=>zoomTo(controlSide,Math.min(3,controlZoom+.25)),controlZoom>=3,false,'放大')),
+    h('label',{className:'ib-reader-search'},icon('search'),h('input',{'aria-label':'查找 PDF 文本',placeholder:'查找文本',value:query,onChange:e=>setQuery(e.target.value),onKeyDown:e=>{if(e.key==='Enter')void search().catch(onError);}})),
+    button(icon('search'),()=>void search().catch(onError),!controlPdf,'查找'),
+    h('button',{type:'button',className:'ib-anno-toggle','aria-pressed':annotationsOn?'true':'false',disabled:!doc||state.format!=='pdf',onClick:()=>setAnnotationsOn(value=>!value),title:'显示/隐藏原文批注'},'批注',h('i',{'data-on':annotationsOn?'true':'false'})),
+    h('div',{className:'ib-toolbar-group ib-toolbar-pages'},button(icon('previous'),()=>navigate(controlSide,pages[controlSide]-1),!controlPdf||pages[controlSide]<=1,false,'上一页'),h('input',{'aria-label':'PDF 页码',type:'number',min:1,max:controlPdf?.numPages??1,value:pages[controlSide],onChange:event=>navigate(controlSide,Number(event.target.value))}),h('small',null,'/ '+(controlPdf?.numPages??'…')),button(icon('next'),()=>navigate(controlSide,pages[controlSide]+1),!controlPdf||pages[controlSide]>=controlPdf.numPages,false,'下一页')),
+    button(icon('download'),()=>void save(controlSide).catch(onError),!controlPdf&&!controlMaterial?.officeKind,false,'下载'+(controlMaterial?.officeKind==='docx'?'精读报告（.docx）':controlMaterial?.officeKind==='pptx'?'PPT（.pptx）':controlMaterial?.label??'当前文献'))),
    error?h('div',{className:'ib-reader-error',role:'alert'},error):null,
    translation&&translation.status!=='completed'?h('small',{className:'ib-reader-status'},translation.stage+(translation.totalBlocks?` · ${translation.completedBlocks??0}/${translation.totalBlocks} 段`:'')+(translation.error?' · '+translation.error:'')):null,
    state.format==='pdf'||mode==='dual'||['report','ppt'].includes(mode)?h('div',{className:'ib-pdf-panes','data-stacked':stacked&&mode==='dual'||undefined},pane('original'),pane('zh'),modeLoading?h('div',{className:'ib-reader-view-status',role:'status','aria-live':'polite'},spinner(),'正在加载'+(mode==='dual'?'对照视图':mode==='zh'?'译文':mode==='report'?'精读':mode==='ppt'?'PPT':'原文')+'…'):null):null,
@@ -158,4 +175,22 @@ export const readerStyles=pdfViewerStyles+annotationStyles+`
 .ib-anno-rail-host{position:absolute;right:0;top:0;bottom:0;width:58px;z-index:9;pointer-events:auto}
 .ib-anno-inflow{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:6}
 .ib-reader .ib-pdf-flow{will-change:transform}
+.ib-reader-controls{display:flex;align-items:center;gap:8px;padding:7px 12px;min-height:50px;flex-wrap:nowrap;overflow-x:auto;border-bottom:1px solid #e1e5eb;background:#fff;box-sizing:border-box}
+.ib-reader-tabs{display:flex;align-items:center;gap:2px;flex:none}
+.ib-reader-tabs .ib-act{height:34px;padding:0 12px;border-radius:6px;font-weight:600}
+.ib-reader-tabs .ib-act[data-active=true]{background:#e3f2ec;color:#0f766e}
+.ib-reader-controls .ib-act{height:32px;padding:0 9px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;flex:none}
+.ib-reader-controls .ib-act[data-active=true]{background:#e3f2ec;color:#0f766e;box-shadow:none}
+.ib-reader-controls .ib-toolbar-group{border-right:0;padding-right:0;gap:3px;flex:none}
+.ib-reader-controls .ib-toolbar-pages{margin-left:auto}
+.ib-toolbar-divider{width:1px;height:22px;background:#e1e6ea;margin:0 3px;flex:none}
+.ib-reader-search{display:flex;align-items:center;gap:6px;height:32px;border:1px solid #dce3e9;border-radius:6px;padding:0 8px;background:#fff;flex:none;color:#687684}
+.ib-reader-search input{border:0!important;width:118px!important;height:28px!important;padding:0!important;background:transparent!important;outline:none!important}
+.ib-reader-check{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap}
+.ib-anno-toggle{height:32px;padding:0 9px;border:1px solid transparent;border-radius:6px;background:transparent;color:#35463f;display:inline-flex;align-items:center;gap:7px;font:inherit;cursor:pointer;white-space:nowrap;flex:none}
+.ib-anno-toggle:hover{background:#f1f5f3}
+.ib-anno-toggle i{width:30px;height:17px;border-radius:99px;background:#cbd7d2;position:relative;transition:background .15s}
+.ib-anno-toggle i::after{content:'';position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .15s}
+.ib-anno-toggle i[data-on=true]{background:#0f766e}
+.ib-anno-toggle i[data-on=true]::after{transform:translateX(13px)}
 `;
