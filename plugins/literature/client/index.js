@@ -44491,16 +44491,6 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [folderMenu]);
-  const toolbarRef = (0, import_react10.useRef)(null);
-  (0, import_react10.useEffect)(() => {
-    const head = document.querySelector(".ib-wb-page-head");
-    const toolbar = toolbarRef.current;
-    if (!head || !toolbar) return void 0;
-    head.append(toolbar);
-    return () => {
-      toolbar.remove();
-    };
-  }, []);
   const [templatesOpen, setTemplatesOpen] = (0, import_react10.useState)(false);
   const [noteTemplates, setNoteTemplates] = (0, import_react10.useState)([]);
   const [noteTemplateId, setNoteTemplateId] = useProjectViewValue(projectId, "reading-template", "");
@@ -45196,6 +45186,31 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       }) }, h(PresentationSvg, null), selectedPptDone ? "查看 PPT" : "生成 PPT")
     )
   ) : h("aside", { className: "ib-lit-detail ib-lit-detail-empty" }, "选择左侧文献查看详情");
+  const toolbarNode = h(
+    "div",
+    { className: "ib-lit-toolbar" },
+    h("button", { className: "ib-act", onClick: () => setTemplatesOpen(true) }, "▤ 模板管理"),
+    h("button", { className: "ib-act", disabled: importingRis, onClick: () => risPicker.current?.click() }, "↑ 上传 RIS"),
+    h(
+      "div",
+      { className: "ib-lit-upload-wrap" },
+      h("button", { className: "ib-act ib-act-primary", "aria-expanded": uploadMenuOpen, onClick: () => setUploadMenuOpen((value) => !value) }, "+ 上传文献"),
+      uploadMenuOpen ? h(
+        "div",
+        { className: "ib-lit-upload-menu", onMouseDown: (event) => event.stopPropagation() },
+        h("button", { type: "button", onClick: () => {
+          setUploadMenuOpen(false);
+          setLinkOpen(true);
+        } }, "从链接导入"),
+        h("button", { type: "button", onClick: () => {
+          setUploadMenuOpen(false);
+          pdfPicker.current?.click();
+        } }, "从本地文件导入")
+      ) : null
+    ),
+    h("input", { type: "file", accept: ".ris", multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
+    h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })
+  );
   return h(
     import_react10.default.Fragment,
     null,
@@ -45231,31 +45246,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           }
         },
         pdfDragging ? h("div", { className: "ib-lit-drop-overlay", role: "status" }, "松开以导入文献（PDF、DOCX）") : null,
-        h(
-          "div",
-          { className: "ib-lit-toolbar", ref: toolbarRef },
-          h("button", { className: "ib-act", onClick: () => setTemplatesOpen(true) }, "▤ 模板管理"),
-          h("button", { className: "ib-act", disabled: importingRis, onClick: () => risPicker.current?.click() }, "↑ 上传 RIS"),
-          h(
-            "div",
-            { className: "ib-lit-upload-wrap" },
-            h("button", { className: "ib-act ib-act-primary", "aria-expanded": uploadMenuOpen, onClick: () => setUploadMenuOpen((value) => !value) }, "+ 上传文献"),
-            uploadMenuOpen ? h(
-              "div",
-              { className: "ib-lit-upload-menu", onMouseDown: (event) => event.stopPropagation() },
-              h("button", { type: "button", onClick: () => {
-                setUploadMenuOpen(false);
-                setLinkOpen(true);
-              } }, "从链接导入"),
-              h("button", { type: "button", onClick: () => {
-                setUploadMenuOpen(false);
-                pdfPicker.current?.click();
-              } }, "从本地文件导入")
-            ) : null
-          ),
-          h("input", { type: "file", accept: ".ris", multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
-          h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })
-        ),
+        toolbarNode,
         h(
           "div",
           { className: "ib-lit-tabs" },
