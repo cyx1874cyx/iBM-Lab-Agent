@@ -20,6 +20,29 @@ const short = (value, max = 180) => {
 	return text.length > max ? text.slice(0, max) + '…' : text;
 };
 
+const mergeHighlightRects = (rects = []) => {
+	const merged = [];
+	for (const source of rects.slice().sort((a, b) => a.y - b.y || a.x - b.x)) {
+		const rect = { ...source };
+		let touched = false;
+		for (const target of merged) {
+			const width = Math.min(rect.x + rect.w, target.x + target.w) - Math.max(rect.x, target.x);
+			const height = Math.min(rect.y + rect.h, target.y + target.h) - Math.max(rect.y, target.y);
+			if (width <= 0 || height <= 0) continue;
+			if ((width * height) / Math.min(rect.w * rect.h, target.w * target.h) < 0.5) continue;
+			const right = Math.max(rect.x + rect.w, target.x + target.w);
+			const bottom = Math.max(rect.y + rect.h, target.y + target.h);
+			target.x = Math.min(rect.x, target.x);
+			target.y = Math.min(rect.y, target.y);
+			target.w = right - target.x;
+			target.h = bottom - target.y;
+			touched = true;
+			break;
+		}
+		if (!touched) merged.push(rect);
+	}
+	return merged;
+};
 const followUpsOf = (item) => {
 	const messages = item?.messages ?? [];
 	const result = [];
@@ -819,7 +842,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 		inflowHost ? ReactDOM.createPortal(h('div', { className: 'ib-anno-page-layer' },
 		items.map((item) => {
 			if (item.kind === 'highlight') {
-				return h(React.Fragment, { key: item.id }, (item.rects ?? []).map((rect, index) => {
+				return h(React.Fragment, { key: item.id }, mergeHighlightRects(item.rects ?? []).map((rect, index) => {
 					const pageRect = pages.get(item.page);
 					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
 					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
@@ -834,7 +857,7 @@ export function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, e
 			while (placedPins.some((placed) => Math.hypot(placed.left - pinLeft, placed.top - pinTop) < 22)) { pinLeft += 16; pinTop += 16; }
 			placedPins.push({ left: pinLeft, top: pinTop });
 			return h(React.Fragment, { key: item.id },
-				(item.rects ?? []).map((rect, index) => {
+				mergeHighlightRects(item.rects ?? []).map((rect, index) => {
 					const pageRect = pages.get(item.page);
 					const left = pageRect ? pageRect.left + rect.x * pageRect.width : 0;
 					const top = pageRect ? pageRect.top + rect.y * pageRect.height : 0;
