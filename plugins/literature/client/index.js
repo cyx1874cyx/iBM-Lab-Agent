@@ -44820,6 +44820,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   } });
   const [machineReviews, setMachineReviews] = (0, import_react11.useState)({});
   const [preview, setPreview] = (0, import_react11.useState)(null);
+  const [litTab, setActiveLitTab] = (0, import_react11.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react11.useState)(0);
   const [selectedReportId, setSelectedReportId] = (0, import_react11.useState)(() => {
     try {
@@ -45535,7 +45536,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       notify("翻译启动失败：" + error.message);
     }
   };
-  const showDetail = activeLitTab === "reading" && Boolean(selectedReport);
+  const showDetail = litTab === "reading" && Boolean(selectedReport);
   const detailNode = showDetail ? h(
     "aside",
     { className: "ib-lit-detail", "aria-label": "文献详情" },
@@ -45661,14 +45662,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         h(
           "div",
           { className: "ib-lit-tabs" },
-          h("button", { type: "button", className: "ib-lit-tab", "data-active": activeLitTab === "reading" ? "true" : void 0, onClick: () => setActiveLitTab("reading") }, "精读文献 ", h("span", null, readingReports.length)),
-          h("button", { type: "button", className: "ib-lit-tab", "data-active": activeLitTab === "search" ? "true" : void 0, onClick: () => {
+          h("button", { type: "button", className: "ib-lit-tab", "data-active": litTab === "reading" ? "true" : void 0, onClick: () => setActiveLitTab("reading") }, "精读文献 ", h("span", null, readingReports.length)),
+          h("button", { type: "button", className: "ib-lit-tab", "data-active": litTab === "search" ? "true" : void 0, onClick: () => {
             onHideChat?.();
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        activeLitTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount }) : null,
-        activeLitTab === "reading" ? h(
+        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount }) : null,
+        litTab === "reading" ? h(
           import_react11.default.Fragment,
           null,
           h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", ...readingInteraction.folderProps(folder), "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
