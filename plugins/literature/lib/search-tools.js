@@ -13,7 +13,7 @@ export function registerSearchTaskTools(ctx) {
 			title: { type: "string", required: true, description: "简洁中文任务标题" },
 			requirement: { type: "string", required: true, description: "从用户自然语言中整理出的研究对象、材料、方法、必须条件和排除条件" }
 		},
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId, title, requirement }) {
 			const core = coreOf(ctx);
 			const store = await listSearchTasks(core, projectId);
@@ -35,7 +35,7 @@ export function registerSearchTaskTools(ctx) {
 			query: { type: "string", required: true, description: "英文 Scopus 检索式" },
 			limit: { type: "number", description: "本轮获取数量，默认 25" }
 		},
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
 			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)).map((row) => ({ id: row.id, title: row.title, journal: row.journal, year: row.year, doi: row.doi, abstractStatus: row.abstractStatus })) };
@@ -46,7 +46,7 @@ export function registerSearchTaskTools(ctx) {
 		name: "lab_search_task_list",
 		description: "读取当前课题的检索任务与候选文献，用于回答用户关于本轮结果、勾选、历史轮次的问题。",
 		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" } },
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
@@ -62,7 +62,7 @@ export function registerSearchTaskTools(ctx) {
 			taskId: { type: "string", required: true, description: "检索任务编号" },
 			updates: { type: "array", required: true, description: "更新数组", items: { type: "object", additionalProperties: false, properties: { candidateId: { type: "string" }, titleZh: { type: "string" }, summaryZh: { type: "string" }, matchReason: { type: "string" }, recommendation: { type: "string", enum: ["priority", "support", ""] }, reasonBasis: { type: "string", enum: ["title", "abstract", "fulltext"] } } } }
 		},
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId, updates }) {
 			const results = [];
 			for (const item of updates || []) {
@@ -80,7 +80,7 @@ export function registerSearchTaskTools(ctx) {
 		name: "lab_search_task_scopus_test",
 		description: "测试 Scopus 数据库连接与 Key 是否有效。",
 		parameters: { projectId: { type: "string", description: "课题编号" } },
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId }) { return scopusTest(coreOf(ctx), projectId); }
 	}));
 
@@ -88,7 +88,7 @@ export function registerSearchTaskTools(ctx) {
 		name: "lab_search_task_import_ris",
 		description: "把用户提供的 RIS 文本导入当前检索任务或新建任务。",
 		parameters: { projectId: { type: "string" }, taskId: { type: "string" }, fileName: { type: "string" }, text: { type: "string", required: true } },
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId, fileName, text }) { return importRisTask(coreOf(ctx), projectId, { taskId, fileName, text }); }
 	}));
 
@@ -96,7 +96,7 @@ export function registerSearchTaskTools(ctx) {
 		name: "lab_search_task_delete",
 		description: "删除一个检索任务。",
 		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true } },
-		output: { schema: { type: "object", additionalProperties: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId }) { return deleteSearchTask(coreOf(ctx), projectId, taskId); }
 	}));
 }
