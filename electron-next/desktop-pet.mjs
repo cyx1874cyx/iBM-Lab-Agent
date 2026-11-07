@@ -20,7 +20,7 @@ export function createDesktopPet({root,mainWindow}) {
   window.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
   window.on('moved',()=>{const [px,py]=window.getPosition();preference.x=px;preference.y=py;if(!dragOrigin)persist();});
   window.on('close',event=>{if(!app.isQuitting){event.preventDefault();preference.visible=false;window.hide();persist();}});
-  await window.loadFile(fileURLToPath(new URL('./desktop-pet.html',import.meta.url)));await publish();
+  await window.loadFile(fileURLToPath(new URL('./desktop-pet.html',import.meta.url))).catch(error=>console.warn('desktop pet skipped:',error.message));await publish().catch(()=>{});
   if(preference.visible)window.showInactive();
  });
  const actionHandler=(event,action)=>{if(event.sender!==window?.webContents)return;if(action==='hide'){preference.visible=false;window.hide();persist();}if(action==='main'){const main=mainWindow();main?.show();main?.focus();}};

@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { linkIntakePrompt } from './reading-link-upload.js';
+import { SearchTasksPanel } from './search-tasks-panel.js';
 import {
 	h, useProjectViewValue, useProjectViewScroll, fileToBase64, useReadingInteractions,
 	ReadingContextMenu, ReadingLinkUpload, EntryConversationButton, readingConversationId,
@@ -265,7 +266,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const readingInteraction=useReadingInteractions({projectId,reports:readingReports,visibleReports:filteredReports,bundles:bundleById,root:literatureRoot,call,notify,onChanged,onContextMenu:setEntryMenu,setFolder:setSelectedFolder,onLocate:report=>{if(report)setLocateRequest({bundleId:report.bundleId,nonce:crypto.randomUUID()});}});
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
-			const [activeLitTab, setActiveLitTab] = useState('reading');
+			const [searchTaskCount, setSearchTaskCount] = useState(0);
 			const [selectedReportId, setSelectedReportId] = useState(() => { try { return localStorage.getItem('ib-lit-selected:' + projectId) || ''; } catch { return ''; } });
 			const [watchReading, setWatchReading] = useState(false);
 			const [watchPpt, setWatchPpt] = useState(false);
@@ -937,7 +938,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					headerTarget ? null : toolbarNode,
 					h('div', { className: 'ib-lit-tabs' },
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'reading' ? 'true' : undefined, onClick: () => setActiveLitTab('reading') }, '精读文献 ', h('span', null, readingReports.length)),
-						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'search' ? 'true' : undefined, onClick: () => setActiveLitTab('search') }, '检索记录 ', h('span', null, searches.length))),
+						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'search' ? 'true' : undefined, onClick: () => { onHideChat?.(); setActiveLitTab('search'); } }, '检索记录 ', h('span', null, searchTaskCount))),
+					activeLitTab === 'search' ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount }) : null,
 					activeLitTab === 'reading' ? h(React.Fragment, null,
 						h('div', { className: 'ib-lit-folders' }, [{ id: 'all', name: '全部' }, { id: 'unfiled', name: '未分类' }, ...folders].map((folder) => h('button', { key: folder.id, type: 'button', className: 'ib-lit-folder', ...readingInteraction.folderProps(folder), 'data-active': selectedFolder === folder.id ? 'true' : undefined, onClick: () => { readingInteraction.clear(); setSelectedFolder(folder.id); }, onContextMenu: (event) => { if (folder.id === 'all' || folder.id === 'unfiled') return; event.preventDefault(); event.stopPropagation(); setFolderMenu({ x: event.clientX, y: event.clientY, id: folder.id, name: folder.name }); } }, folder.name, h('span', null, reports.filter((row) => folder.id === 'all' || (folder.id === 'unfiled' ? !row.folderId : row.folderId === folder.id)).length))), folderEditor ? h('input', { className: 'ib-lit-folder-input', autoFocus: true, value: folderEditor.name, maxLength: 80, placeholder: '分组名称', onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }), onKeyDown: (event) => { if (event.key === 'Escape') { event.preventDefault(); setFolderEditor(null); } else if (event.key === 'Enter') { event.preventDefault(); void saveFolderEditor(); } } }) : h('button', { type: 'button', className: 'ib-lit-folder ib-lit-folder-add', title: '新建分组', onClick: createFolder }, '+')),
 						(uploadingRows.length || pendingIntakeReports.length) ? h('div', { className: 'ib-lit-list ib-lit-cards' }, [...uploadingRows.map((row) => h('div', { key: 'upload-' + row.id, className: 'ib-lit-card ib-lit-card-loading', role: 'status', 'aria-busy': 'true' }, h('span', { className: 'ib-lit-loading-spinner' }, h(SpinSvg, null)), h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, row.name), h('div', { className: 'ib-lit-meta' }, '正在上传…')))), ...pendingIntakeReports.map((report) => { const bundle = bundleById[report.bundleId] || {}; return h('div', { key: 'intake-' + report.id, className: 'ib-lit-card ib-lit-card-loading', role: 'status', 'aria-busy': 'true' }, h('span', { className: 'ib-lit-loading-spinner' }, h(SpinSvg, null)), h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, bundle.pdfIntake?.originalFileName || report.titleZh || bundle.title || report.id), h('div', { className: 'ib-lit-meta' }, (bundle.pdfIntake?.stage || '正在识别文献') + '…'))); })]) : null,
