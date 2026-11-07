@@ -5926,17 +5926,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`)),
-        h("div", { className: "ib-st-detail-actions" }, h("button", { type: "button", className: selectedPaper.addedToReading ? "ib-st-secondary" : "ib-st-primary", disabled: Boolean(selectedPaper.addedToReading), onClick: async () => {
-          try {
-            const result = await call("search_tasks_add_to_reading", { request: { projectId, taskId: active.id, candidateIds: [selectedPaper.id] } });
-            notify2?.(`已加入精读 ${result?.succeeded || 0} 篇`);
-            await load2(active.id);
-            onChanged?.();
-          } catch (error62) {
-            notify2?.(error62.message);
-          }
-        } }, selectedPaper.addedToReading ? "已加入精读" : "加入精读"), h("span", { className: "ib-st-detail-feedback" }, h("button", { type: "button", "data-active": selectedPaper.feedback === "more" ? "true" : void 0, onClick: () => void setFeedback(selectedPaper, "more") }, "👍 更符合"), h("button", { type: "button", "data-active": selectedPaper.feedback === "irrelevant" ? "true" : void 0, onClick: () => void setFeedback(selectedPaper, "irrelevant") }, "👎 不相关")))
+        h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`))
       ) : h("div", { className: "ib-st-empty big" }, "点击左侧文献查看详情")
     ),
     newTask ? h("div", { className: "ib-st-modal", onClick: (event) => {
@@ -6333,6 +6323,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   });
   const [watchReading, setWatchReading] = (0, import_react12.useState)(false);
   const [watchPpt, setWatchPpt] = (0, import_react12.useState)(false);
+  (0, import_react12.useEffect)(() => {
+    if (litTab === "search") onShowChat?.();
+  }, [litTab]);
   (0, import_react12.useEffect)(() => {
     try {
       if (selectedReportId) localStorage.setItem("ib-lit-selected:" + projectId, selectedReportId);

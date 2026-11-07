@@ -20,7 +20,7 @@ import {registerReaderTools} from './reader-tools.js';
 import {registerSearchTaskTools} from './search-tools.js';
 
 export const name = "tasks-tool";
-export const inject = ["tools", "ibmLiteratureWorkflows", "ibmCore"];
+export const inject = ["tools", "ibmLiteratureWorkflows", "ibmCore", "systemPrompt"];
 
 /** 解析目标课题：显式 projectId → 会话绑定 → 会话 cwd。 */
 function resolveProjectId(ctx, args, exec) {
@@ -743,7 +743,22 @@ function registerBrowserTools(ctx) {
 
 export function apply(ctx) {
 	registerOrganizationTools(ctx);
-	registerSearchTaskTools(ctx);
+		registerSearchTaskTools(ctx);
+	if (ctx.systemPrompt?.section) {
+		ctx.systemPrompt.section({
+			name: "literature:search-workflow",
+			order: ctx.systemPrompt.getSectionOrder("DEPLOYMENT_PERSONA_PREFIX") + 1,
+			text: [
+				"文献检索流程（必须执行，不要只在聊天里给建议）：",
+				"1. 用户提出文献检索、补充检索或调整排序时，先用 lab_search_task_create 创建/更新任务，保存简洁标题和整理后的研究需求。",
+				"2. 把中文需求翻译成英文生物医学术语，构造 Scopus 检索式（优先 TITLE-ABS-KEY(term AND term)），再调用 lab_search_task_scopus；每轮调用生成一轮结果。多轮需求继续使用同一 taskId，不要覆盖历史轮次。",
+				"3. 检索返回后，基于真实返回的标题/摘要为每篇候选写入中文标题、中文摘要总结、匹配理由、recommendation（priority/support）和 reasonBasis；只能依据实际获取的 title/abstract，未读全文时 reasonBasis 不得写 fulltext。调用 lab_search_task_update_candidates 回写。",
+				"4. 摘要缺失时明确标注“摘要未获取”，只能按标题判断；不得编造摘要、作者、期刊、DOI 或影响因子。",
+				"5. RIS 导入用 lab_search_task_import_ris；连接测试用 lab_search_task_scopus_test。",
+				"6. 检索页没有独立的 AI 助手；所有检索交互都在科研助手对话中完成，结果由工具写入检索任务面板。"
+			].join("\n")
+		});
+	}
 	registerReaderTools(ctx);
 	// Capture is optional: the child fiber owns only browser/capture tools.
 	if (typeof ctx.inject === "function") ctx.inject(["labCapture"], registerBrowserTools);
