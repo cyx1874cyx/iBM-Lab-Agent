@@ -139,13 +139,45 @@ export function mergeSessionSearchRows(rows) {
 
 const journalMetricsCache = new Map();
 
+async function fetchLetPubTop(journalId) {
+	try {
+		const response = await fetch(`https://www.letpub.com.cn/index.php?journalid=${journalId}&page=journalapp&view=detail`, { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(20000) });
+		if (!response.ok) return null;
+		const detail = await response.text();
+		const start = detail.indexOf('Top期刊');
+		const section = start >= 0 ? detail.slice(start, start + 12000) : '';
+		if (!section) return null;
+		const plain = (part) => String(part.replace(/<br\s*\/?>/gi, ' | ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ')).replace(/\s+/g, ' ').trim();
+		const dataRow = (section.match(/<\/tr>\s*<tr[^>]*>([\s\S]*?)<\/tr>/i) ?? [])[1];
+		if (dataRow) {
+			const cells = [...dataRow.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => plain(cell[1]));
+			const topCell = cells[cells.length - 2] ?? '';
+			const parsed = /是/.test(topCell) ? true : /否/.test(topCell) ? false : null;
+			if (parsed !== null) return parsed;
+		}
+		const topFlag = section.match(/<\/table>[\s\S]{0,500}?<td[^>]*>\s*(是|否)\s*<\/td>/i);
+		return topFlag ? topFlag[1] === '是' : null;
+	} catch { return null; }
+}
+
 export const literatureMethods = {
 	async journalMetrics({ journal = '' } = {}) {
 		const query = String(journal || '').replace(/\s+/g, ' ').trim();
 		if (!query) return null;
 		const key = query.toLowerCase();
 		const cached = journalMetricsCache.get(key);
-		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) return cached.value;
+		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) {
+		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) {
+			if (!cached.value) {
+				journalMetricsCache.delete(key);
+			} else {
+				if (cached.value.top == null && cached.journalId) {
+					const top = await fetchLetPubTop(cached.journalId);
+					if (top !== null) cached.value = { ...cached.value, top };
+				}
+				return cached.value;
+			}
+		}
 		let value = null;
 		try {
 			const response = await fetch('https://www.letpub.com.cn/index.php?page=journalapp&view=search&searchname=' + encodeURIComponent(query), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(12000) });
@@ -161,33 +193,21 @@ export const literatureMethods = {
 					const field = (text.match(/大类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
 					const subfield = (text.match(/小类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
 					const abbreviation = (row.match(/<font[^>]*grey[^>]*>([^<]+)<\/font>/i) ?? [])[1]?.trim();
-					let top = null;
 					const journalId = (row.match(/journalid=(\d+)/) ?? [])[1];
-					if (journalId) {
-						try {
-							const detailResponse = await fetch(`https://www.letpub.com.cn/index.php?journalid=${journalId}&page=journalapp&view=detail`, { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(12000) });
-							if (detailResponse.ok) {
-								const detail = await detailResponse.text();
-								const start = detail.indexOf('Top期刊');
-								const section = start >= 0 ? detail.slice(start, start + 12000) : '';
-								const dataRow = (section.match(/<\/tr>\s*<tr[^>]*>([\s\S]*?)<\/tr>/i) ?? [])[1];
-								if (dataRow) {
-									const cells = [...dataRow.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => plain(cell[1]));
-									const topCell = cells[cells.length - 2] ?? '';
-									top = /是/.test(topCell) ? true : /否/.test(topCell) ? false : null;
-								}
-								if (top === null) {
-									const topFlag = section.match(/<\/table>[\s\S]{0,500}?<td[^>]*>\s*(是|否)\s*<\/td>/i);
-									if (topFlag) top = topFlag[1] === '是';
-								}
-							}
-						} catch { top = null; }
+					const topPromise = journalId ? fetchLetPubTop(journalId) : null;
+					if (Number.isFinite(impact) && impact > 0) {
+						value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, top: null, field: field || '', subfield: subfield || '' };
+						if (topPromise) {
+							const record = { at: Date.now(), value, topPromise, journalId };
+							journalMetricsCache.set(key, record);
+							void topPromise.then((top) => { if (top !== null && record.value) record.value = { ...record.value, top }; });
+						}
 					}
-					if (Number.isFinite(impact) && impact > 0) value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, top, field: field || '', subfield: subfield || '' };
 				}
 			}
 		} catch { value = null; }
-		journalMetricsCache.set(key, { at: Date.now(), value });
+		const existingRecord = journalMetricsCache.get(key);
+		if (!existingRecord || existingRecord.value !== value) journalMetricsCache.set(key, { at: Date.now(), value });
 		while (journalMetricsCache.size > 300) journalMetricsCache.delete(journalMetricsCache.keys().next().value);
 		return value;
 	},

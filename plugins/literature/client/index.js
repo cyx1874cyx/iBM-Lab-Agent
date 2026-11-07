@@ -45157,7 +45157,17 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     for (const journal of journals) {
       if (metricsRequested.current.has(journal)) continue;
       metricsRequested.current.add(journal);
-      void call("tasks_journal_metrics", { request: { journal } }).then((value) => setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }))).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
+      void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
+        setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }));
+        if (value && value.top == null) {
+          setTimeout(() => {
+            void call("tasks_journal_metrics", { request: { journal } }).then((next) => {
+              if (next && next.top != null) setMetricsByJournal((old) => ({ ...old, [journal]: next }));
+            }).catch(() => {
+            });
+          }, 12e3);
+        }
+      }).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
     }
   }, [readingReports, bundleById, call]);
   const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `

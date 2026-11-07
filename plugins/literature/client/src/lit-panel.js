@@ -832,11 +832,17 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				for (const journal of journals) {
 					if (metricsRequested.current.has(journal)) continue;
 					metricsRequested.current.add(journal);
-					void call('tasks_journal_metrics', { request: { journal } })
-						.then((value) => setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null })))
-						.catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
-				}
-			}, [readingReports, bundleById, call]);			const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `\n使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : '') : '';
+					void call('tasks_journal_metrics', { request: { journal } }).then((value) => {
+						setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }));
+						if (value && value.top == null) {
+							setTimeout(() => {
+								void call('tasks_journal_metrics', { request: { journal } }).then((next) => {
+									if (next && next.top != null) setMetricsByJournal((old) => ({ ...old, [journal]: next }));
+								}).catch(() => {});
+							}, 12000);
+						}
+					}).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
+				}			}, [readingReports, bundleById, call]);			const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `\n使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : '') : '';
 			const selectedPptPrompt = selectedReport ? `请为文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（reportId: ${selectedReport.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。` : '';
 			const translateSelected = async (event) => {
 				event.stopPropagation();
