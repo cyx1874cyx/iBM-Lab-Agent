@@ -33,7 +33,7 @@ for (const script of ['build-rag.mjs','build-client.mjs', 'migration/build-domai
 writeFileSync(join(application, 'package.json'), JSON.stringify({ name: 'ibm-lab-development', productName: 'iBM Lab', version: '0.1.0', type: 'module', main: 'bootstrap.mjs' }, null, 2));
 const bootstrap = `
 import {app,BrowserWindow} from 'electron';
-import {copyFileSync,cpSync,existsSync,mkdirSync,readFileSync,watch,writeFileSync,renameSync} from 'node:fs';
+import {copyFileSync,cpSync,existsSync,mkdirSync,readFileSync,watch,writeFileSync,renameSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {builtinModules} from 'node:module';
@@ -76,7 +76,8 @@ function syncClient(){
  // 开发运行时必须用仓库里的 bundle 装配（新增服务行否则永远不生效）。
  copyFileSync(join(repo,'lib/remote.js'),join(profile,'node_modules/dsh-lab-agent/lib/remote.js'));
  copyFileSync(join(repo,'lib/remote.js'),join(resources,'app/node_modules/dsh-lab-agent/lib/remote.js'));
- cpSync(join(repo,'plugins/literature/lib'),join(profile,'node_modules/@ibm-lab/literature/lib'),{recursive:true,force:true});
+ // 插件目录在开发态可能是指向仓库的 junction；src 与 dest 解析到同一实路径时跳过复制。
+ {const src=join(repo,'plugins/literature/lib'),dest=join(profile,'node_modules/@ibm-lab/literature/lib');let same=false;try{same=existsSync(dest)&&realpathSync(src)===realpathSync(dest);}catch{}if(!same)cpSync(src,dest,{recursive:true,force:true});}
  copyFileSync(join(repo,'cordis.patch.yml'),join(profile,'node_modules/dsh-lab-agent/cordis.patch.yml'));
  copyFileSync(join(repo,'cordis.patch.yml'),join(resources,'app/node_modules/dsh-lab-agent/cordis.patch.yml'));
  copyFileSync(join(repo,'presets/lab-research/preset.patch.yml'),join(profile,'node_modules/dsh-lab-agent/presets/lab-research/preset.patch.yml'));
