@@ -268,6 +268,10 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [litTab, setActiveLitTab] = useState('reading');
 			const [searchTaskCount, setSearchTaskCount] = useState(0);
+			const [databaseOpen, setDatabaseOpen] = useState(false);
+			const [databaseKey, setDatabaseKey] = useState('');
+			const [databaseBusy, setDatabaseBusy] = useState('');
+			const [databaseMessage, setDatabaseMessage] = useState('');
 			const [selectedReportId, setSelectedReportId] = useState(() => { try { return localStorage.getItem('ib-lit-selected:' + projectId) || ''; } catch { return ''; } });
 			const [watchReading, setWatchReading] = useState(false);
 			const [watchPpt, setWatchPpt] = useState(false);
@@ -930,7 +934,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 								h('button', { type: 'button', onClick: () => { setUploadMenuOpen(false); setLinkOpen(true); } }, '从链接导入'),
 								h('button', { type: 'button', onClick: () => { setUploadMenuOpen(false); pdfPicker.current?.click(); } }, '从本地文件导入')) : null),
 						h('input', { type: 'file', accept: '.ris', multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
-						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }))
+						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }), h('button', { type: 'button', className: 'ib-act', onClick: () => { setDatabaseOpen(true); setDatabaseMessage(''); } }, '⚙ 数据库管理'))
 
 			return h(React.Fragment, null, headerTarget ? createPortal(toolbarNode, headerTarget) : null, h('div', { className: 'ib-lit ib-lit-workbench', 'data-toolbar-in-header': headerTarget ? 'true' : undefined, ref: literatureRoot },
 				h('section', { className: 'ib-lit-catalog', 'data-dragging': pdfDragging ? 'true' : undefined,
@@ -956,6 +960,27 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 								h(JournalMetricTiles, { journal: metricsKeyOf(report, bundle), call }));
 						}) : ((uploadingRows.length || pendingIntakeReports.length) ? null : h('div', { className: 'ib-lit-empty' }, '尚无精读条目。上传或拖入 PDF，或在对话中登记文献。')))) : h('div', { className: 'ib-lit-search-list' }, searches.length ? searches.slice().reverse().map((search) => h('div', { key: search.id, className: 'ib-lit-card ib-lit-search-card' }, h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, search.title || search.query || search.id), h('div', { className: 'ib-lit-meta' }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h('button', { type: 'button', className: 'ib-lit-mini-btn', onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? '' : search.id); } }, expandedSearch === search.id ? '收起' : '查看'))) : h('div', { className: 'ib-lit-empty' }, '暂无检索记录。'))),
 				detailNode), folderMenu ? h('div', { className: 'ib-lit-folder-menu', style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h('button', { type: 'button', onClick: () => void deleteFolder() }, '删除分组')) : null,
+				databaseOpen ? h('div', { className: 'ib-lit-link-modal', onClick: (event) => { if (event.target === event.currentTarget) setDatabaseOpen(false); } },
+					h('section', { className: 'ib-lit-link-dialog ib-db-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': '数据库管理', onClick: (event) => event.stopPropagation() },
+						h('header', { className: 'ib-lit-link-head' }, h('span', { className: 'ib-lit-link-icon' }, '⚙'), h('div', { className: 'ib-lit-link-head-copy' }, h('h2', null, '数据库管理'), h('p', null, '配置检索数据库的访问凭据；密钥只保存在本机后端配置中。')), h('button', { type: 'button', className: 'ib-lit-link-close', 'aria-label': '关闭', onClick: () => setDatabaseOpen(false) }, '×')),
+						h('div', { className: 'ib-db-body' },
+							h('div', { className: 'ib-db-row' }, h('div', null, h('b', null, 'Scopus / Elsevier'), h('small', null, '用于文献检索、摘要与题录补全')), h('span', { className: 'ib-db-state' }, 'API Key')),
+							h('input', { className: 'ib-db-input', type: 'password', value: databaseKey, placeholder: '粘贴 Scopus API Key（留空表示不修改）', onChange: (event) => setDatabaseKey(event.target.value) }),
+							databaseMessage ? h('div', { className: 'ib-db-message', role: 'status' }, databaseMessage) : null,
+							h('div', { className: 'ib-db-actions' },
+								h('button', { type: 'button', className: 'ib-lit-link-cancel', onClick: async () => {
+									setDatabaseBusy('test'); setDatabaseMessage('');
+									try { const result = await call('search_tasks_scopus_test', { request: { projectId } }); setDatabaseMessage(result?.message || (result?.ok ? 'Scopus 连接正常' : 'Scopus 连接失败')); }
+									catch (error) { setDatabaseMessage(error.message); }
+									finally { setDatabaseBusy(''); }
+								}, disabled: databaseBusy === 'test' }, databaseBusy === 'test' ? '测试中…' : '测试连接'),
+								h('button', { type: 'button', className: 'ib-lit-link-submit', onClick: async () => {
+									if (!databaseKey.trim()) { setDatabaseMessage('请输入 API Key；留空不会覆盖现有配置'); return; }
+									setDatabaseBusy('save'); setDatabaseMessage('');
+									try { await call('search_tasks_save_key', { request: { projectId, apiKey: databaseKey.trim() } }); setDatabaseKey(''); setDatabaseMessage('已保存到本机项目配置'); }
+									catch (error) { setDatabaseMessage(error.message); }
+									finally { setDatabaseBusy(''); }
+								}, disabled: databaseBusy === 'save' }, databaseBusy === 'save' ? '保存中…' : '保存配置'))))) : null,
 				linkOpen ? h('div', { className: 'ib-lit-link-modal', onClick: (event) => { if (event.target === event.currentTarget) setLinkOpen(false); } }, h('section', { className: 'ib-lit-link-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': '从链接导入文献', onClick: (event) => event.stopPropagation() }, h('header', { className: 'ib-lit-link-head' }, h('span', { className: 'ib-lit-link-icon' }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.1 1.1' }), h('path', { d: 'M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.1-1.1' }))), h('div', { className: 'ib-lit-link-head-copy' }, h('h2', null, '从链接导入'), h('p', null, '支持 DOI、出版商链接或微信公众号文章链接')), h('button', { type: 'button', className: 'ib-lit-link-close', 'aria-label': '关闭', onClick: () => setLinkOpen(false) }, '×')), h('form', { className: 'ib-lit-link-form', onSubmit: submitLink }, h('label', { className: 'ib-lit-link-label', htmlFor: 'ib-lit-link-url' }, '文献链接'), h('div', { className: 'ib-lit-link-field' }, h('input', { id: 'ib-lit-link-url', type: 'text', required: true, autoFocus: true, value: linkUrl, placeholder: '粘贴 DOI 或文章链接', onChange: (event) => setLinkUrl(event.target.value) }), h('span', { className: 'ib-lit-link-divider', 'aria-hidden': 'true' }), h('button', { type: 'button', className: 'ib-lit-link-paste', onClick: async () => { try { const text = await navigator.clipboard.readText(); if (text) setLinkUrl(text.trim()); } catch { notify('无法读取剪贴板，请手动粘贴链接'); } } }, '▤ 粘贴')), h('div', { className: 'ib-lit-link-hint' }, '例如：10.xxxx/xxxxx 或 https://…'), linkError ? h('div', { className: 'ib-lit-link-error', role: 'alert' }, linkError) : null, h('footer', { className: 'ib-lit-link-actions' }, h('button', { type: 'button', className: 'ib-lit-link-cancel', onClick: () => setLinkOpen(false) }, '取消'), h('button', { type: 'submit', className: 'ib-lit-link-submit', disabled: linkBusy || !linkUrl.trim() }, linkBusy ? '正在解析…' : '开始解析 →'))))) : null,
 				entryMenu ? h(ReadingContextMenu, { menu: entryMenu, onClose: closeEntryMenu, onDelete: deleteReports }) : null,
 				templatesOpen ? h('div', { role: 'presentation', onClick: (event) => { if (event.target === event.currentTarget) setTemplatesOpen(false); }, style: { position: 'fixed', inset: 0, zIndex: 9000, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,0.35)', padding: '24px' } }, h('section', { role: 'dialog', 'aria-modal': 'true', style: { width: 'min(1020px,68vw)', height: '65vh', background: 'var(--ib-bg)', border: '1px solid var(--ib-line)', borderRadius: '14px', overflow: 'hidden' } }, h('div', { style: { display: 'flex', padding: '12px 20px', borderBottom: '1px solid var(--ib-hair)' } }, h('b', null, '模板管理'), h('button', { className: 'ib-btn', style: { marginLeft: 'auto' }, onClick: () => setTemplatesOpen(false) }, '关闭')), h('div', { style: { padding: '16px 20px', overflow: 'auto', height: 'calc(100% - 56px)' } }, h(TemplateLibrary, { call, sections: ['notes', 'reviews', 'ppt'] })))) : null, previewNode);

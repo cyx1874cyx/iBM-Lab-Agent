@@ -167,7 +167,6 @@ export const literatureMethods = {
 		const key = query.toLowerCase();
 		const cached = journalMetricsCache.get(key);
 		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) {
-		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) {
 			if (!cached.value) {
 				journalMetricsCache.delete(key);
 			} else {

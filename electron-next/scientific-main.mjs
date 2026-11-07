@@ -1,5 +1,7 @@
 /** Private Electron sidecar. Research pages have no preload or host transport. */
 import { app, BrowserWindow, session, dialog, shell, safeStorage } from "electron";
+for (const stream of [process.stdout, process.stderr]) stream?.on('error', (error) => { if (error?.code !== 'EPIPE') throw error; });
+
 import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { createConnection } from "node:net";

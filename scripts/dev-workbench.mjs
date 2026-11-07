@@ -74,8 +74,6 @@ function syncClient(){
  {const appManifestPath=join(resources,'app','node_modules','dsh-lab-agent','package.json');const appManifest=JSON.parse(readFileSync(appManifestPath));const source=JSON.parse(readFileSync(join(repo,'package.json')));appManifest.exports=source.exports;appManifest.dsh=source.dsh;writeFileSync(appManifestPath,JSON.stringify(appManifest,null,2));}
  copyFileSync(join(repo,'presets/lab-research/preset.patch.yml'),join(profile,'node_modules/dsh-lab-ui/preset.patch.yml'));
  // 开发运行时必须用仓库里的 bundle 装配（新增服务行否则永远不生效）。
- copyFileSync(join(repo,'lib/remote.js'),join(profile,'node_modules/dsh-lab-agent/lib/remote.js'));
- copyFileSync(join(repo,'lib/remote.js'),join(resources,'app/node_modules/dsh-lab-agent/lib/remote.js'));
  // 插件目录在开发态可能是指向仓库的 junction；src 与 dest 解析到同一实路径时跳过复制。
  {const src=join(repo,'plugins/literature/lib'),dest=join(profile,'node_modules/@ibm-lab/literature/lib');let same=false;try{same=existsSync(dest)&&realpathSync(src)===realpathSync(dest);}catch{}if(!same)cpSync(src,dest,{recursive:true,force:true});}
  copyFileSync(join(repo,'cordis.patch.yml'),join(profile,'node_modules/dsh-lab-agent/cordis.patch.yml'));

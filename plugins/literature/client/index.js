@@ -44822,6 +44822,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react11.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react11.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react11.useState)(0);
+  const [databaseOpen, setDatabaseOpen] = (0, import_react11.useState)(false);
+  const [databaseKey, setDatabaseKey] = (0, import_react11.useState)("");
+  const [databaseBusy, setDatabaseBusy] = (0, import_react11.useState)("");
+  const [databaseMessage, setDatabaseMessage] = (0, import_react11.useState)("");
   const [selectedReportId, setSelectedReportId] = (0, import_react11.useState)(() => {
     try {
       return localStorage.getItem("ib-lit-selected:" + projectId) || "";
@@ -45620,7 +45624,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       ) : null
     ),
     h("input", { type: "file", accept: ".ris", multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
-    h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })
+    h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }),
+    h("button", { type: "button", className: "ib-act", onClick: () => {
+      setDatabaseOpen(true);
+      setDatabaseMessage("");
+    } }, "⚙ 数据库管理")
   );
   return h(
     import_react11.default.Fragment,
@@ -45724,6 +45732,57 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       detailNode
     ),
     folderMenu ? h("div", { className: "ib-lit-folder-menu", style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h("button", { type: "button", onClick: () => void deleteFolder() }, "删除分组")) : null,
+    databaseOpen ? h(
+      "div",
+      { className: "ib-lit-link-modal", onClick: (event) => {
+        if (event.target === event.currentTarget) setDatabaseOpen(false);
+      } },
+      h(
+        "section",
+        { className: "ib-lit-link-dialog ib-db-dialog", role: "dialog", "aria-modal": "true", "aria-label": "数据库管理", onClick: (event) => event.stopPropagation() },
+        h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, "⚙"), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "数据库管理"), h("p", null, "配置检索数据库的访问凭据；密钥只保存在本机后端配置中。")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setDatabaseOpen(false) }, "×")),
+        h(
+          "div",
+          { className: "ib-db-body" },
+          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
+          h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
+          h(
+            "div",
+            { className: "ib-db-actions" },
+            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
+              setDatabaseBusy("test");
+              setDatabaseMessage("");
+              try {
+                const result = await call("search_tasks_scopus_test", { request: { projectId } });
+                setDatabaseMessage(result?.message || (result?.ok ? "Scopus 连接正常" : "Scopus 连接失败"));
+              } catch (error) {
+                setDatabaseMessage(error.message);
+              } finally {
+                setDatabaseBusy("");
+              }
+            }, disabled: databaseBusy === "test" }, databaseBusy === "test" ? "测试中…" : "测试连接"),
+            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+              if (!databaseKey.trim()) {
+                setDatabaseMessage("请输入 API Key；留空不会覆盖现有配置");
+                return;
+              }
+              setDatabaseBusy("save");
+              setDatabaseMessage("");
+              try {
+                await call("search_tasks_save_key", { request: { projectId, apiKey: databaseKey.trim() } });
+                setDatabaseKey("");
+                setDatabaseMessage("已保存到本机项目配置");
+              } catch (error) {
+                setDatabaseMessage(error.message);
+              } finally {
+                setDatabaseBusy("");
+              }
+            }, disabled: databaseBusy === "save" }, databaseBusy === "save" ? "保存中…" : "保存配置")
+          )
+        )
+      )
+    ) : null,
     linkOpen ? h("div", { className: "ib-lit-link-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setLinkOpen(false);
     } }, h("section", { className: "ib-lit-link-dialog", role: "dialog", "aria-modal": "true", "aria-label": "从链接导入文献", onClick: (event) => event.stopPropagation() }, h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.1 1.1" }), h("path", { d: "M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.1-1.1" }))), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "从链接导入"), h("p", null, "支持 DOI、出版商链接或微信公众号文章链接")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setLinkOpen(false) }, "×")), h("form", { className: "ib-lit-link-form", onSubmit: submitLink }, h("label", { className: "ib-lit-link-label", htmlFor: "ib-lit-link-url" }, "文献链接"), h("div", { className: "ib-lit-link-field" }, h("input", { id: "ib-lit-link-url", type: "text", required: true, autoFocus: true, value: linkUrl, placeholder: "粘贴 DOI 或文章链接", onChange: (event) => setLinkUrl(event.target.value) }), h("span", { className: "ib-lit-link-divider", "aria-hidden": "true" }), h("button", { type: "button", className: "ib-lit-link-paste", onClick: async () => {

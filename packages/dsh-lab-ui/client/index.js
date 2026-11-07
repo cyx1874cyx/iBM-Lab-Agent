@@ -2960,6 +2960,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 @container ib-literature (max-width:900px){.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{grid-template-columns:minmax(0,1fr);gap:24px}.ib-lit-detail{position:static;border-left:0;border-top:1px solid var(--ib-hair);padding:24px 0 0;max-height:none}.ib-wb:not([data-chat-hidden]) .ib-lit-detail{display:none}}
 .ib-lit-search-list{display:none!important}.ib-lit-catalog:has(.ib-st){max-height:none;overflow:visible;padding-right:0}.ib-st{display:grid;grid-template-columns:240px minmax(0,1fr) 320px;gap:14px;height:calc(100vh - 330px);min-height:520px;margin-top:14px}.ib-st button{font-family:var(--ib-font,system-ui)}.ib-st-tasks,.ib-st-main,.ib-st-ai{min-width:0;background:var(--ib-panel);border:1px solid var(--ib-line);border-radius:12px;overflow:hidden}.ib-st-tasks{display:flex;flex-direction:column}.ib-st-tasks-head{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px;font-size:17px}.ib-st-add{width:30px;height:30px;border:0;border-radius:8px;background:var(--ib-accent);color:#fff;font-size:21px;line-height:1;cursor:pointer}.ib-st-search{display:flex;align-items:center;gap:6px;margin:2px 14px 10px;padding:0 9px;height:34px;border:1px solid var(--ib-line);border-radius:8px;color:var(--ib-muted)}.ib-st-search input{border:0;outline:0;background:transparent;min-width:0;width:100%;font-size:13px;color:var(--ib-text)}.ib-st-task-list{flex:1;overflow:auto;padding:0 8px}.ib-st-task{display:flex;align-items:flex-start;gap:8px;width:100%;padding:10px;border:0;border-radius:8px;background:transparent;text-align:left;cursor:pointer;color:var(--ib-text)}.ib-st-task[data-active=true]{background:var(--ib-accent-soft)}.ib-st-task-icon{color:var(--ib-accent);padding-top:2px}.ib-st-task-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.ib-st-task-copy b{font-size:13px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.ib-st-task-copy small{font-size:11px;color:var(--ib-muted)}.ib-st-task-more{color:var(--ib-muted)}.ib-st-savehint{padding:10px 14px;border-top:1px solid var(--ib-hair);font-size:11px;color:var(--ib-muted)}.ib-st-import{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px;padding:8px;border:1px dashed var(--ib-line);border-radius:7px;font-size:12px;color:var(--ib-accent);cursor:pointer}.ib-st-import:hover{background:var(--ib-accent-soft)}.ib-st-main{display:flex;flex-direction:column;position:relative}.ib-st-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 6px}.ib-st-head h2{font:600 22px/1.35 var(--ib-serif,Georgia,serif);margin:0 0 6px}.ib-st-head p{margin:0;color:var(--ib-muted);font-size:13px;line-height:1.5}.ib-st-link{border:0;background:none;color:var(--ib-accent);font:500 12px/1.4 var(--ib-font,system-ui);cursor:pointer;padding:4px}.ib-st-link:disabled{opacity:.4;cursor:default}.ib-st-rounds{display:flex;align-items:center;gap:8px;padding:8px 20px 10px;border-bottom:1px solid var(--ib-hair);overflow:auto}.ib-st-round{border:1px solid var(--ib-line);border-radius:999px;background:var(--ib-panel);padding:6px 12px;font-size:12px;color:var(--ib-muted);cursor:pointer;white-space:nowrap}.ib-st-round[data-active=true]{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}.ib-st-round-new{font-size:12px;color:var(--ib-muted);margin-left:auto;white-space:nowrap}.ib-st-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 20px;background:var(--ib-row-alt);font-size:12px;color:var(--ib-muted)}.ib-st-filter label{display:flex;align-items:center;gap:6px}.ib-st-filter [data-ok=true]{color:#0f766e}.ib-st-filter [data-ok=false]{color:#b42318}.ib-st-listhead{display:flex;align-items:center;gap:14px;padding:10px 20px;font-size:12px;color:var(--ib-muted)}.ib-st-listhead b{font:600 15px/1.2 var(--ib-font,system-ui);color:var(--ib-text)}.ib-st-listtools{margin-left:auto;display:flex;gap:8px;align-items:center}.ib-st-chip{border:1px solid var(--ib-line);background:var(--ib-panel);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--ib-text);cursor:pointer}.ib-st-chip[data-active=true]{border-color:var(--ib-accent);color:var(--ib-accent)}.ib-st-hint{font-size:11px}.ib-st-candidates{flex:1;overflow:auto;padding:0 14px 70px;display:flex;flex-direction:column;gap:9px}.ib-st-paper{display:flex;gap:10px;border:1px solid var(--ib-line);border-radius:9px;padding:11px 12px;background:var(--ib-panel)}.ib-st-paper[data-added=true]{border-color:var(--ib-accent-line);background:#f5fbf8}.ib-st-check{display:flex;align-items:flex-start;gap:7px;color:var(--ib-muted);font-size:11px}.ib-st-check input{margin-top:2px;accent-color:var(--ib-accent)}.ib-st-paper-copy{flex:1;min-width:0}.ib-st-title{display:block;border:0;background:none;padding:0;text-align:left;font:600 15px/1.35 var(--ib-font,system-ui);color:var(--ib-text);cursor:pointer}.ib-st-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ib-muted);margin-top:4px}.ib-st-added{border:1px solid #b7d8cc;background:#e9f7f1;color:#0f6b5c;border-radius:999px;padding:2px 7px;font-size:10px}.ib-st-reason{margin:7px 0 0;font-size:12px;line-height:1.5;color:#40534a}.ib-st-reason b{color:#0f6b5c}.ib-st-basis{font-size:11px;color:var(--ib-muted);margin-top:5px}.ib-st-detail{border-top:1px dashed var(--ib-line);margin-top:8px;padding-top:8px;font-size:12px;line-height:1.55;color:var(--ib-muted);display:flex;flex-direction:column;gap:5px}.ib-st-detail p{margin:0;color:var(--ib-text)}.ib-st-detail a{color:var(--ib-accent);word-break:break-all}.ib-st-paper-side{flex:none;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;min-width:100px}.ib-st-rec{border:1px solid #cde5da;background:#eef8f3;color:#0f6b5c;border-radius:4px;padding:3px 6px;font-size:10px;white-space:nowrap}.ib-st-rec[data-kind=support]{background:#f6f3eb;border-color:#e4dcc6;color:#8a6a2f}.ib-st-feedback{display:flex;gap:6px}.ib-st-feedback button{border:0;background:none;padding:3px;font-size:11px;color:var(--ib-muted);cursor:pointer}.ib-st-feedback button[data-active=true]{color:var(--ib-accent);font-weight:600}.ib-st-batch{white-space:nowrap;position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;padding:11px 18px;border-top:1px solid var(--ib-line);background:rgba(255,255,255,.96);font-size:12px;color:var(--ib-muted)}.ib-st-spacer{flex:1}.ib-st-primary,.ib-st-secondary{border-radius:7px;padding:9px 15px;font:500 13px/1.2 var(--ib-font,system-ui);cursor:pointer;white-space:nowrap}.ib-st-primary{border:1px solid var(--ib-accent);background:var(--ib-accent);color:#fff}.ib-st-primary:disabled{opacity:.45;cursor:default}.ib-st-secondary{border:1px solid var(--ib-line);background:#fff;color:var(--ib-text)}.ib-st-ai{display:flex;flex-direction:column}.ib-st-ai>header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 16px 10px;border-bottom:1px solid var(--ib-hair)}.ib-st-ai-title{display:flex;gap:8px;align-items:flex-start}.ib-st-ai-title b{font-size:16px}.ib-st-ai-title small{display:block;color:var(--ib-muted);font-size:11px;margin-top:4px}.ib-st-ai-icon{width:24px;height:24px;border-radius:7px;background:#e7f4ef;color:#0f6b5c;display:grid;place-items:center}.ib-st-chat{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}.ib-st-chat-empty{color:var(--ib-muted);font-size:12px;line-height:1.6;padding:10px}.ib-st-msg{display:flex;gap:8px;align-items:flex-start}.ib-st-msg-icon{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#eef3f7;color:#526b7e;font-size:11px}.ib-st-msg[data-role=assistant] .ib-st-msg-icon{background:#e7f4ef;color:#0f6b5c}.ib-st-msg p{margin:0;padding:9px 10px;border-radius:8px;background:#f4f7f6;font-size:12px;line-height:1.55;color:var(--ib-text)}.ib-st-compose{border-top:1px solid var(--ib-hair);padding:10px}.ib-st-compose textarea{width:100%;min-height:74px;resize:vertical;border:1px solid var(--ib-line);border-radius:8px;padding:9px;font:400 12px/1.5 var(--ib-font,system-ui);color:var(--ib-text);background:var(--ib-panel);box-sizing:border-box}.ib-st-compose-actions{display:flex;align-items:center;gap:8px;margin-top:8px}.ib-st-ai-import{display:block;width:calc(100% - 20px);margin:0 10px 10px}.ib-st-empty{padding:20px 12px;text-align:center;color:var(--ib-muted);font-size:12px}.ib-st-empty.big{display:grid;place-items:center;height:100%;font-size:14px}.ib-st-error{padding:8px 16px;border-top:1px solid #f2d4d0;background:#fff5f4;color:#b42318;font-size:12px}.ib-st-modal{position:fixed;inset:0;z-index:9200;background:rgba(15,23,42,.35);display:grid;place-items:center;padding:24px}.ib-st-dialog{width:min(560px,90vw);background:var(--ib-panel);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,.2)}.ib-st-dialog h3{margin:0;font:600 19px/1.3 var(--ib-serif,Georgia,serif)}.ib-st-dialog label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ib-muted)}.ib-st-dialog input,.ib-st-dialog textarea{border:1px solid var(--ib-line);border-radius:8px;padding:9px;font:400 13px/1.5 var(--ib-font,system-ui);color:var(--ib-text);background:var(--ib-panel);box-sizing:border-box}.ib-st-dialog textarea{min-height:100px;resize:vertical}.ib-st-dialog-actions{display:flex;justify-content:flex-end;gap:10px}.ib-st button:focus-visible{outline:2px solid var(--ib-accent);outline-offset:1px}@media(max-width:1200px){.ib-st{grid-template-columns:210px minmax(0,1fr) 280px}}@media(max-width:900px){.ib-st{grid-template-columns:1fr;height:auto;min-height:0}.ib-st-tasks{max-height:220px}.ib-st-ai{min-height:320px}}
 
+.ib-db-dialog{width:min(560px,92vw)}.ib-db-body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:12px}.ib-db-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.ib-db-row b{display:block;font-size:14px}.ib-db-row small{display:block;color:var(--ib-muted);font-size:11px;margin-top:3px}.ib-db-state{font:600 12px/1 var(--ib-font,system-ui);color:var(--ib-accent)}.ib-db-input{height:40px;border:1px solid var(--ib-line);border-radius:8px;padding:0 11px;font:400 13px/1.4 var(--ib-font,system-ui);color:var(--ib-text);background:var(--ib-panel)}.ib-db-message{border-radius:7px;padding:8px 10px;background:var(--ib-row-alt);font-size:12px;color:var(--ib-text)}.ib-db-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 `;
 
 // client/src/reagents.css.js
@@ -6257,6 +6258,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react12.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
+  const [databaseOpen, setDatabaseOpen] = (0, import_react12.useState)(false);
+  const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
+  const [databaseBusy, setDatabaseBusy] = (0, import_react12.useState)("");
+  const [databaseMessage, setDatabaseMessage] = (0, import_react12.useState)("");
   const [selectedReportId, setSelectedReportId] = (0, import_react12.useState)(() => {
     try {
       return localStorage.getItem("ib-lit-selected:" + projectId) || "";
@@ -7055,7 +7060,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       ) : null
     ),
     h("input", { type: "file", accept: ".ris", multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
-    h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) })
+    h("input", { ref: pdfPicker, type: "file", accept: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document", multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }),
+    h("button", { type: "button", className: "ib-act", onClick: () => {
+      setDatabaseOpen(true);
+      setDatabaseMessage("");
+    } }, "⚙ 数据库管理")
   );
   return h(
     import_react12.default.Fragment,
@@ -7159,6 +7168,57 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       detailNode
     ),
     folderMenu ? h("div", { className: "ib-lit-folder-menu", style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h("button", { type: "button", onClick: () => void deleteFolder() }, "删除分组")) : null,
+    databaseOpen ? h(
+      "div",
+      { className: "ib-lit-link-modal", onClick: (event) => {
+        if (event.target === event.currentTarget) setDatabaseOpen(false);
+      } },
+      h(
+        "section",
+        { className: "ib-lit-link-dialog ib-db-dialog", role: "dialog", "aria-modal": "true", "aria-label": "数据库管理", onClick: (event) => event.stopPropagation() },
+        h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, "⚙"), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "数据库管理"), h("p", null, "配置检索数据库的访问凭据；密钥只保存在本机后端配置中。")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setDatabaseOpen(false) }, "×")),
+        h(
+          "div",
+          { className: "ib-db-body" },
+          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
+          h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
+          h(
+            "div",
+            { className: "ib-db-actions" },
+            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
+              setDatabaseBusy("test");
+              setDatabaseMessage("");
+              try {
+                const result = await call("search_tasks_scopus_test", { request: { projectId } });
+                setDatabaseMessage(result?.message || (result?.ok ? "Scopus 连接正常" : "Scopus 连接失败"));
+              } catch (error62) {
+                setDatabaseMessage(error62.message);
+              } finally {
+                setDatabaseBusy("");
+              }
+            }, disabled: databaseBusy === "test" }, databaseBusy === "test" ? "测试中…" : "测试连接"),
+            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+              if (!databaseKey.trim()) {
+                setDatabaseMessage("请输入 API Key；留空不会覆盖现有配置");
+                return;
+              }
+              setDatabaseBusy("save");
+              setDatabaseMessage("");
+              try {
+                await call("search_tasks_save_key", { request: { projectId, apiKey: databaseKey.trim() } });
+                setDatabaseKey("");
+                setDatabaseMessage("已保存到本机项目配置");
+              } catch (error62) {
+                setDatabaseMessage(error62.message);
+              } finally {
+                setDatabaseBusy("");
+              }
+            }, disabled: databaseBusy === "save" }, databaseBusy === "save" ? "保存中…" : "保存配置")
+          )
+        )
+      )
+    ) : null,
     linkOpen ? h("div", { className: "ib-lit-link-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setLinkOpen(false);
     } }, h("section", { className: "ib-lit-link-dialog", role: "dialog", "aria-modal": "true", "aria-label": "从链接导入文献", onClick: (event) => event.stopPropagation() }, h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: "M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.1 1.1" }), h("path", { d: "M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.1-1.1" }))), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "从链接导入"), h("p", null, "支持 DOI、出版商链接或微信公众号文章链接")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setLinkOpen(false) }, "×")), h("form", { className: "ib-lit-link-form", onSubmit: submitLink }, h("label", { className: "ib-lit-link-label", htmlFor: "ib-lit-link-url" }, "文献链接"), h("div", { className: "ib-lit-link-field" }, h("input", { id: "ib-lit-link-url", type: "text", required: true, autoFocus: true, value: linkUrl, placeholder: "粘贴 DOI 或文章链接", onChange: (event) => setLinkUrl(event.target.value) }), h("span", { className: "ib-lit-link-divider", "aria-hidden": "true" }), h("button", { type: "button", className: "ib-lit-link-paste", onClick: async () => {
