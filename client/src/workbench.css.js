@@ -103,7 +103,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-literature-drop-label{position:sticky;top:0;z-index:2;padding:12px 14px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;font-size:15px;pointer-events:none}
 .ib-wb-chat{position:relative}.ib-wb-chat[data-dragging=true]::after{content:'松开以添加到对话框';position:absolute;inset:8px;z-index:20;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:8px;background:var(--ib-accent-soft);color:var(--ib-accent-ink);font-size:18px;pointer-events:none}
 /* Literature workbench redesign: catalog + detail. */
-.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:36px;align-items:start;min-height:100%}
+.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:0;align-items:start;min-height:100%}
 .ib-lit-catalog{min-width:0;position:relative;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;padding-right:4px;scrollbar-gutter:stable}
 .ib-wb:has(.ib-reader) .ib-lit-toolbar,.ib-wb:has(.ib-reader) .ib-lit-tabs,.ib-wb:has(.ib-reader) .ib-lit-folders{display:none!important}
 .ib-lit-workbench{position:relative}
