@@ -45138,10 +45138,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   };
   const coverOf = (bundle = {}, report = null) => {
     const journal = String(journalAbbrevOf(bundle, report) || "PREPRINT");
-    const label = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").slice(0, 6).toUpperCase();
-    const tone = /nature/i.test(journal) ? "#0b4d3b" : /uist|user interface/i.test(journal) ? "#2c4a7a" : /jnis|neuro/i.test(journal) ? "#6e1f2f" : /inr|radio/i.test(journal) ? "#46566b" : "#3f4e5d";
-    return h("span", { className: "ib-paper-cover", style: { background: tone, fontSize: label.length >= 6 ? "14px" : label.length === 5 ? "16px" : void 0 } }, label);
+    const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").toUpperCase();
+    const label = /^NATURE/.test(token) ? "NAT" : token.slice(0, 6);
+    return h("span", { className: "ib-paper-cover" }, h("b", { style: label.length > 5 ? { fontSize: "18px" } : void 0 }, label), h("small", null, "JOURNAL"));
   };
+  const metricBox = (label, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label), h("b", null, value));
   const openSelectedPdf = (event) => {
     event.stopPropagation();
     if (!selectedBundle) return;
@@ -45350,9 +45351,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 "div",
                 { className: "ib-lit-card-copy" },
                 h("b", { className: "ib-lit-title" }, report.titleZh || bundle.title || report.id),
-                h("div", { className: "ib-lit-meta" }, citationTextOf(bundle, report) || "未登记期刊")
+                h("div", { className: "ib-lit-card-cite" }, h("span", { className: "ib-lit-cite-text" }, citationTextOf(bundle, report) || "未登记期刊"), metrics?.field || metrics?.subfield ? h("span", { className: "ib-lit-field-pill" }, metrics.field || metrics.subfield) : null)
               ),
-              h("div", { className: "ib-lit-card-metrics" }, metrics === void 0 ? h("span", { className: "ib-lit-metrics-loading" }, "查询中…") : metrics ? h(import_react10.default.Fragment, null, h("b", null, "IF " + metrics.impactFactor), h("span", null, metrics.casTier ? "中科院" + metrics.casTier + "区" : "中科院 —"), h("small", null, metrics.field || metrics.subfield || "—")) : h("span", { className: "ib-lit-metrics-empty" }, "IF/分区 暂无"))
+              h("div", { className: "ib-lit-metrics" }, metricBox("影响因子", metrics === void 0 ? "…" : metrics ? metrics.impactFactor : "—", "if"), metricBox("中科院分区", metrics === void 0 ? "…" : metrics?.casTier ? metrics.casTier + "区" : "待核实", "cas"), metricBox("TOP期刊", "待核实", "top"))
             );
           }) : uploadingRows.length || pendingIntakeReports.length ? null : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
         ) : h("div", { className: "ib-lit-search-list" }, searches.length ? searches.slice().reverse().map((search) => h("div", { key: search.id, className: "ib-lit-card ib-lit-search-card" }, h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, search.title || search.query || search.id), h("div", { className: "ib-lit-meta" }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {
