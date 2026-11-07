@@ -104,7 +104,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-chat{position:relative}.ib-wb-chat[data-dragging=true]::after{content:'松开以添加到对话框';position:absolute;inset:8px;z-index:20;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:8px;background:var(--ib-accent-soft);color:var(--ib-accent-ink);font-size:18px;pointer-events:none}
 /* Literature workbench redesign: catalog + detail. */
 .ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:0;align-items:start;min-height:100%}
-.ib-lit-catalog{min-width:0;position:relative;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;padding-right:4px;scrollbar-gutter:stable}
+.ib-tab-panel:has(.ib-lit-workbench){overflow:hidden}.ib-lit-catalog{min-width:0;position:relative;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;padding-right:4px;scrollbar-gutter:stable}
 .ib-wb:has(.ib-reader) .ib-lit-toolbar,.ib-wb:has(.ib-reader) .ib-lit-tabs,.ib-wb:has(.ib-reader) .ib-lit-folders{display:none!important}
 .ib-lit-workbench{position:relative}
 .ib-lit-head-actions{position:absolute;left:250px;top:44px;z-index:3;display:flex;align-items:center;gap:10px}
@@ -187,7 +187,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-loading-spinner svg{width:22px;height:22px}
 .ib-lit-search-list{display:flex;flex-direction:column;gap:12px}
 .ib-lit-search-card{min-height:86px}
-.ib-lit-detail{position:sticky;top:4px;min-width:0;border-left:1px solid var(--ib-hair);padding-left:30px;max-height:calc(100vh - 190px);overflow:auto}
+.ib-lit-detail{position:sticky;top:4px;min-width:0;border-left:1px solid var(--ib-hair);padding-left:30px;max-height:calc(100vh - 300px);overflow-y:auto;scrollbar-width:none}.ib-lit-detail::-webkit-scrollbar{display:none}
 .ib-lit-detail-empty{display:grid;place-items:center;min-height:260px;color:var(--ib-muted);font-size:15px}
 .ib-lit-detail-head h2{font:600 28px/1.2 var(--ib-serif,Georgia,serif);margin:0 0 22px}
 .ib-lit-detail-lead{display:flex;align-items:flex-start;gap:18px;margin-bottom:22px}
