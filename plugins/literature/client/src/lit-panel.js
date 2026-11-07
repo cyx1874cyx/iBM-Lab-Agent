@@ -918,7 +918,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				h('div', { className: 'ib-lit-detail-actions' },
 					h('button', { type: 'button', className: 'ib-lit-primary', disabled: !selectedPdfUrl, title: selectedPdfUrl ? '开始阅读' : '未获取正文，暂时无法阅读', onClick: openSelectedPdf }, h(BookSvg, null), selectedPdfUrl ? '开始阅读' : '在线浏览'),
 					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedReadingDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: startReadingNote }, h(ReadingNoteSvg, null), selectedReadingDone ? '查看阅读笔记' : '阅读笔记'),
-					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedPptDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: startPpt }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : h('aside', { className: 'ib-lit-detail ib-lit-detail-empty' }, '选择左侧文献查看详情');
+					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedPptDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: startPpt }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : null;
 			const toolbarNode = h('div', { className: 'ib-lit-toolbar' },
 						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '▤ 模板管理'),
 						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '↑ 上传 RIS'),

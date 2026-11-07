@@ -45316,7 +45316,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedReadingDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: startReadingNote }, h(ReadingNoteSvg, null), selectedReadingDone ? "查看阅读笔记" : "阅读笔记"),
       h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedPptDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: startPpt }, h(PresentationSvg, null), selectedPptDone ? "查看 PPT" : "生成 PPT")
     )
-  ) : h("aside", { className: "ib-lit-detail ib-lit-detail-empty" }, "选择左侧文献查看详情");
+  ) : null;
   const toolbarNode = h(
     "div",
     { className: "ib-lit-toolbar" },
