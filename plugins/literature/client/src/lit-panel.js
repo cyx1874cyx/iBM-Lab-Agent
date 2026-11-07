@@ -160,7 +160,7 @@ function JournalMetricTiles({ journal, call }) {
 		box('中科院分区', data === undefined ? '…' : data?.casTier ? data.casTier + '区' : '待核实', 'cas'),
 		box('TOP期刊', data === undefined ? '…' : data?.top === true ? '是' : data?.top === false ? '否' : '待核实', 'top'));
 }
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};

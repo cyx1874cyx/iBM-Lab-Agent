@@ -29,6 +29,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 	const [filterOpen, setFilterOpen] = useState(false);
 	const [onlyNew, setOnlyNew] = useState(false);
 	const [expanded, setExpanded] = useState("");
+	const [selectedPaperId, setSelectedPaperId] = useState('');
 	const [composer, setComposer] = useState("");
 	const [newTask, setNewTask] = useState(null);
 	const [message, setMessage] = useState("");
@@ -46,6 +47,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		});
 	}, [candidates, onlyNew, lastRound]);
 
+	const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
 	const load = useCallback(async (preserve = "") => {
 		setLoading(true);
 		try {
@@ -190,7 +192,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		return h("article", { key: paper.id, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : undefined },
 			h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index + 1).padStart(2, "0"))),
 			h("div", { className: "ib-st-paper-copy" },
-				h("button", { type: "button", className: "ib-st-title", onClick: () => setExpanded((value) => value === paper.id ? "" : paper.id) }, paper.title || "未命名文献"),
+				h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.title || "未命名文献"),
 				h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
 				paper.matchReason ? h("p", { className: "ib-st-reason" }, h("b", null, "匹配点："), paper.matchReason) : null,
 				h("div", { className: "ib-st-basis" }, `依据：${basisLabel(paper.reasonBasis)}${paper.abstractStatus === "missing" ? "（摘要未获取）" : ""}`),
@@ -230,12 +232,18 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 			) : h("div", { className: "ib-st-empty big" }, "选择或新建检索任务"),
 			message ? h("div", { className: "ib-st-error" }, message) : null
 		),
-		h("aside", { className: "ib-st-ai" },
-			h("header", null, h("div", { className: "ib-st-ai-title" }, h("span", { className: "ib-st-ai-icon" }, "✦"), h("div", null, h("b", null, "AI 检索助手"), h("small", null, "围绕当前任务继续调整"))),
-				h("button", { type: "button", className: "ib-st-link", onClick: () => void load(active?.id), title: "刷新" }, "↻")),
-			h("div", { className: "ib-st-chat" }, (active?.messages || []).map((entry, index) => h("div", { key: index, className: "ib-st-msg", "data-role": entry.role }, entry.role === "assistant" ? h("span", { className: "ib-st-msg-icon" }, "✦") : h("span", { className: "ib-st-msg-icon" }, "◉"), h("p", null, entry.text))), (active?.messages || []).length === 0 ? h("div", { className: "ib-st-chat-empty" }, "描述你的研究目标，助手会把它保存为本轮检索需求。") : null),
-			h("div", { className: "ib-st-compose" }, h("textarea", { value: composer, placeholder: "描述需要补充或排除的内容…", onChange: (event) => setComposer(event.target.value) }), h("div", { className: "ib-st-compose-actions" }, h("button", { type: "button", className: "ib-st-primary", disabled: busy === "search", onClick: () => void retryFromMessages() }, busy === "search" ? "检索中…" : "▶ 继续检索"), h("button", { type: "button", className: "ib-st-link", onClick: () => setMessage("重新排序不发起外部请求；本轮未改动候选集。") }, "仅重新排序"))),
-			h("button", { type: "button", className: "ib-st-secondary ib-st-ai-import", onClick: () => void importRisToTask(document.querySelector('.ib-st-import input')?.files?.[0]) }, "导入 RIS 到当前任务")
+		h("aside", { className: "ib-st-detail-pane" },
+			selectedPaper ? h(React.Fragment, null,
+				h("div", { className: "ib-st-detail-head" },
+					h("span", { className: "ib-st-detail-cover" }, String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 5).toUpperCase()),
+					h("div", null, h("h3", null, selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
+				),
+				h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
+				h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
+				h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
+				h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`)),
+				h("div", { className: "ib-st-detail-actions" }, h("button", { type: "button", className: selectedPaper.addedToReading ? "ib-st-secondary" : "ib-st-primary", disabled: Boolean(selectedPaper.addedToReading), onClick: async () => { try { const result = await call("search_tasks_add_to_reading", { request: { projectId, taskId: active.id, candidateIds: [selectedPaper.id] } }); notify?.(`已加入精读 ${result?.succeeded || 0} 篇`); await load(active.id); onChanged?.(); } catch (error) { notify?.(error.message); } } }, selectedPaper.addedToReading ? "已加入精读" : "加入精读"), h("span", { className: "ib-st-detail-feedback" }, h("button", { type: "button", "data-active": selectedPaper.feedback === "more" ? "true" : undefined, onClick: () => void setFeedback(selectedPaper, "more") }, "👍 更符合"), h("button", { type: "button", "data-active": selectedPaper.feedback === "irrelevant" ? "true" : undefined, onClick: () => void setFeedback(selectedPaper, "irrelevant") }, "👎 不相关")))
+			) : h("div", { className: "ib-st-empty big" }, "点击左侧文献查看详情")
 		),
 		newTask ? h("div", { className: "ib-st-modal", onClick: (event) => { if (event.target === event.currentTarget) setNewTask(null); } }, h("section", { className: "ib-st-dialog" }, h("h3", null, "新建检索任务"), h("label", null, "任务标题", h("input", { autoFocus: true, value: newTask.title, placeholder: "例如：不同成分血栓的体外制备", onChange: (event) => setNewTask({ ...newTask, title: event.target.value }) })), h("label", null, "研究需求", h("textarea", { value: newTask.requirement, placeholder: "描述研究对象、材料、方法、必须条件和排除条件…", onChange: (event) => setNewTask({ ...newTask, requirement: event.target.value }) })), h("div", { className: "ib-st-dialog-actions" }, h("button", { type: "button", className: "ib-st-link", onClick: () => setNewTask(null) }, "取消"), h("button", { type: "button", className: "ib-st-primary", onClick: () => void createTask() }, "创建任务")))) : null
 	);
