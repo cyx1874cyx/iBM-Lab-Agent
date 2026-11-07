@@ -382,6 +382,9 @@
             name: 'dsh-lab-agent/memory-tool'
             inject: [tools, ibmCore]
 
+          - id: lab-literature-search-tool
+            name: '@ibm-lab/literature/tools'
+            inject: [tools, ibmLiteratureWorkflows, ibmCore, systemPrompt]
           - id: lab-tasks-tool
             name: 'dsh-lab-agent/tasks-tool'
             inject: [tools, ibmLiteratureWorkflows, labTasks]
