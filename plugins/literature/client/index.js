@@ -44214,7 +44214,7 @@ function SearchMetrics({ journal, call }) {
 }
 var basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 var recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
-function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount }) {
+function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat }) {
   const [tasks, setTasks] = (0, import_react10.useState)([]);
   const [activeId, setActiveId] = (0, import_react10.useState)("");
   const [taskQuery, setTaskQuery] = (0, import_react10.useState)("");
@@ -44282,6 +44282,11 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       setNewTask(null);
       setMessage("");
       notify?.("已创建检索任务");
+      onShowChat?.();
+      if (onRequestArtifact) {
+        const prompt = `我刚在文献检索中创建了任务「${title}」（taskId: ${task.id}，projectId: ${projectId}）。当前需求：${requirement || "尚未填写"}。请先在科研助手里帮我细化检索需求：确认研究对象、材料/方法、必须条件、排除条件、时间范围、期望文献类型和排序偏好；一次只问最关键的问题，不要现在就开始检索。等我确认细化后的需求，再翻译成英文 Scopus 术语并调用 lab_search_task_scopus 检索，然后用 lab_search_task_update_candidates 回写中文标题、摘要总结、匹配理由和推荐级别。`;
+        await onRequestArtifact(prompt, true);
+      }
     } catch (error) {
       setMessage(error.message);
     }
@@ -45729,7 +45734,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount }) : null,
+        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat }) : null,
         litTab === "reading" ? h(
           import_react11.default.Fragment,
           null,
