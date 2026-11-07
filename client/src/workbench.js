@@ -202,6 +202,7 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
  const [selection, setSelection] = useState('');
  const [knowledgeHeaderTarget,setKnowledgeHeaderTarget]=useState(null);
  const [plottingHeaderTarget,setPlottingHeaderTarget]=useState(null);
+ const [literatureHeaderTarget,setLiteratureHeaderTarget]=useState(null);
  const centerRef = useRef(null);
  const activePanel = usePanelInfo(info => info.activePanelId);
  const knowledgeActive=Boolean(project&&module.id==='knowledge'&&!templates&&!activePanel);
@@ -344,13 +345,13 @@ export function Workbench({ renderSlot, usePanelInfo, runtime }) {
     h('button', { className: 'ib-wb-nav-item', 'data-optional-features': true, title: '添加可选功能', onClick: () => setOptionalOpen(true) }, h('span', { style: { fontSize: '22px', lineHeight: 1, width: '19px', textAlign: 'center' }, 'aria-hidden': true }, '+'), h('span', null, '添加可选功能'))),
    h('div', { className: 'ib-wb-nav-bottom' }, h('button', { className: 'ib-wb-nav-item', onClick: () => { layout.selectPanel(null); closeResources(); setTemplates(true); } }, h(Icon, { name: 'file' }), h('span', null, '模板管理')), h('small', null, 'iBM Lab · 科研工作台'))),
   h('main', { className: 'ib-wb-center', ref: centerRef, 'aria-label': project ? '业务工作区' : '欢迎页', onMouseUp: () => { const selected = window.getSelection(); if (selected && centerRef.current?.contains(selected.anchorNode)) setSelection(String(selected).trim().slice(0, 6000)); } },
-   h('div', { className: 'ib-wb-page-head', hidden: !project }, h('div', null, h('div', { className: 'ib-wb-breadcrumb' }, '工作台', h('span', null, '/'), pageTitle), h('h1', null, pageTitle), h('p', null, project ? module.caption : '创建或打开工程文件，继续你的研究工作')),knowledgeActive?h('div',{className:'ib-wb-page-actions',ref:setKnowledgeHeaderTarget}):null,module.id==='plotting'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions',ref:setPlottingHeaderTarget}):null, project && selection ? h('button', { className: 'ib-btn', onClick: quoteSelection, onMouseDown: event => event.preventDefault() }, '引用选中文本 →') : null),
+   h('div', { className: 'ib-wb-page-head', hidden: !project }, h('div', null, h('div', { className: 'ib-wb-breadcrumb' }, '工作台', h('span', null, '/'), pageTitle), h('h1', null, pageTitle), h('p', null, project ? module.caption : '创建或打开工程文件，继续你的研究工作')),knowledgeActive?h('div',{className:'ib-wb-page-actions',ref:setKnowledgeHeaderTarget}):null,module.id==='plotting'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions',ref:setPlottingHeaderTarget}):null,module.id==='literature'&&!templates&&!activePanel?h('div',{className:'ib-wb-page-actions ib-lit-head-slot',ref:setLiteratureHeaderTarget}):null, project && selection ? h('button', { className: 'ib-btn', onClick: quoteSelection, onMouseDown: event => event.preventDefault() }, '引用选中文本 →') : null),
    error ? h('div', { className: 'ib-wb-alert', role: 'alert' }, error) : null,
    openingProject ? h('div', { className: 'ib-wb-alert', role: 'status' }, '正在打开课题工作区与对话…') : null,
    !project ? h('div', { className: 'ib-wb-content ib-wb-welcome ib-overlay ib-wb-business' }, h(ProjectFileHome, { call, onOpen: openProject, welcome: true })) : null,
    h('div', { className: 'ib-wb-content ib-overlay ib-wb-business', hidden: !project || Boolean(activePanel) },
     project ? h('div', { className: 'ib-wb-project-holder' },
-     h('div', { className: 'ib-wb-project-seat', hidden: !['literature', 'characterization', 'plotting'].includes(module.id) }, h(Project, { key: project.id, project, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+     h('div', { className: 'ib-wb-project-seat', hidden: !['literature', 'characterization', 'plotting'].includes(module.id) }, h(Project, { key: project.id, project, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
      pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module.id === 'polishing' ? h(PolishingPlaceholder) : module.id==='reagents'?h(ReagentPanel,{call}):null,
      module.id==='knowledge' ? h(KnowledgePanel,{key:project.id,project,call,openChat:openKnowledgeChat,activeSessionId,headerTarget:knowledgeHeaderTarget,conversation:knowledgeActive?renderSlot('main',{}, {entryKey:'conversation'}):null}) : null) : null),
    project && templates ? h(SettingsModal, { title: '模板管理', onClose: () => setTemplates(false) }, h(Templates, { call, onBack: () => setTemplates(false) })) : null,

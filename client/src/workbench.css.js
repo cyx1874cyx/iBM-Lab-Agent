@@ -103,7 +103,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-literature-drop-label{position:sticky;top:0;z-index:2;padding:12px 14px;color:var(--ib-accent-ink);background:var(--ib-accent-soft);border-radius:6px;font-size:15px;pointer-events:none}
 .ib-wb-chat{position:relative}.ib-wb-chat[data-dragging=true]::after{content:'松开以添加到对话框';position:absolute;inset:8px;z-index:20;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:8px;background:var(--ib-accent-soft);color:var(--ib-accent-ink);font-size:18px;pointer-events:none}
 /* Literature workbench redesign: catalog + detail. */
-.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:36px;align-items:start;min-height:100%}
+.ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);grid-template-rows:1fr;gap:24px;align-items:start;min-height:100%}
 .ib-lit-catalog{min-width:0;position:relative}
 .ib-wb:has(.ib-reader) .ib-lit-toolbar,.ib-wb:has(.ib-reader) .ib-lit-tabs,.ib-wb:has(.ib-reader) .ib-lit-folders{display:none!important}
 .ib-lit-workbench{position:relative}
@@ -111,7 +111,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-page-head{position:relative}
 .ib-lit-head-actions .ib-lit-toolbar{margin:0}
 .ib-lit-drop-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:12px;background:rgba(227,242,236,.92);color:var(--ib-accent-ink);font:600 18px/1.4 var(--ib-font,system-ui);pointer-events:none}
-.ib-lit-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;align-items:center;gap:10px;background:var(--ib-bg);height:56px;padding:0;box-sizing:border-box}
+.ib-lit-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;align-items:center;gap:10px;background:var(--ib-bg);height:56px;padding:0;box-sizing:border-box}.ib-lit-head-slot{margin-left:auto;align-self:center;display:flex;align-items:center}.ib-lit-head-slot .ib-lit-toolbar{position:static;height:auto;padding:0;background:transparent}.ib-lit-head-slot .ib-lit-toolbar .ib-act{height:36px;padding:0 14px;font-size:14px}.ib-lit-workbench[data-toolbar-in-header] .ib-lit-tabs{top:0}.ib-lit-workbench[data-toolbar-in-header] .ib-lit-folders{top:48px}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act{flex:none;height:40px;padding:0 16px;white-space:nowrap;border:1px solid var(--ib-accent);border-radius:8px;background:transparent;color:var(--ib-accent-ink);font:600 15px/1 var(--ib-font,system-ui);display:inline-flex;align-items:center;gap:7px;box-shadow:none}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act:hover{background:var(--ib-accent-soft)}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
