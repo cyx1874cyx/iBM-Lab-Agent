@@ -115,6 +115,30 @@ function captureRouteForBundle(bundle, kind) {
 }
 
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
+function JournalMetricTiles({ journal, call }) {
+	const [data, setData] = useState(undefined);
+	useEffect(() => {
+		if (!journal) { setData(null); return undefined; }
+		let active = true;
+		let retry;
+		void call('tasks_journal_metrics', { request: { journal } }).then((value) => {
+			if (!active) return;
+			setData(value ?? null);
+			if (value && value.top == null) {
+				retry = setTimeout(() => {
+					void call('tasks_journal_metrics', { request: { journal } }).then((next) => { if (active && next) setData(next); }).catch(() => {});
+				}, 12000);
+			}
+		}).catch((error) => { if (active) setData(null); });
+		return () => { active = false; if (retry) clearTimeout(retry); };
+	}, [journal, call]);
+	const box = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
+	return h('div', { className: 'ib-lit-metrics' },
+		box('影响因子', data === undefined ? '…' : data ? data.impactFactor : '—', 'if'),
+		box('中科院分区', data === undefined ? '…' : data?.casTier ? data.casTier + '区' : '待核实', 'cas'),
+		box('TOP期刊', data === undefined ? '…' : data?.top === true ? '是' : data?.top === false ? '否' : '待核实', 'top'));
+}
+
 export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
@@ -821,29 +845,15 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || 'PREPRINT').toUpperCase();
 				const label = /^NATURE/.test(token) ? 'NAT' : token.slice(0, 6);
 				return h('span', { className: 'ib-paper-cover' }, h('b', { style: label.length > 5 ? { fontSize: '18px' } : undefined }, label), h('small', null, 'JOURNAL'));
-			};			const metricBox = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
+			};			const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || '').trim();
+			const metricBox = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
 			const openSelectedPdf = (event) => {
 				event.stopPropagation();
 				if (!selectedBundle) return;
 				if (!selectedPdfUrl) { armCaptureFor(event, selectedBundle, 'pdf'); return; }
 				void openReader({ projectId, bundleId: selectedBundle.id, kind: 'pdf' }).catch((reason) => notify('无法打开正文 PDF：' + (reason?.message ?? reason)));
-			};
-			useEffect(() => {
-				const journals = [...new Set(readingReports.map((report) => bundleById[report.bundleId]?.journal).filter(Boolean))];
-				for (const journal of journals) {
-					if (metricsRequested.current.has(journal)) continue;
-					metricsRequested.current.add(journal);
-					void call('tasks_journal_metrics', { request: { journal } }).then((value) => {
-						setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }));
-						if (value && value.top == null) {
-							setTimeout(() => {
-								void call('tasks_journal_metrics', { request: { journal } }).then((next) => {
-									if (next && next.top != null) setMetricsByJournal((old) => ({ ...old, [journal]: next }));
-								}).catch(() => {});
-							}, 12000);
-						}
-					}).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
-				}			}, [readingReports, bundleById, call]);			const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `\n使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : '') : '';
+				};
+			const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `\n使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : '') : '';
 			const selectedPptPrompt = selectedReport ? `请为文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（reportId: ${selectedReport.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。` : '';
 			const translateSelected = async (event) => {
 				event.stopPropagation();
@@ -912,13 +922,13 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 													h('div', { className: 'ib-lit-list ib-lit-cards', role: 'listbox', 'aria-label': '精读文献条目' }, (readyFilteredReports.length || uploadingRows.length || pendingIntakeReports.length) ? readyFilteredReports.map((report) => {
 							const bundle = bundleById[report.bundleId] || {};
 							const selected = selectedReport?.id === report.id;
-							const metrics = metricsByJournal[bundle.journal];
+							const metrics = metricsByJournal[metricsKeyOf(report, bundle)];
 							return h('div', { key: report.id, ...readingInteraction.rowProps(report), className: 'ib-lit-card' + (selected ? ' ib-lit-card-detail' : ''), onClick: (event) => { if (event.target.closest('button')) return; readingInteraction.rowProps(report).onClick(event); setSelectedReportId(report.id); } },
 								coverOf(bundle, report),
 								h('div', { className: 'ib-lit-card-copy' },
 									h('b', { className: 'ib-lit-title' }, report.titleZh || bundle.title || report.id),
 									h('div', { className: 'ib-lit-card-cite' }, h('span', { className: 'ib-lit-cite-text' }, citationTextOf(bundle, report) || '未登记期刊'), metrics?.field || metrics?.subfield ? h('span', { className: 'ib-lit-field-pill' }, metrics.field || metrics.subfield) : null)),
-								h('div', { className: 'ib-lit-metrics' }, metricBox('影响因子', metrics === undefined ? '…' : metrics ? metrics.impactFactor : '—', 'if'), metricBox('中科院分区', metrics === undefined ? '…' : metrics?.casTier ? metrics.casTier + '区' : '待核实', 'cas'), metricBox('TOP期刊', metrics === undefined ? '…' : metrics?.top === true ? '是' : metrics?.top === false ? '否' : '待核实', 'top')));
+								h(JournalMetricTiles, { journal: metricsKeyOf(report, bundle), call }));
 						}) : ((uploadingRows.length || pendingIntakeReports.length) ? null : h('div', { className: 'ib-lit-empty' }, '尚无精读条目。上传或拖入 PDF，或在对话中登记文献。')))) : h('div', { className: 'ib-lit-search-list' }, searches.length ? searches.slice().reverse().map((search) => h('div', { key: search.id, className: 'ib-lit-card ib-lit-search-card' }, h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, search.title || search.query || search.id), h('div', { className: 'ib-lit-meta' }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h('button', { type: 'button', className: 'ib-lit-mini-btn', onClick: (event) => { event.stopPropagation(); setExpandedSearch((value) => value === search.id ? '' : search.id); } }, expandedSearch === search.id ? '收起' : '查看'))) : h('div', { className: 'ib-lit-empty' }, '暂无检索记录。'))),
 				detailNode), folderMenu ? h('div', { className: 'ib-lit-folder-menu', style: { left: folderMenu.x, top: folderMenu.y }, onMouseDown: (event) => event.stopPropagation() }, h('button', { type: 'button', onClick: () => void deleteFolder() }, '删除分组')) : null,
 				linkOpen ? h('div', { className: 'ib-lit-link-modal', onClick: (event) => { if (event.target === event.currentTarget) setLinkOpen(false); } }, h('section', { className: 'ib-lit-link-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': '从链接导入文献', onClick: (event) => event.stopPropagation() }, h('header', { className: 'ib-lit-link-head' }, h('span', { className: 'ib-lit-link-icon' }, h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, h('path', { d: 'M10 13a5 5 0 0 0 7.07 0l2-2a5 5 0 0 0-7.07-7.07l-1.1 1.1' }), h('path', { d: 'M14 11a5 5 0 0 0-7.07 0l-2 2a5 5 0 0 0 7.07 7.07l1.1-1.1' }))), h('div', { className: 'ib-lit-link-head-copy' }, h('h2', null, '从链接导入'), h('p', null, '支持 DOI、出版商链接或微信公众号文章链接')), h('button', { type: 'button', className: 'ib-lit-link-close', 'aria-label': '关闭', onClick: () => setLinkOpen(false) }, '×')), h('form', { className: 'ib-lit-link-form', onSubmit: submitLink }, h('label', { className: 'ib-lit-link-label', htmlFor: 'ib-lit-link-url' }, '文献链接'), h('div', { className: 'ib-lit-link-field' }, h('input', { id: 'ib-lit-link-url', type: 'text', required: true, autoFocus: true, value: linkUrl, placeholder: '粘贴 DOI 或文章链接', onChange: (event) => setLinkUrl(event.target.value) }), h('span', { className: 'ib-lit-link-divider', 'aria-hidden': 'true' }), h('button', { type: 'button', className: 'ib-lit-link-paste', onClick: async () => { try { const text = await navigator.clipboard.readText(); if (text) setLinkUrl(text.trim()); } catch { notify('无法读取剪贴板，请手动粘贴链接'); } } }, '▤ 粘贴')), h('div', { className: 'ib-lit-link-hint' }, '例如：10.xxxx/xxxxx 或 https://…'), linkError ? h('div', { className: 'ib-lit-link-error', role: 'alert' }, linkError) : null, h('footer', { className: 'ib-lit-link-actions' }, h('button', { type: 'button', className: 'ib-lit-link-cancel', onClick: () => setLinkOpen(false) }, '取消'), h('button', { type: 'submit', className: 'ib-lit-link-submit', disabled: linkBusy || !linkUrl.trim() }, linkBusy ? '正在解析…' : '开始解析 →'))))) : null,

@@ -44150,6 +44150,7 @@ function fileToBase64(file) {
 
 // plugins/literature/client/src/lit-panel.js
 var import_react10 = __toESM(require("react"), 1);
+var import_react_dom2 = require("react-dom");
 
 // plugins/literature/client/src/reading-link-upload.js
 var import_react9 = require("react");
@@ -44280,7 +44281,44 @@ function captureRouteForBundle(bundle, kind) {
   })();
   return { publisher, directSpringerSi, publisherUrl: doiUrl || sourcePublisherUrl };
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged }) {
+function JournalMetricTiles({ journal, call }) {
+  const [data, setData] = (0, import_react10.useState)(void 0);
+  (0, import_react10.useEffect)(() => {
+    if (!journal) {
+      setData(null);
+      return void 0;
+    }
+    let active = true;
+    let retry;
+    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
+      if (!active) return;
+      setData(value ?? null);
+      if (value && value.top == null) {
+        retry = setTimeout(() => {
+          void call("tasks_journal_metrics", { request: { journal } }).then((next) => {
+            if (active && next) setData(next);
+          }).catch(() => {
+          });
+        }, 12e3);
+      }
+    }).catch((error) => {
+      if (active) setData(null);
+    });
+    return () => {
+      active = false;
+      if (retry) clearTimeout(retry);
+    };
+  }, [journal, call]);
+  const box = (label, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label), h("b", null, value));
+  return h(
+    "div",
+    { className: "ib-lit-metrics" },
+    box("影响因子", data === void 0 ? "…" : data ? data.impactFactor : "—", "if"),
+    box("中科院分区", data === void 0 ? "…" : data?.casTier ? data.casTier + "区" : "待核实", "cas"),
+    box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
+  );
+}
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -45142,6 +45180,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     const label = /^NATURE/.test(token) ? "NAT" : token.slice(0, 6);
     return h("span", { className: "ib-paper-cover" }, h("b", { style: label.length > 5 ? { fontSize: "18px" } : void 0 }, label), h("small", null, "JOURNAL"));
   };
+  const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || "").trim();
   const metricBox = (label, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label), h("b", null, value));
   const openSelectedPdf = (event) => {
     event.stopPropagation();
@@ -45152,24 +45191,6 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
     void openReader({ projectId, bundleId: selectedBundle.id, kind: "pdf" }).catch((reason) => notify("无法打开正文 PDF：" + (reason?.message ?? reason)));
   };
-  (0, import_react10.useEffect)(() => {
-    const journals = [...new Set(readingReports.map((report) => bundleById[report.bundleId]?.journal).filter(Boolean))];
-    for (const journal of journals) {
-      if (metricsRequested.current.has(journal)) continue;
-      metricsRequested.current.add(journal);
-      void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
-        setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }));
-        if (value && value.top == null) {
-          setTimeout(() => {
-            void call("tasks_journal_metrics", { request: { journal } }).then((next) => {
-              if (next && next.top != null) setMetricsByJournal((old) => ({ ...old, [journal]: next }));
-            }).catch(() => {
-            });
-          }, 12e3);
-        }
-      }).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
-    }
-  }, [readingReports, bundleById, call]);
   const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `
 使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : "") : "";
   const selectedPptPrompt = selectedReport ? `请为文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（reportId: ${selectedReport.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。` : "";
@@ -45282,9 +45303,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   return h(
     import_react10.default.Fragment,
     null,
+    headerTarget ? (0, import_react_dom2.createPortal)(toolbarNode, headerTarget) : null,
     h(
       "div",
-      { className: "ib-lit ib-lit-workbench", ref: literatureRoot },
+      { className: "ib-lit ib-lit-workbench", "data-toolbar-in-header": headerTarget ? "true" : void 0, ref: literatureRoot },
       h(
         "section",
         {
@@ -45314,7 +45336,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           }
         },
         pdfDragging ? h("div", { className: "ib-lit-drop-overlay", role: "status" }, "松开以导入文献（PDF、DOCX）") : null,
-        toolbarNode,
+        headerTarget ? null : toolbarNode,
         h(
           "div",
           { className: "ib-lit-tabs" },
@@ -45348,7 +45370,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, readyFilteredReports.length || uploadingRows.length || pendingIntakeReports.length ? readyFilteredReports.map((report) => {
             const bundle = bundleById[report.bundleId] || {};
             const selected = selectedReport?.id === report.id;
-            const metrics = metricsByJournal[bundle.journal];
+            const metrics = metricsByJournal[metricsKeyOf(report, bundle)];
             return h(
               "div",
               { key: report.id, ...readingInteraction.rowProps(report), className: "ib-lit-card" + (selected ? " ib-lit-card-detail" : ""), onClick: (event) => {
@@ -45363,7 +45385,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 h("b", { className: "ib-lit-title" }, report.titleZh || bundle.title || report.id),
                 h("div", { className: "ib-lit-card-cite" }, h("span", { className: "ib-lit-cite-text" }, citationTextOf(bundle, report) || "未登记期刊"), metrics?.field || metrics?.subfield ? h("span", { className: "ib-lit-field-pill" }, metrics.field || metrics.subfield) : null)
               ),
-              h("div", { className: "ib-lit-metrics" }, metricBox("影响因子", metrics === void 0 ? "…" : metrics ? metrics.impactFactor : "—", "if"), metricBox("中科院分区", metrics === void 0 ? "…" : metrics?.casTier ? metrics.casTier + "区" : "待核实", "cas"), metricBox("TOP期刊", metrics === void 0 ? "…" : metrics?.top === true ? "是" : metrics?.top === false ? "否" : "待核实", "top"))
+              h(JournalMetricTiles, { journal: metricsKeyOf(report, bundle), call })
             );
           }) : uploadingRows.length || pendingIntakeReports.length ? null : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
         ) : h("div", { className: "ib-lit-search-list" }, searches.length ? searches.slice().reverse().map((search) => h("div", { key: search.id, className: "ib-lit-card ib-lit-search-card" }, h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, search.title || search.query || search.id), h("div", { className: "ib-lit-meta" }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {
@@ -45755,7 +45777,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
 
 // plugins/literature/client/src/reader/reader-pdf-ui.js
 var import_react14 = __toESM(require("react"), 1);
-var import_react_dom3 = __toESM(require("react-dom"), 1);
+var import_react_dom4 = __toESM(require("react-dom"), 1);
 
 // plugins/literature/client/src/reader/reader-pdf-flow.js
 var import_react11 = __toESM(require("react"), 1);
@@ -46066,7 +46088,7 @@ function PdfMaterial({ material, request, onDocument, ...props }) {
 
 // plugins/literature/client/src/reader/reader-annotations.js
 var import_react13 = __toESM(require("react"), 1);
-var import_react_dom2 = __toESM(require("react-dom"), 1);
+var import_react_dom3 = __toESM(require("react-dom"), 1);
 var annotationStatusText = (item) => {
   if (item.status === "pending") return "待生成";
   if (item.status === "running") return "生成中…";
@@ -47022,7 +47044,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
   return h(
     "div",
     { ref: overlayRef, className: "ib-anno-overlay", style: overlayStyle, "data-annotations": true },
-    inflowHost ? import_react_dom2.default.createPortal(h(
+    inflowHost ? import_react_dom3.default.createPortal(h(
       "div",
       { className: "ib-anno-page-layer" },
       items.map((item) => {
@@ -47172,7 +47194,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
         )
       )
     ) : null,
-    inflowHost && panelVisible ? import_react_dom2.default.createPortal(
+    inflowHost && panelVisible ? import_react_dom3.default.createPortal(
       h(
         "div",
         { className: "ib-anno-panel ib-anno-panel-inflow" },
@@ -47193,7 +47215,7 @@ function ReaderAnnotations({ call, request, doc, flowRef, zoom, active, enabled,
       ),
       inflowHost
     ) : null,
-    railHost && panelVisible ? import_react_dom2.default.createPortal(
+    railHost && panelVisible ? import_react_dom3.default.createPortal(
       h(
         "div",
         { className: "ib-anno-panel-rail ib-anno-rail-fixed" },
@@ -54774,7 +54796,7 @@ function ReaderBody({ useTabInfo, renderFactorySlot, sessionId }) {
       state3.format === "unsupported" && mode !== "dual" && !["report", "ppt"].includes(mode) ? h("p", null, "此格式请保存后使用对应软件打开。", button("保存材料", () => void save("original").catch(onError))) : null
     )
   );
-  return h(import_react14.default.Fragment, null, h("div", { className: "ib-reader-mount" }, h("div", { ref: slot, className: "ib-reader-slot", hidden: mode === "dual" }), mode === "dual" ? h("div", { className: "ib-reader" }, "材料对照已全屏打开", button("返回侧栏", exitDual)) : null), import_react_dom3.default.createPortal(content, host));
+  return h(import_react14.default.Fragment, null, h("div", { className: "ib-reader-mount" }, h("div", { ref: slot, className: "ib-reader-slot", hidden: mode === "dual" }), mode === "dual" ? h("div", { className: "ib-reader" }, "材料对照已全屏打开", button("返回侧栏", exitDual)) : null), import_react_dom4.default.createPortal(content, host));
 }
 var readerStyles = pdf_viewer_default + annotationStyles + `
 .ib-reader-mount,.ib-reader-slot,.ib-reader-host{height:100%;min-height:0;min-width:0}.ib-reader-slot[hidden]{display:none}.ib-reader-host[data-fullscreen=true]{position:fixed;inset:0;z-index:2147483000}
