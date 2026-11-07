@@ -44479,6 +44479,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [selectedReportId, setSelectedReportId] = (0, import_react10.useState)("");
   const [watchReading, setWatchReading] = (0, import_react10.useState)(false);
   const [watchPpt, setWatchPpt] = (0, import_react10.useState)(false);
+  const [metricsByJournal, setMetricsByJournal] = (0, import_react10.useState)({});
+  const metricsRequested = (0, import_react10.useRef)(/* @__PURE__ */ new Set());
   const [folderMenu, setFolderMenu] = (0, import_react10.useState)(null);
   const [uploadMenuOpen, setUploadMenuOpen] = (0, import_react10.useState)(false);
   const [linkOpen, setLinkOpen] = (0, import_react10.useState)(false);
@@ -45128,17 +45130,16 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     });
   };
   const selectedPublisherUrl = selectedBundle?.doi ? `https://doi.org/${encodeURIComponent(selectedBundle.doi)}` : selectedBundle?.sourceUrl && /^https:/i.test(selectedBundle.sourceUrl) ? selectedBundle.sourceUrl : void 0;
-  const journalShortOf = (bundle = {}) => {
-    const journal = String(bundle.journal || bundle.shortCitation || "");
-    if (/user interface software/i.test(journal)) return "UIST";
-    if (/nature/i.test(journal)) return "Nature";
-    if (/neurointerv/i.test(journal)) return "JNIS";
-    return bundle.journalAbbrev || bundle.shortCitation || journal || "PREPRINT";
+  const citationFor = (report, bundle) => citationOf(report) || publicationCitation(bundle);
+  const journalAbbrevOf = (bundle = {}, report = null) => citationFor(report, bundle)?.journal || bundle.journalAbbrev || bundle.journal || "PREPRINT";
+  const citationTextOf = (bundle = {}, report = null) => {
+    const citation = citationFor(report, bundle);
+    return citation ? citation.text.replace(/\.$/u, "") : [bundle.journal || bundle.journalAbbrev, bundle.year].filter(Boolean).join(" · ");
   };
-  const coverOf = (bundle = {}) => {
-    const journal = String(bundle.journal || bundle.shortCitation || "PREPRINT");
-    const label = String(journalShortOf(bundle).split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").slice(0, 6).toUpperCase();
-    const tone = /nature/i.test(journal) ? "#0b4d3b" : /uist/i.test(journal) ? "#2c4a7a" : /jnis|neuro/i.test(journal) ? "#6e1f2f" : /inr|radio/i.test(journal) ? "#46566b" : "#3f4e5d";
+  const coverOf = (bundle = {}, report = null) => {
+    const journal = String(journalAbbrevOf(bundle, report) || "PREPRINT");
+    const label = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").slice(0, 6).toUpperCase();
+    const tone = /nature/i.test(journal) ? "#0b4d3b" : /uist|user interface/i.test(journal) ? "#2c4a7a" : /jnis|neuro/i.test(journal) ? "#6e1f2f" : /inr|radio/i.test(journal) ? "#46566b" : "#3f4e5d";
     return h("span", { className: "ib-paper-cover", style: { background: tone, fontSize: label.length >= 6 ? "14px" : label.length === 5 ? "16px" : void 0 } }, label);
   };
   const openSelectedPdf = (event) => {
@@ -45150,6 +45151,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }
     void openReader({ projectId, bundleId: selectedBundle.id, kind: "pdf" }).catch((reason) => notify("无法打开正文 PDF：" + (reason?.message ?? reason)));
   };
+  (0, import_react10.useEffect)(() => {
+    const journals = [...new Set(readingReports.map((report) => bundleById[report.bundleId]?.journal).filter(Boolean))];
+    for (const journal of journals) {
+      if (metricsRequested.current.has(journal)) continue;
+      metricsRequested.current.add(journal);
+      void call("tasks_journal_metrics", { request: { journal } }).then((value) => setMetricsByJournal((old) => ({ ...old, [journal]: value ?? null }))).catch(() => setMetricsByJournal((old) => ({ ...old, [journal]: null })));
+    }
+  }, [readingReports, bundleById, call]);
   const selectedReadingPrompt = selectedReport ? `请精读文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（bundleId: ${selectedReport.bundleId || selectedBundle.id || "未登记"}，reportId: ${selectedReport.id}）。先读取本课题已归档的 PDF/SI 和当前阅读笔记模板，按模板完成精读报告，并调用 lab_tasks_register_report 登记到该 reportId。` + (noteTemplateId ? `
 使用阅读笔记模板：${noteTemplateId}（调用 lab_tasks_get_reading_inputs 时传 noteTemplateId，登记报告时沿用该模板）。` : "") : "";
   const selectedPptPrompt = selectedReport ? `请为文献「${selectedReport.titleZh || selectedBundle.title || selectedReport.id}」（reportId: ${selectedReport.id}）制作汇报 PPT。先读取已归档 PDF/SI、已有精读报告和当前 PPT 模板，按模板生成 PPTX，并调用 lab_tasks_register_presentation 登记。` : "";
@@ -45181,7 +45190,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h(
       "div",
       { className: "ib-lit-detail-lead" },
-      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { ...coverOf(selectedBundle).props.style } }, coverOf(selectedBundle).props.children),
+      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { ...coverOf(selectedBundle, selectedReport).props.style } }, coverOf(selectedBundle, selectedReport).props.children),
       h(
         "div",
         { className: "ib-lit-detail-title" },
@@ -45189,7 +45198,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         h(
           "div",
           { className: "ib-lit-detail-cite" },
-          h("span", null, [journalShortOf(selectedBundle), selectedBundle.year].filter(Boolean).join(" · ") || "未登记期刊"),
+          h("span", null, citationTextOf(selectedBundle, selectedReport) || "未登记期刊"),
           selectedPublisherUrl ? h("a", { href: selectedPublisherUrl, target: "_blank", rel: "noopener noreferrer", title: "打开原文网站", onClick: (event) => event.stopPropagation() }, "↗") : null
         )
       )
@@ -45328,6 +45337,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("div", { className: "ib-lit-list ib-lit-cards", role: "listbox", "aria-label": "精读文献条目" }, readyFilteredReports.length || uploadingRows.length || pendingIntakeReports.length ? readyFilteredReports.map((report) => {
             const bundle = bundleById[report.bundleId] || {};
             const selected = selectedReport?.id === report.id;
+            const metrics = metricsByJournal[bundle.journal];
             return h(
               "div",
               { key: report.id, ...readingInteraction.rowProps(report), className: "ib-lit-card" + (selected ? " ib-lit-card-detail" : ""), onClick: (event) => {
@@ -45335,14 +45345,14 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
                 readingInteraction.rowProps(report).onClick(event);
                 setSelectedReportId(report.id);
               } },
-              coverOf(bundle),
+              coverOf(bundle, report),
               h(
                 "div",
                 { className: "ib-lit-card-copy" },
                 h("b", { className: "ib-lit-title" }, report.titleZh || bundle.title || report.id),
-                h("div", { className: "ib-lit-meta" }, [journalShortOf(bundle), bundle.year].filter(Boolean).join(" · ") || "未登记期刊")
+                h("div", { className: "ib-lit-meta" }, citationTextOf(bundle, report) || "未登记期刊")
               ),
-              h("span", { className: "ib-lit-card-more", "aria-hidden": "true" }, "⋯")
+              h("div", { className: "ib-lit-card-metrics" }, metrics === void 0 ? h("span", { className: "ib-lit-metrics-loading" }, "查询中…") : metrics ? h(import_react10.default.Fragment, null, h("b", null, "IF " + metrics.impactFactor), h("span", null, metrics.casTier ? "中科院" + metrics.casTier + "区" : "中科院 —"), h("small", null, metrics.field || metrics.subfield || "—")) : h("span", { className: "ib-lit-metrics-empty" }, "IF/分区 暂无"))
             );
           }) : uploadingRows.length || pendingIntakeReports.length ? null : h("div", { className: "ib-lit-empty" }, "尚无精读条目。上传或拖入 PDF，或在对话中登记文献。"))
         ) : h("div", { className: "ib-lit-search-list" }, searches.length ? searches.slice().reverse().map((search) => h("div", { key: search.id, className: "ib-lit-card ib-lit-search-card" }, h("div", { className: "ib-lit-card-copy" }, h("b", { className: "ib-lit-title" }, search.title || search.query || search.id), h("div", { className: "ib-lit-meta" }, `${(search.results || []).length} 篇 · ${when(search.updatedAt || search.createdAt)}`)), h("button", { type: "button", className: "ib-lit-mini-btn", onClick: (event) => {

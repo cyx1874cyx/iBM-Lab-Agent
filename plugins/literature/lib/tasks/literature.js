@@ -137,7 +137,39 @@ export function mergeSessionSearchRows(rows) {
 	};
 }
 
+const journalMetricsCache = new Map();
+
 export const literatureMethods = {
+	async journalMetrics({ journal = '' } = {}) {
+		const query = String(journal || '').replace(/\s+/g, ' ').trim();
+		if (!query) return null;
+		const key = query.toLowerCase();
+		const cached = journalMetricsCache.get(key);
+		if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) return cached.value;
+		let value = null;
+		try {
+			const response = await fetch('https://www.letpub.com.cn/index.php?page=journalapp&view=search&searchname=' + encodeURIComponent(query), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(12000) });
+			if (response.ok) {
+				const html = await response.text();
+				const rows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((match) => match[1]);
+				const plain = (row) => String(row.replace(/<br\s*\/?>/gi, ' | ').replace(/<\/(?:td|th)>/gi, ' | ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&')).replace(/\s+/g, ' ').trim();
+				const row = rows.find((candidate) => /IF:\s*[\d.]+/i.test(plain(candidate)));
+				if (row) {
+					const text = plain(row);
+					const impact = Number((text.match(/IF:\s*([\d.]+)/i) ?? [])[1]);
+					const tierMatch = text.match(/(?:^|\|\s*)([1-4])\s*区(?:\s*\||$)/);
+					const field = (text.match(/大类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
+					const subfield = (text.match(/小类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
+					const abbreviation = (row.match(/<font[^>]*grey[^>]*>([^<]+)<\/font>/i) ?? [])[1]?.trim();
+					if (Number.isFinite(impact) && impact > 0) value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, field: field || '', subfield: subfield || '' };
+				}
+			}
+		} catch { value = null; }
+		journalMetricsCache.set(key, { at: Date.now(), value });
+		while (journalMetricsCache.size > 300) journalMetricsCache.delete(journalMetricsCache.keys().next().value);
+		return value;
+	},
+
 
 	// ── §六 接口：文献检索 ───────────────────────────────────────────────────
 

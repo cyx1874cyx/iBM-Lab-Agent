@@ -2915,6 +2915,11 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-card .ib-lit-title{font:600 20px/1.35 var(--ib-serif,Georgia,serif);color:var(--ib-text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ib-lit-meta{font:400 14px/1.3 var(--ib-font,system-ui);color:var(--ib-muted);font-style:italic}
 .ib-lit-card-more{color:var(--ib-muted);font-size:22px;line-height:1;flex:none}
+.ib-lit-card-metrics{flex:none;width:104px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font:400 11px/1.25 var(--ib-font,system-ui);color:var(--ib-muted);text-align:right}
+.ib-lit-card-metrics b{font:600 13px/1.2 var(--ib-font,system-ui);color:#0f6b5c}
+.ib-lit-card-metrics span{white-space:nowrap}
+.ib-lit-card-metrics small{max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.ib-lit-metrics-loading,.ib-lit-metrics-empty{font-size:10px;color:#9aa6b2}
 .ib-lit-card-loading{cursor:default;background:var(--ib-row-alt);border-style:dashed;opacity:.9}
 .ib-lit-loading-spinner{flex:none;width:82px;height:100px;border-radius:7px;display:grid;place-items:center;background:var(--ib-panel2);color:var(--ib-muted)}
 .ib-lit-loading-spinner svg{width:22px;height:22px}
@@ -4640,7 +4645,7 @@ function buildDescriptors() {
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
     direct("projects_watch", ["request"]),
-    ...["tasks_reading_pdf_upload", "tasks_reading_pdf_retry", "tasks_reading_move", "tasks_reading_bind_session", "tasks_reading_conversation", "tasks_reading_pdf_upload_begin", "tasks_reading_pdf_upload_chunk", "tasks_reading_pdf_upload_finish", "tasks_reading_pdf_upload_abort", "tasks_annotations_list", "tasks_annotations_create", "tasks_annotations_ask", "tasks_annotations_update", "tasks_annotations_retry", "tasks_annotations_delete", "tasks_annotations_delete_followup", "tasks_annotations_adopt", "tasks_annotations_dismiss"].map((name) => direct(name, ["request"])),
+    ...["tasks_reading_pdf_upload", "tasks_reading_pdf_retry", "tasks_reading_move", "tasks_reading_bind_session", "tasks_reading_conversation", "tasks_reading_pdf_upload_begin", "tasks_reading_pdf_upload_chunk", "tasks_reading_pdf_upload_finish", "tasks_reading_pdf_upload_abort", "tasks_annotations_list", "tasks_annotations_create", "tasks_annotations_ask", "tasks_annotations_update", "tasks_annotations_retry", "tasks_annotations_delete", "tasks_annotations_delete_followup", "tasks_journal_metrics", "tasks_annotations_adopt", "tasks_annotations_dismiss"].map((name) => direct(name, ["request"])),
     ...["projects_choose_file", "projects_open_file", "projects_draft_read", "projects_draft_write"].map((name) => direct(name, ["request"])),
     direct("capabilities"),
     direct("tasks_translation_bind", ["request"]),
