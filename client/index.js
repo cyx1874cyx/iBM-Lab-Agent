@@ -2845,7 +2845,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb .ib-wb-project-page .ib-lit.ib-lit-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:1fr;gap:0;align-items:start;min-height:100%}
 .ib-tab-panel:has(.ib-lit-workbench){overflow:hidden}.ib-lit-catalog{min-width:0;position:relative;max-height:calc(100vh - 300px);overflow-y:auto;overflow-x:hidden;padding-right:4px;scrollbar-gutter:stable}
 .ib-wb:has(.ib-reader) .ib-lit-toolbar,.ib-wb:has(.ib-reader) .ib-lit-tabs,.ib-wb:has(.ib-reader) .ib-lit-folders{display:none!important}
-.ib-lit-workbench{position:relative}
+.ib-lit-workbench{position:relative}.ib-lit-workbench[data-detail-visible=false]{grid-template-columns:minmax(0,1fr)}
 .ib-lit-head-actions{position:absolute;left:250px;top:44px;z-index:3;display:flex;align-items:center;gap:10px}
 .ib-wb-page-head{position:relative}
 .ib-lit-head-actions .ib-lit-toolbar{margin:0}
@@ -5778,7 +5778,7 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -5974,9 +5974,22 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [machineReviews, setMachineReviews] = (0, import_react11.useState)({});
   const [preview, setPreview] = (0, import_react11.useState)(null);
   const [activeLitTab, setActiveLitTab] = (0, import_react11.useState)("reading");
-  const [selectedReportId, setSelectedReportId] = (0, import_react11.useState)("");
+  const [selectedReportId, setSelectedReportId] = (0, import_react11.useState)(() => {
+    try {
+      return localStorage.getItem("ib-lit-selected:" + projectId) || "";
+    } catch {
+      return "";
+    }
+  });
   const [watchReading, setWatchReading] = (0, import_react11.useState)(false);
   const [watchPpt, setWatchPpt] = (0, import_react11.useState)(false);
+  (0, import_react11.useEffect)(() => {
+    try {
+      if (selectedReportId) localStorage.setItem("ib-lit-selected:" + projectId, selectedReportId);
+      else localStorage.removeItem("ib-lit-selected:" + projectId);
+    } catch {
+    }
+  }, [selectedReportId, projectId]);
   const [metricsByJournal, setMetricsByJournal] = (0, import_react11.useState)({});
   const metricsRequested = (0, import_react11.useRef)(/* @__PURE__ */ new Set());
   const [folderMenu, setFolderMenu] = (0, import_react11.useState)(null);
@@ -6573,7 +6586,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  const selectedReport = filteredReports.find((row2) => row2.id === selectedReportId) || filteredReports[0] || null;
+  const selectedReport = readingReports.find((row2) => row2.id === selectedReportId) || null;
   const selectedBundle = selectedReport ? bundleById[selectedReport.bundleId] || {} : null;
   const selectedPdfUrl = selectedBundle?.pdfPath && /\.pdf$/i.test(selectedBundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
   const selectedSiUrl = selectedBundle?.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
@@ -6675,7 +6688,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       notify2("翻译启动失败：" + error62.message);
     }
   };
-  const detailNode = selectedReport ? h(
+  const showDetail = activeLitTab === "reading" && Boolean(selectedReport);
+  const detailNode = showDetail ? h(
     "aside",
     { className: "ib-lit-detail", "aria-label": "文献详情" },
     h("div", { className: "ib-lit-detail-head" }, h("h2", null, "文献详情")),
@@ -6836,6 +6850,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               { key: report.id, ...readingInteraction.rowProps(report), className: "ib-lit-card" + (selected ? " ib-lit-card-detail" : ""), onClick: (event) => {
                 if (event.target.closest("button")) return;
                 readingInteraction.rowProps(report).onClick(event);
+                const compact = (literatureRoot.current?.clientWidth || 0) < 900;
+                if (compact && !document.querySelector(".ib-wb")?.hasAttribute("data-chat-hidden")) onHideChat?.();
                 setSelectedReportId(report.id);
               } },
               coverOf(bundle, report),
@@ -8622,7 +8638,7 @@ __export(util_exports, {
   getParsedType: () => getParsedType,
   getSizableOrigin: () => getSizableOrigin,
   hexToUint8Array: () => hexToUint8Array,
-  hide: () => hide,
+  hide: () => hide2,
   installLazyProp: () => installLazyProp,
   isObject: () => isObject,
   isPlainObject: () => isPlainObject,
@@ -9322,7 +9338,7 @@ function own(inst, key2, value, enumerable = true) {
   Object.defineProperty(inst, key2, { configurable: true, writable: true, enumerable, value });
   return value;
 }
-function hide(inst, key2, value) {
+function hide2(inst, key2, value) {
   return own(inst, key2, value, false);
 }
 // @__NO_SIDE_EFFECTS__
@@ -10497,7 +10513,7 @@ var $ZodCheckProperty = /* @__PURE__ */ $constructor("$ZodCheckProperty", (inst,
 });
 var $ZodCheckProperties = /* @__PURE__ */ $constructor("$ZodCheckProperties", (inst, def) => {
   $ZodCheck.init(inst, def);
-  hide(inst, Symbol.iterator, function* () {
+  hide2(inst, Symbol.iterator, function* () {
     yield inst;
   });
   let entries;
@@ -10697,7 +10713,7 @@ var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
 }, {
   // Wrappers extend this by installing a richer factory over it; reading it eagerly would defeat the laziness.
   get "~standard"() {
-    return hide(this, "~standard", standardProps(this));
+    return hide2(this, "~standard", standardProps(this));
   },
   set "~standard"(value) {
     own(this, "~standard", value);
@@ -30263,7 +30279,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
   };
   return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研助手对话和研究成果。创建课题后会自动打开专属工作区并开始科研助手对话。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", disabled: !state3.defaults.capabilities?.documents && !state3.defaults.capabilities?.experimentTemplates, onClick: onOpenTemplates }, "模板管理"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题"))), creating ? h(CreateProject, { call, defaults: state3.defaults, onCancel: () => setCreating(false), onCreated: (project2, presetId) => void launch(project2, presetId) }) : null, state3.error ? h("div", { className: "ib-error" }, state3.error) : null, state3.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state3.projects.length ? h("div", { className: "ib-grid" }, state3.projects.map((project2) => h("button", { className: "ib-project", key: project2.id, disabled: launching === project2.id, onClick: () => onOpen(project2) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project2.name), h("p", null, launching === project2.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project2.memoryVersion || "1"}`), h("span", null, when(project2.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
 }
-function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null, literatureHeaderTarget = null }) {
+function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null, literatureHeaderTarget = null, onHideChat = null }) {
   usePluginSwitches();
   (0, import_react26.useEffect)(() => {
     setDesktopProject(project2.id);
@@ -30412,7 +30428,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load2() }, "刷新")
     ) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load2() }, "刷新资料")) : null,
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget })) : null,
+    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget, onHideChat })) : null,
     activeTab === "characterization" || workbench && available.characterization && visitedTabs.characterization ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor("characterization")?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: "nmr", nmrRows: characterization.nmr || [], onOpenConversation: openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, void 0, identity) })) : null,
     activeTab === "plotting" || workbench && available.plotting && visitedTabs.plotting ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor("plotting")?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: "plot", headerTarget: plottingHeaderTarget, onOpenConversation: openEntryConversation, onRefineConversation: (row2, options = {}) => onStartChat(data.project, { entryIdentity: { kind: "plot", recordId: row2.id }, autoSubmit: true, preserveDraft: true, prompt: options.prompt || `请查看当前绑定的绘图条目（条目 ID：${row2.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。` }) })) : null,
     !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
@@ -31933,9 +31949,9 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   (0, import_react33.useEffect)(() => controller.subscribe(setProject), [controller]);
   (0, import_react33.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
   (0, import_react33.useEffect)(() => {
-    const hide2 = () => setChatHidden(true);
-    window.addEventListener("ibm-lab:hide-chat", hide2);
-    return () => window.removeEventListener("ibm-lab:hide-chat", hide2);
+    const hide3 = () => setChatHidden(true);
+    window.addEventListener("ibm-lab:hide-chat", hide3);
+    return () => window.removeEventListener("ibm-lab:hide-chat", hide3);
   }, [setChatHidden]);
   (0, import_react33.useEffect)(() => {
     document.title = "iBM Lab";
@@ -32162,7 +32178,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         const selected = window.getSelection();
         if (selected && centerRef.current?.contains(selected.anchorNode)) setSelection(String(selected).trim().slice(0, 6e3));
       } },
-      h("div", { className: "ib-wb-page-head", hidden: !project2 }, h("div", null, h("div", { className: "ib-wb-breadcrumb" }, "工作台", h("span", null, "/"), pageTitle), h("h1", null, pageTitle), h("p", null, project2 ? module2.caption : "创建或打开工程文件，继续你的研究工作")), knowledgeActive ? h("div", { className: "ib-wb-page-actions", ref: setKnowledgeHeaderTarget }) : null, module2.id === "plotting" && !templates && !activePanel ? h("div", { className: "ib-wb-page-actions", ref: setPlottingHeaderTarget }) : null, module2.id === "literature" && !templates && !activePanel ? h("div", { className: "ib-lit-head-slot", ref: setLiteratureHeaderTarget }) : null, project2 && selection ? h("button", { className: "ib-btn", onClick: quoteSelection, onMouseDown: (event) => event.preventDefault() }, "引用选中文本 →") : null),
+      h("div", { className: "ib-wb-page-head", hidden: !project2 }, h("div", null, h("div", { className: "ib-wb-breadcrumb" }, "工作台", h("span", null, "/"), pageTitle), h("h1", null, pageTitle), h("p", null, project2 ? module2.caption : "创建或打开工程文件，继续你的研究工作")), knowledgeActive ? h("div", { className: "ib-wb-page-actions", ref: setKnowledgeHeaderTarget }) : null, module2.id === "plotting" && !templates && !activePanel ? h("div", { className: "ib-wb-page-actions", ref: setPlottingHeaderTarget }) : null, module2.id === "literature" && !templates && !activePanel ? h("div", { className: "ib-lit-head-slot", ref: setLiteratureHeaderTarget }) : null),
       error62 ? h("div", { className: "ib-wb-alert", role: "alert" }, error62) : null,
       openingProject ? h("div", { className: "ib-wb-alert", role: "status" }, "正在打开课题工作区与对话…") : null,
       !project2 ? h("div", { className: "ib-wb-content ib-wb-welcome ib-overlay ib-wb-business" }, h(ProjectFileHome, { call, onOpen: openProject, welcome: true })) : null,
@@ -32172,7 +32188,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         project2 ? h(
           "div",
           { className: "ib-wb-project-holder" },
-          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onHideChat: hide, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
           pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module2.id === "polishing" ? h(PolishingPlaceholder) : module2.id === "reagents" ? h(ReagentPanel, { call }) : null,
           module2.id === "knowledge" ? h(KnowledgePanel, { key: project2.id, project: project2, call, openChat: openKnowledgeChat, activeSessionId, headerTarget: knowledgeHeaderTarget, conversation: knowledgeActive ? renderSlot("main", {}, { entryKey: "conversation" }) : null }) : null
         ) : null

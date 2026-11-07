@@ -159,7 +159,7 @@ function JournalMetricTiles({ journal, call }) {
 		box('中科院分区', data === undefined ? '…' : data?.casTier ? data.casTier + '区' : '待核实', 'cas'),
 		box('TOP期刊', data === undefined ? '…' : data?.top === true ? '是' : data?.top === false ? '否' : '待核实', 'top'));
 }
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};
@@ -266,9 +266,10 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [activeLitTab, setActiveLitTab] = useState('reading');
-			const [selectedReportId, setSelectedReportId] = useState('');
+			const [selectedReportId, setSelectedReportId] = useState(() => { try { return localStorage.getItem('ib-lit-selected:' + projectId) || ''; } catch { return ''; } });
 			const [watchReading, setWatchReading] = useState(false);
 			const [watchPpt, setWatchPpt] = useState(false);
+			useEffect(() => { try { if (selectedReportId) localStorage.setItem('ib-lit-selected:' + projectId, selectedReportId); else localStorage.removeItem('ib-lit-selected:' + projectId); } catch { /* ignore */ } }, [selectedReportId, projectId]);
 			const [metricsByJournal, setMetricsByJournal] = useState({});
 			const metricsRequested = useRef(new Set());
 			const [folderMenu, setFolderMenu] = useState(null);
@@ -817,7 +818,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					approvalNode
 				)
 			) : null;
-			const selectedReport = filteredReports.find((row) => row.id === selectedReportId) || filteredReports[0] || null;
+			const selectedReport = readingReports.find((row) => row.id === selectedReportId) || null;
 			const selectedBundle = selectedReport ? (bundleById[selectedReport.bundleId] || {}) : null;
 			const selectedPdfUrl = selectedBundle?.pdfPath && /\.pdf$/i.test(selectedBundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(selectedBundle.id)}` : undefined;
 			const selectedSiUrl = selectedBundle?.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(selectedBundle.id)}` : undefined;
@@ -893,7 +894,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					notify('翻译启动失败：' + error.message);
 				}
 			};
-			const detailNode = selectedReport ? h('aside', { className: 'ib-lit-detail', 'aria-label': '文献详情' },
+			const showDetail = activeLitTab === 'reading' && Boolean(selectedReport);
+			const detailNode = showDetail ? h('aside', { className: 'ib-lit-detail', 'aria-label': '文献详情' },
 				h('div', { className: 'ib-lit-detail-head' }, h('h2', null, '文献详情')),
 				h('div', { className: 'ib-lit-detail-lead' },
 					h('span', { className: 'ib-paper-cover ib-paper-cover-lg', style: { ...coverOf(selectedBundle, selectedReport).props.style } }, coverOf(selectedBundle, selectedReport).props.children),
@@ -943,7 +945,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 							const bundle = bundleById[report.bundleId] || {};
 							const selected = selectedReport?.id === report.id;
 							const metrics = metricsByJournal[metricsKeyOf(report, bundle)];
-							return h('div', { key: report.id, ...readingInteraction.rowProps(report), className: 'ib-lit-card' + (selected ? ' ib-lit-card-detail' : ''), onClick: (event) => { if (event.target.closest('button')) return; readingInteraction.rowProps(report).onClick(event); setSelectedReportId(report.id); } },
+							return h('div', { key: report.id, ...readingInteraction.rowProps(report), className: 'ib-lit-card' + (selected ? ' ib-lit-card-detail' : ''), onClick: (event) => { if (event.target.closest('button')) return; readingInteraction.rowProps(report).onClick(event); const compact = (literatureRoot.current?.clientWidth || 0) < 900; if (compact && !document.querySelector('.ib-wb')?.hasAttribute('data-chat-hidden')) onHideChat?.(); setSelectedReportId(report.id); } },
 								coverOf(bundle, report),
 								h('div', { className: 'ib-lit-card-copy' },
 									h('b', { className: 'ib-lit-title' }, report.titleZh || bundle.title || report.id),

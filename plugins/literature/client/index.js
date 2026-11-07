@@ -44346,7 +44346,7 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -44542,9 +44542,22 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [machineReviews, setMachineReviews] = (0, import_react10.useState)({});
   const [preview, setPreview] = (0, import_react10.useState)(null);
   const [activeLitTab, setActiveLitTab] = (0, import_react10.useState)("reading");
-  const [selectedReportId, setSelectedReportId] = (0, import_react10.useState)("");
+  const [selectedReportId, setSelectedReportId] = (0, import_react10.useState)(() => {
+    try {
+      return localStorage.getItem("ib-lit-selected:" + projectId) || "";
+    } catch {
+      return "";
+    }
+  });
   const [watchReading, setWatchReading] = (0, import_react10.useState)(false);
   const [watchPpt, setWatchPpt] = (0, import_react10.useState)(false);
+  (0, import_react10.useEffect)(() => {
+    try {
+      if (selectedReportId) localStorage.setItem("ib-lit-selected:" + projectId, selectedReportId);
+      else localStorage.removeItem("ib-lit-selected:" + projectId);
+    } catch {
+    }
+  }, [selectedReportId, projectId]);
   const [metricsByJournal, setMetricsByJournal] = (0, import_react10.useState)({});
   const metricsRequested = (0, import_react10.useRef)(/* @__PURE__ */ new Set());
   const [folderMenu, setFolderMenu] = (0, import_react10.useState)(null);
@@ -45141,7 +45154,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       approvalNode
     )
   ) : null;
-  const selectedReport = filteredReports.find((row) => row.id === selectedReportId) || filteredReports[0] || null;
+  const selectedReport = readingReports.find((row) => row.id === selectedReportId) || null;
   const selectedBundle = selectedReport ? bundleById[selectedReport.bundleId] || {} : null;
   const selectedPdfUrl = selectedBundle?.pdfPath && /\.pdf$/i.test(selectedBundle.pdfPath) ? `/api/lab-artifacts?kind=pdf&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
   const selectedSiUrl = selectedBundle?.siPath ? `/api/lab-artifacts?kind=si&bundleId=${encodeURIComponent(selectedBundle.id)}` : void 0;
@@ -45243,7 +45256,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       notify("翻译启动失败：" + error.message);
     }
   };
-  const detailNode = selectedReport ? h(
+  const showDetail = activeLitTab === "reading" && Boolean(selectedReport);
+  const detailNode = showDetail ? h(
     "aside",
     { className: "ib-lit-detail", "aria-label": "文献详情" },
     h("div", { className: "ib-lit-detail-head" }, h("h2", null, "文献详情")),
@@ -45404,6 +45418,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
               { key: report.id, ...readingInteraction.rowProps(report), className: "ib-lit-card" + (selected ? " ib-lit-card-detail" : ""), onClick: (event) => {
                 if (event.target.closest("button")) return;
                 readingInteraction.rowProps(report).onClick(event);
+                const compact = (literatureRoot.current?.clientWidth || 0) < 900;
+                if (compact && !document.querySelector(".ib-wb")?.hasAttribute("data-chat-hidden")) onHideChat?.();
                 setSelectedReportId(report.id);
               } },
               coverOf(bundle, report),
