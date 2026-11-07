@@ -8,6 +8,8 @@ import { h } from "./h.js";
 import { when, statusOf, saveRis, downloadVerifiedBinary, downloadOfficeArtifact, openOfficeArtifact, openPdfPreview, openExternalUrl, openInEdgeViaShell, webVpnStatusViaShell, iwanStatusViaShell, openWebVpnLoginViaShell, openWebVpnCaptureViaShell, showWebVpnViaShell, cancelWebVpnCaptureViaShell, revealSavedPathViaDesktop } from "./lib.js";
 import {openReader} from './reader-host.js';
 import {translationPrompt} from './translation-prompt.js';
+import { LitPanel as ModernLitPanel } from '../../plugins/literature/client/src/lit-panel.js';
+export const LitPanel = ModernLitPanel;
 
 
 import { CharacterizationPanel } from "./components-characterization.js";
@@ -159,7 +161,7 @@ function captureRouteForBundle(bundle, kind) {
 }
 
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged }) {
+function LegacyLitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};

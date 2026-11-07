@@ -67,6 +67,8 @@ for(const target of [join(profile,'node_modules/dsh-lab-agent'),join(resources,'
 function copyClientAtomic(source,target){const pending=target+"."+process.pid+".tmp";copyFileSync(source,pending);renameSync(pending,target);}
 function syncClient(){
  for(const name of ['dsh-lab-agent','dsh-lab-ui'])copyClientAtomic(join(repo,name==='dsh-lab-ui'?'packages/dsh-lab-ui/client/index.js':'client/index.js'),join(profile,'node_modules',name,'client/index.js'));
+ // Electron 实际加载 resources/app 中的副本；不同步会把界面锁在旧版本。
+ for(const name of ['dsh-lab-agent','dsh-lab-ui'])copyClientAtomic(join(repo,name==='dsh-lab-ui'?'packages/dsh-lab-ui/client/index.js':'client/index.js'),join(resources,'app/node_modules',name,'client/index.js'));
  for(const name of ['dsh-lab-agent','dsh-lab-ui']){const target=join(profile,'node_modules',name,'package.json');const manifest=JSON.parse(readFileSync(target));const source=JSON.parse(readFileSync(join(repo,'package.json')));manifest.dsh.client=source.dsh.client;if(name==='dsh-lab-agent'){manifest.exports=source.exports;manifest.dsh=source.dsh;}writeFileSync(target,JSON.stringify(manifest,null,2));}
  // 应用目录里的同一份包也要同步 exports/cordis patch，否则新服务行解析不到。
  {const appManifestPath=join(resources,'app','node_modules','dsh-lab-agent','package.json');const appManifest=JSON.parse(readFileSync(appManifestPath));const source=JSON.parse(readFileSync(join(repo,'package.json')));appManifest.exports=source.exports;appManifest.dsh=source.dsh;writeFileSync(appManifestPath,JSON.stringify(appManifest,null,2));}
