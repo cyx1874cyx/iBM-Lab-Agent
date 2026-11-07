@@ -143,11 +143,11 @@ function JournalMetricTiles({ journal, call }) {
 	}, [journal, call, storageKey]);
 	useEffect(() => {
 		const stored = readStored();
-		if (stored) { setData(stored); return; }
+		if (stored) { setData(stored); if (stored.top == null) void load(true); return; }
 		setData(undefined);
 		void load();
 	}, [journal]);
-	const missing = !data || Number(data.impactFactor) <= 0;
+	const missing = !data || Number(data.impactFactor) <= 0 || data.top == null;
 	const box = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
 	return h('div', {
 		className: 'ib-lit-metrics',

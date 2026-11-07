@@ -44322,12 +44322,13 @@ function JournalMetricTiles({ journal, call }) {
     const stored = readStored();
     if (stored) {
       setData(stored);
+      if (stored.top == null) void load2(true);
       return;
     }
     setData(void 0);
     void load2();
   }, [journal]);
-  const missing = !data || Number(data.impactFactor) <= 0;
+  const missing = !data || Number(data.impactFactor) <= 0 || data.top == null;
   const box = (label, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label), h("b", null, value));
   return h(
     "div",
