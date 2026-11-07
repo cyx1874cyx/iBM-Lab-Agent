@@ -161,7 +161,29 @@ export const literatureMethods = {
 					const field = (text.match(/大类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
 					const subfield = (text.match(/小类[：:]\s*([^|]+)/) ?? [])[1]?.trim();
 					const abbreviation = (row.match(/<font[^>]*grey[^>]*>([^<]+)<\/font>/i) ?? [])[1]?.trim();
-					if (Number.isFinite(impact) && impact > 0) value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, field: field || '', subfield: subfield || '' };
+					let top = null;
+					const journalId = (row.match(/journalid=(\d+)/) ?? [])[1];
+					if (journalId) {
+						try {
+							const detailResponse = await fetch(`https://www.letpub.com.cn/index.php?journalid=${journalId}&page=journalapp&view=detail`, { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(12000) });
+							if (detailResponse.ok) {
+								const detail = await detailResponse.text();
+								const start = detail.indexOf('Top期刊');
+								const section = start >= 0 ? detail.slice(start, start + 12000) : '';
+								const dataRow = (section.match(/<\/tr>\s*<tr[^>]*>([\s\S]*?)<\/tr>/i) ?? [])[1];
+								if (dataRow) {
+									const cells = [...dataRow.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => plain(cell[1]));
+									const topCell = cells[cells.length - 2] ?? '';
+									top = /是/.test(topCell) ? true : /否/.test(topCell) ? false : null;
+								}
+								if (top === null) {
+									const topFlag = section.match(/<\/table>[\s\S]{0,500}?<td[^>]*>\s*(是|否)\s*<\/td>/i);
+									if (topFlag) top = topFlag[1] === '是';
+								}
+							}
+						} catch { top = null; }
+					}
+					if (Number.isFinite(impact) && impact > 0) value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, top, field: field || '', subfield: subfield || '' };
 				}
 			}
 		} catch { value = null; }
