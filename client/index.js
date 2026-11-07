@@ -2407,7 +2407,7 @@ __export(entry_exports, {
 module.exports = __toCommonJS(entry_exports);
 
 // client/src/apply.js
-var import_react_dom12 = __toESM(require("react-dom"), 1);
+var import_react_dom11 = __toESM(require("react-dom"), 1);
 
 // client/src/h.js
 var import_react = __toESM(require("react"), 1);
@@ -2850,7 +2850,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-wb-page-head{position:relative}
 .ib-lit-head-actions .ib-lit-toolbar{margin:0}
 .ib-lit-drop-overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;border:2px dashed var(--ib-accent);border-radius:12px;background:rgba(227,242,236,.92);color:var(--ib-accent-ink);font:600 18px/1.4 var(--ib-font,system-ui);pointer-events:none}
-.ib-lit-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;align-items:center;gap:10px;background:var(--ib-bg);height:56px;padding:0;box-sizing:border-box}.ib-lit-head-slot{margin-left:auto;align-self:center;display:flex;align-items:center}.ib-lit-head-slot .ib-lit-toolbar{position:static;height:auto;padding:0;background:transparent}.ib-lit-head-slot .ib-lit-toolbar .ib-act{height:36px;padding:0 14px;font-size:14px}.ib-lit-workbench[data-toolbar-in-header] .ib-lit-tabs{top:0}.ib-lit-workbench[data-toolbar-in-header] .ib-lit-folders{top:48px}
+.ib-lit-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;align-items:center;gap:10px;background:var(--ib-bg);height:56px;padding:0;box-sizing:border-box}.ib-lit-toolbar .ib-act{height:38px;padding:0 14px;font-size:15px}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act{flex:none;height:40px;padding:0 16px;white-space:nowrap;border:1px solid var(--ib-accent);border-radius:8px;background:transparent;color:var(--ib-accent-ink);font:600 15px/1 var(--ib-font,system-ui);display:inline-flex;align-items:center;gap:7px;box-shadow:none}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act:hover{background:var(--ib-accent-soft)}
 .ib-lit-head-actions .ib-lit-toolbar .ib-act-primary{background:var(--ib-accent);border-color:var(--ib-accent);color:#fff}
@@ -4932,7 +4932,7 @@ function followProjectUpdates({ call, projectId, load: load2, getRevision, windo
 
 // client/src/components-project.js
 var import_react25 = __toESM(require("react"), 1);
-var import_react_dom8 = __toESM(require("react-dom"), 1);
+var import_react_dom7 = __toESM(require("react-dom"), 1);
 var import_react26 = require("react");
 
 // client/src/reader-host.js
@@ -4967,7 +4967,6 @@ function translationPrompt(request, translationId) {
 
 // plugins/literature/client/src/lit-panel.js
 var import_react11 = __toESM(require("react"), 1);
-var import_react_dom2 = require("react-dom");
 
 // plugins/literature/client/src/reading-link-upload.js
 var import_react10 = require("react");
@@ -5712,7 +5711,7 @@ function captureRouteForBundle(bundle, kind) {
   })();
   return { publisher, directSpringerSi, publisherUrl: doiUrl || sourcePublisherUrl };
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -6714,10 +6713,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   return h(
     import_react11.default.Fragment,
     null,
-    headerTarget ? (0, import_react_dom2.createPortal)(toolbarNode, headerTarget) : null,
     h(
       "div",
-      { className: "ib-lit ib-lit-workbench", "data-toolbar-in-header": headerTarget ? "true" : void 0, ref: literatureRoot },
+      { className: "ib-lit ib-lit-workbench", ref: literatureRoot },
       h(
         "section",
         {
@@ -6747,7 +6745,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           }
         },
         pdfDragging ? h("div", { className: "ib-lit-drop-overlay", role: "status" }, "松开以导入文献（PDF、DOCX）") : null,
-        headerTarget ? null : toolbarNode,
+        toolbarNode,
         h(
           "div",
           { className: "ib-lit-tabs" },
@@ -7188,7 +7186,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
 
 // client/src/components-nmr.js
 var import_react16 = require("react");
-var import_react_dom5 = require("react-dom");
+var import_react_dom4 = require("react-dom");
 
 // client/src/nmr-input-zone.js
 var import_react12 = require("react");
@@ -7285,7 +7283,7 @@ function NmrInputZone({ kind, name, drawn, busy, onFiles, onDraw }) {
 
 // client/src/nmr-simulation-settings.js
 var import_react13 = require("react");
-var import_react_dom3 = require("react-dom");
+var import_react_dom2 = require("react-dom");
 
 // src/nmr/simulation.js
 var SIMULATION_SOLVENTS = ["CDCl3", "DMSO-d6", "D2O", "CD3OD", "Acetone-d6", "CD3CN", "C6D6"];
@@ -7299,7 +7297,7 @@ function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
     set2(key2, e.target.value);
     if (key2 === "nucleus") set2("frequencyMHz", e.target.value === "1H" ? 400 : 100);
   } }, choices.map((v) => h("option", { key: v, value: v }, v))));
-  return (0, import_react_dom3.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
+  return (0, import_react_dom2.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
     if (e.target === e.currentTarget) onClose();
   } }, h(
     "section",
@@ -7324,12 +7322,12 @@ function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
 
 // client/src/nmr-delete-dialog.js
 var import_react14 = require("react");
-var import_react_dom4 = require("react-dom");
+var import_react_dom3 = require("react-dom");
 function NmrDeleteDialog({ row: row2, mode, busy, error: error62, onCancel, onDelete }) {
   const [selected, setSelected] = (0, import_react14.useState)([]);
   const exists = (slot) => slot === "simulation" ? !!row2.simulationArtifact?.sha256 : !!row2.artifacts?.[slot]?.sha256 || (row2.artifactHistory || []).some((h2) => !!h2.artifacts?.[slot]?.sha256);
   const toggle = (slot) => setSelected((old) => old.includes(slot) ? old.filter((v) => v !== slot) : [...old, slot]);
-  return (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
+  return (0, import_react_dom3.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
     if (e.target === e.currentTarget && !busy) onCancel();
   } }, h(
     "section",
@@ -7902,7 +7900,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
         h(EntryConversationButton, { sessionId: row2.sessionId || row2.conversationSessionId, onOpen: onOpenConversation, notify: setError })
       )
     ))) : h("div", { className: "ib-lit-empty" }, loading ? "正在读取核磁条目…" : "点击新建条目，选择核磁原始数据和分子结构式。"),
-    form ? (0, import_react_dom5.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop" }, h(
+    form ? (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop" }, h(
       "section",
       { className: "ib-nmr-form", role: "dialog", "aria-modal": true, "aria-label": "核磁条目输入", onDragOver: (event) => {
         if (dataDrag(event)) {
@@ -7931,7 +7929,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
         setError("");
       } }, "取消"), h("button", { className: "ib-act", "data-kind": "accent", disabled: busy || !structureReady, onClick: () => void saveForm() }, busy ? "正在创建…" : form.existing ? "保存输入" : "新建条目"))
     )), document.body) : null,
-    drawing && form ? (0, import_react_dom5.createPortal)(h("div", { className: "ib-overlay ib-nmr-drawing" }, h(KetcherEditorModal, { entry: { name: form.compoundName || form.title || "目标结构", smiles: form.smiles }, onSave: (smiles) => {
+    drawing && form ? (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-drawing" }, h(KetcherEditorModal, { entry: { name: form.compoundName || form.title || "目标结构", smiles: form.smiles }, onSave: (smiles) => {
       if (!smiles?.trim()) {
         setError("请先绘制分子结构");
         return;
@@ -7940,7 +7938,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
       setDrawing(false);
       setError("");
     }, onCancel: () => setDrawing(false) })), document.body) : null,
-    preview ? (0, import_react_dom5.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (event) => {
+    preview ? (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (event) => {
       if (event.target === event.currentTarget) setPreview(null);
     } }, h("section", { className: "ib-nmr-preview", role: "dialog", "aria-modal": true, "aria-label": preview.kind === "structure" ? "输入结构式预览" : "标峰报告预览" }, h("header", null, h("b", null, preview.row.compound?.name || preview.row.title), h("button", { className: "ib-act", onClick: () => setPreview(null) }, "关闭")), preview.kind === "structure" ? h(NmrStructure, { row: preview.row, projectId, call, large: true }) : h("iframe", { title: "核磁标峰报告", src: artifactUrl(projectId, preview.row, "report") + "&preview=1&v=" + encodeURIComponent(preview.row.updatedAt || "current") }))), document.body) : null,
     menu ? h(ReadingContextMenu, { menu, onClose: closeMenu, onDelete: (ids) => remove(ids, "all"), onDeleteOutputs: (ids) => remove(ids, "outputs"), label: "核磁条目操作" }) : null
@@ -7949,7 +7947,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
 
 // client/src/components-plotting.js
 var import_react22 = require("react");
-var import_react_dom7 = require("react-dom");
+var import_react_dom6 = require("react-dom");
 
 // node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -28808,7 +28806,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
 
 // client/src/plot-layout-editor.js
 var import_react21 = require("react");
-var import_react_dom6 = require("react-dom");
+var import_react_dom5 = require("react-dom");
 
 // src/plot/layout.js
 var finite = external_exports.number().finite();
@@ -29440,7 +29438,7 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
         dirty ? h("small", null, "导出会先保存当前修改。") : null
       )
     ),
-    adding ? (0, import_react_dom6.createPortal)(h(LayoutPicker, { rows, projectId, adding: true, exclude: row2.id, onClose: () => setAdding(false), onChoose: (ids) => save(ids) }), document.body) : null
+    adding ? (0, import_react_dom5.createPortal)(h(LayoutPicker, { rows, projectId, adding: true, exclude: row2.id, onClose: () => setAdding(false), onChoose: (ids) => save(ids) }), document.body) : null
   );
 }
 
@@ -29733,7 +29731,7 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
         void upload(Array.from(e.dataTransfer.files || []));
       }
     },
-    headerTarget ? (0, import_react_dom7.createPortal)(actions, headerTarget) : h("div", { className: "ib-plot-toolbar" }, h("div", null, h("h2", null, "科研绘图"), h("p", null, "导入数据生成 Origin 图，或拖入图片进行裁剪、旋转与归档。")), actions),
+    headerTarget ? (0, import_react_dom6.createPortal)(actions, headerTarget) : h("div", { className: "ib-plot-toolbar" }, h("div", null, h("h2", null, "科研绘图"), h("p", null, "导入数据生成 Origin 图，或拖入图片进行裁剪、旋转与归档。")), actions),
     error62 ? h("div", { className: "ib-error", role: "alert" }, error62) : null,
     notice ? h("p", { className: "ib-plot-notice", role: "status" }, notice) : null,
     h("input", { ref: fileInput, type: "file", hidden: true, multiple: true, accept: ".csv,.tsv,.txt,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,.gif", onChange: (e) => {
@@ -29774,14 +29772,14 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
     })),
     entryMenu ? h(ReadingContextMenu, { menu: entryMenu, label: "绘图条目操作", onClose: () => setEntryMenu(null), onDelete: (ids) => void remove(ids) }) : null,
     drag ? h("div", { className: "ib-plot-drop-hint" }, "松开以导入文件并创建条目") : null,
-    newPlot ? (0, import_react_dom7.createPortal)(h("div", { className: "ib-plot-backdrop" }, h("section", { className: "ib-plot-import", role: "dialog", "aria-modal": true, "aria-label": "新建绘图" }, h("header", null, h("h3", null, "新建绘图"), button3("关闭", () => setNewPlot(false), uploading)), h("ol", { className: "ib-plot-import-steps" }, h("li", null, "1  导入数据或图片"), h("li", null, "2  数据选图 / 图片编辑"), h("li", null, "3  调整图片 · 保存与导出")), h("button", { className: "ib-plot-upload-zone", disabled: uploading, onClick: () => fileInput.current?.click() }, h(ChartGlyph, { kind: "line_symbol" }), h("strong", null, uploading ? "正在导入文件…" : "拖入数据文件，或点击选择"), h("span", null, "CSV、Excel、PNG、JPEG、WebP、TIFF、BMP、GIF · 单文件不超过 25 MB")), error62 ? h("p", { role: "alert", className: "ib-error" }, error62) : null, h("p", { className: "ib-muted" }, "数据文件可选择工作表及表头行；图片直接进入裁剪、旋转编辑。每个文件生成一个条目，原文件保留。"))), document.body) : null,
-    previewId && rows.some((row2) => row2.id === previewId) ? (0, import_react_dom7.createPortal)(h(PlotImagePreview, { row: rows.find((row2) => row2.id === previewId), projectId, onClose: () => setPreviewId(null), onEdit: () => {
+    newPlot ? (0, import_react_dom6.createPortal)(h("div", { className: "ib-plot-backdrop" }, h("section", { className: "ib-plot-import", role: "dialog", "aria-modal": true, "aria-label": "新建绘图" }, h("header", null, h("h3", null, "新建绘图"), button3("关闭", () => setNewPlot(false), uploading)), h("ol", { className: "ib-plot-import-steps" }, h("li", null, "1  导入数据或图片"), h("li", null, "2  数据选图 / 图片编辑"), h("li", null, "3  调整图片 · 保存与导出")), h("button", { className: "ib-plot-upload-zone", disabled: uploading, onClick: () => fileInput.current?.click() }, h(ChartGlyph, { kind: "line_symbol" }), h("strong", null, uploading ? "正在导入文件…" : "拖入数据文件，或点击选择"), h("span", null, "CSV、Excel、PNG、JPEG、WebP、TIFF、BMP、GIF · 单文件不超过 25 MB")), error62 ? h("p", { role: "alert", className: "ib-error" }, error62) : null, h("p", { className: "ib-muted" }, "数据文件可选择工作表及表头行；图片直接进入裁剪、旋转编辑。每个文件生成一个条目，原文件保留。"))), document.body) : null,
+    previewId && rows.some((row2) => row2.id === previewId) ? (0, import_react_dom6.createPortal)(h(PlotImagePreview, { row: rows.find((row2) => row2.id === previewId), projectId, onClose: () => setPreviewId(null), onEdit: () => {
       setPreviewId(null);
       setLayoutOnly(false);
       setOpenId(previewId);
     } }), document.body) : null,
-    layoutPicker ? (0, import_react_dom7.createPortal)(h(LayoutPicker, { rows, projectId, onClose: () => setLayoutPicker(false), onChoose: createLayout }), document.body) : null,
-    current ? (0, import_react_dom7.createPortal)(current.layout ? h(LayoutEditor, { key: projectId + current.id, row: current, rows, projectId, call, onClose: () => setOpenId(null), onSaved: (record2) => setRows((old) => old.map((item) => item.id === record2.id ? record2 : item)) }) : current.image ? h(ImageEntryEditor, { key: projectId + current.id, row: current, projectId, call, onClose: () => setOpenId(null), onSaved: (record2) => {
+    layoutPicker ? (0, import_react_dom6.createPortal)(h(LayoutPicker, { rows, projectId, onClose: () => setLayoutPicker(false), onChoose: createLayout }), document.body) : null,
+    current ? (0, import_react_dom6.createPortal)(current.layout ? h(LayoutEditor, { key: projectId + current.id, row: current, rows, projectId, call, onClose: () => setOpenId(null), onSaved: (record2) => setRows((old) => old.map((item) => item.id === record2.id ? record2 : item)) }) : current.image ? h(ImageEntryEditor, { key: projectId + current.id, row: current, projectId, call, onClose: () => setOpenId(null), onSaved: (record2) => {
       setRows((old) => old.map((item) => item.id === record2.id ? record2 : item));
       setOpenId(null);
       setNotice("图片已保存。");
@@ -30214,7 +30212,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
   };
   return h("div", null, h("div", { className: "ib-head" }, h("div", null, h("div", { className: "ib-kicker" }, "Research Projects"), h("h1", null, "选择一个课题继续"), h("p", null, "每个课题拥有独立的核心记忆、科研助手对话和研究成果。创建课题后会自动打开专属工作区并开始科研助手对话。")), h("div", { className: "ib-actions" }, h("button", { className: "ib-btn", disabled: !state3.defaults.capabilities?.documents && !state3.defaults.capabilities?.experimentTemplates, onClick: onOpenTemplates }, "模板管理"), h("button", { className: "ib-btn", "data-primary": true, onClick: () => setCreating(true) }, "+ 新建课题"))), creating ? h(CreateProject, { call, defaults: state3.defaults, onCancel: () => setCreating(false), onCreated: (project2, presetId) => void launch(project2, presetId) }) : null, state3.error ? h("div", { className: "ib-error" }, state3.error) : null, state3.loading ? h("div", { className: "ib-empty" }, "正在读取课题…") : state3.projects.length ? h("div", { className: "ib-grid" }, state3.projects.map((project2) => h("button", { className: "ib-project", key: project2.id, disabled: launching === project2.id, onClick: () => onOpen(project2) }, h("div", { className: "ib-project-icon" }, "PJ"), h("h2", null, project2.name), h("p", null, launching === project2.id ? "正在创建专属工作区并启动对话…" : "进入课题空间，继续对话、更新记忆或查询研究成果。"), h("div", { className: "ib-project-foot" }, h("span", null, `记忆 v${project2.memoryVersion || "1"}`), h("span", null, when(project2.updatedAt)))))) : h("div", { className: "ib-empty" }, "还没有课题。点击“新建课题”，先写下研究问题与目标。"));
 }
-function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null, literatureHeaderTarget = null }) {
+function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null }) {
   usePluginSwitches();
   (0, import_react26.useEffect)(() => {
     setDesktopProject(project2.id);
@@ -30363,7 +30361,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load2() }, "刷新")
     ) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load2() }, "刷新资料")) : null,
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget })) : null,
+    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2 })) : null,
     activeTab === "characterization" || workbench && available.characterization && visitedTabs.characterization ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor("characterization")?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: "nmr", nmrRows: characterization.nmr || [], onOpenConversation: openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, void 0, identity) })) : null,
     activeTab === "plotting" || workbench && available.plotting && visitedTabs.plotting ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor("plotting")?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: "plot", headerTarget: plottingHeaderTarget, onOpenConversation: openEntryConversation, onRefineConversation: (row2, options = {}) => onStartChat(data.project, { entryIdentity: { kind: "plot", recordId: row2.id }, autoSubmit: true, preserveDraft: true, prompt: options.prompt || `请查看当前绑定的绘图条目（条目 ID：${row2.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。` }) })) : null,
     !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
@@ -30392,7 +30390,7 @@ var OverlayBoundary = class extends (import_react25.default.Component ?? class {
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
   const [project2, setProject] = (0, import_react26.useState)(initial ?? null);
   const [templates, setTemplates] = (0, import_react26.useState)(false);
-  return import_react_dom8.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
+  return import_react_dom7.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/webvpn-tab.js
@@ -30892,7 +30890,7 @@ function registerProjectTab(ctx) {
 }
 
 // client/src/hero-project.js
-var import_react_dom9 = __toESM(require("react-dom"), 1);
+var import_react_dom8 = __toESM(require("react-dom"), 1);
 var import_react29 = require("react");
 var runtime = null;
 function setHeroProjectRuntime(next) {
@@ -31056,7 +31054,7 @@ function installHeroProjectChip() {
     const node2 = host;
     host = null;
     try {
-      import_react_dom9.default.unmountComponentAtNode(node2);
+      import_react_dom8.default.unmountComponentAtNode(node2);
     } catch {
     }
     node2.remove();
@@ -31074,7 +31072,7 @@ function installHeroProjectChip() {
     host.dataset.dshLabHeroProject = "1";
     row2.appendChild(host);
     try {
-      import_react_dom9.default.render(h(HeroProjectPicker), host);
+      import_react_dom8.default.render(h(HeroProjectPicker), host);
     } catch (reason) {
       console.warn("[dsh-lab-agent] hero 课题选择框渲染失败：", reason);
       unmount();
@@ -31207,7 +31205,7 @@ function addConversationDrop(ctx, files) {
 
 // client/src/components-reagents.js
 var import_react31 = require("react");
-var import_react_dom10 = require("react-dom");
+var import_react_dom9 = require("react-dom");
 var kinds = { chemical: "化学试剂", biological: "生物试剂", cells: "细胞" };
 var sourceTime = (value) => value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "";
 function ReagentPanel({ call }) {
@@ -31320,7 +31318,7 @@ function ReagentPanel({ call }) {
     ))),
     !loading && !data?.records?.length ? h("div", { className: "ib-lit-empty" }, sources.every((s) => !s.configured) ? "请先展开“数据来源”，关联试剂清单。" : "没有匹配的条目，试试其他名称、CAS 或货号。") : null,
     data?.total > data?.limit ? h("div", { className: "ib-reagent-pagination" }, h("span", null, `${data.offset + 1}–${Math.min(data.offset + data.limit, data.total)} / ${data.total}`), h("button", { className: "ib-act", disabled: loading || data.offset === 0, onClick: () => setOffset(Math.max(0, data.offset - data.limit)) }, "上一页"), h("button", { className: "ib-act", disabled: loading || data.offset + data.limit >= data.total, onClick: () => setOffset(data.offset + data.limit) }, "下一页")) : null,
-    selected ? (0, import_react_dom10.createPortal)(h("div", { className: "ib-overlay ib-reagent-modal", onClick: (event) => {
+    selected ? (0, import_react_dom9.createPortal)(h("div", { className: "ib-overlay ib-reagent-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setSelected(null);
     } }, h("section", { className: "ib-reagent-detail", role: "dialog", "aria-modal": true, "aria-label": "试剂条目详情" }, h("header", null, h("h2", null, selected.name), h("button", { className: "ib-act", autoFocus: true, onClick: () => setSelected(null) }, "关闭")), h("p", null, `${selected.fileName} / ${selected.sheet} / 第 ${selected.row} 行`), h("dl", null, h("div", null, h("dt", null, "存放位置"), h("dd", null, selected.location)), selected.fields.map((field, index2) => h("div", { key: index2 }, h("dt", null, field.label), h("dd", null, field.value, field.note ? h("small", null, field.note) : null)))), h("footer", null, h("button", { className: "ib-act", disabled: busy, onClick: () => void sourceAction("reagents_open_source", selected.sourceId) }, "打开原始清单")))), document.body) : null
   );
@@ -31328,7 +31326,7 @@ function ReagentPanel({ call }) {
 
 // client/src/components-knowledge.js
 var import_react32 = require("react");
-var import_react_dom11 = require("react-dom");
+var import_react_dom10 = require("react-dom");
 var roles = { original: "论文正文", reading_note: "精读笔记", metadata_note: "题录资料", supplement: "补充材料", thesis: "学位论文" };
 function knowledgeLocator(loc) {
   if (!loc) return "原文件";
@@ -31501,7 +31499,7 @@ function KnowledgePanel({ project: project2, call, openChat, conversation, activ
         void upload(event.dataTransfer.files);
       }
     } },
-    headerTarget ? (0, import_react_dom11.createPortal)(controls2, headerTarget) : controls2,
+    headerTarget ? (0, import_react_dom10.createPortal)(controls2, headerTarget) : controls2,
     error62 ? h("div", { className: "ib-error", role: "alert" }, error62) : null,
     notice ? h("div", { className: "ib-knowledge-notice", role: "status" }, notice, h("button", { "aria-label": "关闭提示", onClick: () => setNotice("") }, "×")) : null,
     settingsOpen ? h(
@@ -31873,7 +31871,6 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   const [selection, setSelection] = (0, import_react33.useState)("");
   const [knowledgeHeaderTarget, setKnowledgeHeaderTarget] = (0, import_react33.useState)(null);
   const [plottingHeaderTarget, setPlottingHeaderTarget] = (0, import_react33.useState)(null);
-  const [literatureHeaderTarget, setLiteratureHeaderTarget] = (0, import_react33.useState)(null);
   const centerRef = (0, import_react33.useRef)(null);
   const activePanel = usePanelInfo((info) => info.activePanelId);
   const knowledgeActive = Boolean(project2 && module2.id === "knowledge" && !templates && !activePanel);
@@ -32113,7 +32110,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         const selected = window.getSelection();
         if (selected && centerRef.current?.contains(selected.anchorNode)) setSelection(String(selected).trim().slice(0, 6e3));
       } },
-      h("div", { className: "ib-wb-page-head", hidden: !project2 }, h("div", null, h("div", { className: "ib-wb-breadcrumb" }, "工作台", h("span", null, "/"), pageTitle), h("h1", null, pageTitle), h("p", null, project2 ? module2.caption : "创建或打开工程文件，继续你的研究工作")), knowledgeActive ? h("div", { className: "ib-wb-page-actions", ref: setKnowledgeHeaderTarget }) : null, module2.id === "plotting" && !templates && !activePanel ? h("div", { className: "ib-wb-page-actions", ref: setPlottingHeaderTarget }) : null, module2.id === "literature" && !templates && !activePanel ? h("div", { className: "ib-wb-page-actions ib-lit-head-slot", ref: setLiteratureHeaderTarget }) : null, project2 && selection ? h("button", { className: "ib-btn", onClick: quoteSelection, onMouseDown: (event) => event.preventDefault() }, "引用选中文本 →") : null),
+      h("div", { className: "ib-wb-page-head", hidden: !project2 }, h("div", null, h("div", { className: "ib-wb-breadcrumb" }, "工作台", h("span", null, "/"), pageTitle), h("h1", null, pageTitle), h("p", null, project2 ? module2.caption : "创建或打开工程文件，继续你的研究工作")), knowledgeActive ? h("div", { className: "ib-wb-page-actions", ref: setKnowledgeHeaderTarget }) : null, module2.id === "plotting" && !templates && !activePanel ? h("div", { className: "ib-wb-page-actions", ref: setPlottingHeaderTarget }) : null, project2 && selection ? h("button", { className: "ib-btn", onClick: quoteSelection, onMouseDown: (event) => event.preventDefault() }, "引用选中文本 →") : null),
       error62 ? h("div", { className: "ib-wb-alert", role: "alert" }, error62) : null,
       openingProject ? h("div", { className: "ib-wb-alert", role: "status" }, "正在打开课题工作区与对话…") : null,
       !project2 ? h("div", { className: "ib-wb-content ib-wb-welcome ib-overlay ib-wb-business" }, h(ProjectFileHome, { call, onOpen: openProject, welcome: true })) : null,
@@ -32123,7 +32120,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         project2 ? h(
           "div",
           { className: "ib-wb-project-holder" },
-          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
           pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module2.id === "polishing" ? h(PolishingPlaceholder) : module2.id === "reagents" ? h(ReagentPanel, { call }) : null,
           module2.id === "knowledge" ? h(KnowledgePanel, { key: project2.id, project: project2, call, openChat: openKnowledgeChat, activeSessionId, headerTarget: knowledgeHeaderTarget, conversation: knowledgeActive ? renderSlot("main", {}, { entryKey: "conversation" }) : null }) : null
         ) : null
@@ -32240,7 +32237,7 @@ function applyUi(ctx) {
     if (!root) return;
     const node2 = root;
     root = null;
-    import_react_dom12.default.unmountComponentAtNode(node2);
+    import_react_dom11.default.unmountComponentAtNode(node2);
     node2.remove();
     if (previousNativeTop) document.body.style.setProperty("--ib-native-top", previousNativeTop);
     else document.body.style.removeProperty("--ib-native-top");
@@ -32363,7 +32360,7 @@ function applyUi(ctx) {
     if (navigator.platform === "Win32" && (window.location.protocol === "dsh-app:" || /Electron\//.test(navigator.userAgent))) document.body.style.setProperty("--ib-native-top", "40px");
     document.body.appendChild(root);
     try {
-      import_react_dom12.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
+      import_react_dom11.default.render(h(OverlayBoundary, { onClose: close }, h(Panel, { call, onClose: close, onDeleteProject: deleteProject, onStartChat: launchProject, initial: initial ?? null })), root);
     } catch (reason) {
       console.error("[dsh-lab-agent] overlay mount failed:", reason);
       close();

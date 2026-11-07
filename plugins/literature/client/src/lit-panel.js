@@ -5,7 +5,6 @@
  * 只依赖 dsh-lab-agent/client-sdk 提供的宿主能力，以及公开导出的纯规则函数。
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
 import { linkIntakePrompt } from './reading-link-upload.js';
 import {
 	h, useProjectViewValue, useProjectViewScroll, fileToBase64, useReadingInteractions,
@@ -115,7 +114,7 @@ function captureRouteForBundle(bundle, kind) {
 }
 
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};
@@ -898,11 +897,11 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h('input', { type: 'file', accept: '.ris', multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
 						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }))
 
-			return h(React.Fragment, null, headerTarget ? createPortal(toolbarNode, headerTarget) : null, h('div', { className: 'ib-lit ib-lit-workbench', 'data-toolbar-in-header': headerTarget ? 'true' : undefined, ref: literatureRoot },
+			return h(React.Fragment, null, h('div', { className: 'ib-lit ib-lit-workbench', ref: literatureRoot },
 				h('section', { className: 'ib-lit-catalog', 'data-dragging': pdfDragging ? 'true' : undefined,
 				'aria-label': '精读文献，支持拖入 PDF、DOCX', onDragEnter: (event) => { if (pdfDragEvent(event)) { dragDepth.current++; setPdfDragging(true); } }, onDragOver: (event) => { if (pdfDragEvent(event)) event.dataTransfer.dropEffect = 'copy'; }, onDragLeave: (event) => { if (pdfDragEvent(event) && --dragDepth.current <= 0) { dragDepth.current = 0; setPdfDragging(false); } }, onDrop: (event) => { if (!pdfDragEvent(event)) return; dragDepth.current = 0; setPdfDragging(false); void uploadPdfs(event.dataTransfer.files); } },
 				pdfDragging ? h('div', { className: 'ib-lit-drop-overlay', role: 'status' }, '松开以导入文献（PDF、DOCX）') : null,
-					headerTarget ? null : toolbarNode,
+					toolbarNode,
 					h('div', { className: 'ib-lit-tabs' },
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'reading' ? 'true' : undefined, onClick: () => setActiveLitTab('reading') }, '精读文献 ', h('span', null, readingReports.length)),
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': activeLitTab === 'search' ? 'true' : undefined, onClick: () => setActiveLitTab('search') }, '检索记录 ', h('span', null, searches.length))),
