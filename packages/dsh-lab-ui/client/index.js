@@ -8638,7 +8638,7 @@ __export(util_exports, {
   getParsedType: () => getParsedType,
   getSizableOrigin: () => getSizableOrigin,
   hexToUint8Array: () => hexToUint8Array,
-  hide: () => hide2,
+  hide: () => hide,
   installLazyProp: () => installLazyProp,
   isObject: () => isObject,
   isPlainObject: () => isPlainObject,
@@ -9338,7 +9338,7 @@ function own(inst, key2, value, enumerable = true) {
   Object.defineProperty(inst, key2, { configurable: true, writable: true, enumerable, value });
   return value;
 }
-function hide2(inst, key2, value) {
+function hide(inst, key2, value) {
   return own(inst, key2, value, false);
 }
 // @__NO_SIDE_EFFECTS__
@@ -10513,7 +10513,7 @@ var $ZodCheckProperty = /* @__PURE__ */ $constructor("$ZodCheckProperty", (inst,
 });
 var $ZodCheckProperties = /* @__PURE__ */ $constructor("$ZodCheckProperties", (inst, def) => {
   $ZodCheck.init(inst, def);
-  hide2(inst, Symbol.iterator, function* () {
+  hide(inst, Symbol.iterator, function* () {
     yield inst;
   });
   let entries;
@@ -10713,7 +10713,7 @@ var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
 }, {
   // Wrappers extend this by installing a richer factory over it; reading it eagerly would defeat the laziness.
   get "~standard"() {
-    return hide2(this, "~standard", standardProps(this));
+    return hide(this, "~standard", standardProps(this));
   },
   set "~standard"(value) {
     own(this, "~standard", value);
@@ -31949,9 +31949,9 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   (0, import_react33.useEffect)(() => controller.subscribe(setProject), [controller]);
   (0, import_react33.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
   (0, import_react33.useEffect)(() => {
-    const hide3 = () => setChatHidden(true);
-    window.addEventListener("ibm-lab:hide-chat", hide3);
-    return () => window.removeEventListener("ibm-lab:hide-chat", hide3);
+    const hide2 = () => setChatHidden(true);
+    window.addEventListener("ibm-lab:hide-chat", hide2);
+    return () => window.removeEventListener("ibm-lab:hide-chat", hide2);
   }, [setChatHidden]);
   (0, import_react33.useEffect)(() => {
     document.title = "iBM Lab";
@@ -32188,7 +32188,7 @@ ${selection}` }).catch((reason) => setError(reason.message));
         project2 ? h(
           "div",
           { className: "ib-wb-project-holder" },
-          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onHideChat: hide, onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
+          h("div", { className: "ib-wb-project-seat", hidden: !["literature", "characterization", "plotting"].includes(module2.id) }, h(Project, { key: project2.id, project: project2, call, activeTab: projectTab, workbench: true, plottingHeaderTarget, literatureHeaderTarget, onHideChat: () => setChatHidden(true), onBack: () => controller.open(null), onDelete: deleteProject, onStartChat: onTask })),
           pluginPanel ? h(pluginPanel.render, { key: pluginPanel.id, ...pluginProps }) : module2.id === "polishing" ? h(PolishingPlaceholder) : module2.id === "reagents" ? h(ReagentPanel, { call }) : null,
           module2.id === "knowledge" ? h(KnowledgePanel, { key: project2.id, project: project2, call, openChat: openKnowledgeChat, activeSessionId, headerTarget: knowledgeHeaderTarget, conversation: knowledgeActive ? renderSlot("main", {}, { entryKey: "conversation" }) : null }) : null
         ) : null
