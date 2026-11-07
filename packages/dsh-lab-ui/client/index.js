@@ -2916,7 +2916,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-card .ib-lit-title{font:600 20px/1.35 var(--ib-serif,Georgia,serif);color:var(--ib-text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ib-lit-card-cite{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden}.ib-lit-cite-text{min-width:0;font:italic 400 14px/1.35 var(--ib-font,system-ui);color:#6a7780;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-field-pill{flex:none;padding:4px 10px;border-radius:999px;background:#eef2f0;color:#52645d;font:500 12px/1 var(--ib-font,system-ui)}
 .ib-lit-card-more{color:var(--ib-muted);font-size:22px;line-height:1;flex:none}
-.ib-lit-metrics{flex:none;display:flex;align-items:center;gap:6px}.ib-lit-metric-box{width:62px;height:72px;border-radius:10px;background:#f3f6f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;box-sizing:border-box}.ib-lit-metric-box span{font:500 10px/1.2 var(--ib-font,system-ui);color:#78867f;white-space:nowrap}.ib-lit-metric-box b{font:700 18px/1 var(--ib-serif,Georgia,serif);color:#4b5b54}.ib-lit-metric-box[data-tone=if]{background:#eaf5ef}.ib-lit-metric-box[data-tone=if] b{color:#0f766e}.ib-lit-metric-box[data-tone=cas]{background:#eef4fb}.ib-lit-metric-box[data-tone=cas] b{color:#2563eb}.ib-lit-metric-box[data-tone=top]{background:#f3f4f6}.ib-lit-metric-box[data-tone=top] b{color:#6b7280;font-size:14px}
+.ib-lit-metrics[data-missing=true]{cursor:pointer}.ib-lit-metrics[data-missing=true]:hover{opacity:.82}.ib-lit-metrics{flex:none;display:flex;align-items:center;gap:6px}.ib-lit-metric-box{width:62px;height:72px;border-radius:10px;background:#f3f6f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;box-sizing:border-box}.ib-lit-metric-box span{font:500 10px/1.2 var(--ib-font,system-ui);color:#78867f;white-space:nowrap}.ib-lit-metric-box b{font:700 18px/1 var(--ib-serif,Georgia,serif);color:#4b5b54}.ib-lit-metric-box[data-tone=if]{background:#eaf5ef}.ib-lit-metric-box[data-tone=if] b{color:#0f766e}.ib-lit-metric-box[data-tone=cas]{background:#eef4fb}.ib-lit-metric-box[data-tone=cas] b{color:#2563eb}.ib-lit-metric-box[data-tone=top]{background:#f3f4f6}.ib-lit-metric-box[data-tone=top] b{color:#6b7280;font-size:14px}
 .ib-lit-card-metrics b{font:600 13px/1.2 var(--ib-font,system-ui);color:#0f6b5c}
 .ib-lit-card-metrics span{white-space:nowrap}
 .ib-lit-card-metrics small{max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
@@ -5714,37 +5714,64 @@ function captureRouteForBundle(bundle, kind) {
   return { publisher, directSpringerSi, publisherUrl: doiUrl || sourcePublisherUrl };
 }
 function JournalMetricTiles({ journal, call }) {
-  const [data, setData] = (0, import_react11.useState)(void 0);
-  (0, import_react11.useEffect)(() => {
-    if (!journal) {
-      setData(null);
+  const storageKey = journal ? `ib-lit-journal-metrics:${journal}` : "";
+  const readStored = () => {
+    if (!storageKey) return void 0;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return void 0;
+      const value = JSON.parse(raw);
+      return value && Number(value.impactFactor) > 0 ? value : void 0;
+    } catch {
       return void 0;
     }
-    let active = true;
-    let retry;
-    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
-      if (!active) return;
-      setData(value ?? null);
-      if (value && value.top == null) {
-        retry = setTimeout(() => {
-          void call("tasks_journal_metrics", { request: { journal } }).then((next) => {
-            if (active && next) setData(next);
-          }).catch(() => {
-          });
-        }, 12e3);
-      }
-    }).catch((error62) => {
-      if (active) setData(null);
-    });
-    return () => {
-      active = false;
-      if (retry) clearTimeout(retry);
-    };
-  }, [journal, call]);
+  };
+  const [data, setData] = (0, import_react11.useState)(readStored);
+  const [loading, setLoading] = (0, import_react11.useState)(false);
+  const load2 = (0, import_react11.useCallback)(async (force = false) => {
+    if (!journal) {
+      setData(null);
+      return;
+    }
+    const stored = readStored();
+    if (stored && !force) {
+      setData(stored);
+      return;
+    }
+    setLoading(true);
+    try {
+      const value = await call("tasks_journal_metrics", { request: { journal } });
+      const next = value ?? null;
+      setData(next);
+      if (next?.impactFactor && storageKey) localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      setData((old) => old ?? null);
+    } finally {
+      setLoading(false);
+    }
+  }, [journal, call, storageKey]);
+  (0, import_react11.useEffect)(() => {
+    const stored = readStored();
+    if (stored) {
+      setData(stored);
+      return;
+    }
+    setData(void 0);
+    void load2();
+  }, [journal]);
+  const missing = !data || Number(data.impactFactor) <= 0;
   const box = (label2, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label2), h("b", null, value));
   return h(
     "div",
-    { className: "ib-lit-metrics" },
+    {
+      className: "ib-lit-metrics",
+      "data-missing": missing ? "true" : void 0,
+      title: missing ? "点击获取期刊指标" : void 0,
+      onClick: (event) => {
+        event.stopPropagation();
+        if (missing && !loading) void load2(true);
+      }
+    },
     box("影响因子", data === void 0 ? "…" : data ? data.impactFactor : "—", "if"),
     box("中科院分区", data === void 0 ? "…" : data?.casTier ? data.casTier + "区" : "待核实", "cas"),
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")

@@ -116,29 +116,49 @@ function captureRouteForBundle(bundle, kind) {
 
 		/** 文献管理两栏：左侧检索记录 + 右侧精读档案。 */
 function JournalMetricTiles({ journal, call }) {
-	const [data, setData] = useState(undefined);
+	const storageKey = journal ? `ib-lit-journal-metrics:${journal}` : '';
+	const readStored = () => {
+		if (!storageKey) return undefined;
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (!raw) return undefined;
+			const value = JSON.parse(raw);
+			return value && Number(value.impactFactor) > 0 ? value : undefined;
+		} catch { return undefined; }
+	};
+	const [data, setData] = useState(readStored);
+	const [loading, setLoading] = useState(false);
+	const load = useCallback(async (force = false) => {
+		if (!journal) { setData(null); return; }
+		const stored = readStored();
+		if (stored && !force) { setData(stored); return; }
+		setLoading(true);
+		try {
+			const value = await call('tasks_journal_metrics', { request: { journal } });
+			const next = value ?? null;
+			setData(next);
+			if (next?.impactFactor && storageKey) localStorage.setItem(storageKey, JSON.stringify(next));
+		} catch { setData((old) => old ?? null); }
+		finally { setLoading(false); }
+	}, [journal, call, storageKey]);
 	useEffect(() => {
-		if (!journal) { setData(null); return undefined; }
-		let active = true;
-		let retry;
-		void call('tasks_journal_metrics', { request: { journal } }).then((value) => {
-			if (!active) return;
-			setData(value ?? null);
-			if (value && value.top == null) {
-				retry = setTimeout(() => {
-					void call('tasks_journal_metrics', { request: { journal } }).then((next) => { if (active && next) setData(next); }).catch(() => {});
-				}, 12000);
-			}
-		}).catch((error) => { if (active) setData(null); });
-		return () => { active = false; if (retry) clearTimeout(retry); };
-	}, [journal, call]);
+		const stored = readStored();
+		if (stored) { setData(stored); return; }
+		setData(undefined);
+		void load();
+	}, [journal]);
+	const missing = !data || Number(data.impactFactor) <= 0;
 	const box = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
-	return h('div', { className: 'ib-lit-metrics' },
+	return h('div', {
+		className: 'ib-lit-metrics',
+		'data-missing': missing ? 'true' : undefined,
+		title: missing ? '点击获取期刊指标' : undefined,
+		onClick: (event) => { event.stopPropagation(); if (missing && !loading) void load(true); }
+	},
 		box('影响因子', data === undefined ? '…' : data ? data.impactFactor : '—', 'if'),
 		box('中科院分区', data === undefined ? '…' : data?.casTier ? data.casTier + '区' : '待核实', 'cas'),
 		box('TOP期刊', data === undefined ? '…' : data?.top === true ? '是' : data?.top === false ? '否' : '待核实', 'top'));
 }
-
 export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);

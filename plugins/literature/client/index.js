@@ -44282,37 +44282,64 @@ function captureRouteForBundle(bundle, kind) {
   return { publisher, directSpringerSi, publisherUrl: doiUrl || sourcePublisherUrl };
 }
 function JournalMetricTiles({ journal, call }) {
-  const [data, setData] = (0, import_react10.useState)(void 0);
-  (0, import_react10.useEffect)(() => {
-    if (!journal) {
-      setData(null);
+  const storageKey = journal ? `ib-lit-journal-metrics:${journal}` : "";
+  const readStored = () => {
+    if (!storageKey) return void 0;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return void 0;
+      const value = JSON.parse(raw);
+      return value && Number(value.impactFactor) > 0 ? value : void 0;
+    } catch {
       return void 0;
     }
-    let active = true;
-    let retry;
-    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
-      if (!active) return;
-      setData(value ?? null);
-      if (value && value.top == null) {
-        retry = setTimeout(() => {
-          void call("tasks_journal_metrics", { request: { journal } }).then((next) => {
-            if (active && next) setData(next);
-          }).catch(() => {
-          });
-        }, 12e3);
-      }
-    }).catch((error) => {
-      if (active) setData(null);
-    });
-    return () => {
-      active = false;
-      if (retry) clearTimeout(retry);
-    };
-  }, [journal, call]);
+  };
+  const [data, setData] = (0, import_react10.useState)(readStored);
+  const [loading2, setLoading] = (0, import_react10.useState)(false);
+  const load2 = (0, import_react10.useCallback)(async (force = false) => {
+    if (!journal) {
+      setData(null);
+      return;
+    }
+    const stored = readStored();
+    if (stored && !force) {
+      setData(stored);
+      return;
+    }
+    setLoading(true);
+    try {
+      const value = await call("tasks_journal_metrics", { request: { journal } });
+      const next = value ?? null;
+      setData(next);
+      if (next?.impactFactor && storageKey) localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      setData((old) => old ?? null);
+    } finally {
+      setLoading(false);
+    }
+  }, [journal, call, storageKey]);
+  (0, import_react10.useEffect)(() => {
+    const stored = readStored();
+    if (stored) {
+      setData(stored);
+      return;
+    }
+    setData(void 0);
+    void load2();
+  }, [journal]);
+  const missing = !data || Number(data.impactFactor) <= 0;
   const box = (label, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label), h("b", null, value));
   return h(
     "div",
-    { className: "ib-lit-metrics" },
+    {
+      className: "ib-lit-metrics",
+      "data-missing": missing ? "true" : void 0,
+      title: missing ? "点击获取期刊指标" : void 0,
+      onClick: (event) => {
+        event.stopPropagation();
+        if (missing && !loading2) void load2(true);
+      }
+    },
     box("影响因子", data === void 0 ? "…" : data ? data.impactFactor : "—", "if"),
     box("中科院分区", data === void 0 ? "…" : data?.casTier ? data.casTier + "区" : "待核实", "cas"),
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
