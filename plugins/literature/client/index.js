@@ -44477,6 +44477,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react10.useState)(null);
   const [activeLitTab, setActiveLitTab] = (0, import_react10.useState)("reading");
   const [selectedReportId, setSelectedReportId] = (0, import_react10.useState)("");
+  const [watchReading, setWatchReading] = (0, import_react10.useState)(false);
+  const [watchPpt, setWatchPpt] = (0, import_react10.useState)(false);
   const [folderMenu, setFolderMenu] = (0, import_react10.useState)(null);
   const [uploadMenuOpen, setUploadMenuOpen] = (0, import_react10.useState)(false);
   const [linkOpen, setLinkOpen] = (0, import_react10.useState)(false);
@@ -45081,6 +45083,50 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const selectedPresentation = selectedReport ? presentationByReport[selectedReport.id] : null;
   const selectedReadingDone = Boolean(selectedReport?.docxPath);
   const selectedPptDone = Boolean(selectedPresentation?.pptxPath);
+  (0, import_react10.useEffect)(() => {
+    if (!watchReading) return void 0;
+    const timer = setInterval(() => onChanged?.(), 8e3);
+    const stop = setTimeout(() => setWatchReading(false), 10 * 60 * 1e3);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [watchReading, onChanged]);
+  (0, import_react10.useEffect)(() => {
+    if (!watchPpt) return void 0;
+    const timer = setInterval(() => onChanged?.(), 8e3);
+    const stop = setTimeout(() => setWatchPpt(false), 10 * 60 * 1e3);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [watchPpt, onChanged]);
+  (0, import_react10.useEffect)(() => {
+    if (selectedReadingDone) setWatchReading(false);
+  }, [selectedReadingDone]);
+  (0, import_react10.useEffect)(() => {
+    if (selectedPptDone) setWatchPpt(false);
+  }, [selectedPptDone]);
+  const startReadingNote = () => {
+    if (!selectedReport || !selectedPdfUrl) return;
+    if (selectedReadingDone) {
+      openPreview({ kind: "report", report: selectedReport });
+      return;
+    }
+    setWatchReading(true);
+    void onRequestArtifact(selectedReadingPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
+    });
+  };
+  const startPpt = () => {
+    if (!selectedReport || !selectedPdfUrl) return;
+    if (selectedPptDone) {
+      openPreview({ kind: "ppt", report: selectedReport, presentation: selectedPresentation });
+      return;
+    }
+    setWatchPpt(true);
+    void onRequestArtifact(selectedPptPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
+    });
+  };
   const selectedPublisherUrl = selectedBundle?.doi ? `https://doi.org/${encodeURIComponent(selectedBundle.doi)}` : selectedBundle?.sourceUrl && /^https:/i.test(selectedBundle.sourceUrl) ? selectedBundle.sourceUrl : void 0;
   const journalShortOf = (bundle = {}) => {
     const journal = String(bundle.journal || bundle.shortCitation || "");
@@ -45184,10 +45230,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "div",
       { className: "ib-lit-detail-actions" },
       h("button", { type: "button", className: "ib-lit-primary", disabled: !selectedPdfUrl, title: selectedPdfUrl ? "开始阅读" : "未获取正文，暂时无法阅读", onClick: openSelectedPdf }, h(BookSvg, null), selectedPdfUrl ? "开始阅读" : "在线浏览"),
-      h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedReadingDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: () => selectedReadingDone ? openPreview({ kind: "report", report: selectedReport }) : void onRequestArtifact(selectedReadingPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
-      }) }, h(ReadingNoteSvg, null), selectedReadingDone ? "查看阅读笔记" : "阅读笔记"),
-      h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedPptDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: "ppt", report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, void 0, void 0, { reportId: selectedReport.id }).catch(() => {
-      }) }, h(PresentationSvg, null), selectedPptDone ? "查看 PPT" : "生成 PPT")
+      h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedReadingDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: startReadingNote }, h(ReadingNoteSvg, null), selectedReadingDone ? "查看阅读笔记" : "阅读笔记"),
+      h("button", { type: "button", className: "ib-lit-secondary", "data-done": selectedPptDone ? "true" : "false", disabled: !selectedPdfUrl, onClick: startPpt }, h(PresentationSvg, null), selectedPptDone ? "查看 PPT" : "生成 PPT")
     )
   ) : h("aside", { className: "ib-lit-detail ib-lit-detail-empty" }, "选择左侧文献查看详情");
   const toolbarNode = h(

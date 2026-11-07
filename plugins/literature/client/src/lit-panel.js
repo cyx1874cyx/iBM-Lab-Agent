@@ -222,6 +222,8 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [activeLitTab, setActiveLitTab] = useState('reading');
 			const [selectedReportId, setSelectedReportId] = useState('');
+			const [watchReading, setWatchReading] = useState(false);
+			const [watchPpt, setWatchPpt] = useState(false);
 			const [folderMenu, setFolderMenu] = useState(null);
 			const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
 			const [linkOpen, setLinkOpen] = useState(false);
@@ -778,6 +780,32 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 			const selectedPresentation = selectedReport ? presentationByReport[selectedReport.id] : null;
 			const selectedReadingDone = Boolean(selectedReport?.docxPath);
 			const selectedPptDone = Boolean(selectedPresentation?.pptxPath);
+			useEffect(() => {
+				if (!watchReading) return undefined;
+				const timer = setInterval(() => onChanged?.(), 8000);
+				const stop = setTimeout(() => setWatchReading(false), 10 * 60 * 1000);
+				return () => { clearInterval(timer); clearTimeout(stop); };
+			}, [watchReading, onChanged]);
+			useEffect(() => {
+				if (!watchPpt) return undefined;
+				const timer = setInterval(() => onChanged?.(), 8000);
+				const stop = setTimeout(() => setWatchPpt(false), 10 * 60 * 1000);
+				return () => { clearInterval(timer); clearTimeout(stop); };
+			}, [watchPpt, onChanged]);
+			useEffect(() => { if (selectedReadingDone) setWatchReading(false); }, [selectedReadingDone]);
+			useEffect(() => { if (selectedPptDone) setWatchPpt(false); }, [selectedPptDone]);
+			const startReadingNote = () => {
+				if (!selectedReport || !selectedPdfUrl) return;
+				if (selectedReadingDone) { openPreview({ kind: 'report', report: selectedReport }); return; }
+				setWatchReading(true);
+				void onRequestArtifact(selectedReadingPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {});
+			};
+			const startPpt = () => {
+				if (!selectedReport || !selectedPdfUrl) return;
+				if (selectedPptDone) { openPreview({ kind: 'ppt', report: selectedReport, presentation: selectedPresentation }); return; }
+				setWatchPpt(true);
+				void onRequestArtifact(selectedPptPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {});
+			};
 			const selectedPublisherUrl = selectedBundle?.doi ? `https://doi.org/${encodeURIComponent(selectedBundle.doi)}` : (selectedBundle?.sourceUrl && /^https:/i.test(selectedBundle.sourceUrl) ? selectedBundle.sourceUrl : undefined);
 			const journalShortOf = (bundle = {}) => {
 				const journal = String(bundle.journal || bundle.shortCitation || '');
@@ -840,8 +868,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h('div', { className: 'ib-lit-file-row' }, h('span', { className: 'ib-lit-file-icon' }, '文'), h('div', null, h('b', null, '全文翻译'), h('small', null, selectedTranslationDone ? '已完成' : selectedTranslationBusy ? '进行中…' : '待翻译')), h('button', { type: 'button', className: 'ib-lit-mini-btn', disabled: !selectedPdfUrl || selectedTranslationBusy, onClick: (event) => selectedTranslationDone ? void openReader({ projectId, bundleId: selectedBundle.id, kind: 'pdf', mode: 'zh' }).catch((reason) => notify(reason.message)) : translateSelected(event) }, selectedTranslationDone ? '查看译文' : selectedTranslationBusy ? '翻译中…' : '开始翻译'))),
 				h('div', { className: 'ib-lit-detail-actions' },
 					h('button', { type: 'button', className: 'ib-lit-primary', disabled: !selectedPdfUrl, title: selectedPdfUrl ? '开始阅读' : '未获取正文，暂时无法阅读', onClick: openSelectedPdf }, h(BookSvg, null), selectedPdfUrl ? '开始阅读' : '在线浏览'),
-					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedReadingDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: () => selectedReadingDone ? openPreview({ kind: 'report', report: selectedReport }) : void onRequestArtifact(selectedReadingPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {}) }, h(ReadingNoteSvg, null), selectedReadingDone ? '查看阅读笔记' : '阅读笔记'),
-					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedPptDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: () => selectedPptDone ? openPreview({ kind: 'ppt', report: selectedReport, presentation: selectedPresentation }) : void onRequestArtifact(selectedPptPrompt, true, undefined, undefined, { reportId: selectedReport.id }).catch(() => {}) }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : h('aside', { className: 'ib-lit-detail ib-lit-detail-empty' }, '选择左侧文献查看详情');
+					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedReadingDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: startReadingNote }, h(ReadingNoteSvg, null), selectedReadingDone ? '查看阅读笔记' : '阅读笔记'),
+					h('button', { type: 'button', className: 'ib-lit-secondary', 'data-done': selectedPptDone ? 'true' : 'false', disabled: !selectedPdfUrl, onClick: startPpt }, h(PresentationSvg, null), selectedPptDone ? '查看 PPT' : '生成 PPT'))) : h('aside', { className: 'ib-lit-detail ib-lit-detail-empty' }, '选择左侧文献查看详情');
 			const toolbarNode = h('div', { className: 'ib-lit-toolbar' },
 						h('button', { className: 'ib-act', onClick: () => setTemplatesOpen(true) }, '▤ 模板管理'),
 						h('button', { className: 'ib-act', disabled: importingRis, onClick: () => risPicker.current?.click() }, '↑ 上传 RIS'),
