@@ -17,6 +17,7 @@ import { archiveSlotOf } from "dsh-lab-agent/capture-model";
 import { deriveCaptureView } from "dsh-lab-agent/capture-phase";
 import {registerOrganizationTools} from './organization-tools.js';
 import {registerReaderTools} from './reader-tools.js';
+import {registerSearchTaskTools} from './search-tools.js';
 
 export const name = "tasks-tool";
 export const inject = ["tools", "ibmLiteratureWorkflows", "ibmCore"];
@@ -742,6 +743,7 @@ function registerBrowserTools(ctx) {
 
 export function apply(ctx) {
 	registerOrganizationTools(ctx);
+	registerSearchTaskTools(ctx);
 	registerReaderTools(ctx);
 	// Capture is optional: the child fiber owns only browser/capture tools.
 	if (typeof ctx.inject === "function") ctx.inject(["labCapture"], registerBrowserTools);

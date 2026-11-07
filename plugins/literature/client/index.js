@@ -44171,6 +44171,47 @@ ${wechat ? "先调用 lab_tasks_fetch_wechat_article 读取正文，从正文识
 // plugins/literature/client/src/search-tasks-panel.js
 var import_react10 = __toESM(require("react"), 1);
 var emptyTask = () => ({ id: "", title: "", requirement: "", rounds: [], candidates: [], messages: [], createdAt: "", updatedAt: "", status: "draft" });
+function SearchMetrics({ journal, call }) {
+  const storageKey = journal ? `ib-lit-journal-metrics:${journal}` : "";
+  const read = () => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const value = raw ? JSON.parse(raw) : null;
+      return value && Number(value.impactFactor) > 0 ? value : void 0;
+    } catch {
+      return void 0;
+    }
+  };
+  const [data, setData] = (0, import_react10.useState)(read);
+  (0, import_react10.useEffect)(() => {
+    if (!journal) return void 0;
+    const cached = read();
+    if (cached) {
+      setData(cached);
+      return void 0;
+    }
+    let active = true;
+    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
+      if (!active || !value) return;
+      setData(value);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(value));
+      } catch {
+      }
+    }).catch(() => {
+    });
+    return () => {
+      active = false;
+    };
+  }, [journal, call]);
+  return h(
+    "div",
+    { className: "ib-lit-metrics ib-st-metrics" },
+    h("div", { className: "ib-lit-metric-box", "data-tone": "if" }, h("span", null, "影响因子"), h("b", null, data ? data.impactFactor : "…")),
+    h("div", { className: "ib-lit-metric-box", "data-tone": "cas" }, h("span", null, "中科院分区"), h("b", null, data?.casTier ? data.casTier + "区" : "待核实")),
+    h("div", { className: "ib-lit-metric-box", "data-tone": "top" }, h("span", null, "TOP期刊"), h("b", null, data?.top === true ? "是" : data?.top === false ? "否" : "待核实"))
+  );
+}
 var basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 var recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
 function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount }) {
@@ -44360,10 +44401,11 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       "article",
       { key: paper.id, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : void 0 },
       h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index + 1).padStart(2, "0"))),
+      h("span", { className: "ib-st-cover" }, String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 4).toUpperCase()),
       h(
         "div",
         { className: "ib-st-paper-copy" },
-        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.title || "未命名文献"),
+        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.titleZh || paper.title || "未命名文献"),
         h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
         paper.matchReason ? h("p", { className: "ib-st-reason" }, h("b", null, "匹配点："), paper.matchReason) : null,
         h("div", { className: "ib-st-basis" }, `依据：${basisLabel(paper.reasonBasis)}${paper.abstractStatus === "missing" ? "（摘要未获取）" : ""}`),
@@ -44373,6 +44415,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
         "div",
         { className: "ib-st-paper-side" },
         recLabel(paper.recommendation) ? h("span", { className: "ib-st-rec", "data-kind": paper.recommendation }, `★ ${recLabel(paper.recommendation)}`) : null,
+        h(SearchMetrics, { journal: paper.journal, call }),
         h(
           "div",
           { className: "ib-st-feedback" },
@@ -44440,22 +44483,12 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
           "div",
           { className: "ib-st-detail-head" },
           h("span", { className: "ib-st-detail-cover" }, String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 5).toUpperCase()),
-          h("div", null, h("h3", null, selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
+          h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
         ),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`)),
-        h("div", { className: "ib-st-detail-actions" }, h("button", { type: "button", className: selectedPaper.addedToReading ? "ib-st-secondary" : "ib-st-primary", disabled: Boolean(selectedPaper.addedToReading), onClick: async () => {
-          try {
-            const result = await call("search_tasks_add_to_reading", { request: { projectId, taskId: active.id, candidateIds: [selectedPaper.id] } });
-            notify?.(`已加入精读 ${result?.succeeded || 0} 篇`);
-            await load2(active.id);
-            onChanged?.();
-          } catch (error) {
-            notify?.(error.message);
-          }
-        } }, selectedPaper.addedToReading ? "已加入精读" : "加入精读"), h("span", { className: "ib-st-detail-feedback" }, h("button", { type: "button", "data-active": selectedPaper.feedback === "more" ? "true" : void 0, onClick: () => void setFeedback(selectedPaper, "more") }, "👍 更符合"), h("button", { type: "button", "data-active": selectedPaper.feedback === "irrelevant" ? "true" : void 0, onClick: () => void setFeedback(selectedPaper, "irrelevant") }, "👎 不相关")))
+        h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`))
       ) : h("div", { className: "ib-st-empty big" }, "点击左侧文献查看详情")
     ),
     newTask ? h("div", { className: "ib-st-modal", onClick: (event) => {
@@ -44852,6 +44885,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   });
   const [watchReading, setWatchReading] = (0, import_react11.useState)(false);
   const [watchPpt, setWatchPpt] = (0, import_react11.useState)(false);
+  (0, import_react11.useEffect)(() => {
+    if (litTab === "search") onShowChat?.();
+  }, [litTab]);
   (0, import_react11.useEffect)(() => {
     try {
       if (selectedReportId) localStorage.setItem("ib-lit-selected:" + projectId, selectedReportId);

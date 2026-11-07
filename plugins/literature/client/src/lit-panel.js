@@ -275,6 +275,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [selectedReportId, setSelectedReportId] = useState(() => { try { return localStorage.getItem('ib-lit-selected:' + projectId) || ''; } catch { return ''; } });
 			const [watchReading, setWatchReading] = useState(false);
 			const [watchPpt, setWatchPpt] = useState(false);
+			useEffect(() => { if (litTab === 'search') onShowChat?.(); }, [litTab]);
 			useEffect(() => { try { if (selectedReportId) localStorage.setItem('ib-lit-selected:' + projectId, selectedReportId); else localStorage.removeItem('ib-lit-selected:' + projectId); } catch { /* ignore */ } }, [selectedReportId, projectId]);
 			const [metricsByJournal, setMetricsByJournal] = useState({});
 			const metricsRequested = useRef(new Set());
