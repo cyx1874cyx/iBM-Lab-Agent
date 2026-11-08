@@ -44506,7 +44506,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
         { className: "ib-st-paper-copy" },
         h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, showOriginalTitle ? paper.title || "未命名文献" : paper.titleZh || paper.title || "未命名文献"),
         h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
-        h("ul", { className: "ib-st-reasons" }, reasonsFor(paper).map((reason, index2) => h("li", { key: index2 }, reason))),
+        h("ul", { className: "ib-st-reasons" }, h("li", null, reasonsFor(paper)[0])),
         detail
       ),
       h(

@@ -2967,6 +2967,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-st-formula{display:flex;flex-direction:column;gap:4px;margin:8px 0}.ib-st-formula b{font:600 11px/1.3 var(--ib-font,system-ui);color:var(--ib-muted)}.ib-st-formula code{display:block;white-space:pre-wrap;word-break:break-word;background:#f3f6f5;border:1px solid var(--ib-line);border-radius:6px;padding:7px 8px;font:400 11px/1.5 Consolas,monospace;color:#263a33}
 .ib-db-public{border-top:1px solid var(--ib-hair);padding-top:12px;display:flex;flex-direction:column;gap:8px}.ib-db-public>b{font-size:13px}.ib-db-public-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ib-text)}.ib-db-public-row small{margin-left:auto;color:var(--ib-muted)}.ib-db-dot{width:8px;height:8px;border-radius:50%;background:#b6c2bc}.ib-db-dot[data-ok=true]{background:#12a67a}.ib-db-dot[data-ok=false]{background:#d0453a}.ib-db-dot[data-ok=pending]{background:#d6a545}
 .ib-st-reasons{margin:6px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.5;color:#52645d}.ib-st-reasons li::marker{color:var(--ib-accent)}
+.ib-st-paper{flex:none;overflow:hidden;height:118px;min-height:118px;padding:9px 18px;gap:18px;align-items:center}.ib-st-paper .ib-st-title{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font:600 20px/1.35 var(--ib-serif,Georgia,serif)}.ib-st-paper .ib-st-cover{width:74px;height:92px;border-radius:8px}.ib-st-paper .ib-st-meta{font-size:12px;margin-top:4px}.ib-st-paper .ib-st-reasons{margin-top:4px;font-size:12px;line-height:1.5;padding-left:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-st-paper .ib-st-check{align-items:center}
 `;
 
 // client/src/reagents.css.js
@@ -5948,7 +5949,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         { className: "ib-st-paper-copy" },
         h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, showOriginalTitle ? paper.title || "未命名文献" : paper.titleZh || paper.title || "未命名文献"),
         h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
-        h("ul", { className: "ib-st-reasons" }, reasonsFor(paper).map((reason, index3) => h("li", { key: index3 }, reason))),
+        h("ul", { className: "ib-st-reasons" }, h("li", null, reasonsFor(paper)[0])),
         detail
       ),
       h(
