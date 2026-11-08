@@ -32898,7 +32898,7 @@ function applyUi(ctx) {
       return opened;
     }
     const presetId = opts.presetId;
-    const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : opts.searchIdentity ? "lab-search" : presetId || RESEARCH_PRESET_ID;
+    const effectivePresetId = presetId || RESEARCH_PRESET_ID;
     let sessionId;
     let workspaceId;
     let openedNew = false;

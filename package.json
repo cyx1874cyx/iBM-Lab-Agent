@@ -258,7 +258,7 @@
     "bundle": {
       "patch": [
         "./cordis.patch.yml",
-        "./presets/lab-research/preset.patch.yml", "./presets/lab-reading/preset.patch.yml", "./presets/lab-search/preset.patch.yml"
+        "./presets/lab-research/preset.patch.yml"
       ]
     },
     "client": {
