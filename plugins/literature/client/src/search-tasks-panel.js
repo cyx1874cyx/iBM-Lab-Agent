@@ -23,6 +23,25 @@ function SearchMetrics({ journal, call }) {
 		h("div", { className: "ib-lit-metric-box", "data-tone": "cas" }, h("span", null, "中科院分区"), h("b", null, data?.casTier ? data.casTier + "区" : "待核实")),
 		h("div", { className: "ib-lit-metric-box", "data-tone": "top" }, h("span", null, "TOP期刊"), h("b", null, data?.top === true ? "是" : data?.top === false ? "否" : "待核实")));
 }
+const DETAIL_LABELS = ["研究对象", "场景", "材料与方法", "必须条件", "排除条件", "时间范围", "文献类型", "排序偏好"];
+function requirementSections(text) {
+	const value = String(text || "").trim();
+	if (!value) return [];
+	const expression = new RegExp(`(${DETAIL_LABELS.join("|")})[：:]`, "g");
+	const matches = [...value.matchAll(expression)];
+	if (!matches.length) return [{ label: "研究需求", value }];
+	return matches.map((match, index) => ({
+		label: match[1],
+		value: value.slice(match.index + match[0].length, matches[index + 1]?.index ?? value.length).trim().replace(/^[；;，,\s]+|[；;，,\s]+$/g, "")
+	})).filter((section) => section.value);
+}
+function SearchTaskDetail({ task, lastRound }) {
+	return h("div", { className: "ib-st-task-detail" },
+		h("h3", null, task.title || "未命名检索任务"),
+		h("div", { className: "ib-st-task-stats" }, `第${task.rounds?.length || 0}轮 · 候选 ${task.candidates?.length || 0} 篇${lastRound ? ` · 本轮新增 ${lastRound.newCount || 0}` : ""}`),
+		requirementSections(task.requirement).map((section) => h("section", { key: section.label, className: "ib-st-detail-section" }, h("h4", null, section.label), h("p", null, section.value)))
+	);
+}
 const basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 const recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
 
@@ -83,7 +102,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 
 	useEffect(() => { void load(); }, [load]);
 
-	useEffect(() => { if (active) setComposer(active.requirement || ""); }, [active?.id]);
+	useEffect(() => { if (active) setComposer(active.requirement || ""); setSelectedPaperId(""); }, [active?.id]);
 
 	const save = async (task, quiet = false) => {
 		const result = await call("search_tasks_save", { request: { projectId, task } });
@@ -214,7 +233,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 			h("div", null, paper.doi ? h("a", { href: `https://doi.org/${paper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${paper.doi}`) : "无 DOI"),
 			paper.sourceUrl ? h("a", { href: paper.sourceUrl, target: "_blank", rel: "noreferrer" }, "来源链接") : null
 		) : null;
-		return h("article", { key: paper.id, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : undefined },
+		return h("article", { key: paper.id, role: "button", tabIndex: 0, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : undefined, onClick: (event) => { if (event.target.closest("button,input,label,a")) return; setSelectedPaperId(paper.id); }, onKeyDown: (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedPaperId(paper.id); } } },
 			h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index + 1).padStart(2, "0"))), h("span", { className: "ib-st-cover" }, String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 4).toUpperCase()),
 			h("div", { className: "ib-st-paper-copy" },
 				h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.titleZh || paper.title || "未命名文献"),
@@ -241,7 +260,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 			h("label", { className: "ib-st-search" }, h("span", { "aria-hidden": "true" }, "⌕"), h("input", { value: taskQuery, placeholder: "搜索任务", onChange: (event) => setTaskQuery(event.target.value) })),
 			h("div", { className: "ib-st-task-list" }, loading ? h("div", { className: "ib-st-empty" }, "加载中…") : filteredTasks.length === 0 ? h("div", { className: "ib-st-empty" }, "暂无检索任务") : filteredTasks.map((task) => h("button", {
 				key: task.id, type: "button", className: "ib-st-task", "data-active": task.id === active?.id ? "true" : undefined,
-				onClick: () => { setActiveId(task.id); setExpanded(""); }
+				onClick: () => { setActiveId(task.id); setExpanded(""); }, onContextMenu: async (event) => { event.preventDefault(); event.stopPropagation(); if (!window.confirm(`删除检索任务「${task.title || "未命名任务"}」？`)) return; try { await call("search_tasks_delete", { request: { projectId, taskId: task.id } }); notify?.("已删除检索任务"); await load(); } catch (error) { notify?.(error.message); } }
 			}, h("span", { className: "ib-st-task-icon" }, "▤"), h("span", { className: "ib-st-task-copy" }, h("b", null, task.title || "未命名任务"), h("small", null, `第${task.rounds?.length || 0}轮 · ${task.candidates?.length || 0}篇`)), h("span", { className: "ib-st-task-more" }, "⋯")))),
 			h("footer", { className: "ib-st-savehint" }, "⛁ 任务自动保存"),
 			h("label", { className: "ib-st-import" }, "导入 RIS", h("input", { type: "file", accept: ".ris", hidden: true, onChange: (event) => void importRisToTask(event.target.files?.[0]) }))
@@ -267,8 +286,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
-				h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`)),
-			) : h("div", { className: "ib-st-empty big" }, "点击左侧文献查看详情")
+			 ) : h(SearchTaskDetail, { task: active, lastRound })
 		),
 		newTask ? h("div", { className: "ib-st-modal", onClick: (event) => { if (event.target === event.currentTarget) setNewTask(null); } }, h("section", { className: "ib-st-dialog" }, h("h3", null, "新建检索任务"), h("label", null, "任务标题", h("input", { autoFocus: true, value: newTask.title, placeholder: "例如：不同成分血栓的体外制备", onChange: (event) => setNewTask({ ...newTask, title: event.target.value }) })), h("label", null, "研究需求", h("textarea", { value: newTask.requirement, placeholder: "描述研究对象、材料、方法、必须条件和排除条件…", onChange: (event) => setNewTask({ ...newTask, requirement: event.target.value }) })), h("div", { className: "ib-st-dialog-actions" }, h("button", { type: "button", className: "ib-st-link", onClick: () => setNewTask(null) }, "取消"), h("button", { type: "button", className: "ib-st-primary", onClick: () => void createTask() }, "创建任务")))) : null
 	);

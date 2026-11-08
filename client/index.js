@@ -2963,6 +2963,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-db-dialog{width:min(560px,92vw)}.ib-db-body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:12px}.ib-db-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.ib-db-row b{display:block;font-size:14px}.ib-db-row small{display:block;color:var(--ib-muted);font-size:11px;margin-top:3px}.ib-db-state{font:600 12px/1 var(--ib-font,system-ui);color:var(--ib-accent)}.ib-db-input{height:40px;border:1px solid var(--ib-line);border-radius:8px;padding:0 11px;font:400 13px/1.4 var(--ib-font,system-ui);color:var(--ib-text);background:var(--ib-panel)}.ib-db-message{border-radius:7px;padding:8px 10px;background:var(--ib-row-alt);font-size:12px;color:var(--ib-text)}.ib-db-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .ib-st-detail-pane{background:var(--ib-panel);border:1px solid var(--ib-line);border-radius:12px;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:16px}.ib-st-detail-head{display:flex;gap:14px;align-items:flex-start}.ib-st-detail-cover{flex:none;width:74px;height:92px;border-radius:8px;background:linear-gradient(160deg,#536a7c,#354958);color:#fff;display:grid;place-items:center;font:700 18px/1 var(--ib-serif,Georgia,serif)}.ib-st-detail-head h3{margin:0 0 6px;font:600 18px/1.4 var(--ib-serif,Georgia,serif)}.ib-st-detail-head p{margin:0;font-size:12px;color:var(--ib-muted)}.ib-st-detail-section{border-top:1px solid var(--ib-hair);padding-top:11px}.ib-st-detail-section h4{margin:0 0 6px;font:600 13px/1.3 var(--ib-font,system-ui);color:var(--ib-text)}.ib-st-detail-section p{margin:0;font-size:12px;line-height:1.65;color:#52645d}.ib-st-detail-section a{display:block;font-size:12px;color:var(--ib-accent);word-break:break-all;margin-top:5px}.ib-st-detail-section small{font-size:11px;color:var(--ib-muted)}.ib-st-detail-actions{display:flex;align-items:center;gap:10px;margin-top:auto;border-top:1px solid var(--ib-hair);padding-top:12px}.ib-st-detail-feedback{display:flex;gap:6px;margin-left:auto}.ib-st-detail-feedback button{border:0;background:none;font-size:11px;color:var(--ib-muted);cursor:pointer}.ib-st-detail-feedback button[data-active=true]{color:var(--ib-accent);font-weight:600}
 .ib-st-paper{align-items:center;background:var(--ib-panel);border-radius:10px;border-color:var(--ib-line)}.ib-st-cover{flex:none;width:58px;height:70px;border-radius:7px;background:linear-gradient(160deg,#536a7c,#354958);color:#fff;display:grid;place-items:center;font:700 15px/1 var(--ib-serif,Georgia,serif);letter-spacing:.02em}.ib-st-paper .ib-st-title{font-size:15px;line-height:1.4}.ib-st-metrics{display:flex;gap:4px;flex:none}.ib-st-metrics .ib-lit-metric-box{width:50px;height:60px;border-radius:8px;gap:3px;padding:3px}.ib-st-metrics .ib-lit-metric-box span{font-size:9px}.ib-st-metrics .ib-lit-metric-box b{font-size:15px}.ib-st-metrics .ib-lit-metric-box[data-tone=top] b{font-size:11px}
+.ib-st-task-detail{padding:4px 2px;display:flex;flex-direction:column;gap:14px}.ib-st-task-detail>h3{margin:0;font:600 20px/1.4 var(--ib-serif,Georgia,serif)}.ib-st-task-stats{font-size:12px;color:var(--ib-muted)}.ib-st-paper{cursor:pointer}.ib-st-paper:hover{border-color:var(--ib-accent-line);background:#fbfdfc}.ib-st-title-zh{margin:4px 0 0!important;font:600 14px/1.5 var(--ib-font,system-ui)!important;color:#263a33!important}
 `;
 
 // client/src/reagents.css.js
@@ -5650,6 +5651,27 @@ function SearchMetrics({ journal, call }) {
     h("div", { className: "ib-lit-metric-box", "data-tone": "top" }, h("span", null, "TOP期刊"), h("b", null, data?.top === true ? "是" : data?.top === false ? "否" : "待核实"))
   );
 }
+var DETAIL_LABELS = ["研究对象", "场景", "材料与方法", "必须条件", "排除条件", "时间范围", "文献类型", "排序偏好"];
+function requirementSections(text) {
+  const value = String(text || "").trim();
+  if (!value) return [];
+  const expression = new RegExp(`(${DETAIL_LABELS.join("|")})[：:]`, "g");
+  const matches = [...value.matchAll(expression)];
+  if (!matches.length) return [{ label: "研究需求", value }];
+  return matches.map((match, index2) => ({
+    label: match[1],
+    value: value.slice(match.index + match[0].length, matches[index2 + 1]?.index ?? value.length).trim().replace(/^[；;，,\s]+|[；;，,\s]+$/g, "")
+  })).filter((section) => section.value);
+}
+function SearchTaskDetail({ task, lastRound }) {
+  return h(
+    "div",
+    { className: "ib-st-task-detail" },
+    h("h3", null, task.title || "未命名检索任务"),
+    h("div", { className: "ib-st-task-stats" }, `第${task.rounds?.length || 0}轮 · 候选 ${task.candidates?.length || 0} 篇${lastRound ? ` · 本轮新增 ${lastRound.newCount || 0}` : ""}`),
+    requirementSections(task.requirement).map((section) => h("section", { key: section.label, className: "ib-st-detail-section" }, h("h4", null, section.label), h("p", null, section.value)))
+  );
+}
 var basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 var recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
 function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat }) {
@@ -5697,6 +5719,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   }, [load2]);
   (0, import_react11.useEffect)(() => {
     if (active) setComposer(active.requirement || "");
+    setSelectedPaperId("");
   }, [active?.id]);
   const save = async (task, quiet = false) => {
     const result = await call("search_tasks_save", { request: { projectId, task } });
@@ -5842,7 +5865,15 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
     ) : null;
     return h(
       "article",
-      { key: paper.id, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : void 0 },
+      { key: paper.id, role: "button", tabIndex: 0, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : void 0, onClick: (event) => {
+        if (event.target.closest("button,input,label,a")) return;
+        setSelectedPaperId(paper.id);
+      }, onKeyDown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setSelectedPaperId(paper.id);
+        }
+      } },
       h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index2 + 1).padStart(2, "0"))),
       h("span", { className: "ib-st-cover" }, String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 4).toUpperCase()),
       h(
@@ -5886,6 +5917,18 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         onClick: () => {
           setActiveId(task.id);
           setExpanded("");
+        },
+        onContextMenu: async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!window.confirm(`删除检索任务「${task.title || "未命名任务"}」？`)) return;
+          try {
+            await call("search_tasks_delete", { request: { projectId, taskId: task.id } });
+            notify2?.("已删除检索任务");
+            await load2();
+          } catch (error62) {
+            notify2?.(error62.message);
+          }
         }
       }, h("span", { className: "ib-st-task-icon" }, "▤"), h("span", { className: "ib-st-task-copy" }, h("b", null, task.title || "未命名任务"), h("small", null, `第${task.rounds?.length || 0}轮 · ${task.candidates?.length || 0}篇`)), h("span", { className: "ib-st-task-more" }, "⋯")))),
       h("footer", { className: "ib-st-savehint" }, "⛁ 任务自动保存"),
@@ -5930,9 +5973,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         ),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "匹配依据"), h("p", null, selectedPaper.matchReason || "等待科研助手补充匹配说明。"), h("small", null, `依据：${basisLabel(selectedPaper.reasonBasis)}`))
-      ) : h("div", { className: "ib-st-empty big" }, "点击左侧文献查看详情")
+        h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null)
+      ) : h(SearchTaskDetail, { task: active, lastRound })
     ),
     newTask ? h("div", { className: "ib-st-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setNewTask(null);
