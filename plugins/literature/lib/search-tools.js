@@ -2,6 +2,22 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { deleteSearchTask, importRisTask, listSearchTasks, patchTaskCandidate, runScopusSearch, scopusTest, upsertSearchTask } from "./search-tasks-core.js";
 
 function coreOf(ctx) { return ctx.get("ibmCore"); }
+function taskBrief(task, { limit = 10, offset = 0 } = {}) {
+	if (!task) return null;
+	const candidates = task.candidates || [];
+	const start = Math.max(0, Number(offset) || 0);
+	const size = Math.min(30, Math.max(1, Number(limit) || 10));
+	return {
+		taskId: task.id,
+		title: task.title,
+		requirement: String(task.requirement || "").slice(0, 4000),
+		candidateCount: candidates.length,
+		roundCount: (task.rounds || []).length,
+		rounds: (task.rounds || []).map((round) => ({ id: round.id, index: round.index, query: round.query, total: round.totalAvailable, fetched: round.fetched, added: round.newCount })),
+		candidates: candidates.slice(start, start + size).map((row) => ({ id: row.id, title: row.title, titleZh: row.titleZh, journal: row.journal, year: row.year, doi: row.doi, recommendation: row.recommendation, abstractStatus: row.abstractStatus, addedToReading: row.addedToReading })),
+		pagination: { offset: start, limit: size, total: candidates.length, hasMore: start + size < candidates.length }
+	};
+}
 
 async function syncTaskCovers(ctx, projectId, taskId) {
 	try {
@@ -32,7 +48,7 @@ export function registerSearchTaskTools(ctx) {
 				...(prior || { id: `search-${Date.now().toString(36)}`, rounds: [], candidates: [], messages: [] }),
 				title, requirement, updatedAt: new Date().toISOString()
 			});
-			return { taskId: task.id, task };
+			return taskBrief(task);
 		}
 	}));
 
@@ -49,19 +65,19 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
 			await syncTaskCovers(ctx, projectId, taskId);
-			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)).map((row) => ({ id: row.id, title: row.title, journal: row.journal, year: row.year, doi: row.doi, abstractStatus: row.abstractStatus })) };
+			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateCount: result.task.candidates.length, candidates: result.task.candidates.slice(-Math.max(1, result.added)).slice(0, 8).map((row) => ({ id: row.id, title: row.title, journal: row.journal, year: row.year, doi: row.doi, abstractStatus: row.abstractStatus })) };
 		}
 	}));
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_list",
 		description: "读取当前课题的检索任务与候选文献，用于回答用户关于本轮结果、勾选、历史轮次的问题。",
-		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" } },
+		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" }, limit: { type: "number", description: "返回候选数，默认10，最多30" }, offset: { type: "number", description: "候选分页起点" } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId }) {
+		async execute({ projectId, taskId, limit, offset }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
-			return task || null;
+			return taskBrief(task, { limit, offset });
 		}
 	}));
 
@@ -100,7 +116,7 @@ export function registerSearchTaskTools(ctx) {
 		description: "把用户提供的 RIS 文本导入当前检索任务或新建任务。",
 		parameters: { projectId: { type: "string" }, taskId: { type: "string" }, fileName: { type: "string" }, text: { type: "string", required: true } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, fileName, text }) { return importRisTask(coreOf(ctx), projectId, { taskId, fileName, text }); }
+		async execute({ projectId, taskId, fileName, text }) { return taskBrief(await importRisTask(coreOf(ctx), projectId, { taskId, fileName, text })); }
 	}));
 
 	ctx.tools.register(defineTool({
