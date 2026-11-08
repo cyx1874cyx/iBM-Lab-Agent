@@ -44199,8 +44199,8 @@ function JournalCover({ journal, call, fallback, large = false }) {
     };
   }, [journal, call]);
   const clean = String(journal || fallback || "").trim();
-  const words = clean.split(/\s+/).filter((word) => word && !/^(of|the|and|for|in|on|&)$/i.test(word));
-  const label = (words.length === 1 ? words[0].slice(0, 7) : words.slice(0, 5).map((word) => word[0]).join("")).toUpperCase() || "JOURNAL";
+  const short = clean.length <= 14;
+  const label = short ? clean.toUpperCase() : clean;
   const retry = async () => {
     if (!journal || !call) return;
     try {
@@ -44218,7 +44218,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   return h(
     "span",
     { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url ? "" : "点击获取期刊封面", onClick: url ? void 0 : retry },
-    url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react10.default.Fragment, null, h("b", { title: clean, style: label.length > 3 ? { fontSize: "16px" } : void 0 }, label), h("small", null, "JOURNAL"))
+    url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react10.default.Fragment, null, h("b", { title: clean, style: short ? { fontSize: "17px", lineHeight: 1.15 } : { fontSize: "9px", lineHeight: 1.2, fontWeight: 600 } }, label), short ? h("small", null, "JOURNAL") : null)
   );
 }
 
