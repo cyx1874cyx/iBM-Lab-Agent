@@ -44226,11 +44226,17 @@ function requirementSections(text) {
 }
 function SearchTaskDetail({ task, lastRound }) {
   if (!task) return h("div", { className: "ib-st-empty big" }, "选择或新建检索任务");
+  const formulas = (task.rounds || []).filter((round) => round.query);
   return h(
     "div",
     { className: "ib-st-task-detail" },
-    h("h3", null, task.title || "未命名检索任务"),
     h("div", { className: "ib-st-task-stats" }, `第${task.rounds?.length || 0}轮 · 候选 ${task.candidates?.length || 0} 篇${lastRound ? ` · 本轮新增 ${lastRound.newCount || 0}` : ""}`),
+    h(
+      "section",
+      { className: "ib-st-detail-section" },
+      h("h4", null, "检索式"),
+      formulas.length ? formulas.map((round) => h("div", { key: round.id || round.query, className: "ib-st-formula" }, h("b", null, round.label || `第${round.index || ""}轮`), h("code", null, round.query))) : h("p", null, task.query || "尚未生成检索式。")
+    ),
     requirementSections(task.requirement).map((section) => h("section", { key: section.label, className: "ib-st-detail-section" }, h("h4", null, section.label), h("p", null, section.value)))
   );
 }
