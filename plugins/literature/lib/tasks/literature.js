@@ -174,12 +174,13 @@ export const literatureMethods = {
 					const top = await fetchLetPubTop(cached.journalId);
 					if (top !== null) cached.value = { ...cached.value, top };
 				}
+					if (!cached.value.coverUrl && cached.journalId) cached.value = { ...cached.value, coverUrl: "https://media-cdn.oss-cn-hangzhou.aliyuncs.com/statics/images/comment_center/cover/journal/" + cached.journalId + ".jpg" };
 				return cached.value;
 			}
 		}
 		let value = null;
 		try {
-			const response = await fetch('https://www.letpub.com.cn/index.php?page=journalapp&view=search&searchname=' + encodeURIComponent(query), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(12000) });
+			const response = await fetch('https://www.letpub.com.cn/index.php?page=journalapp&view=search&searchname=' + encodeURIComponent(query), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(6000) });
 			if (response.ok) {
 				const html = await response.text();
 				const rows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((match) => match[1]);
