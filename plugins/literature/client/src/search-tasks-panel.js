@@ -81,6 +81,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 	const [expanded, setExpanded] = useState("");
 	const [selectedPaperId, setSelectedPaperId] = useState('');
 	const [showOriginalTitle, setShowOriginalTitle] = useState(false);
+	const [detailLang, setDetailLang] = useState("zh");
 	const [composer, setComposer] = useState("");
 	const [newTask, setNewTask] = useState(null);
 	const [message, setMessage] = useState("");
@@ -100,6 +101,8 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 
 	const syncedCovers = useRef("");
 	const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
+	const detailTitle = selectedPaper ? (detailLang === "en" ? selectedPaper.title : selectedPaper.titleZh || selectedPaper.title) : "";
+	const detailAbstract = selectedPaper ? (detailLang === "en" ? selectedPaper.abstract : selectedPaper.summaryZh || selectedPaper.abstract) : "";
 	const load = useCallback(async (preserve = "", quiet = false) => {
 		if (!quiet) setLoading(true);
 		try {
@@ -306,9 +309,9 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 			selectedPaper ? h(React.Fragment, null,
 				h("div", { className: "ib-st-detail-head" },
 					h(JournalCover, { journal: selectedPaper.journal, call, fallback: String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6), large: true }),
-					h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
+					h("div", { className: "ib-st-detail-copy" }, h("div", { className: "ib-st-detail-title-row" }, h("h3", null, detailTitle || "未命名文献"), h("button", { type: "button", className: "ib-st-lang", onClick: () => setDetailLang((value) => value === "zh" ? "en" : "zh") }, detailLang === "zh" ? "EN" : "中文")), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
 				),
-				h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
+				h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, detailAbstract || "该记录未返回摘要。")),
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null),
 			 ) : h(SearchTaskDetail, { task: active, lastRound })

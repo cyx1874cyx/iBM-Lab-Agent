@@ -44179,6 +44179,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   const [url, setUrl] = (0, import_react10.useState)(cached);
   const [failed, setFailed] = (0, import_react10.useState)(false);
   (0, import_react10.useEffect)(() => {
+    setUrl(coverCache.get(journal) || "");
     setFailed(false);
     if (!journal || !call) return void 0;
     const known = coverCache.get(journal);
@@ -44197,7 +44198,9 @@ function JournalCover({ journal, call, fallback, large = false }) {
       active = false;
     };
   }, [journal, call]);
-  const label = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
+  const clean = String(journal || fallback || "").trim();
+  const words = clean.split(/\s+/).filter((word) => word && !/^(of|the|and|for|in|on|&)$/i.test(word));
+  const label = (words.length === 1 ? words[0].slice(0, 7) : words.slice(0, 5).map((word) => word[0]).join("")).toUpperCase() || "JOURNAL";
   const retry = async () => {
     if (!journal || !call) return;
     try {
@@ -44215,7 +44218,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   return h(
     "span",
     { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url ? "" : "点击获取期刊封面", onClick: url ? void 0 : retry },
-    url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react10.default.Fragment, null, h("b", { style: label.length > 5 ? { fontSize: "17px" } : void 0 }, label), h("small", null, "JOURNAL"))
+    url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react10.default.Fragment, null, h("b", { title: clean, style: label.length > 3 ? { fontSize: "16px" } : void 0 }, label), h("small", null, "JOURNAL"))
   );
 }
 
@@ -44307,6 +44310,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
   const [expanded, setExpanded] = (0, import_react11.useState)("");
   const [selectedPaperId, setSelectedPaperId] = (0, import_react11.useState)("");
   const [showOriginalTitle, setShowOriginalTitle] = (0, import_react11.useState)(false);
+  const [detailLang, setDetailLang] = (0, import_react11.useState)("zh");
   const [composer, setComposer] = (0, import_react11.useState)("");
   const [newTask, setNewTask] = (0, import_react11.useState)(null);
   const [message, setMessage] = (0, import_react11.useState)("");
@@ -44324,6 +44328,8 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
   }, [candidates, onlyNew, lastRound]);
   const syncedCovers = (0, import_react11.useRef)("");
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
+  const detailTitle = selectedPaper ? detailLang === "en" ? selectedPaper.title : selectedPaper.titleZh || selectedPaper.title : "";
+  const detailAbstract = selectedPaper ? detailLang === "en" ? selectedPaper.abstract : selectedPaper.summaryZh || selectedPaper.abstract : "";
   const load2 = (0, import_react11.useCallback)(async (preserve = "", quiet = false) => {
     if (!quiet) setLoading(true);
     try {
@@ -44604,9 +44610,9 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
           "div",
           { className: "ib-st-detail-head" },
           h(JournalCover, { journal: selectedPaper.journal, call, fallback: String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6), large: true }),
-          h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
+          h("div", { className: "ib-st-detail-copy" }, h("div", { className: "ib-st-detail-title-row" }, h("h3", null, detailTitle || "未命名文献"), h("button", { type: "button", className: "ib-st-lang", onClick: () => setDetailLang((value) => value === "zh" ? "en" : "zh") }, detailLang === "zh" ? "EN" : "中文")), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
         ),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
+        h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, detailAbstract || "该记录未返回摘要。")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null)
       ) : h(SearchTaskDetail, { task: active, lastRound })

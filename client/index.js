@@ -2968,6 +2968,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-db-public{border-top:1px solid var(--ib-hair);padding-top:12px;display:flex;flex-direction:column;gap:8px}.ib-db-public>b{font-size:13px}.ib-db-public-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ib-text)}.ib-db-public-row small{margin-left:auto;color:var(--ib-muted)}.ib-db-dot{width:8px;height:8px;border-radius:50%;background:#b6c2bc}.ib-db-dot[data-ok=true]{background:#12a67a}.ib-db-dot[data-ok=false]{background:#d0453a}.ib-db-dot[data-ok=pending]{background:#d6a545}
 .ib-st-reasons{margin:6px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.5;color:#52645d}.ib-st-reasons li::marker{color:var(--ib-accent)}
 .ib-st-paper{flex:none;overflow:hidden;height:118px;min-height:118px;padding:9px 18px;gap:18px;align-items:center}.ib-st .ib-st-paper .ib-st-title{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-family:Georgia,"Times New Roman",serif!important;font-size:22px!important;font-weight:600!important;line-height:1.5!important}.ib-st-paper .ib-st-cover{width:74px;height:92px;border-radius:8px}.ib-st-paper .ib-st-meta{font-size:12px;margin-top:4px}.ib-st-paper .ib-st-reasons{margin-top:4px;font-size:12px;line-height:1.5;padding-left:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-st-paper .ib-st-check{align-items:center}
+.ib-paper-cover b{max-width:100%;padding:4px;text-align:center;line-height:1.15;word-break:break-word;overflow-wrap:anywhere}.ib-st-detail-copy{flex:1;min-width:0}.ib-st-detail-title-row{display:flex;align-items:flex-start;gap:10px}.ib-st-detail-title-row h3{flex:1;min-width:0}.ib-st-lang{flex:none;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-muted);border-radius:6px;font-size:11px;padding:3px 7px;cursor:pointer}.ib-st-lang:hover{color:var(--ib-accent);border-color:var(--ib-accent-line)}
 `;
 
 // client/src/reagents.css.js
@@ -5622,6 +5623,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   const [url2, setUrl] = (0, import_react11.useState)(cached2);
   const [failed, setFailed] = (0, import_react11.useState)(false);
   (0, import_react11.useEffect)(() => {
+    setUrl(coverCache.get(journal) || "");
     setFailed(false);
     if (!journal || !call) return void 0;
     const known = coverCache.get(journal);
@@ -5640,7 +5642,9 @@ function JournalCover({ journal, call, fallback, large = false }) {
       active = false;
     };
   }, [journal, call]);
-  const label2 = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
+  const clean = String(journal || fallback || "").trim();
+  const words = clean.split(/\s+/).filter((word) => word && !/^(of|the|and|for|in|on|&)$/i.test(word));
+  const label2 = (words.length === 1 ? words[0].slice(0, 7) : words.slice(0, 5).map((word) => word[0]).join("")).toUpperCase() || "JOURNAL";
   const retry = async () => {
     if (!journal || !call) return;
     try {
@@ -5658,7 +5662,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   return h(
     "span",
     { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url2 ? "" : "点击获取期刊封面", onClick: url2 ? void 0 : retry },
-    url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { style: label2.length > 5 ? { fontSize: "17px" } : void 0 }, label2), h("small", null, "JOURNAL"))
+    url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { title: clean, style: label2.length > 3 ? { fontSize: "16px" } : void 0 }, label2), h("small", null, "JOURNAL"))
   );
 }
 
@@ -5750,6 +5754,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   const [expanded, setExpanded] = (0, import_react12.useState)("");
   const [selectedPaperId, setSelectedPaperId] = (0, import_react12.useState)("");
   const [showOriginalTitle, setShowOriginalTitle] = (0, import_react12.useState)(false);
+  const [detailLang, setDetailLang] = (0, import_react12.useState)("zh");
   const [composer, setComposer] = (0, import_react12.useState)("");
   const [newTask, setNewTask] = (0, import_react12.useState)(null);
   const [message, setMessage] = (0, import_react12.useState)("");
@@ -5767,6 +5772,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   }, [candidates, onlyNew, lastRound]);
   const syncedCovers = (0, import_react12.useRef)("");
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
+  const detailTitle = selectedPaper ? detailLang === "en" ? selectedPaper.title : selectedPaper.titleZh || selectedPaper.title : "";
+  const detailAbstract = selectedPaper ? detailLang === "en" ? selectedPaper.abstract : selectedPaper.summaryZh || selectedPaper.abstract : "";
   const load2 = (0, import_react12.useCallback)(async (preserve = "", quiet = false) => {
     if (!quiet) setLoading(true);
     try {
@@ -6047,9 +6054,9 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
           "div",
           { className: "ib-st-detail-head" },
           h(JournalCover, { journal: selectedPaper.journal, call, fallback: String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6), large: true }),
-          h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
+          h("div", { className: "ib-st-detail-copy" }, h("div", { className: "ib-st-detail-title-row" }, h("h3", null, detailTitle || "未命名文献"), h("button", { type: "button", className: "ib-st-lang", onClick: () => setDetailLang((value) => value === "zh" ? "en" : "zh") }, detailLang === "zh" ? "EN" : "中文")), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
         ),
-        h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
+        h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, detailAbstract || "该记录未返回摘要。")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "作者"), h("p", null, selectedPaper.authors?.join(", ") || "作者未获取")),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null)
       ) : h(SearchTaskDetail, { task: active, lastRound })
