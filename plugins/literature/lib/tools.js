@@ -741,11 +741,11 @@ function registerBrowserTools(ctx) {
 
 }
 
-export function apply(ctx) {
+export function apply(ctx, config = {}) {
 	registerOrganizationTools(ctx);
-		registerSearchTaskTools(ctx);
-	if (ctx.systemPrompt?.section) {
-		ctx.systemPrompt.section({
+	const enableSearchTools = config.searchTools !== false;
+	if (enableSearchTools) registerSearchTaskTools(ctx);
+	if (enableSearchTools && ctx.systemPrompt?.section) { ctx.systemPrompt.section({
 			name: "literature:search-workflow",
 			order: ctx.systemPrompt.getSectionOrder("DEPLOYMENT_PERSONA_PREFIX") + 1,
 			text: [
@@ -761,8 +761,8 @@ export function apply(ctx) {
 	}
 	registerReaderTools(ctx);
 	// Capture is optional: the child fiber owns only browser/capture tools.
-	if (typeof ctx.inject === "function") ctx.inject(["labCapture"], registerBrowserTools);
-	else registerBrowserTools(ctx);
+	if (config.browserTools !== false) { if (typeof ctx.inject === "function") ctx.inject(["labCapture"], registerBrowserTools);
+		else registerBrowserTools(ctx); }
 	// 文献检索登记：执行多源 OA 检索并把结果登记到课题
 	ctx.tools.register(defineTool({
 		name: "lab_tasks_register_search",
