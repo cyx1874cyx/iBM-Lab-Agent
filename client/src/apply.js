@@ -186,7 +186,7 @@ export function applyUi(ctx) {
 		const entry=taskEntryIdentity(opts);
 		if(opts.openSessionId&&!entry){const opened=await openProjectConversation(ctx,call,{projectId:project.id,sessionId:opts.openSessionId});if(workbenchReady)workbench.open(project);close();return opened;}
 		const presetId = opts.presetId;
-		const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : (presetId || RESEARCH_PRESET_ID);
+		const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : (opts.searchIdentity ? "lab-search" : (presetId || RESEARCH_PRESET_ID));
 		let sessionId;
 		let workspaceId;
 		let openedNew = false;

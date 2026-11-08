@@ -44296,7 +44296,7 @@ function reasonsFor(paper) {
   const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
   return [0, 1, 2].map((index) => list[index] || "暂无补充");
 }
-function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat }) {
+function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat }) {
   const [tasks, setTasks] = (0, import_react11.useState)([]);
   const [activeId, setActiveId] = (0, import_react11.useState)("");
   const [taskQuery, setTaskQuery] = (0, import_react11.useState)("");
@@ -44370,7 +44370,8 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       onShowChat?.();
       if (onRequestArtifact) {
         const prompt = `我刚在文献检索中创建了任务「${title}」（taskId: ${task.id}，projectId: ${projectId}）。当前需求：${requirement || "尚未填写"}。请先在科研助手里帮我细化检索需求：确认研究对象、材料/方法、必须条件、排除条件、时间范围、期望文献类型和排序偏好；一次只问最关键的问题，不要现在就开始检索。等我确认细化后的需求，再翻译成英文 Scopus 术语并调用 lab_search_task_scopus 检索，然后用 lab_search_task_update_candidates 回写中文标题、摘要总结、匹配理由和推荐级别。`;
-        await onRequestArtifact(prompt, true);
+        if (onStartSearchChat) await onStartSearchChat(prompt, true, { taskId: task.id });
+        else await onRequestArtifact(prompt, true);
       }
     } catch (error) {
       setMessage(error.message);
@@ -44787,7 +44788,7 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -45845,7 +45846,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat }) : null,
+        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat }) : null,
         litTab === "reading" ? h(
           import_react12.default.Fragment,
           null,

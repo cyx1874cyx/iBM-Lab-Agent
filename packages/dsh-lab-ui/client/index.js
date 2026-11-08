@@ -5738,7 +5738,7 @@ function reasonsFor(paper) {
   const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
   return [0, 1, 2].map((index2) => list[index2] || "暂无补充");
 }
-function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat }) {
+function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat }) {
   const [tasks, setTasks] = (0, import_react12.useState)([]);
   const [activeId, setActiveId] = (0, import_react12.useState)("");
   const [taskQuery, setTaskQuery] = (0, import_react12.useState)("");
@@ -5812,7 +5812,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       onShowChat?.();
       if (onRequestArtifact) {
         const prompt = `我刚在文献检索中创建了任务「${title}」（taskId: ${task.id}，projectId: ${projectId}）。当前需求：${requirement || "尚未填写"}。请先在科研助手里帮我细化检索需求：确认研究对象、材料/方法、必须条件、排除条件、时间范围、期望文献类型和排序偏好；一次只问最关键的问题，不要现在就开始检索。等我确认细化后的需求，再翻译成英文 Scopus 术语并调用 lab_search_task_scopus 检索，然后用 lab_search_task_update_candidates 回写中文标题、摘要总结、匹配理由和推荐级别。`;
-        await onRequestArtifact(prompt, true);
+        if (onStartSearchChat) await onStartSearchChat(prompt, true, { taskId: task.id });
+        else await onRequestArtifact(prompt, true);
       }
     } catch (error62) {
       setMessage(error62.message);
@@ -6229,7 +6230,7 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -7287,7 +7288,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat }) : null,
+        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat }) : null,
         litTab === "reading" ? h(
           import_react13.default.Fragment,
           null,
@@ -30895,11 +30896,11 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       setSaving(false);
     }
   };
-  const startTaskChat = async (prompt, autoSubmit = false, translationIdentity, characterizationIdentity, readingIdentity) => {
+  const startTaskChat = async (prompt, autoSubmit = false, translationIdentity, characterizationIdentity, readingIdentity, searchIdentity) => {
     if (!state3.data || launching) throw new Error("会话正在启动，请稍后重试");
     setLaunching(true);
     try {
-      const result = await onStartChat(state3.data.project, { memory: state3.data.memory, presetId: state3.data.presetId, prompt, autoSubmit, translationIdentity, characterizationIdentity, readingIdentity, freshSession: !(readingIdentity || translationIdentity || characterizationIdentity) });
+      const result = await onStartChat(state3.data.project, { memory: state3.data.memory, presetId: state3.data.presetId, prompt, autoSubmit, translationIdentity, characterizationIdentity, readingIdentity, searchIdentity, freshSession: !(readingIdentity || translationIdentity || characterizationIdentity || searchIdentity) });
       void load2({ quiet: true });
       return result;
     } catch (reason) {
@@ -30965,7 +30966,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load2() }, "刷新")
     ) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load2() }, "刷新资料")) : null,
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget, onHideChat, onShowChat })) : null,
+    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onStartSearchChat: (prompt, autoSubmit, searchIdentity) => startTaskChat(prompt, autoSubmit, void 0, void 0, void 0, searchIdentity), onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget, onHideChat, onShowChat })) : null,
     activeTab === "characterization" || workbench && available.characterization && visitedTabs.characterization ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor("characterization")?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: "nmr", nmrRows: characterization.nmr || [], onOpenConversation: openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, void 0, identity) })) : null,
     activeTab === "plotting" || workbench && available.plotting && visitedTabs.plotting ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor("plotting")?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: "plot", headerTarget: plottingHeaderTarget, onOpenConversation: openEntryConversation, onRefineConversation: (row2, options = {}) => onStartChat(data.project, { entryIdentity: { kind: "plot", recordId: row2.id }, autoSubmit: true, preserveDraft: true, prompt: options.prompt || `请查看当前绑定的绘图条目（条目 ID：${row2.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。` }) })) : null,
     !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,
@@ -32897,7 +32898,7 @@ function applyUi(ctx) {
       return opened;
     }
     const presetId = opts.presetId;
-    const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : presetId || RESEARCH_PRESET_ID;
+    const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : opts.searchIdentity ? "lab-search" : presetId || RESEARCH_PRESET_ID;
     let sessionId;
     let workspaceId;
     let openedNew = false;

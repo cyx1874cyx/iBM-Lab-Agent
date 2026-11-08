@@ -10,7 +10,7 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./client": "./client/index.js",
     "./package.json": "./package.json",
-    "./tools": "./lib/tools.js"
+    "./tools": "./lib/tools.js", "./search-tools": "./lib/search-tools.js"
   },
   "files": [
     "lib",
