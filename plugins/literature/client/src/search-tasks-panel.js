@@ -36,6 +36,7 @@ function requirementSections(text) {
 	})).filter((section) => section.value);
 }
 function SearchTaskDetail({ task, lastRound }) {
+	if (!task) return h("div", { className: "ib-st-empty big" }, "选择或新建检索任务");
 	return h("div", { className: "ib-st-task-detail" },
 		h("h3", null, task.title || "未命名检索任务"),
 		h("div", { className: "ib-st-task-stats" }, `第${task.rounds?.length || 0}轮 · 候选 ${task.candidates?.length || 0} 篇${lastRound ? ` · 本轮新增 ${lastRound.newCount || 0}` : ""}`),

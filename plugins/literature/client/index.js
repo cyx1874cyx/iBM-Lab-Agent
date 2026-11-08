@@ -44225,6 +44225,7 @@ function requirementSections(text) {
   })).filter((section) => section.value);
 }
 function SearchTaskDetail({ task, lastRound }) {
+  if (!task) return h("div", { className: "ib-st-empty big" }, "选择或新建检索任务");
   return h(
     "div",
     { className: "ib-st-task-detail" },
