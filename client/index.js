@@ -5951,7 +5951,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         h(
           "header",
           { className: "ib-st-head" },
-          h("div", null, h("h2", null, active.title || "未命名检索任务"), active.requirement ? h("p", null, active.requirement) : null),
+          h("div", null, h("h2", null, active.title || "未命名检索任务"), null),
           h("button", { type: "button", className: "ib-st-link", onClick: () => setFilterOpen((value) => !value) }, "检索策略")
         ),
         h("div", { className: "ib-st-rounds" }, (active.rounds || []).slice(-4).map((round, index2) => h("button", { key: round.id, type: "button", className: "ib-st-round", "data-active": index2 === (active.rounds || []).length - 1 ? "true" : void 0 }, `第${round.index || index2 + 1}轮`)), lastRound ? h("span", { className: "ib-st-round-new" }, `本轮新增 ${lastRound.newCount || 0} 篇 · 保留 ${lastRound.totalAfter || candidates.length} 篇`) : null),

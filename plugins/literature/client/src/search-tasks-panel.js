@@ -271,7 +271,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		),
 		h("main", { className: "ib-st-main" },
 			active ? h(React.Fragment, null,
-				h("header", { className: "ib-st-head" }, h("div", null, h("h2", null, active.title || "未命名检索任务"), active.requirement ? h("p", null, active.requirement) : null),
+				h("header", { className: "ib-st-head" }, h("div", null, h("h2", null, active.title || "未命名检索任务"), null),
 					h("button", { type: "button", className: "ib-st-link", onClick: () => setFilterOpen((value) => !value) }, "检索策略")),
 				h("div", { className: "ib-st-rounds" }, (active.rounds || []).slice(-4).map((round, index) => h("button", { key: round.id, type: "button", className: "ib-st-round", "data-active": index === (active.rounds || []).length - 1 ? "true" : undefined }, `第${round.index || index + 1}轮`)), lastRound ? h("span", { className: "ib-st-round-new" }, `本轮新增 ${lastRound.newCount || 0} 篇 · 保留 ${lastRound.totalAfter || candidates.length} 篇`) : null),
 				filterOpen ? h("div", { className: "ib-st-filter" }, h("label", null, h("input", { type: "checkbox", checked: onlyNew, onChange: (event) => setOnlyNew(event.target.checked) }), "只看本轮新增"), h("button", { type: "button", onClick: async () => { const key = window.prompt("Scopus API Key（仅保存在本机后端配置）"); if (!key) return; await call("search_tasks_save_key", { request: { projectId, apiKey: key.trim() } }); notify?.("Scopus Key 已保存"); }, disabled: busy === "test" }, "配置 Scopus Key"), h("button", { type: "button", onClick: testScopus, disabled: busy === "test" }, busy === "test" ? "测试中…" : "测试 Scopus 连接"), scopusState ? h("span", { "data-ok": scopusState.ok ? "true" : "false" }, scopusState.message) : null) : null,
