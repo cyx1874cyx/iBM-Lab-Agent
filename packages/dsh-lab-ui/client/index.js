@@ -2911,7 +2911,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-card:hover{border-color:var(--ib-accent)}
 .ib-lit-card[data-selected=true]{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
 .ib-paper-cover{flex:none;width:82px;height:100px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff;background:linear-gradient(160deg,#536a7c,#354958);box-sizing:border-box;text-align:center;overflow:hidden}
-.ib-paper-cover b{font:700 22px/1 var(--ib-serif,Georgia,serif);letter-spacing:.01em}.ib-paper-cover small{font:600 8px/1 var(--ib-font,system-ui);letter-spacing:.12em;color:#dbe6ea}.ib-paper-cover-lg{width:96px;height:116px}
+.ib-paper-cover img{width:100%;height:100%;object-fit:cover;display:block}.ib-paper-cover b{font:700 22px/1 var(--ib-serif,Georgia,serif);letter-spacing:.01em}.ib-paper-cover small{font:600 8px/1 var(--ib-font,system-ui);letter-spacing:.12em;color:#dbe6ea}.ib-paper-cover-lg{width:96px;height:116px}
 .ib-lit-card-copy{min-width:0;flex:1 1 0;display:flex;flex-direction:column;gap:8px;overflow:hidden}
 .ib-lit-card .ib-lit-title{font:600 20px/1.35 var(--ib-serif,Georgia,serif);color:var(--ib-text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ib-lit-card-cite{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden}.ib-lit-cite-text{min-width:0;font:italic 400 14px/1.35 var(--ib-font,system-ui);color:#6a7780;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-field-pill{flex:none;padding:4px 10px;border-radius:999px;background:#eef2f0;color:#52645d;font:500 12px/1 var(--ib-font,system-ui)}
@@ -4942,9 +4942,9 @@ function followProjectUpdates({ call, projectId, load: load2, getRevision, windo
 }
 
 // client/src/components-project.js
-var import_react26 = __toESM(require("react"), 1);
+var import_react27 = __toESM(require("react"), 1);
 var import_react_dom8 = __toESM(require("react-dom"), 1);
-var import_react27 = require("react");
+var import_react28 = require("react");
 
 // client/src/reader-host.js
 var PREFIX = "dsh-resource://lab-reader/";
@@ -4977,7 +4977,7 @@ function translationPrompt(request, translationId) {
 }
 
 // plugins/literature/client/src/lit-panel.js
-var import_react12 = __toESM(require("react"), 1);
+var import_react13 = __toESM(require("react"), 1);
 var import_react_dom2 = require("react-dom");
 
 // plugins/literature/client/src/reading-link-upload.js
@@ -5611,7 +5611,53 @@ ${wechat ? "先调用 lab_tasks_fetch_wechat_article 读取正文，从正文识
 }
 
 // plugins/literature/client/src/search-tasks-panel.js
+var import_react12 = __toESM(require("react"), 1);
+
+// plugins/literature/client/src/journal-cover.js
 var import_react11 = __toESM(require("react"), 1);
+function JournalCover({ journal, call, fallback, large = false }) {
+  const key2 = journal ? `ib-lit-cover:${journal}` : "";
+  const read = () => {
+    try {
+      return localStorage.getItem(key2) || "";
+    } catch {
+      return "";
+    }
+  };
+  const [url2, setUrl] = (0, import_react11.useState)(read);
+  const [failed, setFailed] = (0, import_react11.useState)(false);
+  (0, import_react11.useEffect)(() => {
+    setFailed(false);
+    if (!journal || !call) return void 0;
+    const cached2 = read();
+    if (cached2) {
+      setUrl(cached2);
+      return void 0;
+    }
+    let active = true;
+    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
+      const cover = value?.coverUrl;
+      if (!active || !cover) return;
+      setUrl(cover);
+      try {
+        localStorage.setItem(key2, cover);
+      } catch {
+      }
+    }).catch(() => {
+    });
+    return () => {
+      active = false;
+    };
+  }, [journal, call, key2]);
+  const label2 = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
+  return h(
+    "span",
+    { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : "") },
+    url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { style: label2.length > 5 ? { fontSize: "17px" } : void 0 }, label2), h("small", null, "JOURNAL"))
+  );
+}
+
+// plugins/literature/client/src/search-tasks-panel.js
 var emptyTask = () => ({ id: "", title: "", requirement: "", rounds: [], candidates: [], messages: [], createdAt: "", updatedAt: "", status: "draft" });
 function SearchMetrics({ journal, call }) {
   const storageKey = journal ? `ib-lit-journal-metrics:${journal}` : "";
@@ -5624,8 +5670,8 @@ function SearchMetrics({ journal, call }) {
       return void 0;
     }
   };
-  const [data, setData] = (0, import_react11.useState)(read);
-  (0, import_react11.useEffect)(() => {
+  const [data, setData] = (0, import_react12.useState)(read);
+  (0, import_react12.useEffect)(() => {
     if (!journal) return void 0;
     const cached2 = read();
     if (cached2) {
@@ -5689,25 +5735,25 @@ function reasonsFor(paper) {
   return [0, 1, 2].map((index2) => list[index2] || "暂无补充");
 }
 function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat }) {
-  const [tasks, setTasks] = (0, import_react11.useState)([]);
-  const [activeId, setActiveId] = (0, import_react11.useState)("");
-  const [taskQuery, setTaskQuery] = (0, import_react11.useState)("");
-  const [loading, setLoading] = (0, import_react11.useState)(true);
-  const [busy, setBusy] = (0, import_react11.useState)("");
-  const [filterOpen, setFilterOpen] = (0, import_react11.useState)(false);
-  const [onlyNew, setOnlyNew] = (0, import_react11.useState)(false);
-  const [expanded, setExpanded] = (0, import_react11.useState)("");
-  const [selectedPaperId, setSelectedPaperId] = (0, import_react11.useState)("");
-  const [showOriginalTitle, setShowOriginalTitle] = (0, import_react11.useState)(false);
-  const [composer, setComposer] = (0, import_react11.useState)("");
-  const [newTask, setNewTask] = (0, import_react11.useState)(null);
-  const [message, setMessage] = (0, import_react11.useState)("");
-  const [scopusState, setScopusState] = (0, import_react11.useState)(null);
+  const [tasks, setTasks] = (0, import_react12.useState)([]);
+  const [activeId, setActiveId] = (0, import_react12.useState)("");
+  const [taskQuery, setTaskQuery] = (0, import_react12.useState)("");
+  const [loading, setLoading] = (0, import_react12.useState)(true);
+  const [busy, setBusy] = (0, import_react12.useState)("");
+  const [filterOpen, setFilterOpen] = (0, import_react12.useState)(false);
+  const [onlyNew, setOnlyNew] = (0, import_react12.useState)(false);
+  const [expanded, setExpanded] = (0, import_react12.useState)("");
+  const [selectedPaperId, setSelectedPaperId] = (0, import_react12.useState)("");
+  const [showOriginalTitle, setShowOriginalTitle] = (0, import_react12.useState)(false);
+  const [composer, setComposer] = (0, import_react12.useState)("");
+  const [newTask, setNewTask] = (0, import_react12.useState)(null);
+  const [message, setMessage] = (0, import_react12.useState)("");
+  const [scopusState, setScopusState] = (0, import_react12.useState)(null);
   const active = tasks.find((task) => task.id === activeId) || tasks[0] || null;
   const candidates = active?.candidates || [];
-  const selected = (0, import_react11.useMemo)(() => new Set(candidates.filter((paper) => paper.selected).map((paper) => paper.id)), [candidates]);
+  const selected = (0, import_react12.useMemo)(() => new Set(candidates.filter((paper) => paper.selected).map((paper) => paper.id)), [candidates]);
   const lastRound = active?.rounds?.at(-1);
-  const visible = (0, import_react11.useMemo)(() => {
+  const visible = (0, import_react12.useMemo)(() => {
     const filtered = candidates.filter((paper) => !onlyNew || lastRound?.candidateIds?.includes(paper.id));
     return filtered.slice().sort((a, b) => {
       const rank = { priority: 0, support: 1, "": 2 };
@@ -5715,7 +5761,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
     });
   }, [candidates, onlyNew, lastRound]);
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
-  const load2 = (0, import_react11.useCallback)(async (preserve = "") => {
+  const load2 = (0, import_react12.useCallback)(async (preserve = "") => {
     setLoading(true);
     try {
       const result = await call("search_tasks_list", { request: { projectId } });
@@ -5729,10 +5775,10 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       setLoading(false);
     }
   }, [call, projectId, notify2]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     void load2();
   }, [load2]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     if (active) setComposer(active.requirement || "");
     setSelectedPaperId("");
   }, [active?.id]);
@@ -5890,7 +5936,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         }
       } },
       h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index2 + 1).padStart(2, "0"))),
-      h("span", { className: "ib-st-cover" }, String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 4).toUpperCase()),
+      h(JournalCover, { journal: paper.journal, call, fallback: String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6) }),
       h(
         "div",
         { className: "ib-st-paper-copy" },
@@ -5946,7 +5992,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       "main",
       { className: "ib-st-main" },
       active ? h(
-        import_react11.default.Fragment,
+        import_react12.default.Fragment,
         null,
         h(
           "header",
@@ -5971,12 +6017,12 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       "aside",
       { className: "ib-st-detail-pane" },
       selectedPaper ? h(
-        import_react11.default.Fragment,
+        import_react12.default.Fragment,
         null,
         h(
           "div",
           { className: "ib-st-detail-head" },
-          h("span", { className: "ib-st-detail-cover" }, String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 5).toUpperCase()),
+          h(JournalCover, { journal: selectedPaper.journal, call, fallback: String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6), large: true }),
           h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
         ),
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
@@ -6014,7 +6060,7 @@ function usableShortCitation(value) {
 
 // plugins/literature/client/src/lit-panel.js
 function NonPaperNotice({ notice, onDismiss }) {
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     const timer = setTimeout(() => onDismiss(notice.id), 3e3);
     return () => clearTimeout(timer);
   }, [notice.id, onDismiss]);
@@ -6116,9 +6162,9 @@ function JournalMetricTiles({ journal, call }) {
       return void 0;
     }
   };
-  const [data, setData] = (0, import_react12.useState)(readStored);
-  const [loading, setLoading] = (0, import_react12.useState)(false);
-  const load2 = (0, import_react12.useCallback)(async (force = false) => {
+  const [data, setData] = (0, import_react13.useState)(readStored);
+  const [loading, setLoading] = (0, import_react13.useState)(false);
+  const load2 = (0, import_react13.useCallback)(async (force = false) => {
     if (!journal) {
       setData(null);
       return;
@@ -6140,7 +6186,7 @@ function JournalMetricTiles({ journal, call }) {
       setLoading(false);
     }
   }, [journal, call, storageKey]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     const stored = readStored();
     if (stored) {
       setData(stored);
@@ -6175,36 +6221,36 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   for (const item of (presentations || []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (!(item.reportId in presentationByReport)) presentationByReport[item.reportId] = item;
   }
-  const [busy, setBusy] = (0, import_react12.useState)({});
-  const [overview, setOverview] = (0, import_react12.useState)({});
+  const [busy, setBusy] = (0, import_react13.useState)({});
+  const [overview, setOverview] = (0, import_react13.useState)({});
   const [expandedSearch, setExpandedSearch] = useProjectViewValue(projectId, "expanded-search", "");
-  const [folders, setFolders] = (0, import_react12.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [importingRis, setImportingRis] = (0, import_react12.useState)(false);
-  const [foldersLoaded, setFoldersLoaded] = (0, import_react12.useState)(false);
-  const literatureRoot = (0, import_react12.useRef)(null);
-  const [entryMenu, setEntryMenu] = (0, import_react12.useState)(null);
-  const closeEntryMenu = (0, import_react12.useCallback)(() => setEntryMenu(null), []);
-  (0, import_react12.useEffect)(() => setEntryMenu(null), [projectId, selectedFolder]);
-  (0, import_react12.useEffect)(() => {
+  const [folders, setFolders] = (0, import_react13.useState)([]), [selectedFolder, setSelectedFolder] = useProjectViewValue(projectId, "reading-folder", "all"), [importingRis, setImportingRis] = (0, import_react13.useState)(false);
+  const [foldersLoaded, setFoldersLoaded] = (0, import_react13.useState)(false);
+  const literatureRoot = (0, import_react13.useRef)(null);
+  const [entryMenu, setEntryMenu] = (0, import_react13.useState)(null);
+  const closeEntryMenu = (0, import_react13.useCallback)(() => setEntryMenu(null), []);
+  (0, import_react13.useEffect)(() => setEntryMenu(null), [projectId, selectedFolder]);
+  (0, import_react13.useEffect)(() => {
     setEntryMenu((menu) => menu && menu.reportIds.some((id) => !reports.some((report) => report.id === id)) ? null : menu);
   }, [reports]);
   useProjectViewScroll(literatureRoot, projectId, selectedFolder, foldersLoaded);
-  const risPicker = (0, import_react12.useRef)(null), risDragDepth = (0, import_react12.useRef)(0);
-  const [risDragging, setRisDragging] = (0, import_react12.useState)(false);
-  const pdfPicker = (0, import_react12.useRef)(null), dragDepth = (0, import_react12.useRef)(0);
-  const [pdfUploads, setPdfUploads] = (0, import_react12.useState)([]), [pdfDragging, setPdfDragging] = (0, import_react12.useState)(false);
-  const [rejectionNotices, setRejectionNotices] = (0, import_react12.useState)([]);
-  const seenRejections = (0, import_react12.useRef)(new Set(bundles.filter((row2) => row2.pdfIntake?.status === "rejected").map((row2) => row2.id + ":" + row2.pdfIntake.updatedAt)));
-  const dismissRejection = (0, import_react12.useCallback)((id) => setRejectionNotices((previous) => previous.filter((row2) => row2.id !== id)), []);
-  const showRejection = (0, import_react12.useCallback)((bundle) => {
+  const risPicker = (0, import_react13.useRef)(null), risDragDepth = (0, import_react13.useRef)(0);
+  const [risDragging, setRisDragging] = (0, import_react13.useState)(false);
+  const pdfPicker = (0, import_react13.useRef)(null), dragDepth = (0, import_react13.useRef)(0);
+  const [pdfUploads, setPdfUploads] = (0, import_react13.useState)([]), [pdfDragging, setPdfDragging] = (0, import_react13.useState)(false);
+  const [rejectionNotices, setRejectionNotices] = (0, import_react13.useState)([]);
+  const seenRejections = (0, import_react13.useRef)(new Set(bundles.filter((row2) => row2.pdfIntake?.status === "rejected").map((row2) => row2.id + ":" + row2.pdfIntake.updatedAt)));
+  const dismissRejection = (0, import_react13.useCallback)((id) => setRejectionNotices((previous) => previous.filter((row2) => row2.id !== id)), []);
+  const showRejection = (0, import_react13.useCallback)((bundle) => {
     seenRejections.current.add(bundle.id + ":" + bundle.pdfIntake.updatedAt);
     setRejectionNotices((previous) => [...previous, { id: crypto.randomUUID(), name: bundle.pdfIntake.originalFileName, reason: bundle.pdfIntake.error }]);
   }, []);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     for (const bundle of bundles) if (bundle.pdfIntake?.status === "rejected" && !seenRejections.current.has(bundle.id + ":" + bundle.pdfIntake.updatedAt)) showRejection(bundle);
   }, [bundles, showRejection]);
-  const [locateRequest, setLocateRequest] = (0, import_react12.useState)(null);
+  const [locateRequest, setLocateRequest] = (0, import_react13.useState)(null);
   const canLocate = !!locateRequest && reports.some((report) => report.bundleId === locateRequest.bundleId);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!locateRequest || !canLocate) return void 0;
     let timer, node2;
     const frame = requestAnimationFrame(() => {
@@ -6268,15 +6314,15 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     event.stopPropagation();
     return true;
   };
-  const [folderEditor, setFolderEditor] = (0, import_react12.useState)(null);
-  const loadFolders = (0, import_react12.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => {
+  const [folderEditor, setFolderEditor] = (0, import_react13.useState)(null);
+  const loadFolders = (0, import_react13.useCallback)(() => call("tasks_reading_folders", { request: { projectId } }).then((result) => {
     setFolders(result.folders ?? []);
     setFoldersLoaded(true);
   }).catch((error62) => notify2(error62.message)), [call, projectId, notify2]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     void loadFolders();
   }, [projectId, reports, loadFolders]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (foldersLoaded && selectedFolder !== "all" && selectedFolder !== "unfiled" && !folders.some((folder) => folder.id === selectedFolder)) setSelectedFolder("unfiled");
   }, [foldersLoaded, folders, selectedFolder, setSelectedFolder]);
   const folderAction = async (action2, request) => {
@@ -6361,58 +6407,58 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const readingInteraction = useReadingInteractions({ projectId, reports: readingReports, visibleReports: filteredReports, bundles: bundleById, root: literatureRoot, call, notify: notify2, onChanged, onContextMenu: setEntryMenu, setFolder: setSelectedFolder, onLocate: (report) => {
     if (report) setLocateRequest({ bundleId: report.bundleId, nonce: crypto.randomUUID() });
   } });
-  const [machineReviews, setMachineReviews] = (0, import_react12.useState)({});
-  const [preview, setPreview] = (0, import_react12.useState)(null);
-  const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
-  const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
-  const [databaseOpen, setDatabaseOpen] = (0, import_react12.useState)(false);
-  const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
-  const [databaseBusy, setDatabaseBusy] = (0, import_react12.useState)("");
-  const [databaseMessage, setDatabaseMessage] = (0, import_react12.useState)("");
-  const [publicSources, setPublicSources] = (0, import_react12.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
-  const [selectedReportId, setSelectedReportId] = (0, import_react12.useState)(() => {
+  const [machineReviews, setMachineReviews] = (0, import_react13.useState)({});
+  const [preview, setPreview] = (0, import_react13.useState)(null);
+  const [litTab, setActiveLitTab] = (0, import_react13.useState)("reading");
+  const [searchTaskCount, setSearchTaskCount] = (0, import_react13.useState)(0);
+  const [databaseOpen, setDatabaseOpen] = (0, import_react13.useState)(false);
+  const [databaseKey, setDatabaseKey] = (0, import_react13.useState)("");
+  const [databaseBusy, setDatabaseBusy] = (0, import_react13.useState)("");
+  const [databaseMessage, setDatabaseMessage] = (0, import_react13.useState)("");
+  const [publicSources, setPublicSources] = (0, import_react13.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
+  const [selectedReportId, setSelectedReportId] = (0, import_react13.useState)(() => {
     try {
       return localStorage.getItem("ib-lit-selected:" + projectId) || "";
     } catch {
       return "";
     }
   });
-  const [watchReading, setWatchReading] = (0, import_react12.useState)(false);
-  const [watchPpt, setWatchPpt] = (0, import_react12.useState)(false);
-  (0, import_react12.useEffect)(() => {
+  const [watchReading, setWatchReading] = (0, import_react13.useState)(false);
+  const [watchPpt, setWatchPpt] = (0, import_react13.useState)(false);
+  (0, import_react13.useEffect)(() => {
     if (litTab === "search") onShowChat?.();
   }, [litTab]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     try {
       if (selectedReportId) localStorage.setItem("ib-lit-selected:" + projectId, selectedReportId);
       else localStorage.removeItem("ib-lit-selected:" + projectId);
     } catch {
     }
   }, [selectedReportId, projectId]);
-  const [metricsByJournal, setMetricsByJournal] = (0, import_react12.useState)({});
-  const metricsRequested = (0, import_react12.useRef)(/* @__PURE__ */ new Set());
-  const [folderMenu, setFolderMenu] = (0, import_react12.useState)(null);
-  const [uploadMenuOpen, setUploadMenuOpen] = (0, import_react12.useState)(false);
-  const [linkOpen, setLinkOpen] = (0, import_react12.useState)(false);
-  const [linkUrl, setLinkUrl] = (0, import_react12.useState)("");
-  const [linkBusy, setLinkBusy] = (0, import_react12.useState)(false);
-  const [linkError, setLinkError] = (0, import_react12.useState)("");
-  (0, import_react12.useEffect)(() => {
+  const [metricsByJournal, setMetricsByJournal] = (0, import_react13.useState)({});
+  const metricsRequested = (0, import_react13.useRef)(/* @__PURE__ */ new Set());
+  const [folderMenu, setFolderMenu] = (0, import_react13.useState)(null);
+  const [uploadMenuOpen, setUploadMenuOpen] = (0, import_react13.useState)(false);
+  const [linkOpen, setLinkOpen] = (0, import_react13.useState)(false);
+  const [linkUrl, setLinkUrl] = (0, import_react13.useState)("");
+  const [linkBusy, setLinkBusy] = (0, import_react13.useState)(false);
+  const [linkError, setLinkError] = (0, import_react13.useState)("");
+  (0, import_react13.useEffect)(() => {
     if (!uploadMenuOpen) return void 0;
     const close = () => setUploadMenuOpen(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [uploadMenuOpen]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!folderMenu) return void 0;
     const close = () => setFolderMenu(null);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [folderMenu]);
-  const [templatesOpen, setTemplatesOpen] = (0, import_react12.useState)(false);
-  const [noteTemplates, setNoteTemplates] = (0, import_react12.useState)([]);
+  const [templatesOpen, setTemplatesOpen] = (0, import_react13.useState)(false);
+  const [noteTemplates, setNoteTemplates] = (0, import_react13.useState)([]);
   const [noteTemplateId, setNoteTemplateId] = useProjectViewValue(projectId, "reading-template", "");
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     let alive = true;
     void call("note_templates_list", { request: { kind: "note" } }).then((result) => {
       if (alive) setNoteTemplates(result.templates ?? []);
@@ -6422,7 +6468,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       alive = false;
     };
   }, [call]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!templatesOpen) return void 0;
     const onKey = (event) => {
       if (event.key === "Escape") setTemplatesOpen(false);
@@ -6430,13 +6476,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [templatesOpen]);
-  const [reviewVisible, setReviewVisible] = (0, import_react12.useState)(false);
-  const [approval, setApproval] = (0, import_react12.useState)(null);
-  const [captureHint, setCaptureHint] = (0, import_react12.useState)(null);
-  const [captureStopping, setCaptureStopping] = (0, import_react12.useState)(false);
-  const [browserMode, setBrowserMode] = (0, import_react12.useState)("managed-edge");
-  const [opening, setOpening] = (0, import_react12.useState)({});
-  (0, import_react12.useEffect)(() => {
+  const [reviewVisible, setReviewVisible] = (0, import_react13.useState)(false);
+  const [approval, setApproval] = (0, import_react13.useState)(null);
+  const [captureHint, setCaptureHint] = (0, import_react13.useState)(null);
+  const [captureStopping, setCaptureStopping] = (0, import_react13.useState)(false);
+  const [browserMode, setBrowserMode] = (0, import_react13.useState)("managed-edge");
+  const [opening, setOpening] = (0, import_react13.useState)({});
+  (0, import_react13.useEffect)(() => {
     let alive = true;
     call("literature_status", { request: { force: false } }).then((result) => {
       if (alive && result?.browserMode) setBrowserMode(result.browserMode);
@@ -6447,7 +6493,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     };
   }, [call]);
   const desktopEdgeHandoff = window.parent !== window || browserMode === "desktop-edge-handoff";
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId) return void 0;
     let disposed = false;
@@ -6481,7 +6527,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(timer);
     };
   }, [captureHint?.taskId, call, onChanged]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     const taskId = captureHint?.taskId;
     if (!taskId || captureHint?.route !== "webvpn") return void 0;
     let disposed = false;
@@ -6876,7 +6922,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const shortOf = (report) => citationOf(report)?.text || usableShortCitation(report.shortCitation) || titleByBundle[report.bundleId] || report.titleZh || `精读报告 ${report.id.slice(0, 12)}`;
   const shortNode = (report) => {
     const citation = citationOf(report);
-    return citation ? h(import_react12.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
+    return citation ? h(import_react13.default.Fragment, null, h("i", null, citation.journal), citation.suffix) : shortOf(report);
   };
   const zhOf = (report) => report.titleZh || shortOf(report);
   const paperCitation = (paper) => {
@@ -6933,7 +6979,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       "section",
       { className: "ib-approval-card", role: approval.stage === "approved" ? "status" : "alertdialog", "aria-label": approval.stage === "approved" ? "审核通过" : "审核通过二次确认" },
       approval.stage === "approved" ? h(
-        import_react12.default.Fragment,
+        import_react13.default.Fragment,
         null,
         h("div", { className: "ib-approval-ok" }, h("strong", null, "审核通过"), h("span", null, `${preview?.kind === "ppt" ? "PPTX" : "DOCX"} 已开放下载；你也可以关闭此页面后继续在预览窗口下载。`)),
         h(
@@ -6943,7 +6989,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           h("button", { className: "ib-preview-btn", "data-primary": true, disabled: busy[preview?.kind === "ppt" ? `ppt:${preview?.report.id}` : `rep:${preview?.report.id}`], onClick: () => void downloadPreviewArtifact() }, preview?.kind === "ppt" ? "下载PPT" : "下载DOCX")
         )
       ) : h(
-        import_react12.default.Fragment,
+        import_react13.default.Fragment,
         null,
         h("h3", null, "审核通过前请确认自查提醒"),
         h("p", null, "自动自查仅供参考，不构成通过门限。请结合上方实际分页预览人工判断；点击确认后将锁定当前文件版本并开放下载。"),
@@ -6958,7 +7004,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     )
   ) : null;
   const previewNode = preview ? h(
-    import_react12.default.Fragment,
+    import_react13.default.Fragment,
     null,
     h("div", { className: "ib-preview-backdrop", onClick: closePreview }),
     h(
@@ -6995,7 +7041,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const selectedPresentation = selectedReport ? presentationByReport[selectedReport.id] : null;
   const selectedReadingDone = Boolean(selectedReport?.docxPath);
   const selectedPptDone = Boolean(selectedPresentation?.pptxPath);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!watchReading) return void 0;
     const timer = setInterval(() => onChanged?.(), 8e3);
     const stop = setTimeout(() => setWatchReading(false), 10 * 60 * 1e3);
@@ -7004,7 +7050,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(stop);
     };
   }, [watchReading, onChanged]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!watchPpt) return void 0;
     const timer = setInterval(() => onChanged?.(), 8e3);
     const stop = setTimeout(() => setWatchPpt(false), 10 * 60 * 1e3);
@@ -7013,10 +7059,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       clearTimeout(stop);
     };
   }, [watchPpt, onChanged]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (selectedReadingDone) setWatchReading(false);
   }, [selectedReadingDone]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (selectedPptDone) setWatchPpt(false);
   }, [selectedPptDone]);
   const startReadingNote = () => {
@@ -7046,11 +7092,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     const citation = citationFor(report, bundle);
     return citation ? citation.text.replace(/\.$/u, "") : [bundle.journal || bundle.journalAbbrev, bundle.year].filter(Boolean).join(" · ");
   };
-  const coverOf = (bundle = {}, report = null) => {
+  const coverOf = (bundle = {}, report = null, large = false) => {
     const journal = String(journalAbbrevOf(bundle, report) || "PREPRINT");
     const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").toUpperCase();
     const label2 = /^NATURE/.test(token) ? "NAT" : token.slice(0, 6);
-    return h("span", { className: "ib-paper-cover" }, h("b", { style: label2.length > 5 ? { fontSize: "18px" } : void 0 }, label2), h("small", null, "JOURNAL"));
+    return h(JournalCover, { journal, call, fallback: label2, large });
   };
   const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || "").trim();
   const metricBox = (label2, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label2), h("b", null, value));
@@ -7095,7 +7141,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h(
       "div",
       { className: "ib-lit-detail-lead" },
-      h("span", { className: "ib-paper-cover ib-paper-cover-lg", style: { ...coverOf(selectedBundle, selectedReport).props.style } }, coverOf(selectedBundle, selectedReport).props.children),
+      coverOf(selectedBundle, selectedReport, true),
       h(
         "div",
         { className: "ib-lit-detail-title" },
@@ -7181,7 +7227,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     } }, "⚙ 数据库管理")
   );
   return h(
-    import_react12.default.Fragment,
+    import_react13.default.Fragment,
     null,
     headerTarget ? (0, import_react_dom2.createPortal)(toolbarNode, headerTarget) : null,
     h(
@@ -7228,7 +7274,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         ),
         litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat }) : null,
         litTab === "reading" ? h(
-          import_react12.default.Fragment,
+          import_react13.default.Fragment,
           null,
           h("div", { className: "ib-lit-folders" }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, type: "button", className: "ib-lit-folder", ...readingInteraction.folderProps(folder), "data-active": selectedFolder === folder.id ? "true" : void 0, onClick: () => {
             readingInteraction.clear();
@@ -7364,7 +7410,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     }, style: { position: "fixed", inset: 0, zIndex: 9e3, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.35)", padding: "24px" } }, h("section", { role: "dialog", "aria-modal": "true", style: { width: "min(1020px,68vw)", height: "65vh", background: "var(--ib-bg)", border: "1px solid var(--ib-line)", borderRadius: "14px", overflow: "hidden" } }, h("div", { style: { display: "flex", padding: "12px 20px", borderBottom: "1px solid var(--ib-hair)" } }, h("b", null, "模板管理"), h("button", { className: "ib-btn", style: { marginLeft: "auto" }, onClick: () => setTemplatesOpen(false) }, "关闭")), h("div", { style: { padding: "16px 20px", overflow: "auto", height: "calc(100% - 56px)" } }, h(Templates, { call, sections: ["notes", "reviews", "ppt"] })))) : null,
     previewNode
   );
-  return h(import_react12.default.Fragment, null, h(
+  return h(import_react13.default.Fragment, null, h(
     "div",
     { className: "ib-lit", ref: literatureRoot },
     // ── 分组一：检索记录 ────────────────────────────────────────────────
@@ -7513,7 +7559,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       h("div", { className: "ib-reading-folders", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, [{ id: "all", name: "全部" }, { id: "unfiled", name: "未分类" }, ...folders].map((folder) => h("button", { key: folder.id, className: "ib-act", ...readingInteraction.folderProps(folder), "data-selected": selectedFolder === folder.id ? "true" : void 0, style: selectedFolder === folder.id ? { background: "var(--ib-accent-soft)", color: "var(--ib-accent-ink)" } : void 0, onClick: () => {
         readingInteraction.clear();
         setSelectedFolder(folder.id);
-      } }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react12.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
+      } }, `${folder.id === "all" ? "" : "📁 "}${folder.name} (${reports.filter((row2) => folder.id === "all" || (folder.id === "unfiled" ? !row2.folderId : row2.folderId === folder.id)).length})`)), folders.some((row2) => row2.id === selectedFolder) ? h(import_react13.default.Fragment, null, h("button", { className: "ib-act", onClick: () => {
         setFolderEditor({ id: selectedFolder, name: folders.find((row2) => row2.id === selectedFolder).name });
       } }, "重命名"), h("button", { className: "ib-act", onClick: () => {
         if (window.confirm("删除该分类文件夹？其中的文献将移到“未分类”，保留报告及归档文件。")) {
@@ -7728,11 +7774,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
 }
 
 // client/src/components-nmr.js
-var import_react17 = require("react");
+var import_react18 = require("react");
 var import_react_dom5 = require("react-dom");
 
 // client/src/nmr-input-zone.js
-var import_react13 = require("react");
+var import_react14 = require("react");
 
 // client/src/nmr-files.js
 var NMR_DATA_ACCEPT = ".zip,.mnova,.jdx,.dx,.jcamp";
@@ -7769,7 +7815,7 @@ function nmrDropFiles(dataTransfer) {
 
 // client/src/nmr-input-zone.js
 function NmrInputZone({ kind, name, drawn, busy, onFiles, onDraw }) {
-  const picker = (0, import_react13.useRef)(null), depth = (0, import_react13.useRef)(0), [dragging, setDragging] = (0, import_react13.useState)(false);
+  const picker = (0, import_react14.useRef)(null), depth = (0, import_react14.useRef)(0), [dragging, setDragging] = (0, import_react14.useState)(false);
   const structure = kind === "structure", label2 = structure ? "分子结构式" : "核磁原始数据";
   const isFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
   const claim2 = (event) => {
@@ -7825,7 +7871,7 @@ function NmrInputZone({ kind, name, drawn, busy, onFiles, onDraw }) {
 }
 
 // client/src/nmr-simulation-settings.js
-var import_react14 = require("react");
+var import_react15 = require("react");
 var import_react_dom3 = require("react-dom");
 
 // src/nmr/simulation.js
@@ -7833,7 +7879,7 @@ var SIMULATION_SOLVENTS = ["CDCl3", "DMSO-d6", "D2O", "CD3OD", "Acetone-d6", "CD
 
 // client/src/nmr-simulation-settings.js
 function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
-  const [p, setP] = (0, import_react14.useState)({ nucleus: "1H", solvent: "CDCl3", frequencyMHz: 400, massMg: 10, volumeMl: 0.6, linewidthHz: 1.5, temperatureK: 298, scans: 16, includeExchangeable: false }), [error62, setError] = (0, import_react14.useState)("");
+  const [p, setP] = (0, import_react15.useState)({ nucleus: "1H", solvent: "CDCl3", frequencyMHz: 400, massMg: 10, volumeMl: 0.6, linewidthHz: 1.5, temperatureK: 298, scans: 16, includeExchangeable: false }), [error62, setError] = (0, import_react15.useState)("");
   const set2 = (key2, value) => setP((old) => ({ ...old, [key2]: value }));
   const number5 = (key2, label2, min, max) => h("label", { className: "ib-field" }, h("span", null, label2), h("input", { type: "number", step: "any", min, max, value: p[key2], onChange: (e) => set2(key2, e.target.value) }));
   const select3 = (key2, label2, choices) => h("label", { className: "ib-field" }, h("span", null, label2), h("select", { value: p[key2], onChange: (e) => {
@@ -7864,10 +7910,10 @@ function NmrSimulationSettings({ row: row2, onClose, onGenerate }) {
 }
 
 // client/src/nmr-delete-dialog.js
-var import_react15 = require("react");
+var import_react16 = require("react");
 var import_react_dom4 = require("react-dom");
 function NmrDeleteDialog({ row: row2, mode, busy, error: error62, onCancel, onDelete }) {
-  const [selected, setSelected] = (0, import_react15.useState)([]);
+  const [selected, setSelected] = (0, import_react16.useState)([]);
   const exists = (slot) => slot === "simulation" ? !!row2.simulationArtifact?.sha256 : !!row2.artifacts?.[slot]?.sha256 || (row2.artifactHistory || []).some((h2) => !!h2.artifacts?.[slot]?.sha256);
   const toggle = (slot) => setSelected((old) => old.includes(slot) ? old.filter((v) => v !== slot) : [...old, slot]);
   return (0, import_react_dom4.createPortal)(h("div", { className: "ib-overlay ib-nmr-modal-backdrop", onClick: (e) => {
@@ -7886,11 +7932,11 @@ function NmrDeleteDialog({ row: row2, mode, busy, error: error62, onCancel, onDe
 }
 
 // client/src/components-literature.js
-var import_react16 = __toESM(require("react"), 1);
+var import_react17 = __toESM(require("react"), 1);
 function useBoundProject(sessionId, call, useSessions) {
   const cwd = useSessions ? useSessions((s) => s.byId[sessionId]?.cwd) : void 0;
-  const [bound, setBound] = (0, import_react16.useState)(null);
-  (0, import_react16.useEffect)(() => {
+  const [bound, setBound] = (0, import_react17.useState)(null);
+  (0, import_react17.useEffect)(() => {
     if (!sessionId) {
       setBound(null);
       return void 0;
@@ -7920,7 +7966,7 @@ function useBoundProject(sessionId, call, useSessions) {
 }
 function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProjectTab2, useSessions, toast }) {
   const bound = useBoundProject(sessionId, call, useSessions);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     if (typeof document === "undefined" || !bound?.project?.id) return void 0;
     document.body.classList.add("ib-research-chat");
     document.body.dataset.ibResearchProject = bound.project.id;
@@ -7931,7 +7977,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       }
     };
   }, [bound?.project?.id]);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId) return void 0;
     setBallTaskCancelHandler(async (taskId) => {
@@ -7957,7 +8003,7 @@ function ProjectBadge({ sessionId, call, openWorkspace, openProjectTab: openProj
       setBallTaskRecreateHandler(null);
     };
   }, [bound?.project?.id, call]);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     const projectId = bound?.project?.id;
     if (!projectId || typeof window === "undefined" || window.parent === window) return void 0;
     let disposed = false;
@@ -8154,8 +8200,8 @@ var miniIcon = (kind) => h(
   kind === "simulation" ? h("path", { d: "M3 19h18M5 17h3l2-9 2 9h2l1-5 1 5h3M17 3v4M15 5h4" }) : kind === "structure" ? h("path", { d: "m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 3 5 3v6l-5 3-5-3V9l5-3Z" }) : kind === "folder" ? h("path", { d: "M3 7V5h6l2 2h10v12H3V7Zm0 3h18" }) : h("path", { d: kind === "raw" ? "M3 4v16h18M6 15h3l2-8 3 10 2-6h4" : "M3 4v16h18M6 15h3l2-8 3 10 2-6h4M15 4l2 2 4-4" })
 );
 function NmrStructure({ row: row2, projectId, call, large = false }) {
-  const [preview, setPreview] = (0, import_react17.useState)({ loading: true });
-  (0, import_react17.useEffect)(() => {
+  const [preview, setPreview] = (0, import_react18.useState)({ loading: true });
+  (0, import_react18.useEffect)(() => {
     let alive = true;
     setPreview({ loading: true });
     const work = async () => {
@@ -8177,19 +8223,19 @@ function NmrStructure({ row: row2, projectId, call, large = false }) {
   return h("div", { className: "ib-nmr-molecule", "data-large": large || void 0, "data-state": preview.loading ? "loading" : preview.image ? "loaded" : "missing" }, preview.image ? h("img", { src: preview.image, alt: row2.compound?.name || row2.title || "输入结构式" }) : preview.loading ? h(SpinSvg, null) : h("span", null, preview.message));
 }
 function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows = [] }) {
-  const [simulation, setSimulation] = (0, import_react17.useState)(false);
-  const [deleteRow, setDeleteRow] = (0, import_react17.useState)(null);
-  const [deleteMode, setDeleteMode] = (0, import_react17.useState)("all");
-  const [tasks, setTasks] = (0, import_react17.useState)([]), [error62, setError] = (0, import_react17.useState)(""), [notice, setNotice] = (0, import_react17.useState)(""), [loading, setLoading] = (0, import_react17.useState)(true);
-  const [form, setForm] = (0, import_react17.useState)(null), [preview, setPreview] = (0, import_react17.useState)(null), [drawing, setDrawing] = (0, import_react17.useState)(false), [busy, setBusy] = (0, import_react17.useState)(false), [dragging, setDragging] = (0, import_react17.useState)(false), [menu, setMenu] = (0, import_react17.useState)(null);
-  const lock = (0, import_react17.useRef)(false), dragDepth = (0, import_react17.useRef)(0);
-  const closeMenu = (0, import_react17.useCallback)(() => setMenu(null), []);
-  const refresh = (0, import_react17.useCallback)(async () => {
+  const [simulation, setSimulation] = (0, import_react18.useState)(false);
+  const [deleteRow, setDeleteRow] = (0, import_react18.useState)(null);
+  const [deleteMode, setDeleteMode] = (0, import_react18.useState)("all");
+  const [tasks, setTasks] = (0, import_react18.useState)([]), [error62, setError] = (0, import_react18.useState)(""), [notice, setNotice] = (0, import_react18.useState)(""), [loading, setLoading] = (0, import_react18.useState)(true);
+  const [form, setForm] = (0, import_react18.useState)(null), [preview, setPreview] = (0, import_react18.useState)(null), [drawing, setDrawing] = (0, import_react18.useState)(false), [busy, setBusy] = (0, import_react18.useState)(false), [dragging, setDragging] = (0, import_react18.useState)(false), [menu, setMenu] = (0, import_react18.useState)(null);
+  const lock = (0, import_react18.useRef)(false), dragDepth = (0, import_react18.useRef)(0);
+  const closeMenu = (0, import_react18.useCallback)(() => setMenu(null), []);
+  const refresh = (0, import_react18.useCallback)(async () => {
     const result = await call("characterization_list", { request: { projectId } });
     setTasks((result.tasks || []).filter((row2) => row2.kind === "nmr"));
     setLoading(false);
   }, [call, projectId]);
-  (0, import_react17.useEffect)(() => {
+  (0, import_react18.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -8213,7 +8259,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
       clearTimeout(timer);
     };
   }, [projectId, call]);
-  (0, import_react17.useEffect)(() => {
+  (0, import_react18.useEffect)(() => {
     setForm(null);
     setPreview(null);
     setMenu(null);
@@ -8489,7 +8535,7 @@ function NmrPanel({ projectId, call, onSubmitTask, onOpenConversation, nmrRows =
 }
 
 // client/src/components-plotting.js
-var import_react23 = require("react");
+var import_react24 = require("react");
 var import_react_dom7 = require("react-dom");
 
 // node_modules/zod/v4/classic/external.js
@@ -28328,10 +28374,10 @@ function manualChartChoices(profile, recommendations = []) {
 }
 
 // client/src/plot-editor-controls.js
-var import_react18 = require("react");
+var import_react19 = require("react");
 function TextInput({ value, onChange, disabled, ...props }) {
-  const [draft, setDraft] = (0, import_react18.useState)(value ?? ""), composing = (0, import_react18.useRef)(false), committed = (0, import_react18.useRef)(value ?? "");
-  (0, import_react18.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react19.useState)(value ?? ""), composing = (0, import_react19.useRef)(false), committed = (0, import_react19.useRef)(value ?? "");
+  (0, import_react19.useEffect)(() => {
     setDraft(value ?? "");
     committed.current = value ?? "";
   }, [value]);
@@ -28353,8 +28399,8 @@ function TextInput({ value, onChange, disabled, ...props }) {
   } });
 }
 function NumberInput({ value, onChange, disabled, ...props }) {
-  const [draft, setDraft] = (0, import_react18.useState)(value ?? ""), committed = (0, import_react18.useRef)(value ?? "");
-  (0, import_react18.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react19.useState)(value ?? ""), committed = (0, import_react19.useRef)(value ?? "");
+  (0, import_react19.useEffect)(() => {
     setDraft(value ?? "");
     committed.current = value ?? "";
   }, [value]);
@@ -28392,9 +28438,9 @@ var check2 = (label2, value, onChange, disabled) => h("label", { className: "ib-
 var action = (label2, onClick, disabled) => h("button", { type: "button", className: "ib-btn", onClick, disabled }, label2);
 var num = (label2, value, onChange, disabled, min, max, step = 1) => input2(label2, value, onChange, disabled, { type: "number", min, max, step });
 function BufferedEditorProperties({ spec, change, ...props }) {
-  const [draft, setDraft] = (0, import_react18.useState)(spec), draftRef = (0, import_react18.useRef)(spec), pending = (0, import_react18.useRef)({}), root = (0, import_react18.useRef)(null), composing = (0, import_react18.useRef)(false);
-  const [validationError, setValidationError] = (0, import_react18.useState)("");
-  (0, import_react18.useEffect)(() => {
+  const [draft, setDraft] = (0, import_react19.useState)(spec), draftRef = (0, import_react19.useRef)(spec), pending = (0, import_react19.useRef)({}), root = (0, import_react19.useRef)(null), composing = (0, import_react19.useRef)(false);
+  const [validationError, setValidationError] = (0, import_react19.useState)("");
+  (0, import_react19.useEffect)(() => {
     draftRef.current = spec;
     pending.current = {};
     setDraft(spec);
@@ -28418,7 +28464,7 @@ function BufferedEditorProperties({ spec, change, ...props }) {
     pending.current = {};
     change(patch);
   };
-  (0, import_react18.useEffect)(() => {
+  (0, import_react19.useEffect)(() => {
     const leave = (e) => {
       const node2 = root.current;
       if (!node2 || node2.contains(e.target)) return;
@@ -28564,7 +28610,7 @@ function EditorProperties({ selected, spec, change, profile, disabled, scene, on
 }
 
 // client/src/plot-live-preview.js
-var import_react19 = require("react");
+var import_react20 = require("react");
 function parsePlotCsv(source) {
   const rows = [];
   let row2 = [], value = "", quoted = false;
@@ -28620,9 +28666,9 @@ function previewDomain(values, settings = {}) {
   return [lo, hi];
 }
 function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change, disabled, onError }) {
-  const clipPrefix = "ibm" + (0, import_react19.useId)().replace(/[^a-zA-Z0-9]/g, "");
-  const [rows, setRows] = (0, import_react19.useState)(null), [error62, setError] = (0, import_react19.useState)(""), drag = (0, import_react19.useRef)(null), [moving, setMoving] = (0, import_react19.useState)(null), svg = (0, import_react19.useRef)(null), [selectionBox, setSelectionBox] = (0, import_react19.useState)(null);
-  (0, import_react19.useLayoutEffect)(() => {
+  const clipPrefix = "ibm" + (0, import_react20.useId)().replace(/[^a-zA-Z0-9]/g, "");
+  const [rows, setRows] = (0, import_react20.useState)(null), [error62, setError] = (0, import_react20.useState)(""), drag = (0, import_react20.useRef)(null), [moving, setMoving] = (0, import_react20.useState)(null), svg = (0, import_react20.useRef)(null), [selectionBox, setSelectionBox] = (0, import_react20.useState)(null);
+  (0, import_react20.useLayoutEffect)(() => {
     const root = svg.current;
     if (!root) return;
     const nodes = [...root.querySelectorAll("[data-select-key]")].filter((n) => n.getAttribute("data-select-key") === selected);
@@ -28635,7 +28681,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
     const left = Math.min(...boxes.map((b) => b.left)), right = Math.max(...boxes.map((b) => b.right)), top = Math.min(...boxes.map((b) => b.top)), bottom = Math.max(...boxes.map((b) => b.bottom));
     setSelectionBox({ x: (left - r.left) / r.width * v.width, y: (top - r.top) / r.height * v.height, w: (right - left) / r.width * v.width, h: (bottom - top) / r.height * v.height });
   }, [selected, spec, moving, rows]);
-  (0, import_react19.useEffect)(() => {
+  (0, import_react20.useEffect)(() => {
     const abort = new AbortController();
     setRows(null);
     setError("");
@@ -28650,7 +28696,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
     });
     return () => abort.abort();
   }, [url2]);
-  const data = (0, import_react19.useMemo)(() => rows?.map((row2) => row2.map(number4)), [rows]);
+  const data = (0, import_react20.useMemo)(() => rows?.map((row2) => row2.map(number4)), [rows]);
   if (error62) return h("p", { role: "alert" }, error62);
   if (!data) return h("p", { role: "status" }, "正在加载本地绘图数据…");
   const width = 1200, height = 1100 * spec.heightCm / spec.widthCm * 9 / 8, panels = spec.layout.mode === "panels" ? spec.yCols.map((c) => [c]) : [spec.yCols], cols = spec.layout.mode === "panels" ? Math.min(spec.layout.columns, panels.length) : 1, rs = Math.ceil(panels.length / cols);
@@ -28850,7 +28896,7 @@ function LivePlotPreview({ url: url2, spec, profile, selected, onSelect, change,
 }
 
 // client/src/plot-native-scene.js
-var import_react20 = require("react");
+var import_react21 = require("react");
 var numeric = (value) => value !== null && /^[\d\s.,eE+\-%]+$/.test(value);
 var safeTransform = (value) => value && /^(?:\s*(?:matrix|translate|scale|rotate|skewX|skewY)\s*\([\d\s.,eE+\-]+\)\s*)+$/.test(value);
 function typography(node2) {
@@ -28940,8 +28986,8 @@ function originHitGeometry(source) {
   return shapes;
 }
 function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change, disabled, panelEditing = true }) {
-  const [shapes, setShapes] = (0, import_react20.useState)([]), drag = (0, import_react20.useRef)(null), [ghost, setGhost] = (0, import_react20.useState)(null), root = (0, import_react20.useRef)(null), [bounds2, setBounds] = (0, import_react20.useState)(null);
-  (0, import_react20.useLayoutEffect)(() => {
+  const [shapes, setShapes] = (0, import_react21.useState)([]), drag = (0, import_react21.useRef)(null), [ghost, setGhost] = (0, import_react21.useState)(null), root = (0, import_react21.useRef)(null), [bounds2, setBounds] = (0, import_react21.useState)(null);
+  (0, import_react21.useLayoutEffect)(() => {
     const node2 = root.current;
     if (!node2) return;
     const all = [...node2.querySelectorAll("[data-native-key]")].filter((n) => n.getAttribute("data-native-key") === selected).map((n) => inkRect(n));
@@ -28952,7 +28998,7 @@ function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change
     const r = node2.getBoundingClientRect();
     setBounds({ x: (Math.min(...all.map((b) => b.left)) - r.left) / r.width, y: (Math.min(...all.map((b) => b.top)) - r.top) / r.height, width: (Math.max(...all.map((b) => b.right)) - Math.min(...all.map((b) => b.left))) / r.width, height: (Math.max(...all.map((b) => b.bottom)) - Math.min(...all.map((b) => b.top))) / r.height });
   }, [selected, shapes, scene]);
-  (0, import_react20.useEffect)(() => {
+  (0, import_react21.useEffect)(() => {
     const abort = new AbortController();
     setShapes([]);
     setBounds(null);
@@ -29087,7 +29133,7 @@ function NativeSceneOverlay({ url: url2, scene, spec, selected, onSelect, change
   );
 }
 function PanelHandles({ spec, scene, change, onSelect, disabled }) {
-  const drag = (0, import_react20.useRef)(null), [moving, setMoving] = (0, import_react20.useState)(null), frames = spec.layout.panels.length ? spec.layout.panels : scene.panelGeometry || [];
+  const drag = (0, import_react21.useRef)(null), [moving, setMoving] = (0, import_react21.useState)(null), frames = spec.layout.panels.length ? spec.layout.panels : scene.panelGeometry || [];
   const native = (index2) => scene.layers.find((row2) => row2.index === index2);
   const begin = (e, panel, resize) => {
     if (disabled) return;
@@ -29122,7 +29168,7 @@ function PanelHandles({ spec, scene, change, onSelect, disabled }) {
 }
 
 // client/src/plot-image-editor.js
-var import_react21 = require("react");
+var import_react22 = require("react");
 
 // src/plot/image.js
 var file3 = external_exports.object({ path: external_exports.string(), fileName: external_exports.string(), byteLength: external_exports.number().nonnegative(), sha256: external_exports.string() });
@@ -29152,10 +29198,10 @@ var equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 var clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 var button = (label2, onClick, disabled = false, props = {}) => h("button", { type: "button", className: "ib-btn", onClick, disabled, ...props }, label2);
 function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
-  const image = row2.image, [spec, setSpec] = (0, import_react21.useState)(image.spec), [history, setHistory] = (0, import_react21.useState)([]), [future, setFuture] = (0, import_react21.useState)([]), [cropping, setCropping] = (0, import_react21.useState)(false), [busy, setBusy] = (0, import_react21.useState)(false), [error62, setError] = (0, import_react21.useState)(""), [source, setSource] = (0, import_react21.useState)(null), [loadKey, setLoadKey] = (0, import_react21.useState)(0);
-  const canvas = (0, import_react21.useRef)(null), stage = (0, import_react21.useRef)(null), cropStage = (0, import_react21.useRef)(null), drag = (0, import_react21.useRef)(null), specRef = (0, import_react21.useRef)(spec), saving = (0, import_react21.useRef)(false), [stageSize, setStageSize] = (0, import_react21.useState)({ width: 600, height: 400 });
+  const image = row2.image, [spec, setSpec] = (0, import_react22.useState)(image.spec), [history, setHistory] = (0, import_react22.useState)([]), [future, setFuture] = (0, import_react22.useState)([]), [cropping, setCropping] = (0, import_react22.useState)(false), [busy, setBusy] = (0, import_react22.useState)(false), [error62, setError] = (0, import_react22.useState)(""), [source, setSource] = (0, import_react22.useState)(null), [loadKey, setLoadKey] = (0, import_react22.useState)(0);
+  const canvas = (0, import_react22.useRef)(null), stage = (0, import_react22.useRef)(null), cropStage = (0, import_react22.useRef)(null), drag = (0, import_react22.useRef)(null), specRef = (0, import_react22.useRef)(spec), saving = (0, import_react22.useRef)(false), [stageSize, setStageSize] = (0, import_react22.useState)({ width: 600, height: 400 });
   specRef.current = spec;
-  (0, import_react21.useEffect)(() => {
+  (0, import_react22.useEffect)(() => {
     const node2 = stage.current;
     const fit = () => setStageSize({ width: node2.clientWidth, height: node2.clientHeight });
     fit();
@@ -29164,7 +29210,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
     return () => observer.disconnect();
   }, []);
   const sourceUrl = imageArtifact(projectId, row2, "image-source");
-  (0, import_react21.useEffect)(() => {
+  (0, import_react22.useEffect)(() => {
     let alive = true;
     const node2 = new Image();
     setSource(null);
@@ -29181,7 +29227,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
       node2.onerror = null;
     };
   }, [sourceUrl, loadKey]);
-  (0, import_react21.useEffect)(() => {
+  (0, import_react22.useEffect)(() => {
     if (!source || cropping || !canvas.current) return;
     const { x, y, w, h: h2 } = spec.crop, fullW = image.width, fullH = image.height;
     const round = (n) => {
@@ -29214,9 +29260,9 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
     if (!equal(specRef.current, image.spec) && !window.confirm("放弃尚未保存的图片修改？")) return;
     onClose();
   };
-  const closeRef = (0, import_react21.useRef)(close);
+  const closeRef = (0, import_react22.useRef)(close);
   closeRef.current = close;
-  (0, import_react21.useEffect)(() => {
+  (0, import_react22.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -29348,7 +29394,7 @@ function ImageEntryEditor({ row: row2, projectId, call, onSaved, onClose }) {
 }
 
 // client/src/plot-layout-editor.js
-var import_react22 = require("react");
+var import_react23 = require("react");
 var import_react_dom6 = require("react-dom");
 
 // src/plot/layout.js
@@ -29534,7 +29580,7 @@ var bounds = (objects) => {
   return { x, y, w: Math.max(...objects.map((o) => o.x + o.w)) - x, h: Math.max(...objects.map((o) => o.y + o.h)) - y };
 };
 function LayoutPicker({ rows, projectId, onClose, onChoose, adding = false, exclude }) {
-  const [ids, setIds] = (0, import_react22.useState)([]), [name, setName] = (0, import_react22.useState)("组合版面"), [busy, setBusy] = (0, import_react22.useState)(false), [error62, setError] = (0, import_react22.useState)("");
+  const [ids, setIds] = (0, import_react23.useState)([]), [name, setName] = (0, import_react23.useState)("组合版面"), [busy, setBusy] = (0, import_react23.useState)(false), [error62, setError] = (0, import_react23.useState)("");
   const candidates = rows.filter((row2) => row2.id !== exclude && layoutSource(row2));
   const choose = async () => {
     if (busy) return;
@@ -29571,7 +29617,7 @@ function PanelImage({ object: o, asset, source }) {
 }
 function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
   const draftKey = "ibm-layout-draft:" + projectId + ":" + row2.id;
-  const [doc, setDoc] = (0, import_react22.useState)(() => {
+  const [doc, setDoc] = (0, import_react23.useState)(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(draftKey));
       if (saved?.revision === row2.layout.revision) return layoutDocSchema.parse(saved.doc);
@@ -29579,18 +29625,18 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     }
     return clone2(row2.layout.doc);
   });
-  const [name, setName] = (0, import_react22.useState)(row2.topic), [dpi, setDpi] = (0, import_react22.useState)(row2.layout.dpi), [selected, setSelected] = (0, import_react22.useState)([]), [history, setHistory] = (0, import_react22.useState)([]), [future, setFuture] = (0, import_react22.useState)([]), [busy, setBusy] = (0, import_react22.useState)(false), [error62, setError] = (0, import_react22.useState)(""), [notice, setNotice] = (0, import_react22.useState)(""), [adding, setAdding] = (0, import_react22.useState)(false), [columns, setColumns] = (0, import_react22.useState)(2), [gap, setGap] = (0, import_react22.useState)(6), [reference, setReference] = (0, import_react22.useState)("selection"), [zoom, setZoom] = (0, import_react22.useState)(0), [rulers, setRulers] = (0, import_react22.useState)(true), [marquee, setMarquee] = (0, import_react22.useState)(null), [historyIndex, setHistoryIndex] = (0, import_react22.useState)("");
-  const stage = (0, import_react22.useRef)(null), svg = (0, import_react22.useRef)(null), drag = (0, import_react22.useRef)(null), current = (0, import_react22.useRef)(doc), selection = (0, import_react22.useRef)(selected), inFlight = (0, import_react22.useRef)(false), revision = (0, import_react22.useRef)(row2.layout.revision), [size, setSize] = (0, import_react22.useState)({ w: 700, h: 500 });
+  const [name, setName] = (0, import_react23.useState)(row2.topic), [dpi, setDpi] = (0, import_react23.useState)(row2.layout.dpi), [selected, setSelected] = (0, import_react23.useState)([]), [history, setHistory] = (0, import_react23.useState)([]), [future, setFuture] = (0, import_react23.useState)([]), [busy, setBusy] = (0, import_react23.useState)(false), [error62, setError] = (0, import_react23.useState)(""), [notice, setNotice] = (0, import_react23.useState)(""), [adding, setAdding] = (0, import_react23.useState)(false), [columns, setColumns] = (0, import_react23.useState)(2), [gap, setGap] = (0, import_react23.useState)(6), [reference, setReference] = (0, import_react23.useState)("selection"), [zoom, setZoom] = (0, import_react23.useState)(0), [rulers, setRulers] = (0, import_react23.useState)(true), [marquee, setMarquee] = (0, import_react23.useState)(null), [historyIndex, setHistoryIndex] = (0, import_react23.useState)("");
+  const stage = (0, import_react23.useRef)(null), svg = (0, import_react23.useRef)(null), drag = (0, import_react23.useRef)(null), current = (0, import_react23.useRef)(doc), selection = (0, import_react23.useRef)(selected), inFlight = (0, import_react23.useRef)(false), revision = (0, import_react23.useRef)(row2.layout.revision), [size, setSize] = (0, import_react23.useState)({ w: 700, h: 500 });
   current.current = doc;
   selection.current = selected;
-  (0, import_react22.useEffect)(() => {
+  (0, import_react23.useEffect)(() => {
     const node2 = stage.current, fit2 = () => setSize({ w: node2.clientWidth, h: node2.clientHeight });
     fit2();
     const observer = new ResizeObserver(fit2);
     observer.observe(node2);
     return () => observer.disconnect();
   }, []);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react23.useEffect)(() => {
     if (revision.current === row2.layout.revision) return;
     revision.current = row2.layout.revision;
     current.current = clone2(row2.layout.doc);
@@ -29601,14 +29647,14 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     setFuture([]);
     setSelected((old) => old.filter((id) => current.current.objects.some((o) => o.id === id)));
   }, [row2.layout.revision, row2.layout.doc, row2.topic, row2.layout.dpi]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react23.useEffect)(() => {
     try {
       if (same(doc, row2.layout.doc)) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, JSON.stringify({ revision: row2.layout.revision, doc }));
     } catch {
     }
   }, [doc, row2.layout.doc, row2.layout.revision, draftKey]);
-  (0, import_react22.useEffect)(() => {
+  (0, import_react23.useEffect)(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 3e3);
     return () => clearTimeout(timer);
@@ -29668,9 +29714,9 @@ function LayoutEditor({ row: row2, rows, projectId, call, onSaved, onClose }) {
     localStorage.removeItem(draftKey);
     onClose();
   };
-  const actions = (0, import_react22.useRef)({});
+  const actions = (0, import_react23.useRef)({});
   actions.current = { close, undo, redo, removeSelected };
-  (0, import_react22.useEffect)(() => {
+  (0, import_react23.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -30007,8 +30053,8 @@ function ChartGlyph({ kind }) {
   );
 }
 function OriginConnection({ projectId, call }) {
-  const [status, setStatus] = (0, import_react23.useState)(null), [checking, setChecking] = (0, import_react23.useState)(false), [details, setDetails] = (0, import_react23.useState)(false), probe = (0, import_react23.useRef)(null);
-  (0, import_react23.useEffect)(() => {
+  const [status, setStatus] = (0, import_react24.useState)(null), [checking, setChecking] = (0, import_react24.useState)(false), [details, setDetails] = (0, import_react24.useState)(false), probe = (0, import_react24.useRef)(null);
+  (0, import_react24.useEffect)(() => {
     let alive = true, timer, pending = false;
     const check4 = async (force = false) => {
       if (pending) return;
@@ -30056,24 +30102,24 @@ function OriginConnection({ projectId, call }) {
   );
 }
 function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = null }) {
-  const [rows, setRows] = (0, import_react23.useState)([]), [legacy, setLegacy] = (0, import_react23.useState)([]), [loading, setLoading] = (0, import_react23.useState)(true), [error62, setError] = (0, import_react23.useState)(""), [notice, setNotice] = (0, import_react23.useState)("");
-  const [layoutPicker, setLayoutPicker] = (0, import_react23.useState)(false), [layoutOnly, setLayoutOnly] = (0, import_react23.useState)(false), [openId, setOpenId] = (0, import_react23.useState)(null), [previewId, setPreviewId] = (0, import_react23.useState)(null), [newPlot, setNewPlot] = (0, import_react23.useState)(false), [uploading, setUploading] = (0, import_react23.useState)(false), [drag, setDrag] = (0, import_react23.useState)(false);
-  const [entryMenu, setEntryMenu] = (0, import_react23.useState)(null), deleteLock = (0, import_react23.useRef)(false);
-  (0, import_react23.useEffect)(() => {
+  const [rows, setRows] = (0, import_react24.useState)([]), [legacy, setLegacy] = (0, import_react24.useState)([]), [loading, setLoading] = (0, import_react24.useState)(true), [error62, setError] = (0, import_react24.useState)(""), [notice, setNotice] = (0, import_react24.useState)("");
+  const [layoutPicker, setLayoutPicker] = (0, import_react24.useState)(false), [layoutOnly, setLayoutOnly] = (0, import_react24.useState)(false), [openId, setOpenId] = (0, import_react24.useState)(null), [previewId, setPreviewId] = (0, import_react24.useState)(null), [newPlot, setNewPlot] = (0, import_react24.useState)(false), [uploading, setUploading] = (0, import_react24.useState)(false), [drag, setDrag] = (0, import_react24.useState)(false);
+  const [entryMenu, setEntryMenu] = (0, import_react24.useState)(null), deleteLock = (0, import_react24.useRef)(false);
+  (0, import_react24.useEffect)(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 3e3);
     return () => clearTimeout(timer);
   }, [notice]);
-  const fileInput = (0, import_react23.useRef)(null), uploadLock = (0, import_react23.useRef)(false), depth = (0, import_react23.useRef)(0), finalizing = (0, import_react23.useRef)(null), projectRef = (0, import_react23.useRef)(projectId);
+  const fileInput = (0, import_react24.useRef)(null), uploadLock = (0, import_react24.useRef)(false), depth = (0, import_react24.useRef)(0), finalizing = (0, import_react24.useRef)(null), projectRef = (0, import_react24.useRef)(projectId);
   projectRef.current = projectId;
-  const refresh = (0, import_react23.useCallback)(async () => {
+  const refresh = (0, import_react24.useCallback)(async () => {
     const [plots, tasks] = await Promise.all([call("plot_records_list", { request: { projectId } }), call("characterization_list", { request: { projectId } })]);
     if (projectRef.current !== projectId) return;
     setRows(plots.records || []);
     setLegacy((tasks.tasks || []).filter((row2) => row2.kind === "plot" && !(plots.records || []).some((item) => item.id === row2.id)));
     setLoading(false);
   }, [call, projectId]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     let alive = true, timer;
     const poll = async () => {
       try {
@@ -30093,7 +30139,7 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
       clearTimeout(timer);
     };
   }, [refresh]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     setRows([]);
     setLegacy([]);
     setLoading(true);
@@ -30107,7 +30153,7 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
     setNotice("");
     finalizing.current = null;
   }, [projectId]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     const pending = finalizing.current;
     if (!pending) return;
     const row2 = rows.find((row3) => row3.id === pending.id);
@@ -30333,8 +30379,8 @@ function PlottingPanel({ projectId, call, onRefineConversation, headerTarget = n
   );
 }
 function PlotImagePreview({ row: row2, projectId, onClose, onEdit }) {
-  const [error62, setError] = (0, import_react23.useState)("");
-  (0, import_react23.useEffect)(() => {
+  const [error62, setError] = (0, import_react24.useState)("");
+  (0, import_react24.useEffect)(() => {
     const key2 = (e) => {
       if (e.key === "Escape") onClose();
     };
@@ -30351,20 +30397,20 @@ function PlotImagePreview({ row: row2, projectId, onClose, onEdit }) {
 }
 function PlotWizard({ row: row2, layoutOnly = false, projectId, call, onAutoLayout, onClose, onRefresh, onRender, onSave }) {
   const w = row2.workflow, profile = w.profile, busy = busyStatus.has(w.status);
-  const [step, setStep] = (0, import_react23.useState)(w.spec ? 3 : profile && w.status !== "inspected" ? 2 : 1), [selected, setSelected] = (0, import_react23.useState)(null), [sheet, setSheet] = (0, import_react23.useState)(w.sheet || ""), [header, setHeader] = (0, import_react23.useState)(w.headerRow + 1), [intent, setIntent] = (0, import_react23.useState)(""), [error62, setError] = (0, import_react23.useState)(""), [submitting, setSubmitting] = (0, import_react23.useState)(false);
-  const [topic, setTopic] = (0, import_react23.useState)(row2.topic);
-  (0, import_react23.useEffect)(() => {
+  const [step, setStep] = (0, import_react24.useState)(w.spec ? 3 : profile && w.status !== "inspected" ? 2 : 1), [selected, setSelected] = (0, import_react24.useState)(null), [sheet, setSheet] = (0, import_react24.useState)(w.sheet || ""), [header, setHeader] = (0, import_react24.useState)(w.headerRow + 1), [intent, setIntent] = (0, import_react24.useState)(""), [error62, setError] = (0, import_react24.useState)(""), [submitting, setSubmitting] = (0, import_react24.useState)(false);
+  const [topic, setTopic] = (0, import_react24.useState)(row2.topic);
+  (0, import_react24.useEffect)(() => {
     if (w.spec) setStep(3);
     else if (profile) setStep(w.status === "inspected" ? 1 : 2);
   }, [w.spec?.kind, profile?.normalizedPath, w.status === "inspected"]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     if (profile) setSheet(profile.sheet);
   }, [profile?.sheet]);
   const choices = profile ? manualChartChoices(profile, w.recommendations) : [], recommendationsKey = JSON.stringify(choices);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     setSelected(choices[0] ? { ...choices[0] } : null);
   }, [recommendationsKey]);
-  const lock = (0, import_react23.useRef)(false);
+  const lock = (0, import_react24.useRef)(false);
   const run = async (work) => {
     if (lock.current) return;
     lock.current = true;
@@ -30397,9 +30443,9 @@ function PlotWizard({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     } else await onRender(defaultSpec(selected));
     setStep(3);
   });
-  const closeRef = (0, import_react23.useRef)(onClose);
+  const closeRef = (0, import_react24.useRef)(onClose);
   closeRef.current = onClose;
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     const escape = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -30480,16 +30526,16 @@ function ColumnMapping({ profile, spec, onChange, disabled }) {
 function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayout, onRender, onSave, onDiscard, onRestore, disabled, renderDisabled }) {
   const w = row2.workflow;
   const draftKey = "ibm-plot-local:" + projectId + ":" + row2.id;
-  const [spec, setSpec] = (0, import_react23.useState)(() => {
+  const [spec, setSpec] = (0, import_react24.useState)(() => {
     try {
       const local = JSON.parse(localStorage.getItem(draftKey) || "null");
       if (local?.revision === w.revision) return plotSpecSchema.parse(local.spec);
     } catch {
     }
     return plotSpecSchema.parse(w.spec || w.savedSpec || { kind: "line", xCol: 0, yCols: [1] });
-  }), [selected, setSelected] = (0, import_react23.useState)(layoutOnly ? "layout" : "canvas"), [zoom, setZoom] = (0, import_react23.useState)(0), [history, setHistory] = (0, import_react23.useState)([]), [future, setFuture] = (0, import_react23.useState)([]), [error62, setError] = (0, import_react23.useState)("");
-  const viewport = (0, import_react23.useRef)(null), [imageRatio] = (0, import_react23.useState)(1), [fitWidth, setFitWidth] = (0, import_react23.useState)(450);
-  const [autoBusy, setAutoBusy] = (0, import_react23.useState)(false), [previewBusy, setPreviewBusy] = (0, import_react23.useState)(false), editLock = (0, import_react23.useRef)(false), expectedPreview = (0, import_react23.useRef)(null);
+  }), [selected, setSelected] = (0, import_react24.useState)(layoutOnly ? "layout" : "canvas"), [zoom, setZoom] = (0, import_react24.useState)(0), [history, setHistory] = (0, import_react24.useState)([]), [future, setFuture] = (0, import_react24.useState)([]), [error62, setError] = (0, import_react24.useState)("");
+  const viewport = (0, import_react24.useRef)(null), [imageRatio] = (0, import_react24.useState)(1), [fitWidth, setFitWidth] = (0, import_react24.useState)(450);
+  const [autoBusy, setAutoBusy] = (0, import_react24.useState)(false), [previewBusy, setPreviewBusy] = (0, import_react24.useState)(false), editLock = (0, import_react24.useRef)(false), expectedPreview = (0, import_react24.useRef)(null);
   disabled = disabled || autoBusy;
   renderDisabled = renderDisabled || autoBusy;
   const lockPreview = () => {
@@ -30506,8 +30552,8 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     expectedPreview.current = null;
     setPreviewBusy(false);
   };
-  const [version2, setVersion] = (0, import_react23.useState)(""), [specHash, setSpecHash] = (0, import_react23.useState)(null), [nativePixels, setNativePixels] = (0, import_react23.useState)(false), [imageWidth, setImageWidth] = (0, import_react23.useState)(1800), [retryPreview, setRetryPreview] = (0, import_react23.useState)(0);
-  const previewRequest = (0, import_react23.useRef)({ clientId: crypto.randomUUID(), seq: 0, edited: false, lastHash: "" }), [quickError, setQuickError] = (0, import_react23.useState)(""), [cachedPreview, setCachedPreview] = (0, import_react23.useState)(null), currentHash = (0, import_react23.useRef)(null);
+  const [version2, setVersion] = (0, import_react24.useState)(""), [specHash, setSpecHash] = (0, import_react24.useState)(null), [nativePixels, setNativePixels] = (0, import_react24.useState)(false), [imageWidth, setImageWidth] = (0, import_react24.useState)(1800), [retryPreview, setRetryPreview] = (0, import_react24.useState)(0);
+  const previewRequest = (0, import_react24.useRef)({ clientId: crypto.randomUUID(), seq: 0, edited: false, lastHash: "" }), [quickError, setQuickError] = (0, import_react24.useState)(""), [cachedPreview, setCachedPreview] = (0, import_react24.useState)(null), currentHash = (0, import_react24.useRef)(null);
   currentHash.current = specHash;
   let specText;
   try {
@@ -30515,7 +30561,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
   } catch {
     specText = JSON.stringify(spec);
   }
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     let active = true;
     setSpecHash(null);
     if (globalThis.crypto?.subtle) void crypto.subtle.digest("SHA-256", new TextEncoder().encode(specText)).then((bytes) => {
@@ -30525,7 +30571,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
       active = false;
     };
   }, [specText]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     const request = previewRequest.current;
     if (!request.edited || !specHash || w.pendingRefinement || w.status === "saving" || request.lastHash === specHash) return;
     const timer = setTimeout(() => {
@@ -30561,7 +30607,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     }, 120);
     return () => clearTimeout(timer);
   }, [call, projectId, row2.id, specText, specHash, w.pendingRefinement, w.status, retryPreview]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     const node2 = viewport.current;
     if (!node2) return;
     const fit = () => setFitWidth(Math.max(100, Math.min(node2.clientWidth - 40, (node2.clientHeight - 56) * imageRatio)));
@@ -30570,9 +30616,9 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
     observer.observe(node2);
     return () => observer.disconnect();
   }, [imageRatio]);
-  const baseline = (0, import_react23.useRef)(w.revision), serverSpec = (0, import_react23.useRef)(w.spec), specRef = (0, import_react23.useRef)(spec);
+  const baseline = (0, import_react24.useRef)(w.revision), serverSpec = (0, import_react24.useRef)(w.spec), specRef = (0, import_react24.useRef)(spec);
   specRef.current = spec;
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     if (baseline.current !== w.revision || !same2(serverSpec.current, w.spec)) {
       baseline.current = w.revision;
       serverSpec.current = w.spec;
@@ -30588,7 +30634,7 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
       }
     }
   }, [w.revision, w.spec]);
-  (0, import_react23.useEffect)(() => {
+  (0, import_react24.useEffect)(() => {
     try {
       if (same2(spec, w.spec)) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, JSON.stringify({ revision: w.revision, spec }));
@@ -30692,24 +30738,24 @@ function PlotCanvas({ row: row2, layoutOnly = false, projectId, call, onAutoLayo
 }
 
 // client/src/components-characterization.js
-var import_react24 = __toESM(require("react"), 1);
+var import_react25 = __toESM(require("react"), 1);
 function CharacterizationPanel(props) {
   return props.taskKind === "plot" ? h(PlottingPanel, props) : h(NmrPanel, props);
 }
 
 // client/src/plugin-switch-hook.js
-var import_react25 = require("react");
+var import_react26 = require("react");
 function usePluginSwitches() {
-  const [, bump] = (0, import_react25.useState)(0);
-  (0, import_react25.useEffect)(() => subscribePluginSwitches(() => bump((value) => value + 1)), []);
+  const [, bump] = (0, import_react26.useState)(0);
+  (0, import_react26.useEffect)(() => subscribePluginSwitches(() => bump((value) => value + 1)), []);
 }
 
 // client/src/components-project.js
 var LitPanel2 = LitPanel;
 function CreateProject({ call, defaults, onCancel, onCreated }) {
-  const [form, setForm] = (0, import_react27.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
-  const [busy, setBusy] = (0, import_react27.useState)(false);
-  const [error62, setError] = (0, import_react27.useState)("");
+  const [form, setForm] = (0, import_react28.useState)({ id: "", name: "", coreMarkdown: "# 核心课题\n\n## 研究问题\n\n## 核心假设\n\n## 预期目标\n\n## 当前进展\n- 项目建立" });
+  const [busy, setBusy] = (0, import_react28.useState)(false);
+  const [error62, setError] = (0, import_react28.useState)("");
   const field = (key2) => (event) => setForm((old) => ({ ...old, [key2]: event.target.value }));
   const create = async () => {
     setBusy(true);
@@ -30729,10 +30775,10 @@ function CreateProject({ call, defaults, onCancel, onCreated }) {
   return h("section", { className: "ib-card ib-form" }, h("div", { className: "ib-card-head" }, h("span", { className: "ib-card-title" }, "建立新课题"), h("span", { className: "ib-chip" }, "从核心记忆开始")), h("div", { className: "ib-form-grid" }, h("div", { className: "ib-field" }, h("label", null, "项目编号（英文）"), h("input", { value: form.id, placeholder: "research-project-01", onChange: field("id") })), h("div", { className: "ib-field" }, h("label", null, "项目名称"), h("input", { value: form.name, placeholder: "我的科研课题", onChange: field("name") })), h("div", { className: "ib-field", "data-wide": true }, h("label", null, "核心课题 Markdown"), h("textarea", { value: form.coreMarkdown, onChange: field("coreMarkdown") }))), error62 ? h("div", { className: "ib-error" }, error62) : null, h("div", { className: "ib-form-foot" }, h("button", { className: "ib-btn", onClick: onCancel }, "取消"), h("button", { className: "ib-btn", "data-primary": true, disabled: busy, onClick: () => void create() }, busy ? "创建中…" : "创建并进入")));
 }
 function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
-  const [state3, setState] = (0, import_react27.useState)({ loading: true, projects: [], defaults: {}, error: "" });
-  const [creating, setCreating] = (0, import_react27.useState)(false);
-  const [launching, setLaunching] = (0, import_react27.useState)(null);
-  const load2 = (0, import_react27.useCallback)(async () => {
+  const [state3, setState] = (0, import_react28.useState)({ loading: true, projects: [], defaults: {}, error: "" });
+  const [creating, setCreating] = (0, import_react28.useState)(false);
+  const [launching, setLaunching] = (0, import_react28.useState)(null);
+  const load2 = (0, import_react28.useCallback)(async () => {
     try {
       const capabilities = await call("capabilities");
       const [projects, goals, templates] = await Promise.all([call("projects_list"), capabilities.literature ? call("goals_list") : { goals: [] }, capabilities.documents ? call("templates_list") : { templates: [] }]);
@@ -30741,7 +30787,7 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
       setState({ loading: false, projects: [], defaults: {}, error: reason.message });
     }
   }, []);
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     void load2();
   }, [load2]);
   const launch = async (project2, presetId) => {
@@ -30757,31 +30803,31 @@ function Home({ call, onOpen, onLaunch, onOpenTemplates }) {
 }
 function Project({ call, project: project2, onBack, onDelete, onStartChat, activeTab: controlledTab, workbench = false, plottingHeaderTarget = null, literatureHeaderTarget = null, onHideChat = null, onShowChat = null }) {
   usePluginSwitches();
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     setDesktopProject(project2.id);
     return () => setDesktopProject(null);
   }, [project2.id]);
-  const [state3, setState] = (0, import_react27.useState)({ loading: true, data: null, error: "" });
+  const [state3, setState] = (0, import_react28.useState)({ loading: true, data: null, error: "" });
   const [tab, setTab] = useProjectViewValue(project2.id, "active-tab", "literature");
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     if (controlledTab) setTab(controlledTab);
   }, [controlledTab, setTab]);
-  const [visitedTabs, setVisitedTabs] = (0, import_react27.useState)(() => ({ [controlledTab || tab]: true }));
-  (0, import_react27.useEffect)(() => {
+  const [visitedTabs, setVisitedTabs] = (0, import_react28.useState)(() => ({ [controlledTab || tab]: true }));
+  (0, import_react28.useEffect)(() => {
     const current = controlledTab || tab;
     if (workbench) setVisitedTabs((previous) => previous[current] ? previous : { ...previous, [current]: true });
   }, [controlledTab, tab, workbench]);
-  const [draft, setDraft] = (0, import_react27.useState)("");
-  const [memoryOpen, setMemoryOpen] = (0, import_react27.useState)(false);
-  const memoryDirty = (0, import_react27.useRef)(false);
-  const [note, setNote] = (0, import_react27.useState)("");
-  const [saving, setSaving] = (0, import_react27.useState)(false);
-  const [launching, setLaunching] = (0, import_react27.useState)(false);
-  const [deleting, setDeleting] = (0, import_react27.useState)(false);
-  const [toast, setToast] = (0, import_react27.useState)("");
-  const sync = (0, import_react27.useRef)({ projectId: project2.id, request: 0, revision: void 0 });
+  const [draft, setDraft] = (0, import_react28.useState)("");
+  const [memoryOpen, setMemoryOpen] = (0, import_react28.useState)(false);
+  const memoryDirty = (0, import_react28.useRef)(false);
+  const [note, setNote] = (0, import_react28.useState)("");
+  const [saving, setSaving] = (0, import_react28.useState)(false);
+  const [launching, setLaunching] = (0, import_react28.useState)(false);
+  const [deleting, setDeleting] = (0, import_react28.useState)(false);
+  const [toast, setToast] = (0, import_react28.useState)("");
+  const sync = (0, import_react28.useRef)({ projectId: project2.id, request: 0, revision: void 0 });
   if (sync.current.projectId !== project2.id) sync.current = { projectId: project2.id, request: sync.current.request + 1, revision: void 0 };
-  const load2 = (0, import_react27.useCallback)(async ({ quiet = false } = {}) => {
+  const load2 = (0, import_react28.useCallback)(async ({ quiet = false } = {}) => {
     const request = ++sync.current.request;
     try {
       const data2 = await call("projects_workspace", { request: { projectId: project2.id } });
@@ -30794,7 +30840,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       if (sync.current.projectId === project2.id && request === sync.current.request) setState((previous) => quiet && previous.data ? previous : { loading: false, data: null, error: reason.message });
     }
   }, [project2.id, call]);
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     memoryDirty.current = false;
     try {
       const cached2 = sessionStorage.getItem(`ib-memory-draft:${project2.id}`);
@@ -30807,11 +30853,11 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
     setMemoryOpen(false);
     void load2();
   }, [load2]);
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     if ((controlledTab || tab) !== "literature") return void 0;
     return followProjectUpdates({ call, projectId: project2.id, load: load2, getRevision: () => sync.current.revision });
   }, [controlledTab, tab, project2.id, call, load2]);
-  (0, import_react27.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     if (!toast) return void 0;
     const timer = setTimeout(() => setToast(""), 7e3);
     return () => clearTimeout(timer);
@@ -30911,7 +30957,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
     toast ? h("div", { className: "ib-toast", role: "status", "aria-live": "polite" }, toast) : null
   );
 }
-var OverlayBoundary = class extends (import_react26.default.Component ?? class {
+var OverlayBoundary = class extends (import_react27.default.Component ?? class {
 }) {
   constructor(props) {
     super(props);
@@ -30931,13 +30977,13 @@ var OverlayBoundary = class extends (import_react26.default.Component ?? class {
   }
 };
 function Panel({ call, onClose, onDeleteProject, onStartChat, initial }) {
-  const [project2, setProject] = (0, import_react27.useState)(initial ?? null);
-  const [templates, setTemplates] = (0, import_react27.useState)(false);
+  const [project2, setProject] = (0, import_react28.useState)(initial ?? null);
+  const [templates, setTemplates] = (0, import_react28.useState)(false);
   return import_react_dom8.default.createPortal(h("div", { className: "ib-overlay" }, h("header", { className: "ib-top" }, h("div", { className: "ib-crumb" }, templates ? h("span", null, "模板 ", h("b", null, "管理")) : project2 ? h("span", null, "课题 / ", h("b", null, project2.name)) : h("b", null, "我的科研课题")), h("button", { className: "ib-btn", onClick: onClose }, "返回 Harness")), h("main", { className: "ib-main" }, templates ? h(Templates, { call, onBack: () => setTemplates(false) }) : project2 ? h(Project, { call, project: project2, onBack: () => setProject(null), onDelete: onDeleteProject, onStartChat }) : h(Home, { call, onOpen: setProject, onLaunch: onStartChat, onOpenTemplates: () => setTemplates(true) }))), document.body);
 }
 
 // client/src/webvpn-tab.js
-var import_react28 = require("react");
+var import_react29 = require("react");
 var WEBVPN_TAB_ID = "dsh-lab-agent/webvpn";
 var WEBVPN_TAB_KIND = "lab-webvpn";
 var formatBytes = (bytes) => {
@@ -30945,8 +30991,8 @@ var formatBytes = (bytes) => {
   return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 };
 function useSaveToProject(enabled) {
-  const [state3, setState] = (0, import_react28.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
-  (0, import_react28.useEffect)(() => {
+  const [state3, setState] = (0, import_react29.useState)({ loading: true, taskId: "", documentType: "", payload: null, shellState: "", bytes: 0, totalBytes: 0, busy: false, note: "" });
+  (0, import_react29.useEffect)(() => {
     if (!enabled) return void 0;
     let disposed = false;
     let timer;
@@ -31015,10 +31061,10 @@ function useSaveToProject(enabled) {
 function WebVpnTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const visible = tab?.visible === true;
-  const hostRef = (0, import_react28.useRef)(null);
+  const hostRef = (0, import_react29.useRef)(null);
   const inShell = typeof window !== "undefined" && window.parent !== window;
   const save = useSaveToProject(visible && inShell);
-  (0, import_react28.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     if (!visible) {
       sendWebVpnRect({ visible: false });
       return void 0;
@@ -31062,8 +31108,8 @@ function WebVpnTabBody({ useTabInfo }) {
       sendWebVpnRect({ visible: false });
     };
   }, [visible]);
-  const portalSeeded = (0, import_react28.useRef)(false);
-  (0, import_react28.useEffect)(() => {
+  const portalSeeded = (0, import_react29.useRef)(false);
+  (0, import_react29.useEffect)(() => {
     if (!visible || portalSeeded.current || !inShell) return;
     portalSeeded.current = true;
     void (async () => {
@@ -31240,7 +31286,7 @@ function installSidebarBrowser(ctx) {
 }
 
 // client/src/project-tab.js
-var import_react29 = require("react");
+var import_react30 = require("react");
 
 // client/src/project-address.js
 var PROJECT_TAB_ID = "dsh-lab-agent/project";
@@ -31296,8 +31342,8 @@ function projectNameOf(projectId) {
   return projectId === void 0 ? void 0 : projectNames.get(projectId);
 }
 function useProjectName(projectId) {
-  const [, bump] = (0, import_react29.useState)(0);
-  (0, import_react29.useEffect)(() => {
+  const [, bump] = (0, import_react30.useState)(0);
+  (0, import_react30.useEffect)(() => {
     const listener = () => bump((value) => value + 1);
     nameListeners.add(listener);
     return () => {
@@ -31326,9 +31372,9 @@ function ProjectTabBody({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const revision = tab?.navigation?.revision ?? 0;
-  const [state3, setState] = (0, import_react29.useState)({ status: "loading" });
+  const [state3, setState] = (0, import_react30.useState)({ status: "loading" });
   const cachedName = useProjectName(projectId);
-  (0, import_react29.useEffect)(() => {
+  (0, import_react30.useEffect)(() => {
     if (projectId === void 0) {
       setState({ status: "invalid" });
       return void 0;
@@ -31402,7 +31448,7 @@ function ProjectTabTitle({ useTabInfo }) {
   const { tab } = useTabInfo();
   const projectId = projectIdOf(tab?.contentId);
   const name = useProjectName(projectId);
-  (0, import_react29.useEffect)(() => {
+  (0, import_react30.useEffect)(() => {
     ensureProjectName(projectId);
   }, [projectId]);
   return h("span", { className: "ib-project-tab-title", title: name || projectId || "" }, name || "课题");
@@ -31434,24 +31480,24 @@ function registerProjectTab(ctx) {
 
 // client/src/hero-project.js
 var import_react_dom9 = __toESM(require("react-dom"), 1);
-var import_react30 = require("react");
+var import_react31 = require("react");
 var runtime = null;
 function setHeroProjectRuntime(next) {
   runtime = next && typeof next === "object" ? next : null;
 }
 function HeroProjectPicker() {
-  const [session, setSession] = (0, import_react30.useState)(() => runtime?.currentSession?.() ?? null);
-  (0, import_react30.useEffect)(() => {
+  const [session, setSession] = (0, import_react31.useState)(() => runtime?.currentSession?.() ?? null);
+  (0, import_react31.useEffect)(() => {
     const timer = setInterval(() => setSession(runtime?.currentSession?.() ?? null), 3e3);
     return () => clearInterval(timer);
   }, []);
   const blank = session === null || session.blank !== false;
-  const [state3, setState] = (0, import_react30.useState)({ projects: [], current: null, loading: true, error: "" });
-  const [menuOpen, setMenuOpen] = (0, import_react30.useState)(false);
-  const [busy, setBusy] = (0, import_react30.useState)("");
-  const [workspaces, setWorkspaces] = (0, import_react30.useState)([]);
+  const [state3, setState] = (0, import_react31.useState)({ projects: [], current: null, loading: true, error: "" });
+  const [menuOpen, setMenuOpen] = (0, import_react31.useState)(false);
+  const [busy, setBusy] = (0, import_react31.useState)("");
+  const [workspaces, setWorkspaces] = (0, import_react31.useState)([]);
   const cwd = session?.cwd;
-  (0, import_react30.useEffect)(() => {
+  (0, import_react31.useEffect)(() => {
     if (!blank) return void 0;
     let alive = true;
     const call = runtime?.call;
@@ -31482,7 +31528,7 @@ function HeroProjectPicker() {
       clearInterval(timer);
     };
   }, [blank, cwd]);
-  (0, import_react30.useEffect)(() => {
+  (0, import_react31.useEffect)(() => {
     if (!menuOpen) return void 0;
     const list = runtime?.listWorkspaces;
     if (typeof list === "function") setWorkspaces(list() ?? []);
@@ -31639,10 +31685,10 @@ function installHeroProjectChip() {
 }
 
 // client/src/workbench.js
-var import_react34 = require("react");
+var import_react35 = require("react");
 
 // client/src/project-file-home.js
-var import_react31 = require("react");
+var import_react32 = require("react");
 async function chooseProjectFile(call, onOpen) {
   const result = await call("projects_choose_file", { request: { action: "open" } });
   if (result.cancelled || !result.path) return;
@@ -31650,12 +31696,12 @@ async function chooseProjectFile(call, onOpen) {
   await onOpen(project2);
 }
 function ProjectFileHome({ call, onOpen, welcome = false }) {
-  const [projects, setProjects] = (0, import_react31.useState)([]);
-  const [loading, setLoading] = (0, import_react31.useState)(true);
-  const [name, setName] = (0, import_react31.useState)("");
-  const [busy, setBusy] = (0, import_react31.useState)(false);
-  const [error62, setError] = (0, import_react31.useState)("");
-  (0, import_react31.useEffect)(() => {
+  const [projects, setProjects] = (0, import_react32.useState)([]);
+  const [loading, setLoading] = (0, import_react32.useState)(true);
+  const [name, setName] = (0, import_react32.useState)("");
+  const [busy, setBusy] = (0, import_react32.useState)(false);
+  const [error62, setError] = (0, import_react32.useState)("");
+  (0, import_react32.useEffect)(() => {
     let active = true;
     call("projects_list").then((result) => {
       if (active) setProjects(result.projects || []);
@@ -31747,17 +31793,17 @@ function addConversationDrop(ctx, files) {
 }
 
 // client/src/components-reagents.js
-var import_react32 = require("react");
+var import_react33 = require("react");
 var import_react_dom10 = require("react-dom");
 var kinds = { chemical: "化学试剂", biological: "生物试剂", cells: "细胞" };
 var sourceTime = (value) => value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "";
 function ReagentPanel({ call }) {
   const [query, setQuery] = useProjectViewValue("_lab", "reagents-query", "");
   const [kind, setKind] = useProjectViewValue("_lab", "reagents-kind", "all");
-  const [location2, setLocation] = (0, import_react32.useState)(""), [status, setStatus] = (0, import_react32.useState)("all"), [offset, setOffset] = (0, import_react32.useState)(0);
-  const [data, setData] = (0, import_react32.useState)(null), [loading, setLoading] = (0, import_react32.useState)(true), [error62, setError] = (0, import_react32.useState)(""), [busy, setBusy] = (0, import_react32.useState)(false), [revision, setRevision] = (0, import_react32.useState)(0), [selected, setSelected] = (0, import_react32.useState)(null);
-  const force = (0, import_react32.useRef)(false);
-  (0, import_react32.useEffect)(() => {
+  const [location2, setLocation] = (0, import_react33.useState)(""), [status, setStatus] = (0, import_react33.useState)("all"), [offset, setOffset] = (0, import_react33.useState)(0);
+  const [data, setData] = (0, import_react33.useState)(null), [loading, setLoading] = (0, import_react33.useState)(true), [error62, setError] = (0, import_react33.useState)(""), [busy, setBusy] = (0, import_react33.useState)(false), [revision, setRevision] = (0, import_react33.useState)(0), [selected, setSelected] = (0, import_react33.useState)(null);
+  const force = (0, import_react33.useRef)(false);
+  (0, import_react33.useEffect)(() => {
     let active = true, sequence = 0;
     const load2 = async () => {
       const id = ++sequence;
@@ -31783,7 +31829,7 @@ function ReagentPanel({ call }) {
       clearInterval(timer);
     };
   }, [call, query, kind, location2, status, offset, revision]);
-  (0, import_react32.useEffect)(() => {
+  (0, import_react33.useEffect)(() => {
     if (!selected) return;
     const escape = (event) => {
       if (event.key === "Escape") setSelected(null);
@@ -31868,7 +31914,7 @@ function ReagentPanel({ call }) {
 }
 
 // client/src/components-knowledge.js
-var import_react33 = require("react");
+var import_react34 = require("react");
 var import_react_dom11 = require("react-dom");
 var roles = { original: "论文正文", reading_note: "精读笔记", metadata_note: "题录资料", supplement: "补充材料", thesis: "学位论文" };
 function knowledgeLocator(loc) {
@@ -31881,13 +31927,13 @@ function knowledgeLocator(loc) {
 }
 function KnowledgePanel({ project: project2, call, openChat, conversation, activeSessionId, headerTarget }) {
   const [keys, setKeys] = useProjectViewValue(project2.id, "knowledge-keys", null), [role, setRole] = useProjectViewValue(project2.id, "knowledge-role", "");
-  const [state3, setState] = (0, import_react33.useState)(null), [sessionId, setSessionId] = (0, import_react33.useState)(null), [chat, setChat] = (0, import_react33.useState)(null);
-  const [settingsOpen, setSettingsOpen] = (0, import_react33.useState)(false), [sourcesOpen, setSourcesOpen] = (0, import_react33.useState)(false), [sourceTurn, setSourceTurn] = (0, import_react33.useState)(null);
-  const [error62, setError] = (0, import_react33.useState)(""), [notice, setNotice] = (0, import_react33.useState)(""), [busy, setBusy] = (0, import_react33.useState)(false), [opening, setOpening] = (0, import_react33.useState)(true), [dragging, setDragging] = (0, import_react33.useState)(false);
-  const [yearFrom, setYearFrom] = (0, import_react33.useState)(""), [yearTo, setYearTo] = (0, import_react33.useState)("");
-  const input3 = (0, import_react33.useRef)(null), alive = (0, import_react33.useRef)(true), selectionRevision = (0, import_react33.useRef)(0), selection = (0, import_react33.useRef)(null);
+  const [state3, setState] = (0, import_react34.useState)(null), [sessionId, setSessionId] = (0, import_react34.useState)(null), [chat, setChat] = (0, import_react34.useState)(null);
+  const [settingsOpen, setSettingsOpen] = (0, import_react34.useState)(false), [sourcesOpen, setSourcesOpen] = (0, import_react34.useState)(false), [sourceTurn, setSourceTurn] = (0, import_react34.useState)(null);
+  const [error62, setError] = (0, import_react34.useState)(""), [notice, setNotice] = (0, import_react34.useState)(""), [busy, setBusy] = (0, import_react34.useState)(false), [opening, setOpening] = (0, import_react34.useState)(true), [dragging, setDragging] = (0, import_react34.useState)(false);
+  const [yearFrom, setYearFrom] = (0, import_react34.useState)(""), [yearTo, setYearTo] = (0, import_react34.useState)("");
+  const input3 = (0, import_react34.useRef)(null), alive = (0, import_react34.useRef)(true), selectionRevision = (0, import_react34.useRef)(0), selection = (0, import_react34.useRef)(null);
   selection.current = { keys: keys ?? state3?.libraries.filter((item) => item.scope === "project").map((item) => item.key) ?? [], role, yearFrom, yearTo };
-  (0, import_react33.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     alive.current = true;
     return () => {
       alive.current = false;
@@ -31920,10 +31966,10 @@ function KnowledgePanel({ project: project2, call, openChat, conversation, activ
       if (alive.current) setOpening(false);
     }
   };
-  (0, import_react33.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     void start(false);
   }, [project2.id]);
-  (0, import_react33.useEffect)(() => {
+  (0, import_react34.useEffect)(() => {
     let active = true, inFlight = false;
     const refresh = async () => {
       if (inFlight) return;
@@ -32216,7 +32262,7 @@ function PolishingPlaceholder() {
   );
 }
 function SettingsModal({ title, onClose, children }) {
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     const onKey = (event) => {
       if (event.key === "Escape") onClose();
     };
@@ -32237,14 +32283,14 @@ function SettingsModal({ title, onClose, children }) {
   );
 }
 function OptionalFeatures({ call, onClose, onChange }) {
-  const [data, setData] = (0, import_react34.useState)(null);
-  const [error62, setError] = (0, import_react34.useState)("");
-  const [busy, setBusy] = (0, import_react34.useState)(false);
-  const [dirty, setDirty] = (0, import_react34.useState)(false);
-  const [askRestart, setAskRestart] = (0, import_react34.useState)(false);
-  const [restarting, setRestarting] = (0, import_react34.useState)(false);
-  const [dragId, setDragId] = (0, import_react34.useState)(null);
-  (0, import_react34.useEffect)(() => {
+  const [data, setData] = (0, import_react35.useState)(null);
+  const [error62, setError] = (0, import_react35.useState)("");
+  const [busy, setBusy] = (0, import_react35.useState)(false);
+  const [dirty, setDirty] = (0, import_react35.useState)(false);
+  const [askRestart, setAskRestart] = (0, import_react35.useState)(false);
+  const [restarting, setRestarting] = (0, import_react35.useState)(false);
+  const [dragId, setDragId] = (0, import_react35.useState)(null);
+  (0, import_react35.useEffect)(() => {
     let alive = true;
     Promise.resolve(call("plugins_list")).then((value) => {
       if (alive) setData(value);
@@ -32368,13 +32414,13 @@ function OptionalFeatures({ call, onClose, onChange }) {
 }
 function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   const { controller, call, ctx, layout, sidebarRight, launchProject, deleteProject } = runtime2;
-  const [project2, setProject] = (0, import_react34.useState)(controller.get);
+  const [project2, setProject] = (0, import_react35.useState)(controller.get);
   const [moduleId, setModuleId] = useProjectViewValue(project2?.id || "_home", "workbench-module", "literature");
-  const [pluginModules, setPluginModules] = (0, import_react34.useState)(() => listWorkbenchModules());
-  const [pluginOrder, setPluginOrder] = (0, import_react34.useState)([]);
-  (0, import_react34.useEffect)(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
-  (0, import_react34.useEffect)(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
-  (0, import_react34.useEffect)(() => {
+  const [pluginModules, setPluginModules] = (0, import_react35.useState)(() => listWorkbenchModules());
+  const [pluginOrder, setPluginOrder] = (0, import_react35.useState)([]);
+  (0, import_react35.useEffect)(() => subscribeWorkbenchModules(() => setPluginModules(listWorkbenchModules())), []);
+  (0, import_react35.useEffect)(() => subscribePluginSwitches(() => setPluginModules(listWorkbenchModules())), []);
+  (0, import_react35.useEffect)(() => {
     let alive = true;
     Promise.resolve(call("plugins_list")).then((value) => {
       if (!alive || !value) return;
@@ -32402,34 +32448,34 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
   const module2 = allModules.find((item) => item.id === moduleId) || allModules[0] || WORKBENCH_MODULES[0];
   const pluginPanel = pluginModules.find((item) => item.id === module2.id && typeof item.render === "function" && (item.override === true || !WORKBENCH_MODULES.some((builtin) => builtin.id === item.id)));
   const pageTitle = project2 ? module2.label : "科研项目";
-  const [historyOpen, setHistoryOpen] = (0, import_react34.useState)(false);
+  const [historyOpen, setHistoryOpen] = (0, import_react35.useState)(false);
   const [chatHidden, setChatHidden] = useProjectViewValue("_layout", "chat-hidden", false);
   const [chatWidth, setChatWidth] = useProjectViewValue("_layout", "chat-width", 380);
-  const [templates, setTemplates] = (0, import_react34.useState)(false);
-  const [optionalOpen, setOptionalOpen] = (0, import_react34.useState)(false);
-  const [openingProject, setOpeningProject] = (0, import_react34.useState)(false);
-  const [chatDragging, setChatDragging] = (0, import_react34.useState)(false);
-  const [resourceWidth, setResourceWidth] = (0, import_react34.useState)(800);
-  const [error62, setError] = (0, import_react34.useState)("");
-  const [selection, setSelection] = (0, import_react34.useState)("");
-  const [knowledgeHeaderTarget, setKnowledgeHeaderTarget] = (0, import_react34.useState)(null);
-  const [plottingHeaderTarget, setPlottingHeaderTarget] = (0, import_react34.useState)(null);
-  const [literatureHeaderTarget, setLiteratureHeaderTarget] = (0, import_react34.useState)(null);
-  const centerRef = (0, import_react34.useRef)(null);
+  const [templates, setTemplates] = (0, import_react35.useState)(false);
+  const [optionalOpen, setOptionalOpen] = (0, import_react35.useState)(false);
+  const [openingProject, setOpeningProject] = (0, import_react35.useState)(false);
+  const [chatDragging, setChatDragging] = (0, import_react35.useState)(false);
+  const [resourceWidth, setResourceWidth] = (0, import_react35.useState)(800);
+  const [error62, setError] = (0, import_react35.useState)("");
+  const [selection, setSelection] = (0, import_react35.useState)("");
+  const [knowledgeHeaderTarget, setKnowledgeHeaderTarget] = (0, import_react35.useState)(null);
+  const [plottingHeaderTarget, setPlottingHeaderTarget] = (0, import_react35.useState)(null);
+  const [literatureHeaderTarget, setLiteratureHeaderTarget] = (0, import_react35.useState)(null);
+  const centerRef = (0, import_react35.useRef)(null);
   const activePanel = usePanelInfo((info) => info.activePanelId);
   const knowledgeActive = Boolean(project2 && module2.id === "knowledge" && !templates && !activePanel);
-  const [activeSessionId, setActiveSessionId] = (0, import_react34.useState)(() => currentDesktopSessionId(ctx.sessions));
-  (0, import_react34.useEffect)(() => ctx.sessions.list.subscribe(() => setActiveSessionId(currentDesktopSessionId(ctx.sessions))), [ctx]);
-  const currentProject = (0, import_react34.useRef)(project2);
+  const [activeSessionId, setActiveSessionId] = (0, import_react35.useState)(() => currentDesktopSessionId(ctx.sessions));
+  (0, import_react35.useEffect)(() => ctx.sessions.list.subscribe(() => setActiveSessionId(currentDesktopSessionId(ctx.sessions))), [ctx]);
+  const currentProject = (0, import_react35.useRef)(project2);
   currentProject.current = project2;
-  (0, import_react34.useEffect)(() => controller.subscribe(setProject), [controller]);
-  (0, import_react34.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => controller.subscribe(setProject), [controller]);
+  (0, import_react35.useEffect)(() => controller.onShowChat(() => setChatHidden(false)), [controller, setChatHidden]);
+  (0, import_react35.useEffect)(() => {
     const hide2 = () => setChatHidden(true);
     window.addEventListener("ibm-lab:hide-chat", hide2);
     return () => window.removeEventListener("ibm-lab:hide-chat", hide2);
   }, [setChatHidden]);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     document.title = "iBM Lab";
     let revision = 0;
     let lastSession;
@@ -32458,19 +32504,19 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
       unsubscribe();
     };
   }, [controller, ctx, call]);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     const element = centerRef.current;
     const observer = new ResizeObserver((entries) => setResourceWidth(Math.round(entries[0].contentRect.width)));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     setSelection("");
   }, [project2?.id, module2.id]);
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     setHistoryOpen(false);
   }, [activePanel]);
-  const closeResources = (0, import_react34.useCallback)(() => {
+  const closeResources = (0, import_react35.useCallback)(() => {
     if (sidebarRight.isExpanded()) sidebarRight.toggleExpanded();
   }, [sidebarRight]);
   const navigate = (id) => {
@@ -32519,7 +32565,7 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
       setOpeningProject(false);
     }
   };
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     const reopen = (event) => {
       const target = currentProject.current;
       if (!target) return;
@@ -32548,7 +32594,7 @@ function Workbench({ renderSlot, usePanelInfo, runtime: runtime2 }) {
 ${selection}` }).catch((reason) => setError(reason.message));
   };
   const [projectTab, setProjectTab] = useProjectViewValue(project2?.id || "_home", "workbench-project-tab", "literature");
-  (0, import_react34.useEffect)(() => {
+  (0, import_react35.useEffect)(() => {
     if (["literature", "characterization", "plotting"].includes(module2.id)) setProjectTab(module2.id);
   }, [module2.id, setProjectTab]);
   const chatDrag = (event) => {

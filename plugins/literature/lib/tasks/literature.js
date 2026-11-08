@@ -195,7 +195,7 @@ export const literatureMethods = {
 					const journalId = (row.match(/journalid=(\d+)/) ?? [])[1];
 					const topPromise = journalId ? fetchLetPubTop(journalId) : null;
 					if (Number.isFinite(impact) && impact > 0) {
-						value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, top: null, field: field || '', subfield: subfield || '' };
+						value = { journal: query, abbreviation: abbreviation || '', impactFactor: impact, casTier: tierMatch ? Number(tierMatch[1]) : null, top: null, coverUrl: journalId ? "https://media-cdn.oss-cn-hangzhou.aliyuncs.com/statics/images/comment_center/cover/journal/" + journalId + ".jpg" : undefined, field: field || '', subfield: subfield || '' };
 						if (topPromise) {
 							const record = { at: Date.now(), value, topPromise, journalId };
 							journalMetricsCache.set(key, record);

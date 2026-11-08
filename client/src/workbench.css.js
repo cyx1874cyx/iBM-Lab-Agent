@@ -172,7 +172,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-lit-card:hover{border-color:var(--ib-accent)}
 .ib-lit-card[data-selected=true]{background:var(--ib-accent-soft);border-color:var(--ib-accent)}
 .ib-paper-cover{flex:none;width:82px;height:100px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff;background:linear-gradient(160deg,#536a7c,#354958);box-sizing:border-box;text-align:center;overflow:hidden}
-.ib-paper-cover b{font:700 22px/1 var(--ib-serif,Georgia,serif);letter-spacing:.01em}.ib-paper-cover small{font:600 8px/1 var(--ib-font,system-ui);letter-spacing:.12em;color:#dbe6ea}.ib-paper-cover-lg{width:96px;height:116px}
+.ib-paper-cover img{width:100%;height:100%;object-fit:cover;display:block}.ib-paper-cover b{font:700 22px/1 var(--ib-serif,Georgia,serif);letter-spacing:.01em}.ib-paper-cover small{font:600 8px/1 var(--ib-font,system-ui);letter-spacing:.12em;color:#dbe6ea}.ib-paper-cover-lg{width:96px;height:116px}
 .ib-lit-card-copy{min-width:0;flex:1 1 0;display:flex;flex-direction:column;gap:8px;overflow:hidden}
 .ib-lit-card .ib-lit-title{font:600 20px/1.35 var(--ib-serif,Georgia,serif);color:var(--ib-text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ib-lit-card-cite{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden}.ib-lit-cite-text{min-width:0;font:italic 400 14px/1.35 var(--ib-font,system-ui);color:#6a7780;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-lit-field-pill{flex:none;padding:4px 10px;border-radius:999px;background:#eef2f0;color:#52645d;font:500 12px/1 var(--ib-font,system-ui)}

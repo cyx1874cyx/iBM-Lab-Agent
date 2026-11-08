@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { linkIntakePrompt } from './reading-link-upload.js';
 import { SearchTasksPanel } from './search-tasks-panel.js';
+import { JournalCover } from './journal-cover.js';
 import {
 	h, useProjectViewValue, useProjectViewScroll, fileToBase64, useReadingInteractions,
 	ReadingContextMenu, ReadingLinkUpload, EntryConversationButton, readingConversationId,
@@ -869,12 +870,12 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				const citation = citationFor(report, bundle);
 				return citation ? citation.text.replace(/\.$/u, '') : [bundle.journal || bundle.journalAbbrev, bundle.year].filter(Boolean).join(' · ');
 			};
-			const coverOf = (bundle = {}, report = null) => {
+			const coverOf = (bundle = {}, report = null, large = false) => {
 				const journal = String(journalAbbrevOf(bundle, report) || 'PREPRINT');
 				const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || 'PREPRINT').toUpperCase();
 				const label = /^NATURE/.test(token) ? 'NAT' : token.slice(0, 6);
-				return h('span', { className: 'ib-paper-cover' }, h('b', { style: label.length > 5 ? { fontSize: '18px' } : undefined }, label), h('small', null, 'JOURNAL'));
-			};			const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || '').trim();
+				return h(JournalCover, { journal, call, fallback: label, large });
+			};const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || '').trim();
 			const metricBox = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
 			const openSelectedPdf = (event) => {
 				event.stopPropagation();
@@ -906,7 +907,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 			const detailNode = showDetail ? h('aside', { className: 'ib-lit-detail', 'aria-label': '文献详情' },
 				h('div', { className: 'ib-lit-detail-head' }, h('h2', null, '文献详情')),
 				h('div', { className: 'ib-lit-detail-lead' },
-					h('span', { className: 'ib-paper-cover ib-paper-cover-lg', style: { ...coverOf(selectedBundle, selectedReport).props.style } }, coverOf(selectedBundle, selectedReport).props.children),
+					coverOf(selectedBundle, selectedReport, true),
 					h('div', { className: 'ib-lit-detail-title' },
 						h('h3', null, selectedReport.titleZh || selectedBundle.title || selectedReport.id),
 						h('div', { className: 'ib-lit-detail-cite' },

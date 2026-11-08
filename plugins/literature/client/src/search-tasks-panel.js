@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { h } from "dsh-lab-agent/client-sdk";
+import { JournalCover } from "./journal-cover.js";
 
 const emptyTask = () => ({ id: "", title: "", requirement: "", rounds: [], candidates: [], messages: [], createdAt: "", updatedAt: "", status: "draft" });
 function SearchMetrics({ journal, call }) {
@@ -245,7 +246,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		) : null;
 		return h("article", { key: paper.id, role: "button", tabIndex: 0, className: "ib-st-paper", "data-added": paper.addedToReading ? "true" : undefined, onClick: (event) => { if (event.target.closest("button,input,label,a")) return; setSelectedPaperId(paper.id); }, onKeyDown: (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedPaperId(paper.id); } } },
 			h("label", { className: "ib-st-check" }, h("input", { type: "checkbox", checked: Boolean(paper.selected), onChange: () => void toggle(paper) }), h("span", null, String(index + 1).padStart(2, "0"))),
-			h("span", { className: "ib-st-cover" }, String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 4).toUpperCase()),
+			h(JournalCover, { journal: paper.journal, call, fallback: String((paper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6) }),
 			h("div", { className: "ib-st-paper-copy" },
 				h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, showOriginalTitle ? (paper.title || "未命名文献") : (paper.titleZh || paper.title || "未命名文献")),
 				h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
@@ -286,7 +287,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		h("aside", { className: "ib-st-detail-pane" },
 			selectedPaper ? h(React.Fragment, null,
 				h("div", { className: "ib-st-detail-head" },
-					h("span", { className: "ib-st-detail-cover" }, String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 5).toUpperCase()),
+					h(JournalCover, { journal: selectedPaper.journal, call, fallback: String((selectedPaper.journal || "PREPRINT").split(/\s+/)[0] || "PREPRINT").slice(0, 6), large: true }),
 					h("div", null, h("h3", null, selectedPaper.titleZh || selectedPaper.title || "未命名文献"), h("p", null, [selectedPaper.journal, selectedPaper.year].filter(Boolean).join(" · ") || "来源未知"))
 				),
 				h("section", { className: "ib-st-detail-section" }, h("h4", null, "摘要"), h("p", null, selectedPaper.abstract || "该记录未返回摘要。")),
