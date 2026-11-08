@@ -10,10 +10,10 @@ function taskBrief(task, { limit = 10, offset = 0 } = {}) {
 	return {
 		taskId: task.id,
 		title: task.title,
-		requirement: String(task.requirement || "").slice(0, 4000),
+		requirement: String(task.requirement || "").slice(0, 1500),
 		candidateCount: candidates.length,
 		roundCount: (task.rounds || []).length,
-		rounds: (task.rounds || []).map((round) => ({ id: round.id, index: round.index, query: round.query, total: round.totalAvailable, fetched: round.fetched, added: round.newCount })),
+		rounds: (task.rounds || []).slice(-3).map((round) => ({ id: round.id, index: round.index, query: round.query, total: round.totalAvailable, fetched: round.fetched, added: round.newCount })),
 		candidates: candidates.slice(start, start + size).map((row) => ({ id: row.id, title: row.title, titleZh: row.titleZh, journal: row.journal, year: row.year, doi: row.doi, recommendation: row.recommendation, abstractStatus: row.abstractStatus, addedToReading: row.addedToReading })),
 		pagination: { offset: start, limit: size, total: candidates.length, hasMore: start + size < candidates.length }
 	};
