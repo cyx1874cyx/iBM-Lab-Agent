@@ -186,6 +186,7 @@ export function applyUi(ctx) {
 		const entry=taskEntryIdentity(opts);
 		if(opts.openSessionId&&!entry){const opened=await openProjectConversation(ctx,call,{projectId:project.id,sessionId:opts.openSessionId});if(workbenchReady)workbench.open(project);close();return opened;}
 		const presetId = opts.presetId;
+		const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : (presetId || RESEARCH_PRESET_ID);
 		let sessionId;
 		let workspaceId;
 		let openedNew = false;
@@ -217,7 +218,7 @@ export function applyUi(ctx) {
 		sessionId = entryConversation?.sessionId??await projectSessionId(ctx,{workspaceId,reuseSessionId:canReuse?currentId:undefined,fresh});
 		openedNew = entryConversation?entryConversation.created:!canReuse;
 		return ctx.sessions.using(sessionId,{source:'controllerOperation'},async()=>{
-		if (!canReuse) presetApplied = await selectResearchPreset(sessionId, presetId || RESEARCH_PRESET_ID);
+		if (!canReuse) presetApplied = await selectResearchPreset(sessionId, effectivePresetId);
 		await call("projects_bind_session", { request: { projectId: project.id, sessionId, workspaceId } });
 		if(opts.knowledge)await call('knowledge_chat_bind',{request:{...opts.knowledge,projectId:project.id,sessionId}});
 		if(opts.translationIdentity)await call('tasks_translation_bind',{request:{...opts.translationIdentity,sessionId}});

@@ -32897,6 +32897,7 @@ function applyUi(ctx) {
       return opened;
     }
     const presetId = opts.presetId;
+    const effectivePresetId = entry?.kind === "reading" ? "lab-reading" : presetId || RESEARCH_PRESET_ID;
     let sessionId;
     let workspaceId;
     let openedNew = false;
@@ -32926,7 +32927,7 @@ function applyUi(ctx) {
     sessionId = entryConversation?.sessionId ?? await projectSessionId(ctx, { workspaceId, reuseSessionId: canReuse ? currentId : void 0, fresh });
     openedNew = entryConversation ? entryConversation.created : !canReuse;
     return ctx.sessions.using(sessionId, { source: "controllerOperation" }, async () => {
-      if (!canReuse) presetApplied = await selectResearchPreset(sessionId, presetId || RESEARCH_PRESET_ID);
+      if (!canReuse) presetApplied = await selectResearchPreset(sessionId, effectivePresetId);
       await call("projects_bind_session", { request: { projectId: project2.id, sessionId, workspaceId } });
       if (opts.knowledge) await call("knowledge_chat_bind", { request: { ...opts.knowledge, projectId: project2.id, sessionId } });
       if (opts.translationIdentity) await call("tasks_translation_bind", { request: { ...opts.translationIdentity, sessionId } });
