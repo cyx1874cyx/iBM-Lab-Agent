@@ -2965,6 +2965,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-st-paper{align-items:center;background:var(--ib-panel);border-radius:10px;border-color:var(--ib-line)}.ib-st-cover{flex:none;width:58px;height:70px;border-radius:7px;background:linear-gradient(160deg,#536a7c,#354958);color:#fff;display:grid;place-items:center;font:700 15px/1 var(--ib-serif,Georgia,serif);letter-spacing:.02em}.ib-st-paper .ib-st-title{font-size:15px;line-height:1.4}.ib-st-metrics{display:flex;gap:4px;flex:none}.ib-st-metrics .ib-lit-metric-box{width:50px;height:60px;border-radius:8px;gap:3px;padding:3px}.ib-st-metrics .ib-lit-metric-box span{font-size:9px}.ib-st-metrics .ib-lit-metric-box b{font-size:15px}.ib-st-metrics .ib-lit-metric-box[data-tone=top] b{font-size:11px}
 .ib-st-task-detail{padding:4px 2px;display:flex;flex-direction:column;gap:14px}.ib-st-task-detail>h3{margin:0;font:600 20px/1.4 var(--ib-serif,Georgia,serif)}.ib-st-task-stats{font-size:12px;color:var(--ib-muted)}.ib-st-paper{cursor:pointer}.ib-st-paper:hover{border-color:var(--ib-accent-line);background:#fbfdfc}.ib-st-title-zh{margin:4px 0 0!important;font:600 14px/1.5 var(--ib-font,system-ui)!important;color:#263a33!important}
 .ib-st-formula{display:flex;flex-direction:column;gap:4px;margin:8px 0}.ib-st-formula b{font:600 11px/1.3 var(--ib-font,system-ui);color:var(--ib-muted)}.ib-st-formula code{display:block;white-space:pre-wrap;word-break:break-word;background:#f3f6f5;border:1px solid var(--ib-line);border-radius:6px;padding:7px 8px;font:400 11px/1.5 Consolas,monospace;color:#263a33}
+.ib-db-public{border-top:1px solid var(--ib-hair);padding-top:12px;display:flex;flex-direction:column;gap:8px}.ib-db-public>b{font-size:13px}.ib-db-public-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ib-text)}.ib-db-public-row small{margin-left:auto;color:var(--ib-muted)}.ib-db-dot{width:8px;height:8px;border-radius:50%;background:#b6c2bc}.ib-db-dot[data-ok=true]{background:#12a67a}.ib-db-dot[data-ok=false]{background:#d0453a}.ib-db-dot[data-ok=pending]{background:#d6a545}
 `;
 
 // client/src/reagents.css.js
@@ -4649,7 +4650,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -6369,6 +6370,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
   const [databaseBusy, setDatabaseBusy] = (0, import_react12.useState)("");
   const [databaseMessage, setDatabaseMessage] = (0, import_react12.useState)("");
+  const [publicSources, setPublicSources] = (0, import_react12.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
   const [selectedReportId, setSelectedReportId] = (0, import_react12.useState)(() => {
     try {
       return localStorage.getItem("ib-lit-selected:" + projectId) || "";
@@ -7174,6 +7176,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h("button", { type: "button", className: "ib-act", onClick: () => {
       setDatabaseOpen(true);
       setDatabaseMessage("");
+      setPublicSources([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
+      void call("search_tasks_public_sources_test").then((result) => setPublicSources(result?.publicSources || [])).catch(() => {
+      });
     } }, "⚙ 数据库管理")
   );
   return h(
@@ -7292,6 +7297,21 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           { className: "ib-db-body" },
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
           h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          h(
+            "div",
+            { className: "ib-db-public" },
+            h("b", null, "公开数据库"),
+            [["openalex", "OpenAlex"], ["crossref", "Crossref"], ["pubmed", "PubMed"], ["arxiv", "arXiv"]].map(([id, name]) => {
+              const status = publicSources.find((row2) => row2.id === id);
+              return h(
+                "div",
+                { key: id, className: "ib-db-public-row" },
+                h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }),
+                h("span", null, name),
+                h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…")
+              );
+            })
+          ),
           databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
           h(
             "div",

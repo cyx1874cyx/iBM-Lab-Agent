@@ -272,6 +272,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [databaseKey, setDatabaseKey] = useState('');
 			const [databaseBusy, setDatabaseBusy] = useState('');
 			const [databaseMessage, setDatabaseMessage] = useState('');
+			const [publicSources, setPublicSources] = useState([{id:'openalex',ok:true,message:'公开库 · 无需 Key'},{id:'crossref',ok:true,message:'公开库 · 无需 Key'},{id:'pubmed',ok:true,message:'公开库 · 无需 Key'},{id:'arxiv',ok:true,message:'公开库 · 无需 Key'}]);
 			const [selectedReportId, setSelectedReportId] = useState(() => { try { return localStorage.getItem('ib-lit-selected:' + projectId) || ''; } catch { return ''; } });
 			const [watchReading, setWatchReading] = useState(false);
 			const [watchPpt, setWatchPpt] = useState(false);
@@ -935,7 +936,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 								h('button', { type: 'button', onClick: () => { setUploadMenuOpen(false); setLinkOpen(true); } }, '从链接导入'),
 								h('button', { type: 'button', onClick: () => { setUploadMenuOpen(false); pdfPicker.current?.click(); } }, '从本地文件导入')) : null),
 						h('input', { type: 'file', accept: '.ris', multiple: true, hidden: true, ref: risPicker, onChange: (event) => void importRisFiles(event.target.files) }),
-						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }), h('button', { type: 'button', className: 'ib-act', onClick: () => { setDatabaseOpen(true); setDatabaseMessage(''); } }, '⚙ 数据库管理'))
+						h('input', { ref: pdfPicker, type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', multiple: true, hidden: true, onChange: (event) => void uploadPdfs(event.target.files) }), h('button', { type: 'button', className: 'ib-act', onClick: () => { setDatabaseOpen(true); setDatabaseMessage(''); setPublicSources([{id:'openalex',ok:true,message:'公开库 · 无需 Key'},{id:'crossref',ok:true,message:'公开库 · 无需 Key'},{id:'pubmed',ok:true,message:'公开库 · 无需 Key'},{id:'arxiv',ok:true,message:'公开库 · 无需 Key'}]); void call('search_tasks_public_sources_test').then((result) => setPublicSources(result?.publicSources || [])).catch(() => {}); } }, '⚙ 数据库管理'))
 
 			return h(React.Fragment, null, headerTarget ? createPortal(toolbarNode, headerTarget) : null, h('div', { className: 'ib-lit ib-lit-workbench', 'data-toolbar-in-header': headerTarget ? 'true' : undefined, ref: literatureRoot },
 				h('section', { className: 'ib-lit-catalog', 'data-dragging': pdfDragging ? 'true' : undefined,
@@ -967,6 +968,15 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 						h('div', { className: 'ib-db-body' },
 							h('div', { className: 'ib-db-row' }, h('div', null, h('b', null, 'Scopus / Elsevier'), h('small', null, '用于文献检索、摘要与题录补全')), h('span', { className: 'ib-db-state' }, 'API Key')),
 							h('input', { className: 'ib-db-input', type: 'password', value: databaseKey, placeholder: '粘贴 Scopus API Key（留空表示不修改）', onChange: (event) => setDatabaseKey(event.target.value) }),
+							h('div', { className: 'ib-db-public' },
+								h('b', null, '公开数据库'),
+								[['openalex', 'OpenAlex'], ['crossref', 'Crossref'], ['pubmed', 'PubMed'], ['arxiv', 'arXiv']].map(([id, name]) => {
+									const status = publicSources.find((row) => row.id === id);
+									return h('div', { key: id, className: 'ib-db-public-row' },
+										h('span', { className: 'ib-db-dot', 'data-ok': status ? (status.ok ? 'true' : 'false') : 'pending' }),
+										h('span', null, name),
+										h('small', null, status ? (status.ok ? '可用' : (status.message || '不可用')) : '检测中…'));
+								})),
 							databaseMessage ? h('div', { className: 'ib-db-message', role: 'status' }, databaseMessage) : null,
 							h('div', { className: 'ib-db-actions' },
 								h('button', { type: 'button', className: 'ib-lit-link-cancel', onClick: async () => {

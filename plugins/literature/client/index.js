@@ -44929,6 +44929,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [databaseKey, setDatabaseKey] = (0, import_react11.useState)("");
   const [databaseBusy, setDatabaseBusy] = (0, import_react11.useState)("");
   const [databaseMessage, setDatabaseMessage] = (0, import_react11.useState)("");
+  const [publicSources, setPublicSources] = (0, import_react11.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
   const [selectedReportId, setSelectedReportId] = (0, import_react11.useState)(() => {
     try {
       return localStorage.getItem("ib-lit-selected:" + projectId) || "";
@@ -45734,6 +45735,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h("button", { type: "button", className: "ib-act", onClick: () => {
       setDatabaseOpen(true);
       setDatabaseMessage("");
+      setPublicSources([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
+      void call("search_tasks_public_sources_test").then((result) => setPublicSources(result?.publicSources || [])).catch(() => {
+      });
     } }, "⚙ 数据库管理")
   );
   return h(
@@ -45852,6 +45856,21 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           { className: "ib-db-body" },
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
           h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          h(
+            "div",
+            { className: "ib-db-public" },
+            h("b", null, "公开数据库"),
+            [["openalex", "OpenAlex"], ["crossref", "Crossref"], ["pubmed", "PubMed"], ["arxiv", "arXiv"]].map(([id, name]) => {
+              const status = publicSources.find((row) => row.id === id);
+              return h(
+                "div",
+                { key: id, className: "ib-db-public-row" },
+                h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }),
+                h("span", null, name),
+                h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…")
+              );
+            })
+          ),
           databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
           h(
             "div",
