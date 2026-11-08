@@ -2966,6 +2966,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-st-task-detail{padding:4px 2px;display:flex;flex-direction:column;gap:14px}.ib-st-task-detail>h3{margin:0;font:600 20px/1.4 var(--ib-serif,Georgia,serif)}.ib-st-task-stats{font-size:12px;color:var(--ib-muted)}.ib-st-paper{cursor:pointer}.ib-st-paper:hover{border-color:var(--ib-accent-line);background:#fbfdfc}.ib-st-title-zh{margin:4px 0 0!important;font:600 14px/1.5 var(--ib-font,system-ui)!important;color:#263a33!important}
 .ib-st-formula{display:flex;flex-direction:column;gap:4px;margin:8px 0}.ib-st-formula b{font:600 11px/1.3 var(--ib-font,system-ui);color:var(--ib-muted)}.ib-st-formula code{display:block;white-space:pre-wrap;word-break:break-word;background:#f3f6f5;border:1px solid var(--ib-line);border-radius:6px;padding:7px 8px;font:400 11px/1.5 Consolas,monospace;color:#263a33}
 .ib-db-public{border-top:1px solid var(--ib-hair);padding-top:12px;display:flex;flex-direction:column;gap:8px}.ib-db-public>b{font-size:13px}.ib-db-public-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ib-text)}.ib-db-public-row small{margin-left:auto;color:var(--ib-muted)}.ib-db-dot{width:8px;height:8px;border-radius:50%;background:#b6c2bc}.ib-db-dot[data-ok=true]{background:#12a67a}.ib-db-dot[data-ok=false]{background:#d0453a}.ib-db-dot[data-ok=pending]{background:#d6a545}
+.ib-st-reasons{margin:6px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.5;color:#52645d}.ib-st-reasons li::marker{color:var(--ib-accent)}
 `;
 
 // client/src/reagents.css.js
@@ -5681,8 +5682,12 @@ function SearchTaskDetail({ task, lastRound }) {
     requirementSections(task.requirement).map((section) => h("section", { key: section.label, className: "ib-st-detail-section" }, h("h4", null, section.label), h("p", null, section.value)))
   );
 }
-var basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 var recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
+function reasonsFor(paper) {
+  const raw = paper?.reasons ?? paper?.matchReason ?? "";
+  const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
+  return [0, 1, 2].map((index2) => list[index2] || "暂无补充");
+}
 function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat }) {
   const [tasks, setTasks] = (0, import_react11.useState)([]);
   const [activeId, setActiveId] = (0, import_react11.useState)("");
@@ -5693,6 +5698,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   const [onlyNew, setOnlyNew] = (0, import_react11.useState)(false);
   const [expanded, setExpanded] = (0, import_react11.useState)("");
   const [selectedPaperId, setSelectedPaperId] = (0, import_react11.useState)("");
+  const [showOriginalTitle, setShowOriginalTitle] = (0, import_react11.useState)(false);
   const [composer, setComposer] = (0, import_react11.useState)("");
   const [newTask, setNewTask] = (0, import_react11.useState)(null);
   const [message, setMessage] = (0, import_react11.useState)("");
@@ -5888,23 +5894,16 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       h(
         "div",
         { className: "ib-st-paper-copy" },
-        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.titleZh || paper.title || "未命名文献"),
+        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, showOriginalTitle ? paper.title || "未命名文献" : paper.titleZh || paper.title || "未命名文献"),
         h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
-        paper.matchReason ? h("p", { className: "ib-st-reason" }, h("b", null, "匹配点："), paper.matchReason) : null,
-        h("div", { className: "ib-st-basis" }, `依据：${basisLabel(paper.reasonBasis)}${paper.abstractStatus === "missing" ? "（摘要未获取）" : ""}`),
+        h("ul", { className: "ib-st-reasons" }, reasonsFor(paper).map((reason, index3) => h("li", { key: index3 }, reason))),
         detail
       ),
       h(
         "div",
         { className: "ib-st-paper-side" },
         recLabel(paper.recommendation) ? h("span", { className: "ib-st-rec", "data-kind": paper.recommendation }, `★ ${recLabel(paper.recommendation)}`) : null,
-        h(SearchMetrics, { journal: paper.journal, call }),
-        h(
-          "div",
-          { className: "ib-st-feedback" },
-          h("button", { type: "button", "data-active": paper.feedback === "more" ? "true" : void 0, onClick: () => void setFeedback(paper, "more") }, "👍 更符合"),
-          h("button", { type: "button", "data-active": paper.feedback === "irrelevant" ? "true" : void 0, onClick: () => void setFeedback(paper, "irrelevant") }, "👎 不相关")
-        )
+        h(SearchMetrics, { journal: paper.journal, call })
       )
     );
   };
@@ -5962,7 +5961,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
           await call("search_tasks_save_key", { request: { projectId, apiKey: key2.trim() } });
           notify2?.("Scopus Key 已保存");
         }, disabled: busy === "test" }, "配置 Scopus Key"), h("button", { type: "button", onClick: testScopus, disabled: busy === "test" }, busy === "test" ? "测试中…" : "测试 Scopus 连接"), scopusState ? h("span", { "data-ok": scopusState.ok ? "true" : "false" }, scopusState.message) : null) : null,
-        h("div", { className: "ib-st-listhead" }, h("b", null, `候选文献 ${visible.length}`), h("span", null, `已选 ${selected.size}`), h("div", { className: "ib-st-listtools" }, h("button", { type: "button", className: "ib-st-chip", "data-active": onlyNew ? "true" : void 0, onClick: () => setOnlyNew((value) => !value) }, "筛选"), h("span", { className: "ib-st-hint" }, "Scopus 实时结果"))),
+        h("div", { className: "ib-st-listhead" }, h("b", null, `候选文献 ${visible.length}`), h("span", null, `已选 ${selected.size}`), h("div", { className: "ib-st-listtools" }, h("button", { type: "button", className: "ib-st-chip", "data-active": onlyNew ? "true" : void 0, onClick: () => setOnlyNew((value) => !value) }, "筛选"), h("button", { type: "button", className: "ib-st-chip", "data-active": !showOriginalTitle ? "true" : void 0, onClick: () => setShowOriginalTitle((value) => !value) }, showOriginalTitle ? "显示译文" : "翻译标题"), h("span", { className: "ib-st-hint" }, "Scopus 实时结果"))),
         h("div", { className: "ib-st-candidates" }, visible.length === 0 ? h("div", { className: "ib-st-empty big" }, active.requirement ? "尚无候选文献，点击右侧「继续检索」。" : "先补充研究需求，再开始检索。") : visible.map(paperNode)),
         h("footer", { className: "ib-st-batch" }, h("span", null, `已选 ${selected.size} 篇`), h("button", { type: "button", className: "ib-st-link", onClick: () => void clearSelection(), disabled: selected.size === 0 }, "清空"), h("span", { className: "ib-st-spacer" }), h("button", { type: "button", className: "ib-st-secondary", onClick: () => void exportRis() }, "导出 RIS"), h("button", { type: "button", className: "ib-st-primary", onClick: () => void addToReading(), disabled: selected.size === 0 || busy === "reading" }, busy === "reading" ? "加入中…" : `加入精读 (${selected.size})`))
       ) : h("div", { className: "ib-st-empty big" }, "选择或新建检索任务"),

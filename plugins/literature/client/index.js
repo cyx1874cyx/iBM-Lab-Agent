@@ -44240,8 +44240,12 @@ function SearchTaskDetail({ task, lastRound }) {
     requirementSections(task.requirement).map((section) => h("section", { key: section.label, className: "ib-st-detail-section" }, h("h4", null, section.label), h("p", null, section.value)))
   );
 }
-var basisLabel = (value) => value === "fulltext" ? "全文方法" : value === "abstract" ? "摘要" : "标题";
 var recLabel = (value) => value === "priority" ? "优先阅读" : value === "support" ? "补充参考" : "";
+function reasonsFor(paper) {
+  const raw = paper?.reasons ?? paper?.matchReason ?? "";
+  const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
+  return [0, 1, 2].map((index) => list[index] || "暂无补充");
+}
 function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat }) {
   const [tasks, setTasks] = (0, import_react10.useState)([]);
   const [activeId, setActiveId] = (0, import_react10.useState)("");
@@ -44252,6 +44256,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
   const [onlyNew, setOnlyNew] = (0, import_react10.useState)(false);
   const [expanded, setExpanded] = (0, import_react10.useState)("");
   const [selectedPaperId, setSelectedPaperId] = (0, import_react10.useState)("");
+  const [showOriginalTitle, setShowOriginalTitle] = (0, import_react10.useState)(false);
   const [composer, setComposer] = (0, import_react10.useState)("");
   const [newTask, setNewTask] = (0, import_react10.useState)(null);
   const [message, setMessage] = (0, import_react10.useState)("");
@@ -44447,23 +44452,16 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       h(
         "div",
         { className: "ib-st-paper-copy" },
-        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, paper.titleZh || paper.title || "未命名文献"),
+        h("button", { type: "button", className: "ib-st-title", onClick: () => setSelectedPaperId(paper.id) }, showOriginalTitle ? paper.title || "未命名文献" : paper.titleZh || paper.title || "未命名文献"),
         h("div", { className: "ib-st-meta" }, [paper.journal, paper.year].filter(Boolean).join(" · ") || "来源未知", paper.addedToReading ? h("span", { className: "ib-st-added" }, "已加入精读") : null),
-        paper.matchReason ? h("p", { className: "ib-st-reason" }, h("b", null, "匹配点："), paper.matchReason) : null,
-        h("div", { className: "ib-st-basis" }, `依据：${basisLabel(paper.reasonBasis)}${paper.abstractStatus === "missing" ? "（摘要未获取）" : ""}`),
+        h("ul", { className: "ib-st-reasons" }, reasonsFor(paper).map((reason, index2) => h("li", { key: index2 }, reason))),
         detail
       ),
       h(
         "div",
         { className: "ib-st-paper-side" },
         recLabel(paper.recommendation) ? h("span", { className: "ib-st-rec", "data-kind": paper.recommendation }, `★ ${recLabel(paper.recommendation)}`) : null,
-        h(SearchMetrics, { journal: paper.journal, call }),
-        h(
-          "div",
-          { className: "ib-st-feedback" },
-          h("button", { type: "button", "data-active": paper.feedback === "more" ? "true" : void 0, onClick: () => void setFeedback(paper, "more") }, "👍 更符合"),
-          h("button", { type: "button", "data-active": paper.feedback === "irrelevant" ? "true" : void 0, onClick: () => void setFeedback(paper, "irrelevant") }, "👎 不相关")
-        )
+        h(SearchMetrics, { journal: paper.journal, call })
       )
     );
   };
@@ -44521,7 +44519,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
           await call("search_tasks_save_key", { request: { projectId, apiKey: key.trim() } });
           notify?.("Scopus Key 已保存");
         }, disabled: busy === "test" }, "配置 Scopus Key"), h("button", { type: "button", onClick: testScopus, disabled: busy === "test" }, busy === "test" ? "测试中…" : "测试 Scopus 连接"), scopusState ? h("span", { "data-ok": scopusState.ok ? "true" : "false" }, scopusState.message) : null) : null,
-        h("div", { className: "ib-st-listhead" }, h("b", null, `候选文献 ${visible.length}`), h("span", null, `已选 ${selected.size}`), h("div", { className: "ib-st-listtools" }, h("button", { type: "button", className: "ib-st-chip", "data-active": onlyNew ? "true" : void 0, onClick: () => setOnlyNew((value) => !value) }, "筛选"), h("span", { className: "ib-st-hint" }, "Scopus 实时结果"))),
+        h("div", { className: "ib-st-listhead" }, h("b", null, `候选文献 ${visible.length}`), h("span", null, `已选 ${selected.size}`), h("div", { className: "ib-st-listtools" }, h("button", { type: "button", className: "ib-st-chip", "data-active": onlyNew ? "true" : void 0, onClick: () => setOnlyNew((value) => !value) }, "筛选"), h("button", { type: "button", className: "ib-st-chip", "data-active": !showOriginalTitle ? "true" : void 0, onClick: () => setShowOriginalTitle((value) => !value) }, showOriginalTitle ? "显示译文" : "翻译标题"), h("span", { className: "ib-st-hint" }, "Scopus 实时结果"))),
         h("div", { className: "ib-st-candidates" }, visible.length === 0 ? h("div", { className: "ib-st-empty big" }, active.requirement ? "尚无候选文献，点击右侧「继续检索」。" : "先补充研究需求，再开始检索。") : visible.map(paperNode)),
         h("footer", { className: "ib-st-batch" }, h("span", null, `已选 ${selected.size} 篇`), h("button", { type: "button", className: "ib-st-link", onClick: () => void clearSelection(), disabled: selected.size === 0 }, "清空"), h("span", { className: "ib-st-spacer" }), h("button", { type: "button", className: "ib-st-secondary", onClick: () => void exportRis() }, "导出 RIS"), h("button", { type: "button", className: "ib-st-primary", onClick: () => void addToReading(), disabled: selected.size === 0 || busy === "reading" }, busy === "reading" ? "加入中…" : `加入精读 (${selected.size})`))
       ) : h("div", { className: "ib-st-empty big" }, "选择或新建检索任务"),
