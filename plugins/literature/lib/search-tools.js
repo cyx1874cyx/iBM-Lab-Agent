@@ -48,7 +48,7 @@ export function registerSearchTaskTools(ctx) {
 				...(prior || { id: `search-${Date.now().toString(36)}`, rounds: [], candidates: [], messages: [] }),
 				title, requirement, updatedAt: new Date().toISOString()
 			});
-			return taskBrief(task);
+			return { taskId: task.id, task };
 		}
 	}));
 
@@ -65,7 +65,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
 			await syncTaskCovers(ctx, projectId, taskId);
-			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateCount: result.task.candidates.length, candidates: result.task.candidates.slice(-Math.max(1, result.added)).slice(0, 8).map((row) => ({ id: row.id, title: row.title, journal: row.journal, year: row.year, doi: row.doi, abstractStatus: row.abstractStatus })) };
+			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) };
 		}
 	}));
 
@@ -77,7 +77,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, limit, offset }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
-			return taskBrief(task, { limit, offset });
+			return task || null;
 		}
 	}));
 
@@ -116,7 +116,7 @@ export function registerSearchTaskTools(ctx) {
 		description: "把用户提供的 RIS 文本导入当前检索任务或新建任务。",
 		parameters: { projectId: { type: "string" }, taskId: { type: "string" }, fileName: { type: "string" }, text: { type: "string", required: true } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, fileName, text }) { return taskBrief(await importRisTask(coreOf(ctx), projectId, { taskId, fileName, text })); }
+		async execute({ projectId, taskId, fileName, text }) { return importRisTask(coreOf(ctx), projectId, { taskId, fileName, text }); }
 	}));
 
 	ctx.tools.register(defineTool({

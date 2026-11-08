@@ -5766,8 +5766,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   }, [candidates, onlyNew, lastRound]);
   const syncedCovers = (0, import_react12.useRef)("");
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
-  const load2 = (0, import_react12.useCallback)(async (preserve = "") => {
-    setLoading(true);
+  const load2 = (0, import_react12.useCallback)(async (preserve = "", quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const result = await call("search_tasks_list", { request: { projectId } });
       const rows = result?.tasks || [];
@@ -5970,6 +5970,13 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
     }, [active?.id, candidates.length, call]);
   };
   const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
+  (0, import_react12.useEffect)(() => {
+    if (!active?.id) return void 0;
+    const timer = setInterval(() => {
+      if (!busy) void load2(active.id, true);
+    }, 5e3);
+    return () => clearInterval(timer);
+  }, [active?.id, busy, load2]);
   const activeRoundCount = active?.rounds?.length || 0;
   return h(
     "div",

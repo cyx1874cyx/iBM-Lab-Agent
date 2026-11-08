@@ -100,8 +100,8 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 
 	const syncedCovers = useRef("");
 	const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
-	const load = useCallback(async (preserve = "") => {
-		setLoading(true);
+	const load = useCallback(async (preserve = "", quiet = false) => {
+		if (!quiet) setLoading(true);
 		try {
 			const result = await call("search_tasks_list", { request: { projectId } });
 			const rows = result?.tasks || [];
@@ -271,6 +271,12 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 	}, [active?.id, candidates.length, call]);
 
 	};const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
+	useEffect(() => {
+		if (!active?.id) return undefined;
+		const timer = setInterval(() => { if (!busy) void load(active.id, true); }, 5000);
+		return () => clearInterval(timer);
+	}, [active?.id, busy, load]);
+
 	const activeRoundCount = active?.rounds?.length || 0;
 
 	return h("div", { className: "ib-st" },
