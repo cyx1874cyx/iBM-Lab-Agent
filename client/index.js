@@ -4651,7 +4651,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "journal_cover_get", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -5615,40 +5615,30 @@ var import_react12 = __toESM(require("react"), 1);
 
 // plugins/literature/client/src/journal-cover.js
 var import_react11 = __toESM(require("react"), 1);
+var coverCache = /* @__PURE__ */ new Map();
 function JournalCover({ journal, call, fallback, large = false }) {
-  const key2 = journal ? `ib-lit-cover:${journal}` : "";
-  const read = () => {
-    try {
-      return localStorage.getItem(key2) || "";
-    } catch {
-      return "";
-    }
-  };
-  const [url2, setUrl] = (0, import_react11.useState)(read);
+  const cached2 = journal ? coverCache.get(journal) || "" : "";
+  const [url2, setUrl] = (0, import_react11.useState)(cached2);
   const [failed, setFailed] = (0, import_react11.useState)(false);
   (0, import_react11.useEffect)(() => {
     setFailed(false);
     if (!journal || !call) return void 0;
-    const cached2 = read();
-    if (cached2) {
-      setUrl(cached2);
+    const known = coverCache.get(journal);
+    if (known) {
+      setUrl(known);
       return void 0;
     }
     let active = true;
-    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
-      const cover = value?.coverUrl;
-      if (!active || !cover) return;
-      setUrl(cover);
-      try {
-        localStorage.setItem(key2, cover);
-      } catch {
-      }
+    void call("journal_cover_get", { request: { journal } }).then((result) => {
+      if (!active || !result?.cover) return;
+      coverCache.set(journal, result.cover);
+      setUrl(result.cover);
     }).catch(() => {
     });
     return () => {
       active = false;
     };
-  }, [journal, call, key2]);
+  }, [journal, call]);
   const label2 = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
   return h(
     "span",

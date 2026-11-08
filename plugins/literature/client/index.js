@@ -44173,40 +44173,30 @@ var import_react11 = __toESM(require("react"), 1);
 
 // plugins/literature/client/src/journal-cover.js
 var import_react10 = __toESM(require("react"), 1);
+var coverCache = /* @__PURE__ */ new Map();
 function JournalCover({ journal, call, fallback, large = false }) {
-  const key = journal ? `ib-lit-cover:${journal}` : "";
-  const read = () => {
-    try {
-      return localStorage.getItem(key) || "";
-    } catch {
-      return "";
-    }
-  };
-  const [url, setUrl] = (0, import_react10.useState)(read);
+  const cached = journal ? coverCache.get(journal) || "" : "";
+  const [url, setUrl] = (0, import_react10.useState)(cached);
   const [failed, setFailed] = (0, import_react10.useState)(false);
   (0, import_react10.useEffect)(() => {
     setFailed(false);
     if (!journal || !call) return void 0;
-    const cached = read();
-    if (cached) {
-      setUrl(cached);
+    const known = coverCache.get(journal);
+    if (known) {
+      setUrl(known);
       return void 0;
     }
     let active = true;
-    void call("tasks_journal_metrics", { request: { journal } }).then((value) => {
-      const cover = value?.coverUrl;
-      if (!active || !cover) return;
-      setUrl(cover);
-      try {
-        localStorage.setItem(key, cover);
-      } catch {
-      }
+    void call("journal_cover_get", { request: { journal } }).then((result) => {
+      if (!active || !result?.cover) return;
+      coverCache.set(journal, result.cover);
+      setUrl(result.cover);
     }).catch(() => {
     });
     return () => {
       active = false;
     };
-  }, [journal, call, key]);
+  }, [journal, call]);
   const label = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
   return h(
     "span",
