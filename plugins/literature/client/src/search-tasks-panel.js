@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { h } from "dsh-lab-agent/client-sdk";
 import { JournalCover } from "./journal-cover.js";
 
@@ -98,6 +98,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 		});
 	}, [candidates, onlyNew, lastRound]);
 
+	const syncedCovers = useRef("");
 	const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
 	const load = useCallback(async (preserve = "") => {
 		setLoading(true);
@@ -258,6 +259,16 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 				h(SearchMetrics, { journal: paper.journal, call })
 			)
 		);
+	useEffect(() => {
+		if (!active || !candidates.length) return;
+		const journals = [...new Set(candidates.map((paper) => paper.journal).filter(Boolean))];
+		if (!journals.length) return;
+		const signature = active.id + ":" + journals.sort().join("|");
+		if (syncedCovers.current === signature) return;
+		syncedCovers.current = signature;
+		void call("journal_covers_sync", { request: { journals } }).catch(() => {});
+	}, [active?.id, candidates.length, call]);
+
 	};const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
 	const activeRoundCount = active?.rounds?.length || 0;
 

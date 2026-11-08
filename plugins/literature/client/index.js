@@ -44198,9 +44198,23 @@ function JournalCover({ journal, call, fallback, large = false }) {
     };
   }, [journal, call]);
   const label = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
+  const retry = async () => {
+    if (!journal || !call) return;
+    try {
+      await call("journal_covers_sync", { request: { journals: [journal] } });
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const result = await call("journal_cover_get", { request: { journal } });
+      if (result?.cover) {
+        coverCache.set(journal, result.cover);
+        setFailed(false);
+        setUrl(result.cover);
+      }
+    } catch {
+    }
+  };
   return h(
     "span",
-    { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : "") },
+    { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url ? "" : "点击获取期刊封面", onClick: url ? void 0 : retry },
     url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react10.default.Fragment, null, h("b", { style: label.length > 5 ? { fontSize: "17px" } : void 0 }, label), h("small", null, "JOURNAL"))
   );
 }
@@ -44308,6 +44322,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       return (rank[a.recommendation] ?? 2) - (rank[b.recommendation] ?? 2);
     });
   }, [candidates, onlyNew, lastRound]);
+  const syncedCovers = (0, import_react11.useRef)("");
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
   const load2 = (0, import_react11.useCallback)(async (preserve = "") => {
     setLoading(true);
@@ -44500,6 +44515,16 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
         h(SearchMetrics, { journal: paper.journal, call })
       )
     );
+    (0, import_react11.useEffect)(() => {
+      if (!active || !candidates.length) return;
+      const journals = [...new Set(candidates.map((paper2) => paper2.journal).filter(Boolean))];
+      if (!journals.length) return;
+      const signature = active.id + ":" + journals.sort().join("|");
+      if (syncedCovers.current === signature) return;
+      syncedCovers.current = signature;
+      void call("journal_covers_sync", { request: { journals } }).catch(() => {
+      });
+    }, [active?.id, candidates.length, call]);
   };
   const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
   const activeRoundCount = active?.rounds?.length || 0;

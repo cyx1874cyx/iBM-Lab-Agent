@@ -21,6 +21,7 @@ export function JournalCover({ journal, call, fallback, large = false }) {
 		return () => { active = false; };
 	}, [journal, call]);
 	const label = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
-	return h("span", { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : "") },
+	const retry = async () => { if (!journal || !call) return; try { await call("journal_covers_sync", { request: { journals: [journal] } }); await new Promise((resolve) => setTimeout(resolve, 2500)); const result = await call("journal_cover_get", { request: { journal } }); if (result?.cover) { coverCache.set(journal, result.cover); setFailed(false); setUrl(result.cover); } } catch { /* ignore */ } };
+	return h("span", { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url ? "" : "点击获取期刊封面", onClick: url ? undefined : retry },
 		url && !failed ? h("img", { src: url, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(React.Fragment, null, h("b", { style: label.length > 5 ? { fontSize: "17px" } : undefined }, label), h("small", null, "JOURNAL")));
 }

@@ -3,6 +3,16 @@ import { deleteSearchTask, importRisTask, listSearchTasks, patchTaskCandidate, r
 
 function coreOf(ctx) { return ctx.get("ibmCore"); }
 
+async function syncTaskCovers(ctx, projectId, taskId) {
+	try {
+		const store = await listSearchTasks(coreOf(ctx), projectId);
+		const task = store.tasks.find((row) => row.id === taskId);
+		const journals = [...new Set((task?.candidates || []).map((row) => row.journal).filter(Boolean))];
+		const remote = ctx.get("labRemote");
+		if (remote?.journal_covers_sync) await remote.journal_covers_sync({ journals });
+		return { queued: journals.length };
+	} catch (error) { return { queued: 0, error: error.message }; }
+}
 export function registerSearchTaskTools(ctx) {
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_create",
@@ -38,6 +48,7 @@ export function registerSearchTaskTools(ctx) {
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
+			await syncTaskCovers(ctx, projectId, taskId);
 			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)).map((row) => ({ id: row.id, title: row.title, journal: row.journal, year: row.year, doi: row.doi, abstractStatus: row.abstractStatus })) };
 		}
 	}));
@@ -98,5 +109,12 @@ export function registerSearchTaskTools(ctx) {
 		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => typeof value === "string" ? value : JSON.stringify(value, null, 2) },
 		async execute({ projectId, taskId }) { return deleteSearchTask(coreOf(ctx), projectId, taskId); }
+	}));
+	ctx.tools.register(defineTool({
+		name: "lab_search_task_sync_covers",
+		description: "低速扩充本地期刊封面库：提取该检索任务中所有尚无本地封面的期刊，排入串行队列逐个匹配 LetPub 封面并缓存。检索登记到列表后自动调用，也可手动调用。",
+		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => JSON.stringify(value, null, 2) },
+		async execute({ projectId, taskId }) { return syncTaskCovers(ctx, projectId, taskId); }
 	}));
 }

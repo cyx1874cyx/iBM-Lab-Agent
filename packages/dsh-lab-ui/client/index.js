@@ -4651,7 +4651,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "journal_cover_get", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -5640,9 +5640,23 @@ function JournalCover({ journal, call, fallback, large = false }) {
     };
   }, [journal, call]);
   const label2 = String(fallback || "PREPRINT").slice(0, 6).toUpperCase();
+  const retry = async () => {
+    if (!journal || !call) return;
+    try {
+      await call("journal_covers_sync", { request: { journals: [journal] } });
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const result = await call("journal_cover_get", { request: { journal } });
+      if (result?.cover) {
+        coverCache.set(journal, result.cover);
+        setFailed(false);
+        setUrl(result.cover);
+      }
+    } catch {
+    }
+  };
   return h(
     "span",
-    { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : "") },
+    { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url2 ? "" : "点击获取期刊封面", onClick: url2 ? void 0 : retry },
     url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { style: label2.length > 5 ? { fontSize: "17px" } : void 0 }, label2), h("small", null, "JOURNAL"))
   );
 }
@@ -5750,6 +5764,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       return (rank[a.recommendation] ?? 2) - (rank[b.recommendation] ?? 2);
     });
   }, [candidates, onlyNew, lastRound]);
+  const syncedCovers = (0, import_react12.useRef)("");
   const selectedPaper = candidates.find((paper) => paper.id === selectedPaperId) || null;
   const load2 = (0, import_react12.useCallback)(async (preserve = "") => {
     setLoading(true);
@@ -5942,6 +5957,16 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         h(SearchMetrics, { journal: paper.journal, call })
       )
     );
+    (0, import_react12.useEffect)(() => {
+      if (!active || !candidates.length) return;
+      const journals = [...new Set(candidates.map((paper2) => paper2.journal).filter(Boolean))];
+      if (!journals.length) return;
+      const signature = active.id + ":" + journals.sort().join("|");
+      if (syncedCovers.current === signature) return;
+      syncedCovers.current = signature;
+      void call("journal_covers_sync", { request: { journals } }).catch(() => {
+      });
+    }, [active?.id, candidates.length, call]);
   };
   const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
   const activeRoundCount = active?.rounds?.length || 0;
