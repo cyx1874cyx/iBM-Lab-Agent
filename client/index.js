@@ -2969,6 +2969,7 @@ html[data-windows-titlebar] .ib-wb-chat{--ib-wb-caption:var(--dsh-windows-titleb
 .ib-st-reasons{margin:6px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.5;color:#52645d}.ib-st-reasons li::marker{color:var(--ib-accent)}
 .ib-st-paper{flex:none;overflow:hidden;height:118px;min-height:118px;padding:9px 18px;gap:18px;align-items:center}.ib-st .ib-st-paper .ib-st-title{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-family:Georgia,"Times New Roman",serif!important;font-size:22px!important;font-weight:600!important;line-height:1.5!important}.ib-st-paper .ib-st-cover{width:74px;height:92px;border-radius:8px}.ib-st-paper .ib-st-meta{font-size:12px;margin-top:4px}.ib-st-paper .ib-st-reasons{margin-top:4px;font-size:12px;line-height:1.5;padding-left:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib-st-paper .ib-st-check{align-items:center}
 .ib-paper-cover b{max-width:100%;padding:4px;text-align:center;line-height:1.15;word-break:break-word;overflow-wrap:anywhere}.ib-st-detail-copy{flex:1;min-width:0}.ib-st-detail-title-row{display:flex;align-items:flex-start;gap:10px}.ib-st-detail-title-row h3{flex:1;min-width:0}.ib-st-lang{flex:none;border:1px solid var(--ib-line);background:var(--ib-panel);color:var(--ib-muted);border-radius:6px;font-size:11px;padding:3px 7px;cursor:pointer}.ib-st-lang:hover{color:var(--ib-accent);border-color:var(--ib-accent-line)}
+.ib-db-db{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}.ib-db-name{display:flex;align-items:center;gap:8px;font-size:13px}.ib-db-keyline{display:flex;align-items:center;gap:8px}.ib-db-keyline .ib-db-input{flex:1;width:auto}.ib-db-keyline .ib-lit-link-submit{padding:6px 14px;white-space:nowrap}
 `;
 
 // client/src/reagents.css.js
@@ -4653,7 +4654,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -6245,6 +6246,27 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
+function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSaved, onMessage }) {
+  return h(
+    "div",
+    { className: "ib-db-db" },
+    h("div", { className: "ib-db-name" }, h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }), h("b", null, name)),
+    h(
+      "div",
+      { className: "ib-db-keyline" },
+      h("input", { className: "ib-db-input", type: "text", value: value || "", placeholder: "API Key（可留空）", onChange }),
+      h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+        try {
+          await call("search_tasks_save_database_key", { request: { projectId, database: id, apiKey: value || "" } });
+          await onSaved();
+          onMessage(`${name} 已保存`);
+        } catch (error62) {
+          onMessage(error62.message);
+        }
+      } }, "保存")
+    )
+  );
+}
 function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
@@ -6447,6 +6469,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [databaseWosKey, setDatabaseWosKey] = (0, import_react13.useState)("");
   const [databaseWosBusy, setDatabaseWosBusy] = (0, import_react13.useState)("");
   const [databaseWosMessage, setDatabaseWosMessage] = (0, import_react13.useState)("");
+  const [databaseKeys, setDatabaseKeys] = (0, import_react13.useState)({});
+  const [databaseStatus, setDatabaseStatus] = (0, import_react13.useState)({});
+  const [databaseTesting, setDatabaseTesting] = (0, import_react13.useState)(false);
   const [databaseBusy, setDatabaseBusy] = (0, import_react13.useState)("");
   const [databaseMessage, setDatabaseMessage] = (0, import_react13.useState)("");
   const [publicSources, setPublicSources] = (0, import_react13.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
@@ -7255,10 +7280,10 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h("button", { type: "button", className: "ib-act", onClick: () => {
       setDatabaseOpen(true);
       setDatabaseMessage("");
-      void call("search_tasks_get_keys", { request: { projectId } }).then((keys) => {
-        setDatabaseKey(keys?.scopusApiKey || "");
-        setDatabaseWosKey(keys?.wosApiKey || "");
-      }).catch(() => {
+      setDatabaseStatus({});
+      void call("search_tasks_database_keys", { request: { projectId } }).then((value) => setDatabaseKeys(value?.keys || {})).catch(() => {
+      });
+      void call("search_tasks_test_databases", { request: { projectId } }).then((value) => setDatabaseStatus(Object.fromEntries((value?.results || []).map((row2) => [row2.id, row2])))).catch(() => {
       });
       setPublicSources([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
       void call("search_tasks_public_sources_test").then((result) => setPublicSources(result?.publicSources || [])).catch(() => {
@@ -7375,90 +7400,42 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
       h(
         "section",
         { className: "ib-lit-link-dialog ib-db-dialog", role: "dialog", "aria-modal": "true", "aria-label": "数据库管理", onClick: (event) => event.stopPropagation() },
-        h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, "⚙"), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "数据库管理"), h("p", null, "配置检索数据库的访问凭据；密钥只保存在本机后端配置中。")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setDatabaseOpen(false) }, "×")),
+        h("header", { className: "ib-lit-link-head" }, h("span", { className: "ib-lit-link-icon" }, "⚙"), h("div", { className: "ib-lit-link-head-copy" }, h("h2", null, "数据库管理"), h("p", null, "配置检索数据库的访问凭据；密钥保存在本机后端配置中。")), h("button", { type: "button", className: "ib-lit-link-close", "aria-label": "关闭", onClick: () => setDatabaseOpen(false) }, "×")),
         h(
           "div",
           { className: "ib-db-body" },
-          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
-          h("input", { className: "ib-db-input", type: "text", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
-          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Web of Science Starter"), h("small", null, "用于 WoS 核心合集检索；摘要由开放库补齐")), h("span", { className: "ib-db-state" }, "API Key")),
-          h("input", { className: "ib-db-input", type: "text", value: databaseWosKey, placeholder: "粘贴 WoS Starter API Key（留空表示不修改）", onChange: (event) => setDatabaseWosKey(event.target.value) }),
-          databaseWosMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseWosMessage) : null,
-          h(
-            "div",
-            { className: "ib-db-actions" },
-            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
-              setDatabaseWosBusy("test");
-              setDatabaseWosMessage("");
-              try {
-                const result = await call("search_tasks_wos_test", { request: { projectId } });
-                setDatabaseWosMessage(result?.message || (result?.ok ? "WoS 连接正常" : "WoS 连接失败"));
-              } catch (error62) {
-                setDatabaseWosMessage(error62.message);
-              } finally {
-                setDatabaseWosBusy("");
-              }
-            }, disabled: databaseWosBusy === "test" }, databaseWosBusy === "test" ? "测试中…" : "测试 WoS"),
-            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
-              if (!databaseWosKey.trim()) {
-                setDatabaseWosMessage("请输入 WoS API Key");
-                return;
-              }
-              setDatabaseWosBusy("save");
-              setDatabaseWosMessage("");
-              try {
-                await call("search_tasks_save_wos_key", { request: { projectId, apiKey: databaseWosKey.trim() } });
-                setDatabaseWosKey("");
-                setDatabaseWosMessage("WoS Key 已保存");
-              } catch (error62) {
-                setDatabaseWosMessage(error62.message);
-              } finally {
-                setDatabaseWosBusy("");
-              }
-            }, disabled: databaseWosBusy === "save" }, databaseWosBusy === "save" ? "保存中…" : "保存 WoS")
-          ),
-          h(
-            "div",
-            { className: "ib-db-public" },
-            h("b", null, "公开数据库"),
-            [["openalex", "OpenAlex"], ["crossref", "Crossref"], ["pubmed", "PubMed"], ["arxiv", "arXiv"]].map(([id, name]) => {
-              const status = publicSources.find((row2) => row2.id === id);
-              return h("div", { key: id, className: "ib-db-public-row" }, h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }), h("span", null, name), h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…"));
-            })
-          ),
+          [["scopus", "Scopus / Elsevier"], ["wos", "Web of Science"], ["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["core", "CORE"], ["pubmed", "PubMed"], ["crossref", "Crossref"], ["arxiv", "arXiv"]].map(([id, name]) => h(DatabaseRow, {
+            key: id,
+            id,
+            name,
+            value: databaseKeys[id] || "",
+            status: databaseStatus[id],
+            call,
+            projectId,
+            onChange: (event) => setDatabaseKeys((previous) => ({ ...previous, [id]: event.target.value })),
+            onSaved: async () => {
+              const tested = await call("search_tasks_test_databases", { request: { projectId } });
+              setDatabaseStatus(Object.fromEntries((tested?.results || []).map((row2) => [row2.id, row2])));
+            },
+            onMessage: setDatabaseMessage
+          })),
           databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
           h(
             "div",
             { className: "ib-db-actions" },
-            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
-              setDatabaseBusy("test");
+            h("button", { type: "button", className: "ib-lit-link-submit", disabled: databaseTesting, onClick: async () => {
+              setDatabaseTesting(true);
               setDatabaseMessage("");
               try {
-                const result = await call("search_tasks_scopus_test", { request: { projectId } });
-                setDatabaseMessage(result?.message || (result?.ok ? "Scopus 连接正常" : "Scopus 连接失败"));
+                const tested = await call("search_tasks_test_databases", { request: { projectId } });
+                setDatabaseStatus(Object.fromEntries((tested?.results || []).map((row2) => [row2.id, row2])));
+                setDatabaseMessage("连接测试完成");
               } catch (error62) {
                 setDatabaseMessage(error62.message);
               } finally {
-                setDatabaseBusy("");
+                setDatabaseTesting(false);
               }
-            }, disabled: databaseBusy === "test" }, databaseBusy === "test" ? "测试中…" : "测试连接"),
-            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
-              if (!databaseKey.trim()) {
-                setDatabaseMessage("请输入 API Key；留空不会覆盖现有配置");
-                return;
-              }
-              setDatabaseBusy("save");
-              setDatabaseMessage("");
-              try {
-                await call("search_tasks_save_key", { request: { projectId, apiKey: databaseKey.trim() } });
-                setDatabaseKey("");
-                setDatabaseMessage("已保存到本机项目配置");
-              } catch (error62) {
-                setDatabaseMessage(error62.message);
-              } finally {
-                setDatabaseBusy("");
-              }
-            }, disabled: databaseBusy === "save" }, databaseBusy === "save" ? "保存中…" : "保存配置")
+            } }, databaseTesting ? "测试中…" : "测试全部连接")
           )
         )
       )
