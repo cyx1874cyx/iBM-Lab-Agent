@@ -754,8 +754,9 @@ export function apply(ctx, config = {}) {
 				"2. 把中文需求翻译成英文生物医学术语，构造 Scopus 检索式（优先 TITLE-ABS-KEY(term AND term)），再调用 lab_search_task_scopus；每轮调用生成一轮结果。多轮需求继续使用同一 taskId，不要覆盖历史轮次。",
 				"3. 检索返回后，基于真实返回的标题/摘要为每篇候选写入中文标题、中文摘要总结、匹配理由、recommendation（priority/support）和 reasonBasis；只能依据实际获取的 title/abstract，未读全文时 reasonBasis 不得写 fulltext。调用 lab_search_task_update_candidates 回写。",
 				"4. 摘要缺失时明确标注“摘要未获取”，只能按标题判断；不得编造摘要、作者、期刊、DOI 或影响因子。",
-				"5. RIS 导入用 lab_search_task_import_ris；连接测试用 lab_search_task_scopus_test。",
-				"6. 检索页没有独立的 AI 助手；所有检索交互都在科研助手对话中完成，结果由工具写入检索任务面板。"
+				"5. 用户要求 Web of Science 时调用 lab_search_task_wos（检索式用 TS=(...) 或 PY=...），结果与 Scopus 按 DOI/标题去重，摘要由 OpenAlex / Europe PMC 补齐。"+
+				"6. RIS 导入用 lab_search_task_import_ris；Scopus 测试用 lab_search_task_scopus_test，WoS 测试用 lab_search_task_wos_test。",
+				"7. 检索页没有独立的 AI 助手；所有检索交互都在科研助手对话中完成，结果由工具写入检索任务面板。"
 			].join("\n")
 		});
 	}

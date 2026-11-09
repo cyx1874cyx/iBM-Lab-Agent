@@ -104,6 +104,31 @@ export function registerSearchTaskTools(ctx) {
 	}));
 
 	ctx.tools.register(defineTool({
+		name: "lab_search_task_wos",
+		description: "对检索任务执行真实 Web of Science Starter 检索。query 使用 WoS 语法（如 TS=(thrombus AND hydrogel) 或 PY=2016-2026）；每调用一次生成一轮 WoS 结果，并与 Scopus 候选合并去重。",
+		parameters: {
+			projectId: { type: "string", description: "课题编号" },
+			taskId: { type: "string", required: true, description: "检索任务编号" },
+			query: { type: "string", required: true, description: "WoS 检索式" },
+			limit: { type: "number", description: "本轮获取数量，默认 25，最大 50" }
+		},
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
+		async execute({ projectId, taskId, query, limit }) {
+			const result = await runWosSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
+			await syncTaskCovers(ctx, projectId, taskId);
+			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) };
+		}
+	}));
+
+	ctx.tools.register(defineTool({
+		name: "lab_search_task_wos_test",
+		description: "测试 Web of Science Starter API Key 是否有效。",
+		parameters: { projectId: { type: "string" } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
+		async execute({ projectId }) { return wosTest(coreOf(ctx), projectId); }
+	}));
+
+	ctx.tools.register(defineTool({
 		name: "lab_search_task_scopus_test",
 		description: "测试 Scopus 数据库连接与 Key 是否有效。",
 		parameters: { projectId: { type: "string", description: "课题编号" } },

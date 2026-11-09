@@ -4653,7 +4653,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -5643,8 +5643,8 @@ function JournalCover({ journal, call, fallback, large = false }) {
     };
   }, [journal, call]);
   const clean = String(journal || fallback || "").trim();
-  const words = clean.split(/\s+/).filter((word) => word && !/^(of|the|and|for|in|on|&)$/i.test(word));
-  const label2 = (words.length === 1 ? words[0].slice(0, 7) : words.slice(0, 5).map((word) => word[0]).join("")).toUpperCase() || "JOURNAL";
+  const short = clean.length <= 14;
+  const label2 = short ? clean.toUpperCase() : clean;
   const retry = async () => {
     if (!journal || !call) return;
     try {
@@ -5662,7 +5662,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
   return h(
     "span",
     { className: "ib-paper-cover" + (large ? " ib-paper-cover-lg" : ""), title: url2 ? "" : "点击获取期刊封面", onClick: url2 ? void 0 : retry },
-    url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { title: clean, style: label2.length > 3 ? { fontSize: "16px" } : void 0 }, label2), h("small", null, "JOURNAL"))
+    url2 && !failed ? h("img", { src: url2, alt: "", loading: "lazy", onError: () => setFailed(true) }) : h(import_react11.default.Fragment, null, h("b", { title: clean, style: short ? { fontSize: "17px", lineHeight: 1.15 } : { fontSize: "9px", lineHeight: 1.2, fontWeight: 600 } }, label2), short ? h("small", null, "JOURNAL") : null)
   );
 }
 
@@ -6444,6 +6444,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [searchTaskCount, setSearchTaskCount] = (0, import_react13.useState)(0);
   const [databaseOpen, setDatabaseOpen] = (0, import_react13.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react13.useState)("");
+  const [databaseWosKey, setDatabaseWosKey] = (0, import_react13.useState)("");
+  const [databaseWosBusy, setDatabaseWosBusy] = (0, import_react13.useState)("");
+  const [databaseWosMessage, setDatabaseWosMessage] = (0, import_react13.useState)("");
   const [databaseBusy, setDatabaseBusy] = (0, import_react13.useState)("");
   const [databaseMessage, setDatabaseMessage] = (0, import_react13.useState)("");
   const [publicSources, setPublicSources] = (0, import_react13.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
@@ -7373,19 +7376,49 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           { className: "ib-db-body" },
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
           h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Web of Science Starter"), h("small", null, "用于 WoS 核心合集检索；摘要由开放库补齐")), h("span", { className: "ib-db-state" }, "API Key")),
+          h("input", { className: "ib-db-input", type: "password", value: databaseWosKey, placeholder: "粘贴 WoS Starter API Key（留空表示不修改）", onChange: (event) => setDatabaseWosKey(event.target.value) }),
+          databaseWosMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseWosMessage) : null,
+          h(
+            "div",
+            { className: "ib-db-actions" },
+            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
+              setDatabaseWosBusy("test");
+              setDatabaseWosMessage("");
+              try {
+                const result = await call("search_tasks_wos_test", { request: { projectId } });
+                setDatabaseWosMessage(result?.message || (result?.ok ? "WoS 连接正常" : "WoS 连接失败"));
+              } catch (error62) {
+                setDatabaseWosMessage(error62.message);
+              } finally {
+                setDatabaseWosBusy("");
+              }
+            }, disabled: databaseWosBusy === "test" }, databaseWosBusy === "test" ? "测试中…" : "测试 WoS"),
+            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+              if (!databaseWosKey.trim()) {
+                setDatabaseWosMessage("请输入 WoS API Key");
+                return;
+              }
+              setDatabaseWosBusy("save");
+              setDatabaseWosMessage("");
+              try {
+                await call("search_tasks_save_wos_key", { request: { projectId, apiKey: databaseWosKey.trim() } });
+                setDatabaseWosKey("");
+                setDatabaseWosMessage("WoS Key 已保存");
+              } catch (error62) {
+                setDatabaseWosMessage(error62.message);
+              } finally {
+                setDatabaseWosBusy("");
+              }
+            }, disabled: databaseWosBusy === "save" }, databaseWosBusy === "save" ? "保存中…" : "保存 WoS")
+          ),
           h(
             "div",
             { className: "ib-db-public" },
             h("b", null, "公开数据库"),
             [["openalex", "OpenAlex"], ["crossref", "Crossref"], ["pubmed", "PubMed"], ["arxiv", "arXiv"]].map(([id, name]) => {
               const status = publicSources.find((row2) => row2.id === id);
-              return h(
-                "div",
-                { key: id, className: "ib-db-public-row" },
-                h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }),
-                h("span", null, name),
-                h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…")
-              );
+              return h("div", { key: id, className: "ib-db-public-row" }, h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }), h("span", null, name), h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…"));
             })
           ),
           databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,

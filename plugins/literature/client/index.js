@@ -45000,6 +45000,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
   const [databaseOpen, setDatabaseOpen] = (0, import_react12.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
+  const [databaseWosKey, setDatabaseWosKey] = (0, import_react12.useState)("");
+  const [databaseWosBusy, setDatabaseWosBusy] = (0, import_react12.useState)("");
+  const [databaseWosMessage, setDatabaseWosMessage] = (0, import_react12.useState)("");
   const [databaseBusy, setDatabaseBusy] = (0, import_react12.useState)("");
   const [databaseMessage, setDatabaseMessage] = (0, import_react12.useState)("");
   const [publicSources, setPublicSources] = (0, import_react12.useState)([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
@@ -45929,19 +45932,49 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           { className: "ib-db-body" },
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
           h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Web of Science Starter"), h("small", null, "用于 WoS 核心合集检索；摘要由开放库补齐")), h("span", { className: "ib-db-state" }, "API Key")),
+          h("input", { className: "ib-db-input", type: "password", value: databaseWosKey, placeholder: "粘贴 WoS Starter API Key（留空表示不修改）", onChange: (event) => setDatabaseWosKey(event.target.value) }),
+          databaseWosMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseWosMessage) : null,
+          h(
+            "div",
+            { className: "ib-db-actions" },
+            h("button", { type: "button", className: "ib-lit-link-cancel", onClick: async () => {
+              setDatabaseWosBusy("test");
+              setDatabaseWosMessage("");
+              try {
+                const result = await call("search_tasks_wos_test", { request: { projectId } });
+                setDatabaseWosMessage(result?.message || (result?.ok ? "WoS 连接正常" : "WoS 连接失败"));
+              } catch (error) {
+                setDatabaseWosMessage(error.message);
+              } finally {
+                setDatabaseWosBusy("");
+              }
+            }, disabled: databaseWosBusy === "test" }, databaseWosBusy === "test" ? "测试中…" : "测试 WoS"),
+            h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+              if (!databaseWosKey.trim()) {
+                setDatabaseWosMessage("请输入 WoS API Key");
+                return;
+              }
+              setDatabaseWosBusy("save");
+              setDatabaseWosMessage("");
+              try {
+                await call("search_tasks_save_wos_key", { request: { projectId, apiKey: databaseWosKey.trim() } });
+                setDatabaseWosKey("");
+                setDatabaseWosMessage("WoS Key 已保存");
+              } catch (error) {
+                setDatabaseWosMessage(error.message);
+              } finally {
+                setDatabaseWosBusy("");
+              }
+            }, disabled: databaseWosBusy === "save" }, databaseWosBusy === "save" ? "保存中…" : "保存 WoS")
+          ),
           h(
             "div",
             { className: "ib-db-public" },
             h("b", null, "公开数据库"),
             [["openalex", "OpenAlex"], ["crossref", "Crossref"], ["pubmed", "PubMed"], ["arxiv", "arXiv"]].map(([id, name]) => {
               const status = publicSources.find((row) => row.id === id);
-              return h(
-                "div",
-                { key: id, className: "ib-db-public-row" },
-                h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }),
-                h("span", null, name),
-                h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…")
-              );
+              return h("div", { key: id, className: "ib-db-public-row" }, h("span", { className: "ib-db-dot", "data-ok": status ? status.ok ? "true" : "false" : "pending" }), h("span", null, name), h("small", null, status ? status.ok ? "可用" : status.message || "不可用" : "检测中…"));
             })
           ),
           databaseMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseMessage) : null,
