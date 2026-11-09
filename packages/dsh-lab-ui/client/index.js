@@ -5618,7 +5618,7 @@ var import_react12 = __toESM(require("react"), 1);
 // plugins/literature/client/src/journal-cover.js
 var import_react11 = __toESM(require("react"), 1);
 var coverCache = /* @__PURE__ */ new Map();
-function JournalCover({ journal, call, fallback, large = false }) {
+function JournalCover({ journal, call, fallback, large = false, projectId = "" }) {
   const cached2 = journal ? coverCache.get(journal) || "" : "";
   const [url2, setUrl] = (0, import_react11.useState)(cached2);
   const [failed, setFailed] = (0, import_react11.useState)(false);
@@ -5632,7 +5632,7 @@ function JournalCover({ journal, call, fallback, large = false }) {
       return void 0;
     }
     let active = true;
-    void call("journal_cover_get", { request: { journal } }).then((result) => {
+    void call("journal_cover_get", { request: { journal, projectId } }).then((result) => {
       if (!active || !result?.cover) return;
       coverCache.set(journal, result.cover);
       setUrl(result.cover);
@@ -5648,9 +5648,9 @@ function JournalCover({ journal, call, fallback, large = false }) {
   const retry = async () => {
     if (!journal || !call) return;
     try {
-      await call("journal_covers_sync", { request: { journals: [journal] } });
+      await call("journal_covers_sync", { request: { journals: [journal], projectId } });
       await new Promise((resolve) => setTimeout(resolve, 2500));
-      const result = await call("journal_cover_get", { request: { journal } });
+      const result = await call("journal_cover_get", { request: { journal, projectId } });
       if (result?.cover) {
         coverCache.set(journal, result.cover);
         setFailed(false);
@@ -7130,7 +7130,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     const journal = String(journalAbbrevOf(bundle, report) || "PREPRINT");
     const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || "PREPRINT").toUpperCase();
     const label2 = /^NATURE/.test(token) ? "NAT" : token.slice(0, 6);
-    return h(JournalCover, { journal, call, fallback: label2, large });
+    return h(JournalCover, { journal, call, projectId, fallback: label2, large });
   };
   const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || "").trim();
   const metricBox = (label2, value, tone) => h("div", { className: "ib-lit-metric-box", "data-tone": tone }, h("span", null, label2), h("b", null, value));

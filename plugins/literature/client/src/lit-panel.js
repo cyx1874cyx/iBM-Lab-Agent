@@ -877,7 +877,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 				const journal = String(journalAbbrevOf(bundle, report) || 'PREPRINT');
 				const token = String(journal.split(/[^\p{L}\p{N}]+/u)[0] || 'PREPRINT').toUpperCase();
 				const label = /^NATURE/.test(token) ? 'NAT' : token.slice(0, 6);
-				return h(JournalCover, { journal, call, fallback: label, large });
+				return h(JournalCover, { journal, call, projectId, fallback: label, large });
 			};const metricsKeyOf = (report, bundle) => String(bundle?.journal || citationFor(report, bundle)?.journal || '').trim();
 			const metricBox = (label, value, tone) => h('div', { className: 'ib-lit-metric-box', 'data-tone': tone }, h('span', null, label), h('b', null, value));
 			const openSelectedPdf = (event) => {
