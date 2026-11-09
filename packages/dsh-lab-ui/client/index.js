@@ -4653,7 +4653,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -7255,6 +7255,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
     h("button", { type: "button", className: "ib-act", onClick: () => {
       setDatabaseOpen(true);
       setDatabaseMessage("");
+      void call("search_tasks_get_keys", { request: { projectId } }).then((keys) => {
+        setDatabaseKey(keys?.scopusApiKey || "");
+        setDatabaseWosKey(keys?.wosApiKey || "");
+      }).catch(() => {
+      });
       setPublicSources([{ id: "openalex", ok: true, message: "公开库 · 无需 Key" }, { id: "crossref", ok: true, message: "公开库 · 无需 Key" }, { id: "pubmed", ok: true, message: "公开库 · 无需 Key" }, { id: "arxiv", ok: true, message: "公开库 · 无需 Key" }]);
       void call("search_tasks_public_sources_test").then((result) => setPublicSources(result?.publicSources || [])).catch(() => {
       });
@@ -7375,9 +7380,9 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
           "div",
           { className: "ib-db-body" },
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Scopus / Elsevier"), h("small", null, "用于文献检索、摘要与题录补全")), h("span", { className: "ib-db-state" }, "API Key")),
-          h("input", { className: "ib-db-input", type: "password", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
+          h("input", { className: "ib-db-input", type: "text", value: databaseKey, placeholder: "粘贴 Scopus API Key（留空表示不修改）", onChange: (event) => setDatabaseKey(event.target.value) }),
           h("div", { className: "ib-db-row" }, h("div", null, h("b", null, "Web of Science Starter"), h("small", null, "用于 WoS 核心合集检索；摘要由开放库补齐")), h("span", { className: "ib-db-state" }, "API Key")),
-          h("input", { className: "ib-db-input", type: "password", value: databaseWosKey, placeholder: "粘贴 WoS Starter API Key（留空表示不修改）", onChange: (event) => setDatabaseWosKey(event.target.value) }),
+          h("input", { className: "ib-db-input", type: "text", value: databaseWosKey, placeholder: "粘贴 WoS Starter API Key（留空表示不修改）", onChange: (event) => setDatabaseWosKey(event.target.value) }),
           databaseWosMessage ? h("div", { className: "ib-db-message", role: "status" }, databaseWosMessage) : null,
           h(
             "div",
