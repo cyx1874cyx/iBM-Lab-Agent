@@ -161,12 +161,12 @@ function JournalMetricTiles({ journal, call }) {
 		box('中科院分区', data === undefined ? '…' : data?.casTier ? data.casTier + '区' : '待核实', 'cas'),
 		box('TOP期刊', data === undefined ? '…' : data?.top === true ? '是' : data?.top === false ? '否' : '待核实', 'top'));
 }
-function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSaved, onMessage }) {
+function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSaved, onMessage, keyless = false }) {
 	return h('div', { className: 'ib-db-db' },
 		h('div', { className: 'ib-db-name' }, h('span', { className: 'ib-db-dot', 'data-ok': status ? (status.ok ? 'true' : 'false') : 'pending' }), h('b', null, name)),
 		h('div', { className: 'ib-db-keyline' },
-			h('input', { className: 'ib-db-input', type: 'text', value: value || '', placeholder: 'API Key（可留空）', onChange }),
-			h('button', { type: 'button', className: 'ib-lit-link-submit', onClick: async () => {
+			h('input', { className: 'ib-db-input', type: 'text', value: keyless ? '' : (value || ''), placeholder: keyless ? '无需 Key' : 'API Key（可留空）', disabled: keyless, onChange: keyless ? undefined : onChange }),
+			keyless ? null : h('button', { type: 'button', className: 'ib-lit-link-submit', onClick: async () => {
 				try {
 					await call('search_tasks_save_database_key', { request: { projectId, database: id, apiKey: value || '' } });
 					await onSaved();
@@ -986,8 +986,8 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h('section', { className: 'ib-lit-link-dialog ib-db-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': '数据库管理', onClick: (event) => event.stopPropagation() },
 						h('header', { className: 'ib-lit-link-head' }, h('span', { className: 'ib-lit-link-icon' }, '⚙'), h('div', { className: 'ib-lit-link-head-copy' }, h('h2', null, '数据库管理'), h('p', null, '配置检索数据库的访问凭据；密钥保存在本机后端配置中。')), h('button', { type: 'button', className: 'ib-lit-link-close', 'aria-label': '关闭', onClick: () => setDatabaseOpen(false) }, '×')),
 						h('div', { className: 'ib-db-body' },
-							[['scopus', 'Scopus / Elsevier'], ['wos', 'Web of Science'], ['openalex', 'OpenAlex'], ['semanticscholar', 'Semantic Scholar'], ['core', 'CORE'], ['pubmed', 'PubMed'], ['crossref', 'Crossref'], ['arxiv', 'arXiv']].map(([id, name]) => h(DatabaseRow, {
-								key: id, id, name, value: databaseKeys[id] || '', status: databaseStatus[id], call, projectId,
+							[['scopus', 'Scopus / Elsevier'], ['wos', 'Web of Science'], ['openalex', 'OpenAlex'], ['semanticscholar', 'Semantic Scholar'], ['core', 'CORE'], ['pubmed', 'PubMed'], ['crossref', 'Crossref', true], ['arxiv', 'arXiv', true]].map(([id, name, keyless]) => h(DatabaseRow, {
+								key: id, id, name, keyless, value: databaseKeys[id] || '', status: databaseStatus[id], call, projectId,
 								onChange: (event) => setDatabaseKeys((previous) => ({ ...previous, [id]: event.target.value })),
 								onSaved: async () => { const tested = await call('search_tasks_test_databases', { request: { projectId } }); setDatabaseStatus(Object.fromEntries((tested?.results || []).map((row) => [row.id, row]))); },
 								onMessage: setDatabaseMessage

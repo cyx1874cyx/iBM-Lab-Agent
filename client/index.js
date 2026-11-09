@@ -6246,7 +6246,7 @@ function JournalMetricTiles({ journal, call }) {
     box("TOP期刊", data === void 0 ? "…" : data?.top === true ? "是" : data?.top === false ? "否" : "待核实", "top")
   );
 }
-function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSaved, onMessage }) {
+function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSaved, onMessage, keyless = false }) {
   return h(
     "div",
     { className: "ib-db-db" },
@@ -6254,8 +6254,8 @@ function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSav
     h(
       "div",
       { className: "ib-db-keyline" },
-      h("input", { className: "ib-db-input", type: "text", value: value || "", placeholder: "API Key（可留空）", onChange }),
-      h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
+      h("input", { className: "ib-db-input", type: "text", value: keyless ? "" : value || "", placeholder: keyless ? "无需 Key" : "API Key（可留空）", disabled: keyless, onChange: keyless ? void 0 : onChange }),
+      keyless ? null : h("button", { type: "button", className: "ib-lit-link-submit", onClick: async () => {
         try {
           await call("search_tasks_save_database_key", { request: { projectId, database: id, apiKey: value || "" } });
           await onSaved();
@@ -7404,10 +7404,11 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
         h(
           "div",
           { className: "ib-db-body" },
-          [["scopus", "Scopus / Elsevier"], ["wos", "Web of Science"], ["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["core", "CORE"], ["pubmed", "PubMed"], ["crossref", "Crossref"], ["arxiv", "arXiv"]].map(([id, name]) => h(DatabaseRow, {
+          [["scopus", "Scopus / Elsevier"], ["wos", "Web of Science"], ["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["core", "CORE"], ["pubmed", "PubMed"], ["crossref", "Crossref", true], ["arxiv", "arXiv", true]].map(([id, name, keyless]) => h(DatabaseRow, {
             key: id,
             id,
             name,
+            keyless,
             value: databaseKeys[id] || "",
             status: databaseStatus[id],
             call,
