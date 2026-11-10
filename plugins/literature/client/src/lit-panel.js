@@ -280,8 +280,15 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const readingInteraction=useReadingInteractions({projectId,reports:readingReports,visibleReports:filteredReports,bundles:bundleById,root:literatureRoot,call,notify,onChanged,onContextMenu:setEntryMenu,setFolder:setSelectedFolder,onLocate:report=>{if(report)setLocateRequest({bundleId:report.bundleId,nonce:crypto.randomUUID()});}});
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
-			const [litTab, setActiveLitTab] = useState('reading');
 			const [searchTaskCount, setSearchTaskCount] = useState(0);
+			const typingRef = useRef(false);
+			useEffect(() => {
+				const mark = () => { typingRef.current = !!document.activeElement?.matches("input,textarea,select,[contenteditable=true]"); };
+				const onFocusOut = () => setTimeout(mark, 0);
+				document.addEventListener("focusin", mark);
+				document.addEventListener("focusout", onFocusOut);
+				return () => { document.removeEventListener("focusin", mark); document.removeEventListener("focusout", onFocusOut); };
+			}, []);
 			useEffect(() => {
 				if (!projectId) return undefined;
 				void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {});
@@ -289,7 +296,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			}, [projectId, call]);
 			useEffect(() => {
 				if (typeof onChanged !== "function") return undefined;
-				const timer = setInterval(() => { const active = document.activeElement; if (active && active.matches("input,textarea,select,[contenteditable=true]")) return; void onChanged({ quiet: true }); }, 1000);
+				const timer = setInterval(() => { if (typingRef.current) return; void onChanged({ quiet: true }); }, 1000);
 				return () => clearInterval(timer);
 			}, [onChanged]);
 	const [databaseOpen, setDatabaseOpen] = useState(false);

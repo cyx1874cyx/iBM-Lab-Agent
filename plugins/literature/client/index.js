@@ -45019,8 +45019,20 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   } });
   const [machineReviews, setMachineReviews] = (0, import_react12.useState)({});
   const [preview, setPreview] = (0, import_react12.useState)(null);
-  const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
+  const typingRef = (0, import_react12.useRef)(false);
+  (0, import_react12.useEffect)(() => {
+    const mark = () => {
+      typingRef.current = !!document.activeElement?.matches("input,textarea,select,[contenteditable=true]");
+    };
+    const onFocusOut = () => setTimeout(mark, 0);
+    document.addEventListener("focusin", mark);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", mark);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
   (0, import_react12.useEffect)(() => {
     if (!projectId) return void 0;
     void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {
@@ -45030,8 +45042,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   (0, import_react12.useEffect)(() => {
     if (typeof onChanged !== "function") return void 0;
     const timer = setInterval(() => {
-      const active = document.activeElement;
-      if (active && active.matches("input,textarea,select,[contenteditable=true]")) return;
+      if (typingRef.current) return;
       void onChanged({ quiet: true });
     }, 1e3);
     return () => clearInterval(timer);
