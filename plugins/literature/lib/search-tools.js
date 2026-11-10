@@ -55,7 +55,7 @@ export function registerSearchTaskTools(ctx) {
 	}));
 
 	ctx.tools.register(defineTool({
-		name: "lab_search_task_scopus",
+		name: "lab_search_task_primary",
 		description: "主检索入口：内部优先执行 Web of Science 检索，WoS 不可用或失败时才回退 Scopus。query 用 TITLE-ABS-KEY(...) 或 TS=(...)；每轮同一 taskId。",
 		parameters: {
 			projectId: { type: "string", description: "课题编号" },

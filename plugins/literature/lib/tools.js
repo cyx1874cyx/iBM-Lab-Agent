@@ -750,7 +750,7 @@ export function apply(ctx, config = {}) {
 			order: ctx.systemPrompt.getSectionOrder("DEPLOYMENT_PERSONA_PREFIX") + 1,
 			text: [
 				"1. 用户提出检索需求时，先用 lab_search_task_create 创建/更新任务，保存简洁标题和整理后的研究需求。",
-				"2. 题录以 Web of Science 为主：把中文需求翻译成英文术语，构造 TS=(...) 或 PY=... 检索式，统一调用 lab_search_task_scopus（该工具内部先执行 WoS，失败才回退 Scopus）；每轮使用同一 taskId，保留历史轮次。",
+				"2. 题录以 Web of Science 为主：把中文需求翻译成英文术语，构造 TS=(...) 或 PY=... 检索式，统一调用 lab_search_task_primary（该工具内部先执行 WoS，失败才回退 Scopus）；每轮使用同一 taskId，保留历史轮次。",
 				"3. 若 WoS 结果不足，可再次调用同一工具并给出不同检索式；不要在工具外自行切换数据库，结果会按 DOI/标题自动去重合并。",
 				"4. 检索完成后调用 lab_search_task_enrich_abstracts，用 OpenAlex → Europe PMC → Semantic Scholar → Crossref 补齐摘要；这些开放库只用于摘要，不要用它们替代 WoS/Scopus 题录。",
 				"5. 基于真实返回的标题/摘要写中文标题、中文摘要总结、匹配理由、recommendation 和 reasonBasis；没有摘要时标注“摘要未获取”，不得编造。",
