@@ -5982,7 +5982,9 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   (0, import_react12.useEffect)(() => {
     if (!active?.id) return void 0;
     const timer = setInterval(() => {
-      if (!busy) void load2(active.id, true);
+      const activeEl = document.activeElement;
+      if (busy || activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]")) return;
+      void load2(active.id, true);
     }, 5e3);
     return () => clearInterval(timer);
   }, [active?.id, busy, load2]);
@@ -6473,6 +6475,8 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   (0, import_react13.useEffect)(() => {
     if (typeof onChanged !== "function") return void 0;
     const timer = setInterval(() => {
+      const active = document.activeElement;
+      if (active && active.matches("input,textarea,select,[contenteditable=true]")) return;
       void onChanged({ quiet: true });
     }, 1e3);
     return () => clearInterval(timer);

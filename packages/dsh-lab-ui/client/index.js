@@ -5982,7 +5982,9 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   (0, import_react12.useEffect)(() => {
     if (!active?.id) return void 0;
     const timer = setInterval(() => {
-      if (!busy) void load2(active.id, true);
+      const activeEl = document.activeElement;
+      if (busy || activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]")) return;
+      void load2(active.id, true);
     }, 5e3);
     return () => clearInterval(timer);
   }, [active?.id, busy, load2]);
@@ -6465,10 +6467,18 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [litTab, setActiveLitTab] = (0, import_react13.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react13.useState)(0);
   (0, import_react13.useEffect)(() => {
+    if (!projectId) return void 0;
+    void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {
+    });
+    return void 0;
+  }, [projectId, call]);
+  (0, import_react13.useEffect)(() => {
     if (typeof onChanged !== "function") return void 0;
     const timer = setInterval(() => {
+      const active = document.activeElement;
+      if (active && active.matches("input,textarea,select,[contenteditable=true]")) return;
       void onChanged({ quiet: true });
-    }, 5e3);
+    }, 1e3);
     return () => clearInterval(timer);
   }, [onChanged]);
   const [databaseOpen, setDatabaseOpen] = (0, import_react13.useState)(false);
@@ -7343,7 +7353,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        litTab === "search" ? h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat }) : null,
+        h("div", { hidden: litTab !== "search" }, h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat })),
         litTab === "reading" ? h(
           import_react13.default.Fragment,
           null,

@@ -289,7 +289,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			}, [projectId, call]);
 			useEffect(() => {
 				if (typeof onChanged !== "function") return undefined;
-				const timer = setInterval(() => { void onChanged({ quiet: true }); }, 1000);
+				const timer = setInterval(() => { const active = document.activeElement; if (active && active.matches("input,textarea,select,[contenteditable=true]")) return; void onChanged({ quiet: true }); }, 1000);
 				return () => clearInterval(timer);
 			}, [onChanged]);
 	const [databaseOpen, setDatabaseOpen] = useState(false);

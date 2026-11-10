@@ -276,7 +276,7 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 	};const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
 	useEffect(() => {
 		if (!active?.id) return undefined;
-		const timer = setInterval(() => { if (!busy) void load(active.id, true); }, 5000);
+		const timer = setInterval(() => { const activeEl = document.activeElement; if (busy || (activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]"))) return; void load(active.id, true); }, 5000);
 		return () => clearInterval(timer);
 	}, [active?.id, busy, load]);
 
