@@ -119,6 +119,14 @@ export function registerSearchTaskTools(ctx) {
 			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) };
 		}
 	}));
+	ctx.tools.register(defineTool({
+		name: "lab_search_task_enrich_abstracts",
+		description: "用开放库为检索任务中缺少摘要的候选补齐摘要。顺序：OpenAlex → Europe PMC → Semantic Scholar → Crossref。只补摘要，不做题录检索。",
+		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
+		async execute({ projectId, taskId }) { return enrichTaskAbstracts(coreOf(ctx), projectId, { taskId }); }
+	}));
+
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_wos_test",
