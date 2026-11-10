@@ -280,6 +280,7 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const readingInteraction=useReadingInteractions({projectId,reports:readingReports,visibleReports:filteredReports,bundles:bundleById,root:literatureRoot,call,notify,onChanged,onContextMenu:setEntryMenu,setFolder:setSelectedFolder,onLocate:report=>{if(report)setLocateRequest({bundleId:report.bundleId,nonce:crypto.randomUUID()});}});
 			const [machineReviews, setMachineReviews] = useState({});
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
+			const [litTab, setActiveLitTab] = useState('reading');
 			const [searchTaskCount, setSearchTaskCount] = useState(0);
 			const typingRef = useRef(false);
 			useEffect(() => {

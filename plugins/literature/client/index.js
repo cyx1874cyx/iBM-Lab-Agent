@@ -45019,6 +45019,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   } });
   const [machineReviews, setMachineReviews] = (0, import_react12.useState)({});
   const [preview, setPreview] = (0, import_react12.useState)(null);
+  const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
   const typingRef = (0, import_react12.useRef)(false);
   (0, import_react12.useEffect)(() => {
