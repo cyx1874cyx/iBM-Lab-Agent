@@ -189,7 +189,7 @@ export async function scopusRequest(path, { apiKey, params = {} } = {}) {
 				if (attempt < 2) { await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1))); continue; }
 				throw lastError;
 			}
-			if (!response.ok) throw scopusError(response.status);
+			if (!response.ok) { const body = await response.text().catch(() => ""); throw Object.assign(scopusError(response.status), { responseBody: body.slice(0, 1200), message: `${scopusError(response.status).message}${body ? `：${body.slice(0, 500)}` : ""}` }); }
 			const value = await response.json();
 			responseCache.set(cacheKey, { at: Date.now(), value });
 			while (responseCache.size > 200) responseCache.delete(responseCache.keys().next().value);
@@ -361,7 +361,15 @@ export async function runScopusSearch(core, projectId, request = {}) {
 	const limit = Math.max(1, Math.min(100, Number(request.limit) || 25));
 	const page = Math.max(1, Number(request.page) || 1);
 	const roundId = `round-${Date.now().toString(36)}`;
-	const value = await scopusRequest(SCOPUS_SEARCH, { apiKey, params: { query, count: limit, start: (page - 1) * limit } });
+	let value;
+	try { value = await scopusRequest(SCOPUS_SEARCH, { apiKey, params: { query, count: limit, start: (page - 1) * limit } }); }
+	catch (error) {
+		const failed = { id: roundId, index: (task.rounds?.length || 0) + 1, label: `第${(task.rounds?.length || 0) + 1}轮`, query, queries: [query], source: "scopus", page, limit, fetched: 0, createdAt: now(), status: "failed", error: error.message, candidateIds: [] };
+		task.rounds = [...(task.rounds || []), failed];
+		task.messages = [...(task.messages || []), { role: "assistant", text: `Scopus 本轮失败：${error.message}`, at: now() }];
+		task.updatedAt = now();
+		await saveSearchTaskStore(core, projectId, store);
+	}
 	const entries = value?.["search-results"]?.entry;
 	const papers = (Array.isArray(entries) ? entries : entries ? [entries] : []).map(scopusEntry).filter(validPaper);
 	for (const paper of papers) {
@@ -481,8 +489,21 @@ export async function runWosSearch(core, projectId, request = {}) {
 	const limit = Math.max(1, Math.min(50, Number(request.limit) || 25));
 	const page = Math.max(1, Number(request.page) || 1);
 	const roundId = `round-${Date.now().toString(36)}`;
-	const response = await fetch(`${WOS_SEARCH}?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}`, { headers: { "X-ApiKey": apiKey, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
-	if (!response.ok) throw Object.assign(new Error(response.status === 401 ? "WoS API Key 无效或已过期" : `WoS 请求失败（HTTP ${response.status}）`), { code: "wos-http", status: response.status });
+	let response;
+	try { response = await fetch(`${WOS_SEARCH}?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}`, { headers: { "X-ApiKey": apiKey, Accept: "application/json" }, signal: AbortSignal.timeout(30000) }); }
+	catch (error) {
+		const failed = { id: roundId, index: (task.rounds?.length || 0) + 1, label: `第${(task.rounds?.length || 0) + 1}轮`, query, queries: [query], source: "wos", page, limit, fetched: 0, createdAt: now(), status: "failed", error: error.message, candidateIds: [] };
+		task.rounds = [...(task.rounds || []), failed];
+		await saveSearchTaskStore(core, projectId, store);
+		throw error;
+	}
+	if (!response.ok) {
+		const message = response.status === 401 ? "WoS API Key 无效或已过期" : `WoS 请求失败（HTTP ${response.status}）`;
+		const failed = { id: roundId, index: (task.rounds?.length || 0) + 1, label: `第${(task.rounds?.length || 0) + 1}轮`, query, queries: [query], source: "wos", page, limit, fetched: 0, createdAt: now(), status: "failed", error: message, candidateIds: [] };
+		task.rounds = [...(task.rounds || []), failed];
+		await saveSearchTaskStore(core, projectId, store);
+		throw Object.assign(new Error(message), { code: "wos-http", status: response.status });
+	}
 	const value = await response.json();
 	const papers = (value.hits || []).map(wosEntry).filter(validPaper);
 	for (const paper of papers) {

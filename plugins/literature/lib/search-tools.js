@@ -45,6 +45,7 @@ export function registerSearchTaskTools(ctx) {
 			const core = coreOf(ctx);
 			const store = await listSearchTasks(core, projectId);
 			const prior = store.tasks.find((row) => row.id === taskId);
+			if (taskId && !prior) throw new Error(`检索任务不存在：${taskId}。未创建新任务，请确认 taskId。`);
 			const task = await upsertSearchTask(core, projectId, {
 				...(prior || { id: `search-${Date.now().toString(36)}`, rounds: [], candidates: [], messages: [] }),
 				title, requirement, updatedAt: new Date().toISOString()
@@ -79,6 +80,22 @@ export function registerSearchTaskTools(ctx) {
 	}));
 
 	ctx.tools.register(defineTool({
+		name: "lab_search_task_candidates",
+		description: "轻量读取候选清单，只返回 id、标题、期刊、年份、DOI、推荐级别和摘要状态，不返回摘要正文。适合核对 97 条候选而不占用大量上下文。",
+		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true }, limit: { type: "number", description: "默认 100，最多 200" }, offset: { type: "number" } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
+		async execute({ projectId, taskId, limit, offset }) {
+			const store = await listSearchTasks(coreOf(ctx), projectId);
+			const task = store.tasks.find((row) => row.id === taskId);
+			if (!task) throw new Error(`检索任务不存在：${taskId}`);
+			const all = task.candidates || [];
+			const start = Math.max(0, Number(offset) || 0);
+			const size = Math.min(200, Math.max(1, Number(limit) || 100));
+			return lossless({ taskId, total: all.length, pagination: { offset: start, limit: size, hasMore: start + size < all.length }, candidates: all.slice(start, start + size).map((row) => ({ id: row.id, title: row.title, titleZh: row.titleZh, journal: row.journal, year: row.year, doi: row.doi, recommendation: row.recommendation, abstractStatus: row.abstractStatus, addedToReading: row.addedToReading, sources: row.sources })) });
+		}
+	}));
+
+	ctx.tools.register(defineTool({
 		name: "lab_search_task_list",
 		description: "读取当前课题的检索任务与候选文献，用于回答用户关于本轮结果、勾选、历史轮次的问题。",
 		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" }, limit: { type: "number", description: "返回候选数，默认10，最多30" }, offset: { type: "number", description: "候选分页起点" } },
@@ -86,6 +103,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, limit, offset }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
+			if (taskId && !task) throw new Error(`检索任务不存在：${taskId}`);
 			return lossless(task || null);
 		}
 	}));
