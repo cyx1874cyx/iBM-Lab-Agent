@@ -1,7 +1,8 @@
 import { defineTool } from "@deepseek-ai/dsh-tools";
-import { deleteSearchTask, importRisTask, listSearchTasks, patchTaskCandidate, runScopusSearch, scopusTest, upsertSearchTask } from "./search-tasks-core.js";
+import { deleteSearchTask, enrichTaskAbstracts, importRisTask, listSearchTasks, patchTaskCandidate, runScopusSearch, runWosSearch, scopusTest, upsertSearchTask, wosTest } from "./search-tasks-core.js";
 
 function coreOf(ctx) { return ctx.get("ibmCore"); }
+function lossless(value) { return JSON.parse(JSON.stringify(value)); }
 function taskBrief(task, { limit = 10, offset = 0 } = {}) {
 	if (!task) return null;
 	const candidates = task.candidates || [];
@@ -48,7 +49,7 @@ export function registerSearchTaskTools(ctx) {
 				...(prior || { id: `search-${Date.now().toString(36)}`, rounds: [], candidates: [], messages: [] }),
 				title, requirement, updatedAt: new Date().toISOString()
 			});
-			return { taskId: task.id, task };
+			return lossless({ taskId: task.id, task });
 		}
 	}));
 
@@ -65,7 +66,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
 			await syncTaskCovers(ctx, projectId, taskId);
-			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) };
+			return lossless({ taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) });
 		}
 	}));
 
@@ -77,7 +78,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, limit, offset }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
-			return task || null;
+			return lossless(task || null);
 		}
 	}));
 
@@ -99,7 +100,7 @@ export function registerSearchTaskTools(ctx) {
 					results.push({ candidateId: item.candidateId, ok: true });
 				} catch (error) { results.push({ candidateId: item.candidateId, ok: false, error: error.message }); }
 			}
-			return { updated: results.filter((row) => row.ok).length, results };
+			return lossless({ updated: results.filter((row) => row.ok).length, results });
 		}
 	}));
 
@@ -116,7 +117,7 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId, query, limit }) {
 			const result = await runWosSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
 			await syncTaskCovers(ctx, projectId, taskId);
-			return { taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) };
+			return lossless({ taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) });
 		}
 	}));
 	ctx.tools.register(defineTool({
@@ -149,7 +150,7 @@ export function registerSearchTaskTools(ctx) {
 		description: "把用户提供的 RIS 文本导入当前检索任务或新建任务。",
 		parameters: { projectId: { type: "string" }, taskId: { type: "string" }, fileName: { type: "string" }, text: { type: "string", required: true } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, fileName, text }) { return importRisTask(coreOf(ctx), projectId, { taskId, fileName, text }); }
+		async execute({ projectId, taskId, fileName, text }) { return lossless(await importRisTask(coreOf(ctx), projectId, { taskId, fileName, text })); }
 	}));
 
 	ctx.tools.register(defineTool({
