@@ -282,7 +282,12 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [litTab, setActiveLitTab] = useState('reading');
 			const [searchTaskCount, setSearchTaskCount] = useState(0);
-			const [databaseOpen, setDatabaseOpen] = useState(false);
+			useEffect(() => {
+		if (typeof onChanged !== "function") return undefined;
+		const timer = setInterval(() => { void onChanged({ quiet: true }); }, 5000);
+		return () => clearInterval(timer);
+	}, [onChanged]);
+	const [databaseOpen, setDatabaseOpen] = useState(false);
 			const [databaseKey, setDatabaseKey] = useState('');
 	const [databaseWosKey, setDatabaseWosKey] = useState('');
 	const [databaseWosBusy, setDatabaseWosBusy] = useState('');

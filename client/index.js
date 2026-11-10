@@ -4654,7 +4654,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_enrich_abstracts", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -6464,6 +6464,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react13.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react13.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react13.useState)(0);
+  (0, import_react13.useEffect)(() => {
+    if (typeof onChanged !== "function") return void 0;
+    const timer = setInterval(() => {
+      void onChanged({ quiet: true });
+    }, 5e3);
+    return () => clearInterval(timer);
+  }, [onChanged]);
   const [databaseOpen, setDatabaseOpen] = (0, import_react13.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react13.useState)("");
   const [databaseWosKey, setDatabaseWosKey] = (0, import_react13.useState)("");

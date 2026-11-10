@@ -45019,6 +45019,13 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react12.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
+  (0, import_react12.useEffect)(() => {
+    if (typeof onChanged !== "function") return void 0;
+    const timer = setInterval(() => {
+      void onChanged({ quiet: true });
+    }, 5e3);
+    return () => clearInterval(timer);
+  }, [onChanged]);
   const [databaseOpen, setDatabaseOpen] = (0, import_react12.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
   const [databaseWosKey, setDatabaseWosKey] = (0, import_react12.useState)("");
