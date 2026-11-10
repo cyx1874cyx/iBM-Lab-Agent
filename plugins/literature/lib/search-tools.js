@@ -55,7 +55,7 @@ export function registerSearchTaskTools(ctx) {
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_scopus",
-		description: "对检索任务执行真实 Scopus 检索。query 必须是英文 Scopus 检索式（可用 TITLE-ABS-KEY(...)，也接受英文关键词）；中文需求先由你翻译成英文术语再调用。每调用一次生成一轮结果。",
+		description: "主检索入口：内部优先执行 Web of Science 检索，WoS 不可用或失败时才回退 Scopus。query 用 TITLE-ABS-KEY(...) 或 TS=(...)；每轮同一 taskId。",
 		parameters: {
 			projectId: { type: "string", description: "课题编号" },
 			taskId: { type: "string", required: true, description: "检索任务编号" },
@@ -64,9 +64,17 @@ export function registerSearchTaskTools(ctx) {
 		},
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
 		async execute({ projectId, taskId, query, limit }) {
-			const result = await runScopusSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
-			await syncTaskCovers(ctx, projectId, taskId);
-			return lossless({ taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) });
+			const scopusQuery = String(query || "");
+			const wosQuery = scopusQuery.replace(/^TITLE-ABS-KEY\((.*)\)$/i, "TS=($1)");
+			try {
+				const primary = await runWosSearch(coreOf(ctx), projectId, { taskId, query: wosQuery, limit: limit || 25 });
+				await syncTaskCovers(ctx, projectId, taskId);
+				return lossless({ taskId, database: "wos", primary: "wos", round: primary.round, total: primary.total, fetched: primary.fetched, added: primary.added, candidateIds: primary.task.candidates.map((row) => row.id), candidates: primary.task.candidates.slice(-Math.max(1, primary.added)) });
+			} catch (error) {
+				const supplemental = await runScopusSearch(coreOf(ctx), projectId, { taskId, query: scopusQuery, limit: limit || 25 });
+				await syncTaskCovers(ctx, projectId, taskId);
+				return lossless({ taskId, database: "scopus", primary: "wos-failed", fallbackReason: error.message, round: supplemental.round, total: supplemental.total, fetched: supplemental.fetched, added: supplemental.added, candidateIds: supplemental.task.candidates.map((row) => row.id), candidates: supplemental.task.candidates.slice(-Math.max(1, supplemental.added)) });
+			}
 		}
 	}));
 
@@ -106,7 +114,7 @@ export function registerSearchTaskTools(ctx) {
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_wos",
-		description: "对检索任务执行真实 Web of Science Starter 检索。query 使用 WoS 语法（如 TS=(thrombus AND hydrogel) 或 PY=2016-2026）；每调用一次生成一轮 WoS 结果，并与 Scopus 候选合并去重。",
+		description: "首选题录检索：对检索任务执行 Web of Science Starter 检索。query 使用 WoS 语法（如 TS=(thrombus AND hydrogel) 或 PY=2016-2026），结果与已有候选合并去重。",
 		parameters: {
 			projectId: { type: "string", description: "课题编号" },
 			taskId: { type: "string", required: true, description: "检索任务编号" },
