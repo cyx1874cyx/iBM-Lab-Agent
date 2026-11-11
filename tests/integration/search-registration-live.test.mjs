@@ -25,7 +25,7 @@ test('search tool commits are immediately visible through the workspace and surv
   const tool = ctx.tools.get('lab_tasks_register_search');
   for (const query of ['first', 'second']) {
    const before = (await read()).revision;
-   const result = await tool.execute({ projectId: project.id, query }, { agent: { session: { id: query } } });
+   const result = await tool.execute({ projectId: project.id, entryTitle: query, query }, { agent: { session: { id: query } } });
    assert.equal(result.ok, true, result.error);
    const workspace = await read();
    assert.notEqual(workspace.revision, before);
