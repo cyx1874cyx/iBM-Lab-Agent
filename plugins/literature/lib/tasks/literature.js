@@ -707,7 +707,15 @@ export const literatureMethods = {
 		return mergeSessionSearchRows(related);
 	},
 
-
+	async reloadSearchRuns() {
+		const home = process.env.DSH_HOME;
+		if (!home) return;
+		const file = join(home, "storages", "lab_tasks.json");
+		if (!existsSync(file)) return;
+		const raw = JSON.parse(await readFile(file, "utf8"));
+		const rows = raw?.tables?.literature_search_runs || {};
+		for (const [id, row] of Object.entries(rows)) this.table("searches").put(id, row);
+	},
 	listSearchRuns(projectId) {
 		const rows = [...this.table("searches").keys()]
 			.map((k) => this.table("searches").get(k))
