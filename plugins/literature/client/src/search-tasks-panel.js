@@ -70,7 +70,7 @@ function createRisText(task, candidates) {
 	return lines.join("\n");
 }
 
-export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat }) {
+export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat, revision }) {
 	const [tasks, setTasks] = useState([]);
 	const [activeId, setActiveId] = useState("");
 	const [taskQuery, setTaskQuery] = useState("");
@@ -109,13 +109,13 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 			const result = await call("search_tasks_list", { request: { projectId } });
 			const rows = result?.tasks || [];
 			setTasks(rows);
-			setActiveId(preserve || result?.activeTaskId || rows[0]?.id || "");
+			setActiveId(current => rows.some(row => row.id === (preserve || current)) ? (preserve || current) : (result?.activeTaskId || rows[0]?.id || ""));
 			onCount?.(rows.length);
 		} catch (error) { notify?.(error.message); }
 		finally { setLoading(false); }
 	}, [call, projectId, notify]);
 
-	useEffect(() => { void load(); }, [load]);
+	useEffect(() => { void load("", true); }, [load, revision]);
 
 	useEffect(() => { if (active) setComposer(active.requirement || ""); setSelectedPaperId(""); }, [active?.id]);
 
@@ -275,10 +275,10 @@ export function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, o
 
 	};const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
 	useEffect(() => {
-		if (!active?.id) return undefined;
-		const timer = setInterval(() => { const activeEl = document.activeElement; if (busy || (activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]"))) return; void load(active.id, true); }, 5000);
+		if (revision !== undefined) return undefined;
+		const timer = setInterval(() => { const activeEl = document.activeElement; if (busy || (activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]"))) return; void load(active?.id || "", true); }, 2000);
 		return () => clearInterval(timer);
-	}, [active?.id, busy, load]);
+	}, [active?.id, busy, load, revision]);
 
 	const activeRoundCount = active?.rounds?.length || 0;
 

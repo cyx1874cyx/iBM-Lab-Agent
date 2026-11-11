@@ -174,7 +174,7 @@ function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSav
 				} catch (error) { onMessage(error.message); }
 			} }, '保存')));
 }
-export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
+export function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null, searchRevision }) {
 			const titleByBundle = bundleIndex(bundles);
 			const bundleById = bundleRecordIndex(bundles);
 			const presentationByReport = {};
@@ -282,24 +282,11 @@ export function LitPanel({ projectId, searches, reports, bundles, presentations,
 			const [preview, setPreview] = useState(null); // { kind: "report" | "ppt", report, presentation? }
 			const [litTab, setActiveLitTab] = useState('reading');
 			const [searchTaskCount, setSearchTaskCount] = useState(0);
-			const typingRef = useRef(false);
-			useEffect(() => {
-				const mark = () => { typingRef.current = !!document.activeElement?.matches("input,textarea,select,[contenteditable=true]"); };
-				const onFocusOut = () => setTimeout(mark, 0);
-				document.addEventListener("focusin", mark);
-				document.addEventListener("focusout", onFocusOut);
-				return () => { document.removeEventListener("focusin", mark); document.removeEventListener("focusout", onFocusOut); };
-			}, []);
 			useEffect(() => {
 				if (!projectId) return undefined;
 				void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {});
 				return undefined;
 			}, [projectId, call]);
-			useEffect(() => {
-				if (typeof onChanged !== "function") return undefined;
-				const timer = setInterval(() => { if (typingRef.current) return; void onChanged({ quiet: true }); }, 1000);
-				return () => clearInterval(timer);
-			}, [onChanged]);
 	const [databaseOpen, setDatabaseOpen] = useState(false);
 			const [databaseKey, setDatabaseKey] = useState('');
 	const [databaseWosKey, setDatabaseWosKey] = useState('');
@@ -984,7 +971,7 @@ const legacyArmCaptureFor = (event, bundle, kind) => {
 					h('div', { className: 'ib-lit-tabs' },
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': litTab === 'reading' ? 'true' : undefined, onClick: () => setActiveLitTab('reading') }, '精读文献 ', h('span', null, readingReports.length)),
 						h('button', { type: 'button', className: 'ib-lit-tab', 'data-active': litTab === 'search' ? 'true' : undefined, onClick: () => { onHideChat?.(); setActiveLitTab('search'); } }, '检索记录 ', h('span', null, searchTaskCount))),
-				h('div', { hidden: litTab !== 'search' }, h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat })),
+				h('div', { hidden: litTab !== 'search' }, h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, revision: searchRevision, onShowChat, onStartSearchChat })),
 					litTab === 'reading' ? h(React.Fragment, null,
 						h('div', { className: 'ib-lit-folders' }, [{ id: 'all', name: '全部' }, { id: 'unfiled', name: '未分类' }, ...folders].map((folder) => h('button', { key: folder.id, type: 'button', className: 'ib-lit-folder', ...readingInteraction.folderProps(folder), 'data-active': selectedFolder === folder.id ? 'true' : undefined, onClick: () => { readingInteraction.clear(); setSelectedFolder(folder.id); }, onContextMenu: (event) => { if (folder.id === 'all' || folder.id === 'unfiled') return; event.preventDefault(); event.stopPropagation(); setFolderMenu({ x: event.clientX, y: event.clientY, id: folder.id, name: folder.name }); } }, folder.name, h('span', null, reports.filter((row) => folder.id === 'all' || (folder.id === 'unfiled' ? !row.folderId : row.folderId === folder.id)).length))), folderEditor ? h('input', { className: 'ib-lit-folder-input', autoFocus: true, value: folderEditor.name, maxLength: 80, placeholder: '分组名称', onChange: (event) => setFolderEditor({ ...folderEditor, name: event.target.value }), onKeyDown: (event) => { if (event.key === 'Escape') { event.preventDefault(); setFolderEditor(null); } else if (event.key === 'Enter') { event.preventDefault(); void saveFolderEditor(); } } }) : h('button', { type: 'button', className: 'ib-lit-folder ib-lit-folder-add', title: '新建分组', onClick: createFolder }, '+')),
 						(uploadingRows.length || pendingIntakeReports.length) ? h('div', { className: 'ib-lit-list ib-lit-cards' }, [...uploadingRows.map((row) => h('div', { key: 'upload-' + row.id, className: 'ib-lit-card ib-lit-card-loading', role: 'status', 'aria-busy': 'true' }, h('span', { className: 'ib-lit-loading-spinner' }, h(SpinSvg, null)), h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, row.name), h('div', { className: 'ib-lit-meta' }, '正在上传…')))), ...pendingIntakeReports.map((report) => { const bundle = bundleById[report.bundleId] || {}; return h('div', { key: 'intake-' + report.id, className: 'ib-lit-card ib-lit-card-loading', role: 'status', 'aria-busy': 'true' }, h('span', { className: 'ib-lit-loading-spinner' }, h(SpinSvg, null)), h('div', { className: 'ib-lit-card-copy' }, h('b', { className: 'ib-lit-title' }, bundle.pdfIntake?.originalFileName || report.titleZh || bundle.title || report.id), h('div', { className: 'ib-lit-meta' }, (bundle.pdfIntake?.stage || '正在识别文献') + '…'))); })]) : null,

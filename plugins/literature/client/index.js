@@ -44299,7 +44299,7 @@ function reasonsFor(paper) {
   const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
   return [0, 1, 2].map((index) => list[index] || "暂无补充");
 }
-function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat }) {
+function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat, revision }) {
   const [tasks, setTasks] = (0, import_react11.useState)([]);
   const [activeId, setActiveId] = (0, import_react11.useState)("");
   const [taskQuery, setTaskQuery] = (0, import_react11.useState)("");
@@ -44336,7 +44336,7 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
       const result = await call("search_tasks_list", { request: { projectId } });
       const rows = result?.tasks || [];
       setTasks(rows);
-      setActiveId(preserve || result?.activeTaskId || rows[0]?.id || "");
+      setActiveId((current) => rows.some((row) => row.id === (preserve || current)) ? preserve || current : result?.activeTaskId || rows[0]?.id || "");
       onCount?.(rows.length);
     } catch (error) {
       notify?.(error.message);
@@ -44345,8 +44345,8 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
     }
   }, [call, projectId, notify]);
   (0, import_react11.useEffect)(() => {
-    void load2();
-  }, [load2]);
+    void load2("", true);
+  }, [load2, revision]);
   (0, import_react11.useEffect)(() => {
     if (active) setComposer(active.requirement || "");
     setSelectedPaperId("");
@@ -44535,14 +44535,14 @@ function SearchTasksPanel({ projectId, call, notify, onRequestArtifact, onChange
   };
   const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
   (0, import_react11.useEffect)(() => {
-    if (!active?.id) return void 0;
+    if (revision !== void 0) return void 0;
     const timer = setInterval(() => {
       const activeEl = document.activeElement;
       if (busy || activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]")) return;
-      void load2(active.id, true);
-    }, 5e3);
+      void load2(active?.id || "", true);
+    }, 2e3);
     return () => clearInterval(timer);
-  }, [active?.id, busy, load2]);
+  }, [active?.id, busy, load2, revision]);
   const activeRoundCount = active?.rounds?.length || 0;
   return h(
     "div",
@@ -44824,7 +44824,7 @@ function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSav
     )
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null, searchRevision }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -45021,33 +45021,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react12.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react12.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react12.useState)(0);
-  const typingRef = (0, import_react12.useRef)(false);
-  (0, import_react12.useEffect)(() => {
-    const mark = () => {
-      typingRef.current = !!document.activeElement?.matches("input,textarea,select,[contenteditable=true]");
-    };
-    const onFocusOut = () => setTimeout(mark, 0);
-    document.addEventListener("focusin", mark);
-    document.addEventListener("focusout", onFocusOut);
-    return () => {
-      document.removeEventListener("focusin", mark);
-      document.removeEventListener("focusout", onFocusOut);
-    };
-  }, []);
   (0, import_react12.useEffect)(() => {
     if (!projectId) return void 0;
     void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {
     });
     return void 0;
   }, [projectId, call]);
-  (0, import_react12.useEffect)(() => {
-    if (typeof onChanged !== "function") return void 0;
-    const timer = setInterval(() => {
-      if (typingRef.current) return;
-      void onChanged({ quiet: true });
-    }, 1e3);
-    return () => clearInterval(timer);
-  }, [onChanged]);
   const [databaseOpen, setDatabaseOpen] = (0, import_react12.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react12.useState)("");
   const [databaseWosKey, setDatabaseWosKey] = (0, import_react12.useState)("");
@@ -45920,7 +45899,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        h("div", { hidden: litTab !== "search" }, h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat })),
+        h("div", { hidden: litTab !== "search" }, h(SearchTasksPanel, { projectId, call, notify, onRequestArtifact, onChanged, onCount: setSearchTaskCount, revision: searchRevision, onShowChat, onStartSearchChat })),
         litTab === "reading" ? h(
           import_react12.default.Fragment,
           null,

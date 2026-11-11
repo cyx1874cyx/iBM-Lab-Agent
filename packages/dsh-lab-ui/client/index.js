@@ -5744,7 +5744,7 @@ function reasonsFor(paper) {
   const list = Array.isArray(raw) ? raw : String(raw).split(/\n|[；;]/).map((item) => item.trim()).filter(Boolean);
   return [0, 1, 2].map((index2) => list[index2] || "暂无补充");
 }
-function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat }) {
+function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount, onShowChat, onStartSearchChat, revision }) {
   const [tasks, setTasks] = (0, import_react12.useState)([]);
   const [activeId, setActiveId] = (0, import_react12.useState)("");
   const [taskQuery, setTaskQuery] = (0, import_react12.useState)("");
@@ -5781,7 +5781,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       const result = await call("search_tasks_list", { request: { projectId } });
       const rows = result?.tasks || [];
       setTasks(rows);
-      setActiveId(preserve || result?.activeTaskId || rows[0]?.id || "");
+      setActiveId((current) => rows.some((row2) => row2.id === (preserve || current)) ? preserve || current : result?.activeTaskId || rows[0]?.id || "");
       onCount?.(rows.length);
     } catch (error62) {
       notify2?.(error62.message);
@@ -5790,8 +5790,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
     }
   }, [call, projectId, notify2]);
   (0, import_react12.useEffect)(() => {
-    void load2();
-  }, [load2]);
+    void load2("", true);
+  }, [load2, revision]);
   (0, import_react12.useEffect)(() => {
     if (active) setComposer(active.requirement || "");
     setSelectedPaperId("");
@@ -5980,14 +5980,14 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   };
   const filteredTasks = tasks.filter((task) => !taskQuery || task.title.toLowerCase().includes(taskQuery.toLowerCase()));
   (0, import_react12.useEffect)(() => {
-    if (!active?.id) return void 0;
+    if (revision !== void 0) return void 0;
     const timer = setInterval(() => {
       const activeEl = document.activeElement;
       if (busy || activeEl && activeEl.matches("input,textarea,select,[contenteditable=true]")) return;
-      void load2(active.id, true);
-    }, 5e3);
+      void load2(active?.id || "", true);
+    }, 2e3);
     return () => clearInterval(timer);
-  }, [active?.id, busy, load2]);
+  }, [active?.id, busy, load2, revision]);
   const activeRoundCount = active?.rounds?.length || 0;
   return h(
     "div",
@@ -6269,7 +6269,7 @@ function DatabaseRow({ id, name, value, status, call, projectId, onChange, onSav
     )
   );
 }
-function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null }) {
+function LitPanel({ projectId, searches, reports, bundles, presentations, call, notify: notify2, onRequestArtifact, onOpenConversation, onChanged, headerTarget = null, onHideChat = null, onShowChat = null, onStartSearchChat = null, searchRevision }) {
   const titleByBundle = bundleIndex(bundles);
   const bundleById = bundleRecordIndex(bundles);
   const presentationByReport = {};
@@ -6466,33 +6466,12 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
   const [preview, setPreview] = (0, import_react13.useState)(null);
   const [litTab, setActiveLitTab] = (0, import_react13.useState)("reading");
   const [searchTaskCount, setSearchTaskCount] = (0, import_react13.useState)(0);
-  const typingRef = (0, import_react13.useRef)(false);
-  (0, import_react13.useEffect)(() => {
-    const mark = () => {
-      typingRef.current = !!document.activeElement?.matches("input,textarea,select,[contenteditable=true]");
-    };
-    const onFocusOut = () => setTimeout(mark, 0);
-    document.addEventListener("focusin", mark);
-    document.addEventListener("focusout", onFocusOut);
-    return () => {
-      document.removeEventListener("focusin", mark);
-      document.removeEventListener("focusout", onFocusOut);
-    };
-  }, []);
   (0, import_react13.useEffect)(() => {
     if (!projectId) return void 0;
     void call("search_tasks_list", { request: { projectId } }).then((result) => setSearchTaskCount((result?.tasks || []).length)).catch(() => {
     });
     return void 0;
   }, [projectId, call]);
-  (0, import_react13.useEffect)(() => {
-    if (typeof onChanged !== "function") return void 0;
-    const timer = setInterval(() => {
-      if (typingRef.current) return;
-      void onChanged({ quiet: true });
-    }, 1e3);
-    return () => clearInterval(timer);
-  }, [onChanged]);
   const [databaseOpen, setDatabaseOpen] = (0, import_react13.useState)(false);
   const [databaseKey, setDatabaseKey] = (0, import_react13.useState)("");
   const [databaseWosKey, setDatabaseWosKey] = (0, import_react13.useState)("");
@@ -7365,7 +7344,7 @@ function LitPanel({ projectId, searches, reports, bundles, presentations, call, 
             setActiveLitTab("search");
           } }, "检索记录 ", h("span", null, searchTaskCount))
         ),
-        h("div", { hidden: litTab !== "search" }, h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, onShowChat, onStartSearchChat })),
+        h("div", { hidden: litTab !== "search" }, h(SearchTasksPanel, { projectId, call, notify: notify2, onRequestArtifact, onChanged, onCount: setSearchTaskCount, revision: searchRevision, onShowChat, onStartSearchChat })),
         litTab === "reading" ? h(
           import_react13.default.Fragment,
           null,
@@ -31026,7 +31005,7 @@ function Project({ call, project: project2, onBack, onDelete, onStartChat, activ
       h("button", { className: "ib-btn ib-tab-refresh", onClick: () => void load2() }, "刷新")
     ) : h("div", { className: "ib-wb-module-tools" }, h("button", { className: "ib-btn", onClick: () => void load2() }, "刷新资料")) : null,
     // 不再外包 ib-board 大框与重复标题：内容区直接就是分组标题 + 条目列表。
-    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onStartSearchChat: (prompt, autoSubmit, searchIdentity) => startTaskChat(prompt, autoSubmit, void 0, void 0, void 0, searchIdentity), onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget, onHideChat, onShowChat })) : null,
+    activeTab === "literature" || workbench && available.literature && visitedTabs.literature ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "literature" }, h(projectPanelFor("literature")?.render ?? LitPanel2, { key: data.project.id, projectId: data.project.id, searchRevision: data.revision, searches: literature.searches || [], reports: literature.reports || [], bundles: literature.bundles || [], presentations: literature.presentations || [], call, notify: setToast, onRequestArtifact: startTaskChat, onStartSearchChat: (prompt, autoSubmit, searchIdentity) => startTaskChat(prompt, autoSubmit, void 0, void 0, void 0, searchIdentity), onOpenConversation: openEntryConversation, onChanged: load2, headerTarget: literatureHeaderTarget, onHideChat, onShowChat })) : null,
     activeTab === "characterization" || workbench && available.characterization && visitedTabs.characterization ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "characterization" }, h(projectPanelFor("characterization")?.render ?? CharacterizationPanel, { key: `${data.project.id}:nmr`, projectId: data.project.id, call, taskKind: "nmr", nmrRows: characterization.nmr || [], onOpenConversation: openEntryConversation, onSubmitTask: (prompt, identity) => startTaskChat(prompt, true, void 0, identity) })) : null,
     activeTab === "plotting" || workbench && available.plotting && visitedTabs.plotting ? h("div", { className: "ib-tab-panel", hidden: activeTab !== "plotting" }, h(projectPanelFor("plotting")?.render ?? CharacterizationPanel, { key: `${data.project.id}:plot`, projectId: data.project.id, call, taskKind: "plot", headerTarget: plottingHeaderTarget, onOpenConversation: openEntryConversation, onRefineConversation: (row2, options = {}) => onStartChat(data.project, { entryIdentity: { kind: "plot", recordId: row2.id }, autoSubmit: true, preserveDraft: true, prompt: options.prompt || `请查看当前绑定的绘图条目（条目 ID：${row2.id}）的 Origin 图片，说明当前图的情况并询问我希望如何修改。需要修改时使用绘图编辑工具，不要修改其他条目。` }) })) : null,
     !activeTab ? h("div", { className: "ib-empty" }, "科研功能尚未启用，您仍可查看和更新核心记忆。") : null,

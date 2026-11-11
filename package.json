@@ -231,7 +231,10 @@
     "./plugin-settings": {
       "default": "./lib/plugin-settings.js"
     },
-    "./client-vendor/*": "./client/vendor/*"
+    "./client-vendor/*": "./client/vendor/*",
+    "./search-tasks": {
+      "default": "./lib/search-tasks.js"
+    }
   },
   "files": [
     "lib",
