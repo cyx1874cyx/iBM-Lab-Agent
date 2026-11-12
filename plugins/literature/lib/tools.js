@@ -18,6 +18,7 @@ import { deriveCaptureView } from "dsh-lab-agent/capture-phase";
 import {registerOrganizationTools} from './organization-tools.js';
 import {registerReaderTools} from './reader-tools.js';
 import {registerSearchTaskTools} from './search-tools.js';
+import { listSearchTasks } from "dsh-lab-agent/search-tasks";
 
 export const name = "tasks-tool";
 export const inject = ["tools", "ibmLiteratureWorkflows", "ibmCore", "systemPrompt"];
@@ -828,6 +829,8 @@ export function apply(ctx, config = {}) {
 					oaOnly: args.oaOnly ?? true,
 					sessionId: exec?.agent?.session?.id
 				});
+				const core = ctx.ibmCore ?? ctx.get?.("ibmCore");
+				await listSearchTasks(core, resolved.projectId);
 				const papers = (run.results ?? []).filter((paper) => paper.shortDescriptionZh === "摘要待提炼").map((paper) => ({
 					paperId: summaryPaperId(paper),
 					title: paper.title,

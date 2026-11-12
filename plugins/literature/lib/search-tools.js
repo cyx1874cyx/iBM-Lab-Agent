@@ -53,28 +53,29 @@ export function registerSearchTaskTools(ctx) {
 			return lossless({ taskId: task.id, task });
 		}
 	}));
-
 	ctx.tools.register(defineTool({
+
 		name: "lab_search_task_primary",
-		description: "主检索入口：内部优先执行 Web of Science 检索，WoS 不可用或失败时才回退 Scopus。query 用 TITLE-ABS-KEY(...) 或 TS=(...)；每轮同一 taskId。",
+		description: "唯一检索入口：内部优先执行 Web of Science 检索，WoS 不可用或失败时才回退 Scopus。query 用 TITLE-ABS-KEY(...) 或 TS=(...)；每轮同一 taskId。返回当前任务全部候选，不只返回新增。",
 		parameters: {
 			projectId: { type: "string", description: "课题编号" },
 			taskId: { type: "string", required: true, description: "检索任务编号" },
-			query: { type: "string", required: true, description: "英文 Scopus 检索式" },
-			limit: { type: "number", description: "本轮获取数量，默认 25" }
+			query: { type: "string", required: true, description: "英文检索式（TITLE-ABS-KEY(...) 或 TS=(...)）" },
+			limit: { type: "number", description: "本页数量，默认 50" },
+			page: { type: "number", description: "页码，默认 1" }
 		},
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, query, limit }) {
+		async execute({ projectId, taskId, query, limit, page }) {
 			const scopusQuery = String(query || "");
 			const wosQuery = scopusQuery.replace(/^TITLE-ABS-KEY\((.*)\)$/i, "TS=($1)");
 			try {
-				const primary = await runWosSearch(coreOf(ctx), projectId, { taskId, query: wosQuery, limit: limit || 25 });
+				const primary = await runWosSearch(coreOf(ctx), projectId, { taskId, query: wosQuery, limit: limit || 50, page: page || 1 });
 				await syncTaskCovers(ctx, projectId, taskId);
-				return lossless({ taskId, database: "wos", primary: "wos", round: primary.round, total: primary.total, fetched: primary.fetched, added: primary.added, candidateIds: primary.task.candidates.map((row) => row.id), candidates: primary.task.candidates.slice(-Math.max(1, primary.added)) });
+				return lossless({ taskId, database: "wos", primary: "wos", round: primary.round, total: primary.total, fetched: primary.fetched, added: primary.added, page: page || 1, hasMore: primary.fetched < primary.total, candidateIds: primary.task.candidates.map((row) => row.id), candidates: primary.task.candidates });
 			} catch (error) {
-				const supplemental = await runScopusSearch(coreOf(ctx), projectId, { taskId, query: scopusQuery, limit: limit || 25 });
+				const supplemental = await runScopusSearch(coreOf(ctx), projectId, { taskId, query: scopusQuery, limit: limit || 50, page: page || 1 });
 				await syncTaskCovers(ctx, projectId, taskId);
-				return lossless({ taskId, database: "scopus", primary: "wos-failed", fallbackReason: error.message, round: supplemental.round, total: supplemental.total, fetched: supplemental.fetched, added: supplemental.added, candidateIds: supplemental.task.candidates.map((row) => row.id), candidates: supplemental.task.candidates.slice(-Math.max(1, supplemental.added)) });
+				return lossless({ taskId, database: "scopus", primary: "wos-failed", fallbackReason: error.message, round: supplemental.round, total: supplemental.total, fetched: supplemental.fetched, added: supplemental.added, page: page || 1, hasMore: supplemental.fetched < supplemental.total, candidateIds: supplemental.task.candidates.map((row) => row.id), candidates: supplemental.task.candidates });
 			}
 		}
 	}));
@@ -82,25 +83,23 @@ export function registerSearchTaskTools(ctx) {
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_candidates",
 		description: "轻量读取候选清单，只返回 id、标题、期刊、年份、DOI、推荐级别和摘要状态，不返回摘要正文。适合核对 97 条候选而不占用大量上下文。",
-		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true }, limit: { type: "number", description: "默认 100，最多 200" }, offset: { type: "number" } },
+		parameters: { projectId: { type: "string" }, taskId: { type: "string", required: true } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, limit, offset }) {
+		async execute({ projectId, taskId }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = store.tasks.find((row) => row.id === taskId);
 			if (!task) throw new Error(`检索任务不存在：${taskId}`);
 			const all = task.candidates || [];
-			const start = Math.max(0, Number(offset) || 0);
-			const size = Math.min(200, Math.max(1, Number(limit) || 100));
-			return lossless({ taskId, total: all.length, pagination: { offset: start, limit: size, hasMore: start + size < all.length }, candidates: all.slice(start, start + size).map((row) => ({ id: row.id, title: row.title, titleZh: row.titleZh, journal: row.journal, year: row.year, doi: row.doi, recommendation: row.recommendation, abstractStatus: row.abstractStatus, addedToReading: row.addedToReading, sources: row.sources })) });
+			return lossless({ taskId, total: all.length, candidates: all.map((row) => ({ id: row.id, title: row.title, titleZh: row.titleZh, journal: row.journal, year: row.year, doi: row.doi, recommendation: row.recommendation, abstractStatus: row.abstractStatus, addedToReading: row.addedToReading, sources: row.sources })) });
 		}
 	}));
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_list",
 		description: "读取当前课题的检索任务与候选文献，用于回答用户关于本轮结果、勾选、历史轮次的问题。",
-		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" }, limit: { type: "number", description: "返回候选数，默认10，最多30" }, offset: { type: "number", description: "候选分页起点" } },
+		parameters: { projectId: { type: "string", description: "课题编号" }, taskId: { type: "string", description: "可选任务编号" } },
 		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, limit, offset }) {
+		async execute({ projectId, taskId }) {
 			const store = await listSearchTasks(coreOf(ctx), projectId);
 			const task = taskId ? store.tasks.find((row) => row.id === taskId) : store.tasks[0];
 			if (taskId && !task) throw new Error(`检索任务不存在：${taskId}`);
@@ -130,22 +129,6 @@ export function registerSearchTaskTools(ctx) {
 		}
 	}));
 
-	ctx.tools.register(defineTool({
-		name: "lab_search_task_wos",
-		description: "首选题录检索：对检索任务执行 Web of Science Starter 检索。query 使用 WoS 语法（如 TS=(thrombus AND hydrogel) 或 PY=2016-2026），结果与已有候选合并去重。",
-		parameters: {
-			projectId: { type: "string", description: "课题编号" },
-			taskId: { type: "string", required: true, description: "检索任务编号" },
-			query: { type: "string", required: true, description: "WoS 检索式" },
-			limit: { type: "number", description: "本轮获取数量，默认 25，最大 50" }
-		},
-		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
-		async execute({ projectId, taskId, query, limit }) {
-			const result = await runWosSearch(coreOf(ctx), projectId, { taskId, query, limit: limit || 25 });
-			await syncTaskCovers(ctx, projectId, taskId);
-			return lossless({ taskId, round: result.round, total: result.total, fetched: result.fetched, added: result.added, candidateIds: result.task.candidates.map((row) => row.id), candidates: result.task.candidates.slice(-Math.max(1, result.added)) });
-		}
-	}));
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_enrich_abstracts",
 		description: "用开放库为检索任务中缺少摘要的候选补齐摘要。顺序：OpenAlex → Europe PMC → Semantic Scholar → Crossref。只补摘要，不做题录检索。",
