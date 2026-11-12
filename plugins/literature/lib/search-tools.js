@@ -1,5 +1,5 @@
 import { defineTool } from "@deepseek-ai/dsh-tools";
-import { deleteSearchTask, enrichTaskAbstracts, importRisTask, listSearchTasks, patchTaskCandidate, runScopusSearch, runWosSearch, scopusTest, upsertSearchTask, wosTest } from "./search-tasks-core.js";
+import { deleteSearchTask, diagnoseSearch, enrichTaskAbstracts, importRisTask, listSearchTasks, patchTaskCandidate, runScopusSearch, runWosSearch, scopusTest, upsertSearchTask, wosTest } from "./search-tasks-core.js";
 
 function coreOf(ctx) { return ctx.get("ibmCore"); }
 function lossless(value) { return JSON.parse(JSON.stringify(value)); }
@@ -137,6 +137,14 @@ export function registerSearchTaskTools(ctx) {
 		async execute({ projectId, taskId }) { return enrichTaskAbstracts(coreOf(ctx), projectId, { taskId }); }
 	}));
 
+
+	ctx.tools.register(defineTool({
+		name: "lab_search_task_diagnose",
+		description: "诊断检索链路：返回 projectId、revision、旧登记数量、可见任务数量、未投影的旧登记和检查项。用于排查“登记后不显示”。",
+		parameters: { projectId: { type: "string", description: "课题编号" } },
+		output: { schema: { type: "object", additionalProperties: true }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }] },
+		async execute({ projectId }) { return lossless(await diagnoseSearch(coreOf(ctx), projectId)); }
+	}));
 
 	ctx.tools.register(defineTool({
 		name: "lab_search_task_wos_test",

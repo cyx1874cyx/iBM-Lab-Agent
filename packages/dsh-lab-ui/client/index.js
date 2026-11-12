@@ -4654,7 +4654,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_enrich_abstracts", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_diagnose", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_enrich_abstracts", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -5820,7 +5820,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       notify2?.("已创建检索任务");
       onShowChat?.();
       if (onRequestArtifact) {
-        const prompt = `我刚在文献检索中创建了任务「${title}」（taskId: ${task.id}，projectId: ${projectId}）。当前需求：${requirement || "尚未填写"}。请先在科研助手里帮我细化检索需求：确认研究对象、材料/方法、必须条件、排除条件、时间范围、期望文献类型和排序偏好；一次只问最关键的问题，不要现在就开始检索。等我确认细化后的需求，再翻译成英文 Scopus 术语并调用 lab_search_task_primary 检索，然后用 lab_search_task_update_candidates 回写中文标题、摘要总结、匹配理由和推荐级别。`;
+        const prompt = `我刚在文献检索中创建了任务「${title}」（taskId: ${task.id}，projectId: ${projectId}）。当前需求：${requirement || "尚未填写"}。请先在科研助手里帮我细化检索需求：确认研究对象、材料/方法、必须条件、排除条件、时间范围、期望文献类型和排序偏好；一次只问最关键的问题，不要现在就开始检索。等我确认细化后的需求，再翻译成英文检索术语并调用 lab_search_task_primary 检索，然后用 lab_search_task_update_candidates 回写中文标题、摘要总结、匹配理由和推荐级别。`;
         if (onStartSearchChat) await onStartSearchChat(prompt, true, { taskId: task.id });
         else await onRequestArtifact(prompt, true);
       }

@@ -4654,7 +4654,7 @@ function buildDescriptors() {
   const strict = (symbol2) => ({ mode: "strict", typeSymbol: symbol2, create: () => pass });
   const direct = (method, params = []) => ({ id: `dsh-lab-agent#lab/${method}`, service: "lab", namespace: "lab", method, invocation: { kind: "direct" }, parameters: params.map((wire) => ({ name: wire, wire, source: "json", codec: strict(`dsh-lab-agent#lab/${method}:${wire}`) })), result: strict(`dsh-lab-agent#lab/${method}:result`) });
   const descriptors = [
-    ...["search_tasks_list", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_enrich_abstracts", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
+    ...["search_tasks_list", "search_tasks_diagnose", "search_tasks_save", "search_tasks_delete", "search_tasks_scopus_test", "search_tasks_scopus_search", "search_tasks_import_ris", "search_tasks_export_ris", "search_tasks_patch_candidate", "search_tasks_get_keys", "search_tasks_database_keys", "search_tasks_save_database_key", "search_tasks_test_databases", "search_tasks_save_key", "search_tasks_wos_test", "search_tasks_wos_search", "search_tasks_enrich_abstracts", "search_tasks_save_wos_key", "search_tasks_public_sources_test", "journal_cover_get", "journal_covers_sync", "search_tasks_add_to_reading"].map((name) => direct(name, ["request"])),
     ...["knowledge_chat_state", "knowledge_chat_bind"].map((name) => direct(name, ["request"])),
     ...["knowledge_state", "knowledge_search", "knowledge_prepare", "knowledge_sync", "knowledge_upload", "knowledge_attach", "knowledge_open_source"].map((name) => direct(name, ["request"])),
     ...["reagents_search", "reagents_choose_source", "reagents_open_source"].map((name) => direct(name, ["request"])),
@@ -5759,6 +5759,8 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
   const [composer, setComposer] = (0, import_react12.useState)("");
   const [newTask, setNewTask] = (0, import_react12.useState)(null);
   const [message, setMessage] = (0, import_react12.useState)("");
+  const [diagnostics, setDiagnostics] = (0, import_react12.useState)(null);
+  const [loadedDiagnostics, setLoadedDiagnostics] = (0, import_react12.useState)(null);
   const [scopusState, setScopusState] = (0, import_react12.useState)(null);
   const active = tasks.find((task) => task.id === activeId) || tasks[0] || null;
   const candidates = active?.candidates || [];
@@ -5781,6 +5783,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
       const result = await call("search_tasks_list", { request: { projectId } });
       const rows = result?.tasks || [];
       setTasks(rows);
+      setLoadedDiagnostics(result?.diagnostics || null);
       setActiveId((current) => rows.some((row2) => row2.id === (preserve || current)) ? preserve || current : result?.activeTaskId || rows[0]?.id || "");
       onCount?.(rows.length);
     } catch (error62) {
@@ -5995,7 +5998,7 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
     h(
       "aside",
       { className: "ib-st-tasks" },
-      h("header", { className: "ib-st-tasks-head" }, h("b", null, "检索任务"), h("button", { type: "button", className: "ib-st-add", title: "新建任务", onClick: () => setNewTask({ title: "", requirement: "" }) }, "+")),
+      h("header", { className: "ib-st-tasks-head" }, h("b", null, "检索任务"), h("button", { type: "button", className: "ib-st-add", title: "诊断检索链路", onClick: () => setDiagnostics(loadedDiagnostics || { message: "尚未加载诊断，请刷新任务" }) }, "诊"), h("button", { type: "button", className: "ib-st-add", title: "新建任务", onClick: () => setNewTask({ title: "", requirement: "" }) }, "+")),
       h("label", { className: "ib-st-search" }, h("span", { "aria-hidden": "true" }, "⌕"), h("input", { value: taskQuery, placeholder: "搜索任务", onChange: (event) => setTaskQuery(event.target.value) })),
       h("div", { className: "ib-st-task-list" }, loading ? h("div", { className: "ib-st-empty" }, "加载中…") : filteredTasks.length === 0 ? h("div", { className: "ib-st-empty" }, "暂无检索任务") : filteredTasks.map((task) => h("button", {
         key: task.id,
@@ -6064,6 +6067,9 @@ function SearchTasksPanel({ projectId, call, notify: notify2, onRequestArtifact,
         h("section", { className: "ib-st-detail-section" }, h("h4", null, "来源"), h("p", null, selectedPaper.doi ? h("a", { href: `https://doi.org/${selectedPaper.doi}`, target: "_blank", rel: "noreferrer" }, `DOI: ${selectedPaper.doi}`) : "无 DOI"), selectedPaper.sourceUrl ? h("a", { href: selectedPaper.sourceUrl, target: "_blank", rel: "noreferrer" }, "打开来源链接") : null)
       ) : h(SearchTaskDetail, { task: active, lastRound })
     ),
+    diagnostics ? h("div", { className: "ib-st-modal", onClick: (event) => {
+      if (event.target === event.currentTarget) setDiagnostics(null);
+    } }, h("section", { className: "ib-st-dialog", style: { width: "min(900px,92vw)", maxHeight: "80vh", overflow: "auto" } }, h("h3", null, "检索链路诊断"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: "12px", lineHeight: 1.6, background: "var(--ib-row-alt)", padding: "12px", borderRadius: "8px" } }, JSON.stringify(diagnostics, null, 2)), h("div", { className: "ib-st-dialog-actions" }, h("button", { type: "button", className: "ib-st-primary", onClick: () => setDiagnostics(null) }, "关闭")))) : null,
     newTask ? h("div", { className: "ib-st-modal", onClick: (event) => {
       if (event.target === event.currentTarget) setNewTask(null);
     } }, h("section", { className: "ib-st-dialog" }, h("h3", null, "新建检索任务"), h("label", null, "任务标题", h("input", { autoFocus: true, value: newTask.title, placeholder: "例如：不同成分血栓的体外制备", onChange: (event) => setNewTask({ ...newTask, title: event.target.value }) })), h("label", null, "研究需求", h("textarea", { value: newTask.requirement, placeholder: "描述研究对象、材料、方法、必须条件和排除条件…", onChange: (event) => setNewTask({ ...newTask, requirement: event.target.value }) })), h("div", { className: "ib-st-dialog-actions" }, h("button", { type: "button", className: "ib-st-link", onClick: () => setNewTask(null) }, "取消"), h("button", { type: "button", className: "ib-st-primary", onClick: () => void createTask() }, "创建任务")))) : null
