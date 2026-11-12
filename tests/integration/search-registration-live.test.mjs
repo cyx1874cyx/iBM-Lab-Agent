@@ -23,6 +23,8 @@ test('search tool commits are immediately visible through the workspace and surv
   const invoke = (method, request) => ctx.typertGateway.invoke({ namespace: 'lab', method, args: { request } });
   const read = () => invoke('projects_workspace', { projectId: project.id });
   const tool = ctx.tools.get('lab_tasks_register_search');
+  const visible = () => invoke('search_tasks_list', { projectId: project.id });
+  assert.deepEqual((await visible()).tasks, []);
   for (const query of ['first', 'second']) {
    const before = (await read()).revision;
    const result = await tool.execute({ projectId: project.id, entryTitle: query, query }, { agent: { session: { id: query } } });
@@ -30,6 +32,9 @@ test('search tool commits are immediately visible through the workspace and surv
    const workspace = await read();
    assert.notEqual(workspace.revision, before);
    assert.ok(workspace.literature.searches.some(row => row.id === result.runId));
+   const task = (await visible()).tasks.find(row => row.legacySearchRunIds?.includes(result.runId));
+   assert.ok(task, "registered run must appear in the endpoint the visible panel actually reads");
+   assert.equal(task.candidates.length, result.count);
    assert.ok((await read()).literature.searches.some(row => row.id === result.runId));
    const disk = JSON.parse(await readFile(join(dir, 'storage', 'lab_tasks.json'), 'utf8'));
    assert.ok(disk.tables.literature_search_runs[result.runId]);
